@@ -1,7 +1,12 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import container from '../../../infrastructure/di/container';
 
 const RecoveryScreen: React.FC = () => {
+  const summary = container.getRecoverySummary.execute();
+  const lastSleep = summary.lastSleep;
+  const sleepHours = lastSleep ? (lastSleep.durationMinutes / 60).toFixed(1) : '–';
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -9,49 +14,36 @@ const RecoveryScreen: React.FC = () => {
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Schlafanalyse</Text>
+        <Text style={styles.cardTitle}>Schlaf (letzte Nacht)</Text>
         <View style={styles.sleepStats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>7.5h</Text>
+            <Text style={styles.statValue}>{sleepHours}h</Text>
             <Text style={styles.statLabel}>Schlafdauer</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>85%</Text>
+            <Text style={styles.statValue}>{lastSleep?.quality ?? '–'}%</Text>
             <Text style={styles.statLabel}>Schlafqualität</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>23:30</Text>
-            <Text style={styles.statLabel}>Schlafenszeit</Text>
+            <Text style={styles.statValue}>{summary.sleepSummary.averageDurationLastWeek / 60}h</Text>
+            <Text style={styles.statLabel}>Ø 7 Tage</Text>
           </View>
         </View>
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Stresslevel</Text>
-        <View style={styles.stressContainer}>
-          <View style={styles.stressBar}>
-            <View style={[styles.stressLevel, { width: '65%' }]} />
-          </View>
-          <Text style={styles.stressText}>Moderat</Text>
+        <Text style={styles.cardTitle}>Heutige Aktivität</Text>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>Schritte</Text>
+          <Text style={styles.metricValue}>{summary.todaySteps?.count ?? 0} / {summary.stepGoal}</Text>
         </View>
-        <Text style={styles.tipText}>
-          Tipp: Versuchen Sie heute eine 10-minütige Atemübung, um Ihren Stresslevel zu reduzieren.
-        </Text>
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Erholungsübungen</Text>
-        <View style={styles.exerciseItem}>
-          <Text style={styles.exerciseName}>Tiefe Atmung</Text>
-          <Text style={styles.exerciseTime}>5 Minuten</Text>
-        </View>
-        <View style={styles.exerciseItem}>
-          <Text style={styles.exerciseName}>Progressive Muskelentspannung</Text>
-          <Text style={styles.exerciseTime}>15 Minuten</Text>
-        </View>
-        <View style={styles.exerciseItem}>
-          <Text style={styles.exerciseName}>Leichte Dehnung</Text>
-          <Text style={styles.exerciseTime}>10 Minuten</Text>
+        <Text style={styles.cardTitle}>Herzfrequenz</Text>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>Ruhepuls</Text>
+          <Text style={styles.metricValue}>{summary.restingHeartRate ?? '–'} bpm</Text>
         </View>
       </View>
     </ScrollView>
@@ -110,46 +102,16 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
-  stressContainer: {
-    marginTop: 8,
-  },
-  stressBar: {
-    height: 12,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 6,
-    marginVertical: 8,
-    overflow: 'hidden',
-  },
-  stressLevel: {
-    height: '100%',
-    backgroundColor: '#ff9800',
-    borderRadius: 6,
-  },
-  stressText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#ff9800',
-    marginBottom: 8,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 12,
-    lineHeight: 20,
-  },
-  exerciseItem: {
+  metricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    alignItems: 'center',
   },
-  exerciseName: {
+  metricLabel: {
     fontSize: 16,
     color: '#333',
   },
-  exerciseTime: {
+  metricValue: {
     fontSize: 16,
     color: '#9c27b0',
     fontWeight: '500',

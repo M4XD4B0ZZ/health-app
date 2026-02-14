@@ -1,15 +1,17 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, FlatList } from 'react-native';
+import container from '../../../infrastructure/di/container';
 
-// Beispieldaten für die Ernährungsübersicht
-const nutritionItems = [
-  { id: '1', title: 'Frühstück', calories: 450, time: '08:00' },
-  { id: '2', title: 'Mittagessen', calories: 650, time: '12:30' },
-  { id: '3', title: 'Snack', calories: 200, time: '15:00' },
-  { id: '4', title: 'Abendessen', calories: 550, time: '19:00' },
-];
+const formatTime = (date: Date): string => {
+  return date.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 const NutritionScreen: React.FC = () => {
+  const summary = container.getNutritionSummary.execute();
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -20,16 +22,8 @@ const NutritionScreen: React.FC = () => {
         <Text style={styles.cardTitle}>Tagesübersicht</Text>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>1850</Text>
+            <Text style={styles.summaryValue}>{summary.dailySummary.totalCalories}</Text>
             <Text style={styles.summaryLabel}>Kalorien</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>75g</Text>
-            <Text style={styles.summaryLabel}>Protein</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>55g</Text>
-            <Text style={styles.summaryLabel}>Fett</Text>
           </View>
         </View>
       </View>
@@ -37,12 +31,12 @@ const NutritionScreen: React.FC = () => {
       <View style={styles.listContainer}>
         <Text style={styles.sectionTitle}>Heutige Mahlzeiten</Text>
         <FlatList
-          data={nutritionItems}
+          data={summary.todayEntries}
           renderItem={({ item }) => (
             <View style={styles.mealItem}>
               <View>
-                <Text style={styles.mealTitle}>{item.title}</Text>
-                <Text style={styles.mealTime}>{item.time}</Text>
+                <Text style={styles.mealTitle}>{item.name}</Text>
+                <Text style={styles.mealTime}>{formatTime(item.timestamp)}</Text>
               </View>
               <Text style={styles.mealCalories}>{item.calories} kcal</Text>
             </View>
@@ -91,7 +85,7 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   summaryItem: {
     alignItems: 'center',

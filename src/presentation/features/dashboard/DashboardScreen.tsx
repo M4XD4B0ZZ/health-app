@@ -1,7 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import container from '../../../infrastructure/di/container';
 
 const DashboardScreen: React.FC = () => {
+  const summary = container.getDashboardSummary.execute();
+  const sleepHours = summary.sleepDurationMinutes
+    ? (summary.sleepDurationMinutes / 60).toFixed(1)
+    : '–';
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -9,18 +15,19 @@ const DashboardScreen: React.FC = () => {
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Aktivitätsübersicht</Text>
-        <Text style={styles.cardContent}>
-          Hier werden Ihre täglichen Aktivitäten und Fortschritte angezeigt.
-          Diese Ansicht wird später mit echten Daten gefüllt.
-        </Text>
-      </View>
-      
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Gesundheitswerte</Text>
-        <Text style={styles.cardContent}>
-          Übersicht Ihrer wichtigsten Gesundheitswerte und Trends.
-        </Text>
+        <Text style={styles.cardTitle}>Heutige Zusammenfassung</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Kalorien heute</Text>
+          <Text style={styles.summaryValue}>{summary.todayCalories} kcal</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Letzter Schlaf</Text>
+          <Text style={styles.summaryValue}>{sleepHours} h</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Schritte heute</Text>
+          <Text style={styles.summaryValue}>{summary.todaySteps?.count ?? 0}</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -57,13 +64,25 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#333',
   },
-  cardContent: {
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  summaryLabel: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 20,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4a90e2',
   },
 });
 

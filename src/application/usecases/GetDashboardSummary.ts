@@ -2,6 +2,7 @@ import { RecoveryRepository } from '../../domain/repositories/RecoveryRepository
 import { NutritionRepository } from '../../domain/repositories/NutritionRepository';
 import { Sleep } from '../../domain/models/Sleep';
 import { Steps } from '../../domain/models/Steps';
+import { TimeRange } from '../../domain/models/TimeRange';
 
 /**
  * Ergebnis des Dashboard-Usecase
@@ -48,29 +49,43 @@ export class GetDashboardSummary {
   /**
    * Führt den Usecase aus und gibt eine Dashboard-Zusammenfassung zurück
    */
-  execute(): DashboardSummary {
+  execute(range: TimeRange): DashboardSummary {
+    const targetDays = range === 'today' ? 1 : 7;
+
     // Ernährungsdaten abrufen
-    const today = new Date();
-    const nutritionSummary = this.nutritionRepository.getDailyNutritionSummary(today);
-    const todayCalories = nutritionSummary.totalCalories;
-    const calorieProgress = Math.min(100, (todayCalories / this.DEFAULT_CALORIE_GOAL) * 100);
-    
+    const totalCalories = this.nutritionRepository.getTotalCalories(range);
+    const calorieProgress = Math.min(
+      100,
+      (totalCalories / (this.DEFAULT_CALORIE_GOAL * targetDays)) * 100
+    );
+
     // Schlafdaten abrufen
-    const lastSleep = this.recoveryRepository.getLastSleep();
+    const sleeps = this.recoveryRepository.getSleep(range);
+    const lastSleep = sleeps.length > 0 ? sleeps[0] : null;
     const sleepDurationMinutes = lastSleep ? lastSleep.durationMinutes : null;
     const sleepQuality = lastSleep ? lastSleep.quality || null : null;
-    
+
     // Schrittdaten abrufen
-    const todaySteps = this.recoveryRepository.getStepsByDate(today);
-    const stepProgress = todaySteps 
-      ? Math.min(100, (todaySteps.count / this.DEFAULT_STEP_GOAL) * 100)
-      : 0;
-    
+    const steps = this.recoveryRepository.getSteps(range);
+    const totalSteps = steps.reduce((sum, item) => sum + item.count, 0);
+    const todaySteps =
+      range === 'today'
+        ? (steps[0] ?? null)
+        : {
+            id: 'steps-last7days',
+            date: new Date(),
+            count: totalSteps,
+          };
+    const stepProgress = Math.min(
+      100,
+      (totalSteps / (this.DEFAULT_STEP_GOAL * targetDays)) * 100
+    );
+
     // Herzfrequenzdaten abrufen
-    const restingHeartRate = this.recoveryRepository.getRestingHeartRate();
+    const restingHeartRate = this.recoveryRepository.getRestingHeartRate(range);
     
     return {
-      todayCalories,
+      todayCalories: totalCalories,
       calorieGoal: this.DEFAULT_CALORIE_GOAL,
       calorieProgress,
       

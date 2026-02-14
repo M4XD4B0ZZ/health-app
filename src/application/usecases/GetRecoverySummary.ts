@@ -2,6 +2,7 @@ import { RecoveryRepository } from '../../domain/repositories/RecoveryRepository
 import { Sleep, SleepSummary } from '../../domain/models/Sleep';
 import { Steps, StepsSummary } from '../../domain/models/Steps';
 import { HeartRateSummary } from '../../domain/models/HeartRate';
+import { TimeRange } from '../../domain/models/TimeRange';
 
 /**
  * Ergebnis des Recovery-Usecase
@@ -42,21 +43,44 @@ export class GetRecoverySummary {
   /**
    * Führt den Usecase aus und gibt eine Erholungszusammenfassung zurück
    */
-  execute(): RecoverySummaryResult {
+  execute(range: TimeRange): RecoverySummaryResult {
+    const targetDays = range === 'today' ? 1 : 7;
+
     // Schlafzusammenfassung abrufen
-    const sleepSummary = this.recoveryRepository.getSleepSummary();
-    const lastSleep = this.recoveryRepository.getLastSleep();
-    
-    // Schrittzusammenfassung abrufen
-    const stepsSummary = this.recoveryRepository.getStepsSummary();
-    const todaySteps = this.recoveryRepository.getStepsByDate(new Date());
-    const stepProgress = todaySteps 
-      ? Math.min(100, (todaySteps.count / this.DEFAULT_STEP_GOAL) * 100)
+    const sleeps = this.recoveryRepository.getSleep(range);
+    const lastSleep = sleeps.length > 0 ? sleeps[0] : null;
+    const averageDuration = sleeps.length > 0
+      ? sleeps.reduce((sum, sleep) => sum + sleep.durationMinutes, 0) / sleeps.length
       : 0;
-    
+    const averageQuality = sleeps.length > 0
+      ? sleeps.reduce((sum, sleep) => sum + (sleep.quality ?? 0), 0) / sleeps.length
+      : undefined;
+    const sleepSummary: SleepSummary = {
+      lastSleep,
+      averageDurationLastWeek: averageDuration,
+      averageQualityLastWeek: averageQuality,
+    };
+
+    // Schrittzusammenfassung abrufen
+    const stepsData = this.recoveryRepository.getSteps(range);
+    const totalSteps = stepsData.reduce((sum, step) => sum + step.count, 0);
+    const todaySteps = range === 'today'
+      ? (stepsData[0] ?? null)
+      : ({ id: 'steps-last7days', date: new Date(), count: totalSteps } as Steps);
+    const stepsSummary: StepsSummary = {
+      today: todaySteps,
+      weeklyAverage: stepsData.length > 0 ? totalSteps / stepsData.length : 0,
+      weeklyTotal: totalSteps,
+      monthlyAverage: stepsData.length > 0 ? totalSteps / stepsData.length : 0,
+    };
+    const stepProgress = Math.min(
+      100,
+      (totalSteps / (this.DEFAULT_STEP_GOAL * targetDays)) * 100
+    );
+
     // Herzfrequenzzusammenfassung abrufen
     const heartRateSummary = this.recoveryRepository.getHeartRateSummary();
-    const restingHeartRate = this.recoveryRepository.getRestingHeartRate();
+    const restingHeartRate = this.recoveryRepository.getRestingHeartRate(range);
     
     // Erholungswert berechnen (vereinfachte Berechnung für Mock-Daten)
     let recoveryScore = 70; // Standardwert

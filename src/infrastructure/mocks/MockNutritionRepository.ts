@@ -1,86 +1,88 @@
 import { NutritionRepository } from '../../domain/repositories/NutritionRepository';
 import { NutritionEntry, DailyNutritionSummary } from '../../domain/models/NutritionEntry';
+import { TimeRange } from '../../domain/models/TimeRange';
 
 /**
  * Mock-Implementierung des NutritionRepository mit deterministischen Testdaten
  */
 export class MockNutritionRepository implements NutritionRepository {
-  // Mock-Daten
-  private nutritionEntries: NutritionEntry[] = [
-    // Heutige Einträge
-    {
-      id: 'nutrition-1',
-      name: 'Frühstück',
-      timestamp: new Date(new Date().setHours(8, 0, 0, 0)),
-      calories: 450,
-      mealType: 'breakfast',
-      proteins: 20,
-      carbs: 60,
-      fats: 15
-    },
-    {
-      id: 'nutrition-2',
-      name: 'Mittagessen',
-      timestamp: new Date(new Date().setHours(12, 30, 0, 0)),
-      calories: 650,
-      mealType: 'lunch',
-      proteins: 35,
-      carbs: 70,
-      fats: 20
-    },
-    {
-      id: 'nutrition-3',
-      name: 'Snack',
-      timestamp: new Date(new Date().setHours(15, 0, 0, 0)),
-      calories: 200,
-      mealType: 'snack',
-      proteins: 5,
-      carbs: 25,
-      fats: 8
-    },
-    {
-      id: 'nutrition-4',
-      name: 'Abendessen',
-      timestamp: new Date(new Date().setHours(19, 0, 0, 0)),
-      calories: 550,
-      mealType: 'dinner',
-      proteins: 30,
-      carbs: 45,
-      fats: 25
-    },
-    
-    // Gestrige Einträge
-    {
-      id: 'nutrition-5',
-      name: 'Frühstück (gestern)',
-      timestamp: new Date(new Date().setHours(8, 0, 0, 0) - 24 * 60 * 60 * 1000),
-      calories: 420,
-      mealType: 'breakfast',
-      proteins: 18,
-      carbs: 55,
-      fats: 14
-    },
-    {
-      id: 'nutrition-6',
-      name: 'Mittagessen (gestern)',
-      timestamp: new Date(new Date().setHours(13, 0, 0, 0) - 24 * 60 * 60 * 1000),
-      calories: 680,
-      mealType: 'lunch',
-      proteins: 38,
-      carbs: 75,
-      fats: 22
-    },
-    {
-      id: 'nutrition-7',
-      name: 'Abendessen (gestern)',
-      timestamp: new Date(new Date().setHours(19, 30, 0, 0) - 24 * 60 * 60 * 1000),
-      calories: 520,
-      mealType: 'dinner',
-      proteins: 28,
-      carbs: 40,
-      fats: 22
+  private readonly DAY_MS = 24 * 60 * 60 * 1000;
+
+  private nutritionEntries: NutritionEntry[] = [];
+
+  constructor() {
+    const now = new Date();
+    const today = new Date(now.setHours(0, 0, 0, 0));
+
+    const presets = [
+      { calories: 460, proteins: 22, carbs: 58, fats: 16 },
+      { calories: 640, proteins: 36, carbs: 72, fats: 19 },
+      { calories: 210, proteins: 6, carbs: 24, fats: 9 },
+      { calories: 560, proteins: 31, carbs: 48, fats: 24 },
+      { calories: 430, proteins: 19, carbs: 52, fats: 15 },
+      { calories: 670, proteins: 39, carbs: 75, fats: 21 },
+      { calories: 520, proteins: 29, carbs: 41, fats: 22 },
+    ];
+
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const day = new Date(today.getTime() - dayOffset * this.DAY_MS);
+      const p1 = presets[dayOffset % presets.length];
+      const p2 = presets[(dayOffset + 1) % presets.length];
+      const p3 = presets[(dayOffset + 2) % presets.length];
+
+      this.nutritionEntries.push(
+        {
+          id: `nutrition-${dayOffset}-breakfast`,
+          name: dayOffset === 0 ? 'Frühstück' : `Frühstück (${dayOffset} Tage her)`,
+          timestamp: new Date(new Date(day).setHours(8, 0, 0, 0)),
+          calories: p1.calories,
+          mealType: 'breakfast',
+          proteins: p1.proteins,
+          carbs: p1.carbs,
+          fats: p1.fats,
+        },
+        {
+          id: `nutrition-${dayOffset}-lunch`,
+          name: dayOffset === 0 ? 'Mittagessen' : `Mittagessen (${dayOffset} Tage her)`,
+          timestamp: new Date(new Date(day).setHours(12, 30, 0, 0)),
+          calories: p2.calories,
+          mealType: 'lunch',
+          proteins: p2.proteins,
+          carbs: p2.carbs,
+          fats: p2.fats,
+        },
+        {
+          id: `nutrition-${dayOffset}-dinner`,
+          name: dayOffset === 0 ? 'Abendessen' : `Abendessen (${dayOffset} Tage her)`,
+          timestamp: new Date(new Date(day).setHours(19, 0, 0, 0)),
+          calories: p3.calories,
+          mealType: 'dinner',
+          proteins: p3.proteins,
+          carbs: p3.carbs,
+          fats: p3.fats,
+        }
+      );
     }
-  ];
+  }
+
+  getEntries(range: TimeRange): NutritionEntry[] {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (range === 'today') {
+      return this.getNutritionEntriesByDate(today);
+    }
+
+    const startDate = new Date(today.getTime() - 6 * this.DAY_MS);
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+
+    return this.getNutritionEntriesByDateRange(startDate, endDate);
+  }
+
+  getTotalCalories(range: TimeRange): number {
+    return this.getEntries(range).reduce((sum, entry) => sum + entry.calories, 0);
+  }
 
   // Einzelne Einträge
   getNutritionEntryById(id: string): NutritionEntry | null {
@@ -172,7 +174,7 @@ export class MockNutritionRepository implements NutritionRepository {
     today.setHours(0, 0, 0, 0);
     
     const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - days);
+    startDate.setDate(startDate.getDate() - (days - 1));
     
     const summaries = this.getDailyNutritionSummaries(startDate, today);
     

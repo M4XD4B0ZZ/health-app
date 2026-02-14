@@ -1,12 +1,18 @@
 import { Sleep, SleepSummary } from '../models/Sleep';
 import { Steps, StepsSummary } from '../models/Steps';
 import { HeartRatePoint, HeartRateSeries, HeartRateSummary } from '../models/HeartRate';
+import { TimeRange } from '../models/TimeRange';
 
 /**
  * Repository-Interface für alle Erholungs- und Aktivitätsdaten
  * (Schlaf, Schritte, Herzfrequenz)
  */
 export interface RecoveryRepository {
+  // Bereichsbasierte Abfragen
+  getSleep(range: TimeRange): Sleep[];
+  getSteps(range: TimeRange): Steps[];
+  getRestingHeartRate(range: TimeRange): number | null;
+
   // Schlaf-Methoden
   getSleepById(id: string): Sleep | null;
   getLastSleep(): Sleep | null;
@@ -24,6 +30,5 @@ export interface RecoveryRepository {
   getHeartRateSeriesByDate(date: Date): HeartRateSeries | null;
   getHeartRateSeriesByDateRange(startDate: Date, endDate: Date): HeartRateSeries[];
   getLatestHeartRate(): HeartRatePoint | null;
-  getRestingHeartRate(): number | null;
   getHeartRateSummary(): HeartRateSummary;
 }

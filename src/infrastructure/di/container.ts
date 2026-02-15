@@ -33,7 +33,9 @@ import { SequentialFoodCatalogResolver } from '../../features/nutrition/applicat
 import { DefaultConfidenceEngine } from '../../features/nutrition/domain/confidence/DefaultConfidenceEngine';
 import { MockOffSource } from '../../features/nutrition/infrastructure/catalog/sources/MockOffSource';
 import { MockUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/MockUsdaSource';
+import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
+import { supabase } from '../supabase/supabaseClient';
 
 import { FoodAliasRepository, FoodEntryRepository, KeyValueStore } from '../../features/nutrition/application/ports';
 
@@ -140,9 +142,13 @@ class Container {
     // Nutrition use cases
     // Erstelle Sequential Resolver mit Mock Sources (User Aliases -> OFF -> USDA)
     const confidenceEngine = new DefaultConfidenceEngine();
+    const userAliasSource = new SupabaseUserAliasSource(
+      supabase,
+      DEFAULT_CATALOG_CONFIG
+    );
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
       [
-        // UserAliasSource würde hier hinzugefügt werden, wenn vollständig implementiert
+        userAliasSource,
         new MockOffSource(),
         new MockUsdaSource()
       ],

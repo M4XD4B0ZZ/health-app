@@ -1,6 +1,7 @@
 import { FoodCatalogResolver } from './FoodCatalogResolver'
 import { FoodSearchQuery, FoodCandidate, FoodCatalogSource } from '../../domain/catalog/FoodCatalogSource'
 import { ConfidenceEngine } from '../../domain/confidence/ConfidenceEngine'
+import { FoodCatalogConfig, DEFAULT_CATALOG_CONFIG } from '../../domain/models/FoodCatalogConfig'
 
 /**
  * Sequential resolver that implements deterministic fallback chain:
@@ -16,6 +17,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   constructor(
     private readonly sources: FoodCatalogSource[],
     private readonly confidenceEngine: ConfidenceEngine,
+    private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
   ) {}
 
   private getSourceWeight(source: string): number {
@@ -34,12 +36,21 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   async resolve(query: FoodSearchQuery): Promise<FoodCandidate | null> {
+    const traceId = this.config.enableTracing ? this.generateTraceId() : undefined
     let allCandidates: FoodCandidate[] = []
+
+    if (this.config.enableDebugLogs && traceId) {
+      console.debug('[SequentialFoodCatalogResolver] Starting lookup', {
+        traceId,
+        query: query.normalized,
+        locale: query.locale,
+      })
+    }
 
     // Process sources sequentially in order
     for (const source of this.sources) {
       try {
-        const candidates = await source.search(query)
+        const candidates = await source.search({ ...query, traceId })
 
         if (candidates.length === 0) {
           continue
@@ -88,9 +99,24 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           return best
         }
 
-        // For OFF: early return only if high confidence
-        if (source.type === 'off' && best.confidence >= 0.7) {
-          return best
+        // For OFF: early return only if high confidence (configurable threshold)
+        if (source.type === 'off') {
+          const threshold = this.config.offEarlyReturnMinConfidence
+          const earlyReturn = best.confidence >= threshold
+
+          if (this.config.enableDebugLogs) {
+            console.debug('[SequentialFoodCatalogResolver] OFF evaluation', {
+              traceId,
+              confidence: best.confidence,
+              threshold,
+              earlyReturn,
+              foodName: best.food.name,
+            })
+          }
+
+          if (earlyReturn) {
+            return best
+          }
         }
 
         // Store candidates and continue to next source
@@ -98,10 +124,12 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
       } catch (error) {
         // Log error and continue to next source
-        if (this.shouldLog()) {
+        if (this.config.enableDebugLogs) {
           console.debug('[SequentialFoodCatalogResolver] Source error:', {
+            traceId,
             sourceType: source.type,
             error: error instanceof Error ? error.message : 'unknown',
+            errorName: error instanceof Error ? error.name : 'unknown',
           })
         }
         continue
@@ -109,6 +137,14 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     }
 
     // If we have candidates, return the best one
+    if (this.config.enableDebugLogs) {
+      console.debug('[SequentialFoodCatalogResolver] Lookup completed', {
+        traceId,
+        totalCandidates: allCandidates.length,
+        hasResult: allCandidates.length > 0,
+      })
+    }
+
     if (allCandidates.length > 0) {
       allCandidates.sort((a, b) => {
         if (b.confidence !== a.confidence) {
@@ -135,7 +171,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     return null
   }
 
-  private shouldLog(): boolean {
-    return process.env.NODE_ENV === 'development'
+  private generateTraceId(): string {
+    return `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   }
 }

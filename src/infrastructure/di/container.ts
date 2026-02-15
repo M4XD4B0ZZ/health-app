@@ -29,10 +29,11 @@ import {
   EnrichFoodEntryMacrosUseCase,
 } from '../../features/nutrition';
 
-import { DefaultFoodCatalogResolver } from '../../features/nutrition/application/services/DefaultFoodCatalogResolver';
+import { SequentialFoodCatalogResolver } from '../../features/nutrition/application/services/SequentialFoodCatalogResolver';
 import { DefaultConfidenceEngine } from '../../features/nutrition/domain/confidence/DefaultConfidenceEngine';
 import { MockOffSource } from '../../features/nutrition/infrastructure/catalog/sources/MockOffSource';
 import { MockUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/MockUsdaSource';
+import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
 
 import { FoodAliasRepository, FoodEntryRepository, KeyValueStore } from '../../features/nutrition/application/ports';
 
@@ -137,11 +138,16 @@ class Container {
     );
 
     // Nutrition use cases
-    // Erstelle Resolver mit Mock Sources
+    // Erstelle Sequential Resolver mit Mock Sources (User Aliases -> OFF -> USDA)
     const confidenceEngine = new DefaultConfidenceEngine();
-    const foodCatalogResolver = new DefaultFoodCatalogResolver(
-      [new MockOffSource(), new MockUsdaSource()],
-      confidenceEngine
+    const foodCatalogResolver = new SequentialFoodCatalogResolver(
+      [
+        // UserAliasSource würde hier hinzugefügt werden, wenn vollständig implementiert
+        new MockOffSource(),
+        new MockUsdaSource()
+      ],
+      confidenceEngine,
+      DEFAULT_CATALOG_CONFIG
     );
 
     this._logFoodFromRawInputUseCase = new LogFoodFromRawInputUseCase(

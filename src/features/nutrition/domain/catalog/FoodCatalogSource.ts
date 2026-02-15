@@ -4,6 +4,8 @@ export interface FoodSearchQuery {
   raw: string
   normalized: string
   locale: 'de' | 'en'
+  /** Optional trace ID for request tracking across sources */
+  traceId?: string
 }
 
 export interface CanonicalFood {

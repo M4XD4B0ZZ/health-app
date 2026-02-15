@@ -30,3 +30,7 @@ export {
   SupabaseEdgeOffSource,
   SupabaseEdgeUsdaSource
 } from './catalog/sources';
+
+// Catalog utilities
+export { withRetry, RetryConfig, DEFAULT_RETRY_CONFIG } from './catalog/providers/RetryHelper';
+export { getCatalogErrorMessage, isNoResultsCase } from './catalog/ErrorMessageHelper';

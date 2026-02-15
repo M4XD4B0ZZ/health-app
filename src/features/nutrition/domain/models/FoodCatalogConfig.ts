@@ -55,6 +55,16 @@ export interface FoodCatalogConfig {
   sourceBudgets: Record<string, number>
 
   /**
+   * Negative Cache TTL in Millisekunden
+   *
+   * Wie lange sollen leere Ergebnisse gecacht werden (für normalizedQuery + locale)?
+   * Dies verhindert wiederholte teure API-Aufrufe für Queries ohne Treffer.
+   *
+   * @default 1200000 (20 Minuten)
+   */
+  negativeCacheTtlMs: number
+
+  /**
    * Circuit Breaker Konfiguration
    */
   circuitBreaker: {
@@ -90,6 +100,7 @@ export const DEFAULT_CATALOG_CONFIG: FoodCatalogConfig = {
     off: 700,
     usda: 700,
   },
+  negativeCacheTtlMs: 1200000, // 20 minutes
   circuitBreaker: {
     failureThreshold: 3,
     cooldownMs: 120000, // 2 minutes

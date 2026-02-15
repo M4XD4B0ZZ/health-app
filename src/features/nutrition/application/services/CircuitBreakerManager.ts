@@ -150,10 +150,10 @@ export class CircuitBreakerManager {
 
   /**
    * Prüft ob Fehler für Circuit Breaker zählt
-   * 
+   *
    * Nur network|edge|rate_limit|timeout zählen, nicht invalid_payload
    */
-  private isCountableError(error: unknown): boolean {
+  isCountableError(error: unknown): boolean {
     if (!(error instanceof FoodCatalogError)) {
       return false
     }

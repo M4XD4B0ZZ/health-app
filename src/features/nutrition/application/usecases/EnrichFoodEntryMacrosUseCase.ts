@@ -31,9 +31,15 @@ export class EnrichFoodEntryMacrosUseCase {
 
     // c) If entry.quantityGrams <= 0: return unchanged but mark as low confidence
     if (entry.quantityGrams <= 0) {
+      const confidenceMetadata = this.engine.generateConfidenceMetadata({
+        ...entry,
+        confidenceScore: 0.3,
+      });
       const updatedEntry: FoodEntry = {
         ...entry,
-        confidenceScore: 0.3, // low confidence
+        confidenceScore: confidenceMetadata.score,
+        confidenceReason: confidenceMetadata.reason,
+        explanation: 'No quantity provided.',
       };
       await this.repository.updateEntry(dateISO, updatedEntry);
       return updatedEntry;
@@ -44,9 +50,15 @@ export class EnrichFoodEntryMacrosUseCase {
 
     // e) If not found: keep macros at 0, sourceType remains "user", confidence slightly down
     if (!per100g) {
+      const confidenceMetadata = this.engine.generateConfidenceMetadata({
+        ...entry,
+        confidenceScore: 0.3,
+      });
       const updatedEntry: FoodEntry = {
         ...entry,
-        confidenceScore: 0.3, // slightly down
+        confidenceScore: confidenceMetadata.score,
+        confidenceReason: confidenceMetadata.reason,
+        explanation: 'No lookup result found.',
       };
       await this.repository.updateEntry(dateISO, updatedEntry);
       return updatedEntry;
@@ -72,6 +84,11 @@ export class EnrichFoodEntryMacrosUseCase {
       sourceType,
       confidenceScore: cappedConfidence,
     };
+
+    // Generate confidence metadata and explanation
+    const confidenceMetadata = this.engine.generateConfidenceMetadata(enrichedEntry);
+    enrichedEntry.confidenceReason = confidenceMetadata.reason;
+    enrichedEntry.explanation = 'Macros calculated from 100g reference.';
 
     // Persist update
     await this.repository.updateEntry(dateISO, enrichedEntry);

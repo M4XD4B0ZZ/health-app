@@ -12,6 +12,9 @@ export interface FoodEntry {
   confidenceScore: number; // 0..1
   sourceType: NutritionSourceType;
   createdAt: Date;
+  explanation?: string;
+  confidenceReason?: string;
+  lastModifiedAt?: Date;
 }
 
 export interface DailyNutritionSummary {

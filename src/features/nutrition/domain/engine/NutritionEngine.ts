@@ -8,6 +8,7 @@ import {
   NutritionSourceType,
   ParsedInput,
 } from '../models/NutritionTypes';
+import { ConfidenceMetadata } from '../models/ConfidenceMetadata';
 
 /**
  * Pure Domain Engine für Nutrition-Berechnungen.
@@ -90,6 +91,41 @@ export class NutritionEngine {
 
   public isLowConfidence(confidenceScore: number): boolean {
     return confidenceScore < LOW_CONFIDENCE_THRESHOLD;
+  }
+
+  public generateConfidenceMetadata(entry: FoodEntry): ConfidenceMetadata {
+    const score = this.confidenceForSource(entry.sourceType);
+    let reason: string;
+
+    switch (entry.sourceType) {
+      case 'branded':
+        reason = 'Exact match found in branded database.';
+        break;
+      case 'generic':
+        reason = 'Exact match found in generic database.';
+        break;
+      case 'cache':
+        reason = 'Data retrieved from cache.';
+        break;
+      case 'ai':
+        reason = 'Estimated by AI model.';
+        break;
+      case 'user':
+        if (entry.quantityGrams > 0) {
+          reason = 'Grams provided but nutrition unknown.';
+        } else {
+          reason = 'User provided data without lookup.';
+        }
+        break;
+      default:
+        reason = 'No lookup result found.';
+    }
+
+    return {
+      score,
+      reason,
+      sourceType: entry.sourceType,
+    };
   }
 
   private round2(value: number): number {

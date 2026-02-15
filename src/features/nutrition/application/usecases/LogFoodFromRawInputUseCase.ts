@@ -9,6 +9,7 @@ import { AiFoodMapper } from '../ports/AiFoodMapper';
 import { DeterministicFoodParser } from '../../infrastructure/parsers/DeterministicFoodParser';
 import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 import { normalizeText } from '../utils/normalizeText';
+import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
 
 /**
  * Use-Case: Log Food Entry from Raw Input
@@ -37,7 +38,8 @@ export class LogFoodFromRawInputUseCase {
     private readonly foodCatalog?: FoodCatalog,
     private readonly aliasRepository?: FoodAliasRepository,
     private readonly aiFoodMapper?: AiFoodMapper,
-    private readonly nutritionLookup?: NutritionLookup // Fallback für Kompatibilität
+    private readonly nutritionLookup?: NutritionLookup, // Fallback für Kompatibilität
+    private readonly resolver?: FoodCatalogResolver
   ) {
     this.engine = new NutritionEngine();
   }
@@ -140,6 +142,7 @@ export class LogFoodFromRawInputUseCase {
 
   /**
    * Sprint 5.3: Canonical Food Resolution Flow
+   * Step 0: Multi-source resolver (if available)
    * Step 1: Normalize text
    * Step 2: Alias lookup (cache hit?)
    * Step 3: Deterministic catalog search
@@ -160,6 +163,41 @@ export class LogFoodFromRawInputUseCase {
 
     // Step 1: Normalize
     const normalized = normalizeText(parsedName);
+
+    // Step 0: Try multi-source resolver first (if available)
+    if (this.resolver) {
+      const resolved = await this.resolver.resolve({
+        raw: rawInput,
+        normalized,
+        locale: 'de'
+      });
+
+      if (resolved && resolved.confidence >= 0.7) {
+        // Transform CanonicalFood from resolver to expected format
+        const canonicalFood = {
+          id: resolved.food.id,
+          name: resolved.food.name,
+          per100g: {
+            calories: resolved.food.macrosPer100g.kcal,
+            protein: resolved.food.macrosPer100g.protein,
+            carbs: resolved.food.macrosPer100g.carbs,
+            fat: resolved.food.macrosPer100g.fat,
+          }
+        };
+
+        // Save alias for future lookups (same as deterministic catalog match)
+        if (this.aliasRepository) {
+          await this.aliasRepository.saveAlias(normalized, resolved.food.id);
+        }
+
+        return {
+          canonicalFood,
+          sourceType: 'generic',
+          confidence: resolved.confidence,
+          explanation: resolved.reasons.join(', '),
+        };
+      }
+    }
 
     // Step 2: Alias lookup
     if (this.aliasRepository) {

@@ -13,6 +13,8 @@ import {
   InMemoryNutritionLookup,
   InMemoryFoodCatalog,
   InMemoryFoodAliasRepository,
+  PersistedFoodAliasRepository,
+  AsyncStorageKeyValueStore,
   FakeAiFoodMapper,
   SystemClock as NutritionSystemClock,
   RandomIdGenerator as NutritionRandomIdGenerator,
@@ -25,6 +27,8 @@ import {
   DeleteFoodEntryUseCase,
   EnrichFoodEntryMacrosUseCase,
 } from '../../features/nutrition';
+
+import { FoodAliasRepository, KeyValueStore } from '../../features/nutrition/application/ports';
 
 // Goals Feature
 import {
@@ -63,7 +67,8 @@ class Container {
   private _foodEntryRepository: InMemoryFoodEntryRepository;
   private _nutritionLookup: InMemoryNutritionLookup;
   private _foodCatalog: InMemoryFoodCatalog;
-  private _foodAliasRepository: InMemoryFoodAliasRepository;
+  private _keyValueStore: KeyValueStore;
+  private _foodAliasRepository: FoodAliasRepository;
   private _aiFoodMapper: FakeAiFoodMapper;
   private _nutritionClock: NutritionSystemClock;
   private _nutritionIdGenerator: NutritionRandomIdGenerator;
@@ -106,7 +111,8 @@ class Container {
     this._foodEntryRepository = new InMemoryFoodEntryRepository();
     this._nutritionLookup = new InMemoryNutritionLookup();
     this._foodCatalog = new InMemoryFoodCatalog();
-    this._foodAliasRepository = new InMemoryFoodAliasRepository();
+    this._keyValueStore = new AsyncStorageKeyValueStore();
+    this._foodAliasRepository = new PersistedFoodAliasRepository(this._keyValueStore);
     this._aiFoodMapper = new FakeAiFoodMapper();
     this._nutritionClock = new NutritionSystemClock();
     this._nutritionIdGenerator = new NutritionRandomIdGenerator();

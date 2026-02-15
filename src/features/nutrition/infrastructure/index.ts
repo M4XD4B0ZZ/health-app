@@ -7,4 +7,6 @@ export { DeterministicFoodParser, DeterministicParseResult } from './parsers/Det
 export { FakeAiMealParser } from './ai';
 export { InMemoryFoodCatalog } from './catalog/InMemoryFoodCatalog';
 export { InMemoryFoodAliasRepository } from './catalog/InMemoryFoodAliasRepository';
+export { PersistedFoodAliasRepository } from './catalog/PersistedFoodAliasRepository';
 export { FakeAiFoodMapper } from './ai/FakeAiFoodMapper';
+export { AsyncStorageKeyValueStore, FakeKeyValueStore } from './storage';

@@ -7,3 +7,4 @@ export { AiMealParser } from './AiMealParser';
 export { FoodCatalog } from './FoodCatalog';
 export { FoodAliasRepository } from './FoodAliasRepository';
 export { AiFoodMapper } from './AiFoodMapper';
+export { KeyValueStore } from './KeyValueStore';

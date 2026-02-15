@@ -11,3 +11,22 @@ export { InMemoryFoodAliasRepository } from './catalog/InMemoryFoodAliasReposito
 export { PersistedFoodAliasRepository } from './catalog/PersistedFoodAliasRepository';
 export { FakeAiFoodMapper } from './ai/FakeAiFoodMapper';
 export { AsyncStorageKeyValueStore, FakeKeyValueStore } from './storage';
+
+// Catalog providers
+export {
+  FoodSourceProvider,
+  EdgeSearchResponse,
+  EdgeFoodItem,
+  isEdgeSearchResponse,
+  SupabaseEdgeOffProvider,
+  SupabaseEdgeUsdaProvider,
+  SupabaseClient
+} from './catalog/providers';
+
+// Catalog sources
+export {
+  MockOffSource,
+  MockUsdaSource,
+  SupabaseEdgeOffSource,
+  SupabaseEdgeUsdaSource
+} from './catalog/sources';

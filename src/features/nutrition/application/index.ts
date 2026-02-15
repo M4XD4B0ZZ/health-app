@@ -14,3 +14,8 @@ export { EnrichFoodEntryMacrosUseCase } from './usecases/EnrichFoodEntryMacrosUs
 export { ApplyNaturalLanguageEditUseCase } from './usecases/ApplyNaturalLanguageEditUseCase';
 export { CreateSavedMealFromDateUseCase } from './usecases/CreateSavedMealFromDateUseCase';
 export { LogSavedMealToDateUseCase } from './usecases/LogSavedMealToDateUseCase';
+
+// Services
+export { FoodCatalogResolver } from './services/FoodCatalogResolver';
+export { DefaultFoodCatalogResolver } from './services/DefaultFoodCatalogResolver';
+export { SequentialFoodCatalogResolver } from './services/SequentialFoodCatalogResolver';

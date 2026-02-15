@@ -1,12 +1,23 @@
 import type { FoodSourceProvider } from './FoodSourceProvider'
+import { EdgeSearchResponse, isEdgeSearchResponse } from './EdgeSearchTypes'
+import { FoodCatalogError } from '../../../domain/errors/FoodCatalogError'
+
+export interface SupabaseClient {
+  functions: {
+    invoke(functionName: string, options?: { body?: unknown }): Promise<{
+      data: unknown
+      error: Error | null
+    }>
+  }
+}
 
 export class SupabaseEdgeOffProvider implements FoodSourceProvider {
-  constructor(private readonly supabase: any) {}
+  constructor(private readonly supabase: SupabaseClient) {}
 
   async search(params: {
     query: string
     locale: 'de' | 'en'
-  }): Promise<any> {
+  }): Promise<EdgeSearchResponse> {
     const { data, error } = await this.supabase.functions.invoke(
       'food-off-search',
       {
@@ -18,7 +29,15 @@ export class SupabaseEdgeOffProvider implements FoodSourceProvider {
     )
 
     if (error) {
-      throw error
+      throw FoodCatalogError.edge(`OFF search failed: ${error.message}`, error)
+    }
+
+    if (!data) {
+      throw FoodCatalogError.invalidPayload('OFF search returned no data')
+    }
+
+    if (!isEdgeSearchResponse(data)) {
+      throw FoodCatalogError.invalidPayload('OFF search returned invalid response structure')
     }
 
     return data

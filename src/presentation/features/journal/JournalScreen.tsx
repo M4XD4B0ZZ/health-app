@@ -29,6 +29,10 @@ const JournalScreen: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
 
+  // Sprint 5.5: Review Bottom Sheet State
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewEntries, setReviewEntries] = useState<FoodEntry[]>([]);
+
   const today = new Date().toISOString().split('T')[0];
 
   // Load data on mount and after changes
@@ -63,19 +67,42 @@ const JournalScreen: React.FC = () => {
     setErrorMessage('');
 
     try {
-      await container.logFoodFromRawInputUseCase.execute(rawInput, today);
+      // Sprint 5.5: Use LogMealFromRawInputUseCase (multi-item)
+      const createdEntries = await container.logMealFromRawInputUseCase.execute(rawInput, today);
       setProcessingState('done');
       setRawInput('');
       
       // Reload data
       await loadJournalData();
+
+      // Sprint 5.5: Determine if Review Sheet should be shown
+      const shouldShowReview = shouldShowReviewSheet(createdEntries);
       
-      // Reset to idle after a short delay
-      setTimeout(() => setProcessingState('idle'), 1000);
+      if (shouldShowReview) {
+        setReviewEntries(createdEntries);
+        setReviewModalVisible(true);
+      } else {
+        // Reset to idle after a short delay
+        setTimeout(() => setProcessingState('idle'), 1000);
+      }
     } catch (err) {
       setProcessingState('error');
       setErrorMessage(err instanceof Error ? err.message : 'Fehler beim Hinzufügen');
     }
+  };
+
+  /**
+   * Sprint 5.5: Determine if Review Sheet should be shown
+   * Show if: multiple items OR any item has confidence < 0.7 OR sourceType == "ai"
+   */
+  const shouldShowReviewSheet = (createdEntries: FoodEntry[]): boolean => {
+    if (createdEntries.length >= 2) {
+      return true;
+    }
+
+    return createdEntries.some(
+      (entry) => entry.confidenceScore < 0.7 || entry.sourceType === 'ai'
+    );
   };
 
   const handleDeleteEntry = async (entryId: string) => {
@@ -106,9 +133,54 @@ const JournalScreen: React.FC = () => {
       setEditingEntry(null);
       setEditInstruction('');
       await loadJournalData();
+
+      // Sprint 5.5: If called from review modal, refresh review entries
+      if (reviewModalVisible) {
+        const updatedSummary = await container.getDailySummaryUseCase.execute(today);
+        const updatedReviewEntries = reviewEntries.map(
+          (re) => updatedSummary.entries.find((e) => e.id === re.id) || re
+        );
+        setReviewEntries(updatedReviewEntries);
+      }
     } catch (err) {
       console.error('Failed to apply edit:', err);
     }
+  };
+
+  // Sprint 5.5: Handle delete from review sheet
+  const handleDeleteFromReview = async (entryId: string) => {
+    try {
+      await container.deleteFoodEntryUseCase.execute(entryId);
+      
+      // Update review entries list
+      const updatedReviewEntries = reviewEntries.filter((e) => e.id !== entryId);
+      setReviewEntries(updatedReviewEntries);
+      
+      // Reload main data
+      await loadJournalData();
+
+      // If no more entries in review, close modal
+      if (updatedReviewEntries.length === 0) {
+        setReviewModalVisible(false);
+        setProcessingState('idle');
+      }
+    } catch (err) {
+      console.error('Failed to delete entry from review:', err);
+    }
+  };
+
+  // Sprint 5.5: Handle edit from review sheet
+  const handleEditFromReview = (entry: FoodEntry) => {
+    setEditingEntry(entry);
+    setEditInstruction('');
+    setEditModalVisible(true);
+  };
+
+  // Sprint 5.5: Handle confirm review (close review sheet)
+  const handleConfirmReview = () => {
+    setReviewModalVisible(false);
+    setReviewEntries([]);
+    setProcessingState('idle');
   };
 
   const renderEntry = ({ item }: { item: FoodEntry }) => (
@@ -276,6 +348,84 @@ const JournalScreen: React.FC = () => {
         )}
       </ScrollView>
 
+      {/* Sprint 5.5: Review Bottom Sheet */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleConfirmReview}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reviewModalContent}>
+            <Text style={styles.modalTitle}>Einträge überprüfen</Text>
+            <Text style={styles.reviewSubtitle}>
+              Bitte überprüfen Sie die erkannten Einträge und passen Sie diese bei Bedarf an.
+            </Text>
+            
+            <ScrollView style={styles.reviewScrollView}>
+              {reviewEntries.map((entry) => (
+                <View key={entry.id} style={styles.reviewEntryCard}>
+                  <View style={styles.reviewEntryHeader}>
+                    <Text style={styles.reviewEntryName}>{entry.parsedName}</Text>
+                    <Text style={styles.reviewEntryKcal}>{Math.round(entry.calories)} kcal</Text>
+                  </View>
+                  
+                  <View style={styles.reviewEntryDetails}>
+                    <Text style={styles.reviewEntryGrams}>
+                      {entry.quantityGrams > 0 ? `${entry.quantityGrams}g` : 'Menge unbekannt'}
+                    </Text>
+                    <Text style={styles.reviewEntryMacros}>
+                      P: {Math.round(entry.protein)}g | C: {Math.round(entry.carbs)}g | F: {Math.round(entry.fat)}g
+                    </Text>
+                  </View>
+                  
+                  {/* Confidence Info */}
+                  <View style={styles.reviewConfidenceContainer}>
+                    <Text style={[
+                      styles.reviewConfidenceText,
+                      entry.confidenceScore < 0.5 && styles.reviewConfidenceLow
+                    ]}>
+                      Konfidenz: {(entry.confidenceScore * 100).toFixed(0)}%
+                    </Text>
+                    {entry.confidenceReason && (
+                      <Text style={styles.reviewConfidenceReason}>{entry.confidenceReason}</Text>
+                    )}
+                  </View>
+                  
+                  {entry.explanation && (
+                    <Text style={styles.reviewExplanation}>{entry.explanation}</Text>
+                  )}
+                  
+                  {/* Actions */}
+                  <View style={styles.reviewEntryActions}>
+                    <TouchableOpacity
+                      style={styles.reviewEditButton}
+                      onPress={() => handleEditFromReview(entry)}
+                    >
+                      <Text style={styles.reviewEditButtonText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.reviewDeleteButton}
+                      onPress={() => handleDeleteFromReview(entry.id)}
+                    >
+                      <Text style={styles.reviewDeleteButtonText}>Löschen</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            
+            <TouchableOpacity
+              style={styles.reviewConfirmButton}
+              onPress={handleConfirmReview}
+            >
+              <Text style={styles.reviewConfirmButtonText}>Bestätigen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Edit Modal */}
       <Modal
         visible={editModalVisible}
@@ -298,14 +448,14 @@ const JournalScreen: React.FC = () => {
             />
             
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setEditModalVisible(false)}
               >
                 <Text style={styles.modalButtonText}>Abbrechen</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
                 onPress={handleApplyEdit}
               >
@@ -649,6 +799,126 @@ const styles = StyleSheet.create({
   },
   modalButtonTextConfirm: {
     color: '#fff',
+  },
+  // Sprint 5.5: Review Bottom Sheet Styles
+  reviewModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  reviewSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+  },
+  reviewScrollView: {
+    maxHeight: 400,
+  },
+  reviewEntryCard: {
+    backgroundColor: '#f9f9f9',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  reviewEntryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewEntryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  reviewEntryKcal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4a90e2',
+  },
+  reviewEntryDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  reviewEntryGrams: {
+    fontSize: 14,
+    color: '#666',
+  },
+  reviewEntryMacros: {
+    fontSize: 14,
+    color: '#666',
+  },
+  reviewConfidenceContainer: {
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  reviewConfidenceText: {
+    fontSize: 12,
+    color: '#4a90e2',
+    fontWeight: '500',
+  },
+  reviewConfidenceLow: {
+    color: '#e67e22',
+  },
+  reviewConfidenceReason: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+  },
+  reviewExplanation: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  reviewEntryActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  reviewEditButton: {
+    flex: 1,
+    backgroundColor: '#4a90e2',
+    padding: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  reviewEditButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  reviewDeleteButton: {
+    flex: 1,
+    backgroundColor: '#fee',
+    padding: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  reviewDeleteButtonText: {
+    color: '#e74c3c',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  reviewConfirmButton: {
+    backgroundColor: '#27ae60',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  reviewConfirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

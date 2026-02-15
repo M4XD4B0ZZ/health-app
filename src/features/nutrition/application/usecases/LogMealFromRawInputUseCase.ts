@@ -58,10 +58,10 @@ export class LogMealFromRawInputUseCase {
 
   /**
    * Führt das Logging aus.
-   * @returns Array von FoodEntry-IDs der erstellten Einträge
+   * @returns Array von erstellten FoodEntry-Objekten (Sprint 5.5)
    */
-  async execute(rawInput: string, dateISO?: string): Promise<string[]> {
-    const entryIds: string[] = [];
+  async execute(rawInput: string, dateISO?: string): Promise<FoodEntry[]> {
+    const createdEntries: FoodEntry[] = [];
 
     // Prüfen ob komplex und AI verfügbar
     if (isComplexMealInput(rawInput) && this.aiMealParser) {
@@ -71,15 +71,15 @@ export class LogMealFromRawInputUseCase {
 
       for (const item of aiResult.items) {
         const entry = await this.createEntryFromAiItem(item, aiResult.explanation, entryDate);
-        entryIds.push(entry.id);
+        createdEntries.push(entry);
       }
     } else {
       // Flow B: Fallback zum Single-Item Flow
       const entry = await this.singleItemUseCase.execute(rawInput, dateISO);
-      entryIds.push(entry.id);
+      createdEntries.push(entry);
     }
 
-    return entryIds;
+    return createdEntries;
   }
 
   /**

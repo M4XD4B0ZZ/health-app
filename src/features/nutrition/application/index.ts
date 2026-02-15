@@ -7,6 +7,7 @@ export { SavedMealRepository } from './ports/SavedMealRepository';
 
 // Use Cases
 export { LogFoodFromRawInputUseCase } from './usecases/LogFoodFromRawInputUseCase';
+export { LogMealFromRawInputUseCase } from './usecases/LogMealFromRawInputUseCase';
 export { GetDailySummaryUseCase } from './usecases/GetDailySummaryUseCase';
 export { DeleteFoodEntryUseCase } from './usecases/DeleteFoodEntryUseCase';
 export { EnrichFoodEntryMacrosUseCase } from './usecases/EnrichFoodEntryMacrosUseCase';

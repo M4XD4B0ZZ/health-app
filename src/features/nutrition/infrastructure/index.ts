@@ -1,4 +1,5 @@
 export { InMemoryFoodEntryRepository } from './repositories/InMemoryFoodEntryRepository';
+export { PersistedFoodEntryRepository } from './repositories/PersistedFoodEntryRepository';
 export { InMemoryNutritionLookup } from './repositories/InMemoryNutritionLookup';
 export { InMemorySavedMealRepository } from './repositories/InMemorySavedMealRepository';
 export { SystemClock } from './SystemClock';

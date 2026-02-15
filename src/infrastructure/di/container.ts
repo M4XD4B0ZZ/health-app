@@ -10,6 +10,7 @@ import { GetRecoverySummary } from '../../application/usecases/GetRecoverySummar
 import {
   NutritionEngine,
   InMemoryFoodEntryRepository,
+  PersistedFoodEntryRepository,
   InMemoryNutritionLookup,
   InMemoryFoodCatalog,
   InMemoryFoodAliasRepository,
@@ -28,7 +29,7 @@ import {
   EnrichFoodEntryMacrosUseCase,
 } from '../../features/nutrition';
 
-import { FoodAliasRepository, KeyValueStore } from '../../features/nutrition/application/ports';
+import { FoodAliasRepository, FoodEntryRepository, KeyValueStore } from '../../features/nutrition/application/ports';
 
 // Goals Feature
 import {
@@ -64,7 +65,7 @@ class Container {
 
   // Nutrition Feature - Infrastructure
   private _nutritionEngine: NutritionEngine;
-  private _foodEntryRepository: InMemoryFoodEntryRepository;
+  private _foodEntryRepository: FoodEntryRepository;
   private _nutritionLookup: InMemoryNutritionLookup;
   private _foodCatalog: InMemoryFoodCatalog;
   private _keyValueStore: KeyValueStore;
@@ -108,10 +109,10 @@ class Container {
     
     // Nutrition infrastructure
     this._nutritionEngine = new NutritionEngine();
-    this._foodEntryRepository = new InMemoryFoodEntryRepository();
+    this._keyValueStore = new AsyncStorageKeyValueStore();
+    this._foodEntryRepository = new PersistedFoodEntryRepository(this._keyValueStore);
     this._nutritionLookup = new InMemoryNutritionLookup();
     this._foodCatalog = new InMemoryFoodCatalog();
-    this._keyValueStore = new AsyncStorageKeyValueStore();
     this._foodAliasRepository = new PersistedFoodAliasRepository(this._keyValueStore);
     this._aiFoodMapper = new FakeAiFoodMapper();
     this._nutritionClock = new NutritionSystemClock();
@@ -242,7 +243,7 @@ class Container {
     return this._nutritionEngine;
   }
 
-  get foodEntryRepository(): InMemoryFoodEntryRepository {
+  get foodEntryRepository(): FoodEntryRepository {
     return this._foodEntryRepository;
   }
 

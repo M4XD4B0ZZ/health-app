@@ -4,3 +4,7 @@ export { InMemorySavedMealRepository } from './repositories/InMemorySavedMealRep
 export { SystemClock } from './SystemClock';
 export { RandomIdGenerator, TestIdGenerator } from './RandomIdGenerator';
 export { DeterministicFoodParser, DeterministicParseResult } from './parsers/DeterministicFoodParser';
+export { FakeAiMealParser } from './ai';
+export { InMemoryFoodCatalog } from './catalog/InMemoryFoodCatalog';
+export { InMemoryFoodAliasRepository } from './catalog/InMemoryFoodAliasRepository';
+export { FakeAiFoodMapper } from './ai/FakeAiFoodMapper';

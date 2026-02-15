@@ -45,7 +45,10 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
         clock,
         idGen,
         parser,
-        lookup // NutritionLookup provided
+        undefined, // foodCatalog
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        lookup     // NutritionLookup provided
       );
     });
 
@@ -107,8 +110,11 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
         repository,
         clock,
         idGen,
-        parser
-        // NO NutritionLookup provided
+        parser,
+        undefined, // foodCatalog
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        undefined  // NO NutritionLookup provided
       );
     });
 

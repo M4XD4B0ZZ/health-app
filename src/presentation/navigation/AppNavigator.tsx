@@ -4,12 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Screen-Komponenten importieren
 import DashboardScreen from '../features/dashboard/DashboardScreen';
+import JournalScreen from '../features/journal/JournalScreen';
+import GoalsScreen from '../features/goals/GoalsScreen';
 import NutritionScreen from '../features/nutrition/NutritionScreen';
 import RecoveryScreen from '../features/recovery/RecoveryScreen';
 
 // Typdefinition für die Tab-Parameter
 export type RootTabParamList = {
   Dashboard: undefined;
+  Journal: undefined;
+  Goals: undefined;
   Nutrition: undefined;
   Recovery: undefined;
 };
@@ -25,6 +29,10 @@ const AppNavigator: React.FC = () => {
 
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Journal') {
+            iconName = focused ? 'book' : 'book-outline';
+          } else if (route.name === 'Goals') {
+            iconName = focused ? 'trophy' : 'trophy-outline';
           } else if (route.name === 'Nutrition') {
             iconName = focused ? 'restaurant' : 'restaurant-outline';
           } else if (route.name === 'Recovery') {
@@ -40,23 +48,37 @@ const AppNavigator: React.FC = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="Dashboard" 
-        component={DashboardScreen} 
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
         options={{
           title: 'Dashboard',
         }}
       />
-      <Tab.Screen 
-        name="Nutrition" 
-        component={NutritionScreen} 
+      <Tab.Screen
+        name="Journal"
+        component={JournalScreen}
+        options={{
+          title: 'Tagebuch',
+        }}
+      />
+      <Tab.Screen
+        name="Goals"
+        component={GoalsScreen}
+        options={{
+          title: 'Ziele',
+        }}
+      />
+      <Tab.Screen
+        name="Nutrition"
+        component={NutritionScreen}
         options={{
           title: 'Ernährung',
         }}
       />
-      <Tab.Screen 
-        name="Recovery" 
-        component={RecoveryScreen} 
+      <Tab.Screen
+        name="Recovery"
+        component={RecoveryScreen}
         options={{
           title: 'Erholung',
         }}

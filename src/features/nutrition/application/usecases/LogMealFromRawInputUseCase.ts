@@ -6,28 +6,31 @@ import { NutritionLookup } from '../ports/NutritionLookup';
 import { FoodCatalog } from '../ports/FoodCatalog';
 import { FoodAliasRepository } from '../ports/FoodAliasRepository';
 import { AiFoodMapper } from '../ports/AiFoodMapper';
+import { AiMealParser } from '../ports/AiMealParser';
 import { DeterministicFoodParser } from '../../infrastructure/parsers/DeterministicFoodParser';
 import { NutritionEngine } from '../../domain/engine/NutritionEngine';
+import { isComplexMealInput } from '../utils/InputComplexity';
+import { LogFoodFromRawInputUseCase } from './LogFoodFromRawInputUseCase';
 import { normalizeText } from '../utils/normalizeText';
 
 /**
- * Use-Case: Log Food Entry from Raw Input
+ * Use-Case: Log Meal from Raw Input (Multi-Item)
  *
  * Sprint 5.3: Mit Canonical Food Catalog + Alias Learning
  * 
  * Flow:
- * 1. Parse den Input (Gramm, Name)
- * 2. Normalize den Namen
- * 3. Alias-Lookup (Cache-Hit?)
- * 4. Falls nicht: Deterministische Catalog-Suche
- * 5. Falls confidence >= 0.7: Alias speichern
- * 6. Falls nicht: AI Mapper verwenden (falls verfügbar)
- * 7. Alias speichern nach AI-Mapping
- * 8. CanonicalFood via getById laden
- * 9. Macros deterministisch berechnen
+ * A) Falls Input komplex UND aiMealParser verfügbar:
+ *    - AI parst Input in mehrere Items
+ *    - Für jedes Item: Canonical Food Resolution
+ *    - Deterministische Makro-Berechnung
+ *    - Alle Entries werden persistiert
+ * 
+ * B) Sonst:
+ *    - Fallback zum Single-Item Flow (LogFoodFromRawInputUseCase)
  */
-export class LogFoodFromRawInputUseCase {
+export class LogMealFromRawInputUseCase {
   private readonly engine: NutritionEngine;
+  private readonly singleItemUseCase: LogFoodFromRawInputUseCase;
 
   constructor(
     private readonly repository: FoodEntryRepository,
@@ -37,55 +40,115 @@ export class LogFoodFromRawInputUseCase {
     private readonly foodCatalog?: FoodCatalog,
     private readonly aliasRepository?: FoodAliasRepository,
     private readonly aiFoodMapper?: AiFoodMapper,
-    private readonly nutritionLookup?: NutritionLookup // Fallback für Kompatibilität
+    private readonly nutritionLookup?: NutritionLookup,
+    private readonly aiMealParser?: AiMealParser
   ) {
     this.engine = new NutritionEngine();
+    this.singleItemUseCase = new LogFoodFromRawInputUseCase(
+      repository,
+      clock,
+      idGenerator,
+      parser,
+      foodCatalog,
+      aliasRepository,
+      aiFoodMapper,
+      nutritionLookup
+    );
   }
 
-  async execute(rawInput: string, dateISO?: string): Promise<FoodEntry> {
-    // Parse den Input
-    const parsed = this.parser.parse(rawInput);
+  /**
+   * Führt das Logging aus.
+   * @returns Array von FoodEntry-IDs der erstellten Einträge
+   */
+  async execute(rawInput: string, dateISO?: string): Promise<string[]> {
+    const entryIds: string[] = [];
 
-    // Bestimme Datum
-    const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
+    // Prüfen ob komplex und AI verfügbar
+    if (isComplexMealInput(rawInput) && this.aiMealParser) {
+      // Flow A: AI-basiertes Multi-Item-Parsing
+      const aiResult = await this.aiMealParser.parseMeal(rawInput);
+      const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
 
-    // Bestimme quantityGrams basierend auf Parser-Resultat
-    let quantityGrams = 0;
-    let confidenceScore = 0.35; // Default: low confidence
-
-    if (parsed.quantityGrams !== undefined) {
-      // Gramm-Angabe vorhanden
-      quantityGrams = parsed.quantityGrams;
-      confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
-    } else if (parsed.quantityCount !== undefined) {
-      // Nur Count, keine Gramm-Angabe
-      // Wir raten NICHT die Gramm-Anzahl, lassen es bei 0
-      quantityGrams = 0;
-      confidenceScore = 0.35; // Low confidence
+      for (const item of aiResult.items) {
+        const entry = await this.createEntryFromAiItem(item, aiResult.explanation, entryDate);
+        entryIds.push(entry.id);
+      }
     } else {
-      // Weder Gramm noch Count
-      quantityGrams = 0;
-      confidenceScore = 0.35; // Low confidence
+      // Flow B: Fallback zum Single-Item Flow
+      const entry = await this.singleItemUseCase.execute(rawInput, dateISO);
+      entryIds.push(entry.id);
     }
 
-    // Build base FoodEntry
+    return entryIds;
+  }
+
+  /**
+   * Erstellt einen FoodEntry aus einem AI-parsed Item mit Canonical Food Resolution.
+   */
+  private async createEntryFromAiItem(
+    item: { name: string; quantity?: number; unit?: string; sizeHint?: string },
+    aiExplanation: string,
+    entryDate: Date
+  ): Promise<FoodEntry> {
+    // Bestimme quantityGrams basierend auf Unit
+    let quantityGrams = 0;
+    let confidenceScore = 0.35; // Default: low confidence
+    let derivedRawInput = item.name;
+
+    if (item.quantity !== undefined && item.unit) {
+      switch (item.unit) {
+        case 'g':
+          quantityGrams = item.quantity;
+          confidenceScore = 0.5; // Medium confidence
+          derivedRawInput = `${item.quantity}g ${item.name}`;
+          break;
+
+        case 'ml':
+          // Annahme: 1ml ≈ 1g (für Getränke meist ok)
+          quantityGrams = item.quantity;
+          confidenceScore = 0.45; // Medium-low confidence (Annahme)
+          derivedRawInput = `${item.quantity}ml ${item.name}`;
+          break;
+
+        case 'piece':
+          // Versuche Portion Defaults falls verfügbar (Sprint 5.1 Konzept)
+          // Für jetzt: quantityGrams bleibt 0, Count wird im rawInput vermerkt
+          quantityGrams = 0;
+          confidenceScore = 0.35; // Low confidence
+          derivedRawInput = `${item.quantity}x ${item.name}`;
+          break;
+
+        case 'portion':
+          // Ähnlich wie piece
+          quantityGrams = 0;
+          confidenceScore = 0.35; // Low confidence
+          derivedRawInput = `${item.quantity} portion ${item.name}`;
+          break;
+
+        default:
+          derivedRawInput = item.name;
+      }
+    }
+
+    // Versuche Lookup wenn Gramm > 0
     let entry: FoodEntry = {
       id: this.idGenerator.newId(),
-      rawInput,
-      parsedName: parsed.name,
+      rawInput: derivedRawInput,
+      parsedName: item.name.toLowerCase().trim(),
       quantityGrams,
       calories: 0,
       protein: 0,
       carbs: 0,
       fat: 0,
       confidenceScore,
-      sourceType: 'user',
+      sourceType: 'ai', // AI structured initially
       createdAt: entryDate,
+      explanation: `AI strukturierte Multi-Item-Mahlzeit. ${aiExplanation}`,
     };
 
     // Sprint 5.3: Canonical Food Catalog Flow
     if (this.foodCatalog) {
-      const result = await this.resolveCanonicalFood(parsed.name, rawInput);
+      const result = await this.resolveCanonicalFood(item.name, derivedRawInput);
       
       if (result.canonicalFood && quantityGrams > 0) {
         // Calculate macros from canonical food
@@ -100,25 +163,25 @@ export class LogFoodFromRawInputUseCase {
           fat: macros.fat,
           sourceType: result.sourceType,
           confidenceScore: Math.min(result.confidence, confidenceScore + 0.25),
-          explanation: result.explanation,
+          explanation: `AI strukturierte Multi-Item-Mahlzeit. ${result.explanation || aiExplanation}`,
         };
       }
     }
     // Fallback: Use old NutritionLookup if available
     else if (this.nutritionLookup && quantityGrams > 0) {
-      const per100g = await this.nutritionLookup.getPer100gByName(parsed.name);
-      
+      const per100g = await this.nutritionLookup.getPer100gByName(entry.parsedName);
+
       if (per100g) {
         // Calculate macros
         const macros = this.engine.calculateFromPer100g(per100g, quantityGrams);
-        
-        // Upgrade to 'generic' source type
+
+        // Upgrade to 'generic' source type (Lookup-Hit ist besser als AI)
         const sourceType = 'generic';
-        
-        // Upgrade confidence: cap by input certainty
+
+        // Upgrade confidence
         const baseConfidence = this.engine.confidenceForSource(sourceType);
         const cappedConfidence = Math.min(baseConfidence, confidenceScore + 0.15);
-        
+
         // Update entry with enriched data
         entry = {
           ...entry,
@@ -140,13 +203,7 @@ export class LogFoodFromRawInputUseCase {
 
   /**
    * Sprint 5.3: Canonical Food Resolution Flow
-   * Step 1: Normalize text
-   * Step 2: Alias lookup (cache hit?)
-   * Step 3: Deterministic catalog search
-   * Step 4: If confidence >= 0.7, save alias
-   * Step 5: If not found, use AI mapper (if available)
-   * Step 6: Save alias after AI mapping
-   * Step 7: Load CanonicalFood by ID
+   * (Similar to LogFoodFromRawInputUseCase)
    */
   private async resolveCanonicalFood(parsedName: string, rawInput: string): Promise<{
     canonicalFood: { per100g: { calories: number; protein: number; carbs: number; fat: number } } | null;

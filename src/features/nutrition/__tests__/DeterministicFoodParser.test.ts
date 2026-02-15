@@ -62,6 +62,36 @@ describe('DeterministicFoodParser', () => {
     });
   });
 
+  describe('German "Xer" Count-Parsing', () => {
+    it('sollte "20er nuggets" korrekt parsen', () => {
+      const result = parser.parse('20er nuggets');
+      expect(result.name).toBe('nuggets');
+      expect(result.quantityCount).toBe(20);
+      expect(result.unit).toBe('count');
+      expect(result.quantityGrams).toBeUndefined();
+    });
+
+    it('sollte "6er nuggets" korrekt parsen', () => {
+      const result = parser.parse('6er nuggets');
+      expect(result.name).toBe('nuggets');
+      expect(result.quantityCount).toBe(6);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "10er chicken wings" korrekt parsen', () => {
+      const result = parser.parse('10er chicken wings');
+      expect(result.name).toBe('chicken wings');
+      expect(result.quantityCount).toBe(10);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte case-insensitive sein', () => {
+      const result = parser.parse('20ER NUGGETS');
+      expect(result.name).toBe('nuggets');
+      expect(result.quantityCount).toBe(20);
+    });
+  });
+
   describe('Ohne Mengenangabe', () => {
     it('sollte "banana" ohne Menge parsen', () => {
       const result = parser.parse('banana');

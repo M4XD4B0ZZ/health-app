@@ -24,6 +24,10 @@ export class DeterministicFoodParser {
     // Pattern für Gramm: "250g", "250 g", "250.5g"
     const gramsMatch = normalized.match(/(\d+(?:[.,]\d+)?)\s*g\b/);
     
+    // Pattern für deutsche "Xer" Counts: "20er nuggets", "6er nuggets"
+    // Wichtig: "20er nuggets" bedeutet 20 Stück, NICHT ein Menü/Combo
+    const germanCountMatch = normalized.match(/^(\d+)\s*er\s+(.+)$/i);
+    
     // Pattern für Count: "2 eggs", "2x eggs", "3x", "2 x"
     const countMatch = normalized.match(/^(\d+)\s*x?\s+/i) || normalized.match(/^(\d+)\s*x\s*$/i);
 
@@ -40,6 +44,13 @@ export class DeterministicFoodParser {
       name = normalized
         .replace(/(\d+(?:[.,]\d+)?)\s*g\b/g, '')
         .trim();
+    }
+    // Deutsche "Xer" Count-Pattern gefunden
+    else if (germanCountMatch) {
+      quantityCount = Number.parseInt(germanCountMatch[1], 10);
+      unit = 'count';
+      // Name ist der Teil nach "Xer"
+      name = germanCountMatch[2].trim();
     }
     // Count-Pattern gefunden
     else if (countMatch) {

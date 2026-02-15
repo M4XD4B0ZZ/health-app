@@ -1,4 +1,5 @@
 export { LogFoodFromRawInputUseCase } from './LogFoodFromRawInputUseCase';
+export { LogMealFromRawInputUseCase } from './LogMealFromRawInputUseCase';
 export { GetDailySummaryUseCase } from './GetDailySummaryUseCase';
 export { DeleteFoodEntryUseCase } from './DeleteFoodEntryUseCase';
 export { EnrichFoodEntryMacrosUseCase } from './EnrichFoodEntryMacrosUseCase';

@@ -46,4 +46,28 @@ describe('DefaultFoodCatalogResolver', () => {
     expect(result?.reasons.length).toBeGreaterThan(0)
   })
 
+  it('uses deterministic tie breaker when confidence equal', async () => {
+
+    const confidenceEngine = {
+      score: () => ({
+        confidence: 0.9,
+        reasons: [],
+      }),
+    }
+
+    const resolver = new DefaultFoodCatalogResolver(
+      [new MockUsdaSource(), new MockOffSource()],
+      confidenceEngine as any
+    )
+
+    const result = await resolver.resolve({
+      raw: 'apfel',
+      normalized: 'apfel',
+      locale: 'de',
+    })
+
+    // OFF should win because of higher source weight
+    expect(result?.food.source).toBe('off')
+  })
+
 })

@@ -9,6 +9,21 @@ export class DefaultFoodCatalogResolver implements FoodCatalogResolver {
     private readonly confidenceEngine: ConfidenceEngine,
   ) {}
 
+  private getSourceWeight(source: string): number {
+    switch (source) {
+      case 'user':
+        return 4
+      case 'off':
+        return 3
+      case 'usda':
+        return 2
+      case 'ai':
+        return 1
+      default:
+        return 0
+    }
+  }
+
   async resolve(query: FoodSearchQuery): Promise<FoodCandidate | null> {
 
     const results = await Promise.all(
@@ -36,7 +51,25 @@ export class DefaultFoodCatalogResolver implements FoodCatalogResolver {
       }
     })
 
-    scored.sort((a, b) => b.confidence - a.confidence)
+    scored.sort((a, b) => {
+
+      if (b.confidence !== a.confidence) {
+        return b.confidence - a.confidence
+      }
+
+      if (b.match.similarity !== a.match.similarity) {
+        return b.match.similarity - a.match.similarity
+      }
+
+      if (b.match.exact !== a.match.exact) {
+        return Number(b.match.exact) - Number(a.match.exact)
+      }
+
+      const weightA = this.getSourceWeight(a.food.source)
+      const weightB = this.getSourceWeight(b.food.source)
+
+      return weightB - weightA
+    })
 
     return scored[0]
   }

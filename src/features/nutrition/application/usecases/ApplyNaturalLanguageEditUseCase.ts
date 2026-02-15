@@ -6,12 +6,13 @@ import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 
 /**
  * Use-Case: Apply Natural Language Edit
- * 
+ *
  * Parst eine natürlichsprachliche Editier-Anweisung und aktualisiert den FoodEntry.
  * Unterstützt deterministische Edits ohne AI:
  * - "200g" oder "300 g"
- * - "double portion"
- * - "half portion"
+ * - "double portion", "double"
+ * - "half portion", "half"
+ * - Deutsche Varianten: "doppelt", "doppelte portion", "halb", "halbe portion"
  */
 export class ApplyNaturalLanguageEditUseCase {
   private readonly engine: NutritionEngine;
@@ -89,13 +90,23 @@ export class ApplyNaturalLanguageEditUseCase {
       return Number.parseFloat(gramsMatch[1]);
     }
 
-    // Match "double portion"
-    if (normalized === 'double portion') {
+    // Match "double" variants (English)
+    if (normalized === 'double portion' || normalized === 'double') {
       return currentGrams * 2;
     }
 
-    // Match "half portion"
-    if (normalized === 'half portion') {
+    // Match "half" variants (English)
+    if (normalized === 'half portion' || normalized === 'half') {
+      return currentGrams / 2;
+    }
+
+    // Match "double" variants (German)
+    if (normalized === 'doppelt' || normalized === 'doppelte portion') {
+      return currentGrams * 2;
+    }
+
+    // Match "half" variants (German)
+    if (normalized === 'halb' || normalized === 'halbe portion') {
       return currentGrams / 2;
     }
 

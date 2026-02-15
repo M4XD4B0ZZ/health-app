@@ -15,9 +15,29 @@ export interface DeterministicParseResult {
  * - "skyr 200 g" -> 200g
  * - "2 eggs" -> count 2
  * - "3x eggs" -> count 3
+ * - "zwei äpfel" -> count 2, name "äpfel"
+ * - "drei eier" -> count 3, name "eier"
  * - "banana" -> keine Menge
  */
 export class DeterministicFoodParser {
+  // Deutsche Zahlwörter 1-10
+  private readonly germanNumberWords: Record<string, number> = {
+    'ein': 1,
+    'eine': 1,
+    'einen': 1,
+    'eins': 1,
+    'zwei': 2,
+    'drei': 3,
+    'vier': 4,
+    'fünf': 5,
+    'fuenf': 5,
+    'sechs': 6,
+    'sieben': 7,
+    'acht': 8,
+    'neun': 9,
+    'zehn': 10,
+  };
+
   parse(rawInput: string): DeterministicParseResult {
     const normalized = rawInput.trim().toLowerCase();
 
@@ -30,6 +50,9 @@ export class DeterministicFoodParser {
     
     // Pattern für Count: "2 eggs", "2x eggs", "3x", "2 x"
     const countMatch = normalized.match(/^(\d+)\s*x?\s+/i) || normalized.match(/^(\d+)\s*x\s*$/i);
+
+    // Pattern für deutsche Zahlwörter: "zwei äpfel", "drei eier"
+    const germanNumberWordMatch = this.matchGermanNumberWord(normalized);
 
     let name = normalized;
     let quantityGrams: number | undefined;
@@ -51,6 +74,12 @@ export class DeterministicFoodParser {
       unit = 'count';
       // Name ist der Teil nach "Xer"
       name = germanCountMatch[2].trim();
+    }
+    // Deutsche Zahlwort-Pattern gefunden
+    else if (germanNumberWordMatch) {
+      quantityCount = germanNumberWordMatch.count;
+      unit = 'count';
+      name = germanNumberWordMatch.remainingName;
     }
     // Count-Pattern gefunden
     else if (countMatch) {
@@ -77,5 +106,30 @@ export class DeterministicFoodParser {
       quantityCount,
       unit,
     };
+  }
+
+  /**
+   * Versucht deutsche Zahlwörter am Anfang zu erkennen.
+   * @returns {count, remainingName} wenn gefunden, sonst null
+   */
+  private matchGermanNumberWord(normalized: string): { count: number; remainingName: string } | null {
+    // Teile den String in Wörter
+    const words = normalized.split(/\s+/);
+    
+    if (words.length < 2) {
+      // Brauchen mindestens ein Zahlwort + Nahrungsmittel
+      return null;
+    }
+
+    const firstWord = words[0];
+    const count = this.germanNumberWords[firstWord];
+
+    if (count !== undefined) {
+      // Zahlwort gefunden, Rest ist der Name
+      const remainingName = words.slice(1).join(' ');
+      return { count, remainingName };
+    }
+
+    return null;
   }
 }

@@ -128,4 +128,118 @@ describe('DeterministicFoodParser', () => {
       expect(result.quantityGrams).toBe(200);
     });
   });
+
+  describe('Deutsche Zahlwörter', () => {
+    it('sollte "zwei äpfel" korrekt parsen', () => {
+      const result = parser.parse('zwei äpfel');
+      expect(result.name).toBe('äpfel');
+      expect(result.quantityCount).toBe(2);
+      expect(result.unit).toBe('count');
+      expect(result.quantityGrams).toBeUndefined();
+    });
+
+    it('sollte "drei eier" korrekt parsen', () => {
+      const result = parser.parse('drei eier');
+      expect(result.name).toBe('eier');
+      expect(result.quantityCount).toBe(3);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "ein apfel" korrekt parsen', () => {
+      const result = parser.parse('ein apfel');
+      expect(result.name).toBe('apfel');
+      expect(result.quantityCount).toBe(1);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "eine banane" korrekt parsen', () => {
+      const result = parser.parse('eine banane');
+      expect(result.name).toBe('banane');
+      expect(result.quantityCount).toBe(1);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "einen apfel" korrekt parsen', () => {
+      const result = parser.parse('einen apfel');
+      expect(result.name).toBe('apfel');
+      expect(result.quantityCount).toBe(1);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "eins apfel" korrekt parsen', () => {
+      const result = parser.parse('eins apfel');
+      expect(result.name).toBe('apfel');
+      expect(result.quantityCount).toBe(1);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "vier bananen" korrekt parsen', () => {
+      const result = parser.parse('vier bananen');
+      expect(result.name).toBe('bananen');
+      expect(result.quantityCount).toBe(4);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "fünf äpfel" korrekt parsen', () => {
+      const result = parser.parse('fünf äpfel');
+      expect(result.name).toBe('äpfel');
+      expect(result.quantityCount).toBe(5);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "fuenf äpfel" korrekt parsen (ohne Umlaut)', () => {
+      const result = parser.parse('fuenf äpfel');
+      expect(result.name).toBe('äpfel');
+      expect(result.quantityCount).toBe(5);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "sechs eier" korrekt parsen', () => {
+      const result = parser.parse('sechs eier');
+      expect(result.name).toBe('eier');
+      expect(result.quantityCount).toBe(6);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "sieben brötchen" korrekt parsen', () => {
+      const result = parser.parse('sieben brötchen');
+      expect(result.name).toBe('brötchen');
+      expect(result.quantityCount).toBe(7);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "acht pfannkuchen" korrekt parsen', () => {
+      const result = parser.parse('acht pfannkuchen');
+      expect(result.name).toBe('pfannkuchen');
+      expect(result.quantityCount).toBe(8);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "neun cookies" korrekt parsen', () => {
+      const result = parser.parse('neun cookies');
+      expect(result.name).toBe('cookies');
+      expect(result.quantityCount).toBe(9);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte "zehn erdbeeren" korrekt parsen', () => {
+      const result = parser.parse('zehn erdbeeren');
+      expect(result.name).toBe('erdbeeren');
+      expect(result.quantityCount).toBe(10);
+      expect(result.unit).toBe('count');
+    });
+
+    it('sollte case-insensitive sein', () => {
+      const result = parser.parse('ZWEI ÄPFEL');
+      expect(result.name).toBe('äpfel');
+      expect(result.quantityCount).toBe(2);
+    });
+
+    it('sollte Namen mit mehreren Wörtern unterstützen', () => {
+      const result = parser.parse('drei chicken nuggets');
+      expect(result.name).toBe('chicken nuggets');
+      expect(result.quantityCount).toBe(3);
+      expect(result.unit).toBe('count');
+    });
+  });
 });

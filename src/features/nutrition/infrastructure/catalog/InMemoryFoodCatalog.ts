@@ -83,6 +83,38 @@ export class InMemoryFoodCatalog implements FoodCatalog {
       return null;
     }
 
+    // First attempt: search with normalized name
+    const result = this.searchByNameInternal(normalized);
+    
+    if (result && result.score >= 0.3) {
+      return {
+        food: result.food,
+        confidence: result.score,
+      };
+    }
+
+    // Second attempt: try singular candidate if plural search failed
+    const singularCandidate = this.tryMakeSingular(normalized);
+    if (singularCandidate && singularCandidate !== normalized) {
+      const singularResult = this.searchByNameInternal(singularCandidate);
+      
+      if (singularResult && singularResult.score >= 0.3) {
+        // Slightly reduce confidence since we had to strip plural
+        const adjustedConfidence = singularResult.score * 0.95;
+        return {
+          food: singularResult.food,
+          confidence: adjustedConfidence,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Internal search logic without plural/singular fallback.
+   */
+  private searchByNameInternal(normalized: string): { food: CanonicalFood; score: number } | null {
     const tokens = normalized.toLowerCase().split(/\s+/);
     
     let bestMatch: { food: CanonicalFood; score: number } | null = null;
@@ -104,7 +136,7 @@ export class InMemoryFoodCatalog implements FoodCatalog {
       }
       // Contains all tokens
       else {
-        const matchedTokens = tokens.filter(token => 
+        const matchedTokens = tokens.filter(token =>
           foodTokens.some(ft => ft.includes(token) || token.includes(ft)) ||
           displayTokens.some(dt => dt.includes(token) || token.includes(dt))
         );
@@ -119,11 +151,41 @@ export class InMemoryFoodCatalog implements FoodCatalog {
       }
     }
 
-    if (bestMatch && bestMatch.score >= 0.3) {
-      return {
-        food: bestMatch.food,
-        confidence: bestMatch.score,
-      };
+    return bestMatch;
+  }
+
+  /**
+   * Versucht, eine Singular-Form zu erzeugen durch konservative Suffix-Entfernung.
+   * Beispiele:
+   * - "aepfel" -> "apfel" (en removal)
+   * - "banane" -> "banan" (e removal)
+   * - "eier" -> "ei" (er removal)
+   * - "apples" -> "apple" (s removal)
+   */
+  private tryMakeSingular(word: string): string | null {
+    if (word.length <= 3) {
+      // Zu kurz für sicheres Stripping
+      return null;
+    }
+
+    // Versuch 1: Remove "en" suffix
+    if (word.endsWith('en')) {
+      return word.slice(0, -2);
+    }
+
+    // Versuch 2: Remove "er" suffix
+    if (word.endsWith('er')) {
+      return word.slice(0, -2);
+    }
+
+    // Versuch 3: Remove "e" suffix
+    if (word.endsWith('e')) {
+      return word.slice(0, -1);
+    }
+
+    // Versuch 4: Remove "s" suffix
+    if (word.endsWith('s')) {
+      return word.slice(0, -1);
     }
 
     return null;

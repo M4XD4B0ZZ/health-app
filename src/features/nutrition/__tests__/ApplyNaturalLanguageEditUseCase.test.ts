@@ -244,4 +244,138 @@ describe('ApplyNaturalLanguageEditUseCase', () => {
       ).rejects.toThrow('Entry with id non-existent-id not found');
     });
   });
+
+  describe('synonym support', () => {
+    it('should support "double" without "portion"', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-8',
+        rawInput: '100g banana',
+        parsedName: 'banana',
+        quantityGrams: 100,
+        calories: 89,
+        protein: 1.1,
+        carbs: 22.8,
+        fat: 0.3,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      const result = await useCase.execute('2024-01-15', 'entry-8', 'double');
+
+      expect(result.quantityGrams).toBe(200);
+      expect(result.calories).toBe(178); // 89 * 2
+    });
+
+    it('should support "half" without "portion"', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-9',
+        rawInput: '200g banana',
+        parsedName: 'banana',
+        quantityGrams: 200,
+        calories: 178,
+        protein: 2.2,
+        carbs: 45.6,
+        fat: 0.6,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      const result = await useCase.execute('2024-01-15', 'entry-9', 'half');
+
+      expect(result.quantityGrams).toBe(100);
+      expect(result.calories).toBe(89); // 89 * 1
+    });
+
+    it('should support German "doppelt"', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-10',
+        rawInput: '100g banana',
+        parsedName: 'banana',
+        quantityGrams: 100,
+        calories: 89,
+        protein: 1.1,
+        carbs: 22.8,
+        fat: 0.3,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      const result = await useCase.execute('2024-01-15', 'entry-10', 'doppelt');
+
+      expect(result.quantityGrams).toBe(200);
+      expect(result.calories).toBe(178); // 89 * 2
+    });
+
+    it('should support German "doppelte portion"', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-11',
+        rawInput: '100g banana',
+        parsedName: 'banana',
+        quantityGrams: 100,
+        calories: 89,
+        protein: 1.1,
+        carbs: 22.8,
+        fat: 0.3,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      const result = await useCase.execute('2024-01-15', 'entry-11', 'doppelte portion');
+
+      expect(result.quantityGrams).toBe(200);
+      expect(result.calories).toBe(178); // 89 * 2
+    });
+
+    it('should support German "halb"', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-12',
+        rawInput: '200g banana',
+        parsedName: 'banana',
+        quantityGrams: 200,
+        calories: 178,
+        protein: 2.2,
+        carbs: 45.6,
+        fat: 0.6,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      const result = await useCase.execute('2024-01-15', 'entry-12', 'halb');
+
+      expect(result.quantityGrams).toBe(100);
+      expect(result.calories).toBe(89); // 89 * 1
+    });
+
+    it('should support German "halbe portion"', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-13',
+        rawInput: '200g banana',
+        parsedName: 'banana',
+        quantityGrams: 200,
+        calories: 178,
+        protein: 2.2,
+        carbs: 45.6,
+        fat: 0.6,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      const result = await useCase.execute('2024-01-15', 'entry-13', 'halbe portion');
+
+      expect(result.quantityGrams).toBe(100);
+      expect(result.calories).toBe(89); // 89 * 1
+    });
+  });
 });

@@ -29,6 +29,11 @@ import {
   EnrichFoodEntryMacrosUseCase,
 } from '../../features/nutrition';
 
+import { DefaultFoodCatalogResolver } from '../../features/nutrition/application/services/DefaultFoodCatalogResolver';
+import { DefaultConfidenceEngine } from '../../features/nutrition/domain/confidence/DefaultConfidenceEngine';
+import { MockOffSource } from '../../features/nutrition/infrastructure/catalog/sources/MockOffSource';
+import { MockUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/MockUsdaSource';
+
 import { FoodAliasRepository, FoodEntryRepository, KeyValueStore } from '../../features/nutrition/application/ports';
 
 // Goals Feature
@@ -132,6 +137,13 @@ class Container {
     );
 
     // Nutrition use cases
+    // Erstelle Resolver mit Mock Sources
+    const confidenceEngine = new DefaultConfidenceEngine();
+    const foodCatalogResolver = new DefaultFoodCatalogResolver(
+      [new MockOffSource(), new MockUsdaSource()],
+      confidenceEngine
+    );
+
     this._logFoodFromRawInputUseCase = new LogFoodFromRawInputUseCase(
       this._foodEntryRepository,
       this._nutritionClock,
@@ -140,7 +152,8 @@ class Container {
       this._foodCatalog,
       this._foodAliasRepository,
       this._aiFoodMapper,
-      this._nutritionLookup
+      this._nutritionLookup,
+      foodCatalogResolver
     );
 
     this._logMealFromRawInputUseCase = new LogMealFromRawInputUseCase(

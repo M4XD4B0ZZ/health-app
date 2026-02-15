@@ -1,0 +1,37 @@
+export type FoodSourceType = 'user' | 'off' | 'usda' | 'ai'
+
+export interface FoodSearchQuery {
+  raw: string
+  normalized: string
+  locale: 'de' | 'en'
+}
+
+export interface CanonicalFood {
+  id: string
+  name: string
+  normalizedName: string
+  macrosPer100g: {
+    kcal: number
+    protein: number
+    carbs: number
+    fat: number
+  }
+  source: FoodSourceType
+  sourceId?: string
+}
+
+export interface FoodCandidate {
+  food: CanonicalFood
+  match: {
+    exact: boolean
+    similarity: number
+    usedHeuristic?: 'plural' | 'alias' | 'fuzzy'
+  }
+  confidence: number
+  reasons: string[]
+}
+
+export interface FoodCatalogSource {
+  type: FoodSourceType
+  search(query: FoodSearchQuery): Promise<FoodCandidate[]>
+}

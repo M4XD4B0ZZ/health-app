@@ -1,8 +1,9 @@
-export type FoodCatalogErrorKind = 
+export type FoodCatalogErrorKind =
   | 'network'
   | 'edge'
   | 'invalid_payload'
   | 'rate_limit'
+  | 'timeout'
   | 'unknown'
 
 export class FoodCatalogError extends Error {
@@ -29,6 +30,10 @@ export class FoodCatalogError extends Error {
 
   static rateLimit(message: string, cause?: unknown): FoodCatalogError {
     return new FoodCatalogError('rate_limit', message, cause)
+  }
+
+  static timeout(message: string, cause?: unknown): FoodCatalogError {
+    return new FoodCatalogError('timeout', message, cause)
   }
 
   static unknown(message: string, cause?: unknown): FoodCatalogError {

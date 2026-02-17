@@ -1,78 +1,270 @@
-// Supabase Edge Function: food-usda-search
-// Mock implementation für USDA Food Database Suche
+import {
+  AppError,
+  computeExpiresAt,
+  corsHeaders,
+  determineWinner,
+  errorResponse,
+  getTraceId,
+  jsonResponse,
+  loadItemsByIds,
+  loadValidCache,
+  type CanonicalFoodItem,
+  upsertCatalogItems,
+  upsertQueryCache,
+} from "../_shared/food-cache.ts";
+import { normalizeQuery } from "../_shared/normalize.ts";
+
+const POSITIVE_TTL_SECONDS = 60 * 60 * 24;
+const NEGATIVE_TTL_SECONDS = 60 * 15;
+const USDA_SOURCE = "usda" as const;
+const USDA_PAGE_SIZE = 10;
 
 interface SearchRequest {
-  query: string;
-  locale: "de" | "en";
+  query?: string;
+  locale?: string;
 }
 
-interface MacrosPer100g {
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
+interface UsdaNutrient {
+  nutrientNumber?: string;
+  nutrientName?: string;
+  value?: number;
 }
 
-interface FoodItem {
-  source: "off" | "usda";
-  sourceId: string;
-  name: string;
-  normalizedName: string;
-  macrosPer100g: MacrosPer100g;
+interface UsdaFood {
+  fdcId?: number;
+  description?: string;
+  brandOwner?: string;
+  foodNutrients?: UsdaNutrient[];
 }
 
-interface SearchResponse {
-  items: FoodItem[];
+interface UsdaSearchResponse {
+  foods?: UsdaFood[];
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function localeFromBody(body: SearchRequest): string {
+  const locale = body.locale?.trim().toLowerCase();
+  return locale && locale.length > 0 ? locale : "en";
+}
+
+function parseBody(body: SearchRequest): { query: string; locale: string } {
+  const query = body.query?.trim() ?? "";
+  if (!query) {
+    throw new AppError("INVALID_QUERY", "query must be a non-empty string", 400);
+  }
+  return { query, locale: localeFromBody(body) };
+}
+
+function nutrientValueByNumber(
+  nutrients: UsdaNutrient[] | undefined,
+  nutrientNumber: string,
+): number | null {
+  if (!nutrients) {
+    return null;
+  }
+  const found = nutrients.find((n) => n.nutrientNumber === nutrientNumber);
+  if (!found || typeof found.value !== "number" || !Number.isFinite(found.value)) {
+    return null;
+  }
+  return found.value;
+}
+
+function mapUsdaToCanonical(
+  foods: UsdaFood[],
+  normalizedQuery: string,
+  locale: string,
+): CanonicalFoodItem[] {
+  const nowIso = new Date().toISOString();
+  const mapped: CanonicalFoodItem[] = [];
+
+  for (const food of foods) {
+    if (!food.fdcId || !food.description) {
+      continue;
+    }
+
+    const name = food.description.trim();
+    if (!name) {
+      continue;
+    }
+
+    const nameNormalized = normalizeQuery(name);
+    const exact = nameNormalized === normalizedQuery;
+    const contains = nameNormalized.includes(normalizedQuery);
+    const starts = nameNormalized.startsWith(normalizedQuery);
+    const confidence = clamp01(
+      0.58 + (exact ? 0.34 : 0) + (starts ? 0.08 : 0) + (contains ? 0.03 : 0),
+    );
+
+    const macros = {
+      kcal: nutrientValueByNumber(food.foodNutrients, "208") ?? 0,
+      protein: nutrientValueByNumber(food.foodNutrients, "203") ?? 0,
+      carbs: nutrientValueByNumber(food.foodNutrients, "205") ?? 0,
+      fat: nutrientValueByNumber(food.foodNutrients, "204") ?? 0,
+    };
+
+    const micros: Record<string, number> = {};
+    const fiber = nutrientValueByNumber(food.foodNutrients, "291");
+    const sugars = nutrientValueByNumber(food.foodNutrients, "269");
+    const sodium = nutrientValueByNumber(food.foodNutrients, "307");
+    if (fiber !== null) micros.fiber = fiber;
+    if (sugars !== null) micros.sugars = sugars;
+    if (sodium !== null) micros.sodium = sodium;
+
+    mapped.push({
+      canonical_name: name,
+      brand: food.brandOwner?.trim() || null,
+      source: USDA_SOURCE,
+      external_id: String(food.fdcId),
+      locale,
+      macros_per_100g: macros,
+      micros_per_100g: Object.keys(micros).length > 0 ? micros : null,
+      confidence,
+      last_verified_at: nowIso,
+    });
+  }
+
+  return mapped;
+}
+
+async function fetchFromUsda(
+  query: string,
+  locale: string,
+  normalizedQuery: string,
+): Promise<CanonicalFoodItem[]> {
+  const apiKey = Deno.env.get("USDA_API_KEY");
+  if (!apiKey) {
+    throw new AppError("MISSING_ENV", "Missing required env var USDA_API_KEY", 500);
+  }
+
+  const response = await fetch(
+    `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        pageSize: USDA_PAGE_SIZE,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new AppError("USDA_FETCH_FAILED", `USDA returned ${response.status}`, 500);
+  }
+
+  const payload = await response.json() as UsdaSearchResponse;
+  const foods = payload.foods ?? [];
+  return mapUsdaToCanonical(foods, normalizedQuery, locale);
 }
 
 Deno.serve(async (req) => {
-  // CORS headers
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
+  const traceId = getTraceId(req);
 
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders() });
   }
 
   try {
-    // Parse request body
-    const body: SearchRequest = await req.json();
-    const query = body.query?.trim().toLowerCase() || "";
-
-    // Mock logic: nur "apfel" gibt Ergebnisse zurück
-    const items: FoodItem[] = [];
-
-    if (query === "apfel") {
-      items.push({
-        source: "usda",
-        sourceId: "usda_apple_raw_167765",
-        name: "Apple, raw",
-        normalizedName: "apple raw",
-        macrosPer100g: {
-          kcal: 52,
-          protein: 0.3,
-          carbs: 14,
-          fat: 0.2,
-        },
-      });
+    if (req.method !== "POST") {
+      throw new AppError("METHOD_NOT_ALLOWED", "Only POST is supported", 405);
     }
 
-    const response: SearchResponse = { items };
+    let body: SearchRequest;
+    try {
+      body = await req.json() as SearchRequest;
+    } catch {
+      throw new AppError("INVALID_JSON", "Request body must be valid JSON", 400);
+    }
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: "Invalid request", items: [] }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
+    const { query, locale } = parseBody(body);
+    const normalizedQuery = normalizeQuery(query);
+    if (!normalizedQuery) {
+      throw new AppError("INVALID_QUERY", "query becomes empty after normalization", 400);
+    }
+
+    const cached = await loadValidCache(normalizedQuery, locale);
+    if (cached) {
+      if (cached.cache_type === "negative") {
+        return jsonResponse(
+          {
+            type: "cache",
+            cacheType: "negative",
+            results: [],
+            normalizedQuery,
+            locale,
+            traceId,
+          },
+          200,
+          traceId,
+        );
       }
+
+      const ids = cached.result_item_ids ?? [];
+      const items = await loadItemsByIds(ids);
+      return jsonResponse(
+        {
+          type: "cache",
+          cacheType: "positive",
+          items,
+          normalizedQuery,
+          locale,
+          traceId,
+        },
+        200,
+        traceId,
+      );
+    }
+
+    const externalItems = await fetchFromUsda(query, locale, normalizedQuery);
+    const upsertedItems = await upsertCatalogItems(externalItems);
+    const winner = determineWinner(upsertedItems);
+    const cacheType = upsertedItems.length > 0 ? "positive" : "negative";
+
+    await upsertQueryCache({
+      normalized_query: normalizedQuery,
+      locale,
+      cache_type: cacheType,
+      winner_source: winner?.source ?? null,
+      winner_confidence: winner?.confidence ?? null,
+      result_item_ids: upsertedItems.map((item) => item.id!).filter(Boolean),
+      expires_at: computeExpiresAt(
+        cacheType === "positive" ? POSITIVE_TTL_SECONDS : NEGATIVE_TTL_SECONDS,
+      ),
+    });
+
+    return jsonResponse(
+      {
+        type: "fresh",
+        items: upsertedItems,
+        winner: winner
+          ? {
+              itemId: winner.id ?? null,
+              source: winner.source,
+              confidence: winner.confidence,
+            }
+          : null,
+        normalizedQuery,
+        locale,
+        traceId,
+      },
+      200,
+      traceId,
     );
+  } catch (error) {
+    const handledError = error instanceof AppError
+      ? error
+      : new AppError("INTERNAL_ERROR", "Unexpected internal error", 500);
+
+    console.error("[food-usda-search]", {
+      traceId,
+      code: handledError.code,
+      message: handledError.message,
+    });
+
+    return errorResponse(handledError, traceId);
   }
 });
+

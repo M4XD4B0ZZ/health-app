@@ -47,3 +47,9 @@ supabase/temp/
 # Common local dependencies/build/cache artifacts
 .expo-cache/
 build/
+
+# Workspace baseline ignores
+.expo-shared
+coverage
+Thumbs.db
+.env.local

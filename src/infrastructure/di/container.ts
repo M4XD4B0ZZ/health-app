@@ -39,7 +39,11 @@ import { supabase } from '../supabase/supabaseClient';
 import type { AuthRepository } from '../../features/auth/application/ports/AuthRepository';
 import { SupabaseAuthRepository } from '../../features/auth/infrastructure/SupabaseAuthRepository';
 
-import { FoodAliasRepository, FoodEntryRepository, KeyValueStore } from '../../features/nutrition/application/ports';
+import {
+  FoodAliasRepository,
+  FoodEntryRepository,
+  KeyValueStore,
+} from '../../features/nutrition/application/ports';
 
 // Goals Feature
 import {
@@ -67,7 +71,7 @@ class Container {
   // Legacy Repositories
   private _recoveryRepository: RecoveryRepository;
   private _nutritionRepository: NutritionRepository;
-  
+
   // Legacy Usecases
   private _getDashboardSummary: GetDashboardSummary;
   private _getNutritionSummary: GetNutritionSummary;
@@ -112,12 +116,12 @@ class Container {
 
   // Journal Use Cases
   private _computeProgressForDateUseCase: ComputeProgressForDateUseCase;
-  
+
   constructor() {
     // Legacy repositories
     this._recoveryRepository = new MockRecoveryRepository();
     this._nutritionRepository = new MockNutritionRepository();
-    
+
     // Nutrition infrastructure
     this._nutritionEngine = new NutritionEngine();
     this._keyValueStore = new AsyncStorageKeyValueStore();
@@ -140,24 +144,17 @@ class Container {
 
     // Journal infrastructure
     this._nutritionReadRepository = new NutritionReadRepositoryFromFoodEntryRepository(
-      this._foodEntryRepository
+      this._foodEntryRepository,
     );
 
     // Nutrition use cases
     // Erstelle Sequential Resolver mit Mock Sources (User Aliases -> OFF -> USDA)
     const confidenceEngine = new DefaultConfidenceEngine();
-    const userAliasSource = new SupabaseUserAliasSource(
-      supabase,
-      DEFAULT_CATALOG_CONFIG
-    );
+    const userAliasSource = new SupabaseUserAliasSource(supabase, DEFAULT_CATALOG_CONFIG);
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
-      [
-        userAliasSource,
-        new MockOffSource(),
-        new MockUsdaSource()
-      ],
+      [userAliasSource, new MockOffSource(), new MockUsdaSource()],
       confidenceEngine,
-      DEFAULT_CATALOG_CONFIG
+      DEFAULT_CATALOG_CONFIG,
     );
 
     this._logFoodFromRawInputUseCase = new LogFoodFromRawInputUseCase(
@@ -169,7 +166,7 @@ class Container {
       this._foodAliasRepository,
       this._aiFoodMapper,
       this._nutritionLookup,
-      foodCatalogResolver
+      foodCatalogResolver,
     );
 
     this._logMealFromRawInputUseCase = new LogMealFromRawInputUseCase(
@@ -181,88 +178,80 @@ class Container {
       this._foodAliasRepository,
       this._aiFoodMapper,
       this._nutritionLookup,
-      this._aiMealParser
+      this._aiMealParser,
     );
 
     this._getDailySummaryUseCase = new GetDailySummaryUseCase(
       this._foodEntryRepository,
-      this._nutritionEngine
+      this._nutritionEngine,
     );
 
     this._applyNaturalLanguageEditUseCase = new ApplyNaturalLanguageEditUseCase(
       this._foodEntryRepository,
       this._nutritionLookup,
-      this._nutritionClock
+      this._nutritionClock,
     );
 
-    this._deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(
-      this._foodEntryRepository
-    );
+    this._deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(this._foodEntryRepository);
 
     this._enrichFoodEntryMacrosUseCase = new EnrichFoodEntryMacrosUseCase(
       this._foodEntryRepository,
-      this._nutritionLookup
+      this._nutritionLookup,
     );
 
     // Goals use cases
     this._upsertMetabolismProfileUseCase = new UpsertMetabolismProfileUseCase(
       this._metabolismProfileRepository,
       this._goalsClock,
-      this._goalsIdGenerator
+      this._goalsIdGenerator,
     );
 
     this._computeMetabolismResultUseCase = new ComputeMetabolismResultUseCase(
-      this._metabolismProfileRepository
+      this._metabolismProfileRepository,
     );
 
     this._suggestGoalsUseCase = new SuggestGoalsUseCase(
       this._metabolismProfileRepository,
-      this._goalsClock
+      this._goalsClock,
     );
 
-    this._setEffectiveGoalsUseCase = new SetEffectiveGoalsUseCase(
-      this._effectiveGoalsRepository
-    );
+    this._setEffectiveGoalsUseCase = new SetEffectiveGoalsUseCase(this._effectiveGoalsRepository);
 
     // Journal use cases
     this._computeProgressForDateUseCase = new ComputeProgressForDateUseCase(
       this._nutritionReadRepository,
-      this._effectiveGoalsRepository
+      this._effectiveGoalsRepository,
     );
-    
+
     // Legacy usecases
     this._getDashboardSummary = new GetDashboardSummary(
       this._recoveryRepository,
-      this._nutritionRepository
+      this._nutritionRepository,
     );
-    
-    this._getNutritionSummary = new GetNutritionSummary(
-      this._nutritionRepository
-    );
-    
-    this._getRecoverySummary = new GetRecoverySummary(
-      this._recoveryRepository
-    );
+
+    this._getNutritionSummary = new GetNutritionSummary(this._nutritionRepository);
+
+    this._getRecoverySummary = new GetRecoverySummary(this._recoveryRepository);
   }
-  
+
   // Legacy Repositories
   get recoveryRepository(): RecoveryRepository {
     return this._recoveryRepository;
   }
-  
+
   get nutritionRepository(): NutritionRepository {
     return this._nutritionRepository;
   }
-  
+
   // Legacy Usecases
   get getDashboardSummary(): GetDashboardSummary {
     return this._getDashboardSummary;
   }
-  
+
   get getNutritionSummary(): GetNutritionSummary {
     return this._getNutritionSummary;
   }
-  
+
   get getRecoverySummary(): GetRecoverySummary {
     return this._getRecoverySummary;
   }

@@ -49,20 +49,9 @@ describe('Saved Meals System', () => {
     clock = new MockClock();
     idGen = new MockIdGenerator();
 
-    createUseCase = new CreateSavedMealFromDateUseCase(
-      foodEntryRepo,
-      savedMealRepo,
-      clock,
-      idGen
-    );
+    createUseCase = new CreateSavedMealFromDateUseCase(foodEntryRepo, savedMealRepo, clock, idGen);
 
-    logUseCase = new LogSavedMealToDateUseCase(
-      savedMealRepo,
-      foodEntryRepo,
-      clock,
-      idGen,
-      lookup
-    );
+    logUseCase = new LogSavedMealToDateUseCase(savedMealRepo, foodEntryRepo, clock, idGen, lookup);
   });
 
   describe('CreateSavedMealFromDateUseCase', () => {
@@ -317,9 +306,9 @@ describe('Saved Meals System', () => {
 
     it('should throw error if template not found', async () => {
       // Act & Assert
-      await expect(
-        logUseCase.execute('non-existent-id', '2024-01-16')
-      ).rejects.toThrow('SavedMealTemplate with id non-existent-id not found');
+      await expect(logUseCase.execute('non-existent-id', '2024-01-16')).rejects.toThrow(
+        'SavedMealTemplate with id non-existent-id not found',
+      );
     });
   });
 

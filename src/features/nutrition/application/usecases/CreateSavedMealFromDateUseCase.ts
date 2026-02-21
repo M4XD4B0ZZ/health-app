@@ -15,7 +15,7 @@ export class CreateSavedMealFromDateUseCase {
     private readonly foodEntryRepository: FoodEntryRepository,
     private readonly savedMealRepository: SavedMealRepository,
     private readonly clock: Clock,
-    private readonly idGenerator: IdGenerator
+    private readonly idGenerator: IdGenerator,
   ) {}
 
   async execute(dateISO: string, name: string): Promise<SavedMealTemplate> {

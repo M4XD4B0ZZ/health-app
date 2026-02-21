@@ -67,4 +67,3 @@ export const CONFIDENCE_RULES: ReadonlyArray<ConfidenceRule> = [
 ];
 
 export const LOW_CONFIDENCE_THRESHOLD = 0.4;
-

@@ -1,9 +1,16 @@
-import { FoodCatalogSource, FoodSearchQuery, FoodCandidate } from '../../../domain/catalog/FoodCatalogSource'
-import { FoodSourceProvider } from '../providers/FoodSourceProvider'
-import { FoodCatalogConfig, DEFAULT_CATALOG_CONFIG } from '../../../domain/models/FoodCatalogConfig'
+import {
+  FoodCatalogSource,
+  FoodSearchQuery,
+  FoodCandidate,
+} from '../../../domain/catalog/FoodCatalogSource';
+import { FoodSourceProvider } from '../providers/FoodSourceProvider';
+import {
+  FoodCatalogConfig,
+  DEFAULT_CATALOG_CONFIG,
+} from '../../../domain/models/FoodCatalogConfig';
 
 export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
-  type = 'usda' as const
+  type = 'usda' as const;
 
   constructor(
     private readonly provider: FoodSourceProvider,
@@ -11,17 +18,17 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
   ) {}
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
-    const startTime = performance.now()
+    const startTime = performance.now();
 
     try {
       const response = await this.provider.search({
         query: query.normalized,
         locale: query.locale,
-      })
+      });
 
-      const latencyMs = performance.now() - startTime
+      const latencyMs = performance.now() - startTime;
 
-      const candidates = response.items.map(item => ({
+      const candidates = response.items.map((item) => ({
         food: {
           id: `usda-${item.sourceId}`,
           name: item.name,
@@ -36,7 +43,7 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
         },
         confidence: 0, // Will be set by ConfidenceEngine
         reasons: [],
-      }))
+      }));
 
       if (this.config.enableDebugLogs) {
         console.debug('[SupabaseEdgeUsdaSource] Search completed', {
@@ -45,17 +52,17 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
           resultCount: candidates.length,
           latencyMs: Math.round(latencyMs),
           query: query.normalized,
-          topResults: candidates.slice(0, 3).map(c => ({
+          topResults: candidates.slice(0, 3).map((c) => ({
             name: c.food.name,
             similarity: c.match.similarity,
             exact: c.match.exact,
           })),
-        })
+        });
       }
 
-      return candidates
+      return candidates;
     } catch (error) {
-      const latencyMs = performance.now() - startTime
+      const latencyMs = performance.now() - startTime;
 
       if (this.config.enableDebugLogs) {
         console.debug('[SupabaseEdgeUsdaSource] Search failed', {
@@ -65,16 +72,16 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
           errorMessage: error instanceof Error ? error.message : 'unknown',
           latencyMs: Math.round(latencyMs),
           query: query.normalized,
-        })
+        });
       }
 
-      throw error
+      throw error;
     }
   }
 
   private calculateSimilarity(a: string, b: string): number {
-    if (a === b) return 1
-    if (a.includes(b) || b.includes(a)) return 0.8
-    return 0.5
+    if (a === b) return 1;
+    if (a.includes(b) || b.includes(a)) return 0.8;
+    return 0.5;
   }
 }

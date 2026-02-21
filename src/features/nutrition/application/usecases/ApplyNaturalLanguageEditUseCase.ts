@@ -20,7 +20,7 @@ export class ApplyNaturalLanguageEditUseCase {
   constructor(
     private readonly repository: FoodEntryRepository,
     private readonly nutritionLookup: NutritionLookup,
-    private readonly clock: Clock
+    private readonly clock: Clock,
   ) {
     this.engine = new NutritionEngine();
   }
@@ -29,7 +29,7 @@ export class ApplyNaturalLanguageEditUseCase {
     // 1. Load entry
     const entries = await this.repository.listEntriesForDate(dateISO);
     const entry = entries.find((e) => e.id === entryId);
-    
+
     if (!entry) {
       throw new Error(`Entry with id ${entryId} not found for date ${dateISO}`);
     }
@@ -47,7 +47,7 @@ export class ApplyNaturalLanguageEditUseCase {
 
     // 4. Calculate new macros if per100g data available
     let updatedEntry: FoodEntry;
-    
+
     if (per100g) {
       const macros = this.engine.calculateFromPer100g(per100g, newQuantityGrams);
       updatedEntry = {

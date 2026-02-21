@@ -3,10 +3,10 @@ import { AiParsedMeal, AiParsedMealItem } from '../../domain/models/AiMealTypes'
 
 /**
  * Fake AI Meal Parser
- * 
+ *
  * Deterministischer Stub für Tests und Entwicklung.
  * Simuliert AI-Verhalten ohne echtes LLM.
- * 
+ *
  * Beispiel: "20er nuggets mit cola und pommes" wird zu:
  * - { name: "nuggets", quantity: 20, unit: "piece" }
  * - { name: "cola", quantity: 400, unit: "ml", sizeHint: "medium" }
@@ -17,10 +17,10 @@ export class FakeAiMealParser implements AiMealParser {
     const normalized = rawInput.trim().toLowerCase();
 
     // Check for connectors
-    const hasConnectors = 
-      normalized.includes(' mit ') || 
-      normalized.includes(' und ') || 
-      normalized.includes('+') || 
+    const hasConnectors =
+      normalized.includes(' mit ') ||
+      normalized.includes(' und ') ||
+      normalized.includes('+') ||
       normalized.includes('&') ||
       normalized.includes(',');
 
@@ -52,9 +52,11 @@ export class FakeAiMealParser implements AiMealParser {
     if (items.length > 1) {
       assumptions.push(`${items.length} Items strukturiert`);
     }
-    
+
     // Add assumptions about quantities
-    const hasDefaultQuantities = items.some(item => item.quantity && !this.hasExplicitQuantity(normalized, item.name));
+    const hasDefaultQuantities = items.some(
+      (item) => item.quantity && !this.hasExplicitQuantity(normalized, item.name),
+    );
     if (hasDefaultQuantities) {
       assumptions.push('Standardmengen für Getränke/Beilagen angenommen');
     }
@@ -81,7 +83,10 @@ export class FakeAiMealParser implements AiMealParser {
       .replace(/&/g, '|')
       .replace(/,/g, '|');
 
-    return delimited.split('|').map(p => p.trim()).filter(p => p.length > 0);
+    return delimited
+      .split('|')
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
   }
 
   private parseItem(part: string): AiParsedMealItem | null {
@@ -130,7 +135,7 @@ export class FakeAiMealParser implements AiMealParser {
 
   private applyDefaultQuantity(name: string): AiParsedMealItem {
     // Heuristics for common foods
-    
+
     // Drinks: default to 400ml medium
     if (this.isDrink(name)) {
       return {
@@ -157,12 +162,12 @@ export class FakeAiMealParser implements AiMealParser {
 
   private isDrink(name: string): boolean {
     const drinks = ['cola', 'fanta', 'sprite', 'wasser', 'saft', 'limo', 'bier', 'wein'];
-    return drinks.some(drink => name.includes(drink));
+    return drinks.some((drink) => name.includes(drink));
   }
 
   private isSide(name: string): boolean {
     const sides = ['pommes', 'fries', 'reis', 'nudeln', 'salat', 'gemüse'];
-    return sides.some(side => name.includes(side));
+    return sides.some((side) => name.includes(side));
   }
 
   private hasExplicitQuantity(fullText: string, itemName: string): boolean {

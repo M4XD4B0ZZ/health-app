@@ -1,3 +1,3 @@
 export interface AuthRepository {
-  getAccessToken(): Promise<string | null>
+  getAccessToken(): Promise<string | null>;
 }

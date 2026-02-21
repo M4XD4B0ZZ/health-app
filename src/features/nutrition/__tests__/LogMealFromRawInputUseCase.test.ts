@@ -18,7 +18,7 @@ describe('LogMealFromRawInputUseCase', () => {
     repository = new InMemoryFoodEntryRepository();
     clock = {
       now: () => new Date('2026-02-15T12:00:00Z'),
-      todayISO: () => '2026-02-15'
+      todayISO: () => '2026-02-15',
     };
     idGenerator = new TestIdGenerator();
     parser = new DeterministicFoodParser();
@@ -36,7 +36,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       const entryIds = await useCase.execute('250g chicken');
@@ -59,7 +59,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       const entryIds = await useCase.execute('20er nuggets');
@@ -86,7 +86,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       const entryIds = await useCase.execute('20er nuggets mit cola und pommes');
@@ -125,7 +125,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       const entryIds = await useCase.execute('burger mit cola');
@@ -153,7 +153,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       await useCase.execute('20er nuggets mit cola');
@@ -176,7 +176,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        undefined  // Kein AI Parser
+        undefined, // Kein AI Parser
       );
 
       const entryIds = await useCase.execute('burger mit cola');
@@ -201,7 +201,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       await useCase.execute('burger mit cola', '2026-02-14');
@@ -225,7 +225,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
-        aiParser   // aiMealParser
+        aiParser, // aiMealParser
       );
 
       await useCase.execute('burger mit cola');

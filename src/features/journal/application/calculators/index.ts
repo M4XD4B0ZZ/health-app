@@ -1,1 +1,1 @@
-export * from "./ConsumedMacrosCalculator"
+export * from './ConsumedMacrosCalculator';

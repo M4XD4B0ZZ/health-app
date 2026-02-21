@@ -1,1 +1,1 @@
-export * from "./NutritionReadRepository"
+export * from './NutritionReadRepository';

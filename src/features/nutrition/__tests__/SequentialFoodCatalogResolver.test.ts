@@ -1,27 +1,30 @@
-import { SequentialFoodCatalogResolver } from '../application/services/SequentialFoodCatalogResolver'
-import { DefaultConfidenceEngine } from '../domain/confidence/DefaultConfidenceEngine'
-import { FoodCatalogSource, FoodSearchQuery, FoodCandidate } from '../domain/catalog/FoodCatalogSource'
-import { FoodCatalogError } from '../domain/errors/FoodCatalogError'
-import { FoodCatalogConfig } from '../domain/models/FoodCatalogConfig'
+import { SequentialFoodCatalogResolver } from '../application/services/SequentialFoodCatalogResolver';
+import { DefaultConfidenceEngine } from '../domain/confidence/DefaultConfidenceEngine';
+import {
+  FoodCatalogSource,
+  FoodSearchQuery,
+  FoodCandidate,
+} from '../domain/catalog/FoodCatalogSource';
+import { FoodCatalogError } from '../domain/errors/FoodCatalogError';
+import { FoodCatalogConfig } from '../domain/models/FoodCatalogConfig';
 
 describe('SequentialFoodCatalogResolver', () => {
-
-  const confidenceEngine = new DefaultConfidenceEngine()
+  const confidenceEngine = new DefaultConfidenceEngine();
 
   const createMockOffSource = (results: FoodCandidate[]): FoodCatalogSource => ({
     type: 'off',
     search: jest.fn().mockResolvedValue(results),
-  })
+  });
 
   const createMockUsdaSource = (results: FoodCandidate[]): FoodCatalogSource => ({
     type: 'usda',
     search: jest.fn().mockResolvedValue(results),
-  })
+  });
 
   const createMockUserSource = (results: FoodCandidate[]): FoodCatalogSource => ({
     type: 'user',
     search: jest.fn().mockResolvedValue(results),
-  })
+  });
 
   const createCandidate = (source: 'off' | 'usda' | 'user', similarity: number): FoodCandidate => ({
     food: {
@@ -37,13 +40,13 @@ describe('SequentialFoodCatalogResolver', () => {
     },
     confidence: 0,
     reasons: [],
-  })
+  });
 
   it('returns user alias immediately without checking other sources', async () => {
-    const userCandidate = createCandidate('user', 1)
-    const userSource = createMockUserSource([userCandidate])
-    const offSource = createMockOffSource([createCandidate('off', 1)])
-    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)])
+    const userCandidate = createCandidate('user', 1);
+    const userSource = createMockUserSource([userCandidate]);
+    const offSource = createMockOffSource([createCandidate('off', 1)]);
+    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)]);
 
     const config: FoodCatalogConfig = {
       offEarlyReturnMinConfidence: 0.7,
@@ -57,23 +60,23 @@ describe('SequentialFoodCatalogResolver', () => {
         cooldownMs: 120000,
         enabled: true,
       },
-    }
+    };
 
     const resolver = new SequentialFoodCatalogResolver(
       [userSource, offSource, usdaSource],
       confidenceEngine,
-      config
-    )
+      config,
+    );
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('user')
-    expect(userSource.search).toHaveBeenCalled()
-    expect(offSource.search).not.toHaveBeenCalled()
-    expect(usdaSource.search).not.toHaveBeenCalled()
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('user');
+    expect(userSource.search).toHaveBeenCalled();
+    expect(offSource.search).not.toHaveBeenCalled();
+    expect(usdaSource.search).not.toHaveBeenCalled();
+  });
 
   it('returns OFF result with high confidence without checking USDA', async () => {
     const config: FoodCatalogConfig = {
@@ -88,27 +91,27 @@ describe('SequentialFoodCatalogResolver', () => {
         cooldownMs: 120000,
         enabled: true,
       },
-    }
+    };
 
-    const offCandidate = createCandidate('off', 1)
-    const offSource = createMockOffSource([offCandidate])
-    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)])
+    const offCandidate = createCandidate('off', 1);
+    const offSource = createMockOffSource([offCandidate]);
+    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
       confidenceEngine,
-      config
-    )
+      config,
+    );
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('off')
-    expect(result?.confidence).toBeGreaterThanOrEqual(0.7)
-    expect(offSource.search).toHaveBeenCalled()
-    expect(usdaSource.search).not.toHaveBeenCalled()
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('off');
+    expect(result?.confidence).toBeGreaterThanOrEqual(0.7);
+    expect(offSource.search).toHaveBeenCalled();
+    expect(usdaSource.search).not.toHaveBeenCalled();
+  });
 
   it('continues to USDA when OFF confidence is low', async () => {
     const config: FoodCatalogConfig = {
@@ -123,39 +126,39 @@ describe('SequentialFoodCatalogResolver', () => {
         cooldownMs: 120000,
         enabled: true,
       },
-    }
+    };
 
     // Mock engine to return specific confidence scores
     const mockEngine = {
       score: jest.fn((params) => {
         if (params.source === 'off') {
-          return { confidence: 0.5, reasons: ['low match'] }
+          return { confidence: 0.5, reasons: ['low match'] };
         }
-        return { confidence: 0.8, reasons: ['good match'] }
+        return { confidence: 0.8, reasons: ['good match'] };
       }),
-    }
+    };
 
-    const lowConfOffCandidate = createCandidate('off', 0.3)
-    const offSource = createMockOffSource([lowConfOffCandidate])
-    const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+    const lowConfOffCandidate = createCandidate('off', 0.3);
+    const offSource = createMockOffSource([lowConfOffCandidate]);
+    const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
       mockEngine as any,
-      config
-    )
+      config,
+    );
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
     // Both sources should be called since OFF confidence < 0.7
-    expect(offSource.search).toHaveBeenCalled()
-    expect(usdaSource.search).toHaveBeenCalled()
-    
+    expect(offSource.search).toHaveBeenCalled();
+    expect(usdaSource.search).toHaveBeenCalled();
+
     // Should return USDA since it has better confidence (0.8 > 0.5)
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('usda')
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('usda');
+  });
 
   it('returns USDA if better confidence than OFF', async () => {
     const config: FoodCatalogConfig = {
@@ -170,38 +173,38 @@ describe('SequentialFoodCatalogResolver', () => {
         cooldownMs: 120000,
         enabled: true,
       },
-    }
+    };
 
     // Mock engine to ensure USDA has higher confidence
     const mockEngine = {
       score: jest.fn((params) => {
         if (params.source === 'off') {
-          return { confidence: 0.4, reasons: ['weak match'] }
+          return { confidence: 0.4, reasons: ['weak match'] };
         }
-        return { confidence: 0.9, reasons: ['strong match'] }
+        return { confidence: 0.9, reasons: ['strong match'] };
       }),
-    }
+    };
 
-    const lowConfOffCandidate = createCandidate('off', 0.3)
-    const highConfUsdaCandidate = createCandidate('usda', 0.9)
-    
-    const offSource = createMockOffSource([lowConfOffCandidate])
-    const usdaSource = createMockUsdaSource([highConfUsdaCandidate])
+    const lowConfOffCandidate = createCandidate('off', 0.3);
+    const highConfUsdaCandidate = createCandidate('usda', 0.9);
+
+    const offSource = createMockOffSource([lowConfOffCandidate]);
+    const usdaSource = createMockUsdaSource([highConfUsdaCandidate]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
       mockEngine as any,
-      config
-    )
+      config,
+    );
 
-    const query: FoodSearchQuery = { raw: 'generic', normalized: 'generic', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'generic', normalized: 'generic', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('usda')
-    expect(offSource.search).toHaveBeenCalled()
-    expect(usdaSource.search).toHaveBeenCalled()
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('usda');
+    expect(offSource.search).toHaveBeenCalled();
+    expect(usdaSource.search).toHaveBeenCalled();
+  });
 
   it('returns OFF even when confidence is low if USDA fails', async () => {
     const config: FoodCatalogConfig = {
@@ -216,27 +219,27 @@ describe('SequentialFoodCatalogResolver', () => {
         cooldownMs: 120000,
         enabled: true,
       },
-    }
+    };
 
-    const lowConfOffCandidate = createCandidate('off', 0.3)
-    const offSource = createMockOffSource([lowConfOffCandidate])
+    const lowConfOffCandidate = createCandidate('off', 0.3);
+    const offSource = createMockOffSource([lowConfOffCandidate]);
     const usdaSource: FoodCatalogSource = {
       type: 'usda',
       search: jest.fn().mockRejectedValue(new Error('USDA error')),
-    }
+    };
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
       confidenceEngine,
-      config
-    )
+      config,
+    );
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('off')
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('off');
+  });
 
   it('returns null when OFF is empty and USDA is empty', async () => {
     const config: FoodCatalogConfig = {
@@ -251,88 +254,79 @@ describe('SequentialFoodCatalogResolver', () => {
         cooldownMs: 120000,
         enabled: true,
       },
-    }
+    };
 
-    const offSource = createMockOffSource([])
-    const usdaSource = createMockUsdaSource([])
+    const offSource = createMockOffSource([]);
+    const usdaSource = createMockUsdaSource([]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
       confidenceEngine,
-      config
-    )
+      config,
+    );
 
-    const query: FoodSearchQuery = { raw: 'unknown', normalized: 'unknown', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'unknown', normalized: 'unknown', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).toBeNull()
-    expect(offSource.search).toHaveBeenCalled()
-    expect(usdaSource.search).toHaveBeenCalled()
-  })
+    expect(result).toBeNull();
+    expect(offSource.search).toHaveBeenCalled();
+    expect(usdaSource.search).toHaveBeenCalled();
+  });
 
   it('continues to next source when a source throws error', async () => {
     const offSource: FoodCatalogSource = {
       type: 'off',
       search: jest.fn().mockRejectedValue(new Error('OFF error')),
-    }
-    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)])
+    };
+    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)]);
 
-    const resolver = new SequentialFoodCatalogResolver(
-      [offSource, usdaSource],
-      confidenceEngine
-    )
+    const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('usda')
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('usda');
+  });
 
   it('sorts candidates by confidence, then similarity, then source weight', async () => {
     const candidates = [
       createCandidate('off', 0.5),
       createCandidate('usda', 0.8),
       createCandidate('off', 0.8),
-    ]
-    const offSource = createMockOffSource(candidates)
+    ];
+    const offSource = createMockOffSource(candidates);
 
-    const resolver = new SequentialFoodCatalogResolver(
-      [offSource],
-      confidenceEngine
-    )
+    const resolver = new SequentialFoodCatalogResolver([offSource], confidenceEngine);
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
+    expect(result).not.toBeNull();
     // Should pick the one with highest confidence
-    expect(result?.match.similarity).toBe(0.8)
-  })
+    expect(result?.match.similarity).toBe(0.8);
+  });
 
   it('returns OFF when confidence is equal but source weight is higher', async () => {
-    const offCandidate = createCandidate('off', 0.5)
-    const usdaCandidate = createCandidate('usda', 0.5)
-    
+    const offCandidate = createCandidate('off', 0.5);
+    const usdaCandidate = createCandidate('usda', 0.5);
+
     // Force same confidence by mocking engine
     const mockEngine = {
       score: jest.fn().mockReturnValue({ confidence: 0.5, reasons: [] }),
-    }
+    };
 
-    const offSource = createMockOffSource([offCandidate])
-    const usdaSource = createMockUsdaSource([usdaCandidate])
+    const offSource = createMockOffSource([offCandidate]);
+    const usdaSource = createMockUsdaSource([usdaCandidate]);
 
-    const resolver = new SequentialFoodCatalogResolver(
-      [offSource, usdaSource],
-      mockEngine as any
-    )
+    const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], mockEngine as any);
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-    const result = await resolver.resolve(query)
+    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('off')
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('off');
+  });
 
   describe('Circuit Breaker', () => {
     it('opens circuit after N failures and skips source', async () => {
@@ -348,34 +342,34 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockRejectedValue(FoodCatalogError.network('Network error')),
-      }
-      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+      };
+      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
       // First 3 calls: OFF fails, USDA succeeds
-      await resolver.resolve(query)
-      await resolver.resolve(query)
-      await resolver.resolve(query)
+      await resolver.resolve(query);
+      await resolver.resolve(query);
+      await resolver.resolve(query);
 
-      expect(offSource.search).toHaveBeenCalledTimes(3)
+      expect(offSource.search).toHaveBeenCalledTimes(3);
 
       // 4th call: Circuit is open, OFF should be skipped
-      await resolver.resolve(query)
-      expect(offSource.search).toHaveBeenCalledTimes(3) // Still 3, not called again
-      expect(usdaSource.search).toHaveBeenCalledTimes(4)
-    })
+      await resolver.resolve(query);
+      expect(offSource.search).toHaveBeenCalledTimes(3); // Still 3, not called again
+      expect(usdaSource.search).toHaveBeenCalledTimes(4);
+    });
 
     it('closes circuit after successful call', async () => {
       const config: FoodCatalogConfig = {
@@ -390,42 +384,38 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
-      let callCount = 0
+      let callCount = 0;
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockImplementation(() => {
-          callCount++
+          callCount++;
           if (callCount <= 2) {
-            return Promise.reject(FoodCatalogError.network('Network error'))
+            return Promise.reject(FoodCatalogError.network('Network error'));
           }
-          return Promise.resolve([createCandidate('off', 0.9)])
+          return Promise.resolve([createCandidate('off', 0.9)]);
         }),
-      }
+      };
 
-      const resolver = new SequentialFoodCatalogResolver(
-        [offSource],
-        confidenceEngine,
-        config
-      )
+      const resolver = new SequentialFoodCatalogResolver([offSource], confidenceEngine, config);
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
       // 2 failures
-      await resolver.resolve(query)
-      await resolver.resolve(query)
+      await resolver.resolve(query);
+      await resolver.resolve(query);
 
       // 3rd call succeeds, should reset circuit
-      const result = await resolver.resolve(query)
-      expect(result).not.toBeNull()
-      expect(result?.food.source).toBe('off')
+      const result = await resolver.resolve(query);
+      expect(result).not.toBeNull();
+      expect(result?.food.source).toBe('off');
 
       // Circuit should be closed, next call should work
-      const result2 = await resolver.resolve(query)
-      expect(result2).not.toBeNull()
-      expect(offSource.search).toHaveBeenCalledTimes(4)
-    })
+      const result2 = await resolver.resolve(query);
+      expect(result2).not.toBeNull();
+      expect(offSource.search).toHaveBeenCalledTimes(4);
+    });
 
     it('does not count invalid_payload errors for circuit breaker', async () => {
       const config: FoodCatalogConfig = {
@@ -440,43 +430,41 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
-        search: jest.fn().mockRejectedValue(
-          FoodCatalogError.invalidPayload('Invalid payload')
-        ),
-      }
-      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+        search: jest.fn().mockRejectedValue(FoodCatalogError.invalidPayload('Invalid payload')),
+      };
+      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
       // Multiple calls with invalid_payload errors
-      await resolver.resolve(query)
-      await resolver.resolve(query)
-      await resolver.resolve(query)
-      await resolver.resolve(query)
+      await resolver.resolve(query);
+      await resolver.resolve(query);
+      await resolver.resolve(query);
+      await resolver.resolve(query);
 
       // Circuit should NOT be open since invalid_payload doesn't count
-      expect(offSource.search).toHaveBeenCalledTimes(4)
-    })
-  })
+      expect(offSource.search).toHaveBeenCalledTimes(4);
+    });
+  });
 
   describe('Timeout Budgets', () => {
     beforeEach(() => {
-      jest.useFakeTimers()
-    })
+      jest.useFakeTimers();
+    });
 
     afterEach(() => {
-      jest.useRealTimers()
-    })
+      jest.useRealTimers();
+    });
 
     it('times out source that exceeds budget', async () => {
       const config: FoodCatalogConfig = {
@@ -491,37 +479,37 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockImplementation(() => {
           return new Promise((resolve) => {
-            setTimeout(() => resolve([createCandidate('off', 0.9)]), 1000) // 1 second delay
-          })
+            setTimeout(() => resolve([createCandidate('off', 0.9)]), 1000); // 1 second delay
+          });
         }),
-      }
-      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+      };
+      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
-      const resolvePromise = resolver.resolve(query)
+      const resolvePromise = resolver.resolve(query);
 
       // Advance past source budget (500ms)
-      jest.advanceTimersByTime(600)
+      jest.advanceTimersByTime(600);
 
-      const result = await resolvePromise
+      const result = await resolvePromise;
 
       // OFF should have timed out, USDA should be returned
-      expect(result).not.toBeNull()
-      expect(result?.food.source).toBe('usda')
-    })
+      expect(result).not.toBeNull();
+      expect(result?.food.source).toBe('usda');
+    });
 
     it('respects global resolver budget', async () => {
       const config: FoodCatalogConfig = {
@@ -536,32 +524,32 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockResolvedValue([]),
-      }
+      };
       const usdaSource: FoodCatalogSource = {
         type: 'usda',
         search: jest.fn().mockResolvedValue([createCandidate('usda', 0.9)]),
-      }
+      };
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-      const result = await resolver.resolve(query)
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+      const result = await resolver.resolve(query);
 
       // Both sources should be called when within budget
-      expect(offSource.search).toHaveBeenCalled()
-      expect(usdaSource.search).toHaveBeenCalled()
-      expect(result).not.toBeNull()
-      expect(result?.food.source).toBe('usda')
-    })
+      expect(offSource.search).toHaveBeenCalled();
+      expect(usdaSource.search).toHaveBeenCalled();
+      expect(result).not.toBeNull();
+      expect(result?.food.source).toBe('usda');
+    });
 
     it('skips remaining sources when global budget exceeded', async () => {
       const config: FoodCatalogConfig = {
@@ -576,48 +564,48 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockImplementation(() => {
           return new Promise((resolve) => {
-            setTimeout(() => resolve([]), 500)
-          })
+            setTimeout(() => resolve([]), 500);
+          });
         }),
-      }
-      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+      };
+      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
-      const resolvePromise = resolver.resolve(query)
+      const resolvePromise = resolver.resolve(query);
 
       // Advance past OFF completion (500ms) and global budget (600ms)
-      jest.advanceTimersByTime(700)
+      jest.advanceTimersByTime(700);
 
-      const result = await resolvePromise
+      const result = await resolvePromise;
 
-      expect(offSource.search).toHaveBeenCalled()
+      expect(offSource.search).toHaveBeenCalled();
       // USDA should be skipped because global budget exceeded
-      expect(usdaSource.search).not.toHaveBeenCalled()
-      expect(result).toBeNull()
-    })
-  })
+      expect(usdaSource.search).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+  });
 
   describe('Circuit Breaker + Timeout Integration', () => {
     beforeEach(() => {
-      jest.useFakeTimers()
-    })
+      jest.useFakeTimers();
+    });
 
     afterEach(() => {
-      jest.useRealTimers()
-    })
+      jest.useRealTimers();
+    });
 
     it('opens circuit after repeated timeouts', async () => {
       const config: FoodCatalogConfig = {
@@ -632,45 +620,45 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockImplementation(() => {
           return new Promise((resolve) => {
-            setTimeout(() => resolve([createCandidate('off', 0.9)]), 500) // Always too slow
-          })
+            setTimeout(() => resolve([createCandidate('off', 0.9)]), 500); // Always too slow
+          });
         }),
-      }
-      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+      };
+      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
       // 3 calls that will timeout OFF
       for (let i = 0; i < 3; i++) {
-        const promise = resolver.resolve(query)
-        jest.advanceTimersByTime(400) // Trigger timeout
-        await promise
+        const promise = resolver.resolve(query);
+        jest.advanceTimersByTime(400); // Trigger timeout
+        await promise;
       }
 
-      expect(offSource.search).toHaveBeenCalledTimes(3)
+      expect(offSource.search).toHaveBeenCalledTimes(3);
 
       // 4th call: Circuit should be open
-      const promise = resolver.resolve(query)
-      jest.advanceTimersByTime(400)
-      await promise
+      const promise = resolver.resolve(query);
+      jest.advanceTimersByTime(400);
+      await promise;
 
       // OFF should be skipped due to open circuit
-      expect(offSource.search).toHaveBeenCalledTimes(3)
-      expect(usdaSource.search).toHaveBeenCalledTimes(4)
-    })
-  })
+      expect(offSource.search).toHaveBeenCalledTimes(3);
+      expect(usdaSource.search).toHaveBeenCalledTimes(4);
+    });
+  });
 
   describe('Negative Caching', () => {
     it('returns null immediately on negative cache hit without calling sources', async () => {
@@ -686,31 +674,31 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
-      const offSource = createMockOffSource([])
-      const usdaSource = createMockUsdaSource([])
+      const offSource = createMockOffSource([]);
+      const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'unknown', normalized: 'unknown', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'unknown', normalized: 'unknown', locale: 'de' };
 
       // First call: No results, should cache negative result
-      const result1 = await resolver.resolve(query)
-      expect(result1).toBeNull()
-      expect(offSource.search).toHaveBeenCalledTimes(1)
-      expect(usdaSource.search).toHaveBeenCalledTimes(1)
+      const result1 = await resolver.resolve(query);
+      expect(result1).toBeNull();
+      expect(offSource.search).toHaveBeenCalledTimes(1);
+      expect(usdaSource.search).toHaveBeenCalledTimes(1);
 
       // Second call: Should hit cache, sources not called again
-      const result2 = await resolver.resolve(query)
-      expect(result2).toBeNull()
-      expect(offSource.search).toHaveBeenCalledTimes(1) // Still 1, not called again
-      expect(usdaSource.search).toHaveBeenCalledTimes(1) // Still 1, not called again
-    })
+      const result2 = await resolver.resolve(query);
+      expect(result2).toBeNull();
+      expect(offSource.search).toHaveBeenCalledTimes(1); // Still 1, not called again
+      expect(usdaSource.search).toHaveBeenCalledTimes(1); // Still 1, not called again
+    });
 
     it('sets negative cache only when all sources return empty', async () => {
       const config: FoodCatalogConfig = {
@@ -725,28 +713,28 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
-      const offSource = createMockOffSource([])
-      const usdaSource = createMockUsdaSource([])
+      const offSource = createMockOffSource([]);
+      const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'notfound', normalized: 'notfound', locale: 'en' }
+      const query: FoodSearchQuery = { raw: 'notfound', normalized: 'notfound', locale: 'en' };
 
       // First call: No results
-      const result = await resolver.resolve(query)
-      expect(result).toBeNull()
+      const result = await resolver.resolve(query);
+      expect(result).toBeNull();
 
       // Second call: Should be cached
-      const result2 = await resolver.resolve(query)
-      expect(result2).toBeNull()
-      expect(offSource.search).toHaveBeenCalledTimes(1)
-    })
+      const result2 = await resolver.resolve(query);
+      expect(result2).toBeNull();
+      expect(offSource.search).toHaveBeenCalledTimes(1);
+    });
 
     it('does not set negative cache if a countable error occurred', async () => {
       const config: FoodCatalogConfig = {
@@ -761,32 +749,32 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockRejectedValue(FoodCatalogError.network('Network error')),
-      }
-      const usdaSource = createMockUsdaSource([])
+      };
+      const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
 
       // First call: Network error in OFF, empty USDA
-      const result1 = await resolver.resolve(query)
-      expect(result1).toBeNull()
+      const result1 = await resolver.resolve(query);
+      expect(result1).toBeNull();
 
       // Second call: Should NOT be cached, sources should be called again
-      const result2 = await resolver.resolve(query)
-      expect(result2).toBeNull()
-      expect(offSource.search).toHaveBeenCalledTimes(2) // Called twice
-      expect(usdaSource.search).toHaveBeenCalledTimes(2) // Called twice
-    })
+      const result2 = await resolver.resolve(query);
+      expect(result2).toBeNull();
+      expect(offSource.search).toHaveBeenCalledTimes(2); // Called twice
+      expect(usdaSource.search).toHaveBeenCalledTimes(2); // Called twice
+    });
 
     it('negative cache is locale-specific', async () => {
       const config: FoodCatalogConfig = {
@@ -801,33 +789,33 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
-      const offSource = createMockOffSource([])
-      const usdaSource = createMockUsdaSource([])
+      const offSource = createMockOffSource([]);
+      const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
       // First call with 'de' locale: No results, should cache
-      const queryDe: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-      await resolver.resolve(queryDe)
+      const queryDe: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+      await resolver.resolve(queryDe);
 
       // Second call with 'en' locale: Different locale, should call sources again
-      const queryEn: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'en' }
-      await resolver.resolve(queryEn)
+      const queryEn: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'en' };
+      await resolver.resolve(queryEn);
 
-      expect(offSource.search).toHaveBeenCalledTimes(2) // Called for both locales
-      expect(usdaSource.search).toHaveBeenCalledTimes(2)
-    })
-  })
+      expect(offSource.search).toHaveBeenCalledTimes(2); // Called for both locales
+      expect(usdaSource.search).toHaveBeenCalledTimes(2);
+    });
+  });
 
   describe('Lookup Summary Metrics', () => {
     it('logs summary with all expected fields when debug logs enabled', async () => {
-      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation()
+      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation();
 
       const config: FoodCatalogConfig = {
         offEarlyReturnMinConfidence: 0.7,
@@ -841,53 +829,53 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
-      const offSource = createMockOffSource([createCandidate('off', 0.9)])
-      const usdaSource = createMockUsdaSource([])
+      const offSource = createMockOffSource([createCandidate('off', 0.9)]);
+      const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-      await resolver.resolve(query)
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+      await resolver.resolve(query);
 
       // Find the summary log call
       const summaryLog = consoleSpy.mock.calls.find(
-        call => call[0] === '[SequentialFoodCatalogResolver] Lookup Summary'
-      )
+        (call) => call[0] === '[SequentialFoodCatalogResolver] Lookup Summary',
+      );
 
-      expect(summaryLog).toBeDefined()
-      const metrics = summaryLog![1]
+      expect(summaryLog).toBeDefined();
+      const metrics = summaryLog![1];
 
       // Verify all expected fields are present
-      expect(metrics).toHaveProperty('traceId')
-      expect(metrics).toHaveProperty('totalElapsedMs')
-      expect(metrics).toHaveProperty('sourcesTried')
-      expect(metrics).toHaveProperty('skippedByCircuit')
-      expect(metrics).toHaveProperty('timedOutSources')
-      expect(metrics).toHaveProperty('errorsBySource')
-      expect(metrics).toHaveProperty('winnerSource')
-      expect(metrics).toHaveProperty('winnerConfidence')
-      expect(metrics).toHaveProperty('cacheHit')
-      expect(metrics).toHaveProperty('cacheSet')
+      expect(metrics).toHaveProperty('traceId');
+      expect(metrics).toHaveProperty('totalElapsedMs');
+      expect(metrics).toHaveProperty('sourcesTried');
+      expect(metrics).toHaveProperty('skippedByCircuit');
+      expect(metrics).toHaveProperty('timedOutSources');
+      expect(metrics).toHaveProperty('errorsBySource');
+      expect(metrics).toHaveProperty('winnerSource');
+      expect(metrics).toHaveProperty('winnerConfidence');
+      expect(metrics).toHaveProperty('cacheHit');
+      expect(metrics).toHaveProperty('cacheSet');
 
       // Verify values
-      expect(metrics.sourcesTried).toEqual(['off'])
-      expect(metrics.winnerSource).toBe('off')
-      expect(metrics.winnerConfidence).toBeGreaterThan(0)
-      expect(metrics.cacheHit).toBe(false)
-      expect(metrics.cacheSet).toBe(false)
+      expect(metrics.sourcesTried).toEqual(['off']);
+      expect(metrics.winnerSource).toBe('off');
+      expect(metrics.winnerConfidence).toBeGreaterThan(0);
+      expect(metrics.cacheHit).toBe(false);
+      expect(metrics.cacheSet).toBe(false);
 
-      consoleSpy.mockRestore()
-    })
+      consoleSpy.mockRestore();
+    });
 
     it('summary includes timeout information', async () => {
-      jest.useFakeTimers()
-      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation()
+      jest.useFakeTimers();
+      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation();
 
       const config: FoodCatalogConfig = {
         offEarlyReturnMinConfidence: 0.7,
@@ -901,46 +889,46 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
       const offSource: FoodCatalogSource = {
         type: 'off',
         search: jest.fn().mockImplementation(() => {
           return new Promise((resolve) => {
-            setTimeout(() => resolve([]), 500) // Too slow
-          })
+            setTimeout(() => resolve([]), 500); // Too slow
+          });
         }),
-      }
-      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)])
+      };
+      const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' }
-      const promise = resolver.resolve(query)
-      jest.advanceTimersByTime(400)
-      await promise
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+      const promise = resolver.resolve(query);
+      jest.advanceTimersByTime(400);
+      await promise;
 
       const summaryLog = consoleSpy.mock.calls.find(
-        call => call[0] === '[SequentialFoodCatalogResolver] Lookup Summary'
-      )
+        (call) => call[0] === '[SequentialFoodCatalogResolver] Lookup Summary',
+      );
 
-      expect(summaryLog).toBeDefined()
-      const metrics = summaryLog![1]
+      expect(summaryLog).toBeDefined();
+      const metrics = summaryLog![1];
 
       // OFF should be in timedOutSources
-      expect(metrics.timedOutSources).toContain('off')
-      expect(metrics.errorsBySource).toHaveProperty('off', 'timeout')
+      expect(metrics.timedOutSources).toContain('off');
+      expect(metrics.errorsBySource).toHaveProperty('off', 'timeout');
 
-      consoleSpy.mockRestore()
-      jest.useRealTimers()
-    })
+      consoleSpy.mockRestore();
+      jest.useRealTimers();
+    });
 
     it('summary includes cache hit information', async () => {
-      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation()
+      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation();
 
       const config: FoodCatalogConfig = {
         offEarlyReturnMinConfidence: 0.7,
@@ -954,37 +942,37 @@ describe('SequentialFoodCatalogResolver', () => {
           cooldownMs: 120000,
           enabled: true,
         },
-      }
+      };
 
-      const offSource = createMockOffSource([])
-      const usdaSource = createMockUsdaSource([])
+      const offSource = createMockOffSource([]);
+      const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
         [offSource, usdaSource],
         confidenceEngine,
-        config
-      )
+        config,
+      );
 
-      const query: FoodSearchQuery = { raw: 'notfound', normalized: 'notfound', locale: 'de' }
+      const query: FoodSearchQuery = { raw: 'notfound', normalized: 'notfound', locale: 'de' };
 
       // First call: Cache miss
-      await resolver.resolve(query)
-      
+      await resolver.resolve(query);
+
       // Second call: Cache hit
-      await resolver.resolve(query)
+      await resolver.resolve(query);
 
       // Find the second summary log (cache hit)
       const summaryLogs = consoleSpy.mock.calls.filter(
-        call => call[0] === '[SequentialFoodCatalogResolver] Lookup Summary'
-      )
+        (call) => call[0] === '[SequentialFoodCatalogResolver] Lookup Summary',
+      );
 
-      expect(summaryLogs.length).toBeGreaterThanOrEqual(2)
-      const cacheHitMetrics = summaryLogs[1][1]
+      expect(summaryLogs.length).toBeGreaterThanOrEqual(2);
+      const cacheHitMetrics = summaryLogs[1][1];
 
-      expect(cacheHitMetrics.cacheHit).toBe(true)
-      expect(cacheHitMetrics.sourcesTried).toEqual([]) // No sources tried on cache hit
+      expect(cacheHitMetrics.cacheHit).toBe(true);
+      expect(cacheHitMetrics.sourcesTried).toEqual([]); // No sources tried on cache hit
 
-      consoleSpy.mockRestore()
-    })
-  })
-})
+      consoleSpy.mockRestore();
+    });
+  });
+});

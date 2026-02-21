@@ -1,3 +1,3 @@
-export * from "./MetabolismCalculator"
-export * from "./GoalsSuggestionCalculator"
-export * from "./ProgressCalculator"
+export * from './MetabolismCalculator';
+export * from './GoalsSuggestionCalculator';
+export * from './ProgressCalculator';

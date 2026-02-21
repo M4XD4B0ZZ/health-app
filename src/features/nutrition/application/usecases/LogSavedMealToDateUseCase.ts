@@ -21,7 +21,7 @@ export class LogSavedMealToDateUseCase {
     private readonly foodEntryRepository: FoodEntryRepository,
     private readonly clock: Clock,
     private readonly idGenerator: IdGenerator,
-    private readonly nutritionLookup?: NutritionLookup
+    private readonly nutritionLookup?: NutritionLookup,
   ) {
     this.engine = new NutritionEngine();
   }

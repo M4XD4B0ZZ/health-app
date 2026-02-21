@@ -1,1 +1,1 @@
-export * from "./ComputeProgressForDateUseCase"
+export * from './ComputeProgressForDateUseCase';

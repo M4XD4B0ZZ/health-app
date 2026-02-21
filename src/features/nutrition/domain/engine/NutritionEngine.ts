@@ -19,9 +19,7 @@ export class NutritionEngine {
     const normalized = raw.trim().toLowerCase();
 
     const gramsMatch = normalized.match(/(\d+(?:[.,]\d+)?)\s*g\b/);
-    const quantityGrams = gramsMatch
-      ? Number.parseFloat(gramsMatch[1].replace(',', '.'))
-      : 100;
+    const quantityGrams = gramsMatch ? Number.parseFloat(gramsMatch[1].replace(',', '.')) : 100;
 
     const parsedName = normalized
       .replace(/(\d+(?:[.,]\d+)?)\s*g\b/g, '')
@@ -61,12 +59,13 @@ export class NutritionEngine {
         totalProtein: 0,
         totalCarbs: 0,
         totalFat: 0,
-      }
+      },
     );
 
-    const latestDate = entries.length > 0
-      ? new Date(Math.max(...entries.map((e) => e.createdAt.getTime())))
-      : new Date();
+    const latestDate =
+      entries.length > 0
+        ? new Date(Math.max(...entries.map((e) => e.createdAt.getTime())))
+        : new Date();
 
     return {
       date: latestDate.toISOString().slice(0, 10),
@@ -136,4 +135,3 @@ export class NutritionEngine {
     return Math.min(max, Math.max(min, value));
   }
 }
-

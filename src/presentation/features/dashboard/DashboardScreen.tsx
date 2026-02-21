@@ -20,24 +20,27 @@ const DashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSummary = useCallback((isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const loadSummary = useCallback(
+    (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      setError(null);
-      const nextSummary = container.getDashboardSummary.execute(range);
-      setSummary(nextSummary);
-    } catch {
-      setError('Fehler beim Laden der Dashboard-Daten.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [range]);
+      try {
+        setError(null);
+        const nextSummary = container.getDashboardSummary.execute(range);
+        setSummary(nextSummary);
+      } catch {
+        setError('Fehler beim Laden der Dashboard-Daten.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [range],
+  );
 
   useEffect(() => {
     loadSummary(false);
@@ -88,7 +91,9 @@ const DashboardScreen: React.FC = () => {
           style={[styles.segmentButton, range === 'today' && styles.segmentButtonActive]}
           onPress={() => setRange('today')}
         >
-          <Text style={[styles.segmentText, range === 'today' && styles.segmentTextActive]}>Heute</Text>
+          <Text style={[styles.segmentText, range === 'today' && styles.segmentTextActive]}>
+            Heute
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.segmentButton, range === 'last7days' && styles.segmentButtonActive]}

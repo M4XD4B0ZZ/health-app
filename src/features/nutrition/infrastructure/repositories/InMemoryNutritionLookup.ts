@@ -42,7 +42,7 @@ export class InMemoryNutritionLookup implements NutritionLookup {
   constructor(initialData?: Record<string, NutritionPer100g>) {
     this.data = new Map();
     const seedData = initialData ?? DEMO_NUTRITION_DATA;
-    
+
     // Seed mit normalisierten Keys (lowercase, trimmed)
     for (const [name, nutrition] of Object.entries(seedData)) {
       const normalizedKey = this.normalizeKey(name);

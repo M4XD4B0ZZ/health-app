@@ -60,7 +60,7 @@ export class MockNutritionRepository implements NutritionRepository {
           proteins: p3.proteins,
           carbs: p3.carbs,
           fats: p3.fats,
-        }
+        },
       );
     }
   }
@@ -86,14 +86,14 @@ export class MockNutritionRepository implements NutritionRepository {
 
   // Einzelne Einträge
   getNutritionEntryById(id: string): NutritionEntry | null {
-    return this.nutritionEntries.find(entry => entry.id === id) || null;
+    return this.nutritionEntries.find((entry) => entry.id === id) || null;
   }
 
   getNutritionEntriesByDate(date: Date): NutritionEntry[] {
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
-    
-    return this.nutritionEntries.filter(entry => {
+
+    return this.nutritionEntries.filter((entry) => {
       const entryDate = new Date(entry.timestamp);
       entryDate.setHours(0, 0, 0, 0);
       return entryDate.getTime() === targetDate.getTime();
@@ -101,50 +101,46 @@ export class MockNutritionRepository implements NutritionRepository {
   }
 
   getNutritionEntriesByDateRange(startDate: Date, endDate: Date): NutritionEntry[] {
-    return this.nutritionEntries.filter(entry => 
-      entry.timestamp >= startDate && entry.timestamp <= endDate
+    return this.nutritionEntries.filter(
+      (entry) => entry.timestamp >= startDate && entry.timestamp <= endDate,
     );
   }
 
   // Tägliche Zusammenfassungen
   getDailyNutritionSummary(date: Date): DailyNutritionSummary {
     const entries = this.getNutritionEntriesByDate(date);
-    
+
     // Gesamtkalorien berechnen
     const totalCalories = entries.reduce((sum, entry) => sum + entry.calories, 0);
-    
+
     // Makronährstoffe berechnen (falls vorhanden)
-    const totalProteins = entries.every(e => e.proteins !== undefined) 
-      ? entries.reduce((sum, entry) => sum + (entry.proteins || 0), 0) 
+    const totalProteins = entries.every((e) => e.proteins !== undefined)
+      ? entries.reduce((sum, entry) => sum + (entry.proteins || 0), 0)
       : undefined;
-      
-    const totalCarbs = entries.every(e => e.carbs !== undefined) 
-      ? entries.reduce((sum, entry) => sum + (entry.carbs || 0), 0) 
+
+    const totalCarbs = entries.every((e) => e.carbs !== undefined)
+      ? entries.reduce((sum, entry) => sum + (entry.carbs || 0), 0)
       : undefined;
-      
-    const totalFats = entries.every(e => e.fats !== undefined) 
-      ? entries.reduce((sum, entry) => sum + (entry.fats || 0), 0) 
+
+    const totalFats = entries.every((e) => e.fats !== undefined)
+      ? entries.reduce((sum, entry) => sum + (entry.fats || 0), 0)
       : undefined;
-    
+
     // Aufschlüsselung nach Mahlzeiten
     const mealBreakdown = {
       breakfast: entries
-        .filter(e => e.mealType === 'breakfast')
+        .filter((e) => e.mealType === 'breakfast')
         .reduce((sum, e) => sum + e.calories, 0),
-      lunch: entries
-        .filter(e => e.mealType === 'lunch')
-        .reduce((sum, e) => sum + e.calories, 0),
+      lunch: entries.filter((e) => e.mealType === 'lunch').reduce((sum, e) => sum + e.calories, 0),
       dinner: entries
-        .filter(e => e.mealType === 'dinner')
+        .filter((e) => e.mealType === 'dinner')
         .reduce((sum, e) => sum + e.calories, 0),
-      snacks: entries
-        .filter(e => e.mealType === 'snack')
-        .reduce((sum, e) => sum + e.calories, 0),
+      snacks: entries.filter((e) => e.mealType === 'snack').reduce((sum, e) => sum + e.calories, 0),
       other: entries
-        .filter(e => e.mealType === 'other' || e.mealType === undefined)
-        .reduce((sum, e) => sum + e.calories, 0)
+        .filter((e) => e.mealType === 'other' || e.mealType === undefined)
+        .reduce((sum, e) => sum + e.calories, 0),
     };
-    
+
     return {
       date: new Date(date),
       entries,
@@ -152,19 +148,19 @@ export class MockNutritionRepository implements NutritionRepository {
       totalProteins,
       totalCarbs,
       totalFats,
-      mealBreakdown
+      mealBreakdown,
     };
   }
 
   getDailyNutritionSummaries(startDate: Date, endDate: Date): DailyNutritionSummary[] {
     const result: DailyNutritionSummary[] = [];
     const currentDate = new Date(startDate);
-    
+
     while (currentDate <= endDate) {
       result.push(this.getDailyNutritionSummary(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return result;
   }
 
@@ -172,12 +168,12 @@ export class MockNutritionRepository implements NutritionRepository {
   getAverageCaloriesPerDay(days: number): number {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - (days - 1));
-    
+
     const summaries = this.getDailyNutritionSummaries(startDate, today);
-    
+
     return summaries.reduce((sum, day) => sum + day.totalCalories, 0) / summaries.length;
   }
 
@@ -188,31 +184,31 @@ export class MockNutritionRepository implements NutritionRepository {
   } {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - days);
-    
+
     const summaries = this.getDailyNutritionSummaries(startDate, today);
-    
+
     // Prüfen, ob alle Tage Makronährstoffdaten haben
-    const hasCompleteData = summaries.every(s => 
-      s.totalProteins !== undefined && 
-      s.totalCarbs !== undefined && 
-      s.totalFats !== undefined
+    const hasCompleteData = summaries.every(
+      (s) =>
+        s.totalProteins !== undefined && s.totalCarbs !== undefined && s.totalFats !== undefined,
     );
-    
+
     if (!hasCompleteData || summaries.length === 0) {
       return {
         proteins: null,
         carbs: null,
-        fats: null
+        fats: null,
       };
     }
-    
+
     return {
-      proteins: summaries.reduce((sum, day) => sum + (day.totalProteins || 0), 0) / summaries.length,
+      proteins:
+        summaries.reduce((sum, day) => sum + (day.totalProteins || 0), 0) / summaries.length,
       carbs: summaries.reduce((sum, day) => sum + (day.totalCarbs || 0), 0) / summaries.length,
-      fats: summaries.reduce((sum, day) => sum + (day.totalFats || 0), 0) / summaries.length
+      fats: summaries.reduce((sum, day) => sum + (day.totalFats || 0), 0) / summaries.length,
     };
   }
 }

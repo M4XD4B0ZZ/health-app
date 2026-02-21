@@ -169,10 +169,7 @@ describe('SupabaseUserAliasSource', () => {
           usedHeuristic: 'alias',
         },
         confidence: 1.0,
-        reasons: expect.arrayContaining([
-          'User-defined alias',
-          'Points to catalog item: item-456',
-        ]),
+        reasons: expect.arrayContaining(['User-defined alias', 'Points to catalog item: item-456']),
       });
     });
 
@@ -278,7 +275,7 @@ describe('SupabaseUserAliasSource', () => {
 
       expect(mockFrom).toHaveBeenCalledWith('user_food_aliases');
       expect(mockSelect).toHaveBeenCalledWith(
-        'id,user_id,alias_text,normalized_alias,locale,target_item_id'
+        'id,user_id,alias_text,normalized_alias,locale,target_item_id',
       );
       expect(mockEq1).toHaveBeenCalledWith('user_id', 'user-123');
       expect(mockEq2).toHaveBeenCalledWith('normalized_alias', 'apfel');

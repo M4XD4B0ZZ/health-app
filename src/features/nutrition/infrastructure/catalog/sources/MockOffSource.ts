@@ -1,11 +1,13 @@
-import { FoodCatalogSource, FoodSearchQuery, FoodCandidate } from '../../../domain/catalog/FoodCatalogSource'
+import {
+  FoodCatalogSource,
+  FoodSearchQuery,
+  FoodCandidate,
+} from '../../../domain/catalog/FoodCatalogSource';
 
 export class MockOffSource implements FoodCatalogSource {
-
-  type = 'off' as const
+  type = 'off' as const;
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
-
     if (query.normalized === 'apfel') {
       return [
         {
@@ -23,9 +25,9 @@ export class MockOffSource implements FoodCatalogSource {
           confidence: 0,
           reasons: [],
         },
-      ]
+      ];
     }
 
-    return []
+    return [];
   }
 }

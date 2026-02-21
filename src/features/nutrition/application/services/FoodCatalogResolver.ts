@@ -1,5 +1,5 @@
-import { FoodSearchQuery, FoodCandidate } from '../../domain/catalog/FoodCatalogSource'
+import { FoodSearchQuery, FoodCandidate } from '../../domain/catalog/FoodCatalogSource';
 
 export interface FoodCatalogResolver {
-  resolve(query: FoodSearchQuery): Promise<FoodCandidate | null>
+  resolve(query: FoodSearchQuery): Promise<FoodCandidate | null>;
 }

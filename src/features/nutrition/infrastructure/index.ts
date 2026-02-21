@@ -4,7 +4,10 @@ export { InMemoryNutritionLookup } from './repositories/InMemoryNutritionLookup'
 export { InMemorySavedMealRepository } from './repositories/InMemorySavedMealRepository';
 export { SystemClock } from './SystemClock';
 export { RandomIdGenerator, TestIdGenerator } from './RandomIdGenerator';
-export { DeterministicFoodParser, DeterministicParseResult } from './parsers/DeterministicFoodParser';
+export {
+  DeterministicFoodParser,
+  DeterministicParseResult,
+} from './parsers/DeterministicFoodParser';
 export { FakeAiMealParser } from './ai';
 export { InMemoryFoodCatalog } from './catalog/InMemoryFoodCatalog';
 export { InMemoryFoodAliasRepository } from './catalog/InMemoryFoodAliasRepository';
@@ -20,7 +23,7 @@ export {
   isEdgeSearchResponse,
   SupabaseEdgeOffProvider,
   SupabaseEdgeUsdaProvider,
-  SupabaseClient
+  SupabaseClient,
 } from './catalog/providers';
 
 // Catalog sources
@@ -28,7 +31,7 @@ export {
   MockOffSource,
   MockUsdaSource,
   SupabaseEdgeOffSource,
-  SupabaseEdgeUsdaSource
+  SupabaseEdgeUsdaSource,
 } from './catalog/sources';
 
 // Catalog utilities

@@ -2,7 +2,7 @@ import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 
 /**
  * Use-Case: Delete Food Entry
- * 
+ *
  * Löscht einen FoodEntry anhand seiner ID.
  */
 export class DeleteFoodEntryUseCase {

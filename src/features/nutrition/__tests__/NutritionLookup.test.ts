@@ -11,7 +11,7 @@ describe('InMemoryNutritionLookup', () => {
   describe('getPer100gByName', () => {
     it('should return nutrition data for seeded items', async () => {
       const banana = await lookup.getPer100gByName('banana');
-      
+
       expect(banana).not.toBeNull();
       expect(banana?.calories).toBe(89);
       expect(banana?.protein).toBe(1.1);
@@ -21,7 +21,7 @@ describe('InMemoryNutritionLookup', () => {
 
     it('should return nutrition data for chicken breast', async () => {
       const chicken = await lookup.getPer100gByName('chicken breast');
-      
+
       expect(chicken).not.toBeNull();
       expect(chicken?.calories).toBe(165);
       expect(chicken?.protein).toBe(31);
@@ -29,7 +29,7 @@ describe('InMemoryNutritionLookup', () => {
 
     it('should return null for unknown food', async () => {
       const unknown = await lookup.getPer100gByName('unknown food item');
-      
+
       expect(unknown).toBeNull();
     });
 
@@ -37,7 +37,7 @@ describe('InMemoryNutritionLookup', () => {
       const banana1 = await lookup.getPer100gByName('BANANA');
       const banana2 = await lookup.getPer100gByName('  banana  ');
       const banana3 = await lookup.getPer100gByName('Banana');
-      
+
       expect(banana1).not.toBeNull();
       expect(banana2).not.toBeNull();
       expect(banana3).not.toBeNull();
@@ -57,7 +57,7 @@ describe('InMemoryNutritionLookup', () => {
       };
 
       await lookup.upsertPer100gByName('test food', newFood);
-      
+
       const result = await lookup.getPer100gByName('test food');
       expect(result).toEqual(newFood);
     });
@@ -71,7 +71,7 @@ describe('InMemoryNutritionLookup', () => {
       };
 
       await lookup.upsertPer100gByName('banana', updatedBanana);
-      
+
       const result = await lookup.getPer100gByName('banana');
       expect(result).toEqual(updatedBanana);
     });

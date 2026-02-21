@@ -4,4 +4,3 @@ export * from './SavedMealTypes';
 export * from './AiMealTypes';
 export * from './FoodCatalogTypes';
 export * from './FoodCatalogConfig';
-

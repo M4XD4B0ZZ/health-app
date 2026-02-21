@@ -1,1 +1,1 @@
-export { FoodCatalogError, FoodCatalogErrorKind } from './FoodCatalogError'
+export { FoodCatalogError, FoodCatalogErrorKind } from './FoodCatalogError';

@@ -39,7 +39,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte banana per ID finden', async () => {
       const result = await catalog.getById('banana');
-      
+
       expect(result).toBeDefined();
       expect(result?.displayName).toBe('Banana');
       expect(result?.per100g.calories).toBe(89);
@@ -47,7 +47,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte bei exaktem Match hohe Confidence zurückgeben', async () => {
       const result = await catalog.searchByName('banana');
-      
+
       expect(result).toBeDefined();
       expect(result?.food.id).toBe('banana');
       expect(result?.confidence).toBeGreaterThanOrEqual(0.95);
@@ -55,7 +55,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte bei Teilmatch niedrigere Confidence zurückgeben', async () => {
       const result = await catalog.searchByName('chick');
-      
+
       expect(result).toBeDefined();
       expect(result?.food.id).toBe('chicken breast');
       expect(result?.confidence).toBeLessThan(1.0);
@@ -63,14 +63,14 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte null bei keinem Match zurückgeben', async () => {
       const result = await catalog.searchByName('sushi');
-      
+
       expect(result).toBeNull();
     });
 
     describe('Plural/Singular-Heuristik', () => {
       it('sollte "apples" zu "apple" matchen (s removal)', async () => {
         const result = await catalog.searchByName('apples');
-        
+
         expect(result).toBeDefined();
         expect(result?.food.id).toBe('apple');
         expect(result?.confidence).toBeGreaterThanOrEqual(0.76); // Slightly reduced from exact match (0.8 * 0.95)
@@ -78,7 +78,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
       it('sollte "bananas" zu "banana" matchen (s removal)', async () => {
         const result = await catalog.searchByName('bananas');
-        
+
         expect(result).toBeDefined();
         expect(result?.food.id).toBe('banana');
         expect(result?.confidence).toBeGreaterThanOrEqual(0.76); // Slightly reduced from exact match (0.8 * 0.95)
@@ -88,7 +88,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
         // "eier" wird zu "ei", was dann über Token-Matching "egg" findet
         // oder ggf. über AI-Mapper
         const result = await catalog.searchByName('eier');
-        
+
         // Kann entweder über Token-Match oder über singular fallback gematcht werden
         // Dieser Test stellt sicher, dass die Heuristik aktiviert wird
         // Je nach Implementierung könnte "ei" nicht exakt matchen, aber das ist ok
@@ -101,7 +101,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
       it('sollte "banane" zu "banana" matchen (e removal + token match)', async () => {
         // "banane" mit e-removal wird zu "banan", was dann Token-basiert auf "banana" matcht
         const result = await catalog.searchByName('banane');
-        
+
         // Sollte via Singular-Heuristik matchen
         expect(result).toBeDefined();
         expect(result?.food.id).toBe('banana');
@@ -112,7 +112,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
         // "aepfel" -> "aepf" (en removal) oder "aepfel" (kein match)
         // Dies testet die en-removal Logik
         const result = await catalog.searchByName('aepfel');
-        
+
         // "aepfel" mit en-removal wird zu "aepf", was auch nicht matcht
         // Mit e-removal wird zu "aepfel" (unchanged)
         // Also könnte dieser Test fehlschlagen - das ist ok
@@ -126,14 +126,14 @@ describe('Canonical Food System - Sprint 5.3', () => {
       it('sollte bei zu kurzem Wort keine Singular-Heuristik anwenden', async () => {
         // Wörter mit <= 3 Zeichen sollten nicht gestripped werden
         const result = await catalog.searchByName('xyz');
-        
+
         expect(result).toBeNull();
       });
 
       it('sollte exakte Matches bevorzugen vor Singular-Heuristik', async () => {
         // "fries" ist exakt im Catalog
         const result = await catalog.searchByName('fries');
-        
+
         expect(result).toBeDefined();
         expect(result?.food.id).toBe('fries');
         expect(result?.confidence).toBeGreaterThanOrEqual(0.95); // Exakter Match
@@ -150,7 +150,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte Alias speichern und abrufen können', async () => {
       await aliasRepo.saveAlias('banane', 'banana');
-      
+
       const canonicalId = await aliasRepo.getCanonicalId('banane');
       expect(canonicalId).toBe('banana');
     });
@@ -170,7 +170,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte "banane" zu "banana" mappen', async () => {
       const result = await mapper.mapToCanonicalFood('200g banane');
-      
+
       expect(result.canonicalId).toBe('banana');
       expect(result.confidence).toBe(0.8);
       expect(result.explanation).toContain('banane');
@@ -178,21 +178,21 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte "hähnchen" zu "chicken breast" mappen', async () => {
       const result = await mapper.mapToCanonicalFood('150g hähnchen');
-      
+
       expect(result.canonicalId).toBe('chicken breast');
       expect(result.confidence).toBe(0.8);
     });
 
     it('sollte "pommes" zu "fries" mappen', async () => {
       const result = await mapper.mapToCanonicalFood('pommes');
-      
+
       expect(result.canonicalId).toBe('fries');
       expect(result.confidence).toBe(0.8);
     });
 
     it('sollte bei unbekanntem Input Fallback verwenden', async () => {
       const result = await mapper.mapToCanonicalFood('sushi');
-      
+
       expect(result.canonicalId).toBe('sushi');
       expect(result.confidence).toBe(0.4);
       expect(result.explanation).toContain('Fallback');
@@ -214,7 +214,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
       aiFoodMapper = new FakeAiFoodMapper();
       clock = {
         now: () => new Date('2026-02-15T12:00:00Z'),
-        todayISO: () => '2026-02-15'
+        todayISO: () => '2026-02-15',
       };
 
       useCase = new LogFoodFromRawInputUseCase(
@@ -224,7 +224,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
         new DeterministicFoodParser(),
         catalog,
         aliasRepo,
-        aiFoodMapper
+        aiFoodMapper,
       );
     });
 
@@ -292,9 +292,9 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
       // Chicken Breast: 165 cal, 31g protein per 100g
       expect(entry.calories).toBeCloseTo(412.5, 1); // 250 * 165/100
-      expect(entry.protein).toBeCloseTo(77.5, 1);   // 250 * 31/100
+      expect(entry.protein).toBeCloseTo(77.5, 1); // 250 * 31/100
       expect(entry.carbs).toBe(0);
-      expect(entry.fat).toBeCloseTo(9, 1);          // 250 * 3.6/100
+      expect(entry.fat).toBeCloseTo(9, 1); // 250 * 3.6/100
     });
 
     it('sollte ohne Gramm-Angabe keine Macros berechnen', async () => {

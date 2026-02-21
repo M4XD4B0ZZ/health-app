@@ -12,17 +12,17 @@ export interface DashboardSummary {
   todayCalories: number;
   calorieGoal: number;
   calorieProgress: number; // Prozentsatz des Tagesziels
-  
+
   // Schlaf
   lastSleep: Sleep | null;
   sleepDurationMinutes: number | null;
   sleepQuality: number | null;
-  
+
   // Schritte
   todaySteps: Steps | null;
   stepGoal: number;
   stepProgress: number; // Prozentsatz des Tagesziels
-  
+
   // Herzfrequenz
   restingHeartRate: number | null;
 }
@@ -33,19 +33,16 @@ export interface DashboardSummary {
 export class GetDashboardSummary {
   private recoveryRepository: RecoveryRepository;
   private nutritionRepository: NutritionRepository;
-  
+
   // Standardziele
   private readonly DEFAULT_CALORIE_GOAL = 2000;
   private readonly DEFAULT_STEP_GOAL = 10000;
-  
-  constructor(
-    recoveryRepository: RecoveryRepository,
-    nutritionRepository: NutritionRepository
-  ) {
+
+  constructor(recoveryRepository: RecoveryRepository, nutritionRepository: NutritionRepository) {
     this.recoveryRepository = recoveryRepository;
     this.nutritionRepository = nutritionRepository;
   }
-  
+
   /**
    * Führt den Usecase aus und gibt eine Dashboard-Zusammenfassung zurück
    */
@@ -56,7 +53,7 @@ export class GetDashboardSummary {
     const totalCalories = this.nutritionRepository.getTotalCalories(range);
     const calorieProgress = Math.min(
       100,
-      (totalCalories / (this.DEFAULT_CALORIE_GOAL * targetDays)) * 100
+      (totalCalories / (this.DEFAULT_CALORIE_GOAL * targetDays)) * 100,
     );
 
     // Schlafdaten abrufen
@@ -76,28 +73,25 @@ export class GetDashboardSummary {
             date: new Date(),
             count: totalSteps,
           };
-    const stepProgress = Math.min(
-      100,
-      (totalSteps / (this.DEFAULT_STEP_GOAL * targetDays)) * 100
-    );
+    const stepProgress = Math.min(100, (totalSteps / (this.DEFAULT_STEP_GOAL * targetDays)) * 100);
 
     // Herzfrequenzdaten abrufen
     const restingHeartRate = this.recoveryRepository.getRestingHeartRate(range);
-    
+
     return {
       todayCalories: totalCalories,
       calorieGoal: this.DEFAULT_CALORIE_GOAL,
       calorieProgress,
-      
+
       lastSleep,
       sleepDurationMinutes,
       sleepQuality,
-      
+
       todaySteps,
       stepGoal: this.DEFAULT_STEP_GOAL,
       stepProgress,
-      
-      restingHeartRate
+
+      restingHeartRate,
     };
   }
 }

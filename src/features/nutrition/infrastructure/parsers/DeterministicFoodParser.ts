@@ -22,20 +22,20 @@ export interface DeterministicParseResult {
 export class DeterministicFoodParser {
   // Deutsche Zahlwörter 1-10
   private readonly germanNumberWords: Record<string, number> = {
-    'ein': 1,
-    'eine': 1,
-    'einen': 1,
-    'eins': 1,
-    'zwei': 2,
-    'drei': 3,
-    'vier': 4,
-    'fünf': 5,
-    'fuenf': 5,
-    'sechs': 6,
-    'sieben': 7,
-    'acht': 8,
-    'neun': 9,
-    'zehn': 10,
+    ein: 1,
+    eine: 1,
+    einen: 1,
+    eins: 1,
+    zwei: 2,
+    drei: 3,
+    vier: 4,
+    fünf: 5,
+    fuenf: 5,
+    sechs: 6,
+    sieben: 7,
+    acht: 8,
+    neun: 9,
+    zehn: 10,
   };
 
   parse(rawInput: string): DeterministicParseResult {
@@ -43,11 +43,11 @@ export class DeterministicFoodParser {
 
     // Pattern für Gramm: "250g", "250 g", "250.5g"
     const gramsMatch = normalized.match(/(\d+(?:[.,]\d+)?)\s*g\b/);
-    
+
     // Pattern für deutsche "Xer" Counts: "20er nuggets", "6er nuggets"
     // Wichtig: "20er nuggets" bedeutet 20 Stück, NICHT ein Menü/Combo
     const germanCountMatch = normalized.match(/^(\d+)\s*er\s+(.+)$/i);
-    
+
     // Pattern für Count: "2 eggs", "2x eggs", "3x", "2 x"
     const countMatch = normalized.match(/^(\d+)\s*x?\s+/i) || normalized.match(/^(\d+)\s*x\s*$/i);
 
@@ -64,9 +64,7 @@ export class DeterministicFoodParser {
       quantityGrams = Number.parseFloat(gramsMatch[1].replace(',', '.'));
       unit = 'g';
       // Entferne Gramm-Angabe aus dem Namen
-      name = normalized
-        .replace(/(\d+(?:[.,]\d+)?)\s*g\b/g, '')
-        .trim();
+      name = normalized.replace(/(\d+(?:[.,]\d+)?)\s*g\b/g, '').trim();
     }
     // Deutsche "Xer" Count-Pattern gefunden
     else if (germanCountMatch) {
@@ -112,10 +110,12 @@ export class DeterministicFoodParser {
    * Versucht deutsche Zahlwörter am Anfang zu erkennen.
    * @returns {count, remainingName} wenn gefunden, sonst null
    */
-  private matchGermanNumberWord(normalized: string): { count: number; remainingName: string } | null {
+  private matchGermanNumberWord(
+    normalized: string,
+  ): { count: number; remainingName: string } | null {
     // Teile den String in Wörter
     const words = normalized.split(/\s+/);
-    
+
     if (words.length < 2) {
       // Brauchen mindestens ein Zahlwort + Nahrungsmittel
       return null;

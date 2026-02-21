@@ -1,3 +1,3 @@
-export * from "./MetabolismTypes"
-export * from "./GoalsTypes"
-export * from "./ProgressTypes"
+export * from './MetabolismTypes';
+export * from './GoalsTypes';
+export * from './ProgressTypes';

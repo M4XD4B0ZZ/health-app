@@ -9,10 +9,12 @@ export interface NutritionReadRepository {
    * @param dateISO - Date in ISO format (YYYY-MM-DD)
    * @returns Array of macro objects (calories, protein, carbs, fat)
    */
-  listFoodEntriesForDate(dateISO: string): Promise<Array<{
-    calories: number
-    protein: number
-    carbs: number
-    fat: number
-  }>>
+  listFoodEntriesForDate(dateISO: string): Promise<
+    Array<{
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    }>
+  >;
 }

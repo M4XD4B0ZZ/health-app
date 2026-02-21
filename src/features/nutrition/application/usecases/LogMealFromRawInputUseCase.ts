@@ -17,14 +17,14 @@ import { normalizeText } from '../utils/normalizeText';
  * Use-Case: Log Meal from Raw Input (Multi-Item)
  *
  * Sprint 5.3: Mit Canonical Food Catalog + Alias Learning
- * 
+ *
  * Flow:
  * A) Falls Input komplex UND aiMealParser verfügbar:
  *    - AI parst Input in mehrere Items
  *    - Für jedes Item: Canonical Food Resolution
  *    - Deterministische Makro-Berechnung
  *    - Alle Entries werden persistiert
- * 
+ *
  * B) Sonst:
  *    - Fallback zum Single-Item Flow (LogFoodFromRawInputUseCase)
  */
@@ -41,7 +41,7 @@ export class LogMealFromRawInputUseCase {
     private readonly aliasRepository?: FoodAliasRepository,
     private readonly aiFoodMapper?: AiFoodMapper,
     private readonly nutritionLookup?: NutritionLookup,
-    private readonly aiMealParser?: AiMealParser
+    private readonly aiMealParser?: AiMealParser,
   ) {
     this.engine = new NutritionEngine();
     this.singleItemUseCase = new LogFoodFromRawInputUseCase(
@@ -52,7 +52,7 @@ export class LogMealFromRawInputUseCase {
       foodCatalog,
       aliasRepository,
       aiFoodMapper,
-      nutritionLookup
+      nutritionLookup,
     );
   }
 
@@ -88,7 +88,7 @@ export class LogMealFromRawInputUseCase {
   private async createEntryFromAiItem(
     item: { name: string; quantity?: number; unit?: string; sizeHint?: string },
     aiExplanation: string,
-    entryDate: Date
+    entryDate: Date,
   ): Promise<FoodEntry> {
     // Bestimme quantityGrams basierend auf Unit
     let quantityGrams = 0;
@@ -149,11 +149,14 @@ export class LogMealFromRawInputUseCase {
     // Sprint 5.3: Canonical Food Catalog Flow
     if (this.foodCatalog) {
       const result = await this.resolveCanonicalFood(item.name, derivedRawInput);
-      
+
       if (result.canonicalFood && quantityGrams > 0) {
         // Calculate macros from canonical food
-        const macros = this.engine.calculateFromPer100g(result.canonicalFood.per100g, quantityGrams);
-        
+        const macros = this.engine.calculateFromPer100g(
+          result.canonicalFood.per100g,
+          quantityGrams,
+        );
+
         // Update entry with enriched data
         entry = {
           ...entry,
@@ -205,8 +208,13 @@ export class LogMealFromRawInputUseCase {
    * Sprint 5.3: Canonical Food Resolution Flow
    * (Similar to LogFoodFromRawInputUseCase)
    */
-  private async resolveCanonicalFood(parsedName: string, rawInput: string): Promise<{
-    canonicalFood: { per100g: { calories: number; protein: number; carbs: number; fat: number } } | null;
+  private async resolveCanonicalFood(
+    parsedName: string,
+    rawInput: string,
+  ): Promise<{
+    canonicalFood: {
+      per100g: { calories: number; protein: number; carbs: number; fat: number };
+    } | null;
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
     explanation?: string;
@@ -241,7 +249,7 @@ export class LogMealFromRawInputUseCase {
       if (this.aliasRepository) {
         await this.aliasRepository.saveAlias(normalized, searchResult.food.id);
       }
-      
+
       return {
         canonicalFood: searchResult.food,
         sourceType: 'generic',
@@ -253,15 +261,15 @@ export class LogMealFromRawInputUseCase {
     // Step 5: AI mapper fallback (if available)
     if (this.aiFoodMapper) {
       const aiResult = await this.aiFoodMapper.mapToCanonicalFood(rawInput);
-      
+
       // Step 6: Save alias
       if (this.aliasRepository) {
         await this.aliasRepository.saveAlias(normalized, aiResult.canonicalId);
       }
-      
+
       // Step 7: Load canonical food
       const canonicalFood = await this.foodCatalog.getById(aiResult.canonicalId);
-      
+
       return {
         canonicalFood,
         sourceType: 'ai',

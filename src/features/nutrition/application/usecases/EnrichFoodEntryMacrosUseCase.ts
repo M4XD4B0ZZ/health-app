@@ -5,7 +5,7 @@ import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 
 /**
  * Use-Case: Enrich Food Entry Macros
- * 
+ *
  * Lädt einen bestehenden FoodEntry und reichert ihn mit Makro-Daten an,
  * basierend auf NutritionLookup (deterministische Datenbank).
  */
@@ -14,7 +14,7 @@ export class EnrichFoodEntryMacrosUseCase {
 
   constructor(
     private readonly repository: FoodEntryRepository,
-    private readonly nutritionLookup: NutritionLookup
+    private readonly nutritionLookup: NutritionLookup,
   ) {
     this.engine = new NutritionEngine();
   }
@@ -66,10 +66,10 @@ export class EnrichFoodEntryMacrosUseCase {
 
     // f) If found: calculate macros and update entry
     const macros = this.engine.calculateFromPer100g(per100g, entry.quantityGrams);
-    
+
     // Update entry.sourceType to "generic"
     const sourceType = 'generic';
-    
+
     // Set entry.confidenceScore using NutritionEngine.confidenceForSource
     // BUT cap by input certainty: min(confidenceForSource(sourceType), entry.confidenceScore + 0.15)
     const baseConfidence = this.engine.confidenceForSource(sourceType);

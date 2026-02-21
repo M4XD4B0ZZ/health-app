@@ -1,73 +1,67 @@
-import { DefaultFoodCatalogResolver } from '../application/services/DefaultFoodCatalogResolver'
-import { DefaultConfidenceEngine } from '../domain/confidence/DefaultConfidenceEngine'
-import { MockUsdaSource } from '../infrastructure/catalog/sources/MockUsdaSource'
-import { MockOffSource } from '../infrastructure/catalog/sources/MockOffSource'
+import { DefaultFoodCatalogResolver } from '../application/services/DefaultFoodCatalogResolver';
+import { DefaultConfidenceEngine } from '../domain/confidence/DefaultConfidenceEngine';
+import { MockUsdaSource } from '../infrastructure/catalog/sources/MockUsdaSource';
+import { MockOffSource } from '../infrastructure/catalog/sources/MockOffSource';
 
 describe('DefaultFoodCatalogResolver', () => {
-
-  const confidenceEngine = new DefaultConfidenceEngine()
+  const confidenceEngine = new DefaultConfidenceEngine();
   const resolver = new DefaultFoodCatalogResolver(
     [new MockOffSource(), new MockUsdaSource()],
-    confidenceEngine
-  )
+    confidenceEngine,
+  );
 
   it('returns OFF result over USDA when both exact match', async () => {
-
     const result = await resolver.resolve({
       raw: 'apfel',
       normalized: 'apfel',
       locale: 'de',
-    })
+    });
 
-    expect(result).not.toBeNull()
-    expect(result?.food.source).toBe('off')
-  })
+    expect(result).not.toBeNull();
+    expect(result?.food.source).toBe('off');
+  });
 
   it('returns null when no source finds result', async () => {
-
     const result = await resolver.resolve({
       raw: 'unknown',
       normalized: 'unknown',
       locale: 'de',
-    })
+    });
 
-    expect(result).toBeNull()
-  })
+    expect(result).toBeNull();
+  });
 
   it('computes confidence and reasons', async () => {
-
     const result = await resolver.resolve({
       raw: 'apfel',
       normalized: 'apfel',
       locale: 'de',
-    })
+    });
 
-    expect(result?.confidence).toBeGreaterThan(0)
-    expect(result?.reasons.length).toBeGreaterThan(0)
-  })
+    expect(result?.confidence).toBeGreaterThan(0);
+    expect(result?.reasons.length).toBeGreaterThan(0);
+  });
 
   it('uses deterministic tie breaker when confidence equal', async () => {
-
     const confidenceEngine = {
       score: () => ({
         confidence: 0.9,
         reasons: [],
       }),
-    }
+    };
 
     const resolver = new DefaultFoodCatalogResolver(
       [new MockUsdaSource(), new MockOffSource()],
-      confidenceEngine as any
-    )
+      confidenceEngine as any,
+    );
 
     const result = await resolver.resolve({
       raw: 'apfel',
       normalized: 'apfel',
       locale: 'de',
-    })
+    });
 
     // OFF should win because of higher source weight
-    expect(result?.food.source).toBe('off')
-  })
-
-})
+    expect(result?.food.source).toBe('off');
+  });
+});

@@ -20,11 +20,11 @@ const JournalScreen: React.FC = () => {
   const [rawInput, setRawInput] = useState('');
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  
+
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
   const [progress, setProgress] = useState<DailyProgressSnapshot | null>(null);
-  
+
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
@@ -71,13 +71,13 @@ const JournalScreen: React.FC = () => {
       const createdEntries = await container.logMealFromRawInputUseCase.execute(rawInput, today);
       setProcessingState('done');
       setRawInput('');
-      
+
       // Reload data
       await loadJournalData();
 
       // Sprint 5.5: Determine if Review Sheet should be shown
       const shouldShowReview = shouldShowReviewSheet(createdEntries);
-      
+
       if (shouldShowReview) {
         setReviewEntries(createdEntries);
         setReviewModalVisible(true);
@@ -100,9 +100,7 @@ const JournalScreen: React.FC = () => {
       return true;
     }
 
-    return createdEntries.some(
-      (entry) => entry.confidenceScore < 0.7 || entry.sourceType === 'ai'
-    );
+    return createdEntries.some((entry) => entry.confidenceScore < 0.7 || entry.sourceType === 'ai');
   };
 
   const handleDeleteEntry = async (entryId: string) => {
@@ -127,7 +125,7 @@ const JournalScreen: React.FC = () => {
       await container.applyNaturalLanguageEditUseCase.execute(
         today,
         editingEntry.id,
-        editInstruction
+        editInstruction,
       );
       setEditModalVisible(false);
       setEditingEntry(null);
@@ -138,7 +136,7 @@ const JournalScreen: React.FC = () => {
       if (reviewModalVisible) {
         const updatedSummary = await container.getDailySummaryUseCase.execute(today);
         const updatedReviewEntries = reviewEntries.map(
-          (re) => updatedSummary.entries.find((e) => e.id === re.id) || re
+          (re) => updatedSummary.entries.find((e) => e.id === re.id) || re,
         );
         setReviewEntries(updatedReviewEntries);
       }
@@ -151,11 +149,11 @@ const JournalScreen: React.FC = () => {
   const handleDeleteFromReview = async (entryId: string) => {
     try {
       await container.deleteFoodEntryUseCase.execute(entryId);
-      
+
       // Update review entries list
       const updatedReviewEntries = reviewEntries.filter((e) => e.id !== entryId);
       setReviewEntries(updatedReviewEntries);
-      
+
       // Reload main data
       await loadJournalData();
 
@@ -184,37 +182,29 @@ const JournalScreen: React.FC = () => {
   };
 
   const renderEntry = ({ item }: { item: FoodEntry }) => (
-    <TouchableOpacity 
-      style={styles.entryCard}
-      onPress={() => handleOpenEditModal(item)}
-    >
+    <TouchableOpacity style={styles.entryCard} onPress={() => handleOpenEditModal(item)}>
       <View style={styles.entryHeader}>
         <Text style={styles.entryName}>{item.parsedName}</Text>
         <Text style={styles.entryKcal}>{Math.round(item.calories)} kcal</Text>
       </View>
-      
+
       <View style={styles.entryDetails}>
         <Text style={styles.entryGrams}>{item.quantityGrams}g</Text>
         <Text style={styles.entryMacros}>
           P: {Math.round(item.protein)}g | C: {Math.round(item.carbs)}g | F: {Math.round(item.fat)}g
         </Text>
       </View>
-      
+
       {item.confidenceScore !== undefined && (
         <Text style={styles.confidenceText}>
           Confidence: {(item.confidenceScore * 100).toFixed(0)}%
           {item.confidenceReason && ` - ${item.confidenceReason}`}
         </Text>
       )}
-      
-      {item.explanation && (
-        <Text style={styles.explanationText}>{item.explanation}</Text>
-      )}
-      
-      <TouchableOpacity 
-        style={styles.deleteButton}
-        onPress={() => handleDeleteEntry(item.id)}
-      >
+
+      {item.explanation && <Text style={styles.explanationText}>{item.explanation}</Text>}
+
+      <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteEntry(item.id)}>
         <Text style={styles.deleteButtonText}>Löschen</Text>
       </TouchableOpacity>
     </TouchableOpacity>
@@ -233,13 +223,12 @@ const JournalScreen: React.FC = () => {
         {progress && (
           <View style={styles.progressCard}>
             <Text style={styles.progressTitle}>Tagesfortschritt</Text>
-            
+
             <View style={styles.caloriesRow}>
               <Text style={styles.caloriesLabel}>Kalorien verbleibend:</Text>
-              <Text style={[
-                styles.caloriesValue,
-                progress.progress.isOverCalories && styles.overLimit
-              ]}>
+              <Text
+                style={[styles.caloriesValue, progress.progress.isOverCalories && styles.overLimit]}
+              >
                 {Math.round(progress.progress.remainingCalories)} kcal
               </Text>
             </View>
@@ -285,12 +274,9 @@ const JournalScreen: React.FC = () => {
             onChangeText={setRawInput}
             editable={processingState !== 'processing'}
           />
-          
-          <TouchableOpacity 
-            style={[
-              styles.addButton,
-              processingState === 'processing' && styles.addButtonDisabled
-            ]}
+
+          <TouchableOpacity
+            style={[styles.addButton, processingState === 'processing' && styles.addButtonDisabled]}
             onPress={handleQuickAdd}
             disabled={processingState === 'processing'}
           >
@@ -302,10 +288,8 @@ const JournalScreen: React.FC = () => {
               </Text>
             )}
           </TouchableOpacity>
-          
-          {processingState === 'error' && (
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          )}
+
+          {processingState === 'error' && <Text style={styles.errorText}>{errorMessage}</Text>}
         </View>
 
         {/* Journal List */}
@@ -327,9 +311,7 @@ const JournalScreen: React.FC = () => {
         {summary && (
           <View style={styles.summaryCard}>
             <Text style={styles.sectionTitle}>Tageszusammenfassung</Text>
-            <Text style={styles.summaryKcal}>
-              {Math.round(summary.totalCalories)} kcal
-            </Text>
+            <Text style={styles.summaryKcal}>{Math.round(summary.totalCalories)} kcal</Text>
             <View style={styles.macrosRow}>
               <View style={styles.macroItem}>
                 <Text style={styles.macroLabel}>Protein</Text>
@@ -361,7 +343,7 @@ const JournalScreen: React.FC = () => {
             <Text style={styles.reviewSubtitle}>
               Bitte überprüfen Sie die erkannten Einträge und passen Sie diese bei Bedarf an.
             </Text>
-            
+
             <ScrollView style={styles.reviewScrollView}>
               {reviewEntries.map((entry) => (
                 <View key={entry.id} style={styles.reviewEntryCard}>
@@ -369,33 +351,36 @@ const JournalScreen: React.FC = () => {
                     <Text style={styles.reviewEntryName}>{entry.parsedName}</Text>
                     <Text style={styles.reviewEntryKcal}>{Math.round(entry.calories)} kcal</Text>
                   </View>
-                  
+
                   <View style={styles.reviewEntryDetails}>
                     <Text style={styles.reviewEntryGrams}>
                       {entry.quantityGrams > 0 ? `${entry.quantityGrams}g` : 'Menge unbekannt'}
                     </Text>
                     <Text style={styles.reviewEntryMacros}>
-                      P: {Math.round(entry.protein)}g | C: {Math.round(entry.carbs)}g | F: {Math.round(entry.fat)}g
+                      P: {Math.round(entry.protein)}g | C: {Math.round(entry.carbs)}g | F:{' '}
+                      {Math.round(entry.fat)}g
                     </Text>
                   </View>
-                  
+
                   {/* Confidence Info */}
                   <View style={styles.reviewConfidenceContainer}>
-                    <Text style={[
-                      styles.reviewConfidenceText,
-                      entry.confidenceScore < 0.5 && styles.reviewConfidenceLow
-                    ]}>
+                    <Text
+                      style={[
+                        styles.reviewConfidenceText,
+                        entry.confidenceScore < 0.5 && styles.reviewConfidenceLow,
+                      ]}
+                    >
                       Konfidenz: {(entry.confidenceScore * 100).toFixed(0)}%
                     </Text>
                     {entry.confidenceReason && (
                       <Text style={styles.reviewConfidenceReason}>{entry.confidenceReason}</Text>
                     )}
                   </View>
-                  
+
                   {entry.explanation && (
                     <Text style={styles.reviewExplanation}>{entry.explanation}</Text>
                   )}
-                  
+
                   {/* Actions */}
                   <View style={styles.reviewEntryActions}>
                     <TouchableOpacity
@@ -404,7 +389,7 @@ const JournalScreen: React.FC = () => {
                     >
                       <Text style={styles.reviewEditButtonText}>Bearbeiten</Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity
                       style={styles.reviewDeleteButton}
                       onPress={() => handleDeleteFromReview(entry.id)}
@@ -415,11 +400,8 @@ const JournalScreen: React.FC = () => {
                 </View>
               ))}
             </ScrollView>
-            
-            <TouchableOpacity
-              style={styles.reviewConfirmButton}
-              onPress={handleConfirmReview}
-            >
+
+            <TouchableOpacity style={styles.reviewConfirmButton} onPress={handleConfirmReview}>
               <Text style={styles.reviewConfirmButtonText}>Bestätigen</Text>
             </TouchableOpacity>
           </View>
@@ -436,17 +418,15 @@ const JournalScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Eintrag bearbeiten</Text>
-            {editingEntry && (
-              <Text style={styles.modalSubtitle}>{editingEntry.parsedName}</Text>
-            )}
-            
+            {editingEntry && <Text style={styles.modalSubtitle}>{editingEntry.parsedName}</Text>}
+
             <TextInput
               style={styles.modalInput}
               placeholder="z.B. '200g', 'double portion', 'half portion'"
               value={editInstruction}
               onChangeText={setEditInstruction}
             />
-            
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
@@ -454,7 +434,7 @@ const JournalScreen: React.FC = () => {
               >
                 <Text style={styles.modalButtonText}>Abbrechen</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
                 onPress={handleApplyEdit}
@@ -479,7 +459,7 @@ const ProgressBar: React.FC<{
   isOver: boolean;
 }> = ({ label, current, target, isOver }) => {
   const percentage = Math.min((current / target) * 100, 100);
-  
+
   return (
     <View style={styles.progressBarContainer}>
       <View style={styles.progressBarHeader}>
@@ -489,12 +469,12 @@ const ProgressBar: React.FC<{
         </Text>
       </View>
       <View style={styles.progressBarTrack}>
-        <View 
+        <View
           style={[
             styles.progressBarFill,
             { width: `${percentage}%` },
-            isOver && styles.progressBarFillOver
-          ]} 
+            isOver && styles.progressBarFillOver,
+          ]}
         />
       </View>
     </View>

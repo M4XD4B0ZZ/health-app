@@ -13,7 +13,7 @@ export interface FoodCatalogConfig {
    *
    * @default 0.7
    */
-  offEarlyReturnMinConfidence: number
+  offEarlyReturnMinConfidence: number;
 
   /**
    * Debug-Logging aktivieren
@@ -23,7 +23,7 @@ export interface FoodCatalogConfig {
    *
    * @default __DEV__ or process.env.NODE_ENV === 'development'
    */
-  enableDebugLogs: boolean
+  enableDebugLogs: boolean;
 
   /**
    * Trace-IDs für Request-Tracking aktivieren
@@ -33,7 +33,7 @@ export interface FoodCatalogConfig {
    *
    * @default true
    */
-  enableTracing: boolean
+  enableTracing: boolean;
 
   /**
    * Globales Resolver Budget in Millisekunden
@@ -43,7 +43,7 @@ export interface FoodCatalogConfig {
    *
    * @default 1500
    */
-  resolverBudgetMs: number
+  resolverBudgetMs: number;
 
   /**
    * Per-Source Budget in Millisekunden
@@ -52,7 +52,7 @@ export interface FoodCatalogConfig {
    *
    * @default { off: 700, usda: 700 }
    */
-  sourceBudgets: Record<string, number>
+  sourceBudgets: Record<string, number>;
 
   /**
    * Negative Cache TTL in Millisekunden
@@ -62,7 +62,7 @@ export interface FoodCatalogConfig {
    *
    * @default 1200000 (20 Minuten)
    */
-  negativeCacheTtlMs: number
+  negativeCacheTtlMs: number;
 
   /**
    * Circuit Breaker Konfiguration
@@ -72,20 +72,20 @@ export interface FoodCatalogConfig {
      * Anzahl aufeinanderfolgender Fehler bevor Circuit öffnet
      * @default 3
      */
-    failureThreshold: number
+    failureThreshold: number;
 
     /**
      * Cooldown-Zeit in Millisekunden bevor Circuit wieder geschlossen wird
      * @default 120000 (2 Minuten)
      */
-    cooldownMs: number
+    cooldownMs: number;
 
     /**
      * Circuit Breaker aktivieren
      * @default true
      */
-    enabled: boolean
-  }
+    enabled: boolean;
+  };
 }
 
 /**
@@ -93,7 +93,8 @@ export interface FoodCatalogConfig {
  */
 export const DEFAULT_CATALOG_CONFIG: FoodCatalogConfig = {
   offEarlyReturnMinConfidence: 0.7,
-  enableDebugLogs: typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development',
+  enableDebugLogs:
+    typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development',
   enableTracing: true,
   resolverBudgetMs: 1500,
   sourceBudgets: {
@@ -106,4 +107,4 @@ export const DEFAULT_CATALOG_CONFIG: FoodCatalogConfig = {
     cooldownMs: 120000, // 2 minutes
     enabled: true,
   },
-}
+};

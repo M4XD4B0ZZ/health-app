@@ -11,21 +11,18 @@ Diese Dokumentation beschreibt die Verbesserungen am Food Catalog System für Pr
 **Lösung:** Neue `FoodCatalogConfig` mit konfigurierbaren Werten:
 
 ```typescript
-import { DEFAULT_CATALOG_CONFIG } from '@features/nutrition/domain/models/FoodCatalogConfig'
+import { DEFAULT_CATALOG_CONFIG } from '@features/nutrition/domain/models/FoodCatalogConfig';
 
 const customConfig = {
   ...DEFAULT_CATALOG_CONFIG,
   offEarlyReturnMinConfidence: 0.8, // Höherer Threshold für strengere Matches
-}
+};
 
-const resolver = new SequentialFoodCatalogResolver(
-  sources,
-  confidenceEngine,
-  customConfig
-)
+const resolver = new SequentialFoodCatalogResolver(sources, confidenceEngine, customConfig);
 ```
 
 **Standard-Werte:**
+
 - `offEarlyReturnMinConfidence: 0.7`
 - `enableDebugLogs: __DEV__`
 - `enableTracing: true`
@@ -42,7 +39,7 @@ const config: FoodCatalogConfig = {
   enableDebugLogs: __DEV__ || process.env.NODE_ENV === 'development',
   enableTracing: true,
   offEarlyReturnMinConfidence: 0.7,
-}
+};
 ```
 
 **Log-Beispiele:**
@@ -87,11 +84,13 @@ const config: FoodCatalogConfig = {
 **Lösung:** Error-Kind-basiertes Retry mit exponential backoff:
 
 **Retry bei:**
+
 - ✅ `network` - Netzwerkfehler
 - ✅ `edge` - Edge-Function-Fehler
 - ✅ `rate_limit` - Rate-Limiting
 
 **Kein Retry bei:**
+
 - ❌ `invalid_payload` - Strukturelle Fehler
 - ❌ `unknown` - Unbekannte Fehler (zu unsicher)
 
@@ -103,10 +102,10 @@ const retryConfig: RetryConfig = {
   initialDelayMs: 100,
   maxDelayMs: 2000,
   backoffMultiplier: 2,
-}
+};
 
 // Automatisch in Providers integriert
-const provider = new SupabaseEdgeOffProvider(supabase, retryConfig)
+const provider = new SupabaseEdgeOffProvider(supabase, retryConfig);
 ```
 
 **Backoff-Sequenz:** 100ms → 200ms → 400ms → fail
@@ -118,34 +117,34 @@ const provider = new SupabaseEdgeOffProvider(supabase, retryConfig)
 **Lösung:** Helper-Funktion mit strukturiertem Feedback:
 
 ```typescript
-import { getCatalogErrorMessage } from '@features/nutrition/infrastructure'
+import { getCatalogErrorMessage } from '@features/nutrition/infrastructure';
 
 try {
-  const result = await resolver.resolve(query)
+  const result = await resolver.resolve(query);
   if (result === null) {
     // Kein Match gefunden (normaler Fall)
-    showMessage('Keine Ergebnisse für deine Suche')
+    showMessage('Keine Ergebnisse für deine Suche');
   }
 } catch (error) {
-  const { message, isServiceDown, canRetry } = getCatalogErrorMessage(error)
-  
+  const { message, isServiceDown, canRetry } = getCatalogErrorMessage(error);
+
   if (isServiceDown && canRetry) {
-    showError(message, { retryButton: true })
+    showError(message, { retryButton: true });
   } else {
-    showError(message, { retryButton: false })
+    showError(message, { retryButton: false });
   }
 }
 ```
 
 **Error-Message-Mapping:**
 
-| Error Kind | Message | Service Down? | Can Retry? |
-|------------|---------|---------------|------------|
-| `network` | "Netzwerkfehler - bitte überprüfe deine Internetverbindung" | ✅ | ✅ |
-| `edge` | "Food-Datenbank vorübergehend nicht erreichbar" | ✅ | ✅ |
-| `rate_limit` | "Zu viele Anfragen - bitte warte einen Moment" | ✅ | ✅ |
-| `invalid_payload` | "Ungültige Suchanfrage - bitte versuche eine andere Eingabe" | ❌ | ❌ |
-| `unknown` | "Food-Suche fehlgeschlagen - bitte versuche es später erneut" | ✅ | ✅ |
+| Error Kind        | Message                                                       | Service Down? | Can Retry? |
+| ----------------- | ------------------------------------------------------------- | ------------- | ---------- |
+| `network`         | "Netzwerkfehler - bitte überprüfe deine Internetverbindung"   | ✅            | ✅         |
+| `edge`            | "Food-Datenbank vorübergehend nicht erreichbar"               | ✅            | ✅         |
+| `rate_limit`      | "Zu viele Anfragen - bitte warte einen Moment"                | ✅            | ✅         |
+| `invalid_payload` | "Ungültige Suchanfrage - bitte versuche eine andere Eingabe"  | ❌            | ❌         |
+| `unknown`         | "Food-Suche fehlgeschlagen - bitte versuche es später erneut" | ✅            | ✅         |
 
 ### 6. ✅ Enhanced Logging in Sources
 
@@ -154,6 +153,7 @@ try {
 **Lösung:** Strukturierte Logs mit allen relevanten Metriken:
 
 **Erfolgreiche Suche:**
+
 ```typescript
 {
   traceId: "cat-1708035742123-x9k2m",
@@ -170,6 +170,7 @@ try {
 ```
 
 **Fehlgeschlagene Suche:**
+
 ```typescript
 {
   traceId: "cat-1708035742123-x9k2m",
@@ -192,8 +193,8 @@ Der `SequentialFoodCatalogResolver` ist jetzt im Container aktiv:
 const resolver = new SequentialFoodCatalogResolver(
   [new MockOffSource(), new MockUsdaSource()],
   confidenceEngine,
-  DEFAULT_CATALOG_CONFIG
-)
+  DEFAULT_CATALOG_CONFIG,
+);
 ```
 
 ### Use Case Integration
@@ -206,8 +207,8 @@ if (this.resolver) {
   const resolved = await this.resolver.resolve({
     raw: rawInput,
     normalized,
-    locale: 'de'
-  })
+    locale: 'de',
+  });
   // ... Verarbeitung
 }
 ```
@@ -221,6 +222,7 @@ Bestehende Tests sollten weiterhin funktionieren, da der `config`-Parameter opti
 ### Integration Tests
 
 Neue Tests für:
+
 - ✅ Konfigurierbare Confidence-Schwellwerte
 - ✅ Retry-Logik bei verschiedenen Error-Kinds
 - ✅ TraceId-Propagation
@@ -228,6 +230,7 @@ Neue Tests für:
 ### Production Testing
 
 Empfohlenes Vorgehen:
+
 1. Logs in Development/Staging aktivieren
 2. Verschiedene Szenarien testen (Success, No Results, Errors)
 3. TraceIds in Logs nachvollziehen
@@ -256,18 +259,21 @@ Empfohlenes Vorgehen:
 Mit den neuen Logs können folgende Fragen beantwortet werden:
 
 1. **Ist 0.7 der richtige Threshold?**
+
    ```
    Analysiere: confidence, threshold, earlyReturn Logs
    → Passe offEarlyReturnMinConfidence an
    ```
 
 2. **Wie oft scheitern OFF-Lookups?**
+
    ```
    Zähle: OFF errorType Logs
    → Optimiere Retry-Config oder Edge-Functions
    ```
 
 3. **Welche Queries sind langsam?**
+
    ```
    Analysiere: latencyMs über Queries hinweg
    → Identifiziere Performance-Bottlenecks
@@ -284,14 +290,14 @@ Mit den neuen Logs können folgende Fragen beantwortet werden:
 ### Schritt 1: Config erstellen (optional)
 
 ```typescript
-import { DEFAULT_CATALOG_CONFIG, FoodCatalogConfig } from '@features/nutrition'
+import { DEFAULT_CATALOG_CONFIG, FoodCatalogConfig } from '@features/nutrition';
 
 // Für Production mit höherem Threshold
 const productionConfig: FoodCatalogConfig = {
   ...DEFAULT_CATALOG_CONFIG,
   offEarlyReturnMinConfidence: 0.75,
   enableDebugLogs: false,
-}
+};
 ```
 
 ### Schritt 2: UI Error Handling anpassen
@@ -342,11 +348,12 @@ npm run dev
 ## Zusammenfassung
 
 ✅ **Alle Anforderungen erfüllt:**
+
 1. SequentialResolver im echten App-Flow
 2. UI unterscheidet "No Results" vs "Service Down"
 3. Retry nur bei network|edge|rate_limit
 4. Confidence-Schwellwert konfigurierbar
-5. Production-safe Observability mit __DEV__ Toggle
+5. Production-safe Observability mit **DEV** Toggle
 6. TraceId-System für Request-Tracking
 7. Enhanced Logging mit Confidence-Details
 

@@ -1,4 +1,4 @@
-import { IdGenerator } from "../application/ports"
+import { IdGenerator } from '../application/ports';
 
 /**
  * Simple ID generator without external dependencies
@@ -7,9 +7,9 @@ import { IdGenerator } from "../application/ports"
  */
 export class RandomIdGenerator implements IdGenerator {
   newId(): string {
-    const timestamp = Date.now().toString(36)
-    const randomPart = Math.random().toString(36).substring(2, 11)
-    return `${timestamp}-${randomPart}`
+    const timestamp = Date.now().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 11);
+    return `${timestamp}-${randomPart}`;
   }
 }
 
@@ -18,13 +18,13 @@ export class RandomIdGenerator implements IdGenerator {
  * Generates IDs in the form: "test-id-0", "test-id-1", ...
  */
 export class TestIdGenerator implements IdGenerator {
-  private counter = 0
+  private counter = 0;
 
   newId(): string {
-    return `test-id-${this.counter++}`
+    return `test-id-${this.counter++}`;
   }
 
   reset(): void {
-    this.counter = 0
+    this.counter = 0;
   }
 }

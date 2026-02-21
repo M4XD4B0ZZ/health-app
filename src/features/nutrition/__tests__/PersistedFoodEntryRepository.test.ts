@@ -48,7 +48,7 @@ describe('PersistedFoodEntryRepository', () => {
       // Verify storage was written
       const storedData = await keyValueStore.get('nutrition:entries');
       expect(storedData).toBeTruthy();
-      
+
       const parsed = JSON.parse(storedData!);
       expect(parsed).toHaveLength(1);
       expect(parsed[0].id).toBe('entry-1');
@@ -176,9 +176,9 @@ describe('PersistedFoodEntryRepository', () => {
       const date = new Date('2024-01-15T10:00:00Z');
       const entry = createSampleEntry('entry-1', date);
 
-      await expect(
-        repository.updateEntry('2024-01-15', entry)
-      ).rejects.toThrow('No entries found for date: 2024-01-15');
+      await expect(repository.updateEntry('2024-01-15', entry)).rejects.toThrow(
+        'No entries found for date: 2024-01-15',
+      );
     });
 
     it('should throw error if entry id not found', async () => {
@@ -188,9 +188,9 @@ describe('PersistedFoodEntryRepository', () => {
 
       await repository.addEntry(entry1);
 
-      await expect(
-        repository.updateEntry('2024-01-15', entry2)
-      ).rejects.toThrow('Entry with id entry-2 not found for date: 2024-01-15');
+      await expect(repository.updateEntry('2024-01-15', entry2)).rejects.toThrow(
+        'Entry with id entry-2 not found for date: 2024-01-15',
+      );
     });
   });
 

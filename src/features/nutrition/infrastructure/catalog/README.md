@@ -21,51 +21,48 @@ Use Cases
 ## Dependency Injection Beispiel
 
 ```typescript
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 import {
   SupabaseEdgeOffProvider,
   SupabaseEdgeUsdaProvider,
   SupabaseEdgeOffSource,
   SupabaseEdgeUsdaSource,
-} from './infrastructure'
-import { 
-  SequentialFoodCatalogResolver,
-  DefaultConfidenceEngine 
-} from './application'
+} from './infrastructure';
+import { SequentialFoodCatalogResolver, DefaultConfidenceEngine } from './application';
 
 // 1. Supabase Client erstellen (App-Level)
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 2. Provider instanziieren
-const offProvider = new SupabaseEdgeOffProvider(supabase)
-const usdaProvider = new SupabaseEdgeUsdaProvider(supabase)
+const offProvider = new SupabaseEdgeOffProvider(supabase);
+const usdaProvider = new SupabaseEdgeUsdaProvider(supabase);
 
 // 3. Sources erstellen
-const offSource = new SupabaseEdgeOffSource(offProvider)
-const usdaSource = new SupabaseEdgeUsdaSource(usdaProvider)
+const offSource = new SupabaseEdgeOffSource(offProvider);
+const usdaSource = new SupabaseEdgeUsdaSource(usdaProvider);
 
 // Optional: User Alias Source
-const userAliasSource = new UserAliasSource(aliasRepository)
+const userAliasSource = new UserAliasSource(aliasRepository);
 
 // 4. Sequential Resolver verdrahten
-const confidenceEngine = new DefaultConfidenceEngine()
+const confidenceEngine = new DefaultConfidenceEngine();
 const resolver = new SequentialFoodCatalogResolver(
   [
-    userAliasSource,  // 1. Höchste Priorität
-    offSource,         // 2. Branded products
-    usdaSource,        // 3. Generic foods (nur wenn OFF leer/niedrig)
+    userAliasSource, // 1. Höchste Priorität
+    offSource, // 2. Branded products
+    usdaSource, // 3. Generic foods (nur wenn OFF leer/niedrig)
     // aiSource,       // 4. AI Fallback (optional)
   ],
-  confidenceEngine
-)
+  confidenceEngine,
+);
 
 // 5. In Use Cases verwenden
 const lookupUseCase = new LogFoodFromRawInputUseCase({
   resolver,
   // ... andere deps
-})
+});
 ```
 
 ## Fallback-Reihenfolge
@@ -83,22 +80,22 @@ Alle Provider werfen `FoodCatalogError` mit kategorisiertem `kind`:
 
 ```typescript
 try {
-  const result = await resolver.resolve(query)
+  const result = await resolver.resolve(query);
 } catch (error) {
   if (error instanceof FoodCatalogError) {
     switch (error.kind) {
       case 'network':
         // Handle network error
-        break
+        break;
       case 'edge':
         // Handle edge function error
-        break
+        break;
       case 'invalid_payload':
         // Handle invalid response
-        break
+        break;
       case 'rate_limit':
         // Handle rate limiting
-        break
+        break;
     }
   }
 }
@@ -113,8 +110,8 @@ console.debug('[SupabaseEdgeOffSource]', {
   sourceName: 'off',
   resultCount: 3,
   latencyMs: 142,
-  query: 'apfel'
-})
+  query: 'apfel',
+});
 ```
 
 ## Testing
@@ -122,7 +119,7 @@ console.debug('[SupabaseEdgeOffSource]', {
 Alle Komponenten sind vollständig testbar:
 
 - `SupabaseEdgeOffProvider.test.ts` - Provider Unit Tests
-- `SupabaseEdgeUsdaProvider.test.ts` - Provider Unit Tests  
+- `SupabaseEdgeUsdaProvider.test.ts` - Provider Unit Tests
 - `SequentialFoodCatalogResolver.test.ts` - Integration Tests
 
 Mock den Supabase Client für Tests:

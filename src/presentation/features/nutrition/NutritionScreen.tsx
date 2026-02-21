@@ -27,24 +27,27 @@ const NutritionScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSummary = useCallback((isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const loadSummary = useCallback(
+    (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      setError(null);
-      const nextSummary = container.getNutritionSummary.execute(range);
-      setSummary(nextSummary);
-    } catch {
-      setError('Fehler beim Laden der Ernährungsdaten.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [range]);
+      try {
+        setError(null);
+        const nextSummary = container.getNutritionSummary.execute(range);
+        setSummary(nextSummary);
+      } catch {
+        setError('Fehler beim Laden der Ernährungsdaten.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [range],
+  );
 
   useEffect(() => {
     loadSummary(false);
@@ -75,7 +78,9 @@ const NutritionScreen: React.FC = () => {
           style={[styles.segmentButton, range === 'today' && styles.segmentButtonActive]}
           onPress={() => setRange('today')}
         >
-          <Text style={[styles.segmentText, range === 'today' && styles.segmentTextActive]}>Heute</Text>
+          <Text style={[styles.segmentText, range === 'today' && styles.segmentTextActive]}>
+            Heute
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.segmentButton, range === 'last7days' && styles.segmentButtonActive]}
@@ -88,7 +93,7 @@ const NutritionScreen: React.FC = () => {
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      
+
       <View style={styles.summaryCard}>
         <Text style={styles.cardTitle}>
           {range === 'today' ? 'Tagesübersicht' : 'Übersicht (7 Tage)'}
@@ -100,7 +105,7 @@ const NutritionScreen: React.FC = () => {
           </View>
         </View>
       </View>
-      
+
       <View style={styles.listContainer}>
         <Text style={styles.sectionTitle}>
           {range === 'today' ? 'Heutige Mahlzeiten' : 'Mahlzeiten (7 Tage)'}
@@ -116,7 +121,7 @@ const NutritionScreen: React.FC = () => {
               <Text style={styles.mealCalories}>{item.calories} kcal</Text>
             </View>
           )}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           scrollEnabled={false}
         />
       </View>

@@ -85,7 +85,7 @@ export class InMemoryFoodCatalog implements FoodCatalog {
 
     // First attempt: search with normalized name
     const result = this.searchByNameInternal(normalized);
-    
+
     if (result && result.score >= 0.3) {
       return {
         food: result.food,
@@ -97,7 +97,7 @@ export class InMemoryFoodCatalog implements FoodCatalog {
     const singularCandidate = this.tryMakeSingular(normalized);
     if (singularCandidate && singularCandidate !== normalized) {
       const singularResult = this.searchByNameInternal(singularCandidate);
-      
+
       if (singularResult && singularResult.score >= 0.3) {
         // Slightly reduce confidence since we had to strip plural
         const adjustedConfidence = singularResult.score * 0.95;
@@ -116,16 +116,16 @@ export class InMemoryFoodCatalog implements FoodCatalog {
    */
   private searchByNameInternal(normalized: string): { food: CanonicalFood; score: number } | null {
     const tokens = normalized.toLowerCase().split(/\s+/);
-    
+
     let bestMatch: { food: CanonicalFood; score: number } | null = null;
 
     for (const [id, food] of this.foods.entries()) {
       const foodTokens = id.toLowerCase().split(/\s+/);
       const displayTokens = food.displayName.toLowerCase().split(/\s+/);
-      
+
       // Calculate match score
       let score = 0;
-      
+
       // Exact ID match
       if (id === normalized) {
         score = 1.0;
@@ -136,13 +136,14 @@ export class InMemoryFoodCatalog implements FoodCatalog {
       }
       // Contains all tokens
       else {
-        const matchedTokens = tokens.filter(token =>
-          foodTokens.some(ft => ft.includes(token) || token.includes(ft)) ||
-          displayTokens.some(dt => dt.includes(token) || token.includes(dt))
+        const matchedTokens = tokens.filter(
+          (token) =>
+            foodTokens.some((ft) => ft.includes(token) || token.includes(ft)) ||
+            displayTokens.some((dt) => dt.includes(token) || token.includes(dt)),
         );
-        
+
         if (matchedTokens.length > 0) {
-          score = matchedTokens.length / tokens.length * 0.8;
+          score = (matchedTokens.length / tokens.length) * 0.8;
         }
       }
 

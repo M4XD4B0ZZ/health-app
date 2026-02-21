@@ -19,24 +19,27 @@ const RecoveryScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSummary = useCallback((isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+  const loadSummary = useCallback(
+    (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      setError(null);
-      const nextSummary = container.getRecoverySummary.execute(range);
-      setSummary(nextSummary);
-    } catch {
-      setError('Fehler beim Laden der Erholungsdaten.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [range]);
+      try {
+        setError(null);
+        const nextSummary = container.getRecoverySummary.execute(range);
+        setSummary(nextSummary);
+      } catch {
+        setError('Fehler beim Laden der Erholungsdaten.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [range],
+  );
 
   useEffect(() => {
     loadSummary(false);
@@ -70,7 +73,9 @@ const RecoveryScreen: React.FC = () => {
           style={[styles.segmentButton, range === 'today' && styles.segmentButtonActive]}
           onPress={() => setRange('today')}
         >
-          <Text style={[styles.segmentText, range === 'today' && styles.segmentTextActive]}>Heute</Text>
+          <Text style={[styles.segmentText, range === 'today' && styles.segmentTextActive]}>
+            Heute
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.segmentButton, range === 'last7days' && styles.segmentButtonActive]}
@@ -83,7 +88,7 @@ const RecoveryScreen: React.FC = () => {
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
           {range === 'today' ? 'Schlaf (letzte Nacht)' : 'Schlaf (7 Tage)'}
@@ -98,20 +103,26 @@ const RecoveryScreen: React.FC = () => {
             <Text style={styles.statLabel}>Schlafqualität</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{((summary?.sleepSummary.averageDurationLastWeek ?? 0) / 60).toFixed(1)}h</Text>
+            <Text style={styles.statValue}>
+              {((summary?.sleepSummary.averageDurationLastWeek ?? 0) / 60).toFixed(1)}h
+            </Text>
             <Text style={styles.statLabel}>Ø 7 Tage</Text>
           </View>
         </View>
       </View>
-      
+
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>{range === 'today' ? 'Heutige Aktivität' : 'Aktivität (7 Tage)'}</Text>
+        <Text style={styles.cardTitle}>
+          {range === 'today' ? 'Heutige Aktivität' : 'Aktivität (7 Tage)'}
+        </Text>
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>Schritte</Text>
-          <Text style={styles.metricValue}>{summary?.todaySteps?.count ?? 0} / {summary?.stepGoal ?? 0}</Text>
+          <Text style={styles.metricValue}>
+            {summary?.todaySteps?.count ?? 0} / {summary?.stepGoal ?? 0}
+          </Text>
         </View>
       </View>
-      
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Herzfrequenz</Text>
         <View style={styles.metricRow}>

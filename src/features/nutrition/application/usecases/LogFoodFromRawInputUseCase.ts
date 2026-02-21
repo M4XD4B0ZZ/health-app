@@ -15,7 +15,7 @@ import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
  * Use-Case: Log Food Entry from Raw Input
  *
  * Sprint 5.3: Mit Canonical Food Catalog + Alias Learning
- * 
+ *
  * Flow:
  * 1. Parse den Input (Gramm, Name)
  * 2. Normalize den Namen
@@ -39,7 +39,7 @@ export class LogFoodFromRawInputUseCase {
     private readonly aliasRepository?: FoodAliasRepository,
     private readonly aiFoodMapper?: AiFoodMapper,
     private readonly nutritionLookup?: NutritionLookup, // Fallback für Kompatibilität
-    private readonly resolver?: FoodCatalogResolver
+    private readonly resolver?: FoodCatalogResolver,
   ) {
     this.engine = new NutritionEngine();
   }
@@ -88,11 +88,14 @@ export class LogFoodFromRawInputUseCase {
     // Sprint 5.3: Canonical Food Catalog Flow
     if (this.foodCatalog) {
       const result = await this.resolveCanonicalFood(parsed.name, rawInput);
-      
+
       if (result.canonicalFood && quantityGrams > 0) {
         // Calculate macros from canonical food
-        const macros = this.engine.calculateFromPer100g(result.canonicalFood.per100g, quantityGrams);
-        
+        const macros = this.engine.calculateFromPer100g(
+          result.canonicalFood.per100g,
+          quantityGrams,
+        );
+
         // Update entry with enriched data
         entry = {
           ...entry,
@@ -109,18 +112,18 @@ export class LogFoodFromRawInputUseCase {
     // Fallback: Use old NutritionLookup if available
     else if (this.nutritionLookup && quantityGrams > 0) {
       const per100g = await this.nutritionLookup.getPer100gByName(parsed.name);
-      
+
       if (per100g) {
         // Calculate macros
         const macros = this.engine.calculateFromPer100g(per100g, quantityGrams);
-        
+
         // Upgrade to 'generic' source type
         const sourceType = 'generic';
-        
+
         // Upgrade confidence: cap by input certainty
         const baseConfidence = this.engine.confidenceForSource(sourceType);
         const cappedConfidence = Math.min(baseConfidence, confidenceScore + 0.15);
-        
+
         // Update entry with enriched data
         entry = {
           ...entry,
@@ -151,8 +154,13 @@ export class LogFoodFromRawInputUseCase {
    * Step 6: Save alias after AI mapping
    * Step 7: Load CanonicalFood by ID
    */
-  private async resolveCanonicalFood(parsedName: string, rawInput: string): Promise<{
-    canonicalFood: { per100g: { calories: number; protein: number; carbs: number; fat: number } } | null;
+  private async resolveCanonicalFood(
+    parsedName: string,
+    rawInput: string,
+  ): Promise<{
+    canonicalFood: {
+      per100g: { calories: number; protein: number; carbs: number; fat: number };
+    } | null;
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
     explanation?: string;
@@ -169,7 +177,7 @@ export class LogFoodFromRawInputUseCase {
       const resolved = await this.resolver.resolve({
         raw: rawInput,
         normalized,
-        locale: 'de'
+        locale: 'de',
       });
 
       if (resolved && resolved.confidence >= 0.7) {
@@ -182,7 +190,7 @@ export class LogFoodFromRawInputUseCase {
             protein: resolved.food.macrosPer100g.protein,
             carbs: resolved.food.macrosPer100g.carbs,
             fat: resolved.food.macrosPer100g.fat,
-          }
+          },
         };
 
         // Save alias for future lookups (same as deterministic catalog match)
@@ -222,7 +230,7 @@ export class LogFoodFromRawInputUseCase {
       if (this.aliasRepository) {
         await this.aliasRepository.saveAlias(normalized, searchResult.food.id);
       }
-      
+
       return {
         canonicalFood: searchResult.food,
         sourceType: 'generic',
@@ -234,15 +242,15 @@ export class LogFoodFromRawInputUseCase {
     // Step 5: AI mapper fallback (if available)
     if (this.aiFoodMapper) {
       const aiResult = await this.aiFoodMapper.mapToCanonicalFood(rawInput);
-      
+
       // Step 6: Save alias
       if (this.aliasRepository) {
         await this.aliasRepository.saveAlias(normalized, aiResult.canonicalId);
       }
-      
+
       // Step 7: Load canonical food
       const canonicalFood = await this.foodCatalog.getById(aiResult.canonicalId);
-      
+
       return {
         canonicalFood,
         sourceType: 'ai',

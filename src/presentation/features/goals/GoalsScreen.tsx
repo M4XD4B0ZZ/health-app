@@ -9,12 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import container from '../../../infrastructure/di/container';
-import { 
-  MetabolismResult, 
-  ActivityLevel, 
-  Sex,
-  EffectiveGoals,
-} from '../../../features/goals';
+import { MetabolismResult, ActivityLevel, Sex, EffectiveGoals } from '../../../features/goals';
 
 const GoalsScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -95,7 +90,7 @@ const GoalsScreen: React.FC = () => {
       setLoading(true);
 
       const suggestion = await container.suggestGoalsUseCase.execute({ strategy });
-      
+
       await container.setEffectiveGoalsUseCase.execute({
         mode: 'suggested',
         suggestion,
@@ -105,7 +100,9 @@ const GoalsScreen: React.FC = () => {
       setShowManualForm(false);
     } catch (err) {
       console.error('Failed to suggest goals:', err);
-      alert('Fehler beim Vorschlagen von Zielen. Bitte erstellen Sie zuerst ein Metabolismus-Profil.');
+      alert(
+        'Fehler beim Vorschlagen von Zielen. Bitte erstellen Sie zuerst ein Metabolismus-Profil.',
+      );
     } finally {
       setLoading(false);
     }
@@ -132,7 +129,7 @@ const GoalsScreen: React.FC = () => {
 
       await loadGoalsData();
       setShowManualForm(false);
-      
+
       // Clear form
       setManualCalories('');
       setManualProtein('');
@@ -164,7 +161,7 @@ const GoalsScreen: React.FC = () => {
       {/* Metabolism Profile Section */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Metabolismus-Profil</Text>
-        
+
         {!hasProfile ? (
           <View>
             <Text style={styles.helperText}>
@@ -208,30 +205,28 @@ const GoalsScreen: React.FC = () => {
               <Text style={styles.label}>Geschlecht</Text>
               <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.toggleButton,
-                    sex === 'male' && styles.toggleButtonActive
-                  ]}
+                  style={[styles.toggleButton, sex === 'male' && styles.toggleButtonActive]}
                   onPress={() => setSex('male')}
                 >
-                  <Text style={[
-                    styles.toggleButtonText,
-                    sex === 'male' && styles.toggleButtonTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.toggleButtonText,
+                      sex === 'male' && styles.toggleButtonTextActive,
+                    ]}
+                  >
                     Männlich
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[
-                    styles.toggleButton,
-                    sex === 'female' && styles.toggleButtonActive
-                  ]}
+                  style={[styles.toggleButton, sex === 'female' && styles.toggleButtonActive]}
                   onPress={() => setSex('female')}
                 >
-                  <Text style={[
-                    styles.toggleButtonText,
-                    sex === 'female' && styles.toggleButtonTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.toggleButtonText,
+                      sex === 'female' && styles.toggleButtonTextActive,
+                    ]}
+                  >
                     Weiblich
                   </Text>
                 </TouchableOpacity>
@@ -244,49 +239,55 @@ const GoalsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[
                     styles.toggleButton,
-                    activityLevel === 'low' && styles.toggleButtonActive
+                    activityLevel === 'low' && styles.toggleButtonActive,
                   ]}
                   onPress={() => setActivityLevel('low')}
                 >
-                  <Text style={[
-                    styles.toggleButtonText,
-                    activityLevel === 'low' && styles.toggleButtonTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.toggleButtonText,
+                      activityLevel === 'low' && styles.toggleButtonTextActive,
+                    ]}
+                  >
                     Niedrig (wenig Bewegung)
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.toggleButton,
-                    activityLevel === 'moderate' && styles.toggleButtonActive
+                    activityLevel === 'moderate' && styles.toggleButtonActive,
                   ]}
                   onPress={() => setActivityLevel('moderate')}
                 >
-                  <Text style={[
-                    styles.toggleButtonText,
-                    activityLevel === 'moderate' && styles.toggleButtonTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.toggleButtonText,
+                      activityLevel === 'moderate' && styles.toggleButtonTextActive,
+                    ]}
+                  >
                     Moderat (1-3x/Woche Sport)
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.toggleButton,
-                    activityLevel === 'high' && styles.toggleButtonActive
+                    activityLevel === 'high' && styles.toggleButtonActive,
                   ]}
                   onPress={() => setActivityLevel('high')}
                 >
-                  <Text style={[
-                    styles.toggleButtonText,
-                    activityLevel === 'high' && styles.toggleButtonTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.toggleButtonText,
+                      activityLevel === 'high' && styles.toggleButtonTextActive,
+                    ]}
+                  >
                     Hoch (4-7x/Woche Sport)
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleSaveProfile}
               disabled={loading}
@@ -328,16 +329,15 @@ const GoalsScreen: React.FC = () => {
                           <Text style={styles.stepFormula}>{step.substituted}</Text>
                         )}
                         <Text style={styles.stepResult}>
-                          = {typeof step.result === 'number' 
-                            ? Math.round(step.result) 
-                            : step.result}
+                          ={' '}
+                          {typeof step.result === 'number' ? Math.round(step.result) : step.result}
                         </Text>
                       </View>
                     ))}
                   </View>
                 )}
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.secondaryButton}
                   onPress={() => setHasProfile(false)}
                 >
@@ -360,7 +360,7 @@ const GoalsScreen: React.FC = () => {
                 <Text style={styles.goalsLabel}>
                   Modus: {effectiveGoals.mode === 'suggested' ? 'Vorgeschlagen' : 'Manuell'}
                 </Text>
-                
+
                 <View style={styles.goalsGrid}>
                   <View style={styles.goalItem}>
                     <Text style={styles.goalLabel}>Kalorien</Text>
@@ -370,21 +370,15 @@ const GoalsScreen: React.FC = () => {
                   </View>
                   <View style={styles.goalItem}>
                     <Text style={styles.goalLabel}>Protein (g)</Text>
-                    <Text style={styles.goalValue}>
-                      {Math.round(effectiveGoals.goals.protein)}
-                    </Text>
+                    <Text style={styles.goalValue}>{Math.round(effectiveGoals.goals.protein)}</Text>
                   </View>
                   <View style={styles.goalItem}>
                     <Text style={styles.goalLabel}>Kohlenhydrate (g)</Text>
-                    <Text style={styles.goalValue}>
-                      {Math.round(effectiveGoals.goals.carbs)}
-                    </Text>
+                    <Text style={styles.goalValue}>{Math.round(effectiveGoals.goals.carbs)}</Text>
                   </View>
                   <View style={styles.goalItem}>
                     <Text style={styles.goalLabel}>Fett (g)</Text>
-                    <Text style={styles.goalValue}>
-                      {Math.round(effectiveGoals.goals.fat)}
-                    </Text>
+                    <Text style={styles.goalValue}>{Math.round(effectiveGoals.goals.fat)}</Text>
                   </View>
                 </View>
 
@@ -396,7 +390,7 @@ const GoalsScreen: React.FC = () => {
               </View>
 
               <View style={styles.buttonGroup}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.outlineButton}
                   onPress={() => handleSuggestGoals('balanced')}
                   disabled={loading}
@@ -412,7 +406,7 @@ const GoalsScreen: React.FC = () => {
                   <Text style={styles.outlineButtonText}>High Protein</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.outlineButton}
                   onPress={() => setShowManualForm(!showManualForm)}
                 >
@@ -429,14 +423,12 @@ const GoalsScreen: React.FC = () => {
               </Text>
 
               <View style={styles.buttonGroup}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.primaryButton}
                   onPress={() => handleSuggestGoals('balanced')}
                   disabled={loading}
                 >
-                  <Text style={styles.primaryButtonText}>
-                    Balanced
-                  </Text>
+                  <Text style={styles.primaryButtonText}>Balanced</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -444,12 +436,10 @@ const GoalsScreen: React.FC = () => {
                   onPress={() => handleSuggestGoals('high_protein')}
                   disabled={loading}
                 >
-                  <Text style={styles.primaryButtonText}>
-                    High Protein
-                  </Text>
+                  <Text style={styles.primaryButtonText}>High Protein</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.secondaryButton}
                   onPress={() => setShowManualForm(!showManualForm)}
                 >
@@ -510,7 +500,7 @@ const GoalsScreen: React.FC = () => {
                 />
               </View>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={handleSetManualGoals}
                 disabled={loading}

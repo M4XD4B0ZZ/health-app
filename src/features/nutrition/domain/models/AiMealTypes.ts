@@ -1,12 +1,12 @@
 /**
  * AI Meal Parsing Types
- * 
+ *
  * LLM-agnostische Types für AI-basiertes Parsing von komplexen Multi-Item-Mahlzeiten.
  */
 
-export type AiQuantityUnit = "g" | "ml" | "piece" | "portion";
+export type AiQuantityUnit = 'g' | 'ml' | 'piece' | 'portion';
 
-export type AiSizeHint = "small" | "medium" | "large";
+export type AiSizeHint = 'small' | 'medium' | 'large';
 
 export interface AiParsedMealItem {
   name: string;

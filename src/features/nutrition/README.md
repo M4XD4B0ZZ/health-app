@@ -25,17 +25,20 @@ src/features/nutrition/
 ### Features
 
 #### 1. Ports (Interfaces)
+
 - **FoodEntryRepository**: Persistierung-Interface für FoodEntries
 - **Clock**: Zeit-Abstraction für deterministische Tests
 - **IdGenerator**: ID-Generierung-Interface
 
 #### 2. Infrastructure
+
 - **InMemoryFoodEntryRepository**: In-Memory-Speicher gruppiert nach Datum
 - **SystemClock**: System-Zeit-Implementierung
 - **RandomIdGenerator**: Einfacher ID-Generator ohne Dependencies
 - **TestIdGenerator**: Deterministische ID-Generator für Tests
 
 #### 3. Deterministic Parser
+
 - Erkennt Gramm-Patterns: "250g", "250 g", "250.5g"
 - Erkennt Count-Patterns: "2 eggs", "3x eggs", "2 x"
 - Normalisiert Namen: lowercase, trim, collapse spaces
@@ -44,6 +47,7 @@ src/features/nutrition/
 #### 4. Use Cases
 
 **LogFoodFromRawInputUseCase**
+
 - Input: rawInput (string), dateISO (optional)
 - Parsed via DeterministicFoodParser
 - Confidence-Scoring:
@@ -53,17 +57,20 @@ src/features/nutrition/
 - Speichert via Repository
 
 **GetDailySummaryUseCase**
+
 - Input: dateISO
 - Lädt alle Einträge für das Datum
 - Aggregiert via NutritionEngine.aggregateDaily()
 
 **DeleteFoodEntryUseCase**
+
 - Input: entryId
 - Löscht Eintrag via Repository
 
 ### Tests
 
 Alle 26 Unit Tests erfolgreich:
+
 ```bash
 npm test
 ```

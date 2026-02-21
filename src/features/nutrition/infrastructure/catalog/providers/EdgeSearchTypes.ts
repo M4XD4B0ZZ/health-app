@@ -1,40 +1,40 @@
 export interface EdgeSearchResponse {
-  items: EdgeFoodItem[]
+  items: EdgeFoodItem[];
 }
 
 export interface EdgeFoodItem {
-  source: 'off' | 'usda'
-  sourceId: string
-  name: string
-  normalizedName: string
+  source: 'off' | 'usda';
+  sourceId: string;
+  name: string;
+  normalizedName: string;
   macrosPer100g: {
-    kcal: number
-    protein: number
-    carbs: number
-    fat: number
-  }
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
 }
 
 export function isEdgeSearchResponse(data: unknown): data is EdgeSearchResponse {
   if (typeof data !== 'object' || data === null) {
-    return false
+    return false;
   }
 
-  const response = data as EdgeSearchResponse
+  const response = data as EdgeSearchResponse;
 
   if (!Array.isArray(response.items)) {
-    return false
+    return false;
   }
 
-  return response.items.every(isEdgeFoodItem)
+  return response.items.every(isEdgeFoodItem);
 }
 
 function isEdgeFoodItem(item: unknown): item is EdgeFoodItem {
   if (typeof item !== 'object' || item === null) {
-    return false
+    return false;
   }
 
-  const food = item as EdgeFoodItem
+  const food = item as EdgeFoodItem;
 
   return (
     (food.source === 'off' || food.source === 'usda') &&
@@ -47,5 +47,5 @@ function isEdgeFoodItem(item: unknown): item is EdgeFoodItem {
     typeof food.macrosPer100g.protein === 'number' &&
     typeof food.macrosPer100g.carbs === 'number' &&
     typeof food.macrosPer100g.fat === 'number'
-  )
+  );
 }

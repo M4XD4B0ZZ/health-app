@@ -23,7 +23,7 @@ describe('PersistedFoodAliasRepository', () => {
 
   it('should persist alias to storage', async () => {
     await repository.saveAlias('banane', 'banana');
-    
+
     // Verify it's in storage with correct key
     const storageKey = 'alias:banane';
     const storedValue = await store.get(storageKey);
@@ -32,14 +32,14 @@ describe('PersistedFoodAliasRepository', () => {
 
   it('should use cache for repeated reads', async () => {
     await repository.saveAlias('orange', 'orange-fruit');
-    
+
     // First read - should fetch from storage
     const result1 = await repository.getCanonicalId('orange');
     expect(result1).toBe('orange-fruit');
-    
+
     // Clear the storage to verify cache is used
     await store.remove('alias:orange');
-    
+
     // Second read - should return from cache
     const result2 = await repository.getCanonicalId('orange');
     expect(result2).toBe('orange-fruit');

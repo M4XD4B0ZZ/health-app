@@ -26,7 +26,7 @@ interface SerializedFoodEntry {
 /**
  * Persistierte Implementierung des FoodEntryRepository.
  * Speichert Einträge via KeyValueStore (AsyncStorage) und hält einen In-Memory-Cache.
- * 
+ *
  * Storage-Strategie:
  * - Key: "nutrition:entries"
  * - Value: JSON-Array aller Einträge, gruppiert nach Datum
@@ -35,7 +35,7 @@ interface SerializedFoodEntry {
  */
 export class PersistedFoodEntryRepository implements FoodEntryRepository {
   private static readonly STORAGE_KEY = 'nutrition:entries';
-  
+
   private entries: Map<string, FoodEntry[]> = new Map();
   private isLoaded = false;
 
@@ -43,25 +43,25 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
 
   async addEntry(entry: FoodEntry): Promise<void> {
     await this.ensureLoaded();
-    
+
     const dateISO = this.extractDateISO(entry.createdAt);
     const dateEntries = this.entries.get(dateISO) || [];
     dateEntries.push(entry);
     this.entries.set(dateISO, dateEntries);
-    
+
     await this.persist();
   }
 
   async listEntriesForDate(dateISO: string): Promise<FoodEntry[]> {
     await this.ensureLoaded();
-    
+
     const entries = this.entries.get(dateISO) || [];
     return [...entries]; // Return copy to prevent external mutation
   }
 
   async updateEntry(dateISO: string, entry: FoodEntry): Promise<void> {
     await this.ensureLoaded();
-    
+
     const dateEntries = this.entries.get(dateISO);
     if (!dateEntries) {
       throw new Error(`No entries found for date: ${dateISO}`);
@@ -73,13 +73,13 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     }
 
     dateEntries[index] = entry;
-    
+
     await this.persist();
   }
 
   async deleteEntry(id: string): Promise<void> {
     await this.ensureLoaded();
-    
+
     for (const [dateISO, entries] of this.entries.entries()) {
       const index = entries.findIndex((e) => e.id === id);
       if (index !== -1) {
@@ -102,7 +102,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     }
 
     const storedData = await this.keyValueStore.get(PersistedFoodEntryRepository.STORAGE_KEY);
-    
+
     if (storedData) {
       try {
         const serializedEntries: SerializedFoodEntry[] = JSON.parse(storedData);
@@ -113,7 +113,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
         this.entries = new Map();
       }
     }
-    
+
     this.isLoaded = true;
   }
 
@@ -131,13 +131,13 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
    */
   private serializeEntries(): SerializedFoodEntry[] {
     const allEntries: SerializedFoodEntry[] = [];
-    
+
     for (const dateEntries of this.entries.values()) {
       for (const entry of dateEntries) {
         allEntries.push(this.serializeEntry(entry));
       }
     }
-    
+
     return allEntries;
   }
 
@@ -168,16 +168,16 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
    */
   private deserializeEntries(serializedEntries: SerializedFoodEntry[]): Map<string, FoodEntry[]> {
     const entriesMap = new Map<string, FoodEntry[]>();
-    
+
     for (const serialized of serializedEntries) {
       const entry = this.deserializeEntry(serialized);
       const dateISO = this.extractDateISO(entry.createdAt);
-      
+
       const dateEntries = entriesMap.get(dateISO) || [];
       dateEntries.push(entry);
       entriesMap.set(dateISO, dateEntries);
     }
-    
+
     return entriesMap;
   }
 

@@ -8,7 +8,7 @@ export class FakeAiFoodMapper implements AiFoodMapper {
     explanation: string;
   }> {
     const lower = rawInput.toLowerCase();
-    
+
     // German to English mappings
     if (lower.includes('banane')) {
       return {
@@ -17,7 +17,7 @@ export class FakeAiFoodMapper implements AiFoodMapper {
         explanation: 'Mapped German "banane" to canonical "banana"',
       };
     }
-    
+
     if (lower.includes('hähnchen') || lower.includes('haehnchen')) {
       return {
         canonicalId: 'chicken breast',
@@ -25,7 +25,7 @@ export class FakeAiFoodMapper implements AiFoodMapper {
         explanation: 'Mapped German "hähnchen" to canonical "chicken breast"',
       };
     }
-    
+
     if (lower.includes('pommes')) {
       return {
         canonicalId: 'fries',
@@ -33,7 +33,7 @@ export class FakeAiFoodMapper implements AiFoodMapper {
         explanation: 'Mapped German "pommes" to canonical "fries"',
       };
     }
-    
+
     // Fallback: use normalized input as canonical ID
     const normalized = normalizeText(rawInput);
     return {

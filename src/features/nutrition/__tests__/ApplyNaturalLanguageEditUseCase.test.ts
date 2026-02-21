@@ -239,9 +239,9 @@ describe('ApplyNaturalLanguageEditUseCase', () => {
 
   describe('error handling', () => {
     it('should throw error if entry not found', async () => {
-      await expect(
-        useCase.execute('2024-01-15', 'non-existent-id', '200g')
-      ).rejects.toThrow('Entry with id non-existent-id not found');
+      await expect(useCase.execute('2024-01-15', 'non-existent-id', '200g')).rejects.toThrow(
+        'Entry with id non-existent-id not found',
+      );
     });
   });
 

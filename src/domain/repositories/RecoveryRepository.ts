@@ -18,13 +18,13 @@ export interface RecoveryRepository {
   getLastSleep(): Sleep | null;
   getSleepsByDateRange(startDate: Date, endDate: Date): Sleep[];
   getSleepSummary(): SleepSummary;
-  
+
   // Schritt-Methoden
   getStepsById(id: string): Steps | null;
   getStepsByDate(date: Date): Steps | null;
   getStepsByDateRange(startDate: Date, endDate: Date): Steps[];
   getStepsSummary(): StepsSummary;
-  
+
   // Herzfrequenz-Methoden
   getHeartRatePointById(id: string): HeartRatePoint | null;
   getHeartRateSeriesByDate(date: Date): HeartRateSeries | null;

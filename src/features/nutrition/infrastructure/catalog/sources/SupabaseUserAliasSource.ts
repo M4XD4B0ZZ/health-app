@@ -1,11 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { FoodCatalogError } from "../../../domain/errors/FoodCatalogError";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { FoodCatalogError } from '../../../domain/errors/FoodCatalogError';
 import type {
   FoodCatalogSource,
   FoodSearchQuery,
   FoodCandidate,
-} from "../../../domain/catalog/FoodCatalogSource";
-import type { FoodCatalogConfig } from "../../../domain/models/FoodCatalogConfig";
+} from '../../../domain/catalog/FoodCatalogSource';
+import type { FoodCatalogConfig } from '../../../domain/models/FoodCatalogConfig';
 
 /**
  * Reads per-user alias mappings from `public.user_food_aliases` using RLS.
@@ -21,7 +21,7 @@ export class SupabaseUserAliasSource implements FoodCatalogSource {
 
   constructor(
     private readonly supabase: SupabaseClient,
-    private readonly config: FoodCatalogConfig
+    private readonly config: FoodCatalogConfig,
   ) {}
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
@@ -31,25 +31,24 @@ export class SupabaseUserAliasSource implements FoodCatalogSource {
     const log = (...args: any[]) => {
       if (!this.config.enableDebugLogs) return;
       // keep it consistent with your existing resolver logs
-      console.log("[SupabaseUserAliasSource]", ...args);
+      console.log('[SupabaseUserAliasSource]', ...args);
     };
 
     try {
       // Use cached session (no extra network call in the happy path)
-      const { data: sessionData, error: sessionError } =
-        await this.supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await this.supabase.auth.getSession();
 
       if (sessionError) {
         // Treat as network/auth boundary error
         throw FoodCatalogError.network(
-          "Failed to read auth session for alias lookup",
-          sessionError
+          'Failed to read auth session for alias lookup',
+          sessionError,
         );
       }
 
       const session = sessionData.session;
       if (!session?.user?.id) {
-        log("no session → skip", { traceId: query.traceId });
+        log('no session → skip', { traceId: query.traceId });
         return [];
       }
 
@@ -57,23 +56,23 @@ export class SupabaseUserAliasSource implements FoodCatalogSource {
 
       // Query user aliases (RLS enforces user ownership, but we also filter by user_id explicitly)
       const { data, error } = await this.supabase
-        .from("user_food_aliases")
-        .select("id,user_id,alias_text,normalized_alias,locale,target_item_id")
-        .eq("user_id", userId)
-        .eq("normalized_alias", query.normalized)
-        .eq("locale", query.locale)
+        .from('user_food_aliases')
+        .select('id,user_id,alias_text,normalized_alias,locale,target_item_id')
+        .eq('user_id', userId)
+        .eq('normalized_alias', query.normalized)
+        .eq('locale', query.locale)
         .limit(1);
 
       if (error) {
         // This is most commonly RLS/permissions or network edge cases
-        throw FoodCatalogError.edge("Failed to query user_food_aliases", error);
+        throw FoodCatalogError.edge('Failed to query user_food_aliases', error);
       }
 
       const row = data?.[0];
       const elapsedMs = Date.now() - startedAt;
 
       if (!row) {
-        log("miss", {
+        log('miss', {
           traceId: query.traceId,
           elapsedMs,
           normalized: query.normalized,
@@ -85,7 +84,7 @@ export class SupabaseUserAliasSource implements FoodCatalogSource {
       // If alias exists but doesn't point anywhere yet, treat as "not resolvable"
       // (useful while `food_catalog_items` isn't implemented)
       if (!row.target_item_id) {
-        log("hit but no target_item_id → skip", {
+        log('hit but no target_item_id → skip', {
           traceId: query.traceId,
           elapsedMs,
           aliasId: row.id,
@@ -120,7 +119,7 @@ export class SupabaseUserAliasSource implements FoodCatalogSource {
         reasons: ['User-defined alias', `Points to catalog item: ${row.target_item_id}`],
       };
 
-      log("hit", {
+      log('hit', {
         traceId: query.traceId,
         elapsedMs,
         itemId: row.target_item_id,
@@ -133,7 +132,7 @@ export class SupabaseUserAliasSource implements FoodCatalogSource {
       if (e instanceof FoodCatalogError) throw e;
 
       // Otherwise wrap as network (safe default)
-      throw FoodCatalogError.network("Alias source failed unexpectedly", e);
+      throw FoodCatalogError.network('Alias source failed unexpectedly', e);
     }
   }
 }

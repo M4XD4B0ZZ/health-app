@@ -7,12 +7,12 @@ export interface NutritionEntry {
   timestamp: Date;
   calories: number;
   mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
-  
+
   // Makronährstoffe (optional)
   proteins?: number; // in Gramm
   carbs?: number; // in Gramm
   fats?: number; // in Gramm
-  
+
   // Weitere optionale Nährwertinformationen
   sugar?: number; // in Gramm
   fiber?: number; // in Gramm
@@ -29,7 +29,7 @@ export interface DailyNutritionSummary {
   totalProteins?: number;
   totalCarbs?: number;
   totalFats?: number;
-  
+
   // Aufschlüsselung nach Mahlzeiten (optional)
   mealBreakdown?: {
     breakfast: number; // Kalorien

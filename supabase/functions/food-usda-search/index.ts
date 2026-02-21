@@ -20,6 +20,7 @@ const USDA_SOURCE = "usda" as const;
 const USDA_PAGE_SIZE = 10;
 
 interface SearchRequest {
+  mode?: "health" | string;
   query?: string;
   locale?: string;
 }
@@ -160,6 +161,23 @@ async function fetchFromUsda(
   return mapUsdaToCanonical(foods, normalizedQuery, locale);
 }
 
+async function validateUsdaKey(apiKey: string): Promise<boolean> {
+  const response = await fetch(
+    `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: "apple",
+        pageSize: 1,
+      }),
+      signal: AbortSignal.timeout(1200),
+    },
+  );
+
+  return response.ok;
+}
+
 Deno.serve(async (req) => {
   const traceId = getTraceId(req);
 
@@ -177,6 +195,56 @@ Deno.serve(async (req) => {
       body = await req.json() as SearchRequest;
     } catch {
       throw new AppError("INVALID_JSON", "Request body must be valid JSON", 400);
+    }
+
+    if (body.mode === "health") {
+      const apiKey = Deno.env.get("USDA_API_KEY");
+      if (!apiKey) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: "USDA_API_KEY_MISSING",
+            traceId,
+          },
+          200,
+          traceId,
+        );
+      }
+
+      try {
+        const valid = await validateUsdaKey(apiKey);
+        if (!valid) {
+          return jsonResponse(
+            {
+              ok: false,
+              error: "USDA_KEY_INVALID_OR_UPSTREAM_ERROR",
+              traceId,
+            },
+            200,
+            traceId,
+          );
+        }
+
+        return jsonResponse(
+          {
+            ok: true,
+            keyPresent: true,
+            traceId,
+          },
+          200,
+          traceId,
+        );
+      } catch {
+        return jsonResponse(
+          {
+            ok: false,
+            error: "USDA_KEY_INVALID_OR_UPSTREAM_ERROR",
+            traceId,
+          },
+          200,
+          traceId,
+        );
+      }
     }
 
     const { query, locale } = parseBody(body);
@@ -267,4 +335,3 @@ Deno.serve(async (req) => {
     return errorResponse(handledError, traceId);
   }
 });
-

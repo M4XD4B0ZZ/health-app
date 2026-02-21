@@ -11,6 +11,7 @@ import {
 import container from '../../../infrastructure/di/container';
 import { TimeRange } from '../../../domain/models/TimeRange';
 import { DashboardSummary } from '../../../application/usecases/GetDashboardSummary';
+import { checkUsdaKeyHealth } from '../../../../Apptest';
 
 const DashboardScreen: React.FC = () => {
   const [range, setRange] = useState<TimeRange>('today');
@@ -42,6 +43,16 @@ const DashboardScreen: React.FC = () => {
     loadSummary(false);
   }, [loadSummary]);
 
+  const handleUsdaHealthCheck = useCallback(async () => {
+    try {
+      console.log('USDA Health Check: started');
+      await checkUsdaKeyHealth();
+      console.log('USDA Health Check: completed');
+    } catch (err) {
+      console.log('USDA Health Check: failed', err);
+    }
+  }, []);
+
   const sleepHours = summary?.sleepDurationMinutes
     ? (summary.sleepDurationMinutes / 60).toFixed(1)
     : '–';
@@ -66,6 +77,12 @@ const DashboardScreen: React.FC = () => {
         <Text style={styles.headerText}>Dashboard</Text>
       </View>
 
+      {__DEV__ ? (
+        <Pressable style={styles.devButton} onPress={handleUsdaHealthCheck}>
+          <Text style={styles.devButtonText}>USDA Health Check</Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.segmentedControl}>
         <Pressable
           style={[styles.segmentButton, range === 'today' && styles.segmentButtonActive]}
@@ -84,7 +101,7 @@ const DashboardScreen: React.FC = () => {
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
           {range === 'today' ? 'Heutige Zusammenfassung' : 'Zusammenfassung (7 Tage)'}
@@ -131,6 +148,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
+  },
+  devButton: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#1e1e1e',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  devButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   segmentedControl: {
     flexDirection: 'row',

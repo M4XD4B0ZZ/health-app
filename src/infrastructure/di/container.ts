@@ -36,6 +36,8 @@ import { MockUsdaSource } from '../../features/nutrition/infrastructure/catalog/
 import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
 import { supabase } from '../supabase/supabaseClient';
+import type { AuthRepository } from '../../features/auth/application/ports/AuthRepository';
+import { SupabaseAuthRepository } from '../../features/auth/infrastructure/SupabaseAuthRepository';
 
 import { FoodAliasRepository, FoodEntryRepository, KeyValueStore } from '../../features/nutrition/application/ports';
 
@@ -83,6 +85,7 @@ class Container {
   private _nutritionIdGenerator: NutritionRandomIdGenerator;
   private _foodParser: DeterministicFoodParser;
   private _aiMealParser: FakeAiMealParser;
+  private _authRepository: AuthRepository;
 
   // Goals Feature - Infrastructure
   private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
@@ -127,6 +130,7 @@ class Container {
     this._nutritionIdGenerator = new NutritionRandomIdGenerator();
     this._foodParser = new DeterministicFoodParser();
     this._aiMealParser = new FakeAiMealParser();
+    this._authRepository = new SupabaseAuthRepository();
 
     // Goals infrastructure
     this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
@@ -274,6 +278,10 @@ class Container {
 
   get nutritionLookup(): InMemoryNutritionLookup {
     return this._nutritionLookup;
+  }
+
+  get authRepository(): AuthRepository {
+    return this._authRepository;
   }
 
   // Goals Infrastructure

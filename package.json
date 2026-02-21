@@ -4,12 +4,20 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier -w .",
+    "format:check": "prettier -c .",
+    "typecheck:functions": "deno check supabase/functions/food-usda-search/index.ts supabase/functions/food-off-search/index.ts supabase/functions/_shared/food-cache.ts",
+    "typecheck:all": "npm run typecheck && npm run typecheck:functions",
+    "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -28,9 +36,18 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
     "@types/react": "~19.1.0",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "eslint": "^9.36.0",
+    "eslint-config-expo": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
     "jest": "^30.2.0",
+    "prettier": "^3.6.2",
+    "supabase": "^2.76.11",
     "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "private": true
 }

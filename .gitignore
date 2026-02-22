@@ -43,6 +43,7 @@ yarn-error.*
 
 # Supabase CLI temporary working files (generated locally; not source of truth)
 supabase/temp/
+supabase/.temp/
 
 # Common local dependencies/build/cache artifacts
 .expo-cache/

@@ -6,3 +6,4 @@ export { EnrichFoodEntryMacrosUseCase } from './EnrichFoodEntryMacrosUseCase';
 export { ApplyNaturalLanguageEditUseCase } from './ApplyNaturalLanguageEditUseCase';
 export { CreateSavedMealFromDateUseCase } from './CreateSavedMealFromDateUseCase';
 export { LogSavedMealToDateUseCase } from './LogSavedMealToDateUseCase';
+export { EditFoodEntryFromNaturalLanguageUseCase } from './EditFoodEntryFromNaturalLanguageUseCase';

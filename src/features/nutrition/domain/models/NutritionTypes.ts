@@ -5,6 +5,8 @@ export interface FoodEntry {
   rawInput: string;
   parsedName: string;
   quantityGrams: number;
+  grams?: number | null;
+  servingMultiplier?: number;
   calories: number;
   protein: number;
   carbs: number;
@@ -13,6 +15,12 @@ export interface FoodEntry {
   sourceType: NutritionSourceType;
   createdAt: Date;
   explanation?: string;
+  calcBreakdown?: {
+    per100g: NutritionPer100g;
+    gramsUsed: number;
+    multiplier: number;
+  };
+  editNote?: string;
   confidenceReason?: string;
   lastModifiedAt?: Date;
 }

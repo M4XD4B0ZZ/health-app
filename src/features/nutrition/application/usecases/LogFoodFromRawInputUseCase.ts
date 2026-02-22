@@ -76,6 +76,8 @@ export class LogFoodFromRawInputUseCase {
       rawInput,
       parsedName: parsed.name,
       quantityGrams,
+      grams: quantityGrams > 0 ? quantityGrams : null,
+      servingMultiplier: 1,
       calories: 0,
       protein: 0,
       carbs: 0,
@@ -99,6 +101,8 @@ export class LogFoodFromRawInputUseCase {
         // Update entry with enriched data
         entry = {
           ...entry,
+          grams: quantityGrams,
+          servingMultiplier: 1,
           calories: macros.calories,
           protein: macros.protein,
           carbs: macros.carbs,
@@ -127,6 +131,8 @@ export class LogFoodFromRawInputUseCase {
         // Update entry with enriched data
         entry = {
           ...entry,
+          grams: quantityGrams,
+          servingMultiplier: 1,
           calories: macros.calories,
           protein: macros.protein,
           carbs: macros.carbs,

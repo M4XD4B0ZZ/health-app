@@ -22,6 +22,16 @@ export interface FoodEntryRepository {
   updateEntry(dateISO: string, entry: FoodEntry): Promise<void>;
 
   /**
+   * Lädt einen Eintrag anhand seiner ID, unabhängig vom Datum.
+   */
+  getEntryById(id: string): Promise<FoodEntry | null>;
+
+  /**
+   * Aktualisiert einen bestehenden Eintrag anhand seiner ID, unabhängig vom Datum.
+   */
+  updateEntryById(entry: FoodEntry): Promise<void>;
+
+  /**
    * Löscht einen Eintrag anhand seiner ID.
    */
   deleteEntry(id: string): Promise<void>;

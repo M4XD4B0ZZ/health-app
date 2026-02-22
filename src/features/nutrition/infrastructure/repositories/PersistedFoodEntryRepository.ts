@@ -11,6 +11,8 @@ interface SerializedFoodEntry {
   rawInput: string;
   parsedName: string;
   quantityGrams: number;
+  grams?: number | null;
+  servingMultiplier?: number;
   calories: number;
   protein: number;
   carbs: number;
@@ -19,6 +21,17 @@ interface SerializedFoodEntry {
   sourceType: string;
   createdAt: string; // ISO string
   explanation?: string;
+  calcBreakdown?: {
+    per100g: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    };
+    gramsUsed: number;
+    multiplier: number;
+  };
+  editNote?: string;
   confidenceReason?: string;
   lastModifiedAt?: string; // ISO string
 }
@@ -75,6 +88,35 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     dateEntries[index] = entry;
 
     await this.persist();
+  }
+
+  async getEntryById(id: string): Promise<FoodEntry | null> {
+    await this.ensureLoaded();
+
+    for (const entries of this.entries.values()) {
+      const found = entries.find((entry) => entry.id === id);
+      if (found) {
+        return { ...found };
+      }
+    }
+
+    return null;
+  }
+
+  async updateEntryById(entry: FoodEntry): Promise<void> {
+    await this.ensureLoaded();
+
+    for (const [dateISO, entries] of this.entries.entries()) {
+      const index = entries.findIndex((existing) => existing.id === entry.id);
+      if (index !== -1) {
+        entries[index] = entry;
+        this.entries.set(dateISO, entries);
+        await this.persist();
+        return;
+      }
+    }
+
+    throw new Error(`Entry with id ${entry.id} not found`);
   }
 
   async deleteEntry(id: string): Promise<void> {
@@ -150,6 +192,8 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       rawInput: entry.rawInput,
       parsedName: entry.parsedName,
       quantityGrams: entry.quantityGrams,
+      grams: entry.grams,
+      servingMultiplier: entry.servingMultiplier,
       calories: entry.calories,
       protein: entry.protein,
       carbs: entry.carbs,
@@ -158,6 +202,8 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       sourceType: entry.sourceType,
       createdAt: entry.createdAt.toISOString(),
       explanation: entry.explanation,
+      calcBreakdown: entry.calcBreakdown,
+      editNote: entry.editNote,
       confidenceReason: entry.confidenceReason,
       lastModifiedAt: entry.lastModifiedAt?.toISOString(),
     };
@@ -185,7 +231,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
    * Deserialisiert einen einzelnen FoodEntry.
    */
   private deserializeEntry(serialized: SerializedFoodEntry): FoodEntry {
-    return {
+    const entry: FoodEntry = {
       id: serialized.id,
       rawInput: serialized.rawInput,
       parsedName: serialized.parsedName,
@@ -201,6 +247,24 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       confidenceReason: serialized.confidenceReason,
       lastModifiedAt: serialized.lastModifiedAt ? new Date(serialized.lastModifiedAt) : undefined,
     };
+
+    if (serialized.grams !== undefined) {
+      entry.grams = serialized.grams;
+    }
+
+    if (serialized.servingMultiplier !== undefined) {
+      entry.servingMultiplier = serialized.servingMultiplier;
+    }
+
+    if (serialized.calcBreakdown !== undefined) {
+      entry.calcBreakdown = serialized.calcBreakdown;
+    }
+
+    if (serialized.editNote !== undefined) {
+      entry.editNote = serialized.editNote;
+    }
+
+    return entry;
   }
 
   /**

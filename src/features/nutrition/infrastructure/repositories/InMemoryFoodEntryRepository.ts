@@ -34,6 +34,30 @@ export class InMemoryFoodEntryRepository implements FoodEntryRepository {
     dateEntries[index] = entry;
   }
 
+  async getEntryById(id: string): Promise<FoodEntry | null> {
+    for (const entries of this.entries.values()) {
+      const found = entries.find((entry) => entry.id === id);
+      if (found) {
+        return { ...found };
+      }
+    }
+
+    return null;
+  }
+
+  async updateEntryById(entry: FoodEntry): Promise<void> {
+    for (const [dateISO, entries] of this.entries.entries()) {
+      const index = entries.findIndex((existing) => existing.id === entry.id);
+      if (index !== -1) {
+        entries[index] = entry;
+        this.entries.set(dateISO, entries);
+        return;
+      }
+    }
+
+    throw new Error(`Entry with id ${entry.id} not found`);
+  }
+
   async deleteEntry(id: string): Promise<void> {
     for (const [dateISO, entries] of this.entries.entries()) {
       const index = entries.findIndex((e) => e.id === id);

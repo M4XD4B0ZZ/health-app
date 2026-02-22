@@ -12,6 +12,7 @@ export { GetDailySummaryUseCase } from './usecases/GetDailySummaryUseCase';
 export { DeleteFoodEntryUseCase } from './usecases/DeleteFoodEntryUseCase';
 export { EnrichFoodEntryMacrosUseCase } from './usecases/EnrichFoodEntryMacrosUseCase';
 export { ApplyNaturalLanguageEditUseCase } from './usecases/ApplyNaturalLanguageEditUseCase';
+export { EditFoodEntryFromNaturalLanguageUseCase } from './usecases/EditFoodEntryFromNaturalLanguageUseCase';
 export { CreateSavedMealFromDateUseCase } from './usecases/CreateSavedMealFromDateUseCase';
 export { LogSavedMealToDateUseCase } from './usecases/LogSavedMealToDateUseCase';
 

@@ -1,0 +1,121 @@
+import { FoodEntryRepository } from '../ports/FoodEntryRepository';
+import { NutritionLookup } from '../ports/NutritionLookup';
+import { Clock } from '../ports/Clock';
+import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { PortionParser } from '../../domain/portion/PortionParser';
+import { computeTotals } from '../../domain/portion/computeTotals';
+
+export interface EditDecision {
+  status: 'applied' | 'ambiguous' | 'rejected';
+  reasonCodes: string[];
+  confidence: number;
+  notes: string[];
+}
+
+export interface EditFoodEntryResult {
+  updatedEntry: FoodEntry;
+  editDecision: EditDecision;
+}
+
+export class EditFoodEntryFromNaturalLanguageUseCase {
+  private readonly parser: PortionParser;
+
+  constructor(
+    private readonly repository: FoodEntryRepository,
+    private readonly nutritionLookup: NutritionLookup,
+    private readonly clock: Clock,
+  ) {
+    this.parser = new PortionParser();
+  }
+
+  async execute(entryId: string, editText: string): Promise<EditFoodEntryResult> {
+    const entry = await this.repository.getEntryById(entryId);
+    if (!entry) {
+      throw new Error(`Entry with id ${entryId} not found`);
+    }
+
+    const normalizedEditText = editText.trim().toLowerCase();
+    const hasBaseGrams = (entry.grams ?? entry.quantityGrams) > 0;
+    const parseResult = this.parser.parse(editText, { hasBaseGrams });
+
+    let nextEntry: FoodEntry = { ...entry, servingMultiplier: entry.servingMultiplier ?? 1 };
+    const reasonCodes = [...parseResult.notes];
+    const notes = [...parseResult.notes];
+    let decisionStatus: EditDecision['status'] = 'rejected';
+    let decisionConfidence = parseResult.confidence;
+
+    if (parseResult.grams !== undefined) {
+      nextEntry.grams = parseResult.grams;
+      nextEntry.quantityGrams = parseResult.grams;
+      reasonCodes.push('GRAMS_SET');
+      decisionStatus = 'applied';
+    }
+
+    if (parseResult.multiplier !== undefined) {
+      nextEntry.servingMultiplier = parseResult.multiplier;
+      reasonCodes.push('MULTIPLIER_SET');
+      decisionStatus = 'applied';
+    }
+
+    const oilEditUnsupported =
+      normalizedEditText.includes('ohne oel') ||
+      normalizedEditText.includes('ohne öl') ||
+      normalizedEditText.includes('without oil');
+
+    if (oilEditUnsupported) {
+      nextEntry.editNote = 'exclude: oil';
+      reasonCodes.push('INGREDIENT_EDIT_UNSUPPORTED');
+      notes.push('exclude: oil');
+      decisionStatus = 'ambiguous';
+      decisionConfidence = Math.min(decisionConfidence, 0.55);
+    }
+
+    const currentGrams = nextEntry.grams ?? nextEntry.quantityGrams;
+    const currentMultiplier = nextEntry.servingMultiplier ?? 1;
+
+    if (currentGrams > 0) {
+      const per100g = await this.nutritionLookup.getPer100gByName(nextEntry.parsedName);
+      if (per100g) {
+        const breakdown = computeTotals(per100g, currentGrams, currentMultiplier);
+        nextEntry.calories = breakdown.totals.calories;
+        nextEntry.protein = breakdown.totals.protein;
+        nextEntry.carbs = breakdown.totals.carbs;
+        nextEntry.fat = breakdown.totals.fat;
+        nextEntry.calcBreakdown = {
+          per100g: breakdown.per100g,
+          gramsUsed: breakdown.gramsUsed,
+          multiplier: breakdown.multiplier,
+        };
+        nextEntry.explanation = `Calculated from ${currentGrams}g x ${currentMultiplier.toFixed(2)}.`;
+      } else if (decisionStatus === 'applied') {
+        reasonCodes.push('NUTRITION_UNKNOWN');
+      }
+    }
+
+    if (decisionStatus === 'rejected' && parseResult.status === 'ambiguous') {
+      decisionStatus = 'ambiguous';
+    }
+
+    if (decisionStatus === 'rejected' && reasonCodes.length === 0) {
+      reasonCodes.push('NO_CHANGES');
+    }
+
+    if (reasonCodes.includes('ML_UNSUPPORTED')) {
+      decisionStatus = 'ambiguous';
+      reasonCodes.push('ML_UNSUPPORTED');
+    }
+
+    nextEntry.lastModifiedAt = this.clock.now();
+    await this.repository.updateEntryById(nextEntry);
+
+    return {
+      updatedEntry: nextEntry,
+      editDecision: {
+        status: decisionStatus,
+        reasonCodes: Array.from(new Set(reasonCodes)),
+        confidence: decisionConfidence,
+        notes: Array.from(new Set(notes)),
+      },
+    };
+  }
+}

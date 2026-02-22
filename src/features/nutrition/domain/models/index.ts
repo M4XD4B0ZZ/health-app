@@ -5,3 +5,6 @@ export * from './AiMealTypes';
 export * from './FoodCatalogTypes';
 export * from './FoodCatalogConfig';
 export * from './ResolverDecision';
+export * from './ResolverDecisionSummary';
+export * from './DecisionMeta';
+export * from './AssumptionTag';

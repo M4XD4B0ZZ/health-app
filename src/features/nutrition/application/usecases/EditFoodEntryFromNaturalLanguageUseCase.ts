@@ -4,6 +4,8 @@ import { Clock } from '../ports/Clock';
 import { FoodEntry } from '../../domain/models/NutritionTypes';
 import { PortionParser } from '../../domain/portion/PortionParser';
 import { computeTotals } from '../../domain/portion/computeTotals';
+import { buildEditDecisionMeta } from '../services/explainability/buildEditDecisionMeta';
+import { AssumptionTag } from '../../domain/models/AssumptionTag';
 
 export interface EditDecision {
   status: 'applied' | 'ambiguous' | 'rejected';
@@ -87,9 +89,26 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
           multiplier: breakdown.multiplier,
         };
         nextEntry.explanation = `Calculated from ${currentGrams}g x ${currentMultiplier.toFixed(2)}.`;
+        nextEntry.lastEditDecision = buildEditDecisionMeta({
+          editText,
+          portionParseResult: parseResult,
+          ingredientEditUnsupported: oilEditUnsupported,
+          calcBreakdown: breakdown,
+        });
       } else if (decisionStatus === 'applied') {
         reasonCodes.push('NUTRITION_UNKNOWN');
+        nextEntry.lastEditDecision = buildEditDecisionMeta({
+          editText,
+          portionParseResult: parseResult,
+          ingredientEditUnsupported: oilEditUnsupported,
+        });
       }
+    } else {
+      nextEntry.lastEditDecision = buildEditDecisionMeta({
+        editText,
+        portionParseResult: parseResult,
+        ingredientEditUnsupported: oilEditUnsupported,
+      });
     }
 
     if (decisionStatus === 'rejected' && parseResult.status === 'ambiguous') {
@@ -103,6 +122,25 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     if (reasonCodes.includes('ML_UNSUPPORTED')) {
       decisionStatus = 'ambiguous';
       reasonCodes.push('ML_UNSUPPORTED');
+    }
+
+    const assumptions: AssumptionTag[] = [];
+    if (parseResult.grams !== undefined) {
+      assumptions.push('GRAMS_ASSUMED');
+    }
+    if (parseResult.multiplier !== undefined) {
+      assumptions.push('MULTIPLIER_APPLIED');
+    }
+    if (reasonCodes.includes('ML_UNSUPPORTED')) {
+      assumptions.push('ML_WITHOUT_DENSITY');
+    }
+    if (oilEditUnsupported) {
+      assumptions.push('INGREDIENT_EDIT_UNSUPPORTED');
+    }
+    if (assumptions.length > 0) {
+      nextEntry.assumptions = Array.from(
+        new Set([...(nextEntry.assumptions ?? []), ...assumptions]),
+      );
     }
 
     nextEntry.lastModifiedAt = this.clock.now();

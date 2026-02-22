@@ -1,6 +1,9 @@
 import { FoodEntry } from '../../domain/models/NutritionTypes';
 import { FoodEntryRepository } from '../../application/ports/FoodEntryRepository';
 import { KeyValueStore } from '../../application/ports/KeyValueStore';
+import { AssumptionTag } from '../../domain/models/AssumptionTag';
+import { DecisionMeta } from '../../domain/models/DecisionMeta';
+import { ResolverDecisionSummary } from '../../domain/models/ResolverDecisionSummary';
 
 /**
  * Serialisierbare Version von FoodEntry für JSON-Speicherung.
@@ -32,6 +35,10 @@ interface SerializedFoodEntry {
     multiplier: number;
   };
   editNote?: string;
+  resolverDecisionSummary?: ResolverDecisionSummary;
+  logDecision?: DecisionMeta;
+  lastEditDecision?: DecisionMeta;
+  assumptions?: AssumptionTag[];
   confidenceReason?: string;
   lastModifiedAt?: string; // ISO string
 }
@@ -204,6 +211,10 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       explanation: entry.explanation,
       calcBreakdown: entry.calcBreakdown,
       editNote: entry.editNote,
+      resolverDecisionSummary: entry.resolverDecisionSummary,
+      logDecision: entry.logDecision,
+      lastEditDecision: entry.lastEditDecision,
+      assumptions: entry.assumptions,
       confidenceReason: entry.confidenceReason,
       lastModifiedAt: entry.lastModifiedAt?.toISOString(),
     };
@@ -262,6 +273,22 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
 
     if (serialized.editNote !== undefined) {
       entry.editNote = serialized.editNote;
+    }
+
+    if (serialized.resolverDecisionSummary !== undefined) {
+      entry.resolverDecisionSummary = serialized.resolverDecisionSummary;
+    }
+
+    if (serialized.logDecision !== undefined) {
+      entry.logDecision = serialized.logDecision;
+    }
+
+    if (serialized.lastEditDecision !== undefined) {
+      entry.lastEditDecision = serialized.lastEditDecision;
+    }
+
+    if (serialized.assumptions !== undefined) {
+      entry.assumptions = serialized.assumptions;
     }
 
     return entry;

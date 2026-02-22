@@ -58,6 +58,8 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.updatedEntry.carbs).toBe(45.6);
     expect(result.updatedEntry.fat).toBe(0.6);
     expect(result.updatedEntry.lastModifiedAt).toEqual(clock.now());
+    expect(result.updatedEntry.lastEditDecision).toBeDefined();
+    expect(result.updatedEntry.lastEditDecision?.reasonCodes).toContain('GRAMS_SET');
   });
 
   it('returns ambiguous for ml without density', async () => {
@@ -107,5 +109,8 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.editDecision.status).toBe('ambiguous');
     expect(result.editDecision.reasonCodes).toContain('INGREDIENT_EDIT_UNSUPPORTED');
     expect(result.updatedEntry.editNote).toBe('exclude: oil');
+    expect(result.updatedEntry.lastEditDecision?.reasonCodes).toContain(
+      'INGREDIENT_EDIT_UNSUPPORTED',
+    );
   });
 });

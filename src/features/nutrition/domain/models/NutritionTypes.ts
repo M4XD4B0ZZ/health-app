@@ -1,3 +1,7 @@
+import { AssumptionTag } from './AssumptionTag';
+import { DecisionMeta } from './DecisionMeta';
+import { ResolverDecisionSummary } from './ResolverDecisionSummary';
+
 export type NutritionSourceType = 'user' | 'cache' | 'branded' | 'generic' | 'ai';
 
 export interface FoodEntry {
@@ -21,6 +25,10 @@ export interface FoodEntry {
     multiplier: number;
   };
   editNote?: string;
+  resolverDecisionSummary?: ResolverDecisionSummary;
+  logDecision?: DecisionMeta;
+  lastEditDecision?: DecisionMeta;
+  assumptions?: AssumptionTag[];
   confidenceReason?: string;
   lastModifiedAt?: Date;
 }

@@ -54,6 +54,8 @@ describe('LogFoodFromRawInputUseCase', () => {
       expect(entry.protein).toBe(0);
       expect(entry.carbs).toBe(0);
       expect(entry.fat).toBe(0);
+      expect(entry.logDecision).toBeDefined();
+      expect(entry.logDecision?.explanation.length).toBeGreaterThan(0);
     });
 
     it('sollte Entry im Repository speichern', async () => {

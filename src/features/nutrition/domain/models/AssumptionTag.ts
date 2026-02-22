@@ -1,0 +1,8 @@
+export type AssumptionTag =
+  | 'GRAMS_ASSUMED'
+  | 'MULTIPLIER_APPLIED'
+  | 'SOURCE_OFF'
+  | 'SOURCE_USDA'
+  | 'SOURCE_MOCK'
+  | 'ML_WITHOUT_DENSITY'
+  | 'INGREDIENT_EDIT_UNSUPPORTED';

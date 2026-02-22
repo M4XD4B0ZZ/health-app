@@ -5,3 +5,6 @@ export { CircuitBreakerManager } from './CircuitBreakerManager';
 export { NegativeCacheHelper } from './NegativeCacheHelper';
 export { ScoreCalculator } from './ScoreCalculator';
 export { buildResolverDecision, sortResolvedCandidates } from './ResolverDecisionPolicy';
+export { summarizeResolverDecision } from './explainability/summarizeResolverDecision';
+export { buildLogDecisionMeta } from './explainability/buildLogDecisionMeta';
+export { buildEditDecisionMeta } from './explainability/buildEditDecisionMeta';

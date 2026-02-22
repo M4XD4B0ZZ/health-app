@@ -10,6 +10,12 @@ import { DeterministicFoodParser } from '../../infrastructure/parsers/Determinis
 import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 import { normalizeText } from '../utils/normalizeText';
 import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
+import { ResolverDecision, ResolverDecisionSummary } from '../../domain/models';
+import { PortionParser } from '../../domain/portion/PortionParser';
+import { computeTotals, NutritionTotalsBreakdown } from '../../domain/portion/computeTotals';
+import { buildLogDecisionMeta } from '../services/explainability/buildLogDecisionMeta';
+import { summarizeResolverDecision } from '../services/explainability/summarizeResolverDecision';
+import { AssumptionTag } from '../../domain/models/AssumptionTag';
 
 /**
  * Use-Case: Log Food Entry from Raw Input
@@ -29,6 +35,7 @@ import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
  */
 export class LogFoodFromRawInputUseCase {
   private readonly engine: NutritionEngine;
+  private readonly portionParser: PortionParser;
 
   constructor(
     private readonly repository: FoodEntryRepository,
@@ -42,6 +49,7 @@ export class LogFoodFromRawInputUseCase {
     private readonly resolver?: FoodCatalogResolver,
   ) {
     this.engine = new NutritionEngine();
+    this.portionParser = new PortionParser();
   }
 
   async execute(rawInput: string, dateISO?: string): Promise<FoodEntry> {
@@ -71,6 +79,13 @@ export class LogFoodFromRawInputUseCase {
     }
 
     // Build base FoodEntry
+    let resolverDecision: ResolverDecision | undefined;
+    let resolverDecisionSummary: ResolverDecisionSummary | undefined;
+    let calcBreakdown: NutritionTotalsBreakdown | undefined;
+    const portionParseResult = this.portionParser.parse(rawInput, {
+      hasBaseGrams: quantityGrams > 0,
+    });
+
     let entry: FoodEntry = {
       id: this.idGenerator.newId(),
       rawInput,
@@ -90,26 +105,31 @@ export class LogFoodFromRawInputUseCase {
     // Sprint 5.3: Canonical Food Catalog Flow
     if (this.foodCatalog) {
       const result = await this.resolveCanonicalFood(parsed.name, rawInput);
+      resolverDecision = result.resolverDecision;
+      resolverDecisionSummary = result.resolverDecisionSummary;
 
       if (result.canonicalFood && quantityGrams > 0) {
-        // Calculate macros from canonical food
-        const macros = this.engine.calculateFromPer100g(
-          result.canonicalFood.per100g,
-          quantityGrams,
-        );
+        const computed = computeTotals(result.canonicalFood.per100g, quantityGrams, 1);
+        calcBreakdown = computed;
 
         // Update entry with enriched data
         entry = {
           ...entry,
           grams: quantityGrams,
           servingMultiplier: 1,
-          calories: macros.calories,
-          protein: macros.protein,
-          carbs: macros.carbs,
-          fat: macros.fat,
+          calories: computed.totals.calories,
+          protein: computed.totals.protein,
+          carbs: computed.totals.carbs,
+          fat: computed.totals.fat,
           sourceType: result.sourceType,
           confidenceScore: Math.min(result.confidence, confidenceScore + 0.25),
           explanation: result.explanation,
+          resolverDecisionSummary,
+          calcBreakdown: {
+            per100g: computed.per100g,
+            gramsUsed: computed.gramsUsed,
+            multiplier: computed.multiplier,
+          },
         };
       }
     }
@@ -118,8 +138,8 @@ export class LogFoodFromRawInputUseCase {
       const per100g = await this.nutritionLookup.getPer100gByName(parsed.name);
 
       if (per100g) {
-        // Calculate macros
-        const macros = this.engine.calculateFromPer100g(per100g, quantityGrams);
+        const computed = computeTotals(per100g, quantityGrams, 1);
+        calcBreakdown = computed;
 
         // Upgrade to 'generic' source type
         const sourceType = 'generic';
@@ -133,14 +153,52 @@ export class LogFoodFromRawInputUseCase {
           ...entry,
           grams: quantityGrams,
           servingMultiplier: 1,
-          calories: macros.calories,
-          protein: macros.protein,
-          carbs: macros.carbs,
-          fat: macros.fat,
+          calories: computed.totals.calories,
+          protein: computed.totals.protein,
+          carbs: computed.totals.carbs,
+          fat: computed.totals.fat,
           sourceType,
           confidenceScore: cappedConfidence,
+          calcBreakdown: {
+            per100g: computed.per100g,
+            gramsUsed: computed.gramsUsed,
+            multiplier: computed.multiplier,
+          },
         };
       }
+    }
+
+    entry.logDecision = buildLogDecisionMeta({
+      resolverDecision,
+      portionParseResult,
+      calcBreakdown,
+    });
+
+    const assumptions: AssumptionTag[] = [];
+    if (portionParseResult.grams !== undefined) {
+      assumptions.push('GRAMS_ASSUMED');
+    }
+    if (portionParseResult.multiplier !== undefined) {
+      assumptions.push('MULTIPLIER_APPLIED');
+    }
+    if (portionParseResult.notes.includes('ML_UNSUPPORTED')) {
+      assumptions.push('ML_WITHOUT_DENSITY');
+    }
+    if (resolverDecisionSummary?.source === 'USDA') {
+      assumptions.push('SOURCE_USDA');
+    }
+    if (resolverDecisionSummary?.source === 'OFF') {
+      assumptions.push('SOURCE_OFF');
+    }
+    if (resolverDecisionSummary?.source.startsWith('MOCK_')) {
+      assumptions.push('SOURCE_MOCK');
+    }
+    if (assumptions.length > 0) {
+      entry.assumptions = assumptions;
+    }
+
+    if (resolverDecisionSummary) {
+      entry.resolverDecisionSummary = resolverDecisionSummary;
     }
 
     // Persist
@@ -170,6 +228,8 @@ export class LogFoodFromRawInputUseCase {
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
     explanation?: string;
+    resolverDecision?: ResolverDecision;
+    resolverDecisionSummary?: ResolverDecisionSummary;
   }> {
     if (!this.foodCatalog) {
       return { canonicalFood: null, sourceType: 'user', confidence: 0.35 };
@@ -185,6 +245,7 @@ export class LogFoodFromRawInputUseCase {
         normalized,
         locale: 'de',
       });
+      const summary = summarizeResolverDecision(decision);
       const resolved = decision.best;
 
       if (resolved && resolved.score >= 0.7) {
@@ -210,8 +271,19 @@ export class LogFoodFromRawInputUseCase {
           sourceType: 'generic',
           confidence: resolved.score,
           explanation: [...decision.reasonCodes, ...resolved.breakdown.notes].join(', '),
+          resolverDecision: decision,
+          resolverDecisionSummary: summary,
         };
       }
+
+      return {
+        canonicalFood: null,
+        sourceType: 'user',
+        confidence: 0.35,
+        explanation: decision.reasonCodes.join(', '),
+        resolverDecision: decision,
+        resolverDecisionSummary: summary,
+      };
     }
 
     // Step 2: Alias lookup

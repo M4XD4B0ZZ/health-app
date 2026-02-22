@@ -1,122 +1,125 @@
 import { GetDailySummaryUseCase } from '../application/usecases/GetDailySummaryUseCase';
-import { LogFoodFromRawInputUseCase } from '../application/usecases/LogFoodFromRawInputUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
-import { DeterministicFoodParser } from '../infrastructure/parsers/DeterministicFoodParser';
-import { NutritionEngine } from '../domain/engine/NutritionEngine';
-import { Clock } from '../application/ports/Clock';
-import { IdGenerator } from '../application/ports/IdGenerator';
+import { FoodEntry } from '../domain/models/NutritionTypes';
+import { GoalsRepository } from '../application/ports/GoalsRepository';
+import { UserGoals } from '../domain/goals/UserGoals';
 
-// Test-Implementierungen
-class TestClock implements Clock {
-  constructor(private fixedDate: Date) {}
+class InMemoryGoalsRepository implements GoalsRepository {
+  private goals: UserGoals | null = null;
 
-  now(): Date {
-    return this.fixedDate;
+  async getGoals(): Promise<UserGoals | null> {
+    return this.goals;
   }
 
-  todayISO(): string {
-    return this.fixedDate.toISOString().slice(0, 10);
-  }
-}
-
-class TestIdGenerator implements IdGenerator {
-  private counter = 0;
-
-  newId(): string {
-    return `test-id-${this.counter++}`;
+  async setGoals(goals: UserGoals): Promise<void> {
+    this.goals = goals;
   }
 }
 
 describe('GetDailySummaryUseCase', () => {
-  let getSummaryUseCase: GetDailySummaryUseCase;
-  let logFoodUseCase: LogFoodFromRawInputUseCase;
   let repository: InMemoryFoodEntryRepository;
-  let engine: NutritionEngine;
+  let goalsRepository: InMemoryGoalsRepository;
+  let useCase: GetDailySummaryUseCase;
 
   beforeEach(() => {
     repository = new InMemoryFoodEntryRepository();
-    engine = new NutritionEngine();
-    const clock = new TestClock(new Date('2026-02-15T12:00:00Z'));
-    const idGenerator = new TestIdGenerator();
-    const parser = new DeterministicFoodParser();
-
-    getSummaryUseCase = new GetDailySummaryUseCase(repository, engine);
-    logFoodUseCase = new LogFoodFromRawInputUseCase(repository, clock, idGenerator, parser);
+    goalsRepository = new InMemoryGoalsRepository();
+    useCase = new GetDailySummaryUseCase(repository, goalsRepository);
   });
 
-  describe('Ohne Einträge', () => {
-    it('sollte leere Summary mit korrektem Datum zurückgeben', async () => {
-      const summary = await getSummaryUseCase.execute('2026-02-15');
+  it('returns summary with notes when no goals are set', async () => {
+    const summary = await useCase.execute('2026-02-15');
 
-      expect(summary.date).toBe('2026-02-15');
-      expect(summary.totalCalories).toBe(0);
-      expect(summary.totalProtein).toBe(0);
-      expect(summary.totalCarbs).toBe(0);
-      expect(summary.totalFat).toBe(0);
-      expect(summary.entries).toHaveLength(0);
-    });
+    expect(summary.dateISO).toBe('2026-02-15');
+    expect(summary.totals.caloriesKcal).toBe(0);
+    expect(summary.notesDe).toEqual(['Kein Ziel gesetzt.']);
+    expect(summary.progress.calories.target).toBe(0);
   });
 
-  describe('Mit Einträgen (Macros=0)', () => {
-    it('sollte alle Einträge aggregieren', async () => {
-      await logFoodUseCase.execute('200g chicken');
-      await logFoodUseCase.execute('150g rice');
-      await logFoodUseCase.execute('banana');
-
-      const summary = await getSummaryUseCase.execute('2026-02-15');
-
-      expect(summary.date).toBe('2026-02-15');
-      expect(summary.entries).toHaveLength(3);
-      expect(summary.totalCalories).toBe(0); // Noch keine Nutrition-Daten
-      expect(summary.totalProtein).toBe(0);
-      expect(summary.totalCarbs).toBe(0);
-      expect(summary.totalFat).toBe(0);
+  it('returns summary with goals and progress metrics', async () => {
+    await goalsRepository.setGoals({
+      caloriesTargetKcal: 2500,
+      proteinTargetG: 150,
+      carbsTargetG: 250,
+      fatTargetG: 80,
+      activityLevel: 'moderate',
+      source: 'manual',
+      updatedAt: new Date('2026-02-22T10:00:00Z').toISOString(),
     });
 
-    it('sollte nur Einträge für das angegebene Datum laden', async () => {
-      await logFoodUseCase.execute('200g chicken', '2026-02-15');
-      await logFoodUseCase.execute('150g rice', '2026-02-16');
+    const entries: FoodEntry[] = [
+      {
+        id: 'e1',
+        rawInput: 'meal1',
+        parsedName: 'meal1',
+        quantityGrams: 100,
+        calories: 500,
+        protein: 40,
+        carbs: 30,
+        fat: 20,
+        confidenceScore: 0.8,
+        sourceType: 'generic',
+        createdAt: new Date('2026-02-15T10:00:00Z'),
+      },
+      {
+        id: 'e2',
+        rawInput: 'meal2',
+        parsedName: 'meal2',
+        quantityGrams: 200,
+        calories: 700,
+        protein: 35,
+        carbs: 90,
+        fat: 25,
+        confidenceScore: 0.8,
+        sourceType: 'generic',
+        createdAt: new Date('2026-02-15T12:00:00Z'),
+      },
+    ];
+    await repository.addEntry(entries[0]);
+    await repository.addEntry(entries[1]);
 
-      const summary15 = await getSummaryUseCase.execute('2026-02-15');
-      const summary16 = await getSummaryUseCase.execute('2026-02-16');
-
-      expect(summary15.entries).toHaveLength(1);
-      expect(summary15.entries[0].parsedName).toBe('chicken');
-
-      expect(summary16.entries).toHaveLength(1);
-      expect(summary16.entries[0].parsedName).toBe('rice');
-    });
+    const summary = await useCase.execute('2026-02-15');
+    expect(summary.totals.caloriesKcal).toBe(1200);
+    expect(summary.totals.proteinG).toBe(75);
+    expect(summary.remaining.caloriesKcal).toBe(1300);
+    expect(summary.progress.calories.status).toBe('under');
   });
 
-  describe('Aggregation', () => {
-    it('sollte NutritionEngine korrekt verwenden', async () => {
-      // Füge Einträge mit manuellen Macros hinzu
-      const entry1 = await logFoodUseCase.execute('200g chicken');
-      const entry2 = await logFoodUseCase.execute('150g rice');
+  it('uses ISO date extraction correctly at day boundaries', async () => {
+    const endOfDay: FoodEntry = {
+      id: 'end',
+      rawInput: 'late',
+      parsedName: 'late',
+      quantityGrams: 100,
+      calories: 200,
+      protein: 10,
+      carbs: 20,
+      fat: 5,
+      confidenceScore: 0.8,
+      sourceType: 'generic',
+      createdAt: new Date('2026-02-15T23:59:59.000Z'),
+    };
+    const startNextDay: FoodEntry = {
+      id: 'start',
+      rawInput: 'early',
+      parsedName: 'early',
+      quantityGrams: 100,
+      calories: 100,
+      protein: 5,
+      carbs: 10,
+      fat: 2,
+      confidenceScore: 0.8,
+      sourceType: 'generic',
+      createdAt: new Date('2026-02-16T00:00:00.000Z'),
+    };
 
-      // Manuell Macros setzen für den Test
-      entry1.calories = 330;
-      entry1.protein = 62;
-      entry1.carbs = 0;
-      entry1.fat = 7;
+    await repository.addEntry(endOfDay);
+    await repository.addEntry(startNextDay);
 
-      entry2.calories = 195;
-      entry2.protein = 4;
-      entry2.carbs = 43;
-      entry2.fat = 0.5;
+    const summary15 = await useCase.execute('2026-02-15');
+    const summary16 = await useCase.execute('2026-02-16');
 
-      // Repository aktualisieren
-      await repository.deleteEntry(entry1.id);
-      await repository.deleteEntry(entry2.id);
-      await repository.addEntry(entry1);
-      await repository.addEntry(entry2);
-
-      const summary = await getSummaryUseCase.execute('2026-02-15');
-
-      expect(summary.totalCalories).toBe(525);
-      expect(summary.totalProtein).toBe(66);
-      expect(summary.totalCarbs).toBe(43);
-      expect(summary.totalFat).toBe(7.5);
-    });
+    expect(summary15.totals.caloriesKcal).toBe(200);
+    expect(summary16.totals.caloriesKcal).toBe(100);
   });
 });

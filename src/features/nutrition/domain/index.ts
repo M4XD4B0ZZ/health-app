@@ -11,3 +11,4 @@ export * from './errors';
 export * from './portion';
 export * from './goals';
 export * from './metabolism';
+export * from './summary';

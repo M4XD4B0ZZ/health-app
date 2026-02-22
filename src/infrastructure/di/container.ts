@@ -224,7 +224,7 @@ class Container {
 
     this._getDailySummaryUseCase = new GetDailySummaryUseCase(
       this._foodEntryRepository,
-      this._nutritionEngine,
+      this._nutritionGoalsRepository,
     );
 
     this._applyNaturalLanguageEditUseCase = new ApplyNaturalLanguageEditUseCase(

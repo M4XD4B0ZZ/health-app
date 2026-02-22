@@ -12,3 +12,4 @@ export * from './portion';
 export * from './goals';
 export * from './metabolism';
 export * from './summary';
+export * from './reminders';

@@ -19,6 +19,9 @@ export { LogSavedMealToDateUseCase } from './usecases/LogSavedMealToDateUseCase'
 export { GetGoalsUseCase } from './usecases/GetGoalsUseCase';
 export { SetManualGoalsUseCase } from './usecases/SetManualGoalsUseCase';
 export { CalculateGoalsFromMetabolismInputsUseCase } from './usecases/CalculateGoalsFromMetabolismInputsUseCase';
+export { GetReminderSettingsUseCase } from './usecases/GetReminderSettingsUseCase';
+export { SetReminderSettingsUseCase } from './usecases/SetReminderSettingsUseCase';
+export { GetReminderDecisionUseCase } from './usecases/GetReminderDecisionUseCase';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';

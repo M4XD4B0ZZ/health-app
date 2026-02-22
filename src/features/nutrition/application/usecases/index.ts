@@ -10,3 +10,6 @@ export { EditFoodEntryFromNaturalLanguageUseCase } from './EditFoodEntryFromNatu
 export { GetGoalsUseCase } from './GetGoalsUseCase';
 export { SetManualGoalsUseCase } from './SetManualGoalsUseCase';
 export { CalculateGoalsFromMetabolismInputsUseCase } from './CalculateGoalsFromMetabolismInputsUseCase';
+export { GetReminderSettingsUseCase } from './GetReminderSettingsUseCase';
+export { SetReminderSettingsUseCase } from './SetReminderSettingsUseCase';
+export { GetReminderDecisionUseCase } from './GetReminderDecisionUseCase';

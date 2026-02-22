@@ -4,6 +4,7 @@ export * from './domain/engine';
 export * from './domain/goals';
 export * from './domain/metabolism';
 export * from './domain/summary';
+export * from './domain/reminders';
 
 // Application Layer
 export * from './application';

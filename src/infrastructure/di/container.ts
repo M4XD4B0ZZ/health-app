@@ -31,6 +31,10 @@ import {
   GetGoalsUseCase,
   SetManualGoalsUseCase,
   CalculateGoalsFromMetabolismInputsUseCase,
+  PersistedReminderSettingsRepository,
+  GetReminderSettingsUseCase,
+  SetReminderSettingsUseCase,
+  GetReminderDecisionUseCase,
 } from '../../features/nutrition';
 
 import { SequentialFoodCatalogResolver } from '../../features/nutrition/application/services/SequentialFoodCatalogResolver';
@@ -57,6 +61,7 @@ import {
   FoodEntryRepository,
   GoalsRepository,
   KeyValueStore,
+  ReminderSettingsRepository,
 } from '../../features/nutrition/application/ports';
 import { FoodCatalogSource } from '../../features/nutrition/domain/catalog/FoodCatalogSource';
 
@@ -109,6 +114,7 @@ class Container {
   private _aiMealParser: FakeAiMealParser;
   private _authRepository: AuthRepository;
   private _nutritionGoalsRepository: GoalsRepository;
+  private _reminderSettingsRepository: ReminderSettingsRepository;
 
   // Goals Feature - Infrastructure
   private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
@@ -129,6 +135,9 @@ class Container {
   private _getGoalsUseCase: GetGoalsUseCase;
   private _setManualGoalsUseCase: SetManualGoalsUseCase;
   private _calculateGoalsFromMetabolismInputsUseCase: CalculateGoalsFromMetabolismInputsUseCase;
+  private _getReminderSettingsUseCase: GetReminderSettingsUseCase;
+  private _setReminderSettingsUseCase: SetReminderSettingsUseCase;
+  private _getReminderDecisionUseCase: GetReminderDecisionUseCase;
 
   // Goals Use Cases
   private _upsertMetabolismProfileUseCase: UpsertMetabolismProfileUseCase;
@@ -159,6 +168,7 @@ class Container {
     this._aiMealParser = new FakeAiMealParser();
     this._authRepository = new SupabaseAuthRepository();
     this._nutritionGoalsRepository = new PersistedGoalsRepository(this._keyValueStore);
+    this._reminderSettingsRepository = new PersistedReminderSettingsRepository(this._keyValueStore);
 
     // Goals infrastructure
     this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
@@ -243,6 +253,17 @@ class Container {
     this._setManualGoalsUseCase = new SetManualGoalsUseCase(this._nutritionGoalsRepository);
     this._calculateGoalsFromMetabolismInputsUseCase =
       new CalculateGoalsFromMetabolismInputsUseCase();
+    this._getReminderSettingsUseCase = new GetReminderSettingsUseCase(
+      this._reminderSettingsRepository,
+    );
+    this._setReminderSettingsUseCase = new SetReminderSettingsUseCase(
+      this._reminderSettingsRepository,
+    );
+    this._getReminderDecisionUseCase = new GetReminderDecisionUseCase(
+      this._getDailySummaryUseCase,
+      this._reminderSettingsRepository,
+      'Europe/Berlin',
+    );
 
     // Goals use cases
     this._upsertMetabolismProfileUseCase = new UpsertMetabolismProfileUseCase(
@@ -362,6 +383,18 @@ class Container {
 
   get calculateGoalsFromMetabolismInputsUseCase(): CalculateGoalsFromMetabolismInputsUseCase {
     return this._calculateGoalsFromMetabolismInputsUseCase;
+  }
+
+  get getReminderSettingsUseCase(): GetReminderSettingsUseCase {
+    return this._getReminderSettingsUseCase;
+  }
+
+  get setReminderSettingsUseCase(): SetReminderSettingsUseCase {
+    return this._setReminderSettingsUseCase;
+  }
+
+  get getReminderDecisionUseCase(): GetReminderDecisionUseCase {
+    return this._getReminderDecisionUseCase;
   }
 
   // Goals Use Cases

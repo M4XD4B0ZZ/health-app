@@ -7,3 +7,6 @@ export { ApplyNaturalLanguageEditUseCase } from './ApplyNaturalLanguageEditUseCa
 export { CreateSavedMealFromDateUseCase } from './CreateSavedMealFromDateUseCase';
 export { LogSavedMealToDateUseCase } from './LogSavedMealToDateUseCase';
 export { EditFoodEntryFromNaturalLanguageUseCase } from './EditFoodEntryFromNaturalLanguageUseCase';
+export { GetGoalsUseCase } from './GetGoalsUseCase';
+export { SetManualGoalsUseCase } from './SetManualGoalsUseCase';
+export { CalculateGoalsFromMetabolismInputsUseCase } from './CalculateGoalsFromMetabolismInputsUseCase';

@@ -2,6 +2,7 @@ export { InMemoryFoodEntryRepository } from './repositories/InMemoryFoodEntryRep
 export { PersistedFoodEntryRepository } from './repositories/PersistedFoodEntryRepository';
 export { InMemoryNutritionLookup } from './repositories/InMemoryNutritionLookup';
 export { InMemorySavedMealRepository } from './repositories/InMemorySavedMealRepository';
+export { PersistedGoalsRepository } from './repositories/PersistedGoalsRepository';
 export { SystemClock } from './SystemClock';
 export { RandomIdGenerator, TestIdGenerator } from './RandomIdGenerator';
 export {

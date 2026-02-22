@@ -27,6 +27,10 @@ import {
   ApplyNaturalLanguageEditUseCase,
   DeleteFoodEntryUseCase,
   EnrichFoodEntryMacrosUseCase,
+  PersistedGoalsRepository,
+  GetGoalsUseCase,
+  SetManualGoalsUseCase,
+  CalculateGoalsFromMetabolismInputsUseCase,
 } from '../../features/nutrition';
 
 import { SequentialFoodCatalogResolver } from '../../features/nutrition/application/services/SequentialFoodCatalogResolver';
@@ -51,6 +55,7 @@ import {
 import {
   FoodAliasRepository,
   FoodEntryRepository,
+  GoalsRepository,
   KeyValueStore,
 } from '../../features/nutrition/application/ports';
 import { FoodCatalogSource } from '../../features/nutrition/domain/catalog/FoodCatalogSource';
@@ -103,6 +108,7 @@ class Container {
   private _foodParser: DeterministicFoodParser;
   private _aiMealParser: FakeAiMealParser;
   private _authRepository: AuthRepository;
+  private _nutritionGoalsRepository: GoalsRepository;
 
   // Goals Feature - Infrastructure
   private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
@@ -120,6 +126,9 @@ class Container {
   private _applyNaturalLanguageEditUseCase: ApplyNaturalLanguageEditUseCase;
   private _deleteFoodEntryUseCase: DeleteFoodEntryUseCase;
   private _enrichFoodEntryMacrosUseCase: EnrichFoodEntryMacrosUseCase;
+  private _getGoalsUseCase: GetGoalsUseCase;
+  private _setManualGoalsUseCase: SetManualGoalsUseCase;
+  private _calculateGoalsFromMetabolismInputsUseCase: CalculateGoalsFromMetabolismInputsUseCase;
 
   // Goals Use Cases
   private _upsertMetabolismProfileUseCase: UpsertMetabolismProfileUseCase;
@@ -149,6 +158,7 @@ class Container {
     this._foodParser = new DeterministicFoodParser();
     this._aiMealParser = new FakeAiMealParser();
     this._authRepository = new SupabaseAuthRepository();
+    this._nutritionGoalsRepository = new PersistedGoalsRepository(this._keyValueStore);
 
     // Goals infrastructure
     this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
@@ -229,6 +239,10 @@ class Container {
       this._foodEntryRepository,
       this._nutritionLookup,
     );
+    this._getGoalsUseCase = new GetGoalsUseCase(this._nutritionGoalsRepository);
+    this._setManualGoalsUseCase = new SetManualGoalsUseCase(this._nutritionGoalsRepository);
+    this._calculateGoalsFromMetabolismInputsUseCase =
+      new CalculateGoalsFromMetabolismInputsUseCase();
 
     // Goals use cases
     this._upsertMetabolismProfileUseCase = new UpsertMetabolismProfileUseCase(
@@ -336,6 +350,18 @@ class Container {
 
   get enrichFoodEntryMacrosUseCase(): EnrichFoodEntryMacrosUseCase {
     return this._enrichFoodEntryMacrosUseCase;
+  }
+
+  get getGoalsUseCase(): GetGoalsUseCase {
+    return this._getGoalsUseCase;
+  }
+
+  get setManualGoalsUseCase(): SetManualGoalsUseCase {
+    return this._setManualGoalsUseCase;
+  }
+
+  get calculateGoalsFromMetabolismInputsUseCase(): CalculateGoalsFromMetabolismInputsUseCase {
+    return this._calculateGoalsFromMetabolismInputsUseCase;
   }
 
   // Goals Use Cases

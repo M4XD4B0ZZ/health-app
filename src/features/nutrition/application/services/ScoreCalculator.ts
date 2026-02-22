@@ -1,5 +1,6 @@
 import { CanonicalFood } from '../../domain/catalog/FoodCatalogSource';
 import { ResolvedFoodCandidateBreakdown } from '../../domain/models/ResolverDecision';
+import { ResolverSourceLabel, RESOLVER_SOURCE_LABELS } from './ResolverSourceLabel';
 
 const WEIGHTS = {
   match: 0.55,
@@ -9,10 +10,10 @@ const WEIGHTS = {
 } as const;
 
 const SOURCE_TRUST: Record<string, number> = {
-  USDA: 0.95,
-  OFF: 0.9,
-  MOCK_USDA: 0.7,
-  MOCK_OFF: 0.7,
+  [RESOLVER_SOURCE_LABELS.USDA]: 0.95,
+  [RESOLVER_SOURCE_LABELS.OFF]: 0.9,
+  [RESOLVER_SOURCE_LABELS.MOCK_USDA]: 0.7,
+  [RESOLVER_SOURCE_LABELS.MOCK_OFF]: 0.7,
 };
 
 function clamp01(value: number): number {
@@ -47,7 +48,7 @@ function tokenOverlap(query: string, candidate: string): number {
 export interface ScoreCalculatorInput {
   normalizedQuery: string;
   candidateFood: CanonicalFood;
-  candidateSource: string;
+  candidateSource: ResolverSourceLabel;
   metadata?: {
     similarity?: number;
     exact?: boolean;
@@ -85,7 +86,7 @@ export class ScoreCalculator {
       notes.push(`heuristic_${input.metadata.usedHeuristic}`);
     }
 
-    const fields: Array<keyof typeof macros> = ['kcal', 'protein', 'carbs', 'fat'];
+    const fields: (keyof typeof macros)[] = ['kcal', 'protein', 'carbs', 'fat'];
     let completeCount = 0;
     for (const field of fields) {
       const value = macros[field];

@@ -13,7 +13,12 @@ import { ResolverDecision, ResolvedFoodCandidate } from '../../domain/models/Res
 import { normalizeText } from '../utils/normalizeText';
 import { ScoreCalculator } from './ScoreCalculator';
 import { buildResolverDecision } from './ResolverDecisionPolicy';
-import { toResolverSourceLabel } from './ResolverSourceLabel';
+import {
+  RESOLVER_SOURCE_LABELS,
+  ResolverSourceLabel,
+  toResolverSourceLabel,
+} from './ResolverSourceLabel';
+import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
 
 interface LookupMetrics {
   traceId?: string;
@@ -26,6 +31,13 @@ interface LookupMetrics {
   winnerConfidence: number | null;
   cacheHit: boolean;
   cacheSet: boolean;
+}
+
+interface RawResolverCandidate {
+  id: string;
+  source: ResolverSourceLabel;
+  food: FoodCandidate['food'];
+  match: FoodCandidate['match'];
 }
 
 export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
@@ -51,7 +63,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const traceId = this.config.enableTracing ? this.generateTraceId() : undefined;
     const resolverStartTime = Date.now();
     const normalizedQuery = normalizeText(query.normalized || query.raw);
-    let allCandidates: ResolvedFoodCandidate[] = [];
+    let allRawCandidates: RawResolverCandidate[] = [];
 
     const metrics: LookupMetrics = {
       traceId,
@@ -154,7 +166,11 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           continue;
         }
 
-        const scored = this.scoreCandidates(normalizedQuery, source, rawCandidates);
+        const mappedCandidates = this.mapCandidates(source, rawCandidates);
+        const scored = this.scoreCandidates(
+          normalizedQuery,
+          filterMockCandidatesIfRealExist(mappedCandidates),
+        );
         const best = scored[0];
 
         if (source.type === 'user') {
@@ -165,7 +181,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           return this.buildDecision(normalizedQuery, scored);
         }
 
-        if (source.type === 'off') {
+        if (source.type === 'off' && mappedCandidates[0]?.source === RESOLVER_SOURCE_LABELS.OFF) {
           const threshold = this.config.offEarlyReturnMinConfidence;
           const earlyReturn = best.score >= threshold;
 
@@ -188,7 +204,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           }
         }
 
-        allCandidates.push(...scored);
+        allRawCandidates.push(...mappedCandidates);
       } catch (error) {
         const sourceElapsedMs = Date.now() - resolverStartTime;
         const errorKind = error instanceof FoodCatalogError ? error.kind : 'unknown';
@@ -228,8 +244,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
     metrics.totalElapsedMs = Date.now() - resolverStartTime;
 
-    if (allCandidates.length > 0) {
-      const decision = this.buildDecision(normalizedQuery, allCandidates);
+    if (allRawCandidates.length > 0) {
+      const filteredCandidates = filterMockCandidatesIfRealExist(allRawCandidates);
+      const scoredCandidates = this.scoreCandidates(normalizedQuery, filteredCandidates);
+      const decision = this.buildDecision(normalizedQuery, scoredCandidates);
       metrics.winnerSource = decision.best?.source ?? null;
       metrics.winnerConfidence = decision.best?.score ?? null;
       this.logSummary(metrics);
@@ -255,18 +273,29 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     return this.buildDecision(normalizedQuery, []);
   }
 
-  private scoreCandidates(
-    normalizedQuery: string,
+  private mapCandidates(
     source: FoodCatalogSource,
     candidates: FoodCandidate[],
+  ): RawResolverCandidate[] {
+    const sourceLabel = toResolverSourceLabel(source.type, source.constructor.name);
+    return candidates.map((candidate) => ({
+      id: `${sourceLabel}:${candidate.food.id}`,
+      source: sourceLabel,
+      food: candidate.food,
+      match: candidate.match,
+    }));
+  }
+
+  private scoreCandidates(
+    normalizedQuery: string,
+    candidates: RawResolverCandidate[],
   ): ResolvedFoodCandidate[] {
-    const sourceLabel = toResolverSourceLabel(source.type, source.constructor?.name);
     return candidates
       .map((candidate) => {
         const breakdown = this.scoreCalculator.calculate({
           normalizedQuery,
           candidateFood: candidate.food,
-          candidateSource: sourceLabel,
+          candidateSource: candidate.source,
           metadata: {
             similarity: candidate.match.similarity,
             exact: candidate.match.exact,
@@ -275,8 +304,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         });
 
         return {
-          id: `${sourceLabel}:${candidate.food.id}`,
-          source: sourceLabel,
+          id: candidate.id,
+          source: candidate.source,
           food: candidate.food,
           score: breakdown.finalScore,
           breakdown,

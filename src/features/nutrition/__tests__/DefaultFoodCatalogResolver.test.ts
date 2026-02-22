@@ -245,4 +245,28 @@ describe('DefaultFoodCatalogResolver', () => {
     expect(result.candidates[0].id).toBe('USDA:a-id');
     expect(result.candidates[1].id).toBe('USDA:b-id');
   });
+
+  it('filters mock candidates when real candidates exist', async () => {
+    const realSource: FoodCatalogSource = {
+      type: 'off',
+      search: async () => [
+        createCandidate({
+          id: 'real-off',
+          source: 'off',
+          normalizedName: 'apfel',
+          exact: true,
+          similarity: 1,
+        }),
+      ],
+    };
+    const mockSource = new MockOffSource();
+
+    const resolver = new DefaultFoodCatalogResolver([realSource, mockSource]);
+    const result = await resolver.resolve({ raw: 'apfel', normalized: 'apfel', locale: 'de' });
+
+    expect(result.best?.source).toBe('OFF');
+    expect(result.candidates.every((candidate) => !candidate.source.startsWith('MOCK_'))).toBe(
+      true,
+    );
+  });
 });

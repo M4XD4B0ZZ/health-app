@@ -33,17 +33,27 @@ import { SequentialFoodCatalogResolver } from '../../features/nutrition/applicat
 import { DefaultConfidenceEngine } from '../../features/nutrition/domain/confidence/DefaultConfidenceEngine';
 import { MockOffSource } from '../../features/nutrition/infrastructure/catalog/sources/MockOffSource';
 import { MockUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/MockUsdaSource';
+import { SupabaseEdgeOffSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeOffSource';
+import { SupabaseEdgeUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeUsdaSource';
 import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
+import { SupabaseEdgeOffProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeOffProvider';
+import { SupabaseEdgeUsdaProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeUsdaProvider';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
 import { supabase } from '../supabase/supabaseClient';
 import type { AuthRepository } from '../../features/auth/application/ports/AuthRepository';
 import { SupabaseAuthRepository } from '../../features/auth/infrastructure/SupabaseAuthRepository';
+import { isDevBuild, isProdBuild, envName } from '../config/appEnv';
+import {
+  ResolverSourceLabel,
+  toResolverSourceLabel,
+} from '../../features/nutrition/application/services/ResolverSourceLabel';
 
 import {
   FoodAliasRepository,
   FoodEntryRepository,
   KeyValueStore,
 } from '../../features/nutrition/application/ports';
+import { FoodCatalogSource } from '../../features/nutrition/domain/catalog/FoodCatalogSource';
 
 // Goals Feature
 import {
@@ -68,6 +78,9 @@ import {
  * Stellt alle Repositories, Services und Use Cases bereit
  */
 class Container {
+  private static readonly MOCK_SECURITY_ERROR =
+    'SECURITY: Mock sources must never be enabled in production builds.';
+
   // Legacy Repositories
   private _recoveryRepository: RecoveryRepository;
   private _nutritionRepository: NutritionRepository;
@@ -116,6 +129,7 @@ class Container {
 
   // Journal Use Cases
   private _computeProgressForDateUseCase: ComputeProgressForDateUseCase;
+  private _registeredResolverSourceLabels: ResolverSourceLabel[] = [];
 
   constructor() {
     // Legacy repositories
@@ -148,11 +162,28 @@ class Container {
     );
 
     // Nutrition use cases
-    // Erstelle Sequential Resolver mit Mock Sources (User Aliases -> OFF -> USDA)
+    // Erstelle Sequential Resolver mit User Aliases -> OFF -> USDA (+ optional mocks in dev/test)
     const confidenceEngine = new DefaultConfidenceEngine();
     const userAliasSource = new SupabaseUserAliasSource(supabase, DEFAULT_CATALOG_CONFIG);
+    const offSource = new SupabaseEdgeOffSource(
+      new SupabaseEdgeOffProvider(supabase),
+      DEFAULT_CATALOG_CONFIG,
+    );
+    const usdaSource = new SupabaseEdgeUsdaSource(
+      new SupabaseEdgeUsdaProvider(supabase),
+      DEFAULT_CATALOG_CONFIG,
+    );
+    const resolverSources: FoodCatalogSource[] = [userAliasSource, offSource, usdaSource];
+
+    if (isDevBuild() || envName() === 'test') {
+      resolverSources.push(this.createMockOffSource(), this.createMockUsdaSource());
+    }
+    this._registeredResolverSourceLabels = resolverSources.map((source) =>
+      toResolverSourceLabel(source.type, source.constructor.name),
+    );
+
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
-      [userAliasSource, new MockOffSource(), new MockUsdaSource()],
+      resolverSources,
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
     );
@@ -328,10 +359,34 @@ class Container {
   get computeProgressForDateUseCase(): ComputeProgressForDateUseCase {
     return this._computeProgressForDateUseCase;
   }
+
+  getRegisteredResolverSourceLabelsForDiagnostics(): ResolverSourceLabel[] {
+    return [...this._registeredResolverSourceLabels];
+  }
+
+  private createMockOffSource(): MockOffSource {
+    if (isProdBuild()) {
+      throw new Error(Container.MOCK_SECURITY_ERROR);
+    }
+
+    return new MockOffSource();
+  }
+
+  private createMockUsdaSource(): MockUsdaSource {
+    if (isProdBuild()) {
+      throw new Error(Container.MOCK_SECURITY_ERROR);
+    }
+
+    return new MockUsdaSource();
+  }
 }
 
 // Singleton-Instanz erstellen
 const container = new Container();
+
+export function getRegisteredResolverSourcesForDiagnostics(): ResolverSourceLabel[] {
+  return container.getRegisteredResolverSourceLabelsForDiagnostics();
+}
 
 // Container exportieren
 export default container;

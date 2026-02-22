@@ -35,6 +35,7 @@ import {
   GetReminderSettingsUseCase,
   SetReminderSettingsUseCase,
   GetReminderDecisionUseCase,
+  GetCalendarMonthSummaryUseCase,
 } from '../../features/nutrition';
 
 import { SequentialFoodCatalogResolver } from '../../features/nutrition/application/services/SequentialFoodCatalogResolver';
@@ -138,6 +139,7 @@ class Container {
   private _getReminderSettingsUseCase: GetReminderSettingsUseCase;
   private _setReminderSettingsUseCase: SetReminderSettingsUseCase;
   private _getReminderDecisionUseCase: GetReminderDecisionUseCase;
+  private _getCalendarMonthSummaryUseCase: GetCalendarMonthSummaryUseCase;
 
   // Goals Use Cases
   private _upsertMetabolismProfileUseCase: UpsertMetabolismProfileUseCase;
@@ -262,6 +264,11 @@ class Container {
     this._getReminderDecisionUseCase = new GetReminderDecisionUseCase(
       this._getDailySummaryUseCase,
       this._reminderSettingsRepository,
+      'Europe/Berlin',
+    );
+    this._getCalendarMonthSummaryUseCase = new GetCalendarMonthSummaryUseCase(
+      this._foodEntryRepository,
+      this._nutritionGoalsRepository,
       'Europe/Berlin',
     );
 
@@ -395,6 +402,10 @@ class Container {
 
   get getReminderDecisionUseCase(): GetReminderDecisionUseCase {
     return this._getReminderDecisionUseCase;
+  }
+
+  get getCalendarMonthSummaryUseCase(): GetCalendarMonthSummaryUseCase {
+    return this._getCalendarMonthSummaryUseCase;
   }
 
   // Goals Use Cases

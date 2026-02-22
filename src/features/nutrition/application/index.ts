@@ -22,6 +22,7 @@ export { CalculateGoalsFromMetabolismInputsUseCase } from './usecases/CalculateG
 export { GetReminderSettingsUseCase } from './usecases/GetReminderSettingsUseCase';
 export { SetReminderSettingsUseCase } from './usecases/SetReminderSettingsUseCase';
 export { GetReminderDecisionUseCase } from './usecases/GetReminderDecisionUseCase';
+export { GetCalendarMonthSummaryUseCase } from './usecases/GetCalendarMonthSummaryUseCase';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';

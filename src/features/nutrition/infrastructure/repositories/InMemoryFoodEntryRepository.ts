@@ -1,5 +1,6 @@
 import { FoodEntry } from '../../domain/models/NutritionTypes';
 import { FoodEntryRepository } from '../../application/ports/FoodEntryRepository';
+import { getDateISOInTimezone } from '../../domain/common/DateTimezone';
 
 /**
  * In-Memory Implementierung des FoodEntryRepository.
@@ -18,6 +19,19 @@ export class InMemoryFoodEntryRepository implements FoodEntryRepository {
   async listEntriesForDate(dateISO: string): Promise<FoodEntry[]> {
     const entries = this.entries.get(dateISO) || [];
     return [...entries]; // Return copy to prevent external mutation
+  }
+
+  async listByDateRange(startDateISO: string, endDateISO: string): Promise<FoodEntry[]> {
+    const results: FoodEntry[] = [];
+    for (const entries of this.entries.values()) {
+      for (const entry of entries) {
+        const dateISO = getDateISOInTimezone(entry.createdAt.toISOString(), 'Europe/Berlin');
+        if (dateISO >= startDateISO && dateISO <= endDateISO) {
+          results.push({ ...entry });
+        }
+      }
+    }
+    return results;
   }
 
   async updateEntry(dateISO: string, entry: FoodEntry): Promise<void> {

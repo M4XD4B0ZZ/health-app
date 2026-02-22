@@ -13,3 +13,4 @@ export * from './goals';
 export * from './metabolism';
 export * from './summary';
 export * from './reminders';
+export * from './calendar';

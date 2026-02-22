@@ -5,6 +5,7 @@ export * from './domain/goals';
 export * from './domain/metabolism';
 export * from './domain/summary';
 export * from './domain/reminders';
+export * from './domain/calendar';
 
 // Application Layer
 export * from './application';

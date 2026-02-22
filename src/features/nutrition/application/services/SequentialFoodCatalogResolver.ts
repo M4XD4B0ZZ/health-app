@@ -9,10 +9,12 @@ import { FoodCatalogConfig, DEFAULT_CATALOG_CONFIG } from '../../domain/models/F
 import { CircuitBreakerManager } from './CircuitBreakerManager';
 import { FoodCatalogError } from '../../domain/errors/FoodCatalogError';
 import { NegativeCacheHelper } from './NegativeCacheHelper';
+import { ResolverDecision, ResolvedFoodCandidate } from '../../domain/models/ResolverDecision';
+import { normalizeText } from '../utils/normalizeText';
+import { ScoreCalculator } from './ScoreCalculator';
+import { buildResolverDecision } from './ResolverDecisionPolicy';
+import { toResolverSourceLabel } from './ResolverSourceLabel';
 
-/**
- * Lookup Summary Metrics für Observability
- */
 interface LookupMetrics {
   traceId?: string;
   totalElapsedMs: number;
@@ -26,22 +28,14 @@ interface LookupMetrics {
   cacheSet: boolean;
 }
 
-/**
- * Sequential resolver that implements deterministic fallback chain:
- * 1. User aliases (highest priority)
- * 2. OFF (branded products)
- * 3. USDA (generic foods) - only if OFF returns no results
- * 4. AI fallback (lowest priority)
- *
- * Early returns when high-priority sources provide valid results.
- */
 export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   private readonly circuitBreaker: CircuitBreakerManager;
   private readonly negativeCache: NegativeCacheHelper;
+  private readonly scoreCalculator: ScoreCalculator;
 
   constructor(
     private readonly sources: FoodCatalogSource[],
-    private readonly confidenceEngine: ConfidenceEngine,
+    private readonly _confidenceEngine: ConfidenceEngine,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
   ) {
     this.circuitBreaker = new CircuitBreakerManager(
@@ -50,29 +44,15 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       config.circuitBreaker.enabled,
     );
     this.negativeCache = new NegativeCacheHelper();
+    this.scoreCalculator = new ScoreCalculator();
   }
 
-  private getSourceWeight(source: string): number {
-    switch (source) {
-      case 'user':
-        return 4;
-      case 'off':
-        return 3;
-      case 'usda':
-        return 2;
-      case 'ai':
-        return 1;
-      default:
-        return 0;
-    }
-  }
-
-  async resolve(query: FoodSearchQuery): Promise<FoodCandidate | null> {
+  async resolve(query: FoodSearchQuery): Promise<ResolverDecision> {
     const traceId = this.config.enableTracing ? this.generateTraceId() : undefined;
     const resolverStartTime = Date.now();
-    let allCandidates: FoodCandidate[] = [];
+    const normalizedQuery = normalizeText(query.normalized || query.raw);
+    let allCandidates: ResolvedFoodCandidate[] = [];
 
-    // Initialize metrics tracking
     const metrics: LookupMetrics = {
       traceId,
       totalElapsedMs: 0,
@@ -86,41 +66,36 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       cacheSet: false,
     };
 
-    // Check negative cache first
-    if (this.negativeCache.has(query.normalized, query.locale)) {
+    if (this.negativeCache.has(normalizedQuery, query.locale)) {
       metrics.cacheHit = true;
       metrics.totalElapsedMs = Date.now() - resolverStartTime;
 
       if (this.config.enableDebugLogs && traceId) {
         console.debug('[SequentialFoodCatalogResolver] Negative cache hit', {
           traceId,
-          query: query.normalized,
+          query: normalizedQuery,
           locale: query.locale,
           cacheHit: true,
           ttlMs: this.config.negativeCacheTtlMs,
         });
       }
 
-      // Log summary
       this.logSummary(metrics);
-      return null;
+      return this.buildDecision(normalizedQuery, []);
     }
 
     if (this.config.enableDebugLogs && traceId) {
       console.debug('[SequentialFoodCatalogResolver] Starting lookup', {
         traceId,
-        query: query.normalized,
+        query: normalizedQuery,
         locale: query.locale,
         resolverBudgetMs: this.config.resolverBudgetMs,
       });
     }
 
-    // Track if we had any countable errors (network, timeout, etc.)
     let hadCountableError = false;
 
-    // Process sources sequentially in order
     for (const source of this.sources) {
-      // Check global resolver budget
       const elapsedMs = Date.now() - resolverStartTime;
       if (elapsedMs >= this.config.resolverBudgetMs) {
         if (this.config.enableDebugLogs) {
@@ -133,7 +108,6 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         break;
       }
 
-      // Check circuit breaker
       const circuitState = this.circuitBreaker.getState(source.type);
       if (circuitState.circuitOpen) {
         metrics.skippedByCircuit.push(source.type);
@@ -150,21 +124,18 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         continue;
       }
 
-      // Execute source with timeout budget
       try {
         const sourceStartTime = Date.now();
         const sourceBudgetMs = this.config.sourceBudgets[source.type] || 1000;
-
         metrics.sourcesTried.push(source.type);
 
-        const candidates = await this.executeWithTimeout(
-          source.search({ ...query, traceId }),
+        const rawCandidates = await this.executeWithTimeout(
+          source.search({ ...query, normalized: normalizedQuery, traceId }),
           sourceBudgetMs,
           source.type,
         );
 
         const sourceElapsedMs = Date.now() - sourceStartTime;
-
         if (this.config.enableDebugLogs) {
           console.debug('[SequentialFoodCatalogResolver] Source completed', {
             traceId,
@@ -172,74 +143,36 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
             elapsedMs: sourceElapsedMs,
             budgetMs: sourceBudgetMs,
             timedOut: false,
-            candidatesCount: candidates.length,
+            candidatesCount: rawCandidates.length,
             circuitOpen: false,
           });
         }
 
-        // Success: Reset circuit breaker
         this.circuitBreaker.recordSuccess(source.type);
 
-        if (candidates.length === 0) {
+        if (rawCandidates.length === 0) {
           continue;
         }
 
-        // Score candidates
-        const scored = candidates.map((candidate) => {
-          const score = this.confidenceEngine.score({
-            source: candidate.food.source,
-            similarity: candidate.match.similarity,
-            exact: candidate.match.exact,
-            usedHeuristic: candidate.match.usedHeuristic,
-          });
-
-          return {
-            ...candidate,
-            confidence: score.confidence,
-            reasons: score.reasons,
-          };
-        });
-
-        // Sort by confidence and similarity
-        scored.sort((a, b) => {
-          if (b.confidence !== a.confidence) {
-            return b.confidence - a.confidence;
-          }
-
-          if (b.match.similarity !== a.match.similarity) {
-            return b.match.similarity - a.match.similarity;
-          }
-
-          if (b.match.exact !== a.match.exact) {
-            return Number(b.match.exact) - Number(a.match.exact);
-          }
-
-          const weightA = this.getSourceWeight(a.food.source);
-          const weightB = this.getSourceWeight(b.food.source);
-
-          return weightB - weightA;
-        });
-
+        const scored = this.scoreCandidates(normalizedQuery, source, rawCandidates);
         const best = scored[0];
 
-        // Early return for high-quality matches from user
         if (source.type === 'user') {
           metrics.totalElapsedMs = Date.now() - resolverStartTime;
-          metrics.winnerSource = best.food.source;
-          metrics.winnerConfidence = best.confidence;
+          metrics.winnerSource = best.source;
+          metrics.winnerConfidence = best.score;
           this.logSummary(metrics);
-          return best;
+          return this.buildDecision(normalizedQuery, scored);
         }
 
-        // For OFF: early return only if high confidence (configurable threshold)
         if (source.type === 'off') {
           const threshold = this.config.offEarlyReturnMinConfidence;
-          const earlyReturn = best.confidence >= threshold;
+          const earlyReturn = best.score >= threshold;
 
           if (this.config.enableDebugLogs) {
             console.debug('[SequentialFoodCatalogResolver] OFF evaluation', {
               traceId,
-              confidence: best.confidence,
+              confidence: best.score,
               threshold,
               earlyReturn,
               foodName: best.food.name,
@@ -248,43 +181,34 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
           if (earlyReturn) {
             metrics.totalElapsedMs = Date.now() - resolverStartTime;
-            metrics.winnerSource = best.food.source;
-            metrics.winnerConfidence = best.confidence;
+            metrics.winnerSource = best.source;
+            metrics.winnerConfidence = best.score;
             this.logSummary(metrics);
-            return best;
+            return this.buildDecision(normalizedQuery, scored);
           }
         }
 
-        // Store candidates and continue to next source
         allCandidates.push(...scored);
       } catch (error) {
         const sourceElapsedMs = Date.now() - resolverStartTime;
-
-        // Determine error kind
         const errorKind = error instanceof FoodCatalogError ? error.kind : 'unknown';
         metrics.errorsBySource[source.type] = errorKind;
 
-        // Check if this is a countable error (network, timeout, etc.)
         if (error instanceof FoodCatalogError) {
-          const isCountable = this.circuitBreaker.isCountableError(error);
-          if (isCountable) {
+          if (this.circuitBreaker.isCountableError(error)) {
             hadCountableError = true;
           }
 
-          // Track timeouts separately
           if (error.kind === 'timeout') {
             metrics.timedOutSources.push(source.type);
           }
         } else {
-          // Unknown errors are considered countable
           hadCountableError = true;
         }
 
-        // Record failure in circuit breaker
         const circuitOpened = this.circuitBreaker.recordFailure(source.type, error);
-        const circuitState = this.circuitBreaker.getState(source.type);
+        const state = this.circuitBreaker.getState(source.type);
 
-        // Log error and continue to next source
         if (this.config.enableDebugLogs) {
           console.debug('[SequentialFoodCatalogResolver] Source error:', {
             traceId,
@@ -295,55 +219,31 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
             elapsedMs: sourceElapsedMs,
             timedOut: error instanceof FoodCatalogError && error.kind === 'timeout',
             circuitOpen: circuitOpened,
-            failureCount: circuitState.failureCount,
-            openUntil: circuitState.openUntil,
+            failureCount: state.failureCount,
+            openUntil: state.openUntil,
           });
         }
-        continue;
       }
     }
 
-    // If we have candidates, return the best one
-    const totalElapsedMs = Date.now() - resolverStartTime;
-    metrics.totalElapsedMs = totalElapsedMs;
+    metrics.totalElapsedMs = Date.now() - resolverStartTime;
 
     if (allCandidates.length > 0) {
-      allCandidates.sort((a, b) => {
-        if (b.confidence !== a.confidence) {
-          return b.confidence - a.confidence;
-        }
-
-        if (b.match.similarity !== a.match.similarity) {
-          return b.match.similarity - a.match.similarity;
-        }
-
-        if (b.match.exact !== a.match.exact) {
-          return Number(b.match.exact) - Number(a.match.exact);
-        }
-
-        const weightA = this.getSourceWeight(a.food.source);
-        const weightB = this.getSourceWeight(b.food.source);
-
-        return weightB - weightA;
-      });
-
-      const winner = allCandidates[0];
-      metrics.winnerSource = winner.food.source;
-      metrics.winnerConfidence = winner.confidence;
-
+      const decision = this.buildDecision(normalizedQuery, allCandidates);
+      metrics.winnerSource = decision.best?.source ?? null;
+      metrics.winnerConfidence = decision.best?.score ?? null;
       this.logSummary(metrics);
-      return winner;
+      return decision;
     }
 
-    // No results found: Set negative cache if no countable errors occurred
     if (!hadCountableError) {
-      this.negativeCache.set(query.normalized, query.locale, this.config.negativeCacheTtlMs);
+      this.negativeCache.set(normalizedQuery, query.locale, this.config.negativeCacheTtlMs);
       metrics.cacheSet = true;
 
       if (this.config.enableDebugLogs && traceId) {
         console.debug('[SequentialFoodCatalogResolver] Negative cache set', {
           traceId,
-          query: query.normalized,
+          query: normalizedQuery,
           locale: query.locale,
           cacheSet: true,
           ttlMs: this.config.negativeCacheTtlMs,
@@ -352,12 +252,50 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     }
 
     this.logSummary(metrics);
-    return null;
+    return this.buildDecision(normalizedQuery, []);
   }
 
-  /**
-   * Loggt ein Summary der Lookup Metriken (einmalig am Ende)
-   */
+  private scoreCandidates(
+    normalizedQuery: string,
+    source: FoodCatalogSource,
+    candidates: FoodCandidate[],
+  ): ResolvedFoodCandidate[] {
+    const sourceLabel = toResolverSourceLabel(source.type, source.constructor?.name);
+    return candidates
+      .map((candidate) => {
+        const breakdown = this.scoreCalculator.calculate({
+          normalizedQuery,
+          candidateFood: candidate.food,
+          candidateSource: sourceLabel,
+          metadata: {
+            similarity: candidate.match.similarity,
+            exact: candidate.match.exact,
+            usedHeuristic: candidate.match.usedHeuristic,
+          },
+        });
+
+        return {
+          id: `${sourceLabel}:${candidate.food.id}`,
+          source: sourceLabel,
+          food: candidate.food,
+          score: breakdown.finalScore,
+          breakdown,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }
+
+  private buildDecision(
+    normalizedQuery: string,
+    candidates: ResolvedFoodCandidate[],
+  ): ResolverDecision {
+    return buildResolverDecision({
+      normalizedQuery,
+      candidates,
+      topN: 5,
+    });
+  }
+
   private logSummary(metrics: LookupMetrics): void {
     if (!this.config.enableDebugLogs) {
       return;
@@ -377,11 +315,6 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     });
   }
 
-  /**
-   * Führt Promise mit Timeout aus
-   *
-   * @throws FoodCatalogError mit kind='timeout' wenn Budget überschritten
-   */
   private async executeWithTimeout<T>(
     promise: Promise<T>,
     timeoutMs: number,

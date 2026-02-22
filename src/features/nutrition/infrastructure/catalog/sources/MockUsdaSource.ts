@@ -28,6 +28,27 @@ export class MockUsdaSource implements FoodCatalogSource {
       ];
     }
 
+    if (query.normalized === 'haribo goldbaren') {
+      return [
+        {
+          food: {
+            id: 'usda-gummy-candy',
+            name: 'Candy, gummies',
+            normalizedName: 'gummy candy',
+            macrosPer100g: { kcal: 340, protein: 6.8, carbs: 76, fat: 0.2 },
+            source: 'usda',
+          },
+          match: {
+            exact: false,
+            similarity: 0.2,
+            usedHeuristic: 'fuzzy',
+          },
+          confidence: 0,
+          reasons: [],
+        },
+      ];
+    }
+
     return [];
   }
 }

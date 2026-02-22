@@ -174,13 +174,14 @@ export class LogFoodFromRawInputUseCase {
 
     // Step 0: Try multi-source resolver first (if available)
     if (this.resolver) {
-      const resolved = await this.resolver.resolve({
+      const decision = await this.resolver.resolve({
         raw: rawInput,
         normalized,
         locale: 'de',
       });
+      const resolved = decision.best;
 
-      if (resolved && resolved.confidence >= 0.7) {
+      if (resolved && resolved.score >= 0.7) {
         // Transform CanonicalFood from resolver to expected format
         const canonicalFood = {
           id: resolved.food.id,
@@ -201,8 +202,8 @@ export class LogFoodFromRawInputUseCase {
         return {
           canonicalFood,
           sourceType: 'generic',
-          confidence: resolved.confidence,
-          explanation: resolved.reasons.join(', '),
+          confidence: resolved.score,
+          explanation: [...decision.reasonCodes, ...resolved.breakdown.notes].join(', '),
         };
       }
     }

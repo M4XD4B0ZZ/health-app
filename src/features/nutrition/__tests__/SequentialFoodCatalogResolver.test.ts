@@ -72,7 +72,7 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('user');
+    expect(result.best?.food.source).toBe('user');
     expect(userSource.search).toHaveBeenCalled();
     expect(offSource.search).not.toHaveBeenCalled();
     expect(usdaSource.search).not.toHaveBeenCalled();
@@ -107,8 +107,8 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('off');
-    expect(result?.confidence).toBeGreaterThanOrEqual(0.7);
+    expect(result.best?.food.source).toBe('off');
+    expect(result.best?.score).toBeGreaterThanOrEqual(0.7);
     expect(offSource.search).toHaveBeenCalled();
     expect(usdaSource.search).not.toHaveBeenCalled();
   });
@@ -128,23 +128,28 @@ describe('SequentialFoodCatalogResolver', () => {
       },
     };
 
-    // Mock engine to return specific confidence scores
-    const mockEngine = {
-      score: jest.fn((params) => {
-        if (params.source === 'off') {
-          return { confidence: 0.5, reasons: ['low match'] };
-        }
-        return { confidence: 0.8, reasons: ['good match'] };
-      }),
+    const lowConfOffCandidate: FoodCandidate = {
+      food: {
+        id: 'off-low',
+        name: 'Different food',
+        normalizedName: 'different food',
+        macrosPer100g: { kcal: NaN, protein: 0, carbs: 0, fat: NaN },
+        source: 'off',
+      },
+      match: {
+        exact: false,
+        similarity: 0,
+        usedHeuristic: 'fuzzy',
+      },
+      confidence: 0,
+      reasons: [],
     };
-
-    const lowConfOffCandidate = createCandidate('off', 0.3);
     const offSource = createMockOffSource([lowConfOffCandidate]);
     const usdaSource = createMockUsdaSource([createCandidate('usda', 0.9)]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
-      mockEngine as any,
+      confidenceEngine,
       config,
     );
 
@@ -157,7 +162,7 @@ describe('SequentialFoodCatalogResolver', () => {
 
     // Should return USDA since it has better confidence (0.8 > 0.5)
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('usda');
+    expect(result.best?.food.source).toBe('usda');
   });
 
   it('returns USDA if better confidence than OFF', async () => {
@@ -201,7 +206,7 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('usda');
+    expect(result.best?.food.source).toBe('usda');
     expect(offSource.search).toHaveBeenCalled();
     expect(usdaSource.search).toHaveBeenCalled();
   });
@@ -238,10 +243,10 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('off');
+    expect(result.best?.food.source).toBe('off');
   });
 
-  it('returns null when OFF is empty and USDA is empty', async () => {
+  it('returns rejected when OFF is empty and USDA is empty', async () => {
     const config: FoodCatalogConfig = {
       offEarlyReturnMinConfidence: 0.7,
       enableDebugLogs: false,
@@ -268,7 +273,8 @@ describe('SequentialFoodCatalogResolver', () => {
     const query: FoodSearchQuery = { raw: 'unknown', normalized: 'unknown', locale: 'de' };
     const result = await resolver.resolve(query);
 
-    expect(result).toBeNull();
+    expect(result.status).toBe('rejected');
+    expect(result.reasonCodes).toEqual(['NO_CANDIDATES']);
     expect(offSource.search).toHaveBeenCalled();
     expect(usdaSource.search).toHaveBeenCalled();
   });
@@ -286,7 +292,7 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('usda');
+    expect(result.best?.food.source).toBe('usda');
   });
 
   it('sorts candidates by confidence, then similarity, then source weight', async () => {
@@ -303,8 +309,7 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    // Should pick the one with highest confidence
-    expect(result?.match.similarity).toBe(0.8);
+    expect(result.best?.food.source).toBe('off');
   });
 
   it('returns OFF when confidence is equal but source weight is higher', async () => {
@@ -325,7 +330,7 @@ describe('SequentialFoodCatalogResolver', () => {
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result?.food.source).toBe('off');
+    expect(result.best?.food.source).toBe('off');
   });
 
   describe('Circuit Breaker', () => {
@@ -409,7 +414,7 @@ describe('SequentialFoodCatalogResolver', () => {
       // 3rd call succeeds, should reset circuit
       const result = await resolver.resolve(query);
       expect(result).not.toBeNull();
-      expect(result?.food.source).toBe('off');
+      expect(result.best?.food.source).toBe('off');
 
       // Circuit should be closed, next call should work
       const result2 = await resolver.resolve(query);
@@ -508,7 +513,7 @@ describe('SequentialFoodCatalogResolver', () => {
 
       // OFF should have timed out, USDA should be returned
       expect(result).not.toBeNull();
-      expect(result?.food.source).toBe('usda');
+      expect(result.best?.food.source).toBe('usda');
     });
 
     it('respects global resolver budget', async () => {
@@ -548,7 +553,7 @@ describe('SequentialFoodCatalogResolver', () => {
       expect(offSource.search).toHaveBeenCalled();
       expect(usdaSource.search).toHaveBeenCalled();
       expect(result).not.toBeNull();
-      expect(result?.food.source).toBe('usda');
+      expect(result.best?.food.source).toBe('usda');
     });
 
     it('skips remaining sources when global budget exceeded', async () => {
@@ -594,7 +599,7 @@ describe('SequentialFoodCatalogResolver', () => {
       expect(offSource.search).toHaveBeenCalled();
       // USDA should be skipped because global budget exceeded
       expect(usdaSource.search).not.toHaveBeenCalled();
-      expect(result).toBeNull();
+      expect(result.status).toBe('rejected');
     });
   });
 
@@ -661,7 +666,7 @@ describe('SequentialFoodCatalogResolver', () => {
   });
 
   describe('Negative Caching', () => {
-    it('returns null immediately on negative cache hit without calling sources', async () => {
+    it('returns rejected decision immediately on negative cache hit without calling sources', async () => {
       const config: FoodCatalogConfig = {
         offEarlyReturnMinConfidence: 0.7,
         enableDebugLogs: false,
@@ -689,13 +694,13 @@ describe('SequentialFoodCatalogResolver', () => {
 
       // First call: No results, should cache negative result
       const result1 = await resolver.resolve(query);
-      expect(result1).toBeNull();
+      expect(result1.status).toBe('rejected');
       expect(offSource.search).toHaveBeenCalledTimes(1);
       expect(usdaSource.search).toHaveBeenCalledTimes(1);
 
       // Second call: Should hit cache, sources not called again
       const result2 = await resolver.resolve(query);
-      expect(result2).toBeNull();
+      expect(result2.status).toBe('rejected');
       expect(offSource.search).toHaveBeenCalledTimes(1); // Still 1, not called again
       expect(usdaSource.search).toHaveBeenCalledTimes(1); // Still 1, not called again
     });
@@ -728,11 +733,11 @@ describe('SequentialFoodCatalogResolver', () => {
 
       // First call: No results
       const result = await resolver.resolve(query);
-      expect(result).toBeNull();
+      expect(result.status).toBe('rejected');
 
       // Second call: Should be cached
       const result2 = await resolver.resolve(query);
-      expect(result2).toBeNull();
+      expect(result2.status).toBe('rejected');
       expect(offSource.search).toHaveBeenCalledTimes(1);
     });
 
@@ -767,11 +772,11 @@ describe('SequentialFoodCatalogResolver', () => {
 
       // First call: Network error in OFF, empty USDA
       const result1 = await resolver.resolve(query);
-      expect(result1).toBeNull();
+      expect(result1.status).toBe('rejected');
 
       // Second call: Should NOT be cached, sources should be called again
       const result2 = await resolver.resolve(query);
-      expect(result2).toBeNull();
+      expect(result2.status).toBe('rejected');
       expect(offSource.search).toHaveBeenCalledTimes(2); // Called twice
       expect(usdaSource.search).toHaveBeenCalledTimes(2); // Called twice
     });
@@ -865,7 +870,7 @@ describe('SequentialFoodCatalogResolver', () => {
 
       // Verify values
       expect(metrics.sourcesTried).toEqual(['off']);
-      expect(metrics.winnerSource).toBe('off');
+      expect(metrics.winnerSource).toBe('OFF');
       expect(metrics.winnerConfidence).toBeGreaterThan(0);
       expect(metrics.cacheHit).toBe(false);
       expect(metrics.cacheSet).toBe(false);

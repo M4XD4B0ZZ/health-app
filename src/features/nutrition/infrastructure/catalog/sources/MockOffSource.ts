@@ -28,6 +28,26 @@ export class MockOffSource implements FoodCatalogSource {
       ];
     }
 
+    if (query.normalized === 'haribo goldbaren') {
+      return [
+        {
+          food: {
+            id: 'off-haribo-goldbaeren',
+            name: 'HARIBO Goldbaren',
+            normalizedName: 'haribo goldbaren',
+            macrosPer100g: { kcal: 343, protein: 6.9, carbs: 77, fat: 0.5 },
+            source: 'off',
+          },
+          match: {
+            exact: true,
+            similarity: 1,
+          },
+          confidence: 0,
+          reasons: [],
+        },
+      ];
+    }
+
     return [];
   }
 }

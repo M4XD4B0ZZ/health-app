@@ -1,75 +1,60 @@
 import { FoodCatalogResolver } from './FoodCatalogResolver';
-import {
-  FoodSearchQuery,
-  FoodCandidate,
-  FoodCatalogSource,
-} from '../../domain/catalog/FoodCatalogSource';
+import { FoodSearchQuery, FoodCatalogSource } from '../../domain/catalog/FoodCatalogSource';
 import { ConfidenceEngine } from '../../domain/confidence/ConfidenceEngine';
+import { ResolverDecision, ResolvedFoodCandidate } from '../../domain/models/ResolverDecision';
+import { normalizeText } from '../utils/normalizeText';
+import { ScoreCalculator } from './ScoreCalculator';
+import { buildResolverDecision } from './ResolverDecisionPolicy';
+import { toResolverSourceLabel } from './ResolverSourceLabel';
 
 export class DefaultFoodCatalogResolver implements FoodCatalogResolver {
+  private readonly scoreCalculator: ScoreCalculator;
+
   constructor(
     private readonly sources: FoodCatalogSource[],
-    private readonly confidenceEngine: ConfidenceEngine,
-  ) {}
-
-  private getSourceWeight(source: string): number {
-    switch (source) {
-      case 'user':
-        return 4;
-      case 'off':
-        return 3;
-      case 'usda':
-        return 2;
-      case 'ai':
-        return 1;
-      default:
-        return 0;
-    }
+    private readonly _confidenceEngine?: ConfidenceEngine,
+    private readonly topN: number = 5,
+  ) {
+    this.scoreCalculator = new ScoreCalculator();
   }
 
-  async resolve(query: FoodSearchQuery): Promise<FoodCandidate | null> {
-    const results = await Promise.all(this.sources.map((source) => source.search(query)));
+  async resolve(query: FoodSearchQuery): Promise<ResolverDecision> {
+    const normalizedQuery = normalizeText(query.normalized || query.raw);
+    const results = await Promise.all(
+      this.sources.map(async (source) => ({
+        source,
+        candidates: await source.search({ ...query, normalized: normalizedQuery }),
+      })),
+    );
 
-    const candidates = results.flat();
+    const scoredCandidates: ResolvedFoodCandidate[] = results.flatMap(({ source, candidates }) => {
+      const sourceLabel = toResolverSourceLabel(source.type, source.constructor?.name);
+      return candidates.map((candidate) => {
+        const breakdown = this.scoreCalculator.calculate({
+          normalizedQuery,
+          candidateFood: candidate.food,
+          candidateSource: sourceLabel,
+          metadata: {
+            similarity: candidate.match.similarity,
+            exact: candidate.match.exact,
+            usedHeuristic: candidate.match.usedHeuristic,
+          },
+        });
 
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    const scored = candidates.map((candidate) => {
-      const score = this.confidenceEngine.score({
-        source: candidate.food.source,
-        similarity: candidate.match.similarity,
-        exact: candidate.match.exact,
-        usedHeuristic: candidate.match.usedHeuristic,
+        return {
+          id: `${sourceLabel}:${candidate.food.id}`,
+          source: sourceLabel,
+          food: candidate.food,
+          score: breakdown.finalScore,
+          breakdown,
+        };
       });
-
-      return {
-        ...candidate,
-        confidence: score.confidence,
-        reasons: score.reasons,
-      };
     });
 
-    scored.sort((a, b) => {
-      if (b.confidence !== a.confidence) {
-        return b.confidence - a.confidence;
-      }
-
-      if (b.match.similarity !== a.match.similarity) {
-        return b.match.similarity - a.match.similarity;
-      }
-
-      if (b.match.exact !== a.match.exact) {
-        return Number(b.match.exact) - Number(a.match.exact);
-      }
-
-      const weightA = this.getSourceWeight(a.food.source);
-      const weightB = this.getSourceWeight(b.food.source);
-
-      return weightB - weightA;
+    return buildResolverDecision({
+      normalizedQuery,
+      candidates: scoredCandidates,
+      topN: this.topN,
     });
-
-    return scored[0];
   }
 }

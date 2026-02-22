@@ -1,5 +1,6 @@
-import { FoodSearchQuery, FoodCandidate } from '../../domain/catalog/FoodCatalogSource';
+import { FoodSearchQuery } from '../../domain/catalog/FoodCatalogSource';
+import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
 export interface FoodCatalogResolver {
-  resolve(query: FoodSearchQuery): Promise<FoodCandidate | null>;
+  resolve(query: FoodSearchQuery): Promise<ResolverDecision>;
 }

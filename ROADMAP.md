@@ -1,284 +1,132 @@
-# HEALTH APP – MASTER ROADMAP (SSOK)
+# ROADMAP.md  
+Health App – Master Roadmap (SSOK Controlled)
 
-Version: 1.0  
 Status: Active  
-Architecture: Clean + Feature-First  
-Principle: Deterministic-first, AI when needed
+Architecture: Clean Architecture + Deterministic-First Nutrition Engine  
+UI State: Warm-Neutral Light-Only MVP Skin Implemented  
+Default Mode: Action Mode (Protokoll / Natural Language Logging)
 
 ---
 
-# 0. SINGLE SOURCE OF KNOWLEDGE (SSOK)
+# ROADMAP RESET — FUNCTIONAL CORE FIRST
 
-Dieses Dokument ist die **einzige strategische Referenzquelle** für:
+Aktueller Zustand laut Screens:
+- Parsing falsch
+- Multi-Item Struktur kaputt
+- Resolver greift nicht
+- Makros = 0
+- Review Flow erzwingt Confirm
+- Debug-Texte sichtbar
+- Default Tab falsch
+- Core Logging nicht vertrauenswürdig
 
-- Roadmap
-- Architektur
-- Feature-Status
-- Priorisierung
-- Governance
-
-Regeln:
-
-1. Keine Architekturänderung ohne Update dieser Datei.
-2. Jede neue Initiative erhält eine stabile ID.
-3. Kein Feature ohne klar definierte Definition of Done.
-4. verify muss grün sein vor Commit.
-
----
-
-# 1. PROJEKTVISION
-
-Conversation-first Nutrition Tracking.
-
-Ziel:
-
-- Natürlichsprachliche Eingabe als Primär-Interface
-- Deterministische Berechnung
-- Maximales Vertrauen durch Transparenz
-- Week-1 Retention als Northstar
-
-Differenzierung:
-
-- Nicht database-first
-- Nicht AI-Gimmick
-- Sondern: System + Kontrolle + Editierbarkeit
+**Das ist kein Stabilisieren. Das ist: Core funktioniert noch nicht.**
+Also hören wir auf mit „Sprint 2“, „Trust Layer“, „Premium Feel“.
+Wir gehen zurück zu: **PHASE 0 — CORE MUSS ÜBERHAUPT FUNKTIONIEREN**
 
 ---
 
-# 2. ARCHITEKTUR-PRINZIPIEN (FIX)
+# PHASE 0 — LOGGING MUST WORK
 
-## ARCH-01 Deterministic First
+## P0-001 Disable Multi-Item Structuring
+Status: SOFORT
 
-- Mathematik niemals über LLM
-- Parsing → Portion → Resolver → Calculation deterministisch
-- AI nur bei:
-  - Cache Miss
-  - Ambiguity
-  - Mapping
+- Temporär Multi-Item AI-Strukturierung deaktivieren.
+- Kein „AI structured multi-item meal“ Text mehr.
+- Keine künstliche Aufteilung, solange deterministic parser nicht sauber ist.
 
-## ARCH-02 Multi-Source Food Catalog
-
-Priorität:
-
-1. User Cache
-2. Open Food Facts (Brand/EAN EU)
-3. USDA (Global Generic Core)
-4. AI-Fallback
-
-Makros immer pro 100g speichern.
-
-## ARCH-03 Resolver Ranking Engine
-
-Weighted Scoring:
-
-- Match Quality
-- Data Completeness
-- Plausibility
-- kcal vs Macro Consistency
-
-Configurable Weights.  
-Minimum Score Threshold.  
-Traffic-driven Self-healing.
-
-## ARCH-04 Trust Layer
-
-- Thought Process Card
-- Confidence Score (numerisch)
-- Silent Confidence CTA
-- Natural Language Editing
-- Bias Setting (-2 bis +2)
-
-## ARCH-05 AI Cost Governance
-
-- Cache-first Architektur
-- Logging pro Modell
-- Guardrails (Rate Limits)
-- Dashboard AI-frei
+**Ziel:** Ein einzelnes Item sauber durch Pipeline bekommen.
 
 ---
 
-# 3. AKTUELLER STATUS
+## P0-002 Single Item → Resolver → Makros Pipeline
+Status: SOFORT
 
-## Abgeschlossen
+Minimal funktionierende Kette:
+1. Input: "ei"
+2. Pipeline:
+   - Raw Input
+   - Deterministic normalization
+   - Resolver call
+   - USDA/OFF match
+   - Makros berechnen
+   - Journal speichern
+   - SummaryBar aktualisieren
 
-| ID                   | Beschreibung             |
-| -------------------- | ------------------------ |
-| S0-ARCH              | Architektur-Freeze       |
-| S1-CORE              | Core Logging Engine      |
-| S2-TRUST             | Confidence + Editability |
-| S3-SAVED             | Saved Meals System       |
-| S5.6-PERSIST         | Persist Food Entries     |
-| S5.7-RESOLVER-INJECT | Resolver DI Integration  |
+- Kein Review Modal.
+- Kein Confirm All.
+- Kein Fancy Layer.
 
----
+**Nur:** Input → echtes Essen → echte kcal.
 
-# 4. AKTUELLER FOKUS
-
-## S5.8 – Resolver Ranking Stabilisierung
-
-Ziel:
-
-- Score-Weights validieren
-- Ranking deterministisch absichern
-- Fuzzy-Failsafe implementieren
-- Rückfragen bei Unsicherheit statt falsche Sicherheit
-
-Definition of Done:
-
-- Keine falsche Sicherheit bei Low Confidence
-- Configurable Weighting System
-- Score Logging vorhanden
-- Edge Cases dokumentiert
+**Gate:** 5 einzelne Lebensmittel liefern korrekte Makros.
 
 ---
 
-# 5. NÄCHSTE PHASE – ECHTE DATENBANK
+## P0-003 Remove Review Modal Completely (Temporary)
+Status: SOFORT
 
-## S6 – Food Data Integration
+- Review Entries deaktivieren.
+- Confirm All entfernen.
+- Direkt speichern nach erfolgreichem Match.
+- Falls kein Match → Fehlermeldung.
 
-### S6.1 USDA Integration
-
-- Canonical Generic Foods
-- Deterministische Makros
-- Global skalierbar
-
-### S6.2 Open Food Facts Integration
-
-- EU/DE Markenprodukte
-- EAN-Ready Struktur
-- Brand-Layer über USDA
-
-### S6.3 Candidate Ranking Hardening
-
-- Logging
-- Score-Tuning
-- Threshold-Optimierung
+**Ziel:** Flow verkürzen. Fehlerquellen reduzieren.
 
 ---
 
-# 6. RETENTION SYSTEM
+## P0-004 Zero-Macro Blocker
+Status: SOFORT
 
-Northstar: Week-1 Retention
-
-| ID  | Modul                           |
-| --- | ------------------------------- |
-| R1  | Journal View                    |
-| R2  | Calendar System                 |
-| R3  | Remaining Calories Core Metric  |
-| R4  | Reminder System (minimal start) |
-| R5  | Saved Meals 1-Tap Logging       |
-| R6  | Streaks & Badges (Phase 2)      |
-
-Prinzip:
-Friction reduzieren > Gamification hinzufügen.
+- Wenn: `kcal == 0`
+- Dann:
+  - Speichern blockieren.
+  - Fehler anzeigen.
+  - Kein Success-Status.
 
 ---
 
-# 7. GOALS & METABOLISM ENGINE
+## P0-005 Hard Default to Protokoll Tab
+Status: SOFORT
 
-| ID  | Beschreibung                                               |
-| --- | ---------------------------------------------------------- |
-| G1  | Manuelle Zielsetzung                                       |
-| G2  | BMR/TDEE Berechnung (erklärbar)                            |
-| G3  | 3 Aktivitätslevel (Low/Moderate/High)                      |
-| G4  | Automatische Aktivitätswahl (Schritte + Workouts, Phase 2) |
-
----
-
-# 8. GLOBALISIERUNG
-
-Start:
-Deutschland
-
-Strategie:
-
-- OFF für EU Brands
-- USDA für globalen Core
-
-Später:
-
-- Mehrsprachigkeit
-- Regionale Normalisierung
-- Globale Skalierung
+- Protokoll = Tab 1
+- `initialRouteName` = Protokoll
+- App startet im Input
+- Kein Dashboard zuerst.
 
 ---
 
-# 9. UI & DESIGN STRATEGIE
+# ERST WENN P0 STABIL IST:
 
-## DESIGN-01
+Dann:
 
-Kein Design-Fokus während Core-Engineering.
+## PHASE 1 — Deterministic Multi-Item Parsing
 
-## DESIGN-02 Stitch Phase (später)
-
-- Layout-System
-- Design Tokens
-- UI-Iteration
-- Kein Einfluss auf Architektur
-
-Design kommt NACH Resolver + Datenbank Stabilität.
+- Split bei “und”, “mit”, “,”
+- Zahlwörter normalisieren
+- Pro Item Resolver erzwingen
 
 ---
 
-# 10. COMPLIANCE & TRUST
+# AKTUELLER FOKUS
 
-- Kein Werbemodell
-- Transparente Pricing-Erklärung
-- AI-Kosten-Erklärung
-- Export-Funktion (CSV/JSON geplant)
+**Nicht:**
+- Confidence
+- UX Polishing
+- Warm Neutral Feinschliff
+- Goals
+- Insights
+- Health Sync
 
----
+**Nur:** Core Logging Pipeline.
 
-# 11. DEFINITION OF DONE (GLOBAL)
+### Definition von „funktioniert“
 
-Ein Feature ist DONE wenn:
+Wenn diese 5 Inputs korrekt funktionieren, ohne Review, ohne 0 kcal:
+1. `ei`
+2. `zwei eier`
+3. `200g quark`
+4. `buttertoast`
+5. `zwei scheiben schinken`
 
-- Deterministisch korrekt
-- Edge Cases behandelt
-- Confidence korrekt berechnet
-- UI-State sauber (`idle | processing | done | error`)
-- verify Script grün
-- Architekturprinzipien eingehalten
-
----
-
-# 12. OFFENE STRATEGISCHE ENTSCHEIDUNGEN
-
-| ID  | Thema                |
-| --- | -------------------- |
-| D1  | Subscription Modell  |
-| D2  | AI Budget pro User   |
-| D3  | Cloud Sync Zeitpunkt |
-| D4  | Widget Launch Timing |
-
----
-
-# 13. ORDNUNG & STRUKTUR
-
-Feature-First innerhalb Clean Architecture:
-
-src/
-features/
-nutrition/
-domain/
-application/
-infrastructure/
-infrastructure/
-supabase/
-llm/
-cache/
-
-Keine Neuarchitektur geplant.
-
----
-
-# 14. STRATEGISCHE IDENTITÄT
-
-Wir sind:
-
-- Conversation-first
-- Deterministic-first
-- Transparent
-- Kontrollierbar
-- Editierbar
-- Kein AI-Gimmick
+Erst dann reden wir über Multi-Item.

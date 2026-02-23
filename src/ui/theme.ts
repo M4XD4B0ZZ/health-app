@@ -28,15 +28,5 @@ export const tokens = {
   radius: {
     small: 8,
     medium: 16,
-  },
-  elevation: {
-    // Single subtle shadow style
-    subtle: {
-      shadowColor: '#2A2825',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2, // Android
-    }
   }
 };

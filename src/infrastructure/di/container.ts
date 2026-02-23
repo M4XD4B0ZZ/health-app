@@ -197,7 +197,11 @@ class Container {
     );
     const resolverSources: FoodCatalogSource[] = [userAliasSource, offSource, usdaSource];
 
-    if (isDevBuild() || envName() === 'test') {
+    // Mocks are only allowed in test environments OR if explicitly requested via env.
+    // This enforces real-world resolver paths during standard Expo development (npm start)
+    const allowMocks = process.env.EXPO_PUBLIC_ALLOW_MOCK_SOURCES === 'true';
+
+    if (envName() === 'test' || allowMocks) {
       resolverSources.push(this.createMockOffSource(), this.createMockUsdaSource());
     }
     this._registeredResolverSourceLabels = resolverSources.map((source) =>

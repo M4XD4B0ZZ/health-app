@@ -59,3 +59,8 @@ export function isDevBuild(): boolean {
 export function isProdBuild(): boolean {
   return envName() === 'prod';
 }
+
+export function isDebugLoggingEnabled(): boolean {
+  if (!isDevBuild()) return false;
+  return process.env.EXPO_PUBLIC_RESOLVER_DEBUG === 'true';
+}

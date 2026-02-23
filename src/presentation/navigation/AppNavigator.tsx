@@ -56,7 +56,15 @@ const TabNavigator: React.FC = () => {
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
+      initialRouteName="Journal"
     >
+      <Tab.Screen
+        name="Journal"
+        component={JournalScreen}
+        options={{
+          title: 'Protokoll',
+        }}
+      />
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
@@ -64,13 +72,7 @@ const TabNavigator: React.FC = () => {
           title: 'Dashboard',
         }}
       />
-      <Tab.Screen
-        name="Journal"
-        component={JournalScreen}
-        options={{
-          title: 'Tagebuch',
-        }}
-      />
+
       <Tab.Screen
         name="Goals"
         component={GoalsScreen}

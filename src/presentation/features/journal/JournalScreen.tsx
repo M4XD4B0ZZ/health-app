@@ -41,9 +41,6 @@ const JournalScreen: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
 
-  // Sprint 5.5: Review Bottom Sheet State
-  const [reviewModalVisible, setReviewModalVisible] = useState(false);
-  const [reviewEntries, setReviewEntries] = useState<FoodEntry[]>([]);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -83,8 +80,21 @@ const JournalScreen: React.FC = () => {
     setStatusMessage('Logging meal...');
 
     try {
-      // Sprint 5.5: Use LogMealFromRawInputUseCase (multi-item)
       const createdEntries = await container.logMealFromRawInputUseCase.execute(rawInput, today);
+
+      if (!createdEntries || createdEntries.length === 0) {
+        throw new Error('Eintrag konnte nicht zugeordnet werden.');
+      }
+
+      // Check Zero-Macro strict rule
+      const totalKcal = createdEntries.reduce((sum, e) => sum + e.calories, 0);
+      if (totalKcal === 0) {
+        // Rollback created entries if zero macros
+        for (const entry of createdEntries) {
+          await container.deleteFoodEntryUseCase.execute(entry.id);
+        }
+        throw new Error('Lebensmittel hat keine Kalorien (Makros = 0). Speichern blockiert.');
+      }
 
       // Reload data instantly as requested natively
       await loadJournalData();
@@ -93,23 +103,13 @@ const JournalScreen: React.FC = () => {
       setStatusMessage('Added to journal.');
       setRawInput('');
 
-      // Sprint 5.5: Determine if Review Sheet should be shown
-      const shouldShowReview = shouldShowReviewSheet(createdEntries);
-
-      if (shouldShowReview) {
-        setReviewEntries(createdEntries);
-        setReviewModalVisible(true);
-      }
     } catch (err) {
       setProcessingState('error');
       setStatusMessage(err instanceof Error ? err.message : 'Fehler beim Hinzufügen');
     }
   };
 
-  const shouldShowReviewSheet = (createdEntries: FoodEntry[]): boolean => {
-    if (createdEntries.length >= 2) return true;
-    return createdEntries.some((entry) => entry.confidenceScore < 0.7 || entry.sourceType === 'ai');
-  };
+
 
   const handleDeleteEntry = async (entryId: string) => {
     try {
@@ -140,45 +140,13 @@ const JournalScreen: React.FC = () => {
       setEditInstruction('');
       await loadJournalData();
 
-      if (reviewModalVisible) {
-        const updatedSummary = await container.getDailySummaryUseCase.execute(today);
-        const updatedReviewEntries = reviewEntries.map(
-          (re) => updatedSummary.entries.find((e) => e.id === re.id) || re,
-        );
-        setReviewEntries(updatedReviewEntries);
-      }
+      await loadJournalData();
     } catch (err) {
       console.error('Failed to apply edit:', err);
     }
   };
 
-  const handleDeleteFromReview = async (entryId: string) => {
-    try {
-      await container.deleteFoodEntryUseCase.execute(entryId);
 
-      const updatedReviewEntries = reviewEntries.filter((e) => e.id !== entryId);
-      setReviewEntries(updatedReviewEntries);
-
-      await loadJournalData();
-
-      if (updatedReviewEntries.length === 0) {
-        setReviewModalVisible(false);
-      }
-    } catch (err) {
-      console.error('Failed to delete entry from review:', err);
-    }
-  };
-
-  const handleEditFromReview = (entry: FoodEntry) => {
-    setEditingEntry(entry);
-    setEditInstruction('');
-    setEditModalVisible(true);
-  };
-
-  const handleConfirmReview = () => {
-    setReviewModalVisible(false);
-    setReviewEntries([]);
-  };
 
   const renderJournalEntry = ({ item }: { item: FoodEntry }) => {
     let subtitle = `${item.quantityGrams > 0 ? item.quantityGrams + 'g' : ''}`;
@@ -195,15 +163,9 @@ const JournalScreen: React.FC = () => {
           onPress={() => handleOpenEditModal(item)}
         />
         <View style={styles.entryExtras}>
-          {item.confidenceScore !== undefined && (
-            <AppText variant="meta" tone="muted">
-              Conf: {(item.confidenceScore * 100).toFixed(0)}%
-              {item.confidenceReason && ` - ${item.confidenceReason}`}
-            </AppText>
-          )}
-          {item.explanation && (
-            <AppText variant="meta" tone="muted">{item.explanation}</AppText>
-          )}
+          <AppText variant="meta" tone="muted">
+            P: {Math.round(item.protein)}g  C: {Math.round(item.carbs)}g  F: {Math.round(item.fat)}g
+          </AppText>
         </View>
       </View>
     );
@@ -283,46 +245,7 @@ const JournalScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Review Bottom Sheet Overlay (keeping standard RN modal for now, adapting styling) */}
-      <Modal visible={reviewModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.reviewModalContent}>
-            <AppText variant="title" style={styles.modalTitle}>Review Entries</AppText>
-            <AppText variant="body" tone="muted" style={{ marginBottom: tokens.spacing.m }}>
-              Please review your mapped foods.
-            </AppText>
 
-            <ScrollView style={styles.reviewList}>
-              {reviewEntries.map((entry) => (
-                <View key={entry.id} style={styles.reviewCard}>
-                  <View style={styles.reviewRowFlex}>
-                    <View style={{ flex: 1 }}>
-                      <AppText variant="body">{entry.parsedName}</AppText>
-                      <AppText variant="meta" tone="muted">
-                        P: {Math.round(entry.protein)}g C: {Math.round(entry.carbs)}g F: {Math.round(entry.fat)}g
-                      </AppText>
-                    </View>
-                    <AppText variant="numeric">{Math.round(entry.calories)}</AppText>
-                  </View>
-
-                  <View style={styles.reviewActions}>
-                    <TouchableOpacity onPress={() => handleEditFromReview(entry)} style={{ marginRight: tokens.spacing.m }}>
-                      <AppText variant="meta" tone="accent">EDIT</AppText>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteFromReview(entry.id)}>
-                      <AppText variant="meta" tone="danger">DELETE</AppText>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-
-            <View style={styles.modalButtons}>
-              <PrimaryButton label="Confirm All" onPress={handleConfirmReview} style={{ flex: 1 }} />
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* Edit Modal (adapting to clean styling) */}
       <Modal visible={editModalVisible} transparent animationType="fade">
@@ -419,14 +342,6 @@ const styles = StyleSheet.create({
     padding: tokens.spacing.m,
     paddingBottom: tokens.spacing.xl,
   },
-  reviewModalContent: {
-    backgroundColor: tokens.colors.background,
-    borderTopLeftRadius: tokens.radius.medium,
-    borderTopRightRadius: tokens.radius.medium,
-    padding: tokens.spacing.m,
-    paddingBottom: tokens.spacing.xl,
-    maxHeight: '80%',
-  },
   modalTitle: {
     marginBottom: tokens.spacing.xs,
   },
@@ -436,29 +351,6 @@ const styles = StyleSheet.create({
   },
   flexButton: {
     flex: 1,
-  },
-  reviewList: {
-    maxHeight: 400,
-  },
-  reviewCard: {
-    backgroundColor: tokens.colors.surface,
-    padding: tokens.spacing.m,
-    borderRadius: tokens.radius.medium,
-    marginBottom: tokens.spacing.s,
-  },
-  reviewRowFlex: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: tokens.spacing.s,
-  },
-  reviewActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: tokens.colors.divider,
-    paddingTop: tokens.spacing.s,
-    marginTop: tokens.spacing.xs,
   }
 });
 

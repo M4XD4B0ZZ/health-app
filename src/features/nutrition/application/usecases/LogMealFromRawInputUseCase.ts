@@ -198,6 +198,11 @@ export class LogMealFromRawInputUseCase {
       }
     }
 
+    // P0-004: Strict Zero-Macro Blocker
+    if (!entry.calories || entry.calories <= 0) {
+      throw new Error(`RESOLVER_FAILED_OR_NO_MACROS for input: ${derivedRawInput}`);
+    }
+
     // Persist
     await this.repository.addEntry(entry);
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 // Screen-Komponenten importieren
@@ -8,6 +9,7 @@ import JournalScreen from '../features/journal/JournalScreen';
 import GoalsScreen from '../features/goals/GoalsScreen';
 import NutritionScreen from '../features/nutrition/NutritionScreen';
 import RecoveryScreen from '../features/recovery/RecoveryScreen';
+import VoiceScreen from '../features/voice/VoiceScreen';
 
 // Typdefinition für die Tab-Parameter
 export type RootTabParamList = {
@@ -18,9 +20,16 @@ export type RootTabParamList = {
   Recovery: undefined;
 };
 
-const Tab = createBottomTabNavigator<RootTabParamList>();
+// Typdefinition für die Stack-Parameter
+export type RootStackParamList = {
+  MainTabs: undefined;
+  Voice: undefined;
+};
 
-const AppNavigator: React.FC = () => {
+const Tab = createBottomTabNavigator<RootTabParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const TabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -84,6 +93,22 @@ const AppNavigator: React.FC = () => {
         }}
       />
     </Tab.Navigator>
+  );
+};
+
+const AppNavigator: React.FC = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen
+        name="Voice"
+        component={VoiceScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom'
+        }}
+      />
+    </Stack.Navigator>
   );
 };
 

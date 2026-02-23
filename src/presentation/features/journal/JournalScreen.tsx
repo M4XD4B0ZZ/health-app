@@ -10,16 +10,28 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { FoodEntry, DailyNutritionSummary } from '../../../features/nutrition';
 import { DailyProgressSnapshot } from '../../../features/journal';
+import { RootTabParamList } from '../../navigation/AppNavigator';
 
-type ProcessingState = 'idle' | 'processing' | 'done' | 'error';
+// UI Components
+import { tokens } from '../../../ui/theme';
+import { ScreenContainer } from '../../../ui/components/ScreenContainer';
+import { AppText } from '../../../ui/components/AppText';
+import { InputArea } from '../../../ui/components/InputArea';
+import { IconButton } from '../../../ui/components/IconButton';
+import { PrimaryButton } from '../../../ui/components/PrimaryButton';
+import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineStatus';
+import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
+import { EntryRow } from '../../../ui/components/EntryRow';
 
 const JournalScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp<any>>();
   const [rawInput, setRawInput] = useState('');
-  const [processingState, setProcessingState] = useState<ProcessingState>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [processingState, setProcessingState] = useState<InlineStatusState>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
 
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
@@ -60,20 +72,26 @@ const JournalScreen: React.FC = () => {
     }
   };
 
+  const navigateToVoice = () => {
+    navigation.navigate('Voice');
+  };
+
   const handleQuickAdd = async () => {
     if (!rawInput.trim()) return;
 
     setProcessingState('processing');
-    setErrorMessage('');
+    setStatusMessage('Logging meal...');
 
     try {
       // Sprint 5.5: Use LogMealFromRawInputUseCase (multi-item)
       const createdEntries = await container.logMealFromRawInputUseCase.execute(rawInput, today);
-      setProcessingState('done');
-      setRawInput('');
 
-      // Reload data
+      // Reload data instantly as requested natively
       await loadJournalData();
+
+      setProcessingState('done');
+      setStatusMessage('Added to journal.');
+      setRawInput('');
 
       // Sprint 5.5: Determine if Review Sheet should be shown
       const shouldShowReview = shouldShowReviewSheet(createdEntries);
@@ -81,25 +99,15 @@ const JournalScreen: React.FC = () => {
       if (shouldShowReview) {
         setReviewEntries(createdEntries);
         setReviewModalVisible(true);
-      } else {
-        // Reset to idle after a short delay
-        setTimeout(() => setProcessingState('idle'), 1000);
       }
     } catch (err) {
       setProcessingState('error');
-      setErrorMessage(err instanceof Error ? err.message : 'Fehler beim Hinzufügen');
+      setStatusMessage(err instanceof Error ? err.message : 'Fehler beim Hinzufügen');
     }
   };
 
-  /**
-   * Sprint 5.5: Determine if Review Sheet should be shown
-   * Show if: multiple items OR any item has confidence < 0.7 OR sourceType == "ai"
-   */
   const shouldShowReviewSheet = (createdEntries: FoodEntry[]): boolean => {
-    if (createdEntries.length >= 2) {
-      return true;
-    }
-
+    if (createdEntries.length >= 2) return true;
     return createdEntries.some((entry) => entry.confidenceScore < 0.7 || entry.sourceType === 'ai');
   };
 
@@ -132,7 +140,6 @@ const JournalScreen: React.FC = () => {
       setEditInstruction('');
       await loadJournalData();
 
-      // Sprint 5.5: If called from review modal, refresh review entries
       if (reviewModalVisible) {
         const updatedSummary = await container.getDailySummaryUseCase.execute(today);
         const updatedReviewEntries = reviewEntries.map(
@@ -145,761 +152,314 @@ const JournalScreen: React.FC = () => {
     }
   };
 
-  // Sprint 5.5: Handle delete from review sheet
   const handleDeleteFromReview = async (entryId: string) => {
     try {
       await container.deleteFoodEntryUseCase.execute(entryId);
 
-      // Update review entries list
       const updatedReviewEntries = reviewEntries.filter((e) => e.id !== entryId);
       setReviewEntries(updatedReviewEntries);
 
-      // Reload main data
       await loadJournalData();
 
-      // If no more entries in review, close modal
       if (updatedReviewEntries.length === 0) {
         setReviewModalVisible(false);
-        setProcessingState('idle');
       }
     } catch (err) {
       console.error('Failed to delete entry from review:', err);
     }
   };
 
-  // Sprint 5.5: Handle edit from review sheet
   const handleEditFromReview = (entry: FoodEntry) => {
     setEditingEntry(entry);
     setEditInstruction('');
     setEditModalVisible(true);
   };
 
-  // Sprint 5.5: Handle confirm review (close review sheet)
   const handleConfirmReview = () => {
     setReviewModalVisible(false);
     setReviewEntries([]);
-    setProcessingState('idle');
   };
 
-  const renderEntry = ({ item }: { item: FoodEntry }) => (
-    <TouchableOpacity style={styles.entryCard} onPress={() => handleOpenEditModal(item)}>
-      <View style={styles.entryHeader}>
-        <Text style={styles.entryName}>{item.parsedName}</Text>
-        <Text style={styles.entryKcal}>{Math.round(item.calories)} kcal</Text>
-      </View>
+  const renderJournalEntry = ({ item }: { item: FoodEntry }) => {
+    let subtitle = `${item.quantityGrams > 0 ? item.quantityGrams + 'g' : ''}`;
+    let macrosStr = `P: ${Math.round(item.protein)}g C: ${Math.round(item.carbs)}g F: ${Math.round(item.fat)}g`;
+    if (subtitle) subtitle += ' • ' + macrosStr;
+    else subtitle = macrosStr;
 
-      <View style={styles.entryDetails}>
-        <Text style={styles.entryGrams}>{item.quantityGrams}g</Text>
-        <Text style={styles.entryMacros}>
-          P: {Math.round(item.protein)}g | C: {Math.round(item.carbs)}g | F: {Math.round(item.fat)}g
-        </Text>
-      </View>
-
-      {item.confidenceScore !== undefined && (
-        <Text style={styles.confidenceText}>
-          Confidence: {(item.confidenceScore * 100).toFixed(0)}%
-          {item.confidenceReason && ` - ${item.confidenceReason}`}
-        </Text>
-      )}
-
-      {item.explanation && <Text style={styles.explanationText}>{item.explanation}</Text>}
-
-      <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteEntry(item.id)}>
-        <Text style={styles.deleteButtonText}>Löschen</Text>
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
-
-  return (
-    <View style={styles.container}>
-      <ScrollView>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Ernährungstagebuch</Text>
-          <Text style={styles.headerDate}>{today}</Text>
-        </View>
-
-        {/* Progress Card (if goals exist) */}
-        {progress && (
-          <View style={styles.progressCard}>
-            <Text style={styles.progressTitle}>Tagesfortschritt</Text>
-
-            <View style={styles.caloriesRow}>
-              <Text style={styles.caloriesLabel}>Kalorien verbleibend:</Text>
-              <Text
-                style={[styles.caloriesValue, progress.progress.isOverCalories && styles.overLimit]}
-              >
-                {Math.round(progress.progress.remainingCalories)} kcal
-              </Text>
-            </View>
-
-            {/* Progress Bars */}
-            <View style={styles.progressBarsContainer}>
-              <ProgressBar
-                label="Kalorien"
-                current={progress.consumed.calories}
-                target={progress.goals.calories}
-                isOver={progress.progress.isOverCalories}
-              />
-              <ProgressBar
-                label="Protein"
-                current={progress.consumed.protein}
-                target={progress.goals.protein}
-                isOver={progress.progress.isOverProtein}
-              />
-              <ProgressBar
-                label="Kohlenhydrate"
-                current={progress.consumed.carbs}
-                target={progress.goals.carbs}
-                isOver={progress.progress.isOverCarbs}
-              />
-              <ProgressBar
-                label="Fett"
-                current={progress.consumed.fat}
-                target={progress.goals.fat}
-                isOver={progress.progress.isOverFat}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Quick Add Input */}
-        <View style={styles.quickAddCard}>
-          <Text style={styles.sectionTitle}>Schnell hinzufügen</Text>
-          <TextInput
-            style={styles.textInput}
-            multiline
-            placeholder="z.B. '250g Hähnchenbrust' oder '1 Apfel'"
-            value={rawInput}
-            onChangeText={setRawInput}
-            editable={processingState !== 'processing'}
-          />
-
-          <TouchableOpacity
-            style={[styles.addButton, processingState === 'processing' && styles.addButtonDisabled]}
-            onPress={handleQuickAdd}
-            disabled={processingState === 'processing'}
-          >
-            {processingState === 'processing' ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.addButtonText}>
-                {processingState === 'done' ? '✓ Hinzugefügt' : 'Hinzufügen'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {processingState === 'error' && <Text style={styles.errorText}>{errorMessage}</Text>}
-        </View>
-
-        {/* Journal List */}
-        <View style={styles.journalList}>
-          <Text style={styles.sectionTitle}>Einträge heute</Text>
-          {entries.length === 0 ? (
-            <Text style={styles.emptyText}>Noch keine Einträge für heute</Text>
-          ) : (
-            <FlatList
-              data={entries}
-              renderItem={renderEntry}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-            />
+    return (
+      <View style={styles.entryWrapper}>
+        <EntryRow
+          title={item.parsedName}
+          subtitle={subtitle}
+          kcal={Math.round(item.calories)}
+          onPress={() => handleOpenEditModal(item)}
+        />
+        <View style={styles.entryExtras}>
+          {item.confidenceScore !== undefined && (
+            <AppText variant="meta" tone="muted">
+              Conf: {(item.confidenceScore * 100).toFixed(0)}%
+              {item.confidenceReason && ` - ${item.confidenceReason}`}
+            </AppText>
+          )}
+          {item.explanation && (
+            <AppText variant="meta" tone="muted">{item.explanation}</AppText>
           )}
         </View>
+      </View>
+    );
+  };
 
-        {/* Daily Summary */}
-        {summary && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.sectionTitle}>Tageszusammenfassung</Text>
-            <Text style={styles.summaryKcal}>{Math.round(summary.totalCalories)} kcal</Text>
-            <View style={styles.macrosRow}>
-              <View style={styles.macroItem}>
-                <Text style={styles.macroLabel}>Protein</Text>
-                <Text style={styles.macroValue}>{Math.round(summary.totalProtein)}g</Text>
-              </View>
-              <View style={styles.macroItem}>
-                <Text style={styles.macroLabel}>Kohlenhydrate</Text>
-                <Text style={styles.macroValue}>{Math.round(summary.totalCarbs)}g</Text>
-              </View>
-              <View style={styles.macroItem}>
-                <Text style={styles.macroLabel}>Fett</Text>
-                <Text style={styles.macroValue}>{Math.round(summary.totalFat)}g</Text>
-              </View>
+  return (
+    <ScreenContainer scroll>
+      {/* Top Section */}
+      <View style={styles.header}>
+        <AppText variant="title">Log Food</AppText>
+      </View>
+
+      {/* Dominant Interaction Area */}
+      <InputArea
+        multiline
+        placeholder="What did you eat? (e.g., '2 scrambled eggs and a slice of toast')"
+        value={rawInput}
+        onChangeText={setRawInput}
+        editable={processingState !== 'processing'}
+      />
+
+      {/* Actions tightly bound to the input */}
+      <View style={styles.actionsRow}>
+        <View style={styles.iconRow}>
+          <IconButton icon="mic" onPress={navigateToVoice} />
+          {/* <IconButton icon="camera" /> // Removed camera for now until feature is ready */}
+        </View>
+        <PrimaryButton
+          label="Submit"
+          onPress={handleQuickAdd}
+          disabled={processingState === 'processing' || !rawInput.trim()}
+        />
+      </View>
+
+      <InlineStatus state={processingState} message={statusMessage} />
+
+      {/* Spacer to push things down gracefully */}
+      <View style={styles.spacerLarge} />
+
+      {/* Daily Summary using Subdued Styling */}
+      {progress && summary && (
+        <SummaryBar>
+          <View style={styles.summaryLeft}>
+            <AppText variant="meta">Remaining</AppText>
+            <View style={styles.valGroup}>
+              <AppText variant="numeric" tone={progress.progress.isOverCalories ? 'danger' : 'primary'}>
+                {Math.round(progress.progress.remainingCalories)}
+              </AppText>
+              <AppText variant="meta">kcal</AppText>
             </View>
           </View>
-        )}
-      </ScrollView>
 
-      {/* Sprint 5.5: Review Bottom Sheet */}
-      <Modal
-        visible={reviewModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={handleConfirmReview}
-      >
+          <View style={styles.macrosGroup}>
+            <MacroStack label="PRO" value={`${Math.round(summary.totalProtein)}g`} />
+            <MacroStack label="CARB" value={`${Math.round(summary.totalCarbs)}g`} />
+            <MacroStack label="FAT" value={`${Math.round(summary.totalFat)}g`} />
+          </View>
+        </SummaryBar>
+      )}
+
+      {/* Journal List */}
+      <View style={styles.journalListContainer}>
+        <AppText variant="meta" tone="muted" style={styles.sectionTitle}>
+          Today's Entries
+        </AppText>
+        {entries.length === 0 ? (
+          <AppText variant="body" tone="muted" style={styles.emptyText}>
+            No entries yet today.
+          </AppText>
+        ) : (
+          <FlatList
+            data={entries}
+            renderItem={renderJournalEntry}
+            keyExtractor={(item) => item.id}
+            scrollEnabled={false}
+          />
+        )}
+      </View>
+
+      {/* Review Bottom Sheet Overlay (keeping standard RN modal for now, adapting styling) */}
+      <Modal visible={reviewModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.reviewModalContent}>
-            <Text style={styles.modalTitle}>Einträge überprüfen</Text>
-            <Text style={styles.reviewSubtitle}>
-              Bitte überprüfen Sie die erkannten Einträge und passen Sie diese bei Bedarf an.
-            </Text>
+            <AppText variant="title" style={styles.modalTitle}>Review Entries</AppText>
+            <AppText variant="body" tone="muted" style={{ marginBottom: tokens.spacing.m }}>
+              Please review your mapped foods.
+            </AppText>
 
-            <ScrollView style={styles.reviewScrollView}>
+            <ScrollView style={styles.reviewList}>
               {reviewEntries.map((entry) => (
-                <View key={entry.id} style={styles.reviewEntryCard}>
-                  <View style={styles.reviewEntryHeader}>
-                    <Text style={styles.reviewEntryName}>{entry.parsedName}</Text>
-                    <Text style={styles.reviewEntryKcal}>{Math.round(entry.calories)} kcal</Text>
+                <View key={entry.id} style={styles.reviewCard}>
+                  <View style={styles.reviewRowFlex}>
+                    <View style={{ flex: 1 }}>
+                      <AppText variant="body">{entry.parsedName}</AppText>
+                      <AppText variant="meta" tone="muted">
+                        P: {Math.round(entry.protein)}g C: {Math.round(entry.carbs)}g F: {Math.round(entry.fat)}g
+                      </AppText>
+                    </View>
+                    <AppText variant="numeric">{Math.round(entry.calories)}</AppText>
                   </View>
 
-                  <View style={styles.reviewEntryDetails}>
-                    <Text style={styles.reviewEntryGrams}>
-                      {entry.quantityGrams > 0 ? `${entry.quantityGrams}g` : 'Menge unbekannt'}
-                    </Text>
-                    <Text style={styles.reviewEntryMacros}>
-                      P: {Math.round(entry.protein)}g | C: {Math.round(entry.carbs)}g | F:{' '}
-                      {Math.round(entry.fat)}g
-                    </Text>
-                  </View>
-
-                  {/* Confidence Info */}
-                  <View style={styles.reviewConfidenceContainer}>
-                    <Text
-                      style={[
-                        styles.reviewConfidenceText,
-                        entry.confidenceScore < 0.5 && styles.reviewConfidenceLow,
-                      ]}
-                    >
-                      Konfidenz: {(entry.confidenceScore * 100).toFixed(0)}%
-                    </Text>
-                    {entry.confidenceReason && (
-                      <Text style={styles.reviewConfidenceReason}>{entry.confidenceReason}</Text>
-                    )}
-                  </View>
-
-                  {entry.explanation && (
-                    <Text style={styles.reviewExplanation}>{entry.explanation}</Text>
-                  )}
-
-                  {/* Actions */}
-                  <View style={styles.reviewEntryActions}>
-                    <TouchableOpacity
-                      style={styles.reviewEditButton}
-                      onPress={() => handleEditFromReview(entry)}
-                    >
-                      <Text style={styles.reviewEditButtonText}>Bearbeiten</Text>
+                  <View style={styles.reviewActions}>
+                    <TouchableOpacity onPress={() => handleEditFromReview(entry)} style={{ marginRight: tokens.spacing.m }}>
+                      <AppText variant="meta" tone="accent">EDIT</AppText>
                     </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.reviewDeleteButton}
-                      onPress={() => handleDeleteFromReview(entry.id)}
-                    >
-                      <Text style={styles.reviewDeleteButtonText}>Löschen</Text>
+                    <TouchableOpacity onPress={() => handleDeleteFromReview(entry.id)}>
+                      <AppText variant="meta" tone="danger">DELETE</AppText>
                     </TouchableOpacity>
                   </View>
                 </View>
               ))}
             </ScrollView>
 
-            <TouchableOpacity style={styles.reviewConfirmButton} onPress={handleConfirmReview}>
-              <Text style={styles.reviewConfirmButtonText}>Bestätigen</Text>
-            </TouchableOpacity>
+            <View style={styles.modalButtons}>
+              <PrimaryButton label="Confirm All" onPress={handleConfirmReview} style={{ flex: 1 }} />
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* Edit Modal */}
-      <Modal
-        visible={editModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditModalVisible(false)}
-      >
+      {/* Edit Modal (adapting to clean styling) */}
+      <Modal visible={editModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Eintrag bearbeiten</Text>
-            {editingEntry && <Text style={styles.modalSubtitle}>{editingEntry.parsedName}</Text>}
+            <AppText variant="title" style={styles.modalTitle}>Edit Entry</AppText>
+            {editingEntry && <AppText variant="body" tone="muted">{editingEntry.parsedName}</AppText>}
 
-            <TextInput
-              style={styles.modalInput}
-              placeholder="z.B. '200g', 'double portion', 'half portion'"
+            <InputArea
+              style={{ minHeight: 80, marginTop: tokens.spacing.m, marginBottom: tokens.spacing.l }}
+              placeholder="e.g. 'double portion', '100g only'"
               value={editInstruction}
               onChangeText={setEditInstruction}
             />
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
+              <PrimaryButton
+                label="Cancel"
                 onPress={() => setEditModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>Abbrechen</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
+                style={[styles.flexButton, { backgroundColor: tokens.colors.surface }] as any}
+              // A bit of a hack to pass disabled styles to look like un-accented button
+              />
+              <View style={{ width: tokens.spacing.s }} />
+              <PrimaryButton
+                label="Apply"
                 onPress={handleApplyEdit}
-              >
-                <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>
-                  Anwenden
-                </Text>
-              </TouchableOpacity>
+                style={styles.flexButton}
+              />
             </View>
           </View>
         </View>
       </Modal>
-    </View>
-  );
-};
-
-// Progress Bar Component
-const ProgressBar: React.FC<{
-  label: string;
-  current: number;
-  target: number;
-  isOver: boolean;
-}> = ({ label, current, target, isOver }) => {
-  const percentage = Math.min((current / target) * 100, 100);
-
-  return (
-    <View style={styles.progressBarContainer}>
-      <View style={styles.progressBarHeader}>
-        <Text style={styles.progressBarLabel}>{label}</Text>
-        <Text style={[styles.progressBarText, isOver && styles.overLimit]}>
-          {Math.round(current)} / {Math.round(target)}
-        </Text>
-      </View>
-      <View style={styles.progressBarTrack}>
-        <View
-          style={[
-            styles.progressBarFill,
-            { width: `${percentage}%` },
-            isOver && styles.progressBarFillOver,
-          ]}
-        />
-      </View>
-    </View>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingTop: tokens.spacing.m,
+    paddingBottom: tokens.spacing.l,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  headerDate: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  progressCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  progressTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  caloriesRow: {
+  actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
+    paddingTop: tokens.spacing.s,
   },
-  caloriesLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  caloriesValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#4a90e2',
-  },
-  overLimit: {
-    color: '#e74c3c',
-  },
-  progressBarsContainer: {
-    gap: 12,
-  },
-  progressBarContainer: {
-    marginBottom: 8,
-  },
-  progressBarHeader: {
+  iconRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    gap: tokens.spacing.xs,
   },
-  progressBarLabel: {
-    fontSize: 14,
-    color: '#666',
+  spacerLarge: {
+    height: tokens.spacing.xl,
   },
-  progressBarText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+  summaryLeft: {
+    flex: 1,
   },
-  progressBarTrack: {
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    overflow: 'hidden',
+  valGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: tokens.spacing.xs,
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#4a90e2',
-    borderRadius: 4,
+  macrosGroup: {
+    flexDirection: 'row',
+    gap: tokens.spacing.m,
   },
-  progressBarFillOver: {
-    backgroundColor: '#e74c3c',
-  },
-  quickAddCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  journalListContainer: {
+    marginTop: tokens.spacing.xl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 80,
-    fontSize: 16,
-    textAlignVertical: 'top',
-    marginBottom: 12,
-  },
-  addButton: {
-    backgroundColor: '#4a90e2',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  addButtonDisabled: {
-    backgroundColor: '#a0c4e8',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorText: {
-    color: '#e74c3c',
-    marginTop: 8,
-    fontSize: 14,
-  },
-  journalList: {
-    margin: 15,
+    marginBottom: tokens.spacing.s,
   },
   emptyText: {
-    textAlign: 'center',
-    color: '#999',
-    fontSize: 16,
-    marginTop: 20,
-  },
-  entryCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  entryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  entryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  entryKcal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4a90e2',
-  },
-  entryDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  entryGrams: {
-    fontSize: 14,
-    color: '#666',
-  },
-  entryMacros: {
-    fontSize: 14,
-    color: '#666',
-  },
-  confidenceText: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  explanationText: {
-    fontSize: 12,
-    color: '#999',
+    marginTop: tokens.spacing.s,
     fontStyle: 'italic',
-    marginTop: 2,
   },
-  deleteButton: {
-    marginTop: 10,
-    padding: 8,
-    backgroundColor: '#fee',
-    borderRadius: 6,
-    alignItems: 'center',
+  entryWrapper: {
+    marginBottom: tokens.spacing.s,
   },
-  deleteButtonText: {
-    color: '#e74c3c',
-    fontSize: 14,
-    fontWeight: '500',
+  entryExtras: {
+    paddingTop: tokens.spacing.xs,
+    paddingBottom: tokens.spacing.s,
   },
-  summaryCard: {
-    backgroundColor: '#fff',
-    margin: 15,
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryKcal: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  macrosRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  macroItem: {
-    alignItems: 'center',
-  },
-  macroLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  macroValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
+
+  // Modals Overlay unified
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(42, 40, 37, 0.4)', // Uses dark charcoal base for overlay
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    minHeight: 250,
+    backgroundColor: tokens.colors.background,
+    borderTopLeftRadius: tokens.radius.medium,
+    borderTopRightRadius: tokens.radius.medium,
+    padding: tokens.spacing.m,
+    paddingBottom: tokens.spacing.xl,
+  },
+  reviewModalContent: {
+    backgroundColor: tokens.colors.background,
+    borderTopLeftRadius: tokens.radius.medium,
+    borderTopRightRadius: tokens.radius.medium,
+    padding: tokens.spacing.m,
+    paddingBottom: tokens.spacing.xl,
+    maxHeight: '80%',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
+    marginBottom: tokens.spacing.xs,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 10,
+    marginTop: tokens.spacing.l,
   },
-  modalButton: {
+  flexButton: {
     flex: 1,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
   },
-  modalButtonCancel: {
-    backgroundColor: '#f0f0f0',
-  },
-  modalButtonConfirm: {
-    backgroundColor: '#4a90e2',
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  modalButtonTextConfirm: {
-    color: '#fff',
-  },
-  // Sprint 5.5: Review Bottom Sheet Styles
-  reviewModalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '85%',
-  },
-  reviewSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-  },
-  reviewScrollView: {
+  reviewList: {
     maxHeight: 400,
   },
-  reviewEntryCard: {
-    backgroundColor: '#f9f9f9',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+  reviewCard: {
+    backgroundColor: tokens.colors.surface,
+    padding: tokens.spacing.m,
+    borderRadius: tokens.radius.medium,
+    marginBottom: tokens.spacing.s,
   },
-  reviewEntryHeader: {
+  reviewRowFlex: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: tokens.spacing.s,
   },
-  reviewEntryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  reviewEntryKcal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4a90e2',
-  },
-  reviewEntryDetails: {
+  reviewActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  reviewEntryGrams: {
-    fontSize: 14,
-    color: '#666',
-  },
-  reviewEntryMacros: {
-    fontSize: 14,
-    color: '#666',
-  },
-  reviewConfidenceContainer: {
-    backgroundColor: '#fff',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  reviewConfidenceText: {
-    fontSize: 12,
-    color: '#4a90e2',
-    fontWeight: '500',
-  },
-  reviewConfidenceLow: {
-    color: '#e67e22',
-  },
-  reviewConfidenceReason: {
-    fontSize: 11,
-    color: '#999',
-    marginTop: 2,
-  },
-  reviewExplanation: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  reviewEntryActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  reviewEditButton: {
-    flex: 1,
-    backgroundColor: '#4a90e2',
-    padding: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  reviewEditButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  reviewDeleteButton: {
-    flex: 1,
-    backgroundColor: '#fee',
-    padding: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  reviewDeleteButtonText: {
-    color: '#e74c3c',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  reviewConfirmButton: {
-    backgroundColor: '#27ae60',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  reviewConfirmButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+    justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: tokens.colors.divider,
+    paddingTop: tokens.spacing.s,
+    marginTop: tokens.spacing.xs,
+  }
 });
 
 export default JournalScreen;

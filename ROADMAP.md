@@ -96,6 +96,19 @@ Status: SOFORT
 
 ---
 
+## P0-007 Proof-of-Call Tracing (Gate)
+Status: ACTIVE
+
+- Definition of Done:
+  - PROOF UseCase entered
+  - PROOF ABOUT_TO_RESOLVE
+  - PROOF RESOLVER_CALLED with sourceCount>0
+  - PROOF OFF_SOURCE_CALLED and USDA_SOURCE_CALLED
+  - Either candidates>0 OR explicit HTTP status/error logged
+
+---
+
+
 # ERST WENN P0 STABIL IST:
 
 Dann:

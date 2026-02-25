@@ -21,3 +21,14 @@ Actual app repo root:
 # always valid
 npm run verify
 ```
+
+## 2) Workflow / Verification
+
+- Any change affecting runtime behavior (resolver, parsing, persistence, navigation flow, env flags) MUST end with an explicit "USER TEST REQUIRED" section.
+- The assistant must address the user directly with:
+  - exact test steps
+  - exact inputs to use
+  - expected UI outcome
+  - expected logs outcome
+- No task may be marked DONE in ROADMAP.md unless the required user test is confirmed.
+

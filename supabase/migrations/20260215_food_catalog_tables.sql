@@ -23,14 +23,13 @@ CREATE TABLE IF NOT EXISTS public.food_catalog_items (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Unique constraints (required for PostgREST UPSERT via on_conflict)
-ALTER TABLE public.food_catalog_items 
-  DROP CONSTRAINT IF EXISTS food_catalog_items_source_external_id_key;
-ALTER TABLE public.food_catalog_items 
-  ADD CONSTRAINT food_catalog_items_source_external_id_key UNIQUE (source, external_id);
+-- Unique indexes (required for PostgREST UPSERT via on_conflict)
+-- We use UNIQUE INDEX to ensure ON CONFLICT target exactly matches.
+-- First drop the old non-unique index if it exists to prevent overlap
+DROP INDEX IF EXISTS public.idx_food_catalog_items_source_external_id;
 
--- Clean up the old regular index if it existed before replacing with generic search index
-DROP INDEX IF EXISTS idx_food_catalog_items_source_external_id;
+CREATE UNIQUE INDEX IF NOT EXISTS food_catalog_items_source_external_id_uniq 
+  ON public.food_catalog_items (source, external_id);
 
 CREATE INDEX IF NOT EXISTS idx_food_catalog_items_locale_canonical_name 
   ON public.food_catalog_items(locale, canonical_name);
@@ -52,14 +51,11 @@ CREATE TABLE IF NOT EXISTS public.food_query_cache (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Unique constraint for food_query_cache (required for UPSERT)
-ALTER TABLE public.food_query_cache 
-  DROP CONSTRAINT IF EXISTS food_query_cache_normalized_query_locale_key;
-ALTER TABLE public.food_query_cache 
-  ADD CONSTRAINT food_query_cache_normalized_query_locale_key 
-  UNIQUE (normalized_query, locale);
+-- Unique index for food_query_cache (required for UPSERT via on_conflict)
+CREATE UNIQUE INDEX IF NOT EXISTS food_query_cache_normalized_query_locale_uniq 
+  ON public.food_query_cache (normalized_query, locale);
 
--- Index for food_query_cache
+-- Index for food_query_cache expiration cleanup
 CREATE INDEX IF NOT EXISTS idx_food_query_cache_expires_at 
   ON public.food_query_cache(expires_at);
 

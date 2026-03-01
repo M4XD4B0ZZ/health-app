@@ -102,7 +102,7 @@ export class InMemoryFoodEntryRepository implements FoodEntryRepository {
   /**
    * Test-Utility: Löscht alle Einträge (nur für Tests).
    */
-  clear(): void {
+  async clearAll(): Promise<void> {
     this.entries.clear();
   }
 }

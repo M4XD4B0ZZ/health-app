@@ -113,18 +113,39 @@ async function parseJson<T>(response: Response): Promise<T> {
 async function supabaseGet<T>(
   path: string,
   query: URLSearchParams,
+  traceId?: string,
 ): Promise<T> {
   const supabaseUrl = requiredEnv("SUPABASE_URL");
-  const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const url = `${supabaseUrl}/rest/v1/${path}?${query.toString()}`;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const isAnon = !serviceRoleKey;
+  const keyToUse = serviceRoleKey || requiredEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+
+  const endpoint = `/rest/v1/${path}`;
+  const url = `${supabaseUrl}${endpoint}?${query.toString()}`;
+
+  console.log(JSON.stringify({
+    traceId,
+    action: "SUPABASE_GET_START",
+    table: path,
+    endpoint,
+    keyType: isAnon ? "anon" : "service",
+  }));
 
   const response = await fetch(url, {
     method: "GET",
-    headers: baseHeaders(serviceRoleKey),
+    headers: baseHeaders(keyToUse),
   });
 
   if (!response.ok) {
-    await response.text();
+    const errorBody = await response.text();
+    console.error(JSON.stringify({
+      traceId,
+      action: "SUPABASE_GET_ERROR",
+      table: path,
+      endpoint,
+      status: response.status,
+      bodySnippet: errorBody.substring(0, 200),
+    }));
     throw new AppError(
       "SUPABASE_GET_FAILED",
       `Supabase GET failed: ${response.status}`,
@@ -139,26 +160,61 @@ async function supabaseUpsert<T>(
   path: string,
   body: unknown,
   onConflict: string,
+  traceId?: string,
 ): Promise<T> {
   const supabaseUrl = requiredEnv("SUPABASE_URL");
-  const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const isAnon = !serviceRoleKey;
+  const keyToUse = serviceRoleKey || requiredEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+
   const params = new URLSearchParams({
     on_conflict: onConflict,
     select: "*",
   });
-  const url = `${supabaseUrl}/rest/v1/${path}?${params.toString()}`;
+  const endpoint = `/rest/v1/${path}`;
+  const url = `${supabaseUrl}${endpoint}?${params.toString()}`;
+
+  console.log(JSON.stringify({
+    traceId,
+    action: "SUPABASE_UPSERT_START",
+    table: path,
+    endpoint,
+    keyType: isAnon ? "anon" : "service",
+  }));
 
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      ...baseHeaders(serviceRoleKey),
+      ...baseHeaders(keyToUse),
       Prefer: "return=representation,resolution=merge-duplicates",
     },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    await response.text();
+    const errorBody = await response.text();
+    let payloadKeys: string[] = [];
+    try {
+      const parsedBody = body as any;
+      if (Array.isArray(parsedBody) && parsedBody.length > 0) {
+        payloadKeys = Object.keys(parsedBody[0]);
+      } else if (!Array.isArray(parsedBody) && parsedBody) {
+        payloadKeys = Object.keys(parsedBody);
+      }
+    } catch (e) {
+      payloadKeys = ["unknown"];
+    }
+
+    console.error(JSON.stringify({
+      traceId,
+      action: "SUPABASE_UPSERT_ERROR",
+      table: path,
+      endpoint,
+      status: response.status,
+      bodySnippet: errorBody.substring(0, 300),
+      payloadKeys,
+      conflictTarget: onConflict,
+    }));
     throw new AppError(
       "SUPABASE_UPSERT_FAILED",
       `Supabase UPSERT failed: ${response.status}`,
@@ -172,6 +228,7 @@ async function supabaseUpsert<T>(
 export async function loadValidCache(
   normalizedQuery: string,
   locale: string,
+  traceId?: string,
 ): Promise<CacheRow | null> {
   const query = new URLSearchParams({
     select: "*",
@@ -181,11 +238,11 @@ export async function loadValidCache(
     limit: "1",
   });
 
-  const rows = await supabaseGet<CacheRow[]>("food_query_cache", query);
+  const rows = await supabaseGet<CacheRow[]>("food_query_cache", query, traceId);
   return rows[0] ?? null;
 }
 
-export async function loadItemsByIds(ids: string[]): Promise<CanonicalFoodItem[]> {
+export async function loadItemsByIds(ids: string[], traceId?: string): Promise<CanonicalFoodItem[]> {
   if (ids.length === 0) {
     return [];
   }
@@ -196,13 +253,14 @@ export async function loadItemsByIds(ids: string[]): Promise<CanonicalFoodItem[]
     id: `in.(${escapedIds})`,
   });
 
-  const rows = await supabaseGet<CanonicalFoodItem[]>("food_catalog_items", query);
+  const rows = await supabaseGet<CanonicalFoodItem[]>("food_catalog_items", query, traceId);
   const byId = new Map(rows.map((row) => [row.id, row]));
   return ids.map((id) => byId.get(id)).filter(Boolean) as CanonicalFoodItem[];
 }
 
 export async function upsertCatalogItems(
   items: CanonicalFoodItem[],
+  traceId?: string,
 ): Promise<CanonicalFoodItem[]> {
   if (items.length === 0) {
     return [];
@@ -212,11 +270,12 @@ export async function upsertCatalogItems(
     "food_catalog_items",
     items,
     "source,external_id",
+    traceId,
   );
 }
 
-export async function upsertQueryCache(row: CacheRow): Promise<void> {
-  await supabaseUpsert<CacheRow[]>("food_query_cache", row, "normalized_query,locale");
+export async function upsertQueryCache(row: CacheRow, traceId?: string): Promise<void> {
+  await supabaseUpsert<CacheRow[]>("food_query_cache", row, "normalized_query,locale", traceId);
 }
 
 export function determineWinner(items: CanonicalFoodItem[]): CanonicalFoodItem | null {

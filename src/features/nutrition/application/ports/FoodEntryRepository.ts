@@ -8,4 +8,5 @@ export interface FoodEntryRepository {
   getEntryById(id: string): Promise<FoodEntry | null>;
   updateEntryById(entry: FoodEntry): Promise<void>;
   deleteEntry(id: string): Promise<void>;
+  clearAll(): Promise<void>;
 }

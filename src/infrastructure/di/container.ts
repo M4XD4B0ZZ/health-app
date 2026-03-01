@@ -213,6 +213,7 @@ class Container {
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
     );
+    if (!foodCatalogResolver) throw new Error("DI_MISSING_FOOD_CATALOG_RESOLVER");
 
     this._logFoodFromRawInputUseCase = new LogFoodFromRawInputUseCase(
       this._foodEntryRepository,
@@ -236,6 +237,7 @@ class Container {
       this._aiFoodMapper,
       this._nutritionLookup,
       this._aiMealParser,
+      foodCatalogResolver,
     );
 
     this._getDailySummaryUseCase = new GetDailySummaryUseCase(

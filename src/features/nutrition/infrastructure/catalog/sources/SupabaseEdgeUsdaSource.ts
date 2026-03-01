@@ -8,6 +8,7 @@ import {
   FoodCatalogConfig,
   DEFAULT_CATALOG_CONFIG,
 } from '../../../domain/models/FoodCatalogConfig';
+import { isDebugLoggingEnabled } from '../../../../../infrastructure/config/appEnv';
 
 export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
   type = 'usda' as const;
@@ -15,15 +16,27 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
   constructor(
     private readonly provider: FoodSourceProvider,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
-  ) {}
+  ) { }
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
+    const traceId = query.traceId || 'unknown';
+    console.log(`[${traceId}] PROOF USDA_SOURCE_CALLED query="${query.normalized || query.raw}"`);
     const startTime = performance.now();
+    const tid = query.traceId ? `[${query.traceId}] ` : "";
+
+    if (isDebugLoggingEnabled()) {
+      console.log(`${tid}[USDA] CALLED query="${query.normalized}"`);
+    }
 
     try {
+      if (isDebugLoggingEnabled()) {
+        console.log(`${tid}[USDA] INVOKE function="food-usda-search" (via provider)`);
+      }
+
       const response = await this.provider.search({
         query: query.normalized,
         locale: query.locale,
+        traceId: query.traceId,
       });
 
       const latencyMs = performance.now() - startTime;
@@ -45,6 +58,12 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
         reasons: [],
       }));
 
+      if (isDebugLoggingEnabled()) {
+        const count = candidates.length;
+        const firstName = count > 0 ? candidates[0].food.name : "";
+        console.log(`${tid}[USDA] RESULT candidates=${count} first="${firstName}"`);
+      }
+
       if (this.config.enableDebugLogs) {
         console.debug('[SupabaseEdgeUsdaSource] Search completed', {
           traceId: query.traceId,
@@ -63,6 +82,10 @@ export class SupabaseEdgeUsdaSource implements FoodCatalogSource {
       return candidates;
     } catch (error) {
       const latencyMs = performance.now() - startTime;
+
+      if (isDebugLoggingEnabled()) {
+        console.log(`${tid}[USDA] ERROR`, error);
+      }
 
       if (this.config.enableDebugLogs) {
         console.debug('[SupabaseEdgeUsdaSource] Search failed', {

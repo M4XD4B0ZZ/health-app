@@ -395,8 +395,8 @@ describe('PersistedFoodEntryRepository', () => {
       await repository.addEntry(entry1);
       await repository.addEntry(entry2);
 
-      await repository.clear();
-
+      await repository.clearAll();
+      expect(repository.getAllEntries().size).toBe(0);
       const entries1 = await repository.listEntriesForDate('2024-01-15');
       const entries2 = await repository.listEntriesForDate('2024-01-16');
 
@@ -409,7 +409,7 @@ describe('PersistedFoodEntryRepository', () => {
       const entry = createSampleEntry('entry-1', date);
 
       await repository.addEntry(entry);
-      await repository.clear();
+      await repository.clearAll();
 
       const newRepository = new PersistedFoodEntryRepository(keyValueStore);
       const entries = await newRepository.listEntriesForDate('2024-01-15');

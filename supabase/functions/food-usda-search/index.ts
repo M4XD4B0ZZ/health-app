@@ -13,6 +13,7 @@ import {
   upsertQueryCache,
 } from "../_shared/food-cache.ts";
 import { normalizeQuery } from "../_shared/normalize.ts";
+import { validateQuery, checkRateLimit, logAbuse } from "../_shared/guardrails.ts";
 
 const POSITIVE_TTL_SECONDS = 60 * 60 * 24;
 const NEGATIVE_TTL_SECONDS = 60 * 15;
@@ -178,7 +179,7 @@ async function validateUsdaKey(apiKey: string): Promise<boolean> {
   return response.ok;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const traceId = getTraceId(req);
 
   if (req.method === "OPTIONS") {
@@ -188,6 +189,28 @@ Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
       throw new AppError("METHOD_NOT_ALLOWED", "Only POST is supported", 405);
+    }
+
+    const t0 = performance.now();
+    const rateLimit = await checkRateLimit(req);
+    if (!rateLimit.allowed) {
+      logAbuse({
+        traceId,
+        clientKey: rateLimit.clientKey,
+        queryLength: 0,
+        functionName: "food-usda-search",
+        reason: "Rate limit exceeded",
+        latencyMs: performance.now() - t0,
+        action: "DENY_RATE_LIMIT",
+      });
+      return new Response(JSON.stringify({ error: "RATE_LIMITED", retryAfterSec: rateLimit.retryAfterSec }), {
+        status: 429,
+        headers: {
+          ...corsHeaders(),
+          "Content-Type": "application/json",
+          "Retry-After": String(rateLimit.retryAfterSec),
+        },
+      });
     }
 
     let body: SearchRequest;
@@ -248,12 +271,30 @@ Deno.serve(async (req) => {
     }
 
     const { query, locale } = parseBody(body);
-    const normalizedQuery = normalizeQuery(query);
+
+    const guard = validateQuery(query);
+    if (!guard.isValid) {
+      logAbuse({
+        traceId,
+        clientKey: rateLimit.clientKey,
+        queryLength: query.length,
+        functionName: "food-usda-search",
+        reason: guard.errorReason || "Bad query",
+        latencyMs: performance.now() - t0,
+        action: "DENY_BAD_QUERY",
+      });
+      return new Response(JSON.stringify({ error: "BAD_QUERY", message: guard.errorReason }), {
+        status: 400,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      });
+    }
+
+    const normalizedQuery = normalizeQuery(guard.normalizedQuery);
     if (!normalizedQuery) {
       throw new AppError("INVALID_QUERY", "query becomes empty after normalization", 400);
     }
 
-    const cached = await loadValidCache(normalizedQuery, locale);
+    const cached = await loadValidCache(normalizedQuery, locale, traceId);
     if (cached) {
       if (cached.cache_type === "negative") {
         return jsonResponse(
@@ -271,7 +312,7 @@ Deno.serve(async (req) => {
       }
 
       const ids = cached.result_item_ids ?? [];
-      const items = await loadItemsByIds(ids);
+      const items = await loadItemsByIds(ids, traceId);
       return jsonResponse(
         {
           type: "cache",
@@ -287,7 +328,7 @@ Deno.serve(async (req) => {
     }
 
     const externalItems = await fetchFromUsda(query, locale, normalizedQuery);
-    const upsertedItems = await upsertCatalogItems(externalItems);
+    const upsertedItems = await upsertCatalogItems(externalItems, traceId);
     const winner = determineWinner(upsertedItems);
     const cacheType = upsertedItems.length > 0 ? "positive" : "negative";
 
@@ -301,7 +342,7 @@ Deno.serve(async (req) => {
       expires_at: computeExpiresAt(
         cacheType === "positive" ? POSITIVE_TTL_SECONDS : NEGATIVE_TTL_SECONDS,
       ),
-    });
+    }, traceId);
 
     return jsonResponse(
       {
@@ -309,10 +350,10 @@ Deno.serve(async (req) => {
         items: upsertedItems,
         winner: winner
           ? {
-              itemId: winner.id ?? null,
-              source: winner.source,
-              confidence: winner.confidence,
-            }
+            itemId: winner.id ?? null,
+            source: winner.source,
+            confidence: winner.confidence,
+          }
           : null,
         normalizedQuery,
         locale,

@@ -6,6 +6,21 @@ Architecture: Clean Architecture + Deterministic-First Nutrition Engine
 UI State: Warm-Neutral Light-Only MVP Skin Implemented  
 Default Mode: Action Mode (Protokoll / Natural Language Logging)
 
+## SSOT Rules
+- **ROADMAP.md is the Single Source of Truth (SSOT).**
+- It contains the authoritative master plan with stable task IDs.
+- Every task must have a Definition of Done and verify gates (typecheck/test/build).
+- No background async work is permitted; all tasks must be explicit, ordered, and measurable.
+
+## Current Status
+- **Supabase Edge Functions 401 "Invalid JWT" Fix:** Complete.
+  - Root cause: Supabase Edge Functions default to `verify_jwt=true`, but the app uses an anon key (not a user JWT).
+  - Fix: Added debug logging for Supabase client, unified Edge Function calls to use the `supabase.functions.invoke` singleton instead of manual `fetch` with header injection, and added `supabase/config.toml` to set `verify_jwt=false` for `food-usda-search` and `food-off-search` to allow anon access.
+
+## Decisions
+- **Anon vs. Auth for Functions:** Food search functions are anon for the MVP (`verify_jwt=false`) but require strict guardrails.
+- **AI Endpoints gating:** AI endpoints will *never* be anon. They must be strictly JWT + subscription/entitlement required.
+
 ---
 
 # ROADMAP RESET — FUNCTIONAL CORE FIRST
@@ -108,7 +123,6 @@ Status: ACTIVE
 
 ---
 
-
 # ERST WENN P0 STABIL IST:
 
 Dann:
@@ -118,6 +132,70 @@ Dann:
 - Split bei “und”, “mit”, “,”
 - Zahlwörter normalisieren
 - Pro Item Resolver erzwingen
+
+---
+
+# PHASE 2 — GUARDRAILS, AUTH & SUBSCRIPTION
+
+## EPIC: Supabase Foundation
+
+### P2-001 Verify Environment Wiring
+- **Description:** Ensure that `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are strictly verified.
+- **Acceptance Criteria:** App throws a fatal error immediately on boot if variables are missing.
+- **Verify Steps:** `npx tsc --noEmit` and run `npm run test` validating the environment checks.
+
+### P2-002 Enforce Single Supabase Client
+- **Description:** Prevent any creation of new `createClient` instances globally. Find and replace all manual fetches.
+- **Acceptance Criteria:** `supabaseClient.ts` is the single source of truth. No manual `fetch` calls to `/functions/v1/` exist.
+- **Verify Steps:** Run `npm run lint` and global search for `fetch(` targeting Supabase URLs (must yield 0 results).
+
+### P2-003 Document Edge Functions Deploy Process
+- **Description:** Ensure `supabase/config.toml` is respected in deployment and `verify_jwt=false` is safely applied.
+- **Acceptance Criteria:** Provide a README section in `/supabase` on how to run `supabase functions deploy` with proper config.
+- **Verify Steps:** Local `supabase start` properly parses the `config.toml` and allows anonymous invokes.
+
+## EPIC: Edge Guardrails (Food Search)
+
+### [x] P2-004 Query-length Guard and Sanitization
+- **Description:** Implement a hard limit on food search query lengths and sanitize input.
+- **Acceptance Criteria:** Queries > 64 chars or containing special exploits are blocked at the Deno Edge function level.
+- **Verify Steps:** Local `README.md` curl examples verifying 400 Bad Request on invalid queries.
+
+### [x] P2-005 Rate Limiting
+- **Description:** Implement basic rate limiting (IP/device based for anonymous, user-based later).
+- **Acceptance Criteria:** Unauthenticated users cannot span > 30 requests per minute to `food-search`.
+- **Verify Steps:** Local `README.md` bash loop test asserting rate limit 429 Too Many Requests.
+
+### [x] P2-006 Abuse Logging & Observability
+- **Description:** Log blocked requests (rate limit / guardrails) with `traceId` and user context.
+- **Acceptance Criteria:** Structured logging is implemented for edge functions allowing easy tracking in Supabase Log Explorer.
+- **Verify Steps:** Check `npx supabase functions serve` logs for structured JSON output (`ABUSE_DETECTED`).
+
+### [ ] P2-007 Deploy & Verify Guardrails
+- **Description:** Ensure new guardrails are deployed with correct `verify_jwt=false` properties.
+- **Acceptance Criteria:** App calls remote endpoints anonymously, hitting `food-off-search` and `food-usda-search` without 401s.
+- **Verify Steps:** 
+  1. `npm run verify:supabase:link` must pass to ensure CLI targets correct remote project.
+  2. Tables must exist on remote Database. Pass `npm run verify:schema`. 
+     *(Docker optional; Remote schema applied via SQL Editor Docker-free is accepted).*
+  3. `npm run deploy:edge:verify` must pass, ensuring `--no-verify-jwt` was used and remote APIs return 200/400.
+
+## EPIC: Auth & Subscription (Later)
+
+### P2-007 Apple/Google Login via Supabase Auth
+- **Description:** Introduce user authentication to replace anon-only access.
+- **Acceptance Criteria:** User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
+- **Verify Steps:** Device tests for login flow; `npx tsc --noEmit`.
+
+### P2-008 RevenueCat Entitlements
+- **Description:** Integrate RevenueCat (or similar) to manage subscription states.
+- **Acceptance Criteria:** `isPro` state is securely synced from RevenueCat to Supabase `public.users` via Webhooks.
+- **Verify Steps:** Simulate RevenueCat webhook in Supabase and observe user tier updates.
+
+### P2-009 Paid-only Gating for AI Endpoints
+- **Description:** Map `isPro` tier to Edge Function authorization.
+- **Acceptance Criteria:** AI structured log functions and premium insights return 403 Forbidden for non-Pro users.
+- **Verify Steps:** Write Edge Function tests asserting 403 when JWT has no PRO claim.
 
 ---
 

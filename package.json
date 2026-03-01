@@ -17,6 +17,12 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "verify:supabase:link": "node --env-file=.env scripts/verify-supabase-project.mjs",
+    "verify:schema": "node --env-file=.env scripts/verify-remote-schema.mjs",
+    "verify:edge": "node --env-file=.env scripts/verify-edge-functions.mjs",
+    "supabase:link": "npx supabase link --project-ref kbplfcqluqqowmvchvhc",
+    "deploy:edge": "npx supabase functions deploy food-off-search --no-verify-jwt && npx supabase functions deploy food-usda-search --no-verify-jwt",
+    "deploy:edge:verify": "npm run deploy:edge && npm run verify:edge",
     "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {

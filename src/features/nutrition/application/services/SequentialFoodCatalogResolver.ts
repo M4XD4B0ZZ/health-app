@@ -19,6 +19,7 @@ import {
   toResolverSourceLabel,
 } from './ResolverSourceLabel';
 import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
+import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 
 interface LookupMetrics {
   traceId?: string;
@@ -59,8 +60,9 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     this.scoreCalculator = new ScoreCalculator();
   }
 
-  async resolve(query: FoodSearchQuery): Promise<ResolverDecision> {
-    const traceId = this.config.enableTracing ? this.generateTraceId() : undefined;
+  async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
+    const traceId = ctx?.traceId || query.traceId || (this.config.enableTracing ? this.generateTraceId() : undefined);
+    console.log(`[${traceId}] PROOF RESOLVER_CALLED query="${query.normalized || query.raw}" sourceCount=${this.sources.length}`);
     const resolverStartTime = Date.now();
     const normalizedQuery = normalizeText(query.normalized || query.raw);
     let allRawCandidates: RawResolverCandidate[] = [];
@@ -137,6 +139,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       }
 
       try {
+        console.log(`[${traceId}] PROOF CALLING_SOURCE ${source.constructor.name}`);
         const sourceStartTime = Date.now();
         const sourceBudgetMs = this.config.sourceBudgets[source.type] || 1000;
         metrics.sourcesTried.push(source.type);
@@ -148,6 +151,11 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         );
 
         const sourceElapsedMs = Date.now() - sourceStartTime;
+
+        if (isDebugLoggingEnabled() && traceId) {
+          console.log(`[${traceId}] SOURCE ${source.type} durationMs=${sourceElapsedMs} candidates=${rawCandidates.length}`);
+        }
+
         if (this.config.enableDebugLogs) {
           console.debug('[SequentialFoodCatalogResolver] Source completed', {
             traceId,
@@ -177,7 +185,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           metrics.totalElapsedMs = Date.now() - resolverStartTime;
           metrics.winnerSource = best.source;
           metrics.winnerConfidence = best.score;
-          this.logSummary(metrics);
+          this.logSummary(metrics, best);
           return this.buildDecision(normalizedQuery, scored);
         }
 
@@ -199,7 +207,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
             metrics.totalElapsedMs = Date.now() - resolverStartTime;
             metrics.winnerSource = best.source;
             metrics.winnerConfidence = best.score;
-            this.logSummary(metrics);
+            this.logSummary(metrics, best);
             return this.buildDecision(normalizedQuery, scored);
           }
         }
@@ -209,6 +217,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         const sourceElapsedMs = Date.now() - resolverStartTime;
         const errorKind = error instanceof FoodCatalogError ? error.kind : 'unknown';
         metrics.errorsBySource[source.type] = errorKind;
+
+        if (isDebugLoggingEnabled() && traceId) {
+          console.log(`[${traceId}] SOURCE ${source.type} ERROR ${error instanceof Error ? error.message : 'unknown'}`);
+        }
 
         if (error instanceof FoodCatalogError) {
           if (this.circuitBreaker.isCountableError(error)) {
@@ -250,7 +262,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       const decision = this.buildDecision(normalizedQuery, scoredCandidates);
       metrics.winnerSource = decision.best?.source ?? null;
       metrics.winnerConfidence = decision.best?.score ?? null;
-      this.logSummary(metrics);
+      this.logSummary(metrics, decision.best);
       return decision;
     }
 
@@ -325,7 +337,16 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     });
   }
 
-  private logSummary(metrics: LookupMetrics): void {
+  private logSummary(metrics: LookupMetrics, decisionBest?: ResolvedFoodCandidate): void {
+    if (isDebugLoggingEnabled() && metrics.traceId) {
+      if (decisionBest) {
+        console.log(`[${metrics.traceId}] RESULT bestMatch="${decisionBest.food.name}" source="${decisionBest.source}" confidence=${decisionBest.score}`);
+        console.log(`[${metrics.traceId}] MACROS kcal=${decisionBest.food.macrosPer100g.kcal} p=${decisionBest.food.macrosPer100g.protein} c=${decisionBest.food.macrosPer100g.carbs} f=${decisionBest.food.macrosPer100g.fat}`);
+      } else {
+        console.log(`[${metrics.traceId}] BLOCKED reason="NO_MATCH_OR_ZERO_MACROS"`);
+      }
+    }
+
     if (!this.config.enableDebugLogs) {
       return;
     }

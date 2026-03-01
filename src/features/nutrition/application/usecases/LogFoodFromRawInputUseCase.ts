@@ -16,6 +16,7 @@ import { computeTotals, NutritionTotalsBreakdown } from '../../domain/portion/co
 import { buildLogDecisionMeta } from '../services/explainability/buildLogDecisionMeta';
 import { summarizeResolverDecision } from '../services/explainability/summarizeResolverDecision';
 import { AssumptionTag } from '../../domain/models/AssumptionTag';
+import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 
 /**
  * Use-Case: Log Food Entry from Raw Input
@@ -48,168 +49,196 @@ export class LogFoodFromRawInputUseCase {
     private readonly nutritionLookup?: NutritionLookup, // Fallback für Kompatibilität
     private readonly resolver?: FoodCatalogResolver,
   ) {
+    if (!resolver) throw new Error("DI_MISSING_RESOLVER");
     this.engine = new NutritionEngine();
     this.portionParser = new PortionParser();
   }
 
   async execute(rawInput: string, dateISO?: string): Promise<FoodEntry> {
-    // Parse den Input
-    const parsed = this.parser.parse(rawInput);
-
-    // Bestimme Datum
-    const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
-
-    // Bestimme quantityGrams basierend auf Parser-Resultat
-    let quantityGrams = 0;
-    let confidenceScore = 0.35; // Default: low confidence
-
-    if (parsed.quantityGrams !== undefined) {
-      // Gramm-Angabe vorhanden
-      quantityGrams = parsed.quantityGrams;
-      confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
-    } else if (parsed.quantityCount !== undefined) {
-      // Nur Count, keine Gramm-Angabe
-      // Wir raten NICHT die Gramm-Anzahl, lassen es bei 0
-      quantityGrams = 0;
-      confidenceScore = 0.35; // Low confidence
-    } else {
-      // Weder Gramm noch Count
-      quantityGrams = 0;
-      confidenceScore = 0.35; // Low confidence
-    }
-
-    // Build base FoodEntry
-    let resolverDecision: ResolverDecision | undefined;
-    let resolverDecisionSummary: ResolverDecisionSummary | undefined;
-    let calcBreakdown: NutritionTotalsBreakdown | undefined;
-    const portionParseResult = this.portionParser.parse(rawInput, {
-      hasBaseGrams: quantityGrams > 0,
-    });
-
-    let entry: FoodEntry = {
-      id: this.idGenerator.newId(),
-      rawInput,
-      parsedName: parsed.name,
-      quantityGrams,
-      grams: quantityGrams > 0 ? quantityGrams : null,
-      servingMultiplier: 1,
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      confidenceScore,
-      sourceType: 'user',
-      createdAt: entryDate,
-    };
-
-    // Sprint 5.3: Canonical Food Catalog Flow
-    if (this.foodCatalog) {
-      const result = await this.resolveCanonicalFood(parsed.name, rawInput);
-      resolverDecision = result.resolverDecision;
-      resolverDecisionSummary = result.resolverDecisionSummary;
-
-      if (result.canonicalFood && quantityGrams > 0) {
-        const computed = computeTotals(result.canonicalFood.per100g, quantityGrams, 1);
-        calcBreakdown = computed;
-
-        // Update entry with enriched data
-        entry = {
-          ...entry,
-          grams: quantityGrams,
-          servingMultiplier: 1,
-          calories: computed.totals.calories,
-          protein: computed.totals.protein,
-          carbs: computed.totals.carbs,
-          fat: computed.totals.fat,
-          sourceType: result.sourceType,
-          confidenceScore: Math.min(result.confidence, confidenceScore + 0.25),
-          explanation: result.explanation,
-          resolverDecisionSummary,
-          calcBreakdown: {
-            per100g: computed.per100g,
-            gramsUsed: computed.gramsUsed,
-            multiplier: computed.multiplier,
-          },
-        };
+    const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    console.log(`[${traceId}] PROOF UseCase entered raw="${rawInput}"`);
+    try {
+      if (isDebugLoggingEnabled()) {
+        console.log(`[${traceId}] START rawInput="${rawInput}"`);
       }
-    }
-    // Fallback: Use old NutritionLookup if available
-    else if (this.nutritionLookup && quantityGrams > 0) {
-      const per100g = await this.nutritionLookup.getPer100gByName(parsed.name);
+      const startTimeMs = Date.now();
 
-      if (per100g) {
-        const computed = computeTotals(per100g, quantityGrams, 1);
-        calcBreakdown = computed;
+      // Parse den Input
+      const parsed = this.parser.parse(rawInput);
 
-        // Upgrade to 'generic' source type
-        const sourceType = 'generic';
+      // Bestimme Datum
+      const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
 
-        // Upgrade confidence: cap by input certainty
-        const baseConfidence = this.engine.confidenceForSource(sourceType);
-        const cappedConfidence = Math.min(baseConfidence, confidenceScore + 0.15);
+      // Bestimme quantityGrams basierend auf Parser-Resultat
+      let quantityGrams = 0;
+      let confidenceScore = 0.35; // Default: low confidence
 
-        // Update entry with enriched data
-        entry = {
-          ...entry,
-          grams: quantityGrams,
-          servingMultiplier: 1,
-          calories: computed.totals.calories,
-          protein: computed.totals.protein,
-          carbs: computed.totals.carbs,
-          fat: computed.totals.fat,
-          sourceType,
-          confidenceScore: cappedConfidence,
-          calcBreakdown: {
-            per100g: computed.per100g,
-            gramsUsed: computed.gramsUsed,
-            multiplier: computed.multiplier,
-          },
-        };
+      if (parsed.quantityGrams !== undefined) {
+        // Gramm-Angabe vorhanden
+        quantityGrams = parsed.quantityGrams;
+        confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
+      } else if (parsed.quantityCount !== undefined) {
+        // Nur Count, keine Gramm-Angabe
+        // Wir raten NICHT die Gramm-Anzahl, lassen es bei 0
+        quantityGrams = 0;
+        confidenceScore = 0.35; // Low confidence
+      } else {
+        // Weder Gramm noch Count
+        quantityGrams = 0;
+        confidenceScore = 0.35; // Low confidence
       }
-    }
 
-    entry.logDecision = buildLogDecisionMeta({
-      resolverDecision,
-      portionParseResult,
-      calcBreakdown,
-    });
+      // Build base FoodEntry
+      let resolverDecision: ResolverDecision | undefined;
+      let resolverDecisionSummary: ResolverDecisionSummary | undefined;
+      let calcBreakdown: NutritionTotalsBreakdown | undefined;
+      const portionParseResult = this.portionParser.parse(rawInput, {
+        hasBaseGrams: quantityGrams > 0,
+      });
 
-    const assumptions: AssumptionTag[] = [];
-    if (portionParseResult.grams !== undefined) {
-      assumptions.push('GRAMS_ASSUMED');
-    }
-    if (portionParseResult.multiplier !== undefined) {
-      assumptions.push('MULTIPLIER_APPLIED');
-    }
-    if (portionParseResult.notes.includes('ML_UNSUPPORTED')) {
-      assumptions.push('ML_WITHOUT_DENSITY');
-    }
-    if (resolverDecisionSummary?.source === 'USDA') {
-      assumptions.push('SOURCE_USDA');
-    }
-    if (resolverDecisionSummary?.source === 'OFF') {
-      assumptions.push('SOURCE_OFF');
-    }
-    if (resolverDecisionSummary?.source.startsWith('MOCK_')) {
-      assumptions.push('SOURCE_MOCK');
-    }
-    if (assumptions.length > 0) {
-      entry.assumptions = assumptions;
-    }
+      let entry: FoodEntry = {
+        id: this.idGenerator.newId(),
+        rawInput,
+        parsedName: parsed.name,
+        quantityGrams,
+        grams: quantityGrams > 0 ? quantityGrams : null,
+        servingMultiplier: 1,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        confidenceScore,
+        sourceType: 'user',
+        createdAt: entryDate,
+      };
 
-    if (resolverDecisionSummary) {
-      entry.resolverDecisionSummary = resolverDecisionSummary;
+      // Sprint 5.3: Canonical Food Catalog Flow
+      if (this.resolver) {
+        const result = await this.resolveCanonicalFood(parsed.name, rawInput, traceId);
+        resolverDecision = result.resolverDecision;
+        resolverDecisionSummary = result.resolverDecisionSummary;
+
+        if (result.canonicalFood) {
+          // Fallback to 100g if no explicit quantity was parsed
+          const targetGrams = quantityGrams > 0 ? quantityGrams : 100;
+          const computed = computeTotals(result.canonicalFood.per100g, targetGrams, 1);
+          calcBreakdown = computed;
+
+          // Update entry with enriched data
+          entry = {
+            ...entry,
+            grams: parseInt(targetGrams.toFixed(0), 10),
+            servingMultiplier: 1,
+            calories: computed.totals.calories,
+            protein: computed.totals.protein,
+            carbs: computed.totals.carbs,
+            fat: computed.totals.fat,
+            sourceType: result.sourceType,
+            confidenceScore: Math.min(result.confidence, confidenceScore + 0.25),
+            explanation: result.explanation,
+            resolverDecisionSummary,
+            calcBreakdown: {
+              per100g: computed.per100g,
+              gramsUsed: computed.gramsUsed,
+              multiplier: computed.multiplier,
+            },
+          };
+        }
+      } else {
+        console.log(`[${traceId}] PROOF early_exit reason="RESOLVER_IS_UNDEFINED"`);
+      }
+      // Fallback: Use old NutritionLookup if available
+      if (!this.resolver && this.nutritionLookup && quantityGrams > 0) {
+        console.log(`[${traceId}] PROOF early_exit reason="RESOLVER_IS_UNDEFINED_FELL_BACK_TO_LOOKUP"`);
+        const per100g = await this.nutritionLookup.getPer100gByName(parsed.name);
+
+        if (per100g) {
+          const computed = computeTotals(per100g, quantityGrams, 1);
+          calcBreakdown = computed;
+
+          // Upgrade to 'generic' source type
+          const sourceType = 'generic';
+
+          // Upgrade confidence: cap by input certainty
+          const baseConfidence = this.engine.confidenceForSource(sourceType);
+          const cappedConfidence = Math.min(baseConfidence, confidenceScore + 0.15);
+
+          // Update entry with enriched data
+          entry = {
+            ...entry,
+            grams: quantityGrams,
+            servingMultiplier: 1,
+            calories: computed.totals.calories,
+            protein: computed.totals.protein,
+            carbs: computed.totals.carbs,
+            fat: computed.totals.fat,
+            sourceType,
+            confidenceScore: cappedConfidence,
+            calcBreakdown: {
+              per100g: computed.per100g,
+              gramsUsed: computed.gramsUsed,
+              multiplier: computed.multiplier,
+            },
+          };
+        }
+      }
+
+      entry.logDecision = buildLogDecisionMeta({
+        resolverDecision,
+        portionParseResult,
+        calcBreakdown,
+      });
+
+      const assumptions: AssumptionTag[] = [];
+      if (portionParseResult.grams !== undefined) {
+        assumptions.push('GRAMS_ASSUMED');
+      }
+      if (portionParseResult.multiplier !== undefined) {
+        assumptions.push('MULTIPLIER_APPLIED');
+      }
+      if (portionParseResult.notes.includes('ML_UNSUPPORTED')) {
+        assumptions.push('ML_WITHOUT_DENSITY');
+      }
+      if (resolverDecisionSummary?.source === 'USDA') {
+        assumptions.push('SOURCE_USDA');
+      }
+      if (resolverDecisionSummary?.source === 'OFF') {
+        assumptions.push('SOURCE_OFF');
+      }
+      if (resolverDecisionSummary?.source.startsWith('MOCK_')) {
+        assumptions.push('SOURCE_MOCK');
+      }
+      if (assumptions.length > 0) {
+        entry.assumptions = assumptions;
+      }
+
+      if (resolverDecisionSummary) {
+        entry.resolverDecisionSummary = resolverDecisionSummary;
+      }
+
+      // P0-004: Strict Zero-Macro Blocker
+      if (!entry.calories || entry.calories <= 0) {
+        console.log(`[${traceId}] PROOF early_exit reason="ZERO_MACROS_BLOCKED"`);
+        if (isDebugLoggingEnabled()) {
+          console.log(`[${traceId}] BLOCKED reason="NO_MATCH_OR_ZERO_MACROS"`);
+        }
+        throw new Error(`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`);
+      }
+
+      // Persist
+      await this.repository.addEntry(entry);
+
+      if (isDebugLoggingEnabled()) {
+        const durationMs = Date.now() - startTimeMs;
+        console.log(`[${traceId}] PERSISTED entryId="${entry.id}" durationMs=${durationMs}`);
+      }
+
+      return entry;
+    } catch (err: any) {
+      console.log(`[${traceId}] PROOF EXCEPTION message="${err?.message}"`);
+      console.log(`[${traceId}] PROOF EXCEPTION stack="${String(err?.stack).split("\\n").slice(0, 3).join(" | ")}"`);
+      throw err;
     }
-
-    // P0-004: Strict Zero-Macro Blocker
-    if (!entry.calories || entry.calories <= 0) {
-      throw new Error(`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`);
-    }
-
-    // Persist
-    await this.repository.addEntry(entry);
-
-    return entry;
   }
 
   /**
@@ -226,6 +255,7 @@ export class LogFoodFromRawInputUseCase {
   private async resolveCanonicalFood(
     parsedName: string,
     rawInput: string,
+    traceId?: string
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
@@ -237,19 +267,27 @@ export class LogFoodFromRawInputUseCase {
     resolverDecisionSummary?: ResolverDecisionSummary;
   }> {
     if (!this.foodCatalog) {
+      console.log(`[${traceId}] PROOF early_exit reason="FOOD_CATALOG_UNDEFINED"`);
       return { canonicalFood: null, sourceType: 'user', confidence: 0.35 };
     }
 
     // Step 1: Normalize
     const normalized = normalizeText(parsedName);
+    console.log(`[${traceId}] PROOF normalized="${normalized}"`);
+
+    if (isDebugLoggingEnabled() && traceId) {
+      console.log(`[${traceId}] NORMALIZED input="${normalized}"`);
+    }
 
     // Step 0: Try multi-source resolver first (if available)
     if (this.resolver) {
+      console.log(`[${traceId}] PROOF ABOUT_TO_RESOLVE`);
       const decision = await this.resolver.resolve({
         raw: rawInput,
         normalized,
         locale: 'de',
-      });
+      }, { traceId });
+      console.log(`[${traceId}] PROOF RESOLVE_RETURNED hasResult=${!!decision}`);
       const summary = summarizeResolverDecision(decision);
       const resolved = decision.best;
 

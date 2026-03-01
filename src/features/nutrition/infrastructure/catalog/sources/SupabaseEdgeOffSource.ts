@@ -8,6 +8,7 @@ import {
   FoodCatalogConfig,
   DEFAULT_CATALOG_CONFIG,
 } from '../../../domain/models/FoodCatalogConfig';
+import { isDebugLoggingEnabled } from '../../../../../infrastructure/config/appEnv';
 
 export class SupabaseEdgeOffSource implements FoodCatalogSource {
   type = 'off' as const;
@@ -15,15 +16,27 @@ export class SupabaseEdgeOffSource implements FoodCatalogSource {
   constructor(
     private readonly provider: FoodSourceProvider,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
-  ) {}
+  ) { }
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
+    const traceId = query.traceId || 'unknown';
+    console.log(`[${traceId}] PROOF OFF_SOURCE_CALLED query="${query.normalized || query.raw}"`);
     const startTime = performance.now();
+    const tid = query.traceId ? `[${query.traceId}] ` : "";
+
+    if (isDebugLoggingEnabled()) {
+      console.log(`${tid}[OFF] CALLED query="${query.normalized}"`);
+    }
 
     try {
+      if (isDebugLoggingEnabled()) {
+        console.log(`${tid}[OFF] INVOKE function="food-off-search" (via provider)`);
+      }
+
       const response = await this.provider.search({
         query: query.normalized,
         locale: query.locale,
+        traceId: query.traceId,
       });
 
       const latencyMs = performance.now() - startTime;
@@ -45,6 +58,12 @@ export class SupabaseEdgeOffSource implements FoodCatalogSource {
         reasons: [],
       }));
 
+      if (isDebugLoggingEnabled()) {
+        const count = candidates.length;
+        const firstName = count > 0 ? candidates[0].food.name : "";
+        console.log(`${tid}[OFF] RESULT candidates=${count} first="${firstName}"`);
+      }
+
       if (this.config.enableDebugLogs) {
         console.debug('[SupabaseEdgeOffSource] Search completed', {
           traceId: query.traceId,
@@ -63,6 +82,10 @@ export class SupabaseEdgeOffSource implements FoodCatalogSource {
       return candidates;
     } catch (error) {
       const latencyMs = performance.now() - startTime;
+
+      if (isDebugLoggingEnabled()) {
+        console.log(`${tid}[OFF] ERROR`, error);
+      }
 
       if (this.config.enableDebugLogs) {
         console.debug('[SupabaseEdgeOffSource] Search failed', {

@@ -44,6 +44,8 @@ const JournalScreen: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const SHOW_TODAYS_ENTRIES = process.env.EXPO_PUBLIC_SHOW_TODAYS_ENTRIES === 'true';
+
   // Load data on mount and after changes
   useEffect(() => {
     loadJournalData();
@@ -83,17 +85,7 @@ const JournalScreen: React.FC = () => {
       const createdEntries = await container.logMealFromRawInputUseCase.execute(rawInput, today);
 
       if (!createdEntries || createdEntries.length === 0) {
-        throw new Error('Eintrag konnte nicht zugeordnet werden.');
-      }
-
-      // Check Zero-Macro strict rule
-      const totalKcal = createdEntries.reduce((sum, e) => sum + e.calories, 0);
-      if (totalKcal === 0) {
-        // Rollback created entries if zero macros
-        for (const entry of createdEntries) {
-          await container.deleteFoodEntryUseCase.execute(entry.id);
-        }
-        throw new Error('Lebensmittel hat keine Kalorien (Makros = 0). Speichern blockiert.');
+        throw new Error('Eintrag konnte nicht zugeordnet werden. (0 Kalorien)');
       }
 
       // Reload data instantly as requested natively
@@ -200,7 +192,28 @@ const JournalScreen: React.FC = () => {
         />
       </View>
 
-      <InlineStatus state={processingState} message={statusMessage} />
+      {processingState === 'processing' && statusMessage !== '' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: tokens.spacing.s, minHeight: 24 }}>
+          <ActivityIndicator size="small" color={tokens.colors.textMuted} style={{ marginRight: tokens.spacing.xs }} />
+          <AppText variant="meta" tone="muted">
+            {statusMessage}
+          </AppText>
+        </View>
+      )}
+      {processingState === 'error' && statusMessage !== '' && (
+        <View style={{ alignItems: 'center', marginTop: tokens.spacing.s, minHeight: 24 }}>
+          <AppText variant="meta" tone="danger">
+            {statusMessage}
+          </AppText>
+        </View>
+      )}
+      {processingState === 'done' && statusMessage !== '' && (
+        <View style={{ alignItems: 'center', marginTop: tokens.spacing.s, minHeight: 24 }}>
+          <AppText variant="meta" tone="primary">
+            {statusMessage}
+          </AppText>
+        </View>
+      )}
 
       {/* Spacer to push things down gracefully */}
       <View style={styles.spacerLarge} />
@@ -226,24 +239,26 @@ const JournalScreen: React.FC = () => {
         </SummaryBar>
       )}
 
-      {/* Journal List */}
-      <View style={styles.journalListContainer}>
-        <AppText variant="meta" tone="muted" style={styles.sectionTitle}>
-          Today's Entries
-        </AppText>
-        {entries.length === 0 ? (
-          <AppText variant="body" tone="muted" style={styles.emptyText}>
-            No entries yet today.
+      {/* Journal List (Hidden unless DEV flag is set during Phase 0) */}
+      {SHOW_TODAYS_ENTRIES && (
+        <View style={styles.journalListContainer}>
+          <AppText variant="meta" tone="muted" style={styles.sectionTitle}>
+            Today's Entries
           </AppText>
-        ) : (
-          <FlatList
-            data={entries}
-            renderItem={renderJournalEntry}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-          />
-        )}
-      </View>
+          {entries.length === 0 ? (
+            <AppText variant="body" tone="muted" style={styles.emptyText}>
+              No entries yet today.
+            </AppText>
+          ) : (
+            <FlatList
+              data={entries}
+              renderItem={renderJournalEntry}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+            />
+          )}
+        </View>
+      )}
 
 
 

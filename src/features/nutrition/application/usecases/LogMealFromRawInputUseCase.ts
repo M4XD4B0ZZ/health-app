@@ -11,7 +11,9 @@ import { DeterministicFoodParser } from '../../infrastructure/parsers/Determinis
 import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 import { isComplexMealInput } from '../utils/InputComplexity';
 import { LogFoodFromRawInputUseCase } from './LogFoodFromRawInputUseCase';
+import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
 import { normalizeText } from '../utils/normalizeText';
+import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 
 /**
  * Use-Case: Log Meal from Raw Input (Multi-Item)
@@ -42,6 +44,7 @@ export class LogMealFromRawInputUseCase {
     private readonly aiFoodMapper?: AiFoodMapper,
     private readonly nutritionLookup?: NutritionLookup,
     private readonly aiMealParser?: AiMealParser,
+    private readonly resolver?: FoodCatalogResolver,
   ) {
     this.engine = new NutritionEngine();
     this.singleItemUseCase = new LogFoodFromRawInputUseCase(
@@ -53,6 +56,7 @@ export class LogMealFromRawInputUseCase {
       aliasRepository,
       aiFoodMapper,
       nutritionLookup,
+      resolver,
     );
   }
 
@@ -65,12 +69,18 @@ export class LogMealFromRawInputUseCase {
 
     // Prüfen ob komplex und AI verfügbar
     if (isComplexMealInput(rawInput) && this.aiMealParser) {
+      const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      if (isDebugLoggingEnabled()) {
+        console.log(`[${traceId}] START rawInput="${rawInput}" (complex meal)`);
+      }
+      const startTimeMs = Date.now();
+
       // Flow A: AI-basiertes Multi-Item-Parsing
       const aiResult = await this.aiMealParser.parseMeal(rawInput);
       const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
 
       for (const item of aiResult.items) {
-        const entry = await this.createEntryFromAiItem(item, aiResult.explanation, entryDate);
+        const entry = await this.createEntryFromAiItem(item, aiResult.explanation, entryDate, traceId, startTimeMs);
         createdEntries.push(entry);
       }
     } else {
@@ -89,6 +99,8 @@ export class LogMealFromRawInputUseCase {
     item: { name: string; quantity?: number; unit?: string; sizeHint?: string },
     aiExplanation: string,
     entryDate: Date,
+    traceId?: string,
+    startTimeMs?: number,
   ): Promise<FoodEntry> {
     // Bestimme quantityGrams basierend auf Unit
     let quantityGrams = 0;
@@ -148,7 +160,7 @@ export class LogMealFromRawInputUseCase {
 
     // Sprint 5.3: Canonical Food Catalog Flow
     if (this.foodCatalog) {
-      const result = await this.resolveCanonicalFood(item.name, derivedRawInput);
+      const result = await this.resolveCanonicalFood(item.name, derivedRawInput, traceId);
 
       if (result.canonicalFood && quantityGrams > 0) {
         // Calculate macros from canonical food
@@ -200,11 +212,19 @@ export class LogMealFromRawInputUseCase {
 
     // P0-004: Strict Zero-Macro Blocker
     if (!entry.calories || entry.calories <= 0) {
+      if (isDebugLoggingEnabled() && traceId) {
+        console.log(`[${traceId}] BLOCKED reason="NO_MATCH_OR_ZERO_MACROS" item="${derivedRawInput}"`);
+      }
       throw new Error(`RESOLVER_FAILED_OR_NO_MACROS for input: ${derivedRawInput}`);
     }
 
     // Persist
     await this.repository.addEntry(entry);
+
+    if (isDebugLoggingEnabled() && traceId && startTimeMs) {
+      const durationMs = Date.now() - startTimeMs;
+      console.log(`[${traceId}] PERSISTED entryId="${entry.id}" durationMs=${durationMs}`);
+    }
 
     return entry;
   }
@@ -216,6 +236,7 @@ export class LogMealFromRawInputUseCase {
   private async resolveCanonicalFood(
     parsedName: string,
     rawInput: string,
+    traceId?: string
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
@@ -230,6 +251,10 @@ export class LogMealFromRawInputUseCase {
 
     // Step 1: Normalize
     const normalized = normalizeText(parsedName);
+
+    if (isDebugLoggingEnabled() && traceId) {
+      console.log(`[${traceId}] NORMALIZED input="${normalized}"`);
+    }
 
     // Step 2: Alias lookup
     if (this.aliasRepository) {

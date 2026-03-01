@@ -96,10 +96,10 @@ export const DEFAULT_CATALOG_CONFIG: FoodCatalogConfig = {
   enableDebugLogs:
     typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development',
   enableTracing: true,
-  resolverBudgetMs: 1500,
+  resolverBudgetMs: (typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development') ? 6000 : 1500,
   sourceBudgets: {
-    off: 700,
-    usda: 700,
+    off: (typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development') ? 2500 : 700,
+    usda: (typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development') ? 2500 : 700,
   },
   negativeCacheTtlMs: 1200000, // 20 minutes
   circuitBreaker: {

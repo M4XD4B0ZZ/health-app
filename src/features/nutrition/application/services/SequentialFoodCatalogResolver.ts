@@ -20,7 +20,7 @@ import {
 } from './ResolverSourceLabel';
 import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
-import { normalizeQueryForSources } from './resolver/deEnAliases';
+import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/CanonicalFood';
 
 interface LookupMetrics {
   traceId?: string;
@@ -66,6 +66,14 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     console.log(`[${traceId}] PROOF RESOLVER_CALLED query="${query.normalized || query.raw}" sourceCount=${this.sources.length}`);
     const resolverStartTime = Date.now();
     const normalizedQuery = normalizeText(query.normalized || query.raw);
+    const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
+
+    if (isDebugLoggingEnabled() && traceId) {
+      const offQuery = getSourceQuery({ sourceName: 'off', locale: query.locale, normalizedQuery, canonicalId, traceId });
+      const usdaQuery = getSourceQuery({ sourceName: 'usda', locale: query.locale, normalizedQuery, canonicalId, traceId });
+      console.log(`[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`);
+    }
+
     let allRawCandidates: RawResolverCandidate[] = [];
 
     const metrics: LookupMetrics = {
@@ -145,10 +153,11 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         const sourceBudgetMs = this.config.sourceBudgets[source.type] || 1000;
         metrics.sourcesTried.push(source.type);
 
-        const mappedQuery = normalizeQueryForSources({
-          query: normalizedQuery,
-          locale: query.locale,
+        const mappedQuery = getSourceQuery({
           sourceName: source.type,
+          locale: query.locale,
+          normalizedQuery,
+          canonicalId,
           traceId,
         });
 

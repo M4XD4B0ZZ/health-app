@@ -140,6 +140,11 @@ Dann:
 - **Acceptance Criteria:** Fast, small mapping table without LLM latency.
 - **Verify Steps:** Unit test for DE mapping passes (`npm run test`), returning candidates for `ei` in manual app testing.
 
+### [ ] P1-002 Canonical Food Entity Dictionary + Source Adapters
+- **Description:** Evolve flat alias map into structured canonical food entities with DE+EN alias lists, portion hints, and source query adapters. `detectCanonicalEntity()` for entity matching, `getSourceQuery()` for per-source query routing.
+- **Acceptance Criteria:** ~20 canonical entities defined. Unit tests pass for DE+EN alias detection and source-specific query mapping. No macro key or unit inconsistencies.
+- **Verify Steps:** Unit tests pass (`npx jest --testPathPattern="deEnAliases|smokeResolverDe"`), manual app test: typing "ei" produces candidates (no NO_MATCH_OR_ZERO_MACROS).
+
 ---
 
 # PHASE 2 — GUARDRAILS, AUTH & SUBSCRIPTION

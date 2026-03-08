@@ -1,50 +1,103 @@
-import { normalizeQueryForSources } from '../application/services/resolver/deEnAliases';
+import {
+    detectCanonicalEntity,
+    getSourceQuery,
+} from '../domain/catalog/CanonicalFood';
 
-describe('deEnAliases', () => {
-    it('maps "ei" to "egg" for USDA with DE locale', () => {
-        const result = normalizeQueryForSources({
-            query: 'ei',
-            locale: 'de-DE',
-            sourceName: 'usda',
-            traceId: 'test-trace',
+describe('Canonical Food Entity Detection + Source Query Adapter', () => {
+    // -------------------------------------------------------------------------
+    // detectCanonicalEntity
+    // -------------------------------------------------------------------------
+
+    describe('detectCanonicalEntity', () => {
+        it('maps "ei" to canonicalId "egg"', () => {
+            const result = detectCanonicalEntity('ei', 'de');
+            expect(result.canonicalId).toBe('egg');
         });
-        expect(result).toBe('egg');
+
+        it('maps "eier" (plural) to canonicalId "egg"', () => {
+            const result = detectCanonicalEntity('eier', 'de');
+            expect(result.canonicalId).toBe('egg');
+        });
+
+        it('maps "egg" (EN) to canonicalId "egg"', () => {
+            const result = detectCanonicalEntity('egg', 'en');
+            expect(result.canonicalId).toBe('egg');
+        });
+
+        it('maps "eggs" (EN plural) to canonicalId "egg"', () => {
+            const result = detectCanonicalEntity('eggs', 'en');
+            expect(result.canonicalId).toBe('egg');
+        });
+
+        it('maps "apfel" to canonicalId "apple"', () => {
+            const result = detectCanonicalEntity('apfel', 'de');
+            expect(result.canonicalId).toBe('apple');
+        });
+
+        it('maps "haehnchen" (normalized umlaut) to canonicalId "chicken breast"', () => {
+            const result = detectCanonicalEntity('haehnchen', 'de');
+            expect(result.canonicalId).toBe('chicken breast');
+        });
+
+        it('returns null for unknown query', () => {
+            const result = detectCanonicalEntity('hackbraten', 'de');
+            expect(result.canonicalId).toBeNull();
+        });
     });
 
-    it('does NOT map "ei" for OFF with DE locale', () => {
-        const result = normalizeQueryForSources({
-            query: 'ei',
-            locale: 'de-DE',
-            sourceName: 'off',
-            traceId: 'test-trace',
-        });
-        expect(result).toBe('ei');
-    });
+    // -------------------------------------------------------------------------
+    // getSourceQuery
+    // -------------------------------------------------------------------------
 
-    it('keeps original query if no alias matches for USDA with DE locale', () => {
-        const result = normalizeQueryForSources({
-            query: 'hackbraten',
-            locale: 'de',
-            sourceName: 'usda',
+    describe('getSourceQuery', () => {
+        it('uses "egg" for USDA when canonicalId is known and locale is DE', () => {
+            const result = getSourceQuery({
+                sourceName: 'usda',
+                locale: 'de',
+                normalizedQuery: 'ei',
+                canonicalId: 'egg',
+            });
+            expect(result).toBe('egg');
         });
-        expect(result).toBe('hackbraten');
-    });
 
-    it('does NOT map if locale is EN', () => {
-        const result = normalizeQueryForSources({
-            query: 'ei',
-            locale: 'en-US',
-            sourceName: 'usda',
+        it('keeps original query for OFF even when canonicalId is known (DE locale)', () => {
+            const result = getSourceQuery({
+                sourceName: 'off',
+                locale: 'de',
+                normalizedQuery: 'ei',
+                canonicalId: 'egg',
+            });
+            expect(result).toBe('ei');
         });
-        expect(result).toBe('ei');
-    });
 
-    it('maps "hähnchen" to "chicken breast" for USDA with DE locale', () => {
-        const result = normalizeQueryForSources({
-            query: 'hähnchen',
-            locale: 'de_AT',
-            sourceName: 'usda',
+        it('returns normalizedQuery for USDA if no canonicalId exists', () => {
+            const result = getSourceQuery({
+                sourceName: 'usda',
+                locale: 'de',
+                normalizedQuery: 'hackbraten',
+                canonicalId: null,
+            });
+            expect(result).toBe('hackbraten');
         });
-        expect(result).toBe('chicken breast');
+
+        it('does NOT translate for USDA when locale is EN', () => {
+            const result = getSourceQuery({
+                sourceName: 'usda',
+                locale: 'en',
+                normalizedQuery: 'egg',
+                canonicalId: 'egg',
+            });
+            expect(result).toBe('egg');
+        });
+
+        it('maps "apfel" to "apple" for USDA with DE locale', () => {
+            const result = getSourceQuery({
+                sourceName: 'usda',
+                locale: 'de',
+                normalizedQuery: 'apfel',
+                canonicalId: 'apple',
+            });
+            expect(result).toBe('apple');
+        });
     });
 });

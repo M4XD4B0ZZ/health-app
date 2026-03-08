@@ -133,6 +133,13 @@ Dann:
 - Zahlwörter normalisieren
 - Pro Item Resolver erzwingen
 
+## EPIC: Resolver & Normalization
+
+### [x] P1-001 Deterministic DE->EN Localization Alias Layer
+- **Description:** Implement a deterministic step mapping common DE foods directly to EN equivalents for USDA source only. OFF targets original text.
+- **Acceptance Criteria:** Fast, small mapping table without LLM latency.
+- **Verify Steps:** Unit test for DE mapping passes (`npm run test`), returning candidates for `ei` in manual app testing.
+
 ---
 
 # PHASE 2 — GUARDRAILS, AUTH & SUBSCRIPTION

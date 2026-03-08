@@ -20,6 +20,7 @@ import {
 } from './ResolverSourceLabel';
 import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
+import { normalizeQueryForSources } from './resolver/deEnAliases';
 
 interface LookupMetrics {
   traceId?: string;
@@ -144,8 +145,15 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         const sourceBudgetMs = this.config.sourceBudgets[source.type] || 1000;
         metrics.sourcesTried.push(source.type);
 
+        const mappedQuery = normalizeQueryForSources({
+          query: normalizedQuery,
+          locale: query.locale,
+          sourceName: source.type,
+          traceId,
+        });
+
         const rawCandidates = await this.executeWithTimeout(
-          source.search({ ...query, normalized: normalizedQuery, traceId }),
+          source.search({ ...query, normalized: mappedQuery, traceId }),
           sourceBudgetMs,
           source.type,
         );

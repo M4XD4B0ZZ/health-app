@@ -1,0 +1,79 @@
+You are working inside the HealthApp repository.
+
+Goal:
+Create the VERIFY.md governance file for the project.
+
+IMPORTANT
+- Plan before editing files
+- Do not modify application logic
+- Only add the VERIFY.md file
+
+
+
+Step 1 — Inspect repository
+
+
+Check if a VERIFY.md file already exists.
+
+
+If it exists:
+- review it
+- update it to match the verification standard
+
+
+If it does not exist:
+- create VERIFY.md in the repository root.
+
+
+
+Step 2 — Verification philosophy
+
+
+HealthApp uses deterministic verification.
+
+
+Every task must pass verification before it is considered done.
+
+
+Verification must be:
+- deterministic
+- script based
+- runnable locally
+- CI compatible
+
+
+
+Step 3 — Required verification commands
+
+
+The document must include the following verification order:
+
+
+npm run lint
+npm run typecheck
+npm run build
+npm run verify
+npm run verify:edge
+
+
+
+Step 4 — Definition of Done
+
+
+A change is only complete if:
+
+
+- verification commands pass
+- no type errors exist
+- no build errors exist
+- edge verification succeeds
+
+
+
+Step 5 — Output
+
+
+Create or update VERIFY.md with the defined structure.
+
+
+Do not modify any other files.

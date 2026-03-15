@@ -1,65 +1,59 @@
-# HealthApp MVP
+# HealthApp
 
-A premium, calm, and confident React Native tracking utility application built with Expo and Supabase.
-This MVP implements a "Warm-Neutral" design language, prioritizing minimal friction, fast text-based input, voice transcriptions, and clean typography.
+React Native (Expo) MVP for nutrition and recovery tracking, backed by Supabase Edge Functions.
+
+---
+
+## Architecture
+
+- **Feature-First + Clean Architecture:** `src/features/nutrition`, `src/features/goals`, `src/features/auth`
+- **Layers:** domain / application / infrastructure / presentation
+- **Deterministic-first:** core logging pipeline uses no AI/LLM calls
+- **Backend:** Supabase Edge Functions (`food-off-search`, `food-usda-search`)
+- **UI:** React Native with Expo, Warm-Neutral design system (`src/ui/theme.ts`)
+
+---
 
 ## Prerequisites
 
-Before running the application, ensure you have the following installed:
-- [Node.js](https://nodejs.org/) (v20+ recommended)
-- [npm](https://www.npmjs.com/)
-- An Android Emulator (via Android Studio) or an iOS Simulator (via Xcode on macOS)
+- Node.js v20+
+- npm
+- Android Emulator (Android Studio) or iOS Simulator (Xcode, macOS only)
+- `.env` file with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+---
 
 ## Quick Start
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Start the Expo development server:
-   ```bash
-   npx expo start
-   ```
-   *If you are using custom native modules and need the dev-client, run:*
-   ```bash
-   npx expo start --dev-client
-   ```
 
-## Running on Simulators / Emulators
-
-Once the development server is running (`npm start`), you can easily boot the app on a connected emulator:
-
-### 📱 iOS Simulator (macOS only)
-1. Ensure Xcode is installed and open the iOS Simulator `open -a Simulator`.
-2. While `npm start` is running in your terminal, press **`i`** on your keyboard.
-*Alternatively, start directly via:*
 ```bash
-npm run ios
+npm install
+npx expo start
 ```
 
-### 🤖 Android Emulator
-1. Open Android Studio -> Virtual Device Manager and boot up an Android Virtual Device (AVD).
-2. While `npm start` is running in your terminal, press **`a`** on your keyboard.
-*Alternatively, start directly via:*
-```bash
-npm run android
-```
+Press `a` for Android, `i` for iOS, `w` for web.
 
-### 🌐 Web Browser
-Press **`w`** in the terminal running Expo or start directly via:
-```bash
-npm run web
-```
+---
 
-## Development Commands
+## Key Commands
 
-Ensure code consistency and correctness before committing:
+| Command               | Purpose                                        |
+| --------------------- | ---------------------------------------------- |
+| `npm run lint`        | ESLint check                                   |
+| `npm run typecheck`   | TypeScript type check                          |
+| `npm run test`        | Run Jest tests                                 |
+| `npm run verify`      | Full local verification (lint + types + tests) |
+| `npm run verify:edge` | Smoke test remote Supabase Edge Functions      |
+| `npm run doctor`      | Environment health check                       |
+| `npm run deploy:edge` | Deploy Edge Functions to Supabase              |
 
-- Typecheck TypeScript (no strict emit): `npm run typecheck`
-- Lint files: `npm run lint`
-- Format code: `npm run format`
-- Run the full verification suite (tests + lints): `npm run verify`
+---
 
-## Design System
+## Governance
 
-The application uses a strictly unified `Warm-Neutral` design system built around tokens defined in `src/ui/theme.ts`.
-Do not use raw `<Text>`, raw inline typography styling, or raw React Native primitive containers that interfere with spacing. Always utilize the established components (e.g., `<ScreenContainer>`, `<AppText>`, `<PrimaryButton>`).
+| File         | Purpose                                                |
+| ------------ | ------------------------------------------------------ |
+| `ROADMAP.md` | Single Source of Knowledge — all tasks and epics       |
+| `VERIFY.md`  | Canonical verification commands and Definition of Done |
+| `AGENTS.md`  | Agent and contributor governance rules                 |
+
+All contributors and agents must read `ROADMAP.md` and `VERIFY.md` before starting work.

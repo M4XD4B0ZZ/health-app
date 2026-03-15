@@ -74,7 +74,7 @@ export interface ConfidenceRule {
  * Deterministische Confidence-Regeln.
  * AI sollte nur dann in die Pipeline gehen, wenn die Unsicherheit hoch ist.
  */
-export const CONFIDENCE_RULES: ReadonlyArray<ConfidenceRule> = [
+export const CONFIDENCE_RULES: readonly ConfidenceRule[] = [
   { sourceType: 'branded', score: 1.0, label: 'exact', warning: false },
   { sourceType: 'cache', score: 0.8, label: 'high', warning: false },
   { sourceType: 'generic', score: 0.6, label: 'medium', warning: false },

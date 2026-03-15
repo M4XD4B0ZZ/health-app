@@ -2,7 +2,6 @@ import { LogFoodFromRawInputUseCase } from '../application/usecases/LogFoodFromR
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
 import { InMemoryNutritionLookup } from '../infrastructure/repositories/InMemoryNutritionLookup';
 import { DeterministicFoodParser } from '../infrastructure/parsers/DeterministicFoodParser';
-import { NutritionPer100g } from '../domain/models/NutritionTypes';
 
 // Mock Clock and IdGenerator
 class MockClock {

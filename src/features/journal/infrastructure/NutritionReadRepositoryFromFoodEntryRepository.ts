@@ -11,12 +11,12 @@ export class NutritionReadRepositoryFromFoodEntryRepository implements Nutrition
   constructor(private foodEntryRepo: FoodEntryRepository) {}
 
   async listFoodEntriesForDate(dateISO: string): Promise<
-    Array<{
+    {
       calories: number;
       protein: number;
       carbs: number;
       fat: number;
-    }>
+    }[]
   > {
     const entries = await this.foodEntryRepo.listEntriesForDate(dateISO);
 

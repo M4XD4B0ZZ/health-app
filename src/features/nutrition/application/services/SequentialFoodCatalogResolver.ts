@@ -62,16 +62,35 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
-    const traceId = ctx?.traceId || query.traceId || (this.config.enableTracing ? this.generateTraceId() : undefined);
-    console.log(`[${traceId}] PROOF RESOLVER_CALLED query="${query.normalized || query.raw}" sourceCount=${this.sources.length}`);
+    const traceId =
+      ctx?.traceId ||
+      query.traceId ||
+      (this.config.enableTracing ? this.generateTraceId() : undefined);
+    console.log(
+      `[${traceId}] PROOF RESOLVER_CALLED query="${query.normalized || query.raw}" sourceCount=${this.sources.length}`,
+    );
     const resolverStartTime = Date.now();
     const normalizedQuery = normalizeText(query.normalized || query.raw);
     const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
 
     if (isDebugLoggingEnabled() && traceId) {
-      const offQuery = getSourceQuery({ sourceName: 'off', locale: query.locale, normalizedQuery, canonicalId, traceId });
-      const usdaQuery = getSourceQuery({ sourceName: 'usda', locale: query.locale, normalizedQuery, canonicalId, traceId });
-      console.log(`[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`);
+      const offQuery = getSourceQuery({
+        sourceName: 'off',
+        locale: query.locale,
+        normalizedQuery,
+        canonicalId,
+        traceId,
+      });
+      const usdaQuery = getSourceQuery({
+        sourceName: 'usda',
+        locale: query.locale,
+        normalizedQuery,
+        canonicalId,
+        traceId,
+      });
+      console.log(
+        `[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`,
+      );
     }
 
     let allRawCandidates: RawResolverCandidate[] = [];
@@ -170,7 +189,9 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         const sourceElapsedMs = Date.now() - sourceStartTime;
 
         if (isDebugLoggingEnabled() && traceId) {
-          console.log(`[${traceId}] SOURCE ${source.type} durationMs=${sourceElapsedMs} candidates=${rawCandidates.length}`);
+          console.log(
+            `[${traceId}] SOURCE ${source.type} durationMs=${sourceElapsedMs} candidates=${rawCandidates.length}`,
+          );
         }
 
         if (this.config.enableDebugLogs) {
@@ -236,7 +257,9 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         metrics.errorsBySource[source.type] = errorKind;
 
         if (isDebugLoggingEnabled() && traceId) {
-          console.log(`[${traceId}] SOURCE ${source.type} ERROR ${error instanceof Error ? error.message : 'unknown'}`);
+          console.log(
+            `[${traceId}] SOURCE ${source.type} ERROR ${error instanceof Error ? error.message : 'unknown'}`,
+          );
         }
 
         if (error instanceof FoodCatalogError) {
@@ -357,8 +380,12 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   private logSummary(metrics: LookupMetrics, decisionBest?: ResolvedFoodCandidate): void {
     if (isDebugLoggingEnabled() && metrics.traceId) {
       if (decisionBest) {
-        console.log(`[${metrics.traceId}] RESULT bestMatch="${decisionBest.food.name}" source="${decisionBest.source}" confidence=${decisionBest.score}`);
-        console.log(`[${metrics.traceId}] MACROS kcal=${decisionBest.food.macrosPer100g.kcal} p=${decisionBest.food.macrosPer100g.protein} c=${decisionBest.food.macrosPer100g.carbs} f=${decisionBest.food.macrosPer100g.fat}`);
+        console.log(
+          `[${metrics.traceId}] RESULT bestMatch="${decisionBest.food.name}" source="${decisionBest.source}" confidence=${decisionBest.score}`,
+        );
+        console.log(
+          `[${metrics.traceId}] MACROS kcal=${decisionBest.food.macrosPer100g.kcal} p=${decisionBest.food.macrosPer100g.protein} c=${decisionBest.food.macrosPer100g.carbs} f=${decisionBest.food.macrosPer100g.fat}`,
+        );
       } else {
         console.log(`[${metrics.traceId}] BLOCKED reason="NO_MATCH_OR_ZERO_MACROS"`);
       }

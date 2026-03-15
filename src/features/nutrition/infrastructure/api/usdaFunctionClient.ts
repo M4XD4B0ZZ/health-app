@@ -1,6 +1,6 @@
-export type UsdaFunctionMode = 'health' | 'search';
-
 import { supabase } from '../../../../infrastructure/supabase/supabaseClient';
+
+export type UsdaFunctionMode = 'health' | 'search';
 
 export async function callUsdaFunction<T>(
   mode: UsdaFunctionMode,

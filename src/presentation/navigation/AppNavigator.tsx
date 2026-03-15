@@ -107,7 +107,7 @@ const AppNavigator: React.FC = () => {
         component={VoiceScreen}
         options={{
           presentation: 'modal',
-          animation: 'slide_from_bottom'
+          animation: 'slide_from_bottom',
         }}
       />
     </Stack.Navigator>

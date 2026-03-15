@@ -1,149 +1,175 @@
-# ROADMAP.md  
-Health App – Master Roadmap (SSOK Controlled)
+# ROADMAP.md
 
-Status: Active  
-Architecture: Clean Architecture + Deterministic-First Nutrition Engine  
-UI State: Warm-Neutral Light-Only MVP Skin Implemented  
-Default Mode: Action Mode (Protokoll / Natural Language Logging)
+# HealthApp — Master Roadmap (SSOK)
 
-## SSOT Rules
-- **ROADMAP.md is the Single Source of Truth (SSOT).**
-- It contains the authoritative master plan with stable task IDs.
-- Every task must have a Definition of Done and verify gates (typecheck/test/build).
-- No background async work is permitted; all tasks must be explicit, ordered, and measurable.
-
-## Current Status
-- **Supabase Edge Functions 401 "Invalid JWT" Fix:** Complete.
-  - Root cause: Supabase Edge Functions default to `verify_jwt=true`, but the app uses an anon key (not a user JWT).
-  - Fix: Added debug logging for Supabase client, unified Edge Function calls to use the `supabase.functions.invoke` singleton instead of manual `fetch` with header injection, and added `supabase/config.toml` to set `verify_jwt=false` for `food-usda-search` and `food-off-search` to allow anon access.
-
-## Decisions
-- **Anon vs. Auth for Functions:** Food search functions are anon for the MVP (`verify_jwt=false`) but require strict guardrails.
-- **AI Endpoints gating:** AI endpoints will *never* be anon. They must be strictly JWT + subscription/entitlement required.
+Status: Active
+Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
 
 ---
 
-# ROADMAP RESET — FUNCTIONAL CORE FIRST
+## SSOK Rules
 
-Aktueller Zustand laut Screens:
-- Parsing falsch
-- Multi-Item Struktur kaputt
-- Resolver greift nicht
-- Makros = 0
-- Review Flow erzwingt Confirm
-- Debug-Texte sichtbar
-- Default Tab falsch
-- Core Logging nicht vertrauenswürdig
+- **ROADMAP.md is the Single Source of Knowledge (SSOK) for all planned and completed work.**
+- Every task must have a stable ID, a status, and a Definition of Done.
+- Task IDs are never reused. Completed tasks are marked `done`, never deleted.
+- Larger epics must be broken into concrete, verifiable tasks.
+- Task descriptions must be specific and checkable — not vague goals.
+- No task may be marked `done` without passing verification (see VERIFY.md).
 
-**Das ist kein Stabilisieren. Das ist: Core funktioniert noch nicht.**
-Also hören wir auf mit „Sprint 2“, „Trust Layer“, „Premium Feel“.
-Wir gehen zurück zu: **PHASE 0 — CORE MUSS ÜBERHAUPT FUNKTIONIEREN**
+### Status values
+
+| Status        | Meaning                           |
+| ------------- | --------------------------------- |
+| `todo`        | Planned, not started              |
+| `in_progress` | Actively being worked on          |
+| `blocked`     | Waiting on dependency or decision |
+| `done`        | Completed and verified            |
+
+---
+
+## Principles
+
+- Deterministic-first: prefer deterministic logic over AI/LLM calls
+- AI only when deterministic logic is insufficient
+- Clean Architecture: domain / application / infrastructure / presentation layers
+- Feature-First: code organized by feature (nutrition, goals, auth, …)
+- Trust/Confidence/Editability: every logged entry must be trustworthy and editable
+- Small, incremental, reviewable changes only
+
+---
+
+## Current Focus
+
+Core Logging Pipeline must be stable before any other feature work.
+
+Definition of "working":
+
+- `ei` → correct macros
+- `zwei eier` → correct macros
+- `200g quark` → correct macros
+- `buttertoast` → correct macros
+- `zwei scheiben schinken` → correct macros
 
 ---
 
 # PHASE 0 — LOGGING MUST WORK
 
 ## P0-001 Disable Multi-Item Structuring
-Status: SOFORT
 
-- Temporär Multi-Item AI-Strukturierung deaktivieren.
-- Kein „AI structured multi-item meal“ Text mehr.
-- Keine künstliche Aufteilung, solange deterministic parser nicht sauber ist.
+Status: `done`
 
-**Ziel:** Ein einzelnes Item sauber durch Pipeline bekommen.
+Temporarily disable AI multi-item structuring.
+No "AI structured multi-item meal" text.
+No artificial splitting while deterministic parser is unstable.
 
----
-
-## P0-002 Single Item → Resolver → Makros Pipeline
-Status: SOFORT
-
-Minimal funktionierende Kette:
-1. Input: "ei"
-2. Pipeline:
-   - Raw Input
-   - Deterministic normalization
-   - Resolver call
-   - USDA/OFF match
-   - Makros berechnen
-   - Journal speichern
-   - SummaryBar aktualisieren
-
-- Kein Review Modal.
-- Kein Confirm All.
-- Kein Fancy Layer.
-
-**Nur:** Input → echtes Essen → echte kcal.
-
-**Gate:** 5 einzelne Lebensmittel liefern korrekte Makros.
+**DoD:** Single item passes cleanly through the pipeline without AI structuring.
 
 ---
 
-## P0-003 Remove Review Modal Completely (Temporary)
-Status: SOFORT
+## P0-002 Single Item → Resolver → Macros Pipeline
 
-- Review Entries deaktivieren.
-- Confirm All entfernen.
-- Direkt speichern nach erfolgreichem Match.
-- Falls kein Match → Fehlermeldung.
+Status: `in_progress`
 
-**Ziel:** Flow verkürzen. Fehlerquellen reduzieren.
+Minimal working chain:
+
+1. Input: raw text (e.g. "ei")
+2. Deterministic normalization
+3. Resolver call
+4. USDA/OFF match
+5. Macro calculation
+6. Journal persistence
+7. SummaryBar update
+
+No Review Modal. No Confirm All. No extra layers.
+
+**DoD:** 5 individual foods produce correct macros without zero-macro results.
+
+---
+
+## P0-003 Remove Review Modal (Temporary)
+
+Status: `done`
+
+Disable Review Entries. Remove Confirm All. Save directly after successful match.
+On no match: show error.
+
+**DoD:** Flow shortened. No forced confirm step.
 
 ---
 
 ## P0-004 Zero-Macro Blocker
-Status: SOFORT
 
-- Wenn: `kcal == 0`
-- Dann:
-  - Speichern blockieren.
-  - Fehler anzeigen.
-  - Kein Success-Status.
+Status: `todo`
+
+If `kcal == 0`: block save, show error, no success status.
+
+**DoD:** Saving an entry with zero macros is impossible.
 
 ---
 
 ## P0-005 Hard Default to Protokoll Tab
-Status: SOFORT
 
-- Protokoll = Tab 1
-- `initialRouteName` = Protokoll
-- App startet im Input
-- Kein Dashboard zuerst.
+Status: `done`
+
+`initialRouteName` = Protokoll. App starts on input tab.
+
+**DoD:** App opens on Protokoll tab on cold start.
 
 ---
 
 ## P0-007 Proof-of-Call Tracing (Gate)
-Status: ACTIVE
 
-- Definition of Done:
-  - PROOF UseCase entered
-  - PROOF ABOUT_TO_RESOLVE
-  - PROOF RESOLVER_CALLED with sourceCount>0
-  - PROOF OFF_SOURCE_CALLED and USDA_SOURCE_CALLED
-  - Either candidates>0 OR explicit HTTP status/error logged
+Status: `in_progress`
+
+Verify full resolver call chain via logs:
+
+- PROOF UseCase entered
+- PROOF ABOUT_TO_RESOLVE
+- PROOF RESOLVER_CALLED with sourceCount > 0
+- PROOF OFF_SOURCE_CALLED and USDA_SOURCE_CALLED
+- Either candidates > 0 OR explicit HTTP status/error logged
+
+**DoD:** All five proof points visible in logs for a valid input.
 
 ---
 
-# ERST WENN P0 STABIL IST:
+# PHASE 1 — DETERMINISTIC MULTI-ITEM PARSING
 
-Dann:
+## P1-001 Deterministic DE→EN Localization Alias Layer
 
-## PHASE 1 — Deterministic Multi-Item Parsing
+Status: `done`
 
-- Split bei “und”, “mit”, “,”
-- Zahlwörter normalisieren
-- Pro Item Resolver erzwingen
+Deterministic step mapping common DE foods to EN equivalents for USDA source.
+OFF targets original text.
+
+**DoD:** Unit test for DE mapping passes (`npm run test`). `ei` returns candidates in manual app test.
+
+---
+
+## P1-002 Canonical Food Entity Dictionary + Source Adapters
+
+Status: `todo`
+
+Evolve flat alias map into structured canonical food entities with DE+EN alias lists,
+portion hints, and source query adapters.
+`detectCanonicalEntity()` for entity matching.
+`getSourceQuery()` for per-source query routing.
+
+**DoD:** ~20 canonical entities defined. Unit tests pass for DE+EN alias detection and source-specific query mapping. No macro key or unit inconsistencies.
+
+**Verify:** `npx jest --testPathPattern="deEnAliases|smokeResolverDe"`, manual app test: "ei" produces candidates.
+
+---
 
 ## EPIC: Resolver & Normalization
 
-### [x] P1-001 Deterministic DE->EN Localization Alias Layer
-- **Description:** Implement a deterministic step mapping common DE foods directly to EN equivalents for USDA source only. OFF targets original text.
-- **Acceptance Criteria:** Fast, small mapping table without LLM latency.
-- **Verify Steps:** Unit test for DE mapping passes (`npm run test`), returning candidates for `ei` in manual app testing.
+### P1-003 Multi-Item Split
 
-### [ ] P1-002 Canonical Food Entity Dictionary + Source Adapters
-- **Description:** Evolve flat alias map into structured canonical food entities with DE+EN alias lists, portion hints, and source query adapters. `detectCanonicalEntity()` for entity matching, `getSourceQuery()` for per-source query routing.
-- **Acceptance Criteria:** ~20 canonical entities defined. Unit tests pass for DE+EN alias detection and source-specific query mapping. No macro key or unit inconsistencies.
-- **Verify Steps:** Unit tests pass (`npx jest --testPathPattern="deEnAliases|smokeResolverDe"`), manual app test: typing "ei" produces candidates (no NO_MATCH_OR_ZERO_MACROS).
+Status: `todo`
+
+Split input at "und", "mit", ",". Normalize number words. Force resolver per item.
+
+**DoD:** "ei und quark" produces two separate resolved entries.
 
 ---
 
@@ -152,84 +178,131 @@ Dann:
 ## EPIC: Supabase Foundation
 
 ### P2-001 Verify Environment Wiring
-- **Description:** Ensure that `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are strictly verified.
-- **Acceptance Criteria:** App throws a fatal error immediately on boot if variables are missing.
-- **Verify Steps:** `npx tsc --noEmit` and run `npm run test` validating the environment checks.
 
-### P2-002 Enforce Single Supabase Client
-- **Description:** Prevent any creation of new `createClient` instances globally. Find and replace all manual fetches.
-- **Acceptance Criteria:** `supabaseClient.ts` is the single source of truth. No manual `fetch` calls to `/functions/v1/` exist.
-- **Verify Steps:** Run `npm run lint` and global search for `fetch(` targeting Supabase URLs (must yield 0 results).
+Status: `todo`
 
-### P2-003 Document Edge Functions Deploy Process
-- **Description:** Ensure `supabase/config.toml` is respected in deployment and `verify_jwt=false` is safely applied.
-- **Acceptance Criteria:** Provide a README section in `/supabase` on how to run `supabase functions deploy` with proper config.
-- **Verify Steps:** Local `supabase start` properly parses the `config.toml` and allows anonymous invokes.
+Ensure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are strictly verified.
+App throws fatal error on boot if variables are missing.
 
-## EPIC: Edge Guardrails (Food Search)
-
-### [x] P2-004 Query-length Guard and Sanitization
-- **Description:** Implement a hard limit on food search query lengths and sanitize input.
-- **Acceptance Criteria:** Queries > 64 chars or containing special exploits are blocked at the Deno Edge function level.
-- **Verify Steps:** Local `README.md` curl examples verifying 400 Bad Request on invalid queries.
-
-### [x] P2-005 Rate Limiting
-- **Description:** Implement basic rate limiting (IP/device based for anonymous, user-based later).
-- **Acceptance Criteria:** Unauthenticated users cannot span > 30 requests per minute to `food-search`.
-- **Verify Steps:** Local `README.md` bash loop test asserting rate limit 429 Too Many Requests.
-
-### [x] P2-006 Abuse Logging & Observability
-- **Description:** Log blocked requests (rate limit / guardrails) with `traceId` and user context.
-- **Acceptance Criteria:** Structured logging is implemented for edge functions allowing easy tracking in Supabase Log Explorer.
-- **Verify Steps:** Check `npx supabase functions serve` logs for structured JSON output (`ABUSE_DETECTED`).
-
-### [ ] P2-007 Deploy & Verify Guardrails
-- **Description:** Ensure new guardrails are deployed with correct `verify_jwt=false` properties.
-- **Acceptance Criteria:** App calls remote endpoints anonymously, hitting `food-off-search` and `food-usda-search` without 401s.
-- **Verify Steps:** 
-  1. `npm run verify:supabase:link` must pass to ensure CLI targets correct remote project.
-  2. Tables must exist on remote Database. Pass `npm run verify:schema`. 
-     *(Docker optional; Remote schema applied via SQL Editor Docker-free is accepted).*
-  3. `npm run deploy:edge:verify` must pass, ensuring `--no-verify-jwt` was used and remote APIs return 200/400.
-
-## EPIC: Auth & Subscription (Later)
-
-### P2-007 Apple/Google Login via Supabase Auth
-- **Description:** Introduce user authentication to replace anon-only access.
-- **Acceptance Criteria:** User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
-- **Verify Steps:** Device tests for login flow; `npx tsc --noEmit`.
-
-### P2-008 RevenueCat Entitlements
-- **Description:** Integrate RevenueCat (or similar) to manage subscription states.
-- **Acceptance Criteria:** `isPro` state is securely synced from RevenueCat to Supabase `public.users` via Webhooks.
-- **Verify Steps:** Simulate RevenueCat webhook in Supabase and observe user tier updates.
-
-### P2-009 Paid-only Gating for AI Endpoints
-- **Description:** Map `isPro` tier to Edge Function authorization.
-- **Acceptance Criteria:** AI structured log functions and premium insights return 403 Forbidden for non-Pro users.
-- **Verify Steps:** Write Edge Function tests asserting 403 when JWT has no PRO claim.
+**Verify:** `npm run typecheck` + `npm run test` validating environment checks.
 
 ---
 
-# AKTUELLER FOKUS
+### P2-002 Enforce Single Supabase Client
 
-**Nicht:**
-- Confidence
-- UX Polishing
-- Warm Neutral Feinschliff
-- Goals
-- Insights
-- Health Sync
+Status: `todo`
 
-**Nur:** Core Logging Pipeline.
+Prevent any creation of new `createClient` instances globally.
+`supabaseClient.ts` is the single source of truth.
+No manual `fetch` calls to `/functions/v1/` exist.
 
-### Definition von „funktioniert“
+**Verify:** `npm run lint` + global search for `fetch(` targeting Supabase URLs (must yield 0 results).
 
-Wenn diese 5 Inputs korrekt funktionieren, ohne Review, ohne 0 kcal:
-1. `ei`
-2. `zwei eier`
-3. `200g quark`
-4. `buttertoast`
-5. `zwei scheiben schinken`
+---
 
-Erst dann reden wir über Multi-Item.
+### P2-003 Document Edge Functions Deploy Process
+
+Status: `todo`
+
+Ensure `supabase/config.toml` is respected in deployment.
+`verify_jwt=false` safely applied.
+README section in `/supabase` on how to run `supabase functions deploy`.
+
+**Verify:** Local `supabase start` parses `config.toml` and allows anonymous invokes.
+
+---
+
+## EPIC: Edge Guardrails (Food Search)
+
+### P2-004 Query-length Guard and Sanitization
+
+Status: `done`
+
+Hard limit on food search query lengths. Sanitize input at Deno Edge function level.
+Queries > 64 chars or containing special exploits blocked with 400.
+
+---
+
+### P2-005 Rate Limiting
+
+Status: `done`
+
+Basic rate limiting (IP/device based for anonymous).
+Unauthenticated users cannot exceed 30 requests per minute to `food-search`.
+
+---
+
+### P2-006 Abuse Logging & Observability
+
+Status: `done`
+
+Structured logging for blocked requests (rate limit / guardrails) with `traceId` and user context.
+Visible in Supabase Log Explorer as `ABUSE_DETECTED`.
+
+---
+
+### P2-007 Deploy & Verify Guardrails
+
+Status: `todo`
+
+Deploy guardrails with correct `verify_jwt=false` properties.
+App calls remote endpoints anonymously without 401s.
+
+**Verify:**
+
+1. `npm run verify:supabase:link` must pass.
+2. `npm run verify:schema` must pass.
+3. `npm run deploy:edge:verify` must pass.
+
+---
+
+## EPIC: Auth & Subscription (Later)
+
+### P2-008 Apple/Google Login via Supabase Auth
+
+Status: `todo`
+
+User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
+
+---
+
+### P2-009 RevenueCat Entitlements
+
+Status: `todo`
+
+Integrate RevenueCat to manage subscription states.
+`isPro` state synced from RevenueCat to Supabase `public.users` via Webhooks.
+
+---
+
+### P2-010 Paid-only Gating for AI Endpoints
+
+Status: `todo`
+
+Map `isPro` tier to Edge Function authorization.
+AI structured log functions and premium insights return 403 for non-Pro users.
+
+---
+
+# PHASE 3 — MODULES (planned)
+
+These modules are planned but not yet scoped into tasks.
+Each will be broken into concrete tasks when Phase 0–2 are stable.
+
+| Module      | Status | Notes                                 |
+| ----------- | ------ | ------------------------------------- |
+| Journal     | `todo` | Editable food log, daily view         |
+| Goals       | `todo` | Macro targets, metabolism profile     |
+| Saved Meals | `todo` | Reusable meal templates               |
+| Reminders   | `todo` | Notification-based logging reminders  |
+| Dashboard   | `todo` | Summary view, progress indicators     |
+| Health Sync | `todo` | Apple Health / Google Fit integration |
+| Insights    | `todo` | Trend analysis, weekly summaries      |
+
+---
+
+## Decisions Log
+
+- **Anon vs. Auth for Food Search:** Food search functions are anon for MVP (`verify_jwt=false`) with strict guardrails.
+- **AI Endpoints gating:** AI endpoints will never be anon. Strictly JWT + subscription/entitlement required.
+- **Deterministic-first:** No LLM calls in core logging pipeline. AI only for complex multi-item parsing when deterministic logic is insufficient.

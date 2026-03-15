@@ -1,7 +1,7 @@
 import { EnrichFoodEntryMacrosUseCase } from '../application/usecases/EnrichFoodEntryMacrosUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
 import { InMemoryNutritionLookup } from '../infrastructure/repositories/InMemoryNutritionLookup';
-import { FoodEntry, NutritionPer100g } from '../domain/models/NutritionTypes';
+import { FoodEntry } from '../domain/models/NutritionTypes';
 
 describe('EnrichFoodEntryMacrosUseCase', () => {
   let useCase: EnrichFoodEntryMacrosUseCase;

@@ -1,0 +1,23 @@
+roles:
+  planning:
+    description: Architecture planning, design decisions, reviews
+    model: strong-review
+    temperature: 0.1
+    max_tokens: 3000
+
+  coding:
+    description: Implement features and edit code
+    model: balanced-code
+    temperature: 0.15
+    max_tokens: 1800
+
+  quick:
+    description: Quick questions, summaries, small tasks
+    model: fast-cheap
+    temperature: 0.1
+    max_tokens: 700
+
+  verify:
+    description: Explain lint/type errors and verification results
+    model: fast-cheap
+    temperature: 0.1

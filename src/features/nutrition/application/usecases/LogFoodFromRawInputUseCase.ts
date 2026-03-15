@@ -49,7 +49,7 @@ export class LogFoodFromRawInputUseCase {
     private readonly nutritionLookup?: NutritionLookup, // Fallback für Kompatibilität
     private readonly resolver?: FoodCatalogResolver,
   ) {
-    if (!resolver) throw new Error("DI_MISSING_RESOLVER");
+    if (!resolver) throw new Error('DI_MISSING_RESOLVER');
     this.engine = new NutritionEngine();
     this.portionParser = new PortionParser();
   }
@@ -149,7 +149,9 @@ export class LogFoodFromRawInputUseCase {
       }
       // Fallback: Use old NutritionLookup if available
       if (!this.resolver && this.nutritionLookup && quantityGrams > 0) {
-        console.log(`[${traceId}] PROOF early_exit reason="RESOLVER_IS_UNDEFINED_FELL_BACK_TO_LOOKUP"`);
+        console.log(
+          `[${traceId}] PROOF early_exit reason="RESOLVER_IS_UNDEFINED_FELL_BACK_TO_LOOKUP"`,
+        );
         const per100g = await this.nutritionLookup.getPer100gByName(parsed.name);
 
         if (per100g) {
@@ -236,7 +238,9 @@ export class LogFoodFromRawInputUseCase {
       return entry;
     } catch (err: any) {
       console.log(`[${traceId}] PROOF EXCEPTION message="${err?.message}"`);
-      console.log(`[${traceId}] PROOF EXCEPTION stack="${String(err?.stack).split("\\n").slice(0, 3).join(" | ")}"`);
+      console.log(
+        `[${traceId}] PROOF EXCEPTION stack="${String(err?.stack).split('\\n').slice(0, 3).join(' | ')}"`,
+      );
       throw err;
     }
   }
@@ -255,7 +259,7 @@ export class LogFoodFromRawInputUseCase {
   private async resolveCanonicalFood(
     parsedName: string,
     rawInput: string,
-    traceId?: string
+    traceId?: string,
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
@@ -282,11 +286,14 @@ export class LogFoodFromRawInputUseCase {
     // Step 0: Try multi-source resolver first (if available)
     if (this.resolver) {
       console.log(`[${traceId}] PROOF ABOUT_TO_RESOLVE`);
-      const decision = await this.resolver.resolve({
-        raw: rawInput,
-        normalized,
-        locale: 'de',
-      }, { traceId });
+      const decision = await this.resolver.resolve(
+        {
+          raw: rawInput,
+          normalized,
+          locale: 'de',
+        },
+        { traceId },
+      );
       console.log(`[${traceId}] PROOF RESOLVE_RETURNED hasResult=${!!decision}`);
       const summary = summarizeResolverDecision(decision);
       const resolved = decision.best;

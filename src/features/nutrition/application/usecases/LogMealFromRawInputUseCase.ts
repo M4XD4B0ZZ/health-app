@@ -80,7 +80,13 @@ export class LogMealFromRawInputUseCase {
       const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
 
       for (const item of aiResult.items) {
-        const entry = await this.createEntryFromAiItem(item, aiResult.explanation, entryDate, traceId, startTimeMs);
+        const entry = await this.createEntryFromAiItem(
+          item,
+          aiResult.explanation,
+          entryDate,
+          traceId,
+          startTimeMs,
+        );
         createdEntries.push(entry);
       }
     } else {
@@ -213,7 +219,9 @@ export class LogMealFromRawInputUseCase {
     // P0-004: Strict Zero-Macro Blocker
     if (!entry.calories || entry.calories <= 0) {
       if (isDebugLoggingEnabled() && traceId) {
-        console.log(`[${traceId}] BLOCKED reason="NO_MATCH_OR_ZERO_MACROS" item="${derivedRawInput}"`);
+        console.log(
+          `[${traceId}] BLOCKED reason="NO_MATCH_OR_ZERO_MACROS" item="${derivedRawInput}"`,
+        );
       }
       throw new Error(`RESOLVER_FAILED_OR_NO_MACROS for input: ${derivedRawInput}`);
     }
@@ -236,7 +244,7 @@ export class LogMealFromRawInputUseCase {
   private async resolveCanonicalFood(
     parsedName: string,
     rawInput: string,
-    traceId?: string
+    traceId?: string,
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };

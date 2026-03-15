@@ -1,0 +1,102 @@
+# HealthApp Verification Guide
+
+## 1 Verification Philosophy
+
+HealthApp uses deterministic verification to ensure the repository remains stable and reproducible.
+
+Every change must pass verification before being considered complete.
+
+Verification must be:
+
+- deterministic
+- script-based
+- runnable locally
+- CI compatible
+
+---
+
+## 2 Verification Commands
+
+Run verification commands in this order. All blocking checks must pass before marking a task done.
+
+```bash
+npm run lint
+npm run typecheck
+npm run verify
+npm run verify:edge
+```
+
+### Command reference
+
+| Command                        | Purpose                                              | Blocking | When to run                  |
+| ------------------------------ | ---------------------------------------------------- | -------- | ---------------------------- |
+| `npm run lint`                 | ESLint — code style and static error checks          | yes      | every change                 |
+| `npm run typecheck`            | TypeScript — no-emit type safety check               | yes      | every change                 |
+| `npm run test`                 | Jest — unit and integration tests                    | yes      | every change                 |
+| `npm run verify`               | Runs lint + typecheck + format:check + test combined | yes      | before marking task done     |
+| `npm run verify:edge`          | Remote Supabase Edge Function smoke tests            | yes      | after edge deploys           |
+| `npm run verify:supabase:link` | Confirms CLI is linked to correct Supabase project   | yes      | before edge deploys          |
+| `npm run verify:schema`        | Confirms required DB tables exist on remote          | yes      | before edge deploys          |
+| `npm run typecheck:functions`  | Deno typecheck for Supabase Edge Functions           | yes      | when editing edge functions  |
+| `npm run format:check`         | Prettier format check (included in verify)           | yes      | included in `npm run verify` |
+| `npm run doctor`               | Environment and dependency health check              | no       | on setup / debugging         |
+
+> `npm run build` — **TODO:** No standalone build script exists yet. Expo build is handled via `expo build` / EAS. Add a `build` script to `package.json` when CI build pipeline is introduced.
+
+---
+
+## 3 Local vs. CI Verification
+
+**Local (before every commit):**
+
+```bash
+npm run lint
+npm run typecheck
+npm run verify
+```
+
+Run `npm run verify:edge` only when Supabase Edge Functions were changed and `.env` is available with valid credentials.
+
+**CI:**
+
+CI must run at minimum:
+
+```bash
+npm run verify
+```
+
+Edge verification (`verify:edge`) requires environment secrets and should run as a separate CI job with protected env vars.
+
+---
+
+## 4 Edge Function Verification
+
+Requires `.env` with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+
+```bash
+npm run verify:supabase:link
+npm run verify:schema
+npm run verify:edge
+```
+
+`verify:edge` confirms:
+
+- `food-off-search` endpoint returns 200 for valid query, 400 for invalid query
+- `food-usda-search` endpoint returns 200 for valid query, 400 for invalid query
+
+---
+
+## 5 Definition of Done
+
+A task is complete only when:
+
+- `npm run verify` passes (lint + typecheck + format:check + tests)
+- no type errors exist
+- no lint errors exist
+- edge verification passes if edge functions were changed
+
+If any verification step fails:
+
+- the change must not be committed
+- the failure must be fixed first
+- verification must pass completely before marking the task as done in ROADMAP.md

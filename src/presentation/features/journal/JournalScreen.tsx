@@ -1,20 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-} from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { FoodEntry, DailyNutritionSummary } from '../../../features/nutrition';
 import { DailyProgressSnapshot } from '../../../features/journal';
-import { RootTabParamList } from '../../navigation/AppNavigator';
 
 // UI Components
 import { tokens } from '../../../ui/theme';
@@ -28,7 +17,7 @@ import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 
 const JournalScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp<any>>();
+  const navigation = useNavigation();
   const [rawInput, setRawInput] = useState('');
   const [processingState, setProcessingState] = useState<InlineStatusState>('idle');
   const [statusMessage, setStatusMessage] = useState('');
@@ -40,7 +29,6 @@ const JournalScreen: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
-
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -72,7 +60,8 @@ const JournalScreen: React.FC = () => {
   };
 
   const navigateToVoice = () => {
-    navigation.navigate('Voice');
+    // Navigation type is untyped in this file; use any to avoid linting for generic navigation
+    (navigation as any).navigate('Voice');
   };
 
   const handleQuickAdd = async () => {
@@ -94,14 +83,11 @@ const JournalScreen: React.FC = () => {
       setProcessingState('done');
       setStatusMessage('Added to journal.');
       setRawInput('');
-
     } catch (err) {
       setProcessingState('error');
       setStatusMessage(err instanceof Error ? err.message : 'Fehler beim Hinzufügen');
     }
   };
-
-
 
   const handleDeleteEntry = async (entryId: string) => {
     try {
@@ -138,8 +124,6 @@ const JournalScreen: React.FC = () => {
     }
   };
 
-
-
   const renderJournalEntry = ({ item }: { item: FoodEntry }) => {
     let subtitle = `${item.quantityGrams > 0 ? item.quantityGrams + 'g' : ''}`;
     let macrosStr = `P: ${Math.round(item.protein)}g C: ${Math.round(item.carbs)}g F: ${Math.round(item.fat)}g`;
@@ -156,7 +140,7 @@ const JournalScreen: React.FC = () => {
         />
         <View style={styles.entryExtras}>
           <AppText variant="meta" tone="muted">
-            P: {Math.round(item.protein)}g  C: {Math.round(item.carbs)}g  F: {Math.round(item.fat)}g
+            P: {Math.round(item.protein)}g C: {Math.round(item.carbs)}g F: {Math.round(item.fat)}g
           </AppText>
         </View>
       </View>
@@ -193,8 +177,20 @@ const JournalScreen: React.FC = () => {
       </View>
 
       {processingState === 'processing' && statusMessage !== '' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: tokens.spacing.s, minHeight: 24 }}>
-          <ActivityIndicator size="small" color={tokens.colors.textMuted} style={{ marginRight: tokens.spacing.xs }} />
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: tokens.spacing.s,
+            minHeight: 24,
+          }}
+        >
+          <ActivityIndicator
+            size="small"
+            color={tokens.colors.textMuted}
+            style={{ marginRight: tokens.spacing.xs }}
+          />
           <AppText variant="meta" tone="muted">
             {statusMessage}
           </AppText>
@@ -224,7 +220,10 @@ const JournalScreen: React.FC = () => {
           <View style={styles.summaryLeft}>
             <AppText variant="meta">Remaining</AppText>
             <View style={styles.valGroup}>
-              <AppText variant="numeric" tone={progress.progress.isOverCalories ? 'danger' : 'primary'}>
+              <AppText
+                variant="numeric"
+                tone={progress.progress.isOverCalories ? 'danger' : 'primary'}
+              >
                 {Math.round(progress.progress.remainingCalories)}
               </AppText>
               <AppText variant="meta">kcal</AppText>
@@ -260,14 +259,18 @@ const JournalScreen: React.FC = () => {
         </View>
       )}
 
-
-
       {/* Edit Modal (adapting to clean styling) */}
       <Modal visible={editModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <AppText variant="title" style={styles.modalTitle}>Edit Entry</AppText>
-            {editingEntry && <AppText variant="body" tone="muted">{editingEntry.parsedName}</AppText>}
+            <AppText variant="title" style={styles.modalTitle}>
+              Edit Entry
+            </AppText>
+            {editingEntry && (
+              <AppText variant="body" tone="muted">
+                {editingEntry.parsedName}
+              </AppText>
+            )}
 
             <InputArea
               style={{ minHeight: 80, marginTop: tokens.spacing.m, marginBottom: tokens.spacing.l }}
@@ -281,14 +284,10 @@ const JournalScreen: React.FC = () => {
                 label="Cancel"
                 onPress={() => setEditModalVisible(false)}
                 style={[styles.flexButton, { backgroundColor: tokens.colors.surface }] as any}
-              // A bit of a hack to pass disabled styles to look like un-accented button
+                // A bit of a hack to pass disabled styles to look like un-accented button
               />
               <View style={{ width: tokens.spacing.s }} />
-              <PrimaryButton
-                label="Apply"
-                onPress={handleApplyEdit}
-                style={styles.flexButton}
-              />
+              <PrimaryButton label="Apply" onPress={handleApplyEdit} style={styles.flexButton} />
             </View>
           </View>
         </View>
@@ -366,7 +365,7 @@ const styles = StyleSheet.create({
   },
   flexButton: {
     flex: 1,
-  }
+  },
 });
 
 export default JournalScreen;

@@ -8,7 +8,7 @@ export class SupabaseEdgeUsdaProvider implements FoodSourceProvider {
   constructor(
     private readonly supabase: SupabaseClient,
     private readonly retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG,
-  ) { }
+  ) {}
 
   async search(params: {
     query: string;
@@ -17,7 +17,9 @@ export class SupabaseEdgeUsdaProvider implements FoodSourceProvider {
   }): Promise<EdgeSearchResponse> {
     return withRetry(
       async () => {
-        console.log(`[${params.traceId || 'unknown'}] [EDGE] USDA ABOUT_TO_INVOKE function="food-usda-search"`);
+        console.log(
+          `[${params.traceId || 'unknown'}] [EDGE] USDA ABOUT_TO_INVOKE function="food-usda-search"`,
+        );
         const { data, error } = await this.supabase.functions.invoke('food-usda-search', {
           body: {
             query: params.query,
@@ -33,9 +35,13 @@ export class SupabaseEdgeUsdaProvider implements FoodSourceProvider {
             if ((error as any).context && typeof (error as any).context.text === 'function') {
               bodySnippet = String(await (error as any).context.text()).substring(0, 50);
             }
-          } catch (e) { }
+          } catch {
+            /* ignore */
+          }
 
-          console.log(`[${params.traceId || 'unknown'}] [EDGE] USDA invoke failed status=${status} message="${msg.substring(0, 50)}" body="${bodySnippet}"`);
+          console.log(
+            `[${params.traceId || 'unknown'}] [EDGE] USDA invoke failed status=${status} message="${msg.substring(0, 50)}" body="${bodySnippet}"`,
+          );
           throw FoodCatalogError.edge(`USDA search failed: ${error.message}`, error);
         }
 

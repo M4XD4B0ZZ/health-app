@@ -16,13 +16,13 @@ export class SupabaseEdgeOffSource implements FoodCatalogSource {
   constructor(
     private readonly provider: FoodSourceProvider,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
-  ) { }
+  ) {}
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
     const traceId = query.traceId || 'unknown';
     console.log(`[${traceId}] PROOF OFF_SOURCE_CALLED query="${query.normalized || query.raw}"`);
     const startTime = performance.now();
-    const tid = query.traceId ? `[${query.traceId}] ` : "";
+    const tid = query.traceId ? `[${query.traceId}] ` : '';
 
     if (isDebugLoggingEnabled()) {
       console.log(`${tid}[OFF] CALLED query="${query.normalized}"`);
@@ -60,7 +60,7 @@ export class SupabaseEdgeOffSource implements FoodCatalogSource {
 
       if (isDebugLoggingEnabled()) {
         const count = candidates.length;
-        const firstName = count > 0 ? candidates[0].food.name : "";
+        const firstName = count > 0 ? candidates[0].food.name : '';
         console.log(`${tid}[OFF] RESULT candidates=${count} first="${firstName}"`);
       }
 

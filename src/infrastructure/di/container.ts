@@ -213,7 +213,7 @@ class Container {
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
     );
-    if (!foodCatalogResolver) throw new Error("DI_MISSING_FOOD_CATALOG_RESOLVER");
+    if (!foodCatalogResolver) throw new Error('DI_MISSING_FOOD_CATALOG_RESOLVER');
 
     this._logFoodFromRawInputUseCase = new LogFoodFromRawInputUseCase(
       this._foodEntryRepository,

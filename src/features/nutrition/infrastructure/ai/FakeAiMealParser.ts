@@ -72,9 +72,6 @@ export class FakeAiMealParser implements AiMealParser {
 
   private splitByConnectors(text: string): string[] {
     // Split by German connectors: "mit", "und", "+", "&", ","
-    const parts: string[] = [];
-    let current = '';
-
     // Replace connectors with a delimiter
     const delimited = text
       .replace(/\s+mit\s+/g, '|')

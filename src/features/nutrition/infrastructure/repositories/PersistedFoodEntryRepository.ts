@@ -60,7 +60,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
   private entries: Map<string, FoodEntry[]> = new Map();
   private isLoaded = false;
 
-  constructor(private readonly keyValueStore: KeyValueStore) { }
+  constructor(private readonly keyValueStore: KeyValueStore) {}
 
   async addEntry(entry: FoodEntry): Promise<void> {
     await this.ensureLoaded();

@@ -10,33 +10,33 @@ import { EffectiveGoals } from '../../goals/domain/models/GoalsTypes';
 class MockNutritionReadRepository implements NutritionReadRepository {
   private entries: Map<
     string,
-    Array<{
+    {
       calories: number;
       protein: number;
       carbs: number;
       fat: number;
-    }>
+    }[]
   > = new Map();
 
   setEntriesForDate(
     dateISO: string,
-    entries: Array<{
+    entries: {
       calories: number;
       protein: number;
       carbs: number;
       fat: number;
-    }>,
+    }[],
   ) {
     this.entries.set(dateISO, entries);
   }
 
   async listFoodEntriesForDate(dateISO: string): Promise<
-    Array<{
+    {
       calories: number;
       protein: number;
       carbs: number;
       fat: number;
-    }>
+    }[]
   > {
     return this.entries.get(dateISO) || [];
   }

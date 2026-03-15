@@ -1,34 +1,97 @@
-# AGENTS.md - Codex-only Governance (HealthApp)
+# AGENTS.md — OpenCode Governance (HealthApp)
 
-This repository is **Codex-only**: changes are produced by deterministic edits and verified via a single gate.  
-**No Gravity / no AntiGravity / no UI-agent tooling** is used for implementation.
+This repository uses OpenCode-style deterministic edits and agent governance.
 
 ---
 
-## 1) Canonical Project Root
+## Sources of Truth
 
-Workspace root (shim):
+- **ROADMAP.md** is the Single Source of Knowledge (SSOK) for all tasks, epics, and decisions.
+- **VERIFY.md** is the canonical source for all verification commands and the Definition of Done.
 
-- `HealthApp/` (contains the forwarding `package.json`)
+Agents must read both files before starting any task.
 
-Actual app repo root:
+---
 
-- `HealthApp/health-dashboard/`
+## Core Rules
 
-**Rule:** The canonical verification entrypoint is always executed from the workspace root.
+### Planning
+
+- Plan before coding. State the plan explicitly before making changes.
+- Identify which files will be touched and why.
+- Do not start broad refactors without a clear, scoped reason.
+
+### Editing
+
+- Touch only files relevant to the current task.
+- Preserve architecture boundaries: domain / application / infrastructure / presentation.
+- Do not move, rename, or restructure files unless explicitly required.
+- Keep changes minimal and deterministic.
+- Do not introduce new libraries without explicit approval.
+
+### Verification
+
+- Run verification before marking any task done (see VERIFY.md).
+- Canonical verification entrypoint:
 
 ```bash
-# always valid
 npm run verify
 ```
 
-## 2) Workflow / Verification
+- Full verification order:
 
-- Any change affecting runtime behavior (resolver, parsing, persistence, navigation flow, env flags) MUST end with an explicit "USER TEST REQUIRED" section.
-- The assistant must address the user directly with:
-  - exact test steps
-  - exact inputs to use
-  - expected UI outcome
-  - expected logs outcome
-- No task may be marked DONE in ROADMAP.md unless the required user test is confirmed.
+```bash
+npm run lint
+npm run typecheck
+npm run verify
+npm run verify:edge
+```
 
+- Do not bypass or skip verification steps.
+- Do not claim a task is done if verification has not passed.
+
+### Task Governance
+
+- Every task must reference a task ID from ROADMAP.md.
+- Task IDs are never reused.
+- Completed tasks are marked `done` in ROADMAP.md — never deleted.
+- Update ROADMAP.md task status when work starts (`in_progress`) and when done (`done`).
+- Update relevant documentation when behavior changes.
+
+### Definition of Done
+
+A task is done only when:
+
+- `npm run verify` passes
+- no type errors exist
+- no lint errors exist
+- edge verification passes if edge functions were changed
+- ROADMAP.md task status is updated to `done`
+
+### Secrets & Security
+
+- Never write secrets, API keys, or credentials into source files.
+- Use `os.environ/...` references for all sensitive values in config files.
+- Never commit `.env` files.
+
+### Documentation
+
+- Update ROADMAP.md, VERIFY.md, or AGENTS.md when governance or behavior changes.
+- Do not leave stale documentation that contradicts current behavior.
+
+### Prohibited
+
+- No fake completion claims ("done" without passing verification).
+- No automatic pushes to remote without human approval.
+- No broad refactors outside the scope of the current task.
+- No model names or provider names in domain or application layer code.
+
+---
+
+## Canonical Root
+
+All verification commands are executed from the workspace root:
+
+```bash
+npm run verify
+```

@@ -22,12 +22,12 @@ export interface ConsumedMacros {
  * @returns Aggregated consumed macros
  */
 export function aggregateConsumed(
-  entries: Array<{
+  entries: {
     calories: number;
     protein: number;
     carbs: number;
     fat: number;
-  }>,
+  }[],
 ): ConsumedMacros {
   const totals = entries.reduce(
     (acc, entry) => ({

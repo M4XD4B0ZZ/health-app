@@ -19,7 +19,7 @@ export class SupabaseEdgeOffProvider implements FoodSourceProvider {
   constructor(
     private readonly supabase: SupabaseClient,
     private readonly retryConfig: RetryConfig = DEFAULT_RETRY_CONFIG,
-  ) { }
+  ) {}
 
   async search(params: {
     query: string;
@@ -28,7 +28,9 @@ export class SupabaseEdgeOffProvider implements FoodSourceProvider {
   }): Promise<EdgeSearchResponse> {
     return withRetry(
       async () => {
-        console.log(`[${params.traceId || 'unknown'}] [EDGE] OFF ABOUT_TO_INVOKE function="food-off-search"`);
+        console.log(
+          `[${params.traceId || 'unknown'}] [EDGE] OFF ABOUT_TO_INVOKE function="food-off-search"`,
+        );
         const { data, error } = await this.supabase.functions.invoke('food-off-search', {
           body: {
             query: params.query,
@@ -44,9 +46,13 @@ export class SupabaseEdgeOffProvider implements FoodSourceProvider {
             if ((error as any).context && typeof (error as any).context.text === 'function') {
               bodySnippet = String(await (error as any).context.text()).substring(0, 50);
             }
-          } catch (e) { }
+          } catch {
+            /* ignore */
+          }
 
-          console.log(`[${params.traceId || 'unknown'}] [EDGE] OFF invoke failed status=${status} message="${msg.substring(0, 50)}" body="${bodySnippet}"`);
+          console.log(
+            `[${params.traceId || 'unknown'}] [EDGE] OFF invoke failed status=${status} message="${msg.substring(0, 50)}" body="${bodySnippet}"`,
+          );
           throw FoodCatalogError.edge(`OFF search failed: ${error.message}`, error);
         }
 

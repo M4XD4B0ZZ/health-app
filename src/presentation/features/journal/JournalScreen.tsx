@@ -52,12 +52,12 @@ const JournalScreen: React.FC = () => {
       try {
         const progressData = await container.computeProgressForDateUseCase.execute(today);
         setProgress(progressData);
-      } catch (err) {
+      } catch {
         // No goals set yet
         setProgress(null);
       }
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // log and continue
       console.error('Failed to load journal data:', err);
     }
   };
@@ -92,16 +92,17 @@ const JournalScreen: React.FC = () => {
     }
   };
 
+  // Entry deletion handler (kept for completeness). Currently unused by UI.
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   const handleDeleteEntry = async (entryId: string) => {
-    // referenced by UI (EntryRow onPress opens edit modal) — keep for future use
     try {
       await container.deleteFoodEntryUseCase.execute(entryId);
       await loadJournalData();
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       console.error('Failed to delete entry:', err);
     }
   };
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   const handleOpenEditModal = (entry: FoodEntry) => {
     setEditingEntry(entry);

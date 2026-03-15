@@ -16,16 +16,18 @@ export const VoiceScreen: React.FC = () => {
 
   // Dummy listening progression for MVP testing
   useEffect(() => {
-    let timeout1: ReturnType<typeof setTimeout>,
-      timeout2: ReturnType<typeof setTimeout>,
-      timeout3: ReturnType<typeof setTimeout>;
+    let timeout1: ReturnType<typeof setTimeout> | null = null,
+      timeout2: ReturnType<typeof setTimeout> | null = null,
+      timeout3: ReturnType<typeof setTimeout> | null = null;
 
     timeout1 = setTimeout(() => {
       setTranscribedText('"I had two scrambled eggs and a slice of toast..."');
     }, 1500);
 
     return () => {
-      clearTimeout(timeout1);
+      if (timeout1) clearTimeout(timeout1);
+      if (timeout2) clearTimeout(timeout2);
+      if (timeout3) clearTimeout(timeout3);
     };
   }, []);
 

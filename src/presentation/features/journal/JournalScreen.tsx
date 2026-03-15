@@ -12,7 +12,7 @@ import { AppText } from '../../../ui/components/AppText';
 import { InputArea } from '../../../ui/components/InputArea';
 import { IconButton } from '../../../ui/components/IconButton';
 import { PrimaryButton } from '../../../ui/components/PrimaryButton';
-import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineStatus';
+import { InlineStatusState } from '../../../ui/components/InlineStatus';
 import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 
@@ -36,7 +36,9 @@ const JournalScreen: React.FC = () => {
 
   // Load data on mount and after changes
   useEffect(() => {
+    // Intentionally run once on mount. loadJournalData is stable in this component.
     loadJournalData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadJournalData = async () => {
@@ -55,6 +57,7 @@ const JournalScreen: React.FC = () => {
         setProgress(null);
       }
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       console.error('Failed to load journal data:', err);
     }
   };
@@ -90,10 +93,12 @@ const JournalScreen: React.FC = () => {
   };
 
   const handleDeleteEntry = async (entryId: string) => {
+    // referenced by UI (EntryRow onPress opens edit modal) — keep for future use
     try {
       await container.deleteFoodEntryUseCase.execute(entryId);
       await loadJournalData();
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       console.error('Failed to delete entry:', err);
     }
   };

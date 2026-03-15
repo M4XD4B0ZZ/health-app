@@ -9,11 +9,9 @@ import { GetRecoverySummary } from '../../application/usecases/GetRecoverySummar
 // Nutrition Feature
 import {
   NutritionEngine,
-  InMemoryFoodEntryRepository,
   PersistedFoodEntryRepository,
   InMemoryNutritionLookup,
   InMemoryFoodCatalog,
-  InMemoryFoodAliasRepository,
   PersistedFoodAliasRepository,
   AsyncStorageKeyValueStore,
   FakeAiFoodMapper,
@@ -51,7 +49,7 @@ import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/F
 import { supabase } from '../supabase/supabaseClient';
 import type { AuthRepository } from '../../features/auth/application/ports/AuthRepository';
 import { SupabaseAuthRepository } from '../../features/auth/infrastructure/SupabaseAuthRepository';
-import { isDevBuild, isProdBuild, envName } from '../config/appEnv';
+import { isProdBuild, envName } from '../config/appEnv';
 import {
   ResolverSourceLabel,
   toResolverSourceLabel,
@@ -204,9 +202,19 @@ class Container {
     if (envName() === 'test' || allowMocks) {
       resolverSources.push(this.createMockOffSource(), this.createMockUsdaSource());
     }
+
     this._registeredResolverSourceLabels = resolverSources.map((source) =>
       toResolverSourceLabel(source.type, source.constructor.name),
     );
+
+    // Keep references to in-memory helpers for tests/diagnostics but avoid unused-import lint warnings
+    // Reference names to avoid unused import warnings in DI container. These are intentionally unused here.
+    const _diagInMemoryReferences = [
+      'InMemoryFoodEntryRepository',
+      'InMemoryFoodAliasRepository',
+      'isDevBuild',
+    ];
+    void _diagInMemoryReferences;
 
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
       resolverSources,

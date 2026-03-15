@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build / cache / coverage
+dist/
+build/
+coverage/
+.expo/
+.expo-shared/
+.next/
+out/
+.cache/
+tmp/
+temp/
+
+# Native / generated
+android/app/build/
+ios/build/
+*.apk
+*.aab
+*.ipa
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env / secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.mobileprovision
+secrets/
+private/
+
+# Local databases / exports / backups
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+exports/
+backups/
+snapshots/
+
+# Git / editor / OS noise
+.git/
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Large lock / generated artifacts
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Health / sensitive local data
+health-connect-export/
+health-data/
+user-data/
+debug-dumps/
+support-bundles/

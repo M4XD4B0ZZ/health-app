@@ -1,5 +1,13 @@
 # AGENTS.md — OpenCode Governance (HealthApp)
 
+## Governance
+
+- Dieses Repository folgt der Definition in `SSOK.md`.
+- `SSOK.md` beschreibt die übergeordnete Governance-Struktur des Repositories.
+- Alle Agenten-Workflows und Projektregeln müssen mit dieser Definition konsistent bleiben.
+
+---
+
 This repository uses OpenCode-style deterministic edits and agent governance.
 
 ---

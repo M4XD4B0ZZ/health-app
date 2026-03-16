@@ -1,5 +1,11 @@
 # HealthApp Verification Guide
 
+## Governance Hinweis
+
+Die hier definierten Verify-Regeln folgen der übergeordneten Governance-Definition in `SSOK.md`.
+
+---
+
 ## 1 Verification Philosophy
 
 HealthApp uses deterministic verification to ensure the repository remains stable and reproducible.

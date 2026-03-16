@@ -1,5 +1,7 @@
 # Global Development Rules
 
+*Hinweis: Diese Regeln sind Teil der operativen Roo-SSOK. Die übergeordnete Governance-Definition befindet sich in `SSOK.md`.*
+
 ## General Behavior
 - Work in small, focused changes.
 - Do not refactor unrelated code.

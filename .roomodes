@@ -6,6 +6,7 @@
     Nutze minimal nötigen Kontext und antworte präzise.
   groups:
     - read
+    - mcp
 
 - slug: code
   name: Code
@@ -17,16 +18,19 @@
   groups:
     - read
     - edit
+    - mcp
 
 - slug: architect
   name: Architect
   description: Planung, Refactoring-Design, Reviews
   roleDefinition: >
     Du analysierst Architektur, Risiken und Refactoring-Strategien.
-    Keine direkten Änderungen, außer wenn ausdrücklich verlangt.
+    Standardmäßig keine direkten Änderungen und keine Commands.
     Fokus auf Struktur, Abhängigkeiten, Risiken, Migrationspfade und Review-Denken.
+    Liefere klare Empfehlungen, Trade-offs und eine sinnvolle Umsetzungsreihenfolge.
   groups:
     - read
+    - mcp
 
 - slug: agentic
   name: Agentic Guarded
@@ -37,4 +41,5 @@
     Keine Commands ohne ausdrückliche Freigabe. Änderungen nur in produktiven Codebereichen.
   groups:
     - read
+    - mcp
     - ["edit", { fileRegex: "^(src/|app/|apps/|packages/|components/)", description: "Nur produktive Codebereiche" }]

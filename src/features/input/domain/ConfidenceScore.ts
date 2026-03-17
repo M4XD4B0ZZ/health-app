@@ -1,4 +1,7 @@
-// Placeholder for ConfidenceScore domain model
+export type ConfidenceLevel = "high" | "medium" | "low"
+
 export interface ConfidenceScore {
-  // Define properties as needed
+  level: ConfidenceLevel
+  score: number
+  reason: string
 }

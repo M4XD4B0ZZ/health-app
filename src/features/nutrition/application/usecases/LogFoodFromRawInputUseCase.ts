@@ -1,4 +1,5 @@
 import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { detectCanonicalEntity } from '../../domain/detectCanonicalEntity';
 import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 import { Clock } from '../ports/Clock';
 import { IdGenerator } from '../ports/IdGenerator';
@@ -65,6 +66,14 @@ export class LogFoodFromRawInputUseCase {
 
       // Parse den Input
       const parsed = this.parser.parse(rawInput);
+
+      // Integration: Canonical Entity Detection vor Resolver
+      const canonicalEntity = detectCanonicalEntity(parsed.name);
+      if (canonicalEntity) {
+        // Ersetze parsed.name und rawInput mit kanonischem Namen für Resolver
+        parsed.name = canonicalEntity.id;
+        rawInput = canonicalEntity.id;
+      }
 
       // Bestimme Datum
       const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();

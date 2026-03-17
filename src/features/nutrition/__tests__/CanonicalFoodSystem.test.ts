@@ -207,66 +207,111 @@ describe('Canonical Food System - Sprint 5.3', () => {
     let aiFoodMapper: FakeAiFoodMapper;
     let clock: Clock;
 
-    beforeEach(() => {
-      repository = new InMemoryFoodEntryRepository();
-      catalog = new InMemoryFoodCatalog();
-      aliasRepo = new InMemoryFoodAliasRepository();
-      aiFoodMapper = new FakeAiFoodMapper();
-      clock = {
-        now: () => new Date('2026-02-15T12:00:00Z'),
-        todayISO: () => '2026-02-15',
-      };
+import { FoodCatalogResolver } from '../../application/services/FoodCatalogResolver';
+import { FoodSearchQuery } from '../../domain/catalog/FoodCatalogSource';
+import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
-      useCase = new LogFoodFromRawInputUseCase(
-        repository,
-        clock,
-        new TestIdGenerator(),
-        new DeterministicFoodParser(),
-        catalog,
-        aliasRepo,
-        aiFoodMapper,
-      );
-    });
+  class MockFoodCatalogResolver implements FoodCatalogResolver {
+    private per100gData: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {
+      'chicken breast': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+      banana: { calories: 89, protein: 1.1, carbs: 23, fat: 0.3 },
+    };
 
-    it('sollte deterministischen Catalog-Hit verwenden', async () => {
-      const entry = await useCase.execute('100g banana');
+    async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
+      const text = query.text.toLowerCase();
+      if (text.includes('chicken breast')) {
+        return Promise.resolve({
+          decision: 'accept',
+          reason: 'mock enriched',
+          food: {
+            id: 'chicken breast',
+            per100g: this.per100gData['chicken breast'],
+          },
+        });
+      }
+      if (text.includes('banana')) {
+        return Promise.resolve({
+          decision: 'accept',
+          reason: 'mock enriched',
+          food: {
+            id: 'banana',
+            per100g: this.per100gData['banana'],
+          },
+        });
+      }
+      return Promise.resolve({ decision: 'none', reason: 'mock' });
+    }
 
-      expect(entry.parsedName).toBe('banana');
-      expect(entry.quantityGrams).toBe(100);
-      expect(entry.calories).toBe(89); // 100g * 89 cal/100g
-      expect(entry.protein).toBe(1.1);
-      expect(entry.sourceType).toBe('generic');
-      expect(entry.confidenceScore).toBeGreaterThan(0.5);
-    });
+    getPer100gByName(name: string) {
+      return this.per100gData[name] || null;
+    }
 
-    it('sollte Alias nach deterministischem Match speichern', async () => {
-      await useCase.execute('100g banana');
+    upsertPer100gByName(name: string, data: { calories: number; protein: number; carbs: number; fat: number }) {
+      this.per100gData[name] = data;
+    }
+  }
 
-      // Alias sollte gespeichert sein
-      const canonicalId = await aliasRepo.getCanonicalId('banana');
-      expect(canonicalId).toBe('banana');
-    });
+  beforeEach(() => {
+    repository = new InMemoryFoodEntryRepository();
+    catalog = new InMemoryFoodCatalog();
+    aliasRepo = new InMemoryFoodAliasRepository();
+    aiFoodMapper = new FakeAiFoodMapper();
+    clock = {
+      now: () => new Date('2026-02-15T12:00:00Z'),
+      todayISO: () => '2026-02-15',
+    };
+    const mockResolver = new MockFoodCatalogResolver();
+    useCase = new LogFoodFromRawInputUseCase(
+      repository,
+      clock,
+      new TestIdGenerator(),
+      new DeterministicFoodParser(),
+      catalog,
+      aliasRepo,
+      aiFoodMapper,
+      mockResolver,
+    );
+  });
 
-    it('sollte gespeicherten Alias verwenden (Cache-Hit)', async () => {
-      // Ersten Call: Alias wird gespeichert
-      await useCase.execute('100g banana');
+  it('sollte deterministischen Catalog-Hit verwenden', async () => {
+    const entry = await useCase.execute('100g banana');
 
-      // Zweiten Call: Sollte Cache verwenden
-      const entry = await useCase.execute('100g banana');
+    expect(entry.parsedName).toBe('banana');
+    expect(entry.quantityGrams).toBe(100);
+    expect(entry.calories).toBeCloseTo(89, 1); // 100g * 89 cal/100g
+    expect(entry.protein).toBeCloseTo(1.1, 1);
+    expect(entry.sourceType).toBe('generic');
+    expect(entry.confidenceScore).toBeGreaterThan(0.5);
+  });
 
-      expect(entry.sourceType).toBe('cache');
-      expect(entry.confidenceScore).toBeGreaterThan(0.7);
-    });
+  it('sollte Alias nach deterministischem Match speichern', async () => {
+    await useCase.execute('100g banana');
 
-    it('sollte "banane" über Singular-Heuristik matchen (nicht AI)', async () => {
-      // "banane" wird jetzt über Singular-Heuristik zu "banan" -> "banana" gematcht
-      const entry = await useCase.execute('200g banane');
+    // Alias sollte gespeichert sein
+    const canonicalId = await aliasRepo.getCanonicalId('banana');
+    expect(canonicalId).toBe('banana');
+  });
 
-      expect(entry.parsedName).toBe('banane');
-      expect(entry.quantityGrams).toBe(200);
-      expect(entry.calories).toBe(178); // 200g * 89 cal/100g
-      expect(entry.sourceType).toBe('generic'); // Via Singular-Heuristik, nicht AI
-    });
+  it('sollte gespeicherten Alias verwenden (Cache-Hit)', async () => {
+    // Ersten Call: Alias wird gespeichert
+    await useCase.execute('100g banana');
+
+    // Zweiten Call: Sollte Cache verwenden
+    const entry = await useCase.execute('100g banana');
+
+    expect(entry.sourceType).toBe('cache');
+    expect(entry.confidenceScore).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('sollte "banane" über Singular-Heuristik matchen (nicht AI)', async () => {
+    // "banane" wird jetzt über Singular-Heuristik zu "banan" -> "banana" gematcht
+    const entry = await useCase.execute('200g banane');
+
+    expect(entry.parsedName).toBe('banane');
+    expect(entry.quantityGrams).toBe(200);
+    expect(entry.calories).toBeCloseTo(178, 1); // 200g * 89 cal/100g
+    expect(entry.sourceType).toBe('generic'); // Via Singular-Heuristik, nicht AI
+  });
 
     it('sollte Alias nach deterministischem Singular-Match speichern', async () => {
       await useCase.execute('200g banane');
@@ -287,32 +332,32 @@ describe('Canonical Food System - Sprint 5.3', () => {
       expect(entry2.confidenceScore).toBeGreaterThanOrEqual(0.75);
     });
 
-    it('sollte Macros deterministisch aus Canonical Food berechnen', async () => {
-      const entry = await useCase.execute('250g chicken breast');
+  it('sollte Macros deterministisch aus Canonical Food berechnen', async () => {
+    const entry = await useCase.execute('250g chicken breast');
 
-      // Chicken Breast: 165 cal, 31g protein per 100g
-      expect(entry.calories).toBeCloseTo(412.5, 1); // 250 * 165/100
-      expect(entry.protein).toBeCloseTo(77.5, 1); // 250 * 31/100
-      expect(entry.carbs).toBe(0);
-      expect(entry.fat).toBeCloseTo(9, 1); // 250 * 3.6/100
-    });
+    // Chicken Breast: 165 cal, 31g protein per 100g
+    expect(entry.calories).toBeCloseTo(412.5, 1); // 250 * 165/100
+    expect(entry.protein).toBeCloseTo(77.5, 1); // 250 * 31/100
+    expect(entry.carbs).toBe(0);
+    expect(entry.fat).toBeCloseTo(9, 1); // 250 * 3.6/100
+  });
 
-    it('sollte ohne Gramm-Angabe keine Macros berechnen', async () => {
-      const entry = await useCase.execute('banana');
+  it('sollte ohne Gramm-Angabe keine Macros berechnen', async () => {
+    const entry = await useCase.execute('banana');
 
-      expect(entry.quantityGrams).toBe(0);
-      expect(entry.calories).toBe(0);
-      expect(entry.protein).toBe(0);
-      expect(entry.sourceType).toBe('user'); // Kein Catalog-Match möglich ohne Gramm
-    });
+    expect(entry.quantityGrams).toBe(0);
+    expect(entry.calories).toBe(0);
+    expect(entry.protein).toBe(0);
+    expect(entry.sourceType).toBe('user'); // Kein Catalog-Match möglich ohne Gramm
+  });
 
-    it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {
-      const entry = await useCase.execute('150g hähnchen');
+  it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {
+    const entry = await useCase.execute('150g hähnchen');
 
-      // "hähnchen" wird normalisiert und via AI zu "chicken breast" gemappt
-      expect(entry.quantityGrams).toBe(150);
-      expect(entry.calories).toBeCloseTo(247.5, 1); // 150 * 165/100
-      expect(entry.sourceType).toBe('ai');
-    });
+    // "hähnchen" wird normalisiert und via AI zu "chicken breast" gemappt
+    expect(entry.quantityGrams).toBe(150);
+    expect(entry.calories).toBeCloseTo(247.5, 1); // 150 * 165/100
+    expect(entry.sourceType).toBe('ai');
+  });
   });
 });

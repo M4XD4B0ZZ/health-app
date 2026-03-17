@@ -14,7 +14,12 @@ Ziel:
 
 Vorgehen:
 
-1. Analysiere die angegebene Datei oder den Bereich: $ARGUMENTS
+1. Wenn keine Argumente angegeben sind, analysiere nur die aktuellen Git-Änderungen (staged + unstaged diff).
+2. Wenn ein Pfad (Datei oder Verzeichnis) angegeben ist, analysiere diesen Bereich.
+3. Wenn explizit "repo" oder "full" angegeben wird, analysiere das gesamte Repository.
+
+4. Lies relevante Dateien im Kontext.
+5. Prüfe folgende Aspekte:
 2. Lies relevante Dateien im Kontext.
 3. Prüfe folgende Aspekte:
 

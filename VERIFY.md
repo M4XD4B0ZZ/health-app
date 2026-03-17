@@ -106,3 +106,25 @@ If any verification step fails:
 - the change must not be committed
 - the failure must be fixed first
 - verification must pass completely before marking the task as done in ROADMAP.md
+
+## Input Parsing Verification
+
+* Input parsing layer may be non-deterministic
+
+* Verification applies ONLY to:
+
+  * final structured output
+  * API responses
+  * database integrity
+
+* Parsing correctness is evaluated by:
+
+  * test cases (expected mappings)
+  * confidence scoring behavior
+
+* Non-deterministic parsing MUST NOT break:
+
+  * type safety
+  * API contracts
+  * database schema
+

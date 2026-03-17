@@ -468,3 +468,14 @@ Oder noch kürzer:
 **Projektwahrheit oben.  
 Ausführungswahrheit in Roo.  
 Implementierung unten.**
+
+---
+
+## Product Principles
+
+* Minimize user input friction at all costs
+* Natural language is the primary input method
+* Approximation is acceptable at input stage
+* Users can correct data after logging
+* Speed and ease-of-use take priority over perfect accuracy
+* System should feel "instant" and "effortless"

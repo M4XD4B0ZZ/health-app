@@ -1,6 +1,4 @@
-# ROADMAP.md
-
-# HealthApp — Master Roadmap (SSOK)
+# HealthApp 	6 Master Roadmap (SSOK)
 
 Status: Active
 Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
@@ -13,7 +11,7 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 - Every task must have a stable ID, a status, and a Definition of Done.
 - Task IDs are never reused. Completed tasks are marked `done`, never deleted.
 - Larger epics must be broken into concrete, verifiable tasks.
-- Task descriptions must be specific and checkable — not vague goals.
+- Task descriptions must be specific and checkable 	6 not vague goals.
 - No task may be marked `done` without passing verification (see VERIFY.md).
 
 ### Status values
@@ -32,9 +30,47 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 - Deterministic-first: prefer deterministic logic over AI/LLM calls
 - AI only when deterministic logic is insufficient
 - Clean Architecture: domain / application / infrastructure / presentation layers
-- Feature-First: code organized by feature (nutrition, goals, auth, …)
+- Feature-First: code organized by feature (nutrition, goals, auth, 5)
 - Trust/Confidence/Editability: every logged entry must be trustworthy and editable
 - Small, incremental, reviewable changes only
+
+---
+
+## EPIC: Zero-Friction Input System (P0 - CORE PRODUCT)
+
+Goal:
+Enable users to log food using natural language with minimal friction, prioritizing ease-of-use over perfect accuracy.
+
+Principles:
+
+* Natural language first (no structured input required)
+* Approximation over precision (initial input)
+* Correction over prevention (user can quickly edit)
+* System should feel "instant" and "effortless"
+
+Scope:
+
+* Free-text food input ("What did you eat?")
+* Basic parsing (quantities, simple foods)
+* Dish recognition (e.g. "Spaghetti Bolognese")
+* Mapping to existing food database (Open Food Facts / USDA)
+* Confidence scoring system (high / medium / low)
+* Fallback handling for unknown inputs
+* Quick-edit UX (portion adjustment, corrections)
+
+Deliverables:
+
+* Input component (UI)
+* Parsing layer (initial rule-based)
+* Dish mapping system (initial static dataset ~50 meals)
+* Confidence evaluation
+* Edit interaction flow
+
+Constraints:
+
+* Must integrate with existing deterministic pipeline
+* Must NOT break current food search functionality
+* No heavy AI dependency in initial implementation
 
 ---
 
@@ -44,15 +80,15 @@ Core Logging Pipeline must be stable before any other feature work.
 
 Definition of "working":
 
-- `ei` → correct macros
-- `zwei eier` → correct macros
-- `200g quark` → correct macros
-- `buttertoast` → correct macros
-- `zwei scheiben schinken` → correct macros
+- `ei` 	6 correct macros
+- `zwei eier` 	6 correct macros
+- `200g quark` 	6 correct macros
+- `buttertoast` 	6 correct macros
+- `zwei scheiben schinken` 	6 correct macros
 
 ---
 
-# PHASE 0 — LOGGING MUST WORK
+# PHASE 0 	6 LOGGING MUST WORK
 
 ## P0-001 Disable Multi-Item Structuring
 
@@ -66,7 +102,7 @@ No artificial splitting while deterministic parser is unstable.
 
 ---
 
-## P0-002 Single Item → Resolver → Macros Pipeline
+## P0-002 Single Item 	6 Resolver 	6 Macros Pipeline
 
 Status: `in_progress`
 
@@ -133,9 +169,9 @@ Verify full resolver call chain via logs:
 
 ---
 
-# PHASE 1 — DETERMINISTIC MULTI-ITEM PARSING
+# PHASE 1 	6 DETERMINISTIC MULTI-ITEM PARSING
 
-## P1-001 Deterministic DE→EN Localization Alias Layer
+## P1-001 Deterministic DE9EN Localization Alias Layer
 
 Status: `done`
 
@@ -173,7 +209,7 @@ Split input at "und", "mit", ",". Normalize number words. Force resolver per ite
 
 ---
 
-# PHASE 2 — GUARDRAILS, AUTH & SUBSCRIPTION
+# PHASE 2 	6 GUARDRAILS, AUTH & SUBSCRIPTION
 
 ## EPIC: Supabase Foundation
 
@@ -284,10 +320,10 @@ AI structured log functions and premium insights return 403 for non-Pro users.
 
 ---
 
-# PHASE 3 — MODULES (planned)
+# PHASE 3 	6 MODULES (planned)
 
 These modules are planned but not yet scoped into tasks.
-Each will be broken into concrete tasks when Phase 0–2 are stable.
+Each will be broken into concrete tasks when Phase 0	62 are stable.
 
 | Module      | Status | Notes                                 |
 | ----------- | ------ | ------------------------------------- |

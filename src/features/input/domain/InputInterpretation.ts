@@ -2,6 +2,7 @@ export type InterpretationType =
   | "single_item"
   | "multi_item"
   | "unknown"
+  | "dish"
 
 export interface InputInterpretation {
   type: InterpretationType

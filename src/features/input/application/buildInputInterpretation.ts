@@ -3,6 +3,8 @@ import { FoodMatch } from "../domain/FoodMatch"
 import { ConfidenceScore } from "../domain/ConfidenceScore"
 import { InputInterpretation } from "../domain/InputInterpretation"
 
+import { matchDish } from "./matchDish"
+
 export function buildInputInterpretation(
   parsed: ParsedInput,
   matches: FoodMatch[],
@@ -10,10 +12,16 @@ export function buildInputInterpretation(
 ): InputInterpretation {
   const itemCount = parsed.items.length
 
-  let type: "single_item" | "multi_item" | "unknown"
+  // Prüfe, ob der gesamte Rohinput ein bekanntes Gericht ist
+  const dishMatch = matchDish(parsed.raw)
+
+  let type: "single_item" | "multi_item" | "unknown" | "dish"
   let summary: string
 
-  if (itemCount === 1) {
+  if (dishMatch.status === "matched") {
+    type = "dish"
+    summary = "dish_detected"
+  } else if (itemCount === 1) {
     type = "single_item"
     summary = "single_item_detected"
   } else if (itemCount > 1) {

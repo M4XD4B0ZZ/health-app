@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import { View, FlatList, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
@@ -67,30 +68,49 @@ const JournalScreen: React.FC = () => {
     (navigation as any).navigate('Voice');
   };
 
-  const handleQuickAdd = async () => {
-    if (!rawInput.trim()) return;
+  const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
+const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null}[]>([]);
 
-    setProcessingState('processing');
-    setStatusMessage('Logging meal...');
+const handleQuickAdd = async () => {
+  if (!rawInput.trim()) return;
 
-    try {
-      const createdEntries = await container.logMealFromRawInputUseCase.execute(rawInput, today);
+  setProcessingState('processing');
+  setStatusMessage('Logging meal...');
+  setUnresolvedItems([]);
+  setRecognizedItems([]);
 
-      if (!createdEntries || createdEntries.length === 0) {
-        throw new Error('Eintrag konnte nicht zugeordnet werden. (0 Kalorien)');
+  try {
+    const result = await logResolvedNutritionInput(rawInput);
+    const persistedCount = result.persistedEntries.length;
+    const unresolvedCount = result.dispatch.unresolvedRequests.length;
+
+    if (persistedCount > 0) {
+      if (unresolvedCount > 0) {
+        setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`);
+      } else {
+        setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
       }
-
-      // Reload data instantly as requested natively
-      await loadJournalData();
-
-      setProcessingState('done');
-      setStatusMessage('Added to journal.');
       setRawInput('');
-    } catch (err) {
+    } else {
+      setStatusMessage('Eintrag konnte nicht verarbeitet werden');
       setProcessingState('error');
-      setStatusMessage(err instanceof Error ? err.message : 'Fehler beim Hinzufügen');
+      return;
     }
-  };
+
+    setUnresolvedItems(result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName));
+    setRecognizedItems(result.dispatch.parsed.items.map((item: { name: string; quantity: number | null; unit?: string | undefined }) => ({
+      name: item.name,
+      quantity: item.quantity ?? null,
+      unit: item.unit ?? null,
+    })));
+
+    setProcessingState('done');
+    await loadJournalData();
+  } catch (e) {
+    setProcessingState('error');
+    setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+  }
+};
 
   // Entry deletion handler (kept for completeness). Currently unused by UI.
   /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -165,7 +185,15 @@ const JournalScreen: React.FC = () => {
         multiline
         placeholder="What did you eat? (e.g., '2 scrambled eggs and a slice of toast')"
         value={rawInput}
-        onChangeText={setRawInput}
+        onChangeText={(text) => {
+          setRawInput(text);
+          if (processingState !== 'idle') {
+            setProcessingState('idle');
+            setStatusMessage('');
+            setUnresolvedItems([]);
+            setRecognizedItems([]);
+          }
+        }}
         editable={processingState !== 'processing'}
       />
 
@@ -181,6 +209,39 @@ const JournalScreen: React.FC = () => {
           disabled={processingState === 'processing' || !rawInput.trim()}
         />
       </View>
+
+      {/* Show unresolved items if any */}
+      {unresolvedItems.length > 0 && (
+        <>
+          <AppText variant="meta" tone="danger" style={{ marginTop: 8, fontWeight: 'bold' }}>
+            Nicht erkannt:
+          </AppText>
+          {unresolvedItems.map((item, index) => (
+            <AppText key={index} variant="meta" tone="danger" style={{ fontSize: 12 }}>
+              {item} — nicht erkannt
+            </AppText>
+          ))}
+          <PrimaryButton
+            label="In Eingabe übernehmen"
+            onPress={() => setRawInput(unresolvedItems.join(' '))}
+            disabled={processingState === 'processing'}
+          />
+        </>
+      )}
+
+      {/* Show recognized items if any */}
+      {recognizedItems.length > 0 && (
+        <>
+          <AppText variant="meta" tone="primary" style={{ marginTop: 8, fontWeight: 'bold' }}>
+            Erkannt:
+          </AppText>
+          {recognizedItems.map((item, index) => (
+            <AppText key={index} variant="meta" tone="primary" style={{ fontSize: 12 }}>
+              {item.name} {item.quantity !== null ? `— ${item.quantity}` : ''} {item.unit ?? ''}
+            </AppText>
+          ))}
+        </>
+      )}
 
       {processingState === 'processing' && statusMessage !== '' && (
         <View

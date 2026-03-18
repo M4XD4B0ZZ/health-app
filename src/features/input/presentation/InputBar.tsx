@@ -41,8 +41,8 @@ export const InputBar: React.FC = () => {
       setRecognizedItems(result.dispatch.parsed.items)
 
       // Dish detection hint
-      if (result.interpretation.type === "dish") {
-      const dishName = result.interpretation.summary === "dish_detected" ? value.trim() : "Gericht erkannt"
+      if (result.dispatch.interpretation.type === "dish") {
+      const dishName = result.dispatch.interpretation.summary === "dish_detected" ? value.trim() : "Gericht erkannt"
       setSuccessMessage(`Gericht erkannt: ${dishName}`)
       }
     } catch (e) {

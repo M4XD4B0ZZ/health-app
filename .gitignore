@@ -54,3 +54,6 @@ build/
 coverage
 Thumbs.db
 .env.local
+
+# Plans
+EMULATOR_SMOKE_TEST_PLAN.md

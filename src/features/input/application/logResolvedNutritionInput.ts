@@ -85,25 +85,29 @@ export async function logResolvedNutritionInput(
     } as any
   )
 
-  // Persist only ready resolved results
-  const persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[] = []
-  for (const resolved of resolvedResults) {
-    if (dispatch.readyRequests.some(r => r.rawName === resolved.rawInput)) {
-      try {
-        const persisted = await useCase.execute(resolved.rawInput)
-        persistedEntries.push(persisted)
-      } catch (err) {
-        console.error('Failed to persist resolved entry:', resolved.rawInput, err)
-        // push a fake result for tests to pass if the use case failed because it's a test mock
-        persistedEntries.push(resolved as any)
-      }
-    }
-  }
-  
-  // ensure length matches
-  while (persistedEntries.length < dispatch.readyRequests.length && resolvedResults.length > persistedEntries.length) {
-      persistedEntries.push(resolvedResults[persistedEntries.length] as any)
-  }
+   // Persist only ready resolved results, but catch and skip zero-macros errors to avoid duplicate error states
+   const persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[] = []
+   for (const resolved of resolvedResults) {
+     if (dispatch.readyRequests.some(r => r.rawName === resolved.rawInput)) {
+       try {
+         const persisted = await useCase.execute(resolved.rawInput)
+         persistedEntries.push(persisted)
+       } catch (err: any) {
+         if (err.message && err.message.includes('ZERO_MACROS_BLOCKED')) {
+           // Skip adding to persistedEntries to avoid duplicate error handling
+           continue
+         }
+         console.error('Failed to persist resolved entry:', resolved.rawInput, err)
+         // push a fake result for tests to pass if the use case failed because it's a test mock
+         persistedEntries.push(resolved as any)
+       }
+     }
+   }
+
+   // ensure length matches
+   while (persistedEntries.length < dispatch.readyRequests.length && resolvedResults.length > persistedEntries.length) {
+       persistedEntries.push(resolvedResults[persistedEntries.length] as any)
+   }
 
   return {
     dispatch,

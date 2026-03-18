@@ -37,7 +37,6 @@ const JournalScreen: React.FC = () => {
 
   // Load data on mount and after changes
   useEffect(() => {
-    // Intentionally run once on mount. loadJournalData is stable in this component.
     loadJournalData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -69,48 +68,48 @@ const JournalScreen: React.FC = () => {
   };
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
-const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null}[]>([]);
+  const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null}[]>([]);
 
-const handleQuickAdd = async () => {
-  if (!rawInput.trim()) return;
+  const handleQuickAdd = async () => {
+    if (!rawInput.trim()) return;
 
-  setProcessingState('processing');
-  setStatusMessage('Logging meal...');
-  setUnresolvedItems([]);
-  setRecognizedItems([]);
+    setProcessingState('processing');
+    setStatusMessage('Logging meal...');
+    setUnresolvedItems([]);
+    setRecognizedItems([]);
 
-  try {
-    const result = await logResolvedNutritionInput(rawInput);
-    const persistedCount = result.persistedEntries.length;
-    const unresolvedCount = result.dispatch.unresolvedRequests.length;
+    try {
+      const result = await logResolvedNutritionInput(rawInput);
+      const persistedCount = result.persistedEntries.length;
+      const unresolvedCount = result.dispatch.unresolvedRequests.length;
 
-    if (persistedCount > 0) {
-      if (unresolvedCount > 0) {
-        setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`);
-      } else {
+      setUnresolvedItems(result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName));
+      setRecognizedItems(result.dispatch.readyRequests.map((item: { rawName: string; quantity: number | null; unit: string | null }) => ({
+        name: item.rawName,
+        quantity: item.quantity ?? null,
+        unit: item.unit ?? null,
+      })));
+
+      if (persistedCount > 0 && unresolvedCount === 0) {
         setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
+        setProcessingState('done');
+        setRawInput('');
+      } else if (persistedCount > 0 && unresolvedCount > 0) {
+        setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`);
+        setProcessingState('partial');
+        setRawInput('');
+      } else {
+        setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+        setProcessingState('error');
+        return;
       }
-      setRawInput('');
-    } else {
-      setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+
+      await loadJournalData();
+    } catch (e) {
       setProcessingState('error');
-      return;
+      setStatusMessage('Eintrag konnte nicht verarbeitet werden');
     }
-
-    setUnresolvedItems(result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName));
-    setRecognizedItems(result.dispatch.parsed.items.map((item: { name: string; quantity: number | null; unit?: string | undefined }) => ({
-      name: item.name,
-      quantity: item.quantity ?? null,
-      unit: item.unit ?? null,
-    })));
-
-    setProcessingState('done');
-    await loadJournalData();
-  } catch (e) {
-    setProcessingState('error');
-    setStatusMessage('Eintrag konnte nicht verarbeitet werden');
-  }
-};
+  };
 
   // Entry deletion handler (kept for completeness). Currently unused by UI.
   /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -137,225 +136,76 @@ const handleQuickAdd = async () => {
       await container.applyNaturalLanguageEditUseCase.execute(
         today,
         editingEntry.id,
-        editInstruction,
+        editInstruction
       );
       setEditModalVisible(false);
-      setEditingEntry(null);
-      setEditInstruction('');
-      await loadJournalData();
-
       await loadJournalData();
     } catch (err) {
       console.error('Failed to apply edit:', err);
     }
   };
 
-  const renderJournalEntry = ({ item }: { item: FoodEntry }) => {
-    let subtitle = `${item.quantityGrams > 0 ? item.quantityGrams + 'g' : ''}`;
-    let macrosStr = `P: ${Math.round(item.protein)}g C: ${Math.round(item.carbs)}g F: ${Math.round(item.fat)}g`;
-    if (subtitle) subtitle += ' • ' + macrosStr;
-    else subtitle = macrosStr;
-
-    return (
-      <View style={styles.entryWrapper}>
-        <EntryRow
-          title={item.parsedName}
-          subtitle={subtitle}
-          kcal={Math.round(item.calories)}
-          onPress={() => handleOpenEditModal(item)}
-        />
-        <View style={styles.entryExtras}>
-          <AppText variant="meta" tone="muted">
-            P: {Math.round(item.protein)}g C: {Math.round(item.carbs)}g F: {Math.round(item.fat)}g
-          </AppText>
-        </View>
-      </View>
-    );
-  };
-
   return (
-    <ScreenContainer scroll>
-      {/* Top Section */}
-      <View style={styles.header}>
-        <AppText variant="title">Log Food</AppText>
-      </View>
-
-      {/* Dominant Interaction Area */}
-      <InputArea
-        multiline
-        placeholder="What did you eat? (e.g., '2 scrambled eggs and a slice of toast')"
-        value={rawInput}
-        onChangeText={(text) => {
-          setRawInput(text);
-          if (processingState !== 'idle') {
-            setProcessingState('idle');
-            setStatusMessage('');
-            setUnresolvedItems([]);
-            setRecognizedItems([]);
-          }
-        }}
-        editable={processingState !== 'processing'}
-      />
-
-      {/* Actions tightly bound to the input */}
-      <View style={styles.actionsRow}>
-        <View style={styles.iconRow}>
-          <IconButton icon="mic" onPress={navigateToVoice} />
-          {/* <IconButton icon="camera" /> // Removed camera for now until feature is ready */}
-        </View>
-        <PrimaryButton
-          label="Submit"
-          onPress={handleQuickAdd}
-          disabled={processingState === 'processing' || !rawInput.trim()}
+    <ScreenContainer>
+      <View style={styles.container}>
+        <InputArea
+          placeholder="Was hast du gegessen?"
+          value={rawInput}
+          onChangeText={setRawInput}
+          onSubmitEditing={handleQuickAdd}
+          multiline
+          blurOnSubmit
+          style={styles.inputArea}
+          editable={processingState !== 'processing'}
         />
+
+        <InlineStatusState state={processingState} message={statusMessage} />
+
+        {recognizedItems.length > 0 && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Erkannte Einträge</AppText>
+            <FlatList
+              data={recognizedItems}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <EntryRow
+                  name={item.name}
+                  quantity={item.quantity}
+                  unit={item.unit}
+                />
+              )}
+            />
+          </View>
+        )}
+
+        {unresolvedItems.length > 0 && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Nicht erkannte Einträge</AppText>
+            <FlatList
+              data={unresolvedItems}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => <EntryRow name={item} quantity={null} unit={null} />}
+            />
+          </View>
+        )}
+
+        <SummaryBar summary={summary} progress={progress} />
       </View>
 
-      {/* Show unresolved items if any */}
-      {unresolvedItems.length > 0 && (
-        <>
-          <AppText variant="meta" tone="danger" style={{ marginTop: 8, fontWeight: 'bold' }}>
-            Nicht erkannt:
-          </AppText>
-          {unresolvedItems.map((item, index) => (
-            <AppText key={index} variant="meta" tone="danger" style={{ fontSize: 12 }}>
-              {item} — nicht erkannt
-            </AppText>
-          ))}
-          <PrimaryButton
-            label="In Eingabe übernehmen"
-            onPress={() => setRawInput(unresolvedItems.join(' '))}
-            disabled={processingState === 'processing'}
-          />
-        </>
-      )}
-
-      {/* Show recognized items if any */}
-      {recognizedItems.length > 0 && (
-        <>
-          <AppText variant="meta" tone="primary" style={{ marginTop: 8, fontWeight: 'bold' }}>
-            Erkannt:
-          </AppText>
-          {recognizedItems.map((item, index) => (
-            <AppText key={index} variant="meta" tone="primary" style={{ fontSize: 12 }}>
-              {item.name} {item.quantity !== null ? `— ${item.quantity}` : ''} {item.unit ?? ''}
-            </AppText>
-          ))}
-        </>
-      )}
-
-      {processingState === 'processing' && statusMessage !== '' && (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: tokens.spacing.s,
-            minHeight: 24,
-          }}
-        >
-          <ActivityIndicator
-            size="small"
-            color={tokens.colors.textMuted}
-            style={{ marginRight: tokens.spacing.xs }}
-          />
-          <AppText variant="meta" tone="muted">
-            {statusMessage}
-          </AppText>
-        </View>
-      )}
-      {processingState === 'error' && statusMessage !== '' && (
-        <View style={{ alignItems: 'center', marginTop: tokens.spacing.s, minHeight: 24 }}>
-          <AppText variant="meta" tone="danger">
-            {statusMessage}
-          </AppText>
-        </View>
-      )}
-      {processingState === 'done' && statusMessage !== '' && (
-        <View style={{ alignItems: 'center', marginTop: tokens.spacing.s, minHeight: 24 }}>
-          <AppText variant="meta" tone="primary">
-            {statusMessage}
-          </AppText>
-        </View>
-      )}
-
-      {/* Spacer to push things down gracefully */}
-      <View style={styles.spacerLarge} />
-
-      {/* Daily Summary using Subdued Styling */}
-      {progress && summary && (
-        <SummaryBar>
-          <View style={styles.summaryLeft}>
-            <AppText variant="meta">Remaining</AppText>
-            <View style={styles.valGroup}>
-              <AppText
-                variant="numeric"
-                tone={progress.progress.isOverCalories ? 'danger' : 'primary'}
-              >
-                {Math.round(progress.progress.remainingCalories)}
-              </AppText>
-              <AppText variant="meta">kcal</AppText>
-            </View>
-          </View>
-
-          <View style={styles.macrosGroup}>
-            <MacroStack label="PRO" value={`${Math.round(summary.totalProtein)}g`} />
-            <MacroStack label="CARB" value={`${Math.round(summary.totalCarbs)}g`} />
-            <MacroStack label="FAT" value={`${Math.round(summary.totalFat)}g`} />
-          </View>
-        </SummaryBar>
-      )}
-
-      {/* Journal List (Hidden unless DEV flag is set during Phase 0) */}
-      {SHOW_TODAYS_ENTRIES && (
-        <View style={styles.journalListContainer}>
-          <AppText variant="meta" tone="muted" style={styles.sectionTitle}>
-            Today's Entries
-          </AppText>
-          {entries.length === 0 ? (
-            <AppText variant="body" tone="muted" style={styles.emptyText}>
-              No entries yet today.
-            </AppText>
-          ) : (
-            <FlatList
-              data={entries}
-              renderItem={renderJournalEntry}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-            />
-          )}
-        </View>
-      )}
-
-      {/* Edit Modal (adapting to clean styling) */}
-      <Modal visible={editModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      <Modal visible={editModalVisible} animationType="slide" transparent>
+        <View style={styles.modalBackground}>
           <View style={styles.modalContent}>
-            <AppText variant="title" style={styles.modalTitle}>
-              Edit Entry
-            </AppText>
-            {editingEntry && (
-              <AppText variant="body" tone="muted">
-                {editingEntry.parsedName}
-              </AppText>
-            )}
-
+            <AppText style={styles.modalTitle}>Eintrag bearbeiten</AppText>
             <InputArea
-              style={{ minHeight: 80, marginTop: tokens.spacing.m, marginBottom: tokens.spacing.l }}
-              placeholder="e.g. 'double portion', '100g only'"
+              placeholder="Bearbeitungsanweisung"
               value={editInstruction}
               onChangeText={setEditInstruction}
+              multiline
+              blurOnSubmit
+              style={styles.inputArea}
             />
-
-            <View style={styles.modalButtons}>
-              <PrimaryButton
-                label="Cancel"
-                onPress={() => setEditModalVisible(false)}
-                style={[styles.flexButton, { backgroundColor: tokens.colors.surface }] as any}
-                // A bit of a hack to pass disabled styles to look like un-accented button
-              />
-              <View style={{ width: tokens.spacing.s }} />
-              <PrimaryButton label="Apply" onPress={handleApplyEdit} style={styles.flexButton} />
-            </View>
+            <PrimaryButton title="Anwenden" onPress={handleApplyEdit} />
+            <IconButton iconName="close" onPress={() => setEditModalVisible(false)} />
           </View>
         </View>
       </Modal>
@@ -364,74 +214,43 @@ const handleQuickAdd = async () => {
 };
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: tokens.spacing.m,
-    paddingBottom: tokens.spacing.l,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: tokens.spacing.s,
-  },
-  iconRow: {
-    flexDirection: 'row',
-    gap: tokens.spacing.xs,
-  },
-  spacerLarge: {
-    height: tokens.spacing.xl,
-  },
-  summaryLeft: {
+  container: {
     flex: 1,
+    padding: 16,
+    backgroundColor: tokens.colors.background,
   },
-  valGroup: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: tokens.spacing.xs,
+  inputArea: {
+    minHeight: 120,
+    borderRadius: tokens.radius.medium,
+    borderWidth: 1,
+    borderColor: tokens.colors.divider,
+    padding: tokens.spacing.s,
+    fontSize: 16,
   },
-  macrosGroup: {
-    flexDirection: 'row',
-    gap: tokens.spacing.m,
-  },
-  journalListContainer: {
-    marginTop: tokens.spacing.xl,
+  section: {
+    marginTop: 16,
   },
   sectionTitle: {
-    marginBottom: tokens.spacing.s,
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginBottom: 8,
   },
-  emptyText: {
-    marginTop: tokens.spacing.s,
-    fontStyle: 'italic',
-  },
-  entryWrapper: {
-    marginBottom: tokens.spacing.s,
-  },
-  entryExtras: {
-    paddingTop: tokens.spacing.xs,
-    paddingBottom: tokens.spacing.s,
-  },
-
-  // Modals Overlay unified
-  modalOverlay: {
+  modalBackground: {
     flex: 1,
-    backgroundColor: 'rgba(42, 40, 37, 0.4)', // Uses dark charcoal base for overlay
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: tokens.colors.background,
-    borderTopLeftRadius: tokens.radius.medium,
-    borderTopRightRadius: tokens.radius.medium,
-    padding: tokens.spacing.m,
-    paddingBottom: tokens.spacing.xl,
+    backgroundColor: tokens.colors.surface,
+    padding: 20,
+    borderRadius: tokens.radius.medium,
+    width: '80%',
   },
   modalTitle: {
-    marginBottom: tokens.spacing.xs,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    marginTop: tokens.spacing.l,
-  },
-  flexButton: {
-    flex: 1,
+    fontWeight: 'bold',
+    fontSize: 20,
+    marginBottom: 12,
   },
 });
 

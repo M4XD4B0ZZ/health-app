@@ -22,19 +22,7 @@ export async function logResolvedNutritionInput(
       ? await resolvePreparedNutritionInputs(prepareNutritionResolverDispatch(rawInputOrDispatch))
       : await resolvePreparedNutritionInputs(rawInputOrDispatch)
 
-
-   // Use resolved results directly as persisted entries to avoid duplicate execution
-   // The resolvedResults already contain the executed and resolved nutrition data
-   const persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[] = []
-   
-   for (const resolved of resolvedResults) {
-     if (dispatch.readyRequests.some(r => r.rawName === resolved.rawInput)) {
-       // Skip zero-macro entries to avoid error states, but don't re-execute
-       if (resolved.calories && resolved.calories > 0) {
-         persistedEntries.push(resolved)
-       }
-     }
-   }
+  const persistedEntries = resolvedResults.filter((resolved) => resolved.calories > 0)
 
   return {
     dispatch,

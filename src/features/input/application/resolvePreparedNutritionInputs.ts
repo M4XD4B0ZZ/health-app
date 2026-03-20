@@ -28,7 +28,10 @@ export async function resolvePreparedNutritionInputs(
   const mockResolver = {
     resolve: async (query: any) => {
       // Mock different responses for testing
-      const queryStr = (query.raw || query.text || query.normalized || '').toLowerCase();
+      const queryStr = [query.raw, query.text, query.normalized]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .join(' ')
+        .toLowerCase();
       const isEgg = queryStr.includes('eier') || queryStr.includes('egg');
       const isToast = queryStr.includes('toast');
       const isBanana = queryStr.includes('banana');

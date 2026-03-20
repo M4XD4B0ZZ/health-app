@@ -112,12 +112,14 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
   });
 
   describe('Mit Count-Angabe (nur)', () => {
-    it('sollte FoodEntry mit quantityGrams=0 und confidence 0.35 erstellen', async () => {
+    it('sollte Count-basierte Default-Portionen in Gramm auflÃ¶sen', async () => {
       const entry = await useCase.execute('2 eggs');
 
-      expect(entry.parsedName).toBe('eggs');
-      expect(entry.quantityGrams).toBe(0); // Kein Raten!
-      expect(entry.confidenceScore).toBe(0.35);
+      expect(entry.parsedName).toBe('egg');
+      expect(entry.rawInput).toBe('2 eggs');
+      expect(entry.quantityGrams).toBe(120);
+      expect(entry.grams).toBe(120);
+      expect(entry.confidenceScore).toBe(0.5);
       expect(entry.sourceType).toBe('user');
     });
   });

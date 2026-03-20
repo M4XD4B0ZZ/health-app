@@ -63,6 +63,7 @@ export class LogFoodFromRawInputUseCase {
         console.log(`[${traceId}] START rawInput="${rawInput}"`);
       }
       const startTimeMs = Date.now();
+      const originalRawInput = rawInput;
 
       // Parse den Input
       const parsed = this.parser.parse(rawInput);
@@ -72,7 +73,6 @@ export class LogFoodFromRawInputUseCase {
       if (canonicalEntity) {
         // Ersetze parsed.name und rawInput mit kanonischem Namen für Resolver
         parsed.name = canonicalEntity.id;
-        rawInput = canonicalEntity.id;
       }
 
       // Bestimme Datum
@@ -86,6 +86,13 @@ export class LogFoodFromRawInputUseCase {
         // Gramm-Angabe vorhanden
         quantityGrams = parsed.quantityGrams;
         confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
+      } else if (
+        parsed.quantityCount !== undefined &&
+        canonicalEntity?.defaultPortion?.unit === 'piece' &&
+        canonicalEntity.defaultPortion.grams
+      ) {
+        quantityGrams = parsed.quantityCount * canonicalEntity.defaultPortion.grams;
+        confidenceScore = 0.5;
       } else if (parsed.quantityCount !== undefined) {
         // Nur Count, keine Gramm-Angabe
         // Wir raten NICHT die Gramm-Anzahl, lassen es bei 0
@@ -101,13 +108,13 @@ export class LogFoodFromRawInputUseCase {
       let resolverDecision: ResolverDecision | undefined;
       let resolverDecisionSummary: ResolverDecisionSummary | undefined;
       let calcBreakdown: NutritionTotalsBreakdown | undefined;
-      const portionParseResult = this.portionParser.parse(rawInput, {
+      const portionParseResult = this.portionParser.parse(originalRawInput, {
         hasBaseGrams: quantityGrams > 0,
       });
 
       let entry: FoodEntry = {
         id: this.idGenerator.newId(),
-        rawInput,
+        rawInput: originalRawInput,
         parsedName: parsed.name,
         quantityGrams,
         grams: quantityGrams > 0 ? quantityGrams : null,
@@ -123,7 +130,7 @@ export class LogFoodFromRawInputUseCase {
 
       // Sprint 5.3: Canonical Food Catalog Flow
       if (this.resolver) {
-        const result = await this.resolveCanonicalFood(parsed.name, rawInput, traceId);
+        const result = await this.resolveCanonicalFood(parsed.name, originalRawInput, traceId);
         resolverDecision = result.resolverDecision;
         resolverDecisionSummary = result.resolverDecisionSummary;
 

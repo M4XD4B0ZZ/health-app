@@ -6,7 +6,7 @@ import { tokens } from '../theme';
 interface EntryRowProps {
   title: string;
   subtitle?: string;
-  kcal: number;
+  kcal: number | null;
   onPress?: () => void;
   style?: ViewStyle;
 }
@@ -25,7 +25,11 @@ export const EntryRow: React.FC<EntryRowProps> = ({ title, subtitle, kcal, onPre
         )}
       </View>
       <View style={styles.right}>
-        <AppText variant="numeric">{kcal} kcal</AppText>
+        {kcal !== null ? (
+          <AppText variant="numeric">{kcal} kcal</AppText>
+        ) : (
+          <AppText variant="meta" tone="muted">nicht erkannt</AppText>
+        )}
       </View>
     </Container>
   );

@@ -61,7 +61,7 @@ const JournalScreen: React.FC = () => {
   };
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
-  const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null; kcal: number}[]>([]);
+  const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null; kcal: number | null}[]>([]);
 
   const handleQuickAdd = async () => {
     if (!rawInput.trim()) return;
@@ -78,17 +78,18 @@ const JournalScreen: React.FC = () => {
 
       setUnresolvedItems(result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName));
       
-      // Map recognized items from persisted entries to get actual kcal values
-      const recognizedWithKcal = result.dispatch.readyRequests.map((item: { rawName: string; quantity: number | null; unit: string | null }) => {
-        // Find corresponding persisted entry for this ready request
-        const persistedEntry = result.persistedEntries.find((entry: any) => entry.rawInput === item.rawName);
+      // Keep the runtime UI on the same per-item list as persistence.
+      const recognizedWithKcal = result.dispatch.readyRequests.map((item, index) => {
+        const persistedEntry = result.persistedEntries[index];
+
         return {
           name: item.rawName,
           quantity: item.quantity ?? null,
           unit: item.unit ?? null,
-          kcal: persistedEntry?.calories || 0,
+          kcal: persistedEntry?.calories ?? null, // Use null instead of 0 when no data available
         };
       });
+
       setRecognizedItems(recognizedWithKcal);
 
       if (persistedCount > 0 && unresolvedCount === 0) {
@@ -97,7 +98,7 @@ const JournalScreen: React.FC = () => {
         setRawInput('');
       } else if (persistedCount > 0 && unresolvedCount > 0) {
         setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`);
-        setProcessingState('error');
+        setProcessingState('done'); // Partial success is still success, not error
         setRawInput('');
       } else {
         setStatusMessage('Eintrag konnte nicht verarbeitet werden');
@@ -179,7 +180,7 @@ const JournalScreen: React.FC = () => {
             <FlatList
               data={unresolvedItems}
               keyExtractor={(item) => item}
-              renderItem={({ item }) => <EntryRow title={item} kcal={0} />}
+              renderItem={({ item }) => <EntryRow title={item} kcal={null} />}
             />
           </View>
         )}

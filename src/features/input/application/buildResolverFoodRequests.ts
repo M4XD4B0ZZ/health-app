@@ -11,7 +11,8 @@ export function buildResolverFoodRequests(
     const canonicalName = match?.canonicalName || null
     
     return {
-      rawName: item.name,
+      rawName: item.name.toLowerCase(), // normalized for dispatch
+      rawText: item.rawText || item.name, // original rawText for persistence, fallback to name
       query: canonicalName || item.name,
       canonicalName,
       quantity: item.quantity,

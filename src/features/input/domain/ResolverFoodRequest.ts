@@ -1,5 +1,6 @@
 export interface ResolverFoodRequest {
   rawName: string
+  rawText?: string
   query: string
   canonicalName: string | null
   quantity: number | null

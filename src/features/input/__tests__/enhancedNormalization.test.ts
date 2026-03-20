@@ -26,6 +26,16 @@ describe("Enhanced Normalization", () => {
       expect(matches[0].canonicalName).toBe("egg")
       expect(matches[0].status).toBe("matched")
     })
+
+    it("should keep singular and plural canonical mapping equivalent", () => {
+      const singular = matchFood(parseInput("Ei"))
+      const plural = matchFood(parseInput("Eier"))
+
+      expect(singular[0].canonicalName).toBe("egg")
+      expect(plural[0].canonicalName).toBe("egg")
+      expect(singular[0].status).toBe("matched")
+      expect(plural[0].status).toBe("matched")
+    })
   })
 
   describe("German number words", () => {
@@ -61,6 +71,17 @@ describe("Enhanced Normalization", () => {
       expect(matches[0].canonicalName).toBe("egg")
       expect(matches[0].status).toBe("matched")
     })
+
+    it("should parse 'vier eier' correctly", () => {
+      const parsed = parseInput("vier eier")
+      const matches = matchFood(parsed)
+
+      expect(parsed.items).toHaveLength(1)
+      expect(parsed.items[0].name).toBe("eier")
+      expect(parsed.items[0].quantity).toBe(4)
+      expect(matches[0].canonicalName).toBe("egg")
+      expect(matches[0].status).toBe("matched")
+    })
   })
 
   describe("quantity with unit", () => {
@@ -87,6 +108,18 @@ describe("Enhanced Normalization", () => {
       expect(matches[0].canonicalName).toBe("rice")
       expect(matches[0].status).toBe("matched")
     })
+
+    it("should parse '500ml Eier' correctly", () => {
+      const parsed = parseInput("500ml Eier")
+      const matches = matchFood(parsed)
+
+      expect(parsed.items).toHaveLength(1)
+      expect(parsed.items[0].name).toBe("eier")
+      expect(parsed.items[0].quantity).toBe(500)
+      expect(parsed.items[0].unit).toBe("ml")
+      expect(matches[0].canonicalName).toBe("egg")
+      expect(matches[0].status).toBe("matched")
+    })
   })
 
   describe("modifier handling", () => {
@@ -105,6 +138,16 @@ describe("Enhanced Normalization", () => {
       const parsed = parseInput("gekochte Eier")
       const matches = matchFood(parsed)
       
+      expect(parsed.items).toHaveLength(1)
+      expect(parsed.items[0].name).toBe("eier")
+      expect(matches[0].canonicalName).toBe("egg")
+      expect(matches[0].status).toBe("matched")
+    })
+
+    it("should handle 'gebratene Eier'", () => {
+      const parsed = parseInput("gebratene Eier")
+      const matches = matchFood(parsed)
+
       expect(parsed.items).toHaveLength(1)
       expect(parsed.items[0].name).toBe("eier")
       expect(matches[0].canonicalName).toBe("egg")
@@ -143,6 +186,19 @@ describe("Enhanced Normalization", () => {
   })
 
   describe("mixed canonical duplication", () => {
+    it("should handle 'Eier und egg' as two ready egg items", () => {
+      const parsed = parseInput("Eier und egg")
+      const matches = matchFood(parsed)
+
+      expect(parsed.items).toHaveLength(2)
+      expect(parsed.items[0].name).toBe("eier")
+      expect(parsed.items[1].name).toBe("egg")
+      expect(matches[0].canonicalName).toBe("egg")
+      expect(matches[1].canonicalName).toBe("egg")
+      expect(matches[0].status).toBe("matched")
+      expect(matches[1].status).toBe("matched")
+    })
+
     it("should handle '2 Eier und Egg' - both normalize to egg", () => {
       const parsed = parseInput("2 Eier und Egg")
       const matches = matchFood(parsed)
@@ -159,6 +215,18 @@ describe("Enhanced Normalization", () => {
       expect(parsed.items[1].name).toBe("egg")
       expect(matches[1].canonicalName).toBe("egg")
       expect(matches[1].status).toBe("matched")
+    })
+
+    it("should aggregate 'vier eier und egg' with quantity word plus mixed language", () => {
+      const parsed = parseInput("vier eier und egg")
+      const matches = matchFood(parsed)
+      const resolverRequests = buildResolverFoodRequests(parsed, matches)
+      const aggregated = aggregateCanonicalItems(resolverRequests)
+
+      expect(aggregated).toHaveLength(1)
+      expect(aggregated[0].canonicalName).toBe("egg")
+      expect(aggregated[0].quantity).toBe(5)
+      expect(aggregated[0].rawName).toBe("eier + egg")
     })
   })
 

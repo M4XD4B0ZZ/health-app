@@ -17,7 +17,7 @@ export function buildNutritionResolverInputs(
   const readyRequests = resolverRequests.filter(request => request.status === "ready")
   
   return readyRequests.map(request => ({
-    raw: request.rawName,
+    raw: request.rawText || request.rawName, // Use rawText to preserve original input, fallback to rawName
     normalized: request.query, // Use the query (canonical name if available, otherwise raw name)
     locale,
     traceId

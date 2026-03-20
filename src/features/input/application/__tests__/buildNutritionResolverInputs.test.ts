@@ -6,6 +6,7 @@ describe("buildNutritionResolverInputs", () => {
     const resolverRequests: ResolverFoodRequest[] = [
       {
         rawName: "eier",
+        rawText: "eier",
         query: "egg",
         canonicalName: "egg",
         quantity: 2,
@@ -14,6 +15,7 @@ describe("buildNutritionResolverInputs", () => {
       },
       {
         rawName: "toast",
+        rawText: "toast",
         query: "toast",
         canonicalName: "toast",
         quantity: null,
@@ -43,6 +45,7 @@ describe("buildNutritionResolverInputs", () => {
     const resolverRequests: ResolverFoodRequest[] = [
       {
         rawName: "eier",
+        rawText: "eier",
         query: "egg",
         canonicalName: "egg",
         quantity: 2,
@@ -51,6 +54,7 @@ describe("buildNutritionResolverInputs", () => {
       },
       {
         rawName: "mysteryfood",
+        rawText: "mysteryfood",
         query: "mysteryfood",
         canonicalName: null,
         quantity: null,
@@ -76,6 +80,7 @@ describe("buildNutritionResolverInputs", () => {
     const resolverRequests: ResolverFoodRequest[] = [
       {
         rawName: "eier",
+        rawText: "eier",
         query: "egg",
         canonicalName: "egg",
         quantity: 2,

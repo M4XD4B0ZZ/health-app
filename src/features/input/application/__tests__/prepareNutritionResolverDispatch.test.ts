@@ -84,4 +84,76 @@ describe("prepareNutritionResolverDispatch", () => {
     expect(result.nutritionResolverInputs[0].locale).toBe("de")
     expect(result.nutritionResolverInputs[0].traceId).toBeUndefined()
   })
+
+  it("should keep mixed-language egg items as two per-item resolver inputs", () => {
+    const result = prepareNutritionResolverDispatch("Eier und egg", 'de', 'mixed-trace')
+
+    expect(result.parsed.items).toHaveLength(2)
+    expect(result.readyRequests).toHaveLength(2)
+    expect(result.unresolvedRequests).toHaveLength(0)
+    expect(result.readyRequests[0].rawName).toBe("eier")
+    expect(result.readyRequests[1].rawName).toBe("egg")
+    expect(result.nutritionResolverInputs).toEqual([
+      {
+        raw: "eier",
+        normalized: "egg",
+        locale: "de",
+        traceId: "mixed-trace",
+      },
+      {
+        raw: "egg",
+        normalized: "egg",
+        locale: "de",
+        traceId: "mixed-trace",
+      },
+    ])
+  })
+
+  it("should preserve unsupported ml inputs as unresolved without resolver dispatch", () => {
+    const result = prepareNutritionResolverDispatch("500ml mysteryfood", 'de')
+
+    expect(result.parsed.items).toHaveLength(1)
+    expect(result.parsed.items[0]).toEqual({
+      name: "mysteryfood",
+      quantity: 500,
+      unit: "ml",
+    })
+    expect(result.readyRequests).toHaveLength(0)
+    expect(result.unresolvedRequests).toHaveLength(1)
+    expect(result.unresolvedRequests[0]).toEqual({
+      rawName: "mysteryfood",
+      query: "mysteryfood",
+      canonicalName: null,
+      quantity: 500,
+      unit: "ml",
+      status: "unresolved",
+    })
+    expect(result.nutritionResolverInputs).toHaveLength(0)
+  })
+
+  it("should strip cooked and fried modifiers before dispatching egg queries", () => {
+    const cooked = prepareNutritionResolverDispatch("gekochte Eier", 'de')
+    const fried = prepareNutritionResolverDispatch("vier gebratene Eier", 'de')
+
+    expect(cooked.readyRequests).toHaveLength(1)
+    expect(cooked.readyRequests[0]).toEqual({
+      rawName: "eier",
+      query: "egg",
+      canonicalName: "egg",
+      quantity: null,
+      unit: null,
+      status: "ready",
+    })
+
+    expect(fried.readyRequests).toHaveLength(1)
+    expect(fried.readyRequests[0]).toEqual({
+      rawName: "eier",
+      query: "egg",
+      canonicalName: "egg",
+      quantity: 4,
+      unit: null,
+      status: "ready",
+    })
+    expect(fried.nutritionResolverInputs[0].normalized).toBe("egg")
+  })
 })

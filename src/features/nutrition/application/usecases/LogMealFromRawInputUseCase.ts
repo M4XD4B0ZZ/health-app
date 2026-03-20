@@ -91,7 +91,7 @@ export class LogMealFromRawInputUseCase {
       }
     } else {
       // Flow B: Fallback zum Single-Item Flow
-      const entry = await this.singleItemUseCase.execute(rawInput, dateISO);
+      const entry = await this.singleItemUseCase.execute({ rawText: rawInput, rawInput }, dateISO);
       createdEntries.push(entry);
     }
 

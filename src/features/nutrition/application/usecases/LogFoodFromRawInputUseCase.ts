@@ -55,23 +55,27 @@ export class LogFoodFromRawInputUseCase {
     this.portionParser = new PortionParser();
   }
 
-  async execute(rawInput: string, dateISO?: string): Promise<FoodEntry> {
+  async execute(
+    input: { rawText: string; rawInput: string },
+    dateISO?: string
+  ): Promise<FoodEntry> {
+    const { rawText, rawInput } = input;
     const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    console.log(`[${traceId}] PROOF UseCase entered raw="${rawInput}"`);
+    console.log(`[${traceId}] PROOF UseCase entered rawText="${rawText}" rawInput="${rawInput}"`);
     try {
       if (isDebugLoggingEnabled()) {
-        console.log(`[${traceId}] START rawInput="${rawInput}"`);
+        console.log(`[${traceId}] START rawText="${rawText}" rawInput="${rawInput}"`);
       }
       const startTimeMs = Date.now();
       const originalRawInput = rawInput;
 
       // Parse den Input
-      const parsed = this.parser.parse(rawInput);
+      const parsed = this.parser.parse(rawText);
 
       // Integration: Canonical Entity Detection vor Resolver
       const canonicalEntity = detectCanonicalEntity(parsed.name);
       if (canonicalEntity) {
-        // Ersetze parsed.name und rawInput mit kanonischem Namen für Resolver
+        // Ersetze parsed.name mit kanonischem Namen für Resolver
         parsed.name = canonicalEntity.id;
       }
 
@@ -108,13 +112,13 @@ export class LogFoodFromRawInputUseCase {
       let resolverDecision: ResolverDecision | undefined;
       let resolverDecisionSummary: ResolverDecisionSummary | undefined;
       let calcBreakdown: NutritionTotalsBreakdown | undefined;
-      const portionParseResult = this.portionParser.parse(originalRawInput, {
+      const portionParseResult = this.portionParser.parse(rawText, {
         hasBaseGrams: quantityGrams > 0,
       });
 
       let entry: FoodEntry = {
         id: this.idGenerator.newId(),
-        rawInput: originalRawInput,
+        rawInput: rawInput, // preserve original per-item rawInput
         parsedName: parsed.name,
         quantityGrams,
         grams: quantityGrams > 0 ? quantityGrams : null,

@@ -101,36 +101,38 @@ function parseQuantityAndUnit(part: string): { quantity: number | null, unit: st
 }
 
 export function simpleParse(input: string) {
-  // Normalize input: replace separators with " und ", clean up spaces
-  let normalized = input
+  // Split input by " und " without normalizing to preserve raw text
+  const rawParts = input
+    .replace(/[.,!?;:]/g, '') // Remove punctuation
+    .replace(/,\s*/g, ' und ')
+    .replace(/&\s*/g, ' und ')
+    .split(/\s+und\s+/g)
+    .map(part => part.trim())
+    .filter(part => part.length > 0)
+
+  // Normalize input for parsing quantities and units
+  const normalized = input
     .toLowerCase()
-    .replace(/[.,!?;:]/g, '') // Remove punctuation first
-    .replace(/,\s*/g, " und ")
-    .replace(/&\s*/g, " und ")
-    .replace(/\s+und\s+/g, ' und ') // Normalize "und" spacing
+    .replace(/[.,!?;:]/g, '')
+    .replace(/,\s*/g, ' und ')
+    .replace(/&\s*/g, ' und ')
+    .replace(/\s+und\s+/g, ' und ')
     .replace(/\s+/g, ' ')
     .trim()
+  const normalizedParts = normalized.split(' und ')
 
-  // Split by " und " and clean up each part
-  const parts = normalized.split(' und ')
+  // Map raw and normalized parts together
+  const items = normalizedParts.map((normPart, index) => {
+    const rawText = rawParts[index] || normPart
+    const { quantity, unit, foodName } = parseQuantityAndUnit(normPart)
+    if (foodName.length === 0) return null
+    return {
+      name: foodName.toLowerCase(),
+      quantity,
+      unit,
+      rawText,
+    }
+  })
 
-  return parts
-    .map((part) => {
-      const trimmedPart = part.trim()
-      if (trimmedPart.length === 0) return null
-      
-      const { quantity, unit, foodName } = parseQuantityAndUnit(trimmedPart)
-      
-      // Skip if foodName is empty after normalization
-      if (foodName.length === 0) return null
-      
-      return {
-        name: foodName,
-        quantity,
-        unit,
-      }
-    })
-    .filter((item): item is { name: string; quantity: number | null; unit: string | null } =>
-      item !== null && item.name.length > 0
-    ) // Filter out null and empty items with type guard
+  return items.filter((item): item is { name: string; quantity: number | null; unit: string | null; rawText: string } => item !== null && item.name.length > 0)
 }

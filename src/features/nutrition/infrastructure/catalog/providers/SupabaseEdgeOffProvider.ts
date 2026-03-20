@@ -1,7 +1,90 @@
 import type { FoodSourceProvider } from './FoodSourceProvider';
-import { EdgeSearchResponse, isEdgeSearchResponse } from './EdgeSearchTypes';
+import { EdgeSearchResponse, EdgeFoodItem } from './EdgeSearchTypes';
 import { FoodCatalogError } from '../../../domain/errors/FoodCatalogError';
 import { withRetry, DEFAULT_RETRY_CONFIG, RetryConfig } from './RetryHelper';
+
+interface CanonicalFoodItem {
+  id?: string;
+  canonical_name: string;
+  brand: string | null;
+  source: 'off' | 'usda';
+  external_id: string;
+  locale: string;
+  macros_per_100g: Record<string, number>;
+  micros_per_100g?: Record<string, number> | null;
+  confidence: number;
+  last_verified_at: string;
+}
+
+interface EdgeFunctionResponse {
+  type: 'fresh' | 'cache';
+  items: CanonicalFoodItem[];
+  cacheType?: 'positive' | 'negative';
+  results?: never[];
+  [key: string]: unknown;
+}
+
+function isEdgeFunctionResponse(data: unknown): data is EdgeFunctionResponse {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const response = data as EdgeFunctionResponse;
+  
+  // Handle negative cache responses
+  if (response.cacheType === 'negative' && Array.isArray(response.results)) {
+    return true;
+  }
+
+  // Handle responses with items
+  if (!Array.isArray(response.items)) {
+    return false;
+  }
+
+  return response.items.every(isCanonicalFoodItem);
+}
+
+function isCanonicalFoodItem(item: unknown): item is CanonicalFoodItem {
+  if (typeof item !== 'object' || item === null) {
+    return false;
+  }
+
+  const food = item as CanonicalFoodItem;
+
+  return (
+    (food.source === 'off' || food.source === 'usda') &&
+    typeof food.external_id === 'string' &&
+    typeof food.canonical_name === 'string' &&
+    typeof food.macros_per_100g === 'object' &&
+    food.macros_per_100g !== null
+  );
+}
+
+function convertCanonicalToEdgeItem(item: CanonicalFoodItem): EdgeFoodItem {
+  return {
+    source: item.source,
+    sourceId: item.external_id,
+    name: item.canonical_name,
+    normalizedName: item.canonical_name.toLowerCase().trim(),
+    macrosPer100g: {
+      kcal: item.macros_per_100g.kcal || 0,
+      protein: item.macros_per_100g.protein || 0,
+      carbs: item.macros_per_100g.carbs || 0,
+      fat: item.macros_per_100g.fat || 0,
+    },
+  };
+}
+
+function convertEdgeFunctionResponse(response: EdgeFunctionResponse): EdgeSearchResponse {
+  // Handle negative cache responses
+  if (response.cacheType === 'negative') {
+    return { items: [] };
+  }
+
+  // Convert canonical items to edge items
+  const items = response.items.map(convertCanonicalToEdgeItem);
+  return { items };
+}
 
 export interface SupabaseClient {
   functions: {
@@ -60,11 +143,11 @@ export class SupabaseEdgeOffProvider implements FoodSourceProvider {
           throw FoodCatalogError.invalidPayload('OFF search returned no data');
         }
 
-        if (!isEdgeSearchResponse(data)) {
+        if (!isEdgeFunctionResponse(data)) {
           throw FoodCatalogError.invalidPayload('OFF search returned invalid response structure');
         }
 
-        return data;
+        return convertEdgeFunctionResponse(data);
       },
       this.retryConfig,
       { name: 'SupabaseEdgeOffProvider', traceId: params.traceId },

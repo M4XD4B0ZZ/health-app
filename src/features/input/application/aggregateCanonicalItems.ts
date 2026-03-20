@@ -60,9 +60,11 @@ function aggregateGroup(group: ResolverFoodRequest[], canonicalName: string): Re
   
   // Create aggregated item
   const rawNames = group.map(item => item.rawName).join(" + ")
+  const rawTexts = group.map(item => item.rawText || item.rawName).join(" + ")
   
   return [{
     rawName: rawNames,
+    rawText: rawTexts,
     query: base.query,
     canonicalName,
     quantity: totalQuantity,

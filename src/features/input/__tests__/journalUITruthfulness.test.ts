@@ -31,7 +31,7 @@ describe('Journal UI Truthfulness', () => {
     expect(result.dispatch.unresolvedRequests).toHaveLength(1);
     expect(result.persistedEntries).toHaveLength(1);
     expect(result.dispatch.readyRequests[0].rawName).toBe('eier');
-    expect(result.persistedEntries[0].rawInput).toBe('eier');
+    expect(result.persistedEntries[0].rawInput).toBe('Eier');
     expect(result.persistedEntries[0].calories).toBeGreaterThan(0);
     expect(result.dispatch.unresolvedRequests[0].rawName).toBe('mysteryfood');
   });
@@ -44,6 +44,6 @@ describe('Journal UI Truthfulness', () => {
     expect(dispatch.readyRequests).toHaveLength(2);
     expect(aggregated).toHaveLength(1);
     expect(result.persistedEntries).toHaveLength(dispatch.readyRequests.length);
-    expect(result.persistedEntries.map((entry) => entry.rawInput)).toEqual(['eier', 'egg']);
+    expect(result.persistedEntries.map((entry) => entry.rawInput)).toEqual(['2 Eier', 'Egg']);
   });
 });

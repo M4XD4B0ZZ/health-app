@@ -11,20 +11,24 @@ describe('SupabaseEdgeUsdaProvider', () => {
 
   it('invokes food-usda-search with correct parameters', async () => {
     const mockSupabase = createMockSupabase();
-    const mockData = {
+    const mockEdgeFunctionResponse = {
+      type: 'fresh',
       items: [
         {
+          canonical_name: 'Test Food',
+          brand: null,
           source: 'usda' as const,
-          sourceId: 'test-id',
-          name: 'Test Food',
-          normalizedName: 'test food',
-          macrosPer100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
+          external_id: 'test-id',
+          locale: 'en',
+          macros_per_100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
+          confidence: 0.8,
+          last_verified_at: '2024-01-01T00:00:00Z',
         },
       ],
     };
 
     (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
-      data: mockData,
+      data: mockEdgeFunctionResponse,
       error: null,
     });
 
@@ -37,7 +41,19 @@ describe('SupabaseEdgeUsdaProvider', () => {
         locale: 'en',
       },
     });
-    expect(result).toEqual(mockData);
+    
+    // Verify the result is converted to EdgeSearchResponse format
+    expect(result).toEqual({
+      items: [
+        {
+          source: 'usda',
+          sourceId: 'test-id',
+          name: 'Test Food',
+          normalizedName: 'test food',
+          macrosPer100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
+        },
+      ],
+    });
   });
 
   it('throws FoodCatalogError when edge function returns error', async () => {
@@ -99,15 +115,44 @@ describe('SupabaseEdgeUsdaProvider', () => {
     });
   });
 
-  it('returns data unchanged when structure is valid', async () => {
+  it('converts canonical items to edge format when structure is valid', async () => {
     const mockSupabase = createMockSupabase();
-    const validData = {
+    const validEdgeFunctionResponse = {
+      type: 'fresh',
       items: [
         {
+          canonical_name: 'Apple, raw',
+          brand: null,
           source: 'usda' as const,
+          external_id: 'usda_apple_167765',
+          locale: 'en',
+          macros_per_100g: {
+            kcal: 52,
+            protein: 0.3,
+            carbs: 14,
+            fat: 0.2,
+          },
+          confidence: 0.9,
+          last_verified_at: '2024-01-01T00:00:00Z',
+        },
+      ],
+    };
+
+    (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+      data: validEdgeFunctionResponse,
+      error: null,
+    });
+
+    const provider = new SupabaseEdgeUsdaProvider(mockSupabase);
+    const result = await provider.search({ query: 'apple', locale: 'en' });
+
+    expect(result).toEqual({
+      items: [
+        {
+          source: 'usda',
           sourceId: 'usda_apple_167765',
           name: 'Apple, raw',
-          normalizedName: 'apple raw',
+          normalizedName: 'apple, raw',
           macrosPer100g: {
             kcal: 52,
             protein: 0.3,
@@ -116,32 +161,45 @@ describe('SupabaseEdgeUsdaProvider', () => {
           },
         },
       ],
-    };
-
-    (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
-      data: validData,
-      error: null,
     });
-
-    const provider = new SupabaseEdgeUsdaProvider(mockSupabase);
-    const result = await provider.search({ query: 'apple', locale: 'en' });
-
-    expect(result).toEqual(validData);
   });
 
   it('handles empty items array', async () => {
     const mockSupabase = createMockSupabase();
-    const emptyData = { items: [] };
+    const emptyEdgeFunctionResponse = {
+      type: 'fresh',
+      items: []
+    };
 
     (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
-      data: emptyData,
+      data: emptyEdgeFunctionResponse,
       error: null,
     });
 
     const provider = new SupabaseEdgeUsdaProvider(mockSupabase);
     const result = await provider.search({ query: 'unknown', locale: 'en' });
 
-    expect(result).toEqual(emptyData);
+    expect(result).toEqual({ items: [] });
+    expect(result.items).toHaveLength(0);
+  });
+
+  it('handles negative cache responses', async () => {
+    const mockSupabase = createMockSupabase();
+    const negativeCacheResponse = {
+      type: 'cache',
+      cacheType: 'negative',
+      results: [],
+    };
+
+    (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+      data: negativeCacheResponse,
+      error: null,
+    });
+
+    const provider = new SupabaseEdgeUsdaProvider(mockSupabase);
+    const result = await provider.search({ query: 'unknown', locale: 'en' });
+
+    expect(result).toEqual({ items: [] });
     expect(result.items).toHaveLength(0);
   });
 });

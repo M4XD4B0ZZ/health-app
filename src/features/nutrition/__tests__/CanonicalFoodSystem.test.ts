@@ -7,6 +7,9 @@ import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMe
 import { DeterministicFoodParser } from '../infrastructure/parsers/DeterministicFoodParser';
 import { TestIdGenerator } from '../infrastructure/RandomIdGenerator';
 import { Clock } from '../application/ports/Clock';
+import { FoodCatalogResolver } from '../application/services/FoodCatalogResolver';
+import { FoodCatalogSource } from '../domain/catalog/FoodCatalogSource';
+import { ResolverDecision } from '../domain/models/ResolverDecision';
 
 describe('Canonical Food System - Sprint 5.3', () => {
   describe('normalizeText', () => {
@@ -207,11 +210,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
     let aiFoodMapper: FakeAiFoodMapper;
     let clock: Clock;
 
-import { FoodCatalogResolver } from '../../application/services/FoodCatalogResolver';
-import { FoodSearchQuery } from '../../domain/catalog/FoodCatalogSource';
-import { ResolverDecision } from '../../domain/models/ResolverDecision';
-
-  class MockFoodCatalogResolver implements FoodCatalogResolver {
+  class MockFoodCatalogResolver {
     private per100gData: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {
       'chicken breast': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
       banana: { calories: 89, protein: 1.1, carbs: 23, fat: 0.3 },

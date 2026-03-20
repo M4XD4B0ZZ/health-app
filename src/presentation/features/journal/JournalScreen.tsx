@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import { View, FlatList, StyleSheet, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { FoodEntry, DailyNutritionSummary } from '../../../features/nutrition';
@@ -13,8 +13,8 @@ import { AppText } from '../../../ui/components/AppText';
 import { InputArea } from '../../../ui/components/InputArea';
 import { IconButton } from '../../../ui/components/IconButton';
 import { PrimaryButton } from '../../../ui/components/PrimaryButton';
-import { InlineStatusState } from '../../../ui/components/InlineStatus';
-import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
+import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineStatus';
+import { SummaryBar } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 
 const JournalScreen: React.FC = () => {
@@ -23,17 +23,15 @@ const JournalScreen: React.FC = () => {
   const [processingState, setProcessingState] = useState<InlineStatusState>('idle');
   const [statusMessage, setStatusMessage] = useState('');
 
-  const [entries, setEntries] = useState<FoodEntry[]>([]);
-  const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
-  const [progress, setProgress] = useState<DailyProgressSnapshot | null>(null);
+  const [, setEntries] = useState<FoodEntry[]>([]);
+  const [, setSummary] = useState<DailyNutritionSummary | null>(null);
+  const [, setProgress] = useState<DailyProgressSnapshot | null>(null);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
-
-  const SHOW_TODAYS_ENTRIES = process.env.EXPO_PUBLIC_SHOW_TODAYS_ENTRIES === 'true';
 
   // Load data on mount and after changes
   useEffect(() => {
@@ -62,13 +60,8 @@ const JournalScreen: React.FC = () => {
     }
   };
 
-  const navigateToVoice = () => {
-    // Navigation type is untyped in this file; use any to avoid linting for generic navigation
-    (navigation as any).navigate('Voice');
-  };
-
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
-  const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null}[]>([]);
+  const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null; kcal: number}[]>([]);
 
   const handleQuickAdd = async () => {
     if (!rawInput.trim()) return;
@@ -84,11 +77,19 @@ const JournalScreen: React.FC = () => {
       const unresolvedCount = result.dispatch.unresolvedRequests.length;
 
       setUnresolvedItems(result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName));
-      setRecognizedItems(result.dispatch.readyRequests.map((item: { rawName: string; quantity: number | null; unit: string | null }) => ({
-        name: item.rawName,
-        quantity: item.quantity ?? null,
-        unit: item.unit ?? null,
-      })));
+      
+      // Map recognized items from persisted entries to get actual kcal values
+      const recognizedWithKcal = result.dispatch.readyRequests.map((item: { rawName: string; quantity: number | null; unit: string | null }) => {
+        // Find corresponding persisted entry for this ready request
+        const persistedEntry = result.persistedEntries.find((entry: any) => entry.rawInput === item.rawName);
+        return {
+          name: item.rawName,
+          quantity: item.quantity ?? null,
+          unit: item.unit ?? null,
+          kcal: persistedEntry?.calories || 0,
+        };
+      });
+      setRecognizedItems(recognizedWithKcal);
 
       if (persistedCount > 0 && unresolvedCount === 0) {
         setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
@@ -96,7 +97,7 @@ const JournalScreen: React.FC = () => {
         setRawInput('');
       } else if (persistedCount > 0 && unresolvedCount > 0) {
         setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`);
-        setProcessingState('partial');
+        setProcessingState('error');
         setRawInput('');
       } else {
         setStatusMessage('Eintrag konnte nicht verarbeitet werden');
@@ -105,7 +106,7 @@ const JournalScreen: React.FC = () => {
       }
 
       await loadJournalData();
-    } catch (e) {
+    } catch {
       setProcessingState('error');
       setStatusMessage('Eintrag konnte nicht verarbeitet werden');
     }
@@ -122,12 +123,6 @@ const JournalScreen: React.FC = () => {
     }
   };
   /* eslint-enable @typescript-eslint/no-unused-vars */
-
-  const handleOpenEditModal = (entry: FoodEntry) => {
-    setEditingEntry(entry);
-    setEditInstruction('');
-    setEditModalVisible(true);
-  };
 
   const handleApplyEdit = async () => {
     if (!editingEntry || !editInstruction.trim()) return;
@@ -159,7 +154,7 @@ const JournalScreen: React.FC = () => {
           editable={processingState !== 'processing'}
         />
 
-        <InlineStatusState state={processingState} message={statusMessage} />
+        <InlineStatus state={processingState} message={statusMessage} />
 
         {recognizedItems.length > 0 && (
           <View style={styles.section}>
@@ -169,9 +164,9 @@ const JournalScreen: React.FC = () => {
               keyExtractor={(item) => item.name}
               renderItem={({ item }) => (
                 <EntryRow
-                  name={item.name}
-                  quantity={item.quantity}
-                  unit={item.unit}
+                  title={item.name}
+                  subtitle={item.quantity !== null && item.unit ? `${item.quantity} ${item.unit}` : undefined}
+                  kcal={item.kcal}
                 />
               )}
             />
@@ -184,12 +179,14 @@ const JournalScreen: React.FC = () => {
             <FlatList
               data={unresolvedItems}
               keyExtractor={(item) => item}
-              renderItem={({ item }) => <EntryRow name={item} quantity={null} unit={null} />}
+              renderItem={({ item }) => <EntryRow title={item} kcal={0} />}
             />
           </View>
         )}
 
-        <SummaryBar summary={summary} progress={progress} />
+        <SummaryBar>
+          {/* TODO: Render summary and progress details here if needed */}
+        </SummaryBar>
       </View>
 
       <Modal visible={editModalVisible} animationType="slide" transparent>
@@ -204,8 +201,8 @@ const JournalScreen: React.FC = () => {
               blurOnSubmit
               style={styles.inputArea}
             />
-            <PrimaryButton title="Anwenden" onPress={handleApplyEdit} />
-            <IconButton iconName="close" onPress={() => setEditModalVisible(false)} />
+            <PrimaryButton label="Anwenden" onPress={handleApplyEdit} />
+            <IconButton icon="close" onPress={() => setEditModalVisible(false)} />
           </View>
         </View>
       </Modal>

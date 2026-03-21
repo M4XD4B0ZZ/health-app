@@ -21,6 +21,12 @@ import {
 import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/CanonicalFood';
+import {
+  ResolverDebugCollector,
+  SourceDebugInfo,
+  SourceCandidate,
+  CandidateEvaluation
+} from './ResolverDebugTypes';
 
 interface LookupMetrics {
   traceId?: string;
@@ -73,6 +79,17 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const normalizedQuery = normalizeText(query.normalized || query.raw);
     const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
 
+    // Initialize debug collector if tracing is enabled
+    const debugCollector = (isDebugLoggingEnabled() && traceId)
+      ? new ResolverDebugCollector(
+          query.raw,
+          normalizedQuery,
+          canonicalId || undefined,
+          query.locale || 'en',
+          traceId
+        )
+      : null;
+
     if (isDebugLoggingEnabled() && traceId) {
       const offQuery = getSourceQuery({
         sourceName: 'off',
@@ -122,6 +139,17 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         });
       }
 
+      // Debug logging for cache hit
+      if (debugCollector) {
+        debugCollector.setDecision({
+          reason: 'cache_hit',
+          status: 'rejected',
+          reasonCodes: ['NEGATIVE_CACHE_HIT'],
+        });
+        debugCollector.setTotalTime(metrics.totalElapsedMs);
+        debugCollector.logToConsole();
+      }
+
       this.logSummary(metrics);
       return this.buildDecision(normalizedQuery, []);
     }
@@ -163,6 +191,18 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
             failureCount: circuitState.failureCount,
           });
         }
+
+        // Debug logging for skipped source
+        if (debugCollector) {
+          debugCollector.addSourceResult({
+            source: source.type as 'off' | 'usda' | 'user',
+            status: 'skipped',
+            durationMs: 0,
+            candidates: [],
+            skippedReason: 'circuit_open',
+          });
+        }
+
         continue;
       }
 
@@ -208,6 +248,16 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
         this.circuitBreaker.recordSuccess(source.type);
 
+        // Debug logging for successful source result
+        if (debugCollector) {
+          debugCollector.addSourceResult({
+            source: source.type as 'off' | 'usda' | 'user',
+            status: 'success',
+            durationMs: sourceElapsedMs,
+            candidates: this.convertToSourceCandidates(rawCandidates),
+          });
+        }
+
         if (rawCandidates.length === 0) {
           continue;
         }
@@ -223,6 +273,22 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           metrics.totalElapsedMs = Date.now() - resolverStartTime;
           metrics.winnerSource = best.source;
           metrics.winnerConfidence = best.score;
+
+          // Debug logging for user source early return
+          if (debugCollector) {
+            debugCollector.addEvaluation(this.convertToEvaluations(scored));
+            debugCollector.setDecision({
+              winner: best.food.name,
+              source: best.source,
+              confidence: best.score,
+              reason: 'early_return_user',
+              status: 'accepted',
+              reasonCodes: ['USER_SOURCE_PRIORITY'],
+            });
+            debugCollector.setTotalTime(metrics.totalElapsedMs);
+            debugCollector.logToConsole();
+          }
+
           this.logSummary(metrics, best);
           return this.buildDecision(normalizedQuery, scored);
         }
@@ -245,8 +311,29 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
             metrics.totalElapsedMs = Date.now() - resolverStartTime;
             metrics.winnerSource = best.source;
             metrics.winnerConfidence = best.score;
+
+            // Debug logging for OFF early return
+            if (debugCollector) {
+              debugCollector.addEvaluation(this.convertToEvaluations(scored));
+              debugCollector.setDecision({
+                winner: best.food.name,
+                source: best.source,
+                confidence: best.score,
+                reason: 'early_return_off',
+                status: 'accepted',
+                reasonCodes: ['OFF_EARLY_RETURN'],
+              });
+              debugCollector.setTotalTime(metrics.totalElapsedMs);
+              debugCollector.logToConsole();
+            }
+
             this.logSummary(metrics, best);
             return this.buildDecision(normalizedQuery, scored);
+          } else {
+            // Debug logging for OFF early return blocked
+            if (debugCollector) {
+              debugCollector.addEvaluation(this.convertToEvaluations(scored));
+            }
           }
         }
 
@@ -260,6 +347,18 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           console.log(
             `[${traceId}] SOURCE ${source.type} ERROR ${error instanceof Error ? error.message : 'unknown'}`,
           );
+        }
+
+        // Debug logging for source error
+        if (debugCollector) {
+          const status = errorKind === 'timeout' ? 'timeout' : 'error';
+          debugCollector.addSourceResult({
+            source: source.type as 'off' | 'usda' | 'user',
+            status,
+            durationMs: sourceElapsedMs,
+            candidates: [],
+            error: error instanceof Error ? error.message : 'unknown error',
+          });
         }
 
         if (error instanceof FoodCatalogError) {
@@ -302,6 +401,22 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       const decision = this.buildDecision(normalizedQuery, scoredCandidates);
       metrics.winnerSource = decision.best?.source ?? null;
       metrics.winnerConfidence = decision.best?.score ?? null;
+
+      // Debug logging for final decision
+      if (debugCollector) {
+        debugCollector.addEvaluation(this.convertToEvaluations(scoredCandidates));
+        debugCollector.setDecision({
+          winner: decision.best?.food.name,
+          source: decision.best?.source,
+          confidence: decision.best?.score,
+          reason: 'best_score',
+          status: decision.status,
+          reasonCodes: decision.reasonCodes,
+        });
+        debugCollector.setTotalTime(Date.now() - resolverStartTime);
+        debugCollector.logToConsole();
+      }
+
       this.logSummary(metrics, decision.best);
       return decision;
     }
@@ -321,6 +436,17 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       }
     }
 
+    // Debug logging for no candidates
+    if (debugCollector) {
+      debugCollector.setDecision({
+        reason: 'no_candidates',
+        status: 'rejected',
+        reasonCodes: ['NO_CANDIDATES'],
+      });
+      debugCollector.setTotalTime(Date.now() - resolverStartTime);
+      debugCollector.logToConsole();
+    }
+
     this.logSummary(metrics);
     return this.buildDecision(normalizedQuery, []);
   }
@@ -335,6 +461,46 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       source: sourceLabel,
       food: candidate.food,
       match: candidate.match,
+    }));
+  }
+
+  private convertToSourceCandidates(candidates: FoodCandidate[]): SourceCandidate[] {
+    return candidates.map((candidate) => ({
+      name: candidate.food.name,
+      normalizedName: candidate.food.normalizedName,
+      similarity: candidate.match.similarity,
+      exact: candidate.match.exact,
+      macrosPer100g: {
+        kcal: candidate.food.macrosPer100g.kcal,
+        protein: candidate.food.macrosPer100g.protein,
+        carbs: candidate.food.macrosPer100g.carbs,
+        fat: candidate.food.macrosPer100g.fat,
+      },
+      source: candidate.food.source,
+      id: candidate.food.id,
+    }));
+  }
+
+  private convertToEvaluations(candidates: ResolvedFoodCandidate[]): CandidateEvaluation[] {
+    return candidates.map((candidate) => ({
+      name: candidate.food.name,
+      source: candidate.source,
+      similarity: candidate.breakdown.matchScore, // Use matchScore as similarity proxy
+      exact: candidate.food.normalizedName === candidate.food.name.toLowerCase(),
+      macrosPer100g: {
+        kcal: candidate.food.macrosPer100g.kcal,
+        protein: candidate.food.macrosPer100g.protein,
+        carbs: candidate.food.macrosPer100g.carbs,
+        fat: candidate.food.macrosPer100g.fat,
+      },
+      scores: {
+        match: candidate.breakdown.matchScore,
+        dataQuality: candidate.breakdown.dataQualityScore,
+        kcalConsistency: candidate.breakdown.kcalConsistencyScore,
+        sourceTrust: candidate.breakdown.sourceTrustScore,
+        final: candidate.breakdown.finalScore,
+      },
+      notes: candidate.breakdown.notes,
     }));
   }
 

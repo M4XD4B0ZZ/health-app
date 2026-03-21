@@ -273,7 +273,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
   });
 
   it('sollte deterministischen Catalog-Hit verwenden', async () => {
-    const entry = await useCase.execute('100g banana');
+    const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
     expect(entry.parsedName).toBe('banana');
     expect(entry.quantityGrams).toBe(100);
@@ -284,7 +284,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
   });
 
   it('sollte Alias nach deterministischem Match speichern', async () => {
-    await useCase.execute('100g banana');
+    await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
     // Alias sollte gespeichert sein
     const canonicalId = await aliasRepo.getCanonicalId('banana');
@@ -293,10 +293,10 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
   it('sollte gespeicherten Alias verwenden (Cache-Hit)', async () => {
     // Ersten Call: Alias wird gespeichert
-    await useCase.execute('100g banana');
+    await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
     // Zweiten Call: Sollte Cache verwenden
-    const entry = await useCase.execute('100g banana');
+    const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
     expect(entry.sourceType).toBe('cache');
     expect(entry.confidenceScore).toBeGreaterThanOrEqual(0.7);
@@ -304,7 +304,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
   it('sollte "banane" über Singular-Heuristik matchen (nicht AI)', async () => {
     // "banane" wird jetzt über Singular-Heuristik zu "banan" -> "banana" gematcht
-    const entry = await useCase.execute('200g banane');
+    const entry = await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
 
     expect(entry.parsedName).toBe('banane');
     expect(entry.quantityGrams).toBe(200);
@@ -313,7 +313,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
   });
 
     it('sollte Alias nach deterministischem Singular-Match speichern', async () => {
-      await useCase.execute('200g banane');
+      await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
 
       // Alias sollte gespeichert sein
       const canonicalId = await aliasRepo.getCanonicalId('banane');
@@ -322,17 +322,17 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     it('sollte nach Singular-Match bei zweitem Call Cache verwenden', async () => {
       // Erster Call: Singular-Heuristik Match
-      const entry1 = await useCase.execute('200g banane');
+      const entry1 = await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
       expect(entry1.sourceType).toBe('generic');
 
       // Zweiter Call: Cache Hit
-      const entry2 = await useCase.execute('200g banane');
+      const entry2 = await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
       expect(entry2.sourceType).toBe('cache');
       expect(entry2.confidenceScore).toBeGreaterThanOrEqual(0.75);
     });
 
   it('sollte Macros deterministisch aus Canonical Food berechnen', async () => {
-    const entry = await useCase.execute('250g chicken breast');
+    const entry = await useCase.execute({ rawText: '250g chicken breast', rawInput: '250g chicken breast' });
 
     // Chicken Breast: 165 cal, 31g protein per 100g
     expect(entry.calories).toBeCloseTo(412.5, 1); // 250 * 165/100
@@ -342,7 +342,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
   });
 
   it('sollte ohne Gramm-Angabe keine Macros berechnen', async () => {
-    const entry = await useCase.execute('banana');
+    const entry = await useCase.execute({ rawText: 'banana', rawInput: 'banana' });
 
     expect(entry.quantityGrams).toBe(0);
     expect(entry.calories).toBe(0);
@@ -351,7 +351,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
   });
 
   it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {
-    const entry = await useCase.execute('150g hähnchen');
+    const entry = await useCase.execute({ rawText: '150g hähnchen', rawInput: '150g hähnchen' });
 
     // "hähnchen" wird normalisiert und via AI zu "chicken breast" gemappt
     expect(entry.quantityGrams).toBe(150);

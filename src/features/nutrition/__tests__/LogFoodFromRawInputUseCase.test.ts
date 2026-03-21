@@ -85,7 +85,7 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
   describe('Mit Gramm-Angabe', () => {
     it('sollte FoodEntry mit quantityGrams und confidence 0.5 erstellen', async () => {
-      const entry = await useCase.execute('250g chicken breast');
+      const entry = await useCase.execute({ rawText: '250g chicken breast', rawInput: '250g chicken breast' });
 
       expect(entry.id).toBe('test-id-0');
       expect(entry.rawInput).toBe('250g chicken breast');
@@ -103,7 +103,7 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
     });
 
     it('sollte Entry im Repository speichern', async () => {
-      await useCase.execute('200g skyr');
+      await useCase.execute({ rawText: '200g skyr', rawInput: '200g skyr' });
 
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(1);
@@ -113,7 +113,7 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
   describe('Mit Count-Angabe (nur)', () => {
     it('sollte Count-basierte Default-Portionen in Gramm auflÃ¶sen', async () => {
-      const entry = await useCase.execute('2 eggs');
+      const entry = await useCase.execute({ rawText: '2 eggs', rawInput: '2 eggs' });
 
       expect(entry.parsedName).toBe('egg');
       expect(entry.rawInput).toBe('2 eggs');
@@ -126,7 +126,7 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
   describe('Ohne Mengenangabe', () => {
     it('sollte FoodEntry mit quantityGrams=0 und confidence 0.35 erstellen', async () => {
-      const entry = await useCase.execute('banana');
+      const entry = await useCase.execute({ rawText: 'banana', rawInput: 'banana' });
 
       expect(entry.parsedName).toBe('banana');
       expect(entry.quantityGrams).toBe(0);
@@ -137,7 +137,7 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
   describe('Mit optionalem Datum', () => {
     it('sollte dateISO für Speicherung verwenden', async () => {
-      await useCase.execute('100g oats', '2026-02-10');
+      await useCase.execute({ rawText: '100g oats', rawInput: '100g oats' }, '2026-02-10');
 
       const entries = await repository.listEntriesForDate('2026-02-10');
       expect(entries).toHaveLength(1);
@@ -145,7 +145,7 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
     });
 
     it('sollte heutiges Datum verwenden wenn nicht angegeben', async () => {
-      await useCase.execute('100g oats');
+      await useCase.execute({ rawText: '100g oats', rawInput: '100g oats' });
 
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(1);
@@ -154,9 +154,9 @@ import { ResolverDecision } from '../../domain/models/ResolverDecision';
 
   describe('Mehrere Einträge', () => {
     it('sollte mehrere Einträge für dasselbe Datum speichern', async () => {
-      await useCase.execute('200g chicken');
-      await useCase.execute('150g rice');
-      await useCase.execute('banana');
+      await useCase.execute({ rawText: '200g chicken', rawInput: '200g chicken' });
+      await useCase.execute({ rawText: '150g rice', rawInput: '150g rice' });
+      await useCase.execute({ rawText: 'banana', rawInput: 'banana' });
 
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(3);

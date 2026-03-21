@@ -52,7 +52,7 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
     });
 
     it('should enrich macros immediately for known food with grams', async () => {
-      const entry = await useCase.execute('150g banana');
+      const entry = await useCase.execute({ rawText: '150g banana', rawInput: '150g banana' });
 
       // Verify: Macros calculated (150g banana: per 100g = 89 cal, 1.1 protein, 22.8 carbs, 0.3 fat)
       expect(entry.parsedName).toBe('banana');
@@ -66,7 +66,7 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
     });
 
     it('should not enrich if food is unknown', async () => {
-      const entry = await useCase.execute('100g unknown food');
+      const entry = await useCase.execute({ rawText: '100g unknown food', rawInput: '100g unknown food' });
 
       // Verify: No enrichment
       expect(entry.parsedName).toBe('unknown food');
@@ -80,7 +80,7 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
     });
 
     it('should not enrich if no grams specified', async () => {
-      const entry = await useCase.execute('banana');
+      const entry = await useCase.execute({ rawText: 'banana', rawInput: 'banana' });
 
       // Verify: No enrichment (no grams)
       expect(entry.parsedName).toBe('banana');
@@ -92,7 +92,7 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
     });
 
     it('should persist enriched entry to repository', async () => {
-      await useCase.execute('200g skyr', '2024-01-15');
+      await useCase.execute({ rawText: '200g skyr', rawInput: '200g skyr' }, '2024-01-15');
 
       const entries = await repository.listEntriesForDate('2024-01-15');
       expect(entries).toHaveLength(1);
@@ -118,7 +118,7 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
     });
 
     it('should not enrich macros even for known food', async () => {
-      const entry = await useCase.execute('150g banana');
+      const entry = await useCase.execute({ rawText: '150g banana', rawInput: '150g banana' });
 
       // Verify: No enrichment (Sprint 1 behavior)
       expect(entry.parsedName).toBe('banana');

@@ -145,12 +145,13 @@ export class MockResolverBuilder {
       .withAcceptedFood('oats', 'Oats', { kcal: 389, protein: 16.9, carbs: 66.3, fat: 6.9 })
       .withAcceptedFood('100g oats', 'Oats', { kcal: 389, protein: 16.9, carbs: 66.3, fat: 6.9 })
       
-      // Nuggets variations
+      // Nuggets variations (including AI-generated forms)
       .withAcceptedFood('nuggets', 'Chicken Nuggets', { kcal: 296, protein: 15.7, carbs: 16.8, fat: 18.1 })
       .withAcceptedFood('20er nuggets', 'Chicken Nuggets', { kcal: 296, protein: 15.7, carbs: 16.8, fat: 18.1 })
       .withAcceptedFood('20x nuggets', 'Chicken Nuggets', { kcal: 296, protein: 15.7, carbs: 16.8, fat: 18.1 })
+      .withAcceptedFood('20 x nuggets', 'Chicken Nuggets', { kcal: 296, protein: 15.7, carbs: 16.8, fat: 18.1 })
       
-      // Fast food variations
+      // Fast food variations (including AI-generated forms)
       .withAcceptedFood('burger', 'Burger', { kcal: 295, protein: 17, carbs: 24, fat: 14 })
       .withAcceptedFood('burger mit cola', 'Burger', { kcal: 295, protein: 17, carbs: 24, fat: 14 })
       .withAcceptedFood('burger mitcola', 'Burger', { kcal: 295, protein: 17, carbs: 24, fat: 14 })
@@ -159,10 +160,11 @@ export class MockResolverBuilder {
       .withAcceptedFood('cola', 'Cola', { kcal: 42, protein: 0, carbs: 10.6, fat: 0 })
       .withAcceptedFood('pommes', 'French Fries', { kcal: 365, protein: 4, carbs: 63, fat: 17 })
       
-      // Additional foods that appear in failing tests
-      .withAcceptedFood('unknown food', 'Generic Food', { kcal: 100, protein: 5, carbs: 10, fat: 2 })
-       .withAcceptedFood('mysteryfood', 'Mystery Food', { kcal: 100, protein: 5, carbs: 10, fat: 2 })
-      .withAcceptedFood('mysteryfood', 'Mystery Food', { kcal: 100, protein: 5, carbs: 10, fat: 2 })
+      // Zero-Macro test cases - these should be rejected for testing failure paths
+      .withRejectedFood('unknown food', ['MOCK_NO_MATCH'])
+      .withRejectedFood('100g unknown food', ['MOCK_NO_MATCH'])
+      .withRejectedFood('banana', ['MOCK_NO_GRAMS']) // banana without grams should fail for specific tests
+      .withRejectedFood('mysteryfood', ['MOCK_NO_MATCH'])
       .withAcceptedFood('toast', 'Toast', { kcal: 265, protein: 9, carbs: 49, fat: 3.2 })
       
       // Apple variations (for CanonicalFoodSystem tests)
@@ -177,7 +179,6 @@ export class MockResolverBuilder {
       .withAcceptedFood('eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
       
       // Failure cases - these should be rejected for testing failure paths
-      .withRejectedFood('100g unknown food', ['MOCK_UNKNOWN_FOOD'])
       
       .withDefaultResponse({
         normalizedQuery: 'unknown',

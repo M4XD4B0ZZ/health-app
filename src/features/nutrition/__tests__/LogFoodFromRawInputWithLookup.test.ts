@@ -40,6 +40,12 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
     mockResolver = MockResolverBuilder.createHappyPathResolver();
   });
 
+  // Create a minimal mock food catalog to enable resolver usage
+  const mockFoodCatalog = {
+    getById: async () => null,
+    searchByName: async () => null,
+  };
+
   describe('with NutritionLookup provided', () => {
     beforeEach(() => {
       useCase = new LogFoodFromRawInputUseCase(
@@ -47,11 +53,11 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
         clock,
         idGen,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
-        lookup, // NutritionLookup provided (but resolver has priority)
-        MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
+        lookup, // NutritionLookup provided
+        MockResolverBuilder.createHappyPathResolver(), // Resolver with realistic macros
       );
     });
 

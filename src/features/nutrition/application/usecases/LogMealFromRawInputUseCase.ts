@@ -280,7 +280,37 @@ export class LogMealFromRawInputUseCase {
       }
     }
 
-    // Step 3: Deterministic catalog search
+    // Step 3: Use Resolver if available (Sprint 5.3)
+    if (this.resolver) {
+      const resolverResult = await this.resolver.resolve({
+        raw: rawInput,
+        normalized,
+        locale: 'de',
+      });
+
+      if (resolverResult.status === 'accepted' && resolverResult.best) {
+        // Step 4: Save alias for future lookups
+        if (this.aliasRepository) {
+          await this.aliasRepository.saveAlias(normalized, resolverResult.best.food.id);
+        }
+
+        return {
+          canonicalFood: {
+            per100g: {
+              calories: resolverResult.best.food.macrosPer100g.kcal,
+              protein: resolverResult.best.food.macrosPer100g.protein,
+              carbs: resolverResult.best.food.macrosPer100g.carbs,
+              fat: resolverResult.best.food.macrosPer100g.fat,
+            },
+          },
+          sourceType: 'generic',
+          confidence: resolverResult.best.score,
+          explanation: `Resolver match: ${resolverResult.best.food.name}`,
+        };
+      }
+    }
+
+    // Step 3b: Fallback to deterministic catalog search
     const searchResult = await this.foodCatalog.searchByName(normalized);
     if (searchResult && searchResult.confidence >= 0.7) {
       // Step 4: Save alias for future lookups

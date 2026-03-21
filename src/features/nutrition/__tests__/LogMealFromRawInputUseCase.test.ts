@@ -79,7 +79,7 @@ describe('LogMealFromRawInputUseCase', () => {
 
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(1);
-      expect(entries[0].parsedName).toBe('20er nuggets');
+      expect(entries[0].parsedName).toBe('nuggets'); // AI-Parser normalisiert zu "nuggets"
       expect(entries[0].rawInput).toBe('20er nuggets');
       expect(entries[0].calories).toBeGreaterThan(0); // Resolver liefert Makros
       expect(entries[0].sourceType).toBe('generic'); // Resolver-Hit
@@ -234,7 +234,7 @@ describe('LogMealFromRawInputUseCase', () => {
   });
 
   describe('sourceType', () => {
-    it('sollte sourceType "ai" für AI-geparste Items ohne Lookup setzen', async () => {
+    it('sollte sourceType "generic" setzen wenn Resolver erfolgreich ist', async () => {
       useCase = new LogMealFromRawInputUseCase(
         repository,
         clock,
@@ -253,9 +253,7 @@ describe('LogMealFromRawInputUseCase', () => {
       const entries = await repository.listEntriesForDate('2026-02-15');
 
       entries.forEach((entry: FoodEntry) => {
-        // Ohne Lookup bleibt es "ai" (kein Gramm für Lookup außer Cola)
-        // Cola hat 400g, aber ohne NutritionLookup bleibt sourceType "ai"
-        expect(entry.sourceType).toBe('ai');
+        expect(entry.sourceType).toBe('generic');
       });
     });
   });

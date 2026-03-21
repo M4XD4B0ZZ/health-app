@@ -312,7 +312,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
     // "hähnchen" wird normalisiert und via AI zu "chicken breast" gemappt
     expect(entry.quantityGrams).toBe(150);
     expect(entry.calories).toBeCloseTo(247.5, 1); // 150 * 165/100
-    expect(entry.sourceType).toBe('ai');
+    expect(entry.sourceType).toBe('generic');
   });
   });
 });

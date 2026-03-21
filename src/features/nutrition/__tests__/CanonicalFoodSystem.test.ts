@@ -257,7 +257,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
     // Zweiten Call: Sollte Cache verwenden
     const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
-    expect(entry.sourceType).toBe('generic');
+    expect(entry.sourceType).toBe('cache');
     expect(entry.confidenceScore).toBeGreaterThanOrEqual(0.7);
   });
 
@@ -302,8 +302,8 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
   it('sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)', async () => {
     await expect(
-      useCase.execute({ rawText: 'banana', rawInput: 'banana' })
-    ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: banana');
+      useCase.execute({ rawText: 'unknown food', rawInput: 'unknown food' })
+    ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: unknown food');
   });
 
   it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {

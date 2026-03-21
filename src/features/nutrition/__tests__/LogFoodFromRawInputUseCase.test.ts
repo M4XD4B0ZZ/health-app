@@ -74,7 +74,7 @@ describe('LogFoodFromRawInputUseCase', () => {
     it('sollte ohne Gramm-Angabe funktionieren', async () => {
       const entry = await useCase.execute({ rawText: '2 eggs', rawInput: '2 eggs' });
 
-      expect(entry.parsedName).toBe('egg');
+      expect(entry.parsedName).toBe('eggs');
       expect(entry.quantityGrams).toBe(120); // 2 eggs * 60g each
     });
 

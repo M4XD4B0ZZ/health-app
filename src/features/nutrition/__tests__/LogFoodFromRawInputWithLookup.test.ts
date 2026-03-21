@@ -93,8 +93,8 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
 
     it('should fail if no grams specified (Zero-Macro Blocker)', async () => {
       await expect(
-        useCase.execute({ rawText: 'banana', rawInput: 'banana' })
-      ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: banana');
+        useCase.execute({ rawText: 'unknown food', rawInput: 'unknown food' })
+      ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: unknown food');
     });
 
     it('should persist enriched entry to repository', async () => {

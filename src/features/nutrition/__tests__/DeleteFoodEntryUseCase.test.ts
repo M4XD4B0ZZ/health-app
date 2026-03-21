@@ -71,7 +71,7 @@ describe('DeleteFoodEntryUseCase', () => {
   it('sollte nur den spezifischen Eintrag löschen', async () => {
     const entry1 = await logFoodUseCase.execute({ rawText: '200g chicken', rawInput: '200g chicken' });
     const entry2 = await logFoodUseCase.execute({ rawText: '150g rice', rawInput: '150g rice' });
-    const entry3 = await logFoodUseCase.execute({ rawText: 'banana', rawInput: 'banana' });
+    const entry3 = await logFoodUseCase.execute({ rawText: '100g oats', rawInput: '100g oats' });
 
     await deleteUseCase.execute(entry2.id);
 

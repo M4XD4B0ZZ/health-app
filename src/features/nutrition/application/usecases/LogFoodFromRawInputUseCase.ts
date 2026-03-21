@@ -349,7 +349,23 @@ export class LogFoodFromRawInputUseCase {
       console.log(`[${traceId}] NORMALIZED input="${normalized}"`);
     }
 
-    // Step 0: Try multi-source resolver first (if available)
+    // Step 2: Alias lookup FIRST (before resolver) - this is the cache hit path
+    if (this.aliasRepository) {
+      const cachedCanonicalId = await this.aliasRepository.getCanonicalId(aliasKey);
+      if (cachedCanonicalId) {
+        const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
+        if (canonicalFood) {
+          return {
+            canonicalFood,
+            sourceType: 'cache',
+            confidence: 0.8,
+            explanation: 'Cached alias mapping',
+          };
+        }
+      }
+    }
+
+    // Step 0: Try multi-source resolver (if available)
     if (this.resolver) {
       console.log(`[${traceId}] PROOF ABOUT_TO_RESOLVE`);
       const decision = await this.resolver.resolve(
@@ -400,22 +416,6 @@ export class LogFoodFromRawInputUseCase {
         resolverDecision: decision,
         resolverDecisionSummary: summary,
       };
-    }
-
-    // Step 2: Alias lookup
-    if (this.aliasRepository) {
-      const cachedCanonicalId = await this.aliasRepository.getCanonicalId(aliasKey);
-      if (cachedCanonicalId) {
-        const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
-        if (canonicalFood) {
-          return {
-            canonicalFood,
-            sourceType: 'cache',
-            confidence: 0.8,
-            explanation: 'Cached alias mapping',
-          };
-        }
-      }
     }
 
     // Step 3: Deterministic catalog search

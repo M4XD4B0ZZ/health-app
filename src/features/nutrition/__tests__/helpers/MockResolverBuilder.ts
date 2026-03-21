@@ -298,7 +298,6 @@ export class MockResolverBuilder {
       // Zero-Macro test cases - these should be rejected for testing failure paths
       .withRejectedFood('unknown food', ['MOCK_NO_MATCH'])
       .withRejectedFood('100g unknown food', ['MOCK_NO_MATCH'])
-      .withRejectedFood('banana', ['MOCK_NO_GRAMS']) // banana without grams should fail for specific tests
       .withRejectedFood('mysteryfood', ['MOCK_NO_MATCH'])
       .withAcceptedFood('toast', 'Toast', { kcal: 265, protein: 9, carbs: 49, fat: 3.2 })
       

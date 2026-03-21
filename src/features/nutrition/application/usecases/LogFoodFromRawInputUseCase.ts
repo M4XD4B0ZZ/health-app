@@ -1,5 +1,6 @@
 import { FoodEntry } from '../../domain/models/NutritionTypes';
 import { detectCanonicalEntity } from '../../domain/detectCanonicalEntity';
+import { resolvePortionGrams } from '../../domain/portion/resolvePortionGrams';
 import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 import { Clock } from '../ports/Clock';
 import { IdGenerator } from '../ports/IdGenerator';
@@ -139,10 +140,50 @@ export class LogFoodFromRawInputUseCase {
         resolverDecisionSummary = result.resolverDecisionSummary;
 
         if (result.canonicalFood) {
-          // Fallback to 100g if no explicit quantity was parsed
-          const targetGrams = quantityGrams > 0 ? quantityGrams : 100;
+          // Use portion-aware logic for unit-based foods like "egg"
+          const targetGrams = resolvePortionGrams(parsed.name, quantityGrams, parsed.quantityCount);
           const computed = computeTotals(result.canonicalFood.per100g, targetGrams, 1);
           calcBreakdown = computed;
+
+          if (isDebugLoggingEnabled() && traceId) {
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] rawInput="${rawInput}" parsedName="${parsed.name}" normalizedQuery="${parsed.name}"`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] resolverWinner="canonicalFood" source="${result.sourceType}"`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] macrosPer100g=${JSON.stringify(result.canonicalFood.per100g)}`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] quantityCount=${parsed.quantityCount} quantityGrams=${quantityGrams}`);
+
+            // Unit-based food logging
+            if (quantityGrams <= 0) {
+              const canonicalEntity = detectCanonicalEntity(parsed.name);
+              const defaultPortionGrams = canonicalEntity?.defaultPortion?.grams ?? null;
+              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] unitBasedFood defaultPortionGrams=${defaultPortionGrams} reason="explicit grams not provided"`);
+            } else {
+              // Weight-based input logging
+              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] weightBasedInput explicitGrams=${quantityGrams} reason="explicit grams prioritized"`);
+            }
+
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalTargetGrams=${targetGrams}`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalKcal=${computed.totals.calories}`);
+          }
+
+          if (isDebugLoggingEnabled() && traceId) {
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] rawInput="${rawInput}" parsedName="${parsed.name}" normalizedQuery="${parsed.name}"`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] resolverWinner="canonicalFood" source="${result.sourceType}"`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] macrosPer100g=${JSON.stringify(result.canonicalFood.per100g)}`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] quantityCount=${parsed.quantityCount} quantityGrams=${quantityGrams}`);
+
+            // Unit-based food logging
+            if (quantityGrams <= 0) {
+              const canonicalEntity = detectCanonicalEntity(parsed.name);
+              const defaultPortionGrams = canonicalEntity?.defaultPortion?.grams ?? null;
+              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] unitBasedFood defaultPortionGrams=${defaultPortionGrams} reason="explicit grams not provided"`);
+            } else {
+              // Weight-based input logging
+              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] weightBasedInput explicitGrams=${quantityGrams} reason="explicit grams prioritized"`);
+            }
+
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalTargetGrams=${targetGrams}`);
+            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalKcal=${computed.totals.calories}`);
+          }
 
           // Update entry with enriched data
           entry = {

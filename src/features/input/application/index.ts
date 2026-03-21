@@ -1,1 +1,1 @@
-export * from './parseInput'
+export * from './parseInput';

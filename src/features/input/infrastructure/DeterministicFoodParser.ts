@@ -1,5 +1,16 @@
 export class DeterministicFoodParser {
-  germanNumberWords = ['eins', 'zwei', 'drei', 'vier', 'fünf', 'sechs', 'sieben', 'acht', 'neun', 'zehn'];
+  germanNumberWords = [
+    'eins',
+    'zwei',
+    'drei',
+    'vier',
+    'fünf',
+    'sechs',
+    'sieben',
+    'acht',
+    'neun',
+    'zehn',
+  ];
 
   matchGermanNumberWord(word: string): number | null {
     const index = this.germanNumberWords.indexOf(word.toLowerCase());

@@ -1,4 +1,6 @@
-// Placeholder for FoodCandidate domain model
 export interface FoodCandidate {
-  // Define properties as needed
+  name: string
+  normalizedName: string
+  confidence: number
+  source: 'alias' | 'deterministic' | 'resolver'
 }

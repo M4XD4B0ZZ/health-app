@@ -471,7 +471,8 @@ const container = new Container();
 export function getRegisteredResolverSourcesForDiagnostics(): ResolverSourceLabel[] {
   try {
     return container.getRegisteredResolverSourceLabelsForDiagnostics();
-  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (_error) {
     // In isolated test environments, return empty array as fallback
     return [];
   }

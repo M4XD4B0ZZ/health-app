@@ -1,79 +1,92 @@
-import React, { useState } from "react"
-import { View, TextInput, Button, Text, ActivityIndicator } from "react-native"
-import { logResolvedNutritionInput } from "../application/logResolvedNutritionInput"
+import React, { useState } from 'react';
+import { View, TextInput, Button, Text, ActivityIndicator } from 'react-native';
+import { logResolvedNutritionInput } from '../application/logResolvedNutritionInput';
 
 export const InputBar: React.FC = () => {
-  const [value, setValue] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("")
-  const [errorMessage, setErrorMessage] = useState("")
-  const [unresolvedCount, setUnresolvedCount] = useState(0)
-  const [unresolvedItems, setUnresolvedItems] = useState<string[]>([])
-  const [recognizedItems, setRecognizedItems] = useState<{name: string; quantity: number | null; unit: string | null}[]>([])
+  const [value, setValue] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const [unresolvedItems, setUnresolvedItems] = useState<string[]>([]);
+  const [recognizedItems, setRecognizedItems] = useState<
+    { name: string; quantity: number | null; unit: string | null }[]
+  >([]);
 
   const handleSubmit = async () => {
-  if (!value.trim()) return
-  setLoading(true)
-  setSuccessMessage("")
-  setErrorMessage("")
-  setUnresolvedCount(0)
-  setUnresolvedItems([])
+    if (!value.trim()) return;
+    setLoading(true);
+    setSuccessMessage('');
+    setErrorMessage('');
 
-  try {
-  const result = await logResolvedNutritionInput(value)
-      const persistedCount = result.persistedEntries.length
-      const unresolved = result.dispatch.unresolvedRequests.length
+    setUnresolvedItems([]);
+
+    try {
+      const result = await logResolvedNutritionInput(value);
+      const persistedCount = result.persistedEntries.length;
+      const unresolved = result.dispatch.unresolvedRequests.length;
 
       if (persistedCount > 0) {
-    if (unresolved > 0) {
-      setSuccessMessage(`${persistedCount} Eintrag${persistedCount > 1 ? "e" : ""} gespeichert, ${unresolved} nicht erkannt`)
-    } else {
-      setSuccessMessage(`${persistedCount} Eintrag${persistedCount > 1 ? "e" : ""} gespeichert`)
-    }
-    setValue("")
+        if (unresolved > 0) {
+          setSuccessMessage(
+            `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolved} nicht erkannt`,
+          );
+        } else {
+          setSuccessMessage(
+            `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`,
+          );
+        }
+        setValue('');
       } else {
-    setErrorMessage("Eintrag konnte nicht verarbeitet werden")
+        setErrorMessage('Eintrag konnte nicht verarbeitet werden');
       }
 
       // Set unresolved items for rendering
-      setUnresolvedItems(result.dispatch.unresolvedRequests.map(req => req.rawName))
+      setUnresolvedItems(result.dispatch.unresolvedRequests.map((req) => req.rawName));
       // Set recognized items from parsed input
-      setRecognizedItems(result.dispatch.parsed.items)
+      setRecognizedItems(result.dispatch.parsed.items);
 
       // Dish detection hint
-      if (result.dispatch.interpretation.type === "dish") {
-      const dishName = result.dispatch.interpretation.summary === "dish_detected" ? value.trim() : "Gericht erkannt"
-      setSuccessMessage(`Gericht erkannt: ${dishName}`)
+      if (result.dispatch.interpretation.type === 'dish') {
+        const dishName =
+          result.dispatch.interpretation.summary === 'dish_detected'
+            ? value.trim()
+            : 'Gericht erkannt';
+        setSuccessMessage(`Gericht erkannt: ${dishName}`);
       }
-    } catch (e) {
-      setErrorMessage("Eintrag konnte nicht verarbeitet werden")
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_e) {
+      setErrorMessage('Eintrag konnte nicht verarbeitet werden');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleChange = (text: string) => {
-    setValue(text)
+    setValue(text);
     if (successMessage || errorMessage) {
-      setSuccessMessage("")
-      setErrorMessage("")
-      setUnresolvedCount(0)
+      setSuccessMessage('');
+      setErrorMessage('');
     }
-  }
+  };
 
-  const handleEditRecognizedItem = (item: {name: string; quantity: number | null; unit: string | null}) => {
-    let text = ""
+  const handleEditRecognizedItem = (item: {
+    name: string;
+    quantity: number | null;
+    unit: string | null;
+  }) => {
+    let text = '';
     if (item.quantity !== null) {
-      text += item.quantity.toString()
+      text += item.quantity.toString();
       if (item.unit) {
-        text += item.unit + " "
+        text += item.unit + ' ';
       } else {
-        text += " "
+        text += ' ';
       }
     }
-    text += item.name
-    setValue(text)
-  }
+    text += item.name;
+    setValue(text);
+  };
 
   return (
     <View>
@@ -83,16 +96,16 @@ export const InputBar: React.FC = () => {
         onChangeText={handleChange}
         editable={!loading}
       />
-      <Button title={loading ? "Lädt..." : "Loggen"} onPress={handleSubmit} disabled={loading} />
+      <Button title={loading ? 'Lädt...' : 'Loggen'} onPress={handleSubmit} disabled={loading} />
 
       {loading && <ActivityIndicator size="small" style={{ marginTop: 8 }} />}
 
       {!!successMessage && !loading && (
-        <Text style={{ color: "green", marginTop: 8 }}>{successMessage}</Text>
+        <Text style={{ color: 'green', marginTop: 8 }}>{successMessage}</Text>
       )}
 
       {!!errorMessage && !loading && (
-        <Text style={{ color: "red", marginTop: 8 }}>{errorMessage}</Text>
+        <Text style={{ color: 'red', marginTop: 8 }}>{errorMessage}</Text>
       )}
 
       {/* Recognized items list with quantity and unit */}
@@ -131,5 +144,5 @@ export const InputBar: React.FC = () => {
         </>
       )}
     </View>
-  )
-}
+  );
+};

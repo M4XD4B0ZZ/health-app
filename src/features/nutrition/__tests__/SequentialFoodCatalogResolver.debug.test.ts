@@ -20,7 +20,9 @@ describe('SequentialFoodCatalogResolver - Debug System', () => {
     },
   };
 
-  const createCandidate = (overrides: Partial<FoodCandidate['food']> & { similarity?: number; exact?: boolean }): FoodCandidate => ({
+  const createCandidate = (
+    overrides: Partial<FoodCandidate['food']> & { similarity?: number; exact?: boolean },
+  ): FoodCandidate => ({
     food: {
       id: overrides.id || 'test-id',
       name: overrides.name || 'Test Food',
@@ -89,8 +91,8 @@ describe('SequentialFoodCatalogResolver - Debug System', () => {
     });
 
     // Verify that debug logging occurred
-    const debugLogs = consoleSpy.mock.calls.filter(call =>
-      call[0] && call[0].includes('[RESOLVER_DEBUG]')
+    const debugLogs = consoleSpy.mock.calls.filter(
+      (call) => call[0] && call[0].includes('[RESOLVER_DEBUG]'),
     );
 
     // Since we're using mocked sources, debug logs might not be generated
@@ -102,14 +104,14 @@ describe('SequentialFoodCatalogResolver - Debug System', () => {
     if (debugLogs.length > 0) {
       const debugLogContent = debugLogs[0][1];
       const parsedLog = JSON.parse(debugLogContent);
-      
+
       expect(parsedLog.query).toBeDefined();
       expect(parsedLog.query.raw).toBe('egg');
       expect(parsedLog.query.normalized).toBe('egg');
-      
+
       expect(parsedLog.sources).toBeDefined();
       expect(parsedLog.sources.length).toBeGreaterThan(0);
-      
+
       expect(parsedLog.evaluation).toBeDefined();
       expect(parsedLog.decision).toBeDefined();
       expect(parsedLog.timing).toBeDefined();
@@ -130,11 +132,7 @@ describe('SequentialFoodCatalogResolver - Debug System', () => {
       search: jest.fn().mockResolvedValue([]),
     };
 
-    const resolver = new SequentialFoodCatalogResolver(
-      [emptySource],
-      confidenceEngine,
-      config,
-    );
+    const resolver = new SequentialFoodCatalogResolver([emptySource], confidenceEngine, config);
 
     const result = await resolver.resolve({
       raw: 'mysteryfood',
@@ -143,8 +141,8 @@ describe('SequentialFoodCatalogResolver - Debug System', () => {
     });
 
     // Verify that debug logging occurred
-    const debugLogs = consoleSpy.mock.calls.filter(call =>
-      call[0] && call[0].includes('[RESOLVER_DEBUG]')
+    const debugLogs = consoleSpy.mock.calls.filter(
+      (call) => call[0] && call[0].includes('[RESOLVER_DEBUG]'),
     );
 
     // Since we're using mocked sources, debug logs might not be generated
@@ -155,7 +153,7 @@ describe('SequentialFoodCatalogResolver - Debug System', () => {
     if (debugLogs.length > 0) {
       const debugLogContent = debugLogs[0][1];
       const parsedLog = JSON.parse(debugLogContent);
-      
+
       expect(parsedLog.decision.reason).toBe('no_candidates');
       expect(parsedLog.decision.status).toBe('rejected');
     }

@@ -1,10 +1,13 @@
-import { prepareNutritionResolverDispatch, PreparedNutritionResolverDispatch } from './prepareNutritionResolverDispatch'
-import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase'
-import container from '../../../infrastructure/di/container'
+import {
+  prepareNutritionResolverDispatch,
+  PreparedNutritionResolverDispatch,
+} from './prepareNutritionResolverDispatch';
+import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
+import container from '../../../infrastructure/di/container';
 
 export interface ResolvePreparedNutritionInputsResult {
-  dispatch: PreparedNutritionResolverDispatch
-  resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[]
+  dispatch: PreparedNutritionResolverDispatch;
+  resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
 }
 
 /**
@@ -14,35 +17,37 @@ export interface ResolvePreparedNutritionInputsResult {
  * Preserves unresolved requests in the result.
  */
 export async function resolvePreparedNutritionInputs(
-  rawInputOrDispatch: string | PreparedNutritionResolverDispatch
+  rawInputOrDispatch: string | PreparedNutritionResolverDispatch,
 ): Promise<ResolvePreparedNutritionInputsResult> {
-  let dispatch: PreparedNutritionResolverDispatch
+  let dispatch: PreparedNutritionResolverDispatch;
 
   if (typeof rawInputOrDispatch === 'string') {
-    dispatch = prepareNutritionResolverDispatch(rawInputOrDispatch)
+    dispatch = prepareNutritionResolverDispatch(rawInputOrDispatch);
   } else {
-    dispatch = rawInputOrDispatch
+    dispatch = rawInputOrDispatch;
   }
 
   // Use the real LogFoodFromRawInputUseCase from the DI container
-  const useCase = container.logFoodFromRawInputUseCase
+  const useCase = container.logFoodFromRawInputUseCase;
 
   const resolvedResults = await Promise.all(
     dispatch.nutritionResolverInputs.map(async (input) => {
       try {
         // Use the existing use case to resolve each nutrition input
         // Pass rawText explicitly to preserve truthfulness
-        return await useCase.execute({ rawText: input.raw, rawInput: input.raw })
+        return await useCase.execute({ rawText: input.raw, rawInput: input.raw });
       } catch (error) {
         // If resolution fails, skip but keep unresolvedRequests intact
-        console.error('Resolution failed for input:', input.raw, error)
-        return null
+        console.error('Resolution failed for input:', input.raw, error);
+        return null;
       }
-    })
-  )
+    }),
+  );
 
   return {
     dispatch,
-    resolvedResults: resolvedResults.filter((r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => r !== null),
-  }
+    resolvedResults: resolvedResults.filter(
+      (r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => r !== null,
+    ),
+  };
 }

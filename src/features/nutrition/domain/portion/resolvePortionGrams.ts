@@ -2,10 +2,10 @@ import { detectCanonicalEntity } from '../detectCanonicalEntity';
 
 /**
  * Resolves the target grams for a food item, considering unit-based portions.
- * 
+ *
  * For unit-based foods like "egg", uses the canonical default portion.
  * Falls back to 100g only if no canonical portion is available.
- * 
+ *
  * @param parsedName - The parsed food name (e.g., "egg", "eier")
  * @param quantityGrams - Explicit grams from parser (if any)
  * @param quantityCount - Count from parser (e.g., 2 for "2 eggs")

@@ -9,37 +9,50 @@ jest.mock('@supabase/supabase-js', () => {
       invoke: jest.fn().mockResolvedValue({
         data: {
           type: 'fresh',
-          items: []
+          items: [],
         },
-        error: null
-      })
+        error: null,
+      }),
     },
     from: jest.fn().mockReturnValue({
       select: jest.fn().mockReturnValue({
         eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({ data: null, error: null })
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
         }),
         order: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({ data: [], error: null })
-        })
+          limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+        }),
       }),
       insert: jest.fn().mockResolvedValue({ data: null, error: null }),
       update: jest.fn().mockResolvedValue({ data: null, error: null }),
-      delete: jest.fn().mockResolvedValue({ data: null, error: null })
-    })
+      delete: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
   };
 
   return {
-    createClient: jest.fn(() => mockSupabaseClient)
+    createClient: jest.fn(() => mockSupabaseClient),
   };
 });
 
 // Mock the DI container to use MockResolverBuilder
 jest.mock('./infrastructure/di/container', () => {
-  const { MockResolverBuilder } = require('./features/nutrition/__tests__/helpers/MockResolverBuilder');
-  const { InMemoryFoodEntryRepository } = require('./features/nutrition/infrastructure/repositories/InMemoryFoodEntryRepository');
-  const { DeterministicFoodParser } = require('./features/nutrition/infrastructure/parsers/DeterministicFoodParser');
-  const { LogFoodFromRawInputUseCase } = require('./features/nutrition/application/usecases/LogFoodFromRawInputUseCase');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    MockResolverBuilder,
+  } = require('./features/nutrition/__tests__/helpers/MockResolverBuilder');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    InMemoryFoodEntryRepository,
+  } = require('./features/nutrition/infrastructure/repositories/InMemoryFoodEntryRepository');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    DeterministicFoodParser,
+  } = require('./features/nutrition/infrastructure/parsers/DeterministicFoodParser');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    LogFoodFromRawInputUseCase,
+  } = require('./features/nutrition/application/usecases/LogFoodFromRawInputUseCase');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { TestIdGenerator } = require('./features/nutrition/infrastructure/RandomIdGenerator');
 
   // Test-Implementierung für Clock
@@ -80,7 +93,7 @@ jest.mock('./infrastructure/di/container', () => {
     undefined, // aliasRepository
     undefined, // aiFoodMapper
     undefined, // nutritionLookup
-    mockResolver
+    mockResolver,
   );
 
   return {
@@ -88,7 +101,7 @@ jest.mock('./infrastructure/di/container', () => {
     default: {
       logFoodFromRawInputUseCase: mockLogFoodFromRawInputUseCase,
       // Add other container properties as needed
-    }
+    },
   };
 });
 
@@ -96,10 +109,11 @@ jest.mock('./infrastructure/di/container', () => {
 const originalConsoleError = console.error;
 console.error = jest.fn((message, ...args) => {
   // Only suppress specific test-related errors
-  if (typeof message === 'string' && (
-    message.includes('Resolution failed for input:') ||
-    message.includes('Failed to parse stored entries:')
-  )) {
+  if (
+    typeof message === 'string' &&
+    (message.includes('Resolution failed for input:') ||
+      message.includes('Failed to parse stored entries:'))
+  ) {
     return;
   }
   originalConsoleError(message, ...args);

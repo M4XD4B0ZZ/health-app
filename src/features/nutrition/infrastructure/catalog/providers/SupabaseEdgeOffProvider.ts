@@ -30,7 +30,7 @@ function isEdgeFunctionResponse(data: unknown): data is EdgeFunctionResponse {
   }
 
   const response = data as EdgeFunctionResponse;
-  
+
   // Handle negative cache responses
   if (response.cacheType === 'negative' && Array.isArray(response.results)) {
     return true;

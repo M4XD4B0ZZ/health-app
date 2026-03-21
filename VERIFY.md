@@ -109,22 +109,18 @@ If any verification step fails:
 
 ## Input Parsing Verification
 
-* Input parsing layer may be non-deterministic
+- Input parsing layer may be non-deterministic
 
-* Verification applies ONLY to:
+- Verification applies ONLY to:
+  - final structured output
+  - API responses
+  - database integrity
 
-  * final structured output
-  * API responses
-  * database integrity
+- Parsing correctness is evaluated by:
+  - test cases (expected mappings)
+  - confidence scoring behavior
 
-* Parsing correctness is evaluated by:
-
-  * test cases (expected mappings)
-  * confidence scoring behavior
-
-* Non-deterministic parsing MUST NOT break:
-
-  * type safety
-  * API contracts
-  * database schema
-
+- Non-deterministic parsing MUST NOT break:
+  - type safety
+  - API contracts
+  - database schema

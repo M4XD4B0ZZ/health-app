@@ -1,1 +1,1 @@
-export * from './ParsedInput'
+export * from './ParsedInput';

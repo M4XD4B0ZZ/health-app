@@ -40,12 +40,16 @@ describe('ScoreCalculator - Generic Food Plausibility', () => {
 
     // The implausible candidate should have a significantly lower final score
     expect(implausibleResult.finalScore).toBeLessThan(plausibleResult.finalScore);
-    
+
     // The implausible candidate should have a plausibility penalty note
-    expect(implausibleResult.notes.some(note => note.includes('generic_food_implausible'))).toBe(true);
-    
+    expect(implausibleResult.notes.some((note) => note.includes('generic_food_implausible'))).toBe(
+      true,
+    );
+
     // The plausible candidate should not have a plausibility penalty
-    expect(plausibleResult.notes.some(note => note.includes('generic_food_implausible'))).toBe(false);
+    expect(plausibleResult.notes.some((note) => note.includes('generic_food_implausible'))).toBe(
+      false,
+    );
   });
 
   it('should not penalize unknown foods', () => {
@@ -65,7 +69,7 @@ describe('ScoreCalculator - Generic Food Plausibility', () => {
     });
 
     // Unknown foods should not get plausibility penalties
-    expect(result.notes.some(note => note.includes('generic_food_implausible'))).toBe(false);
+    expect(result.notes.some((note) => note.includes('generic_food_implausible'))).toBe(false);
   });
 
   it('should handle German egg queries (eier)', () => {
@@ -85,7 +89,7 @@ describe('ScoreCalculator - Generic Food Plausibility', () => {
     });
 
     // Should penalize implausible German egg queries too
-    expect(result.notes.some(note => note.includes('generic_food_implausible'))).toBe(true);
+    expect(result.notes.some((note) => note.includes('generic_food_implausible'))).toBe(true);
     expect(result.finalScore).toBeLessThan(0.5); // Should be significantly penalized
   });
 });

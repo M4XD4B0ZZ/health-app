@@ -20,7 +20,9 @@ describe('Resolver Debug System - Demo', () => {
     },
   };
 
-  const createCandidate = (overrides: Partial<FoodCandidate['food']> & { similarity?: number; exact?: boolean }): FoodCandidate => ({
+  const createCandidate = (
+    overrides: Partial<FoodCandidate['food']> & { similarity?: number; exact?: boolean },
+  ): FoodCandidate => ({
     food: {
       id: overrides.id || 'test-id',
       name: overrides.name || 'Test Food',
@@ -90,16 +92,16 @@ describe('Resolver Debug System - Demo', () => {
     // 1. OFF candidate was penalized (low confidence)
     // 2. USDA candidate won instead
     // 3. Final result has plausible calories
-    
+
     expect(result.status).toBe('accepted');
     expect(result.best?.source).toBe('USDA');
     expect(result.best?.food.name).toBe('Egg, whole, raw');
     expect(result.best?.food.macrosPer100g.kcal).toBe(143); // Plausible calories
-    
+
     // Verify both sources were called (no early return)
     expect(offSource.search).toHaveBeenCalled();
     expect(usdaSource.search).toHaveBeenCalled();
-    
+
     console.log('\n=== PLAUSIBILITY FIX DEMONSTRATION ===');
     console.log('Query: "egg"');
     console.log('OFF Candidate: EGG POWDER PRODUCT (513 kcal) - PENALIZED');
@@ -114,11 +116,7 @@ describe('Resolver Debug System - Demo', () => {
       search: jest.fn().mockResolvedValue([]),
     };
 
-    const resolver = new SequentialFoodCatalogResolver(
-      [emptySource],
-      confidenceEngine,
-      config,
-    );
+    const resolver = new SequentialFoodCatalogResolver([emptySource], confidenceEngine, config);
 
     const result = await resolver.resolve({
       raw: 'mysteryfood',
@@ -127,33 +125,41 @@ describe('Resolver Debug System - Demo', () => {
     });
 
     expect(result.status).toBe('rejected');
-    
+
     console.log('\n=== DEBUG SYSTEM STRUCTURE ===');
     console.log('Expected Debug Log Structure:');
-    console.log(JSON.stringify({
-      query: {
-        raw: 'mysteryfood',
-        normalized: 'mysteryfood',
-        locale: 'en',
-        traceId: 'cat-xxx-xxx'
-      },
-      sources: [{
-        source: 'off',
-        status: 'success',
-        durationMs: 0,
-        candidates: []
-      }],
-      evaluation: [],
-      decision: {
-        reason: 'no_candidates',
-        status: 'rejected',
-        reasonCodes: ['NO_CANDIDATES']
-      },
-      timing: {
-        totalMs: 3,
-        sourceTimings: { off: 0 }
-      }
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          query: {
+            raw: 'mysteryfood',
+            normalized: 'mysteryfood',
+            locale: 'en',
+            traceId: 'cat-xxx-xxx',
+          },
+          sources: [
+            {
+              source: 'off',
+              status: 'success',
+              durationMs: 0,
+              candidates: [],
+            },
+          ],
+          evaluation: [],
+          decision: {
+            reason: 'no_candidates',
+            status: 'rejected',
+            reasonCodes: ['NO_CANDIDATES'],
+          },
+          timing: {
+            totalMs: 3,
+            sourceTimings: { off: 0 },
+          },
+        },
+        null,
+        2,
+      ),
+    );
     console.log('===============================\n');
   });
 });

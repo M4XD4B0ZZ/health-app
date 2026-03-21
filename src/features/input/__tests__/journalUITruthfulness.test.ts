@@ -20,8 +20,12 @@ describe('Journal UI Truthfulness', () => {
     expect(twoEggs.dispatch.readyRequests).toHaveLength(1);
     expect(twoEggs.persistedEntries).toHaveLength(1);
     expect(twoEggs.persistedEntries[0].rawInput).toBe('eier');
-    expect(twoEggs.persistedEntries[0].grams).toBeGreaterThanOrEqual(singleEgg.persistedEntries[0].grams ?? 0);
-    expect(twoEggs.persistedEntries[0].calories).toBeGreaterThanOrEqual(singleEgg.persistedEntries[0].calories);
+    expect(twoEggs.persistedEntries[0].grams).toBeGreaterThanOrEqual(
+      singleEgg.persistedEntries[0].grams ?? 0,
+    );
+    expect(twoEggs.persistedEntries[0].calories).toBeGreaterThanOrEqual(
+      singleEgg.persistedEntries[0].calories,
+    );
   });
 
   it('keeps recognized and unresolved items aligned without aggregation break', async () => {

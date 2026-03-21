@@ -47,13 +47,16 @@ describe('LogFoodFromRawInputUseCase', () => {
       undefined, // aliasRepository
       undefined, // aiFoodMapper
       undefined, // nutritionLookup
-      mockResolver
+      mockResolver,
     );
   });
 
   describe('Basic Functionality', () => {
     it('sollte einen Food Entry erstellen', async () => {
-      const entry = await useCase.execute({ rawText: '250g chicken breast', rawInput: '250g chicken breast' });
+      const entry = await useCase.execute({
+        rawText: '250g chicken breast',
+        rawInput: '250g chicken breast',
+      });
 
       expect(entry.id).toBeDefined();
       expect(entry.rawInput).toBe('250g chicken breast');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import { View, FlatList, StyleSheet, Modal } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useNavigation } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { FoodEntry, DailyNutritionSummary } from '../../../features/nutrition';
@@ -18,7 +19,7 @@ import { SummaryBar } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 
 const JournalScreen: React.FC = () => {
-  const navigation = useNavigation();
+  // const navigation = useNavigation();
   const [rawInput, setRawInput] = useState('');
   const [processingState, setProcessingState] = useState<InlineStatusState>('idle');
   const [statusMessage, setStatusMessage] = useState('');
@@ -28,7 +29,8 @@ const JournalScreen: React.FC = () => {
   const [, setProgress] = useState<DailyProgressSnapshot | null>(null);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [editingEntry, _setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
@@ -61,7 +63,9 @@ const JournalScreen: React.FC = () => {
   };
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
-  const [recognizedItems, setRecognizedItems] = React.useState<{name: string; quantity: number | null; unit: string | null; kcal: number | null}[]>([]);
+  const [recognizedItems, setRecognizedItems] = React.useState<
+    { name: string; quantity: number | null; unit: string | null; kcal: number | null }[]
+  >([]);
 
   const handleQuickAdd = async () => {
     if (!rawInput.trim()) return;
@@ -76,8 +80,10 @@ const JournalScreen: React.FC = () => {
       const persistedCount = result.persistedEntries.length;
       const unresolvedCount = result.dispatch.unresolvedRequests.length;
 
-      setUnresolvedItems(result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName));
-      
+      setUnresolvedItems(
+        result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
+      );
+
       // Keep the runtime UI on the same per-item list as persistence.
       const recognizedWithKcal = result.dispatch.readyRequests.map((item, index) => {
         const persistedEntry = result.persistedEntries[index];
@@ -97,7 +103,9 @@ const JournalScreen: React.FC = () => {
         setProcessingState('done');
         setRawInput('');
       } else if (persistedCount > 0 && unresolvedCount > 0) {
-        setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`);
+        setStatusMessage(
+          `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`,
+        );
         setProcessingState('done'); // Partial success is still success, not error
         setRawInput('');
       } else {
@@ -132,7 +140,7 @@ const JournalScreen: React.FC = () => {
       await container.applyNaturalLanguageEditUseCase.execute(
         today,
         editingEntry.id,
-        editInstruction
+        editInstruction,
       );
       setEditModalVisible(false);
       await loadJournalData();
@@ -166,7 +174,11 @@ const JournalScreen: React.FC = () => {
               renderItem={({ item }) => (
                 <EntryRow
                   title={item.name}
-                  subtitle={item.quantity !== null && item.unit ? `${item.quantity} ${item.unit}` : undefined}
+                  subtitle={
+                    item.quantity !== null && item.unit
+                      ? `${item.quantity} ${item.unit}`
+                      : undefined
+                  }
                   kcal={item.kcal}
                 />
               )}
@@ -185,9 +197,7 @@ const JournalScreen: React.FC = () => {
           </View>
         )}
 
-        <SummaryBar>
-          {/* TODO: Render summary and progress details here if needed */}
-        </SummaryBar>
+        <SummaryBar>{/* TODO: Render summary and progress details here if needed */}</SummaryBar>
       </View>
 
       <Modal visible={editModalVisible} animationType="slide" transparent>

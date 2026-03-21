@@ -28,7 +28,9 @@ export const EntryRow: React.FC<EntryRowProps> = ({ title, subtitle, kcal, onPre
         {kcal !== null ? (
           <AppText variant="numeric">{kcal} kcal</AppText>
         ) : (
-          <AppText variant="meta" tone="muted">nicht erkannt</AppText>
+          <AppText variant="meta" tone="muted">
+            nicht erkannt
+          </AppText>
         )}
       </View>
     </Container>

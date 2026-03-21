@@ -21,12 +21,7 @@ import {
 import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/CanonicalFood';
-import {
-  ResolverDebugCollector,
-  SourceDebugInfo,
-  SourceCandidate,
-  CandidateEvaluation
-} from './ResolverDebugTypes';
+import { ResolverDebugCollector, SourceCandidate, CandidateEvaluation } from './ResolverDebugTypes';
 
 interface LookupMetrics {
   traceId?: string;
@@ -80,15 +75,16 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
 
     // Initialize debug collector if tracing is enabled
-    const debugCollector = (isDebugLoggingEnabled() && traceId)
-      ? new ResolverDebugCollector(
-          query.raw,
-          normalizedQuery,
-          canonicalId || undefined,
-          query.locale || 'en',
-          traceId
-        )
-      : null;
+    const debugCollector =
+      isDebugLoggingEnabled() && traceId
+        ? new ResolverDebugCollector(
+            query.raw,
+            normalizedQuery,
+            canonicalId || undefined,
+            query.locale || 'en',
+            traceId,
+          )
+        : null;
 
     if (isDebugLoggingEnabled() && traceId) {
       const offQuery = getSourceQuery({

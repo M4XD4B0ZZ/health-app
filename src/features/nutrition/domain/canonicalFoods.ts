@@ -1,318 +1,318 @@
 export interface CanonicalFood {
-  id: string
+  id: string;
   aliases: {
-    de: string[]
-    en: string[]
-  }
+    de: string[];
+    en: string[];
+  };
   defaultPortion?: {
-    unit: "piece" | "gram"
-    grams?: number
-  }
+    unit: 'piece' | 'gram';
+    grams?: number;
+  };
   sourceQueries: {
-    usda: string
-    off: string
-  }
+    usda: string;
+    off: string;
+  };
 }
 
 export const CANONICAL_FOODS: CanonicalFood[] = [
   {
-    id: "egg",
+    id: 'egg',
     aliases: {
-      de: ["ei", "eier"],
-      en: ["egg", "eggs"]
+      de: ['ei', 'eier'],
+      en: ['egg', 'eggs'],
     },
     defaultPortion: {
-      unit: "piece",
-      grams: 60
+      unit: 'piece',
+      grams: 60,
     },
     sourceQueries: {
-      usda: "egg",
-      off: "egg"
-    }
+      usda: 'egg',
+      off: 'egg',
+    },
   },
   {
-    id: "milk",
+    id: 'milk',
     aliases: {
-      de: ["milch"],
-      en: ["milk"]
+      de: ['milch'],
+      en: ['milk'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 244
+      unit: 'gram',
+      grams: 244,
     },
     sourceQueries: {
-      usda: "milk",
-      off: "milk"
-    }
+      usda: 'milk',
+      off: 'milk',
+    },
   },
   {
-    id: "butter",
+    id: 'butter',
     aliases: {
-      de: ["butter"],
-      en: ["butter"]
+      de: ['butter'],
+      en: ['butter'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 14
+      unit: 'gram',
+      grams: 14,
     },
     sourceQueries: {
-      usda: "butter",
-      off: "butter"
-    }
+      usda: 'butter',
+      off: 'butter',
+    },
   },
   {
-    id: "bread",
+    id: 'bread',
     aliases: {
-      de: ["brot"],
-      en: ["bread"]
+      de: ['brot'],
+      en: ['bread'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 30
+      unit: 'gram',
+      grams: 30,
     },
     sourceQueries: {
-      usda: "bread",
-      off: "bread"
-    }
+      usda: 'bread',
+      off: 'bread',
+    },
   },
   {
-    id: "quark",
+    id: 'quark',
     aliases: {
-      de: ["quark"],
-      en: ["quark"]
+      de: ['quark'],
+      en: ['quark'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 100
+      unit: 'gram',
+      grams: 100,
     },
     sourceQueries: {
-      usda: "quark",
-      off: "quark"
-    }
+      usda: 'quark',
+      off: 'quark',
+    },
   },
   {
-    id: "yogurt",
+    id: 'yogurt',
     aliases: {
-      de: ["joghurt", "yoghurt"],
-      en: ["yogurt", "yoghurt"]
+      de: ['joghurt', 'yoghurt'],
+      en: ['yogurt', 'yoghurt'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 150
+      unit: 'gram',
+      grams: 150,
     },
     sourceQueries: {
-      usda: "yogurt",
-      off: "yogurt"
-    }
+      usda: 'yogurt',
+      off: 'yogurt',
+    },
   },
   {
-    id: "cheese",
+    id: 'cheese',
     aliases: {
-      de: ["käse"],
-      en: ["cheese"]
+      de: ['käse'],
+      en: ['cheese'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 30
+      unit: 'gram',
+      grams: 30,
     },
     sourceQueries: {
-      usda: "cheese",
-      off: "cheese"
-    }
+      usda: 'cheese',
+      off: 'cheese',
+    },
   },
   {
-    id: "ham",
+    id: 'ham',
     aliases: {
-      de: ["schinken"],
-      en: ["ham"]
+      de: ['schinken'],
+      en: ['ham'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 30
+      unit: 'gram',
+      grams: 30,
     },
     sourceQueries: {
-      usda: "ham",
-      off: "ham"
-    }
+      usda: 'ham',
+      off: 'ham',
+    },
   },
   {
-    id: "chicken",
+    id: 'chicken',
     aliases: {
-      de: ["hähnchen", "huhn"],
-      en: ["chicken"]
+      de: ['hähnchen', 'huhn'],
+      en: ['chicken'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 120
+      unit: 'gram',
+      grams: 120,
     },
     sourceQueries: {
-      usda: "chicken",
-      off: "chicken"
-    }
+      usda: 'chicken',
+      off: 'chicken',
+    },
   },
   {
-    id: "beef",
+    id: 'beef',
     aliases: {
-      de: ["rindfleisch"],
-      en: ["beef"]
+      de: ['rindfleisch'],
+      en: ['beef'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 120
+      unit: 'gram',
+      grams: 120,
     },
     sourceQueries: {
-      usda: "beef",
-      off: "beef"
-    }
+      usda: 'beef',
+      off: 'beef',
+    },
   },
   {
-    id: "rice",
+    id: 'rice',
     aliases: {
-      de: ["reis"],
-      en: ["rice"]
+      de: ['reis'],
+      en: ['rice'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 150
+      unit: 'gram',
+      grams: 150,
     },
     sourceQueries: {
-      usda: "rice",
-      off: "rice"
-    }
+      usda: 'rice',
+      off: 'rice',
+    },
   },
   {
-    id: "pasta",
+    id: 'pasta',
     aliases: {
-      de: ["nudeln"],
-      en: ["pasta", "noodles"]
+      de: ['nudeln'],
+      en: ['pasta', 'noodles'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 140
+      unit: 'gram',
+      grams: 140,
     },
     sourceQueries: {
-      usda: "pasta",
-      off: "pasta"
-    }
+      usda: 'pasta',
+      off: 'pasta',
+    },
   },
   {
-    id: "potato",
+    id: 'potato',
     aliases: {
-      de: ["kartoffel", "kartoffeln"],
-      en: ["potato", "potatoes"]
+      de: ['kartoffel', 'kartoffeln'],
+      en: ['potato', 'potatoes'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 150
+      unit: 'gram',
+      grams: 150,
     },
     sourceQueries: {
-      usda: "potato",
-      off: "potato"
-    }
+      usda: 'potato',
+      off: 'potato',
+    },
   },
   {
-    id: "apple",
+    id: 'apple',
     aliases: {
-      de: ["apfel", "äpfel"],
-      en: ["apple", "apples"]
+      de: ['apfel', 'äpfel'],
+      en: ['apple', 'apples'],
     },
     defaultPortion: {
-      unit: "piece",
-      grams: 150
+      unit: 'piece',
+      grams: 150,
     },
     sourceQueries: {
-      usda: "apple",
-      off: "apple"
-    }
+      usda: 'apple',
+      off: 'apple',
+    },
   },
   {
-    id: "banana",
+    id: 'banana',
     aliases: {
-      de: ["banane", "bananen"],
-      en: ["banana", "bananas"]
+      de: ['banane', 'bananen'],
+      en: ['banana', 'bananas'],
     },
     defaultPortion: {
-      unit: "piece",
-      grams: 120
+      unit: 'piece',
+      grams: 120,
     },
     sourceQueries: {
-      usda: "banana",
-      off: "banana"
-    }
+      usda: 'banana',
+      off: 'banana',
+    },
   },
   {
-    id: "tomato",
+    id: 'tomato',
     aliases: {
-      de: ["tomate", "tomaten"],
-      en: ["tomato", "tomatoes"]
+      de: ['tomate', 'tomaten'],
+      en: ['tomato', 'tomatoes'],
     },
     defaultPortion: {
-      unit: "piece",
-      grams: 100
+      unit: 'piece',
+      grams: 100,
     },
     sourceQueries: {
-      usda: "tomato",
-      off: "tomato"
-    }
+      usda: 'tomato',
+      off: 'tomato',
+    },
   },
   {
-    id: "onion",
+    id: 'onion',
     aliases: {
-      de: ["zwiebel", "zwiebeln"],
-      en: ["onion", "onions"]
+      de: ['zwiebel', 'zwiebeln'],
+      en: ['onion', 'onions'],
     },
     defaultPortion: {
-      unit: "piece",
-      grams: 70
+      unit: 'piece',
+      grams: 70,
     },
     sourceQueries: {
-      usda: "onion",
-      off: "onion"
-    }
+      usda: 'onion',
+      off: 'onion',
+    },
   },
   {
-    id: "olive_oil",
+    id: 'olive_oil',
     aliases: {
-      de: ["olivenöl"],
-      en: ["olive oil"]
+      de: ['olivenöl'],
+      en: ['olive oil'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 13
+      unit: 'gram',
+      grams: 13,
     },
     sourceQueries: {
-      usda: "olive oil",
-      off: "olive oil"
-    }
+      usda: 'olive oil',
+      off: 'olive oil',
+    },
   },
   {
-    id: "sugar",
+    id: 'sugar',
     aliases: {
-      de: ["zucker"],
-      en: ["sugar"]
+      de: ['zucker'],
+      en: ['sugar'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 4
+      unit: 'gram',
+      grams: 4,
     },
     sourceQueries: {
-      usda: "sugar",
-      off: "sugar"
-    }
+      usda: 'sugar',
+      off: 'sugar',
+    },
   },
   {
-    id: "salt",
+    id: 'salt',
     aliases: {
-      de: ["salz"],
-      en: ["salt"]
+      de: ['salz'],
+      en: ['salt'],
     },
     defaultPortion: {
-      unit: "gram",
-      grams: 5
+      unit: 'gram',
+      grams: 5,
     },
     sourceQueries: {
-      usda: "salt",
-      off: "salt"
-    }
-  }
+      usda: 'salt',
+      off: 'salt',
+    },
+  },
 ];

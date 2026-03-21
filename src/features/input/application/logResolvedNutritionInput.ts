@@ -1,11 +1,14 @@
-import { prepareNutritionResolverDispatch, PreparedNutritionResolverDispatch } from './prepareNutritionResolverDispatch'
-import { resolvePreparedNutritionInputs } from './resolvePreparedNutritionInputs'
-import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase'
+import {
+  prepareNutritionResolverDispatch,
+  PreparedNutritionResolverDispatch,
+} from './prepareNutritionResolverDispatch';
+import { resolvePreparedNutritionInputs } from './resolvePreparedNutritionInputs';
+import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
 
 export interface LogResolvedNutritionInputResult {
-  dispatch: PreparedNutritionResolverDispatch
-  resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[]
-  persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[]
+  dispatch: PreparedNutritionResolverDispatch;
+  resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
+  persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
 }
 
 /**
@@ -14,19 +17,19 @@ export interface LogResolvedNutritionInputResult {
  * Preserves unresolved requests in the dispatch.
  */
 export async function logResolvedNutritionInput(
-  rawInputOrDispatch: string | PreparedNutritionResolverDispatch
+  rawInputOrDispatch: string | PreparedNutritionResolverDispatch,
 ): Promise<LogResolvedNutritionInputResult> {
   // Resolve prepared inputs first
   const { dispatch, resolvedResults } =
     typeof rawInputOrDispatch === 'string'
       ? await resolvePreparedNutritionInputs(prepareNutritionResolverDispatch(rawInputOrDispatch))
-      : await resolvePreparedNutritionInputs(rawInputOrDispatch)
+      : await resolvePreparedNutritionInputs(rawInputOrDispatch);
 
-  const persistedEntries = resolvedResults.filter((resolved) => resolved.calories > 0)
+  const persistedEntries = resolvedResults.filter((resolved) => resolved.calories > 0);
 
   return {
     dispatch,
     resolvedResults,
     persistedEntries,
-  }
+  };
 }

@@ -1,6 +1,7 @@
 # Code Mode Rules
 
 ## Goal
+
 When operating in Code mode, the assistant acts as a pragmatic software engineer focused on implementing tasks safely and efficiently.
 
 ---

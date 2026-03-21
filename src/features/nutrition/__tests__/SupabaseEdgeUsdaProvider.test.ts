@@ -41,7 +41,7 @@ describe('SupabaseEdgeUsdaProvider', () => {
         locale: 'en',
       },
     });
-    
+
     // Verify the result is converted to EdgeSearchResponse format
     expect(result).toEqual({
       items: [
@@ -168,7 +168,7 @@ describe('SupabaseEdgeUsdaProvider', () => {
     const mockSupabase = createMockSupabase();
     const emptyEdgeFunctionResponse = {
       type: 'fresh',
-      items: []
+      items: [],
     };
 
     (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({

@@ -8,15 +8,17 @@ describe('logResolvedNutritionInput - Bugfix Tests', () => {
 
       // Verify that we have ready requests for both items
       expect(result.dispatch.readyRequests.length).toBeGreaterThan(0);
-      
+
       // Verify toast is only processed once in persisted entries
-      const toastPersisted = result.persistedEntries.filter(entry =>
-        entry.rawInput.toLowerCase().includes('toast')
+      const toastPersisted = result.persistedEntries.filter((entry) =>
+        entry.rawInput.toLowerCase().includes('toast'),
       );
       expect(toastPersisted.length).toBeLessThanOrEqual(1);
-      
+
       // Verify no duplicate execution by checking that persisted entries <= ready requests
-      expect(result.persistedEntries.length).toBeLessThanOrEqual(result.dispatch.readyRequests.length);
+      expect(result.persistedEntries.length).toBeLessThanOrEqual(
+        result.dispatch.readyRequests.length,
+      );
     });
 
     it('should have non-zero kcal for recognized entries', async () => {
@@ -24,16 +26,16 @@ describe('logResolvedNutritionInput - Bugfix Tests', () => {
       const result = await logResolvedNutritionInput(input);
 
       // All persisted entries should have calories > 0
-      result.persistedEntries.forEach(entry => {
+      result.persistedEntries.forEach((entry) => {
         expect(entry.calories).toBeGreaterThan(0);
       });
 
       // Should have at least one persisted entry with calories
       expect(result.persistedEntries.length).toBeGreaterThan(0);
-      
+
       // Check that recognized items have proper calories if they exist
       if (result.persistedEntries.length > 0) {
-        const hasValidCalories = result.persistedEntries.some(entry => entry.calories > 0);
+        const hasValidCalories = result.persistedEntries.some((entry) => entry.calories > 0);
         expect(hasValidCalories).toBe(true);
       }
     });
@@ -45,19 +47,21 @@ describe('logResolvedNutritionInput - Bugfix Tests', () => {
       const result = await logResolvedNutritionInput(input);
 
       // Should have some ready requests and some unresolved
-      expect(result.dispatch.readyRequests.length + result.dispatch.unresolvedRequests.length).toBeGreaterThan(0);
-      
+      expect(
+        result.dispatch.readyRequests.length + result.dispatch.unresolvedRequests.length,
+      ).toBeGreaterThan(0);
+
       // Should have unresolved requests for unknown items
       expect(result.dispatch.unresolvedRequests.length).toBeGreaterThan(0);
-      
+
       // Any persisted entries should have proper calories
-      result.persistedEntries.forEach(entry => {
+      result.persistedEntries.forEach((entry) => {
         expect(entry.calories).toBeGreaterThan(0);
       });
-      
+
       // Verify mysteryfood is in unresolved
-      const hasMysteryfood = result.dispatch.unresolvedRequests.some(req =>
-        req.rawName.toLowerCase().includes('mysteryfood')
+      const hasMysteryfood = result.dispatch.unresolvedRequests.some((req) =>
+        req.rawName.toLowerCase().includes('mysteryfood'),
       );
       expect(hasMysteryfood).toBe(true);
     });
@@ -70,7 +74,7 @@ describe('logResolvedNutritionInput - Bugfix Tests', () => {
 
       // Should have no persisted entries for unknown food
       expect(result.persistedEntries).toHaveLength(0);
-      
+
       // But should have unresolved requests
       expect(result.dispatch.unresolvedRequests.length).toBeGreaterThan(0);
     });

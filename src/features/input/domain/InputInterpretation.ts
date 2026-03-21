@@ -1,12 +1,8 @@
-export type InterpretationType =
-  | "single_item"
-  | "multi_item"
-  | "unknown"
-  | "dish"
+export type InterpretationType = 'single_item' | 'multi_item' | 'unknown' | 'dish';
 
 export interface InputInterpretation {
-  type: InterpretationType
-  itemCount: number
-  confidenceLevel: string
-  summary: string
+  type: InterpretationType;
+  itemCount: number;
+  confidenceLevel: string;
+  summary: string;
 }

@@ -1,1 +1,1 @@
-export * from './simpleParser'
+export * from './simpleParser';

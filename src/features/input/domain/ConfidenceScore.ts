@@ -1,7 +1,7 @@
-export type ConfidenceLevel = "high" | "medium" | "low"
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
 export interface ConfidenceScore {
-  level: ConfidenceLevel
-  score: number
-  reason: string
+  level: ConfidenceLevel;
+  score: number;
+  reason: string;
 }

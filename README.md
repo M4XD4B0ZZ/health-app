@@ -9,9 +9,9 @@ React Native (Expo) MVP for nutrition and recovery tracking, backed by Supabase 
 - **Feature-First + Clean Architecture:** `src/features/nutrition`, `src/features/goals`, `src/features/auth`
 - **Layers:** domain / application / infrastructure / presentation
 - **Hybrid Input System:**
-  
-  * Natural Language First (user input layer)
-  * Deterministic Processing (core nutrition pipeline)
+  - Natural Language First (user input layer)
+  - Deterministic Processing (core nutrition pipeline)
+
 - **Backend:** Supabase Edge Functions (`food-off-search`, `food-usda-search`)
 - **UI:** React Native with Expo, Warm-Neutral design system (`src/ui/theme.ts`)
 
@@ -19,10 +19,10 @@ React Native (Expo) MVP for nutrition and recovery tracking, backed by Supabase 
 
 ## Input Philosophy
 
-* Users can log food using natural language (no structured input required)
-* System prioritizes low friction over perfect accuracy
-* Inputs are parsed and mapped to deterministic nutrition data sources
-* Users can quickly correct entries after logging
+- Users can log food using natural language (no structured input required)
+- System prioritizes low friction over perfect accuracy
+- Inputs are parsed and mapped to deterministic nutrition data sources
+- Users can quickly correct entries after logging
 
 ---
 

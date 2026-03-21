@@ -1,1 +1,537 @@
-{"numFailedTestSuites":1,"numFailedTests":4,"numPassedTestSuites":0,"numPassedTests":26,"numPendingTestSuites":0,"numPendingTests":0,"numRuntimeErrorTestSuites":0,"numTodoTests":0,"numTotalTestSuites":1,"numTotalTests":30,"openHandles":[],"snapshot":{"added":0,"didUpdate":false,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0},"startTime":1774115593805,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":["Canonical Food System - Sprint 5.3","normalizeText"],"duration":2,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 normalizeText sollte Text lowercase und trimmen","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte Text lowercase und trimmen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","normalizeText"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 normalizeText sollte Umlaute ersetzen","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte Umlaute ersetzen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","normalizeText"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 normalizeText sollte Satzzeichen entfernen","invocations":1,"location":null,"numPassingAsserts":2,"retryReasons":[],"status":"passed","title":"sollte Satzzeichen entfernen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","normalizeText"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 normalizeText sollte mehrere Leerzeichen zusammenfassen","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte mehrere Leerzeichen zusammenfassen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte banana per ID finden","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte banana per ID finden"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte bei exaktem Match hohe Confidence zurückgeben","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte bei exaktem Match hohe Confidence zurückgeben"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte bei Teilmatch niedrigere Confidence zurückgeben","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte bei Teilmatch niedrigere Confidence zurückgeben"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte null bei keinem Match zurückgeben","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte null bei keinem Match zurückgeben"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"apples\" zu \"apple\" matchen (s removal)","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte \"apples\" zu \"apple\" matchen (s removal)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"bananas\" zu \"banana\" matchen (s removal)","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte \"bananas\" zu \"banana\" matchen (s removal)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"eier\" zu \"egg\" via Singular-Heuristik matchen (er removal)","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"passed","title":"sollte \"eier\" zu \"egg\" via Singular-Heuristik matchen (er removal)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"banane\" zu \"banana\" matchen (e removal + token match)","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte \"banane\" zu \"banana\" matchen (e removal + token match)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"aepfel\" über Plural-Heuristik zu \"apfel\" matchen","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"passed","title":"sollte \"aepfel\" über Plural-Heuristik zu \"apfel\" matchen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte bei zu kurzem Wort keine Singular-Heuristik anwenden","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte bei zu kurzem Wort keine Singular-Heuristik anwenden"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodCatalog","Plural/Singular-Heuristik"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte exakte Matches bevorzugen vor Singular-Heuristik","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte exakte Matches bevorzugen vor Singular-Heuristik"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodAliasRepository"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodAliasRepository sollte Alias speichern und abrufen können","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte Alias speichern und abrufen können"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","InMemoryFoodAliasRepository"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 InMemoryFoodAliasRepository sollte null für unbekannte Aliases zurückgeben","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte null für unbekannte Aliases zurückgeben"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","FakeAiFoodMapper"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte \"banane\" zu \"banana\" mappen","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte \"banane\" zu \"banana\" mappen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","FakeAiFoodMapper"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte \"hähnchen\" zu \"chicken breast\" mappen","invocations":1,"location":null,"numPassingAsserts":2,"retryReasons":[],"status":"passed","title":"sollte \"hähnchen\" zu \"chicken breast\" mappen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","FakeAiFoodMapper"],"duration":0,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte \"pommes\" zu \"fries\" mappen","invocations":1,"location":null,"numPassingAsserts":2,"retryReasons":[],"status":"passed","title":"sollte \"pommes\" zu \"fries\" mappen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","FakeAiFoodMapper"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte bei unbekanntem Input Fallback verwenden","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte bei unbekanntem Input Fallback verwenden"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":4,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte deterministischen Catalog-Hit verwenden","invocations":1,"location":null,"numPassingAsserts":6,"retryReasons":[],"status":"passed","title":"sollte deterministischen Catalog-Hit verwenden"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":3,"failureDetails":[{"matcherResult":{"actual":"mock-banana","expected":"banana","message":"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmock-\u001b[27mbanana\"\u001b[39m","name":"toBe","pass":false}}],"failureMessages":["Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmock-\u001b[27mbanana\"\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:250:25)"],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte Alias nach deterministischem Match speichern","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"sollte Alias nach deterministischem Match speichern"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte gespeicherten Alias verwenden (Cache-Hit)","invocations":1,"location":null,"numPassingAsserts":2,"retryReasons":[],"status":"passed","title":"sollte gespeicherten Alias verwenden (Cache-Hit)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":2,"failureDetails":[{"matcherResult":{"actual":"banana","expected":"banane","message":"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banan\u001b[7me\u001b[27m\"\u001b[39m\nReceived: \u001b[31m\"banan\u001b[7ma\u001b[27m\"\u001b[39m","name":"toBe","pass":false}}],"failureMessages":["Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banan\u001b[7me\u001b[27m\"\u001b[39m\nReceived: \u001b[31m\"banan\u001b[7ma\u001b[27m\"\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:268:30)"],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte \"banane\" über Singular-Heuristik matchen (nicht AI)","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"sollte \"banane\" über Singular-Heuristik matchen (nicht AI)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":1,"failureDetails":[{"matcherResult":{"actual":null,"expected":"banana","message":"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m","name":"toBe","pass":false}}],"failureMessages":["Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:279:27)"],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte Alias nach deterministischem Singular-Match speichern","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"sollte Alias nach deterministischem Singular-Match speichern"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":1,"failureDetails":[{"matcherResult":{"actual":"generic","expected":"cache","message":"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"cache\"\u001b[39m\nReceived: \u001b[31m\"generic\"\u001b[39m","name":"toBe","pass":false}}],"failureMessages":["Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"cache\"\u001b[39m\nReceived: \u001b[31m\"generic\"\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:289:33)"],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte nach Singular-Match bei zweitem Call Cache verwenden","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"failed","title":"sollte nach Singular-Match bei zweitem Call Cache verwenden"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":3,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte Macros deterministisch aus Canonical Food berechnen","invocations":1,"location":null,"numPassingAsserts":4,"retryReasons":[],"status":"passed","title":"sollte Macros deterministisch aus Canonical Food berechnen"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":6,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)","invocations":1,"location":null,"numPassingAsserts":1,"retryReasons":[],"status":"passed","title":"sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)"},{"ancestorTitles":["Canonical Food System - Sprint 5.3","Integration: LogFoodFromRawInputUseCase mit Canonical System"],"duration":1,"failureDetails":[],"failureMessages":[],"fullName":"Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte deutsche Umlaute normalisieren und dann matchen","invocations":1,"location":null,"numPassingAsserts":3,"retryReasons":[],"status":"passed","title":"sollte deutsche Umlaute normalisieren und dann matchen"}],"endTime":1774115597023,"message":"\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte Alias nach deterministischem Match speichern\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"banana\"\u001b[39m\n    Received: \u001b[31m\"\u001b[7mmock-\u001b[27mbanana\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 248 |\u001b[39m     \u001b[90m// Alias sollte gespeichert sein\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 249 |\u001b[39m     \u001b[36mconst\u001b[39m canonicalId \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m aliasRepo\u001b[33m.\u001b[39mgetCanonicalId(\u001b[32m'banana'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 250 |\u001b[39m     expect(canonicalId)\u001b[33m.\u001b[39mtoBe(\u001b[32m'banana'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 251 |\u001b[39m   })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 252 |\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 253 |\u001b[39m   it(\u001b[32m'sollte gespeicherten Alias verwenden (Cache-Hit)'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:250:25)\u001b[22m\u001b[2m\u001b[22m\n\n\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte \"banane\" über Singular-Heuristik matchen (nicht AI)\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"banan\u001b[7me\u001b[27m\"\u001b[39m\n    Received: \u001b[31m\"banan\u001b[7ma\u001b[27m\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 266 |\u001b[39m     \u001b[36mconst\u001b[39m entry \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m useCase\u001b[33m.\u001b[39mexecute({ rawText\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m\u001b[33m,\u001b[39m rawInput\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 267 |\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 268 |\u001b[39m     expect(entry\u001b[33m.\u001b[39mparsedName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'banane'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 269 |\u001b[39m     expect(entry\u001b[33m.\u001b[39mquantityGrams)\u001b[33m.\u001b[39mtoBe(\u001b[35m200\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 270 |\u001b[39m     expect(entry\u001b[33m.\u001b[39mcalories)\u001b[33m.\u001b[39mtoBeCloseTo(\u001b[35m178\u001b[39m\u001b[33m,\u001b[39m \u001b[35m1\u001b[39m)\u001b[33m;\u001b[39m \u001b[90m// 200g * 89 cal/100g\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 271 |\u001b[39m     expect(entry\u001b[33m.\u001b[39msourceType)\u001b[33m.\u001b[39mtoBe(\u001b[32m'generic'\u001b[39m)\u001b[33m;\u001b[39m \u001b[90m// Via Singular-Heuristik, nicht AI\u001b[39m\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:268:30)\u001b[22m\u001b[2m\u001b[22m\n\n\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte Alias nach deterministischem Singular-Match speichern\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"banana\"\u001b[39m\n    Received: \u001b[31mnull\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 277 |\u001b[39m       \u001b[90m// Alias sollte gespeichert sein\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 278 |\u001b[39m       \u001b[36mconst\u001b[39m canonicalId \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m aliasRepo\u001b[33m.\u001b[39mgetCanonicalId(\u001b[32m'banane'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 279 |\u001b[39m       expect(canonicalId)\u001b[33m.\u001b[39mtoBe(\u001b[32m'banana'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                           \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 280 |\u001b[39m     })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 281 |\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 282 |\u001b[39m     it(\u001b[32m'sollte nach Singular-Match bei zweitem Call Cache verwenden'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:279:27)\u001b[22m\u001b[2m\u001b[22m\n\n\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte nach Singular-Match bei zweitem Call Cache verwenden\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"cache\"\u001b[39m\n    Received: \u001b[31m\"generic\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 287 |\u001b[39m       \u001b[90m// Zweiter Call: Cache Hit\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 288 |\u001b[39m       \u001b[36mconst\u001b[39m entry2 \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m useCase\u001b[33m.\u001b[39mexecute({ rawText\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m\u001b[33m,\u001b[39m rawInput\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 289 |\u001b[39m       expect(entry2\u001b[33m.\u001b[39msourceType)\u001b[33m.\u001b[39mtoBe(\u001b[32m'cache'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 290 |\u001b[39m       expect(entry2\u001b[33m.\u001b[39mconfidenceScore)\u001b[33m.\u001b[39mtoBeGreaterThanOrEqual(\u001b[35m0.75\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 291 |\u001b[39m     })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 292 |\u001b[39m\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:289:33)\u001b[22m\u001b[2m\u001b[22m\n","name":"C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts","startTime":1774115594054,"status":"failed","summary":""}],"wasInterrupted":false}
+{
+  "numFailedTestSuites": 1,
+  "numFailedTests": 4,
+  "numPassedTestSuites": 0,
+  "numPassedTests": 26,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 1,
+  "numTotalTests": 30,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1774115593805,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "normalizeText"],
+          "duration": 2,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 normalizeText sollte Text lowercase und trimmen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte Text lowercase und trimmen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "normalizeText"],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 normalizeText sollte Umlaute ersetzen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte Umlaute ersetzen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "normalizeText"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 normalizeText sollte Satzzeichen entfernen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte Satzzeichen entfernen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "normalizeText"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 normalizeText sollte mehrere Leerzeichen zusammenfassen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte mehrere Leerzeichen zusammenfassen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "InMemoryFoodCatalog"],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte banana per ID finden",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte banana per ID finden"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "InMemoryFoodCatalog"],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte bei exaktem Match hohe Confidence zurückgeben",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte bei exaktem Match hohe Confidence zurückgeben"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "InMemoryFoodCatalog"],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte bei Teilmatch niedrigere Confidence zurückgeben",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte bei Teilmatch niedrigere Confidence zurückgeben"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "InMemoryFoodCatalog"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog sollte null bei keinem Match zurückgeben",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte null bei keinem Match zurückgeben"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"apples\" zu \"apple\" matchen (s removal)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"apples\" zu \"apple\" matchen (s removal)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"bananas\" zu \"banana\" matchen (s removal)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"bananas\" zu \"banana\" matchen (s removal)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"eier\" zu \"egg\" via Singular-Heuristik matchen (er removal)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"eier\" zu \"egg\" via Singular-Heuristik matchen (er removal)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"banane\" zu \"banana\" matchen (e removal + token match)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"banane\" zu \"banana\" matchen (e removal + token match)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte \"aepfel\" über Plural-Heuristik zu \"apfel\" matchen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"aepfel\" über Plural-Heuristik zu \"apfel\" matchen"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte bei zu kurzem Wort keine Singular-Heuristik anwenden",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte bei zu kurzem Wort keine Singular-Heuristik anwenden"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "InMemoryFoodCatalog",
+            "Plural/Singular-Heuristik"
+          ],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodCatalog Plural/Singular-Heuristik sollte exakte Matches bevorzugen vor Singular-Heuristik",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte exakte Matches bevorzugen vor Singular-Heuristik"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "InMemoryFoodAliasRepository"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodAliasRepository sollte Alias speichern und abrufen können",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte Alias speichern und abrufen können"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "InMemoryFoodAliasRepository"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 InMemoryFoodAliasRepository sollte null für unbekannte Aliases zurückgeben",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte null für unbekannte Aliases zurückgeben"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "FakeAiFoodMapper"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte \"banane\" zu \"banana\" mappen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"banane\" zu \"banana\" mappen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "FakeAiFoodMapper"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte \"hähnchen\" zu \"chicken breast\" mappen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"hähnchen\" zu \"chicken breast\" mappen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "FakeAiFoodMapper"],
+          "duration": 0,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte \"pommes\" zu \"fries\" mappen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte \"pommes\" zu \"fries\" mappen"
+        },
+        {
+          "ancestorTitles": ["Canonical Food System - Sprint 5.3", "FakeAiFoodMapper"],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 FakeAiFoodMapper sollte bei unbekanntem Input Fallback verwenden",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte bei unbekanntem Input Fallback verwenden"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 4,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte deterministischen Catalog-Hit verwenden",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 6,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte deterministischen Catalog-Hit verwenden"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 3,
+          "failureDetails": [
+            {
+              "matcherResult": {
+                "actual": "mock-banana",
+                "expected": "banana",
+                "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmock-\u001b[27mbanana\"\u001b[39m",
+                "name": "toBe",
+                "pass": false
+              }
+            }
+          ],
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mmock-\u001b[27mbanana\"\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:250:25)"
+          ],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte Alias nach deterministischem Match speichern",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "sollte Alias nach deterministischem Match speichern"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte gespeicherten Alias verwenden (Cache-Hit)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 2,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte gespeicherten Alias verwenden (Cache-Hit)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 2,
+          "failureDetails": [
+            {
+              "matcherResult": {
+                "actual": "banana",
+                "expected": "banane",
+                "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banan\u001b[7me\u001b[27m\"\u001b[39m\nReceived: \u001b[31m\"banan\u001b[7ma\u001b[27m\"\u001b[39m",
+                "name": "toBe",
+                "pass": false
+              }
+            }
+          ],
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banan\u001b[7me\u001b[27m\"\u001b[39m\nReceived: \u001b[31m\"banan\u001b[7ma\u001b[27m\"\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:268:30)"
+          ],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte \"banane\" über Singular-Heuristik matchen (nicht AI)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "sollte \"banane\" über Singular-Heuristik matchen (nicht AI)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 1,
+          "failureDetails": [
+            {
+              "matcherResult": {
+                "actual": null,
+                "expected": "banana",
+                "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m",
+                "name": "toBe",
+                "pass": false
+              }
+            }
+          ],
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"banana\"\u001b[39m\nReceived: \u001b[31mnull\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:279:27)"
+          ],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte Alias nach deterministischem Singular-Match speichern",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "sollte Alias nach deterministischem Singular-Match speichern"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 1,
+          "failureDetails": [
+            {
+              "matcherResult": {
+                "actual": "generic",
+                "expected": "cache",
+                "message": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"cache\"\u001b[39m\nReceived: \u001b[31m\"generic\"\u001b[39m",
+                "name": "toBe",
+                "pass": false
+              }
+            }
+          ],
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"cache\"\u001b[39m\nReceived: \u001b[31m\"generic\"\u001b[39m\n    at Object.<anonymous> (C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts:289:33)"
+          ],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte nach Singular-Match bei zweitem Call Cache verwenden",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "sollte nach Singular-Match bei zweitem Call Cache verwenden"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 3,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte Macros deterministisch aus Canonical Food berechnen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 4,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte Macros deterministisch aus Canonical Food berechnen"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 6,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 1,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)"
+        },
+        {
+          "ancestorTitles": [
+            "Canonical Food System - Sprint 5.3",
+            "Integration: LogFoodFromRawInputUseCase mit Canonical System"
+          ],
+          "duration": 1,
+          "failureDetails": [],
+          "failureMessages": [],
+          "fullName": "Canonical Food System - Sprint 5.3 Integration: LogFoodFromRawInputUseCase mit Canonical System sollte deutsche Umlaute normalisieren und dann matchen",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 3,
+          "retryReasons": [],
+          "status": "passed",
+          "title": "sollte deutsche Umlaute normalisieren und dann matchen"
+        }
+      ],
+      "endTime": 1774115597023,
+      "message": "\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte Alias nach deterministischem Match speichern\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"banana\"\u001b[39m\n    Received: \u001b[31m\"\u001b[7mmock-\u001b[27mbanana\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 248 |\u001b[39m     \u001b[90m// Alias sollte gespeichert sein\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 249 |\u001b[39m     \u001b[36mconst\u001b[39m canonicalId \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m aliasRepo\u001b[33m.\u001b[39mgetCanonicalId(\u001b[32m'banana'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 250 |\u001b[39m     expect(canonicalId)\u001b[33m.\u001b[39mtoBe(\u001b[32m'banana'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                         \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 251 |\u001b[39m   })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 252 |\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 253 |\u001b[39m   it(\u001b[32m'sollte gespeicherten Alias verwenden (Cache-Hit)'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:250:25)\u001b[22m\u001b[2m\u001b[22m\n\n\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte \"banane\" über Singular-Heuristik matchen (nicht AI)\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"banan\u001b[7me\u001b[27m\"\u001b[39m\n    Received: \u001b[31m\"banan\u001b[7ma\u001b[27m\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 266 |\u001b[39m     \u001b[36mconst\u001b[39m entry \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m useCase\u001b[33m.\u001b[39mexecute({ rawText\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m\u001b[33m,\u001b[39m rawInput\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 267 |\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 268 |\u001b[39m     expect(entry\u001b[33m.\u001b[39mparsedName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'banane'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                              \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 269 |\u001b[39m     expect(entry\u001b[33m.\u001b[39mquantityGrams)\u001b[33m.\u001b[39mtoBe(\u001b[35m200\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 270 |\u001b[39m     expect(entry\u001b[33m.\u001b[39mcalories)\u001b[33m.\u001b[39mtoBeCloseTo(\u001b[35m178\u001b[39m\u001b[33m,\u001b[39m \u001b[35m1\u001b[39m)\u001b[33m;\u001b[39m \u001b[90m// 200g * 89 cal/100g\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 271 |\u001b[39m     expect(entry\u001b[33m.\u001b[39msourceType)\u001b[33m.\u001b[39mtoBe(\u001b[32m'generic'\u001b[39m)\u001b[33m;\u001b[39m \u001b[90m// Via Singular-Heuristik, nicht AI\u001b[39m\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:268:30)\u001b[22m\u001b[2m\u001b[22m\n\n\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte Alias nach deterministischem Singular-Match speichern\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"banana\"\u001b[39m\n    Received: \u001b[31mnull\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 277 |\u001b[39m       \u001b[90m// Alias sollte gespeichert sein\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 278 |\u001b[39m       \u001b[36mconst\u001b[39m canonicalId \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m aliasRepo\u001b[33m.\u001b[39mgetCanonicalId(\u001b[32m'banane'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 279 |\u001b[39m       expect(canonicalId)\u001b[33m.\u001b[39mtoBe(\u001b[32m'banana'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                           \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 280 |\u001b[39m     })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 281 |\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 282 |\u001b[39m     it(\u001b[32m'sollte nach Singular-Match bei zweitem Call Cache verwenden'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m {\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:279:27)\u001b[22m\u001b[2m\u001b[22m\n\n\u001b[1m\u001b[31m  \u001b[1m● \u001b[22m\u001b[1mCanonical Food System - Sprint 5.3 › Integration: LogFoodFromRawInputUseCase mit Canonical System › sollte nach Singular-Match bei zweitem Call Cache verwenden\u001b[39m\u001b[22m\n\n    \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n    Expected: \u001b[32m\"cache\"\u001b[39m\n    Received: \u001b[31m\"generic\"\u001b[39m\n\u001b[2m\u001b[22m\n\u001b[2m    \u001b[0m \u001b[90m 287 |\u001b[39m       \u001b[90m// Zweiter Call: Cache Hit\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 288 |\u001b[39m       \u001b[36mconst\u001b[39m entry2 \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m useCase\u001b[33m.\u001b[39mexecute({ rawText\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m\u001b[33m,\u001b[39m rawInput\u001b[33m:\u001b[39m \u001b[32m'200g banane'\u001b[39m })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m    \u001b[31m\u001b[1m>\u001b[22m\u001b[2m\u001b[39m\u001b[90m 289 |\u001b[39m       expect(entry2\u001b[33m.\u001b[39msourceType)\u001b[33m.\u001b[39mtoBe(\u001b[32m'cache'\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m     |\u001b[39m                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[2m\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 290 |\u001b[39m       expect(entry2\u001b[33m.\u001b[39mconfidenceScore)\u001b[33m.\u001b[39mtoBeGreaterThanOrEqual(\u001b[35m0.75\u001b[39m)\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 291 |\u001b[39m     })\u001b[33m;\u001b[39m\u001b[22m\n\u001b[2m     \u001b[90m 292 |\u001b[39m\u001b[0m\u001b[22m\n\u001b[2m\u001b[22m\n\u001b[2m      \u001b[2mat Object.<anonymous> (\u001b[22m\u001b[2m\u001b[0m\u001b[36msrc/features/nutrition/__tests__/CanonicalFoodSystem.test.ts\u001b[39m\u001b[0m\u001b[2m:289:33)\u001b[22m\u001b[2m\u001b[22m\n",
+      "name": "C:\\Users\\Max\\Desktop\\HealthApp\\src\\features\\nutrition\\__tests__\\CanonicalFoodSystem.test.ts",
+      "startTime": 1774115594054,
+      "status": "failed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}

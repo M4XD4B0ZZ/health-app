@@ -87,13 +87,13 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
 
     it('should fail for unknown food (Zero-Macro Blocker)', async () => {
       await expect(
-        useCase.execute({ rawText: '100g unknown food', rawInput: '100g unknown food' })
+        useCase.execute({ rawText: '100g unknown food', rawInput: '100g unknown food' }),
       ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: 100g unknown food');
     });
 
     it('should fail if no grams specified (Zero-Macro Blocker)', async () => {
       await expect(
-        useCase.execute({ rawText: 'unknown food', rawInput: 'unknown food' })
+        useCase.execute({ rawText: 'unknown food', rawInput: 'unknown food' }),
       ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: unknown food');
     });
 
@@ -126,7 +126,7 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
 
     it('should fail even for known food without NutritionLookup (Zero-Macro Blocker)', async () => {
       await expect(
-        useCase.execute({ rawText: '150g banana', rawInput: '150g banana' })
+        useCase.execute({ rawText: '150g banana', rawInput: '150g banana' }),
       ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: 150g banana');
     });
   });

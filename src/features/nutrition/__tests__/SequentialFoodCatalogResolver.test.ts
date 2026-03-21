@@ -854,26 +854,24 @@ describe('SequentialFoodCatalogResolver', () => {
       );
 
       expect(summaryLog).toBeDefined();
-      const metrics = summaryLog![1];
-
       // Verify all expected fields are present
-      expect(metrics).toHaveProperty('traceId');
-      expect(metrics).toHaveProperty('totalElapsedMs');
-      expect(metrics).toHaveProperty('sourcesTried');
-      expect(metrics).toHaveProperty('skippedByCircuit');
-      expect(metrics).toHaveProperty('timedOutSources');
-      expect(metrics).toHaveProperty('errorsBySource');
-      expect(metrics).toHaveProperty('winnerSource');
-      expect(metrics).toHaveProperty('winnerConfidence');
-      expect(metrics).toHaveProperty('cacheHit');
-      expect(metrics).toHaveProperty('cacheSet');
+      expect(summaryLog![1]).toHaveProperty('traceId');
+      expect(summaryLog![1]).toHaveProperty('totalElapsedMs');
+      expect(summaryLog![1]).toHaveProperty('sourcesTried');
+      expect(summaryLog![1]).toHaveProperty('skippedByCircuit');
+      expect(summaryLog![1]).toHaveProperty('timedOutSources');
+      expect(summaryLog![1]).toHaveProperty('errorsBySource');
+      expect(summaryLog![1]).toHaveProperty('winnerSource');
+      expect(summaryLog![1]).toHaveProperty('winnerConfidence');
+      expect(summaryLog![1]).toHaveProperty('cacheHit');
+      expect(summaryLog![1]).toHaveProperty('cacheSet');
 
       // Verify values
-      expect(metrics.sourcesTried).toEqual(['off']);
-      expect(metrics.winnerSource).toBe('OFF');
-      expect(metrics.winnerConfidence).toBeGreaterThan(0);
-      expect(metrics.cacheHit).toBe(false);
-      expect(metrics.cacheSet).toBe(false);
+      expect(summaryLog![1].sourcesTried).toEqual(['off']);
+      expect(summaryLog![1].winnerSource).toBe('OFF');
+      expect(summaryLog![1].winnerConfidence).toBeGreaterThan(0);
+      expect(summaryLog![1].cacheHit).toBe(false);
+      expect(summaryLog![1].cacheSet).toBe(false);
 
       consoleSpy.mockRestore();
     });
@@ -922,12 +920,10 @@ describe('SequentialFoodCatalogResolver', () => {
       );
 
       expect(summaryLog).toBeDefined();
-      const metrics = summaryLog![1];
-
       // OFF should be in timedOutSources
       // Note: timedOutSources may be empty if timeout handling changed
-      // expect(metrics.timedOutSources).toContain('off');
-      // expect(metrics.errorsBySource).toHaveProperty('off', 'timeout');
+      // expect(summaryLog![1].timedOutSources).toContain('off');
+      // expect(summaryLog![1].errorsBySource).toHaveProperty('off', 'timeout');
 
       consoleSpy.mockRestore();
       jest.useRealTimers();

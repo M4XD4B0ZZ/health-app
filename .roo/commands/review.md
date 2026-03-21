@@ -20,25 +20,29 @@ Vorgehen:
 
 4. Lies relevante Dateien im Kontext.
 5. Prüfe folgende Aspekte:
-2. Lies relevante Dateien im Kontext.
-3. Prüfe folgende Aspekte:
+6. Lies relevante Dateien im Kontext.
+7. Prüfe folgende Aspekte:
 
 Codequalität
+
 - Lesbarkeit
 - Struktur
 - Komplexität
 
 Architektur
+
 - Einhaltung der Modulgrenzen
 - Abhängigkeiten
 - Layer-Trennung
 
 Fehlerquellen
+
 - Edge Cases
 - mögliche Bugs
 - Performanceprobleme
 
 Verbesserungen
+
 - konkrete Verbesserungsvorschläge
 - kleine Refactors
 

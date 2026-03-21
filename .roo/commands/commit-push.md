@@ -7,6 +7,7 @@ mode: code
 Führe einen kontrollierten Git-Commit-und-Push-Workflow aus.
 
 Ziele:
+
 - Prüfe zuerst den aktuellen Git-Status.
 - Lies nur die minimal relevanten geänderten Dateien oder Diffs.
 - Formuliere auf Basis der tatsächlichen Änderungen eine präzise Commit-Message.
@@ -16,6 +17,7 @@ Ziele:
 - Push den aktuellen Branch zum zugehörigen Remote.
 
 Regeln für die Commit-Message:
+
 - Format: `type(scope): summary`
 - Erlaubte Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `build`, `ci`
 - Summary klein geschrieben, konkret, ohne unnötige Füllwörter
@@ -23,6 +25,7 @@ Regeln für die Commit-Message:
 - Scope nur verwenden, wenn klar erkennbar
 
 Pflichtschritte:
+
 1. `git status --short`
 2. Bei Bedarf `git diff --staged` und/oder `git diff`
 3. Kurz erklären, warum die gewählte Commit-Message passt
@@ -33,6 +36,7 @@ Pflichtschritte:
 8. Am Ende Commit-Hash, Branch und Push-Ziel knapp ausgeben
 
 Wichtige Sicherheitsregeln:
+
 - Nicht blind `git add .` verwenden, wenn irrelevante oder sensible Dateien sichtbar sind.
 - Keine `.env`, Secrets, Exporte, Backups oder Datenbankdateien committen.
 - Wenn kein Upstream existiert, setze den Push passend für den aktuellen Branch.

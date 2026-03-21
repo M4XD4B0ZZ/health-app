@@ -47,17 +47,17 @@ function tokenOverlap(query: string, candidate: string): number {
 
 // Plausible kcal ranges for common generic foods (per 100g)
 const GENERIC_FOOD_KCAL_RANGES: Record<string, { min: number; max: number }> = {
-  'egg': { min: 120, max: 180 },
-  'eggs': { min: 120, max: 180 },
-  'ei': { min: 120, max: 180 },
-  'eier': { min: 120, max: 180 },
-  'milk': { min: 40, max: 80 },
-  'milch': { min: 40, max: 80 },
-  'bread': { min: 200, max: 300 },
-  'brot': { min: 200, max: 300 },
-  'rice': { min: 300, max: 400 }, // Adjusted for cooked vs raw rice
-  'reis': { min: 300, max: 400 },
-  'toast': { min: 250, max: 350 },
+  egg: { min: 120, max: 180 },
+  eggs: { min: 120, max: 180 },
+  ei: { min: 120, max: 180 },
+  eier: { min: 120, max: 180 },
+  milk: { min: 40, max: 80 },
+  milch: { min: 40, max: 80 },
+  bread: { min: 200, max: 300 },
+  brot: { min: 200, max: 300 },
+  rice: { min: 300, max: 400 }, // Adjusted for cooked vs raw rice
+  reis: { min: 300, max: 400 },
+  toast: { min: 250, max: 350 },
 };
 
 function getGenericFoodPlausibilityScore(normalizedQuery: string, kcal: number): number {
@@ -65,17 +65,17 @@ function getGenericFoodPlausibilityScore(normalizedQuery: string, kcal: number):
   if (!range || !Number.isFinite(kcal)) {
     return 1.0; // No penalty for unknown foods or invalid kcal
   }
-  
+
   if (kcal >= range.min && kcal <= range.max) {
     return 1.0; // Perfect plausibility
   }
-  
+
   // Calculate penalty for values outside plausible range
   const midpoint = (range.min + range.max) / 2;
   const tolerance = (range.max - range.min) / 2;
   const deviation = Math.abs(kcal - midpoint);
   const relativeDeviation = deviation / tolerance;
-  
+
   // Strong penalty for extreme deviations (e.g., 513 kcal for egg)
   if (relativeDeviation > 3) {
     return 0.1; // Very low plausibility
@@ -84,7 +84,7 @@ function getGenericFoodPlausibilityScore(normalizedQuery: string, kcal: number):
   } else if (relativeDeviation > 1) {
     return 0.7; // Moderate plausibility
   }
-  
+
   return 1.0;
 }
 

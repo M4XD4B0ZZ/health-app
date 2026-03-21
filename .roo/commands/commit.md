@@ -7,6 +7,7 @@ mode: code
 Führe einen sicheren Git-Commit-Workflow aus.
 
 Ziele:
+
 - Prüfe zuerst den aktuellen Git-Status.
 - Lies nur die minimal relevanten geänderten Dateien oder Diffs.
 - Erstelle eine kurze Zusammenfassung dessen, was tatsächlich geändert wurde.
@@ -16,6 +17,7 @@ Ziele:
 - Push **nicht** automatisch.
 
 Regeln für die Commit-Message:
+
 - Format: `type(scope): summary`
 - Erlaubte Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `build`, `ci`
 - Summary klein geschrieben, konkret, ohne unnötige Füllwörter
@@ -23,6 +25,7 @@ Regeln für die Commit-Message:
 - Scope nur verwenden, wenn klar erkennbar
 
 Pflichtschritte:
+
 1. `git status --short`
 2. Bei Bedarf `git diff --staged` und/oder `git diff`
 3. Kurz begründen, welche Commit-Message gewählt wird

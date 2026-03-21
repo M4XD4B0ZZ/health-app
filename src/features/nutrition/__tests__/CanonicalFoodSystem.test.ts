@@ -218,58 +218,58 @@ describe('Canonical Food System - Sprint 5.3', () => {
         todayISO: () => '2026-02-15',
       };
       const mockResolver = MockResolverBuilder.createHappyPathResolver();
-    useCase = new LogFoodFromRawInputUseCase(
-      repository,
-      clock,
-      new TestIdGenerator(),
-      new DeterministicFoodParser(),
-      catalog,
-      aliasRepo,
-      aiFoodMapper,
-      undefined, // nutritionLookup
-      mockResolver,
-    );
-  });
+      useCase = new LogFoodFromRawInputUseCase(
+        repository,
+        clock,
+        new TestIdGenerator(),
+        new DeterministicFoodParser(),
+        catalog,
+        aliasRepo,
+        aiFoodMapper,
+        undefined, // nutritionLookup
+        mockResolver,
+      );
+    });
 
-  it('sollte deterministischen Catalog-Hit verwenden', async () => {
-    const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
+    it('sollte deterministischen Catalog-Hit verwenden', async () => {
+      const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
-    expect(entry.parsedName).toBe('banana');
-    expect(entry.quantityGrams).toBe(100);
-    expect(entry.calories).toBeCloseTo(89, 0); // 100g * 89 cal/100g
-    expect(entry.protein).toBeCloseTo(1.1, 0);
-    expect(entry.sourceType).toBe('generic');
-    expect(entry.confidenceScore).toBeGreaterThan(0.5);
-  });
+      expect(entry.parsedName).toBe('banana');
+      expect(entry.quantityGrams).toBe(100);
+      expect(entry.calories).toBeCloseTo(89, 0); // 100g * 89 cal/100g
+      expect(entry.protein).toBeCloseTo(1.1, 0);
+      expect(entry.sourceType).toBe('generic');
+      expect(entry.confidenceScore).toBeGreaterThan(0.5);
+    });
 
-  it('sollte Alias nach deterministischem Match speichern', async () => {
-    await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
+    it('sollte Alias nach deterministischem Match speichern', async () => {
+      await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
-    // Alias sollte gespeichert sein
-    const canonicalId = await aliasRepo.getCanonicalId('banana');
-    expect(canonicalId).toBe('banana');
-  });
+      // Alias sollte gespeichert sein
+      const canonicalId = await aliasRepo.getCanonicalId('banana');
+      expect(canonicalId).toBe('banana');
+    });
 
-  it('sollte gespeicherten Alias verwenden (Cache-Hit)', async () => {
-    // Ersten Call: Alias wird gespeichert
-    await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
+    it('sollte gespeicherten Alias verwenden (Cache-Hit)', async () => {
+      // Ersten Call: Alias wird gespeichert
+      await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
-    // Zweiten Call: Sollte Cache verwenden
-    const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
+      // Zweiten Call: Sollte Cache verwenden
+      const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
-    expect(entry.sourceType).toBe('cache');
-    expect(entry.confidenceScore).toBeGreaterThanOrEqual(0.7);
-  });
+      expect(entry.sourceType).toBe('cache');
+      expect(entry.confidenceScore).toBeGreaterThanOrEqual(0.7);
+    });
 
-  it('sollte "banane" über Singular-Heuristik matchen (nicht AI)', async () => {
-    // "banane" wird jetzt über Singular-Heuristik zu "banan" -> "banana" gematcht
-    const entry = await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
+    it('sollte "banane" über Singular-Heuristik matchen (nicht AI)', async () => {
+      // "banane" wird jetzt über Singular-Heuristik zu "banan" -> "banana" gematcht
+      const entry = await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
 
-    expect(entry.parsedName).toBe('banane');
-    expect(entry.quantityGrams).toBe(200);
-    expect(entry.calories).toBeCloseTo(178, 1); // 200g * 89 cal/100g
-    expect(entry.sourceType).toBe('generic'); // Via Singular-Heuristik, nicht AI
-  });
+      expect(entry.parsedName).toBe('banane');
+      expect(entry.quantityGrams).toBe(200);
+      expect(entry.calories).toBeCloseTo(178, 1); // 200g * 89 cal/100g
+      expect(entry.sourceType).toBe('generic'); // Via Singular-Heuristik, nicht AI
+    });
 
     it('sollte Alias nach deterministischem Singular-Match speichern', async () => {
       await useCase.execute({ rawText: '200g banane', rawInput: '200g banane' });
@@ -290,29 +290,32 @@ describe('Canonical Food System - Sprint 5.3', () => {
       expect(entry2.confidenceScore).toBeGreaterThanOrEqual(0.75);
     });
 
-  it('sollte Macros deterministisch aus Canonical Food berechnen', async () => {
-    const entry = await useCase.execute({ rawText: '250g chicken breast', rawInput: '250g chicken breast' });
+    it('sollte Macros deterministisch aus Canonical Food berechnen', async () => {
+      const entry = await useCase.execute({
+        rawText: '250g chicken breast',
+        rawInput: '250g chicken breast',
+      });
 
-    // Chicken Breast: 165 cal, 31g protein per 100g
-    expect(entry.calories).toBeCloseTo(412.5, 1); // 250 * 165/100
-    expect(entry.protein).toBeCloseTo(77.5, 1); // 250 * 31/100
-    expect(entry.carbs).toBe(0);
-    expect(entry.fat).toBeCloseTo(9, 1); // 250 * 3.6/100
-  });
+      // Chicken Breast: 165 cal, 31g protein per 100g
+      expect(entry.calories).toBeCloseTo(412.5, 1); // 250 * 165/100
+      expect(entry.protein).toBeCloseTo(77.5, 1); // 250 * 31/100
+      expect(entry.carbs).toBe(0);
+      expect(entry.fat).toBeCloseTo(9, 1); // 250 * 3.6/100
+    });
 
-  it('sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)', async () => {
-    await expect(
-      useCase.execute({ rawText: 'unknown food', rawInput: 'unknown food' })
-    ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: unknown food');
-  });
+    it('sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)', async () => {
+      await expect(
+        useCase.execute({ rawText: 'unknown food', rawInput: 'unknown food' }),
+      ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: unknown food');
+    });
 
-  it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {
-    const entry = await useCase.execute({ rawText: '150g hähnchen', rawInput: '150g hähnchen' });
+    it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {
+      const entry = await useCase.execute({ rawText: '150g hähnchen', rawInput: '150g hähnchen' });
 
-    // "hähnchen" wird normalisiert und via AI zu "chicken breast" gemappt
-    expect(entry.quantityGrams).toBe(150);
-    expect(entry.calories).toBeCloseTo(247.5, 1); // 150 * 165/100
-    expect(entry.sourceType).toBe('generic');
-  });
+      // "hähnchen" wird normalisiert und via AI zu "chicken breast" gemappt
+      expect(entry.quantityGrams).toBe(150);
+      expect(entry.calories).toBeCloseTo(247.5, 1); // 150 * 165/100
+      expect(entry.sourceType).toBe('generic');
+    });
   });
 });

@@ -5,6 +5,7 @@ import { DeterministicFoodParser } from '../infrastructure/parsers/Deterministic
 import { FakeAiMealParser } from '../infrastructure/ai/FakeAiMealParser';
 import { Clock } from '../application/ports/Clock';
 import { FoodEntry } from '../domain/models/NutritionTypes';
+import { MockResolverBuilder } from './helpers/MockResolverBuilder';
 
 describe('LogMealFromRawInputUseCase', () => {
   let useCase: LogMealFromRawInputUseCase;
@@ -13,6 +14,7 @@ describe('LogMealFromRawInputUseCase', () => {
   let idGenerator: TestIdGenerator;
   let parser: DeterministicFoodParser;
   let aiParser: FakeAiMealParser;
+  let mockResolver: ReturnType<typeof MockResolverBuilder.createHappyPathResolver>;
 
   beforeEach(() => {
     repository = new InMemoryFoodEntryRepository();
@@ -23,7 +25,14 @@ describe('LogMealFromRawInputUseCase', () => {
     idGenerator = new TestIdGenerator();
     parser = new DeterministicFoodParser();
     aiParser = new FakeAiMealParser();
+    mockResolver = MockResolverBuilder.createHappyPathResolver();
   });
+
+  // Create a minimal mock food catalog to enable resolver usage
+  const mockFoodCatalog = {
+    getById: async () => null,
+    searchByName: async () => null,
+  };
 
   describe('Single-Item Fallback', () => {
     it('sollte einfachen Input über Single-Item Flow behandeln', async () => {
@@ -32,11 +41,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       const entryIds = await useCase.execute('250g chicken');
@@ -55,11 +65,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       const entryIds = await useCase.execute('20er nuggets');
@@ -82,11 +93,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       const entryIds = await useCase.execute('20er nuggets mit cola und pommes');
@@ -121,11 +133,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       const entryIds = await useCase.execute('burger mit cola');
@@ -149,11 +162,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       await useCase.execute('20er nuggets mit cola');
@@ -172,11 +186,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         undefined, // Kein AI Parser
+        mockResolver, // resolver
       );
 
       const entryIds = await useCase.execute('burger mit cola');
@@ -197,11 +212,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       await useCase.execute('burger mit cola', '2026-02-14');
@@ -221,11 +237,12 @@ describe('LogMealFromRawInputUseCase', () => {
         clock,
         idGenerator,
         parser,
-        undefined, // foodCatalog
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
         undefined, // aliasRepository
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
+        mockResolver, // resolver
       );
 
       await useCase.execute('burger mit cola');

@@ -4,6 +4,7 @@ import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMe
 import { DeterministicFoodParser } from '../infrastructure/parsers/DeterministicFoodParser';
 import { Clock } from '../application/ports/Clock';
 import { IdGenerator } from '../application/ports/IdGenerator';
+import { MockResolverBuilder } from './helpers/MockResolverBuilder';
 
 // Test-Implementierungen
 class TestClock implements Clock {
@@ -36,13 +37,30 @@ describe('DeleteFoodEntryUseCase', () => {
     const clock = new TestClock(new Date('2026-02-15T12:00:00Z'));
     const idGenerator = new TestIdGenerator();
     const parser = new DeterministicFoodParser();
+    const mockResolver = MockResolverBuilder.createHappyPathResolver();
+
+    // Create a minimal mock food catalog to enable resolver usage
+    const mockFoodCatalog = {
+      getById: async () => null,
+      searchByName: async () => null,
+    };
 
     deleteUseCase = new DeleteFoodEntryUseCase(repository);
-    logFoodUseCase = new LogFoodFromRawInputUseCase(repository, clock, idGenerator, parser);
+    logFoodUseCase = new LogFoodFromRawInputUseCase(
+      repository,
+      clock,
+      idGenerator,
+      parser,
+      mockFoodCatalog as any, // foodCatalog - needed to enable resolver
+      undefined, // aliasRepository
+      undefined, // aiFoodMapper
+      undefined, // nutritionLookup
+      mockResolver
+    );
   });
 
   it('sollte einen Eintrag löschen', async () => {
-    const entry = await logFoodUseCase.execute('200g chicken');
+    const entry = await logFoodUseCase.execute({ rawText: '200g chicken', rawInput: '200g chicken' });
 
     await deleteUseCase.execute(entry.id);
 
@@ -51,9 +69,9 @@ describe('DeleteFoodEntryUseCase', () => {
   });
 
   it('sollte nur den spezifischen Eintrag löschen', async () => {
-    const entry1 = await logFoodUseCase.execute('200g chicken');
-    const entry2 = await logFoodUseCase.execute('150g rice');
-    const entry3 = await logFoodUseCase.execute('banana');
+    const entry1 = await logFoodUseCase.execute({ rawText: '200g chicken', rawInput: '200g chicken' });
+    const entry2 = await logFoodUseCase.execute({ rawText: '150g rice', rawInput: '150g rice' });
+    const entry3 = await logFoodUseCase.execute({ rawText: 'banana', rawInput: 'banana' });
 
     await deleteUseCase.execute(entry2.id);
 
@@ -64,7 +82,7 @@ describe('DeleteFoodEntryUseCase', () => {
   });
 
   it('sollte nichts tun wenn ID nicht existiert', async () => {
-    await logFoodUseCase.execute('200g chicken');
+    await logFoodUseCase.execute({ rawText: '200g chicken', rawInput: '200g chicken' });
 
     await deleteUseCase.execute('non-existent-id');
 

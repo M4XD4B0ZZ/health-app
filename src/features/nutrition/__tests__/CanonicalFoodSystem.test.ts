@@ -7,9 +7,7 @@ import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMe
 import { DeterministicFoodParser } from '../infrastructure/parsers/DeterministicFoodParser';
 import { TestIdGenerator } from '../infrastructure/RandomIdGenerator';
 import { Clock } from '../application/ports/Clock';
-import { FoodCatalogResolver } from '../application/services/FoodCatalogResolver';
-import { FoodCatalogSource } from '../domain/catalog/FoodCatalogSource';
-import { ResolverDecision } from '../domain/models/ResolverDecision';
+import { MockResolverBuilder } from './helpers/MockResolverBuilder';
 
 describe('Canonical Food System - Sprint 5.3', () => {
   describe('normalizeText', () => {
@@ -210,56 +208,16 @@ describe('Canonical Food System - Sprint 5.3', () => {
     let aiFoodMapper: FakeAiFoodMapper;
     let clock: Clock;
 
-  class MockFoodCatalogResolver {
-    private per100gData: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {
-      'chicken breast': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-      banana: { calories: 89, protein: 1.1, carbs: 23, fat: 0.3 },
-    };
-
-    async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
-      const text = query.text.toLowerCase();
-      if (text.includes('chicken breast')) {
-        return Promise.resolve({
-          decision: 'accept',
-          reason: 'mock enriched',
-          food: {
-            id: 'chicken breast',
-            per100g: this.per100gData['chicken breast'],
-          },
-        });
-      }
-      if (text.includes('banana')) {
-        return Promise.resolve({
-          decision: 'accept',
-          reason: 'mock enriched',
-          food: {
-            id: 'banana',
-            per100g: this.per100gData['banana'],
-          },
-        });
-      }
-      return Promise.resolve({ decision: 'none', reason: 'mock' });
-    }
-
-    getPer100gByName(name: string) {
-      return this.per100gData[name] || null;
-    }
-
-    upsertPer100gByName(name: string, data: { calories: number; protein: number; carbs: number; fat: number }) {
-      this.per100gData[name] = data;
-    }
-  }
-
-  beforeEach(() => {
-    repository = new InMemoryFoodEntryRepository();
-    catalog = new InMemoryFoodCatalog();
-    aliasRepo = new InMemoryFoodAliasRepository();
-    aiFoodMapper = new FakeAiFoodMapper();
-    clock = {
-      now: () => new Date('2026-02-15T12:00:00Z'),
-      todayISO: () => '2026-02-15',
-    };
-    const mockResolver = new MockFoodCatalogResolver();
+    beforeEach(() => {
+      repository = new InMemoryFoodEntryRepository();
+      catalog = new InMemoryFoodCatalog();
+      aliasRepo = new InMemoryFoodAliasRepository();
+      aiFoodMapper = new FakeAiFoodMapper();
+      clock = {
+        now: () => new Date('2026-02-15T12:00:00Z'),
+        todayISO: () => '2026-02-15',
+      };
+      const mockResolver = MockResolverBuilder.createHappyPathResolver();
     useCase = new LogFoodFromRawInputUseCase(
       repository,
       clock,
@@ -268,6 +226,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
       catalog,
       aliasRepo,
       aiFoodMapper,
+      undefined, // nutritionLookup
       mockResolver,
     );
   });

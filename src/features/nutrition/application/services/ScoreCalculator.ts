@@ -3,9 +3,9 @@ import { ResolvedFoodCandidateBreakdown } from '../../domain/models/ResolverDeci
 import { ResolverSourceLabel, RESOLVER_SOURCE_LABELS } from './ResolverSourceLabel';
 
 const WEIGHTS = {
-  match: 0.55,
+  match: 0.45,
   dataQuality: 0.25,
-  kcalConsistency: 0.1,
+  kcalConsistency: 0.2,
   sourceTrust: 0.1,
 } as const;
 
@@ -43,6 +43,49 @@ function tokenOverlap(query: string, candidate: string): number {
 
   const unionSize = new Set([...querySet, ...candidateSet]).size;
   return unionSize > 0 ? intersection / unionSize : 0;
+}
+
+// Plausible kcal ranges for common generic foods (per 100g)
+const GENERIC_FOOD_KCAL_RANGES: Record<string, { min: number; max: number }> = {
+  'egg': { min: 120, max: 180 },
+  'eggs': { min: 120, max: 180 },
+  'ei': { min: 120, max: 180 },
+  'eier': { min: 120, max: 180 },
+  'milk': { min: 40, max: 80 },
+  'milch': { min: 40, max: 80 },
+  'bread': { min: 200, max: 300 },
+  'brot': { min: 200, max: 300 },
+  'rice': { min: 300, max: 400 }, // Adjusted for cooked vs raw rice
+  'reis': { min: 300, max: 400 },
+  'toast': { min: 250, max: 350 },
+};
+
+function getGenericFoodPlausibilityScore(normalizedQuery: string, kcal: number): number {
+  const range = GENERIC_FOOD_KCAL_RANGES[normalizedQuery.toLowerCase()];
+  if (!range || !Number.isFinite(kcal)) {
+    return 1.0; // No penalty for unknown foods or invalid kcal
+  }
+  
+  if (kcal >= range.min && kcal <= range.max) {
+    return 1.0; // Perfect plausibility
+  }
+  
+  // Calculate penalty for values outside plausible range
+  const midpoint = (range.min + range.max) / 2;
+  const tolerance = (range.max - range.min) / 2;
+  const deviation = Math.abs(kcal - midpoint);
+  const relativeDeviation = deviation / tolerance;
+  
+  // Strong penalty for extreme deviations (e.g., 513 kcal for egg)
+  if (relativeDeviation > 3) {
+    return 0.1; // Very low plausibility
+  } else if (relativeDeviation > 2) {
+    return 0.3; // Low plausibility
+  } else if (relativeDeviation > 1) {
+    return 0.7; // Moderate plausibility
+  }
+  
+  return 1.0;
 }
 
 export interface ScoreCalculatorInput {
@@ -113,12 +156,21 @@ export class ScoreCalculator {
       notes.push('source_trust_default');
     }
 
-    const finalScore = clamp01(
+    // Apply generic food plausibility check
+    const plausibilityScore = getGenericFoodPlausibilityScore(input.normalizedQuery, macros.kcal);
+    if (plausibilityScore < 1.0) {
+      notes.push(`generic_food_implausible_${Math.round((1 - plausibilityScore) * 100)}pct`);
+    }
+
+    let finalScore = clamp01(
       matchScore * WEIGHTS.match +
         dataQualityScore * WEIGHTS.dataQuality +
         kcalConsistencyScore * WEIGHTS.kcalConsistency +
         sourceTrustScore * WEIGHTS.sourceTrust,
     );
+
+    // Apply plausibility penalty
+    finalScore = clamp01(finalScore * plausibilityScore);
 
     return {
       matchScore,

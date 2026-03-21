@@ -118,11 +118,146 @@ export class MockResolverBuilder {
       .withAcceptedFood('hähnchen', 'Chicken Breast', { kcal: 165, protein: 31, carbs: 0, fat: 3.6 })
       .withAcceptedFood('150g hähnchen', 'Chicken Breast', { kcal: 165, protein: 31, carbs: 0, fat: 3.6 })
       
-      // Banana variations
-      .withAcceptedFood('banana', 'Banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
-      .withAcceptedFood('100g banana', 'Banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
+      // Banana variations - use canonical IDs without mock- prefix for alias tests
+      .withResponse('banana', {
+        normalizedQuery: 'banana',
+        status: 'accepted',
+        reasonCodes: ['MOCK_ACCEPTED'],
+        candidates: [{
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        }],
+        best: {
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        },
+        createdAt: new Date().toISOString(),
+      })
+      .withResponse('100g banana', {
+        normalizedQuery: '100g banana',
+        status: 'accepted',
+        reasonCodes: ['MOCK_ACCEPTED'],
+        candidates: [{
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        }],
+        best: {
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        },
+        createdAt: new Date().toISOString(),
+      })
       .withAcceptedFood('150g banana', 'Banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
-      .withAcceptedFood('200g banane', 'Banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
+      .withResponse('200g banane', {
+        normalizedQuery: '200g banane',
+        status: 'accepted',
+        reasonCodes: ['MOCK_ACCEPTED'],
+        candidates: [{
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        }],
+        best: {
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        },
+        createdAt: new Date().toISOString(),
+      })
       
       // Rice variations
       .withAcceptedFood('rice', 'Rice', { kcal: 130, protein: 2.7, carbs: 28, fat: 0.3 })
@@ -173,9 +308,54 @@ export class MockResolverBuilder {
       .withAcceptedFood('apfel', 'Apple', { kcal: 52, protein: 0.3, carbs: 14, fat: 0.2 })
       .withAcceptedFood('aepfel', 'Apple', { kcal: 52, protein: 0.3, carbs: 14, fat: 0.2 })
       
-      // German variations
-      .withAcceptedFood('banane', 'Banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
-      .withAcceptedFood('bananas', 'Banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
+      // German variations - use canonical IDs without mock- prefix for alias tests
+      .withResponse('banane', {
+        normalizedQuery: 'banane',
+        status: 'accepted',
+        reasonCodes: ['MOCK_ACCEPTED'],
+        candidates: [{
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        }],
+        best: {
+          id: 'banana',
+          source: 'MockSource',
+          food: {
+            id: 'banana',
+            name: 'Banana',
+            normalizedName: 'banana',
+            macrosPer100g: { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+            source: 'usda' as const,
+          },
+          score: 0.85,
+          breakdown: {
+            matchScore: 0.85,
+            dataQualityScore: 0.8,
+            kcalConsistencyScore: 0.9,
+            sourceTrustScore: 0.8,
+            finalScore: 0.85,
+            notes: ['Mock food match'],
+          },
+        },
+        createdAt: new Date().toISOString(),
+      })
+      .withAcceptedFood('bananas', 'banana', { kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 })
       .withAcceptedFood('eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
       
       // Failure cases - these should be rejected for testing failure paths

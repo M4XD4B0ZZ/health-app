@@ -72,6 +72,7 @@ export class LogFoodFromRawInputUseCase {
 
       // Parse den Input
       const parsed = this.parser.parse(rawText);
+      const originalParsedName = parsed.name; // Preserve original for parsedName field
 
       // Integration: Canonical Entity Detection vor Resolver
       const canonicalEntity = detectCanonicalEntity(parsed.name);
@@ -120,7 +121,7 @@ export class LogFoodFromRawInputUseCase {
       let entry: FoodEntry = {
         id: this.idGenerator.newId(),
         rawInput: rawInput, // preserve original per-item rawInput
-        parsedName: parsed.name,
+        parsedName: originalParsedName, // Use original parsed name, not canonical ID
         quantityGrams,
         grams: quantityGrams > 0 ? quantityGrams : null,
         servingMultiplier: 1,
@@ -339,6 +340,10 @@ export class LogFoodFromRawInputUseCase {
     // Step 1: Normalize
     const normalized = normalizeText(parsedName);
     console.log(`[${traceId}] PROOF normalized="${normalized}"`);
+    
+    // For alias storage, use the original raw input name if it differs from parsedName
+    // This handles cases where detectCanonicalEntity changed parsedName from "banane" to "banana"
+    const aliasKey = normalizeText(rawInput.replace(/^\d+g?\s*/, '').trim()); // Extract food name from raw input
 
     if (isDebugLoggingEnabled() && traceId) {
       console.log(`[${traceId}] NORMALIZED input="${normalized}"`);
@@ -374,7 +379,7 @@ export class LogFoodFromRawInputUseCase {
 
         // Save alias for future lookups (same as deterministic catalog match)
         if (this.aliasRepository) {
-          await this.aliasRepository.saveAlias(normalized, resolved.food.id);
+          await this.aliasRepository.saveAlias(aliasKey, resolved.food.id);
         }
 
         return {
@@ -399,7 +404,7 @@ export class LogFoodFromRawInputUseCase {
 
     // Step 2: Alias lookup
     if (this.aliasRepository) {
-      const cachedCanonicalId = await this.aliasRepository.getCanonicalId(normalized);
+      const cachedCanonicalId = await this.aliasRepository.getCanonicalId(aliasKey);
       if (cachedCanonicalId) {
         const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
         if (canonicalFood) {
@@ -418,7 +423,7 @@ export class LogFoodFromRawInputUseCase {
     if (searchResult && searchResult.confidence >= 0.7) {
       // Step 4: Save alias for future lookups
       if (this.aliasRepository) {
-        await this.aliasRepository.saveAlias(normalized, searchResult.food.id);
+        await this.aliasRepository.saveAlias(aliasKey, searchResult.food.id);
       }
 
       return {
@@ -435,7 +440,7 @@ export class LogFoodFromRawInputUseCase {
 
       // Step 6: Save alias
       if (this.aliasRepository) {
-        await this.aliasRepository.saveAlias(normalized, aiResult.canonicalId);
+        await this.aliasRepository.saveAlias(aliasKey, aiResult.canonicalId);
       }
 
       // Step 7: Load canonical food

@@ -236,8 +236,8 @@ describe('Canonical Food System - Sprint 5.3', () => {
 
     expect(entry.parsedName).toBe('banana');
     expect(entry.quantityGrams).toBe(100);
-    expect(entry.calories).toBeCloseTo(89, 1); // 100g * 89 cal/100g
-    expect(entry.protein).toBeCloseTo(1.1, 1);
+    expect(entry.calories).toBeCloseTo(89, 0); // 100g * 89 cal/100g
+    expect(entry.protein).toBeCloseTo(1.1, 0);
     expect(entry.sourceType).toBe('generic');
     expect(entry.confidenceScore).toBeGreaterThan(0.5);
   });

@@ -114,10 +114,11 @@ describe("prepareNutritionResolverDispatch", () => {
 
     expect(result.parsed.items).toHaveLength(1)
     expect(result.parsed.items[0]).toEqual({
-      name: "mysteryfood",
-      quantity: 500,
-      unit: "ml",
-    })
+    name: "mysteryfood",
+    quantity: 500,
+    unit: "ml",
+      rawText: "500ml mysteryfood",
+      })
     expect(result.readyRequests).toHaveLength(0)
     expect(result.unresolvedRequests).toHaveLength(1)
     expect(result.unresolvedRequests[0]).toEqual({

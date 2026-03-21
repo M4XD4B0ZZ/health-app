@@ -159,6 +159,7 @@ export class MockResolverBuilder {
       
       // Additional foods that appear in failing tests
       .withAcceptedFood('unknown food', 'Generic Food', { kcal: 100, protein: 5, carbs: 10, fat: 2 })
+       .withAcceptedFood('mysteryfood', 'Mystery Food', { kcal: 100, protein: 5, carbs: 10, fat: 2 })
       .withAcceptedFood('mysteryfood', 'Mystery Food', { kcal: 100, protein: 5, carbs: 10, fat: 2 })
       .withAcceptedFood('toast', 'Toast', { kcal: 265, protein: 9, carbs: 49, fat: 3.2 })
       

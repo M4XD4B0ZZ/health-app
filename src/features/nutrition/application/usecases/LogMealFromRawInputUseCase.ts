@@ -168,11 +168,11 @@ export class LogMealFromRawInputUseCase {
     if (this.foodCatalog) {
       const result = await this.resolveCanonicalFood(item.name, derivedRawInput, traceId);
 
-      if (result.canonicalFood && quantityGrams > 0) {
-        // Calculate macros from canonical food
+      if (result.canonicalFood) {
+        // Calculate macros from canonical food (even if quantityGrams = 0 for pieces/portions)
         const macros = this.engine.calculateFromPer100g(
           result.canonicalFood.per100g,
-          quantityGrams,
+          quantityGrams > 0 ? quantityGrams : 100, // Use 100g as default for pieces/portions
         );
 
         // Update entry with enriched data

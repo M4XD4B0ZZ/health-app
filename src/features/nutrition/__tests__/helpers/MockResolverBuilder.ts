@@ -154,6 +154,8 @@ export class MockResolverBuilder {
       .withAcceptedFood('burger', 'Burger', { kcal: 295, protein: 17, carbs: 24, fat: 14 })
       .withAcceptedFood('burger mit cola', 'Burger', { kcal: 295, protein: 17, carbs: 24, fat: 14 })
       .withAcceptedFood('burger mitcola', 'Burger', { kcal: 295, protein: 17, carbs: 24, fat: 14 })
+      .withAcceptedFood('1 portion pommes', 'French Fries', { kcal: 365, protein: 4, carbs: 63, fat: 17 })
+      .withAcceptedFood('400ml cola', 'Cola', { kcal: 42, protein: 0, carbs: 10.6, fat: 0 })
       .withAcceptedFood('cola', 'Cola', { kcal: 42, protein: 0, carbs: 10.6, fat: 0 })
       .withAcceptedFood('pommes', 'French Fries', { kcal: 365, protein: 4, carbs: 63, fat: 17 })
       

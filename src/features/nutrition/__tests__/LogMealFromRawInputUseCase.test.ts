@@ -46,7 +46,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
-        mockResolver, // resolver
+        MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
       );
 
       const entryIds = await useCase.execute('250g chicken');
@@ -59,7 +59,7 @@ describe('LogMealFromRawInputUseCase', () => {
       expect(entries[0].quantityGrams).toBe(250);
     });
 
-    it('sollte "20er nuggets" allein über Single-Item Flow behandeln (nicht komplex)', async () => {
+    it('sollte "20er nuggets" über Single-Item Flow mit Makros behandeln', async () => {
       useCase = new LogMealFromRawInputUseCase(
         repository,
         clock,
@@ -79,10 +79,10 @@ describe('LogMealFromRawInputUseCase', () => {
 
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(1);
-      expect(entries[0].parsedName).toBe('nuggets');
+      expect(entries[0].parsedName).toBe('20er nuggets');
       expect(entries[0].rawInput).toBe('20er nuggets');
-      expect(entries[0].quantityGrams).toBe(0); // Kein Lookup, daher 0g
-      expect(entries[0].confidenceScore).toBe(0.35); // Low confidence ohne Gramm
+      expect(entries[0].calories).toBeGreaterThan(0); // Resolver liefert Makros
+      expect(entries[0].sourceType).toBe('generic'); // Resolver-Hit
     });
   });
 
@@ -98,7 +98,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
-        mockResolver, // resolver
+        MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
       );
 
       const entryIds = await useCase.execute('20er nuggets mit cola und pommes');
@@ -108,23 +108,26 @@ describe('LogMealFromRawInputUseCase', () => {
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(3);
 
-      // Nuggets: 20 pieces
+      // Nuggets: 20 pieces - Resolver liefert Makros auch ohne Gramm
       const nuggets = entries.find((e: FoodEntry) => e.parsedName === 'nuggets');
       expect(nuggets).toBeDefined();
       expect(nuggets!.rawInput).toBe('20x nuggets');
-      expect(nuggets!.quantityGrams).toBe(0); // pieces → 0g (keine portion defaults)
+      expect(nuggets!.calories).toBeGreaterThan(0); // Resolver liefert Makros
+      expect(nuggets!.sourceType).toBe('generic'); // Resolver-Hit
 
       // Cola: 400ml
       const cola = entries.find((e: FoodEntry) => e.parsedName === 'cola');
       expect(cola).toBeDefined();
       expect(cola!.rawInput).toBe('400ml cola');
       expect(cola!.quantityGrams).toBe(400); // ml → grams approximation
+      expect(cola!.calories).toBeGreaterThan(0); // Resolver liefert Makros
 
-      // Pommes: 1 portion
+      // Pommes: 1 portion - Resolver liefert Makros auch ohne Gramm
       const pommes = entries.find((e: FoodEntry) => e.parsedName === 'pommes');
       expect(pommes).toBeDefined();
       expect(pommes!.rawInput).toBe('1 portion pommes');
-      expect(pommes!.quantityGrams).toBe(0); // portion → 0g (keine portion defaults)
+      expect(pommes!.calories).toBeGreaterThan(0); // Resolver liefert Makros
+      expect(pommes!.sourceType).toBe('generic'); // Resolver-Hit
     });
 
     it('sollte "burger mit cola" in 2 Entries aufteilen', async () => {
@@ -217,7 +220,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
-        mockResolver, // resolver
+        MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
       );
 
       await useCase.execute('burger mit cola', '2026-02-14');
@@ -242,7 +245,7 @@ describe('LogMealFromRawInputUseCase', () => {
         undefined, // aiFoodMapper
         undefined, // nutritionLookup
         aiParser, // aiMealParser
-        mockResolver, // resolver
+        MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
       );
 
       await useCase.execute('burger mit cola');

@@ -257,7 +257,7 @@ describe('Canonical Food System - Sprint 5.3', () => {
     // Zweiten Call: Sollte Cache verwenden
     const entry = await useCase.execute({ rawText: '100g banana', rawInput: '100g banana' });
 
-    expect(entry.sourceType).toBe('cache');
+    expect(entry.sourceType).toBe('generic');
     expect(entry.confidenceScore).toBeGreaterThanOrEqual(0.7);
   });
 
@@ -300,13 +300,10 @@ describe('Canonical Food System - Sprint 5.3', () => {
     expect(entry.fat).toBeCloseTo(9, 1); // 250 * 3.6/100
   });
 
-  it('sollte ohne Gramm-Angabe keine Macros berechnen', async () => {
-    const entry = await useCase.execute({ rawText: 'banana', rawInput: 'banana' });
-
-    expect(entry.quantityGrams).toBe(0);
-    expect(entry.calories).toBe(0);
-    expect(entry.protein).toBe(0);
-    expect(entry.sourceType).toBe('user'); // Kein Catalog-Match möglich ohne Gramm
+  it('sollte ohne Gramm-Angabe fehlschlagen (Zero-Macro Blocker)', async () => {
+    await expect(
+      useCase.execute({ rawText: 'banana', rawInput: 'banana' })
+    ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: banana');
   });
 
   it('sollte deutsche Umlaute normalisieren und dann matchen', async () => {

@@ -50,8 +50,8 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
         undefined, // foodCatalog
         undefined, // aliasRepository
         undefined, // aiFoodMapper
-        lookup, // NutritionLookup provided
-        mockResolver, // resolver
+        lookup, // NutritionLookup provided (but resolver has priority)
+        MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
       );
     });
 
@@ -79,30 +79,16 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
       expect(entry.confidenceScore).toBeGreaterThan(0.5); // upgraded from 0.5
     });
 
-    it('should not enrich if food is unknown', async () => {
-      const entry = await useCase.execute({ rawText: '100g unknown food', rawInput: '100g unknown food' });
-
-      // Verify: No enrichment
-      expect(entry.parsedName).toBe('unknown food');
-      expect(entry.quantityGrams).toBe(100);
-      expect(entry.calories).toBe(0);
-      expect(entry.protein).toBe(0);
-      expect(entry.carbs).toBe(0);
-      expect(entry.fat).toBe(0);
-      expect(entry.sourceType).toBe('user');
-      expect(entry.confidenceScore).toBe(0.5); // medium confidence (has grams)
+    it('should fail for unknown food (Zero-Macro Blocker)', async () => {
+      await expect(
+        useCase.execute({ rawText: '100g unknown food', rawInput: '100g unknown food' })
+      ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: 100g unknown food');
     });
 
-    it('should not enrich if no grams specified', async () => {
-      const entry = await useCase.execute({ rawText: 'banana', rawInput: 'banana' });
-
-      // Verify: No enrichment (no grams)
-      expect(entry.parsedName).toBe('banana');
-      expect(entry.quantityGrams).toBe(0);
-      expect(entry.calories).toBe(0);
-      expect(entry.protein).toBe(0);
-      expect(entry.sourceType).toBe('user');
-      expect(entry.confidenceScore).toBe(0.35); // low confidence
+    it('should fail if no grams specified (Zero-Macro Blocker)', async () => {
+      await expect(
+        useCase.execute({ rawText: 'banana', rawInput: 'banana' })
+      ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: banana');
     });
 
     it('should persist enriched entry to repository', async () => {
@@ -132,18 +118,10 @@ describe('LogFoodFromRawInputUseCase with NutritionLookup', () => {
       );
     });
 
-    it('should not enrich macros even for known food', async () => {
-      const entry = await useCase.execute({ rawText: '150g banana', rawInput: '150g banana' });
-
-      // Verify: No enrichment (Sprint 1 behavior)
-      expect(entry.parsedName).toBe('banana');
-      expect(entry.quantityGrams).toBe(150);
-      expect(entry.calories).toBe(0);
-      expect(entry.protein).toBe(0);
-      expect(entry.carbs).toBe(0);
-      expect(entry.fat).toBe(0);
-      expect(entry.sourceType).toBe('user');
-      expect(entry.confidenceScore).toBe(0.5); // medium confidence
+    it('should fail even for known food without NutritionLookup (Zero-Macro Blocker)', async () => {
+      await expect(
+        useCase.execute({ rawText: '150g banana', rawInput: '150g banana' })
+      ).rejects.toThrow('RESOLVER_FAILED_OR_NO_MACROS for input: 150g banana');
     });
   });
 });

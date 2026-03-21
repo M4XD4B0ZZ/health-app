@@ -58,7 +58,7 @@ export class LogFoodFromRawInputUseCase {
 
   async execute(
     input: { rawText: string; rawInput: string },
-    dateISO?: string
+    dateISO?: string,
   ): Promise<FoodEntry> {
     const { rawText, rawInput } = input;
     const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -147,43 +147,71 @@ export class LogFoodFromRawInputUseCase {
           calcBreakdown = computed;
 
           if (isDebugLoggingEnabled() && traceId) {
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] rawInput="${rawInput}" parsedName="${parsed.name}" normalizedQuery="${parsed.name}"`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] resolverWinner="canonicalFood" source="${result.sourceType}"`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] macrosPer100g=${JSON.stringify(result.canonicalFood.per100g)}`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] quantityCount=${parsed.quantityCount} quantityGrams=${quantityGrams}`);
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] rawInput="${rawInput}" parsedName="${parsed.name}" normalizedQuery="${parsed.name}"`,
+            );
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] resolverWinner="canonicalFood" source="${result.sourceType}"`,
+            );
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] macrosPer100g=${JSON.stringify(result.canonicalFood.per100g)}`,
+            );
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] quantityCount=${parsed.quantityCount} quantityGrams=${quantityGrams}`,
+            );
 
             // Unit-based food logging
             if (quantityGrams <= 0) {
               const canonicalEntity = detectCanonicalEntity(parsed.name);
               const defaultPortionGrams = canonicalEntity?.defaultPortion?.grams ?? null;
-              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] unitBasedFood defaultPortionGrams=${defaultPortionGrams} reason="explicit grams not provided"`);
+              console.log(
+                `[${traceId}] [NUTRITION_FLOW_DEBUG] unitBasedFood defaultPortionGrams=${defaultPortionGrams} reason="explicit grams not provided"`,
+              );
             } else {
               // Weight-based input logging
-              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] weightBasedInput explicitGrams=${quantityGrams} reason="explicit grams prioritized"`);
+              console.log(
+                `[${traceId}] [NUTRITION_FLOW_DEBUG] weightBasedInput explicitGrams=${quantityGrams} reason="explicit grams prioritized"`,
+              );
             }
 
             console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalTargetGrams=${targetGrams}`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalKcal=${computed.totals.calories}`);
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] finalKcal=${computed.totals.calories}`,
+            );
           }
 
           if (isDebugLoggingEnabled() && traceId) {
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] rawInput="${rawInput}" parsedName="${parsed.name}" normalizedQuery="${parsed.name}"`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] resolverWinner="canonicalFood" source="${result.sourceType}"`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] macrosPer100g=${JSON.stringify(result.canonicalFood.per100g)}`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] quantityCount=${parsed.quantityCount} quantityGrams=${quantityGrams}`);
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] rawInput="${rawInput}" parsedName="${parsed.name}" normalizedQuery="${parsed.name}"`,
+            );
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] resolverWinner="canonicalFood" source="${result.sourceType}"`,
+            );
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] macrosPer100g=${JSON.stringify(result.canonicalFood.per100g)}`,
+            );
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] quantityCount=${parsed.quantityCount} quantityGrams=${quantityGrams}`,
+            );
 
             // Unit-based food logging
             if (quantityGrams <= 0) {
               const canonicalEntity = detectCanonicalEntity(parsed.name);
               const defaultPortionGrams = canonicalEntity?.defaultPortion?.grams ?? null;
-              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] unitBasedFood defaultPortionGrams=${defaultPortionGrams} reason="explicit grams not provided"`);
+              console.log(
+                `[${traceId}] [NUTRITION_FLOW_DEBUG] unitBasedFood defaultPortionGrams=${defaultPortionGrams} reason="explicit grams not provided"`,
+              );
             } else {
               // Weight-based input logging
-              console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] weightBasedInput explicitGrams=${quantityGrams} reason="explicit grams prioritized"`);
+              console.log(
+                `[${traceId}] [NUTRITION_FLOW_DEBUG] weightBasedInput explicitGrams=${quantityGrams} reason="explicit grams prioritized"`,
+              );
             }
 
             console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalTargetGrams=${targetGrams}`);
-            console.log(`[${traceId}] [NUTRITION_FLOW_DEBUG] finalKcal=${computed.totals.calories}`);
+            console.log(
+              `[${traceId}] [NUTRITION_FLOW_DEBUG] finalKcal=${computed.totals.calories}`,
+            );
           }
 
           // Update entry with enriched data
@@ -340,7 +368,7 @@ export class LogFoodFromRawInputUseCase {
     // Step 1: Normalize
     const normalized = normalizeText(parsedName);
     console.log(`[${traceId}] PROOF normalized="${normalized}"`);
-    
+
     // For alias storage, use the original raw input name if it differs from parsedName
     // This handles cases where detectCanonicalEntity changed parsedName from "banane" to "banana"
     const aliasKey = normalizeText(rawInput.replace(/^\d+g?\s*/, '').trim()); // Extract food name from raw input

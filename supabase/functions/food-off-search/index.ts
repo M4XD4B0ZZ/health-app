@@ -114,8 +114,17 @@ function mapOffToCanonical(
     const exact = nameNormalized === normalizedQuery;
     const contains = nameNormalized.includes(normalizedQuery);
     const starts = nameNormalized.startsWith(normalizedQuery);
+    
+    // Penalty for branded/processed products when searching for generic canonicals
+    const isGenericCanonical = ['egg', 'rice', 'apple', 'butter', 'milk', 'bread'].includes(normalizedQuery);
+    const isBrandedProduct = (product.brands && product.brands.trim().length > 0) ||
+                            nameNormalized.includes('brand') ||
+                            nameNormalized.includes('®') ||
+                            nameNormalized.includes('™');
+    const brandPenalty = isGenericCanonical && isBrandedProduct ? -0.15 : 0;
+    
     const confidence = clamp01(
-      0.55 + (exact ? 0.35 : 0) + (starts ? 0.08 : 0) + (contains ? 0.04 : 0),
+      0.55 + (exact ? 0.35 : 0) + (starts ? 0.08 : 0) + (contains ? 0.04 : 0) + brandPenalty,
     );
 
     mapped.push({

@@ -82,14 +82,16 @@ function convertEdgeFunctionResponse(response: EdgeFunctionResponse): EdgeSearch
   }
 
   // Filter out items with wrong source and convert canonical items to edge items
-  const validItems = response.items.filter(item => {
+  const validItems = response.items.filter((item) => {
     if (item.source !== 'off') {
-      console.warn(`[SupabaseEdgeOffProvider] Rejecting item with wrong source: ${item.source}, expected: off, item: ${item.canonical_name}`);
+      console.warn(
+        `[SupabaseEdgeOffProvider] Rejecting item with wrong source: ${item.source}, expected: off, item: ${item.canonical_name}`,
+      );
       return false;
     }
     return true;
   });
-  
+
   const items = validItems.map(convertCanonicalToEdgeItem);
   return { items };
 }

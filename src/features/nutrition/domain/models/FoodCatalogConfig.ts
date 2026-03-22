@@ -103,7 +103,7 @@ export const DEFAULT_CATALOG_CONFIG: FoodCatalogConfig = {
     : 1500,
   sourceBudgets: {
     off: (typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development')
-      ? 2500
+      ? 1500
       : 700,
     usda: (typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development')
       ? 2500

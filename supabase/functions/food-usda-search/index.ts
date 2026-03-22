@@ -294,7 +294,7 @@ Deno.serve(async (req: Request) => {
       throw new AppError("INVALID_QUERY", "query becomes empty after normalization", 400);
     }
 
-    const cached = await loadValidCache(normalizedQuery, locale, traceId);
+    const cached = await loadValidCache(normalizedQuery, locale, USDA_SOURCE, traceId);
     if (cached) {
       if (cached.cache_type === "negative") {
         return jsonResponse(
@@ -335,6 +335,7 @@ Deno.serve(async (req: Request) => {
     await upsertQueryCache({
       normalized_query: normalizedQuery,
       locale,
+      source: USDA_SOURCE,
       cache_type: cacheType,
       winner_source: winner?.source ?? null,
       winner_confidence: winner?.confidence ?? null,

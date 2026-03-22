@@ -17,6 +17,7 @@ export interface CanonicalFoodItem {
 export interface CacheRow {
   normalized_query: string;
   locale: string;
+  source: string;
   cache_type: CacheType;
   winner_source: string | null;
   winner_confidence: number | null;
@@ -228,12 +229,14 @@ async function supabaseUpsert<T>(
 export async function loadValidCache(
   normalizedQuery: string,
   locale: string,
+  source: string,
   traceId?: string,
 ): Promise<CacheRow | null> {
   const query = new URLSearchParams({
     select: "*",
     normalized_query: `eq.${normalizedQuery}`,
     locale: `eq.${locale}`,
+    source: `eq.${source}`,
     expires_at: `gt.${new Date().toISOString()}`,
     limit: "1",
   });
@@ -275,7 +278,7 @@ export async function upsertCatalogItems(
 }
 
 export async function upsertQueryCache(row: CacheRow, traceId?: string): Promise<void> {
-  await supabaseUpsert<CacheRow[]>("food_query_cache", row, "normalized_query,locale", traceId);
+  await supabaseUpsert<CacheRow[]>("food_query_cache", row, "normalized_query,locale,source", traceId);
 }
 
 export function determineWinner(items: CanonicalFoodItem[]): CanonicalFoodItem | null {

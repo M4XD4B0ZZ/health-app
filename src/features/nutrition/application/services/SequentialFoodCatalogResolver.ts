@@ -291,13 +291,21 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
         if (source.type === 'off' && mappedCandidates[0]?.source === RESOLVER_SOURCE_LABELS.OFF) {
           const threshold = this.config.offEarlyReturnMinConfidence;
-          const earlyReturn = best.score >= threshold;
+          const confidenceCheck = best.score >= threshold;
+          
+          // Block OFF early return for generic canonical foods to allow USDA comparison
+          const canonicalResult = detectCanonicalEntity(normalizedQuery, 'de');
+          const isGenericCanonical = canonicalResult.canonicalId !== null;
+          const earlyReturn = confidenceCheck && !isGenericCanonical;
 
           if (this.config.enableDebugLogs) {
             console.debug('[SequentialFoodCatalogResolver] OFF evaluation', {
               traceId,
               confidence: best.score,
               threshold,
+              confidenceCheck,
+              isGenericCanonical,
+              canonicalId: canonicalResult.canonicalId,
               earlyReturn,
               foodName: best.food.name,
             });

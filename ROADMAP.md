@@ -36,6 +36,168 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 
 ---
 
+## Retention Strategy
+
+**Primary KPI:** Week-1 retention rate
+
+**Core Philosophy:**
+- Retention is the single most important product metric
+- All feature decisions must be evaluated through retention impact lens
+- User engagement quality over feature quantity
+
+**Strategic Priorities:**
+
+1. **Magic Moments as UX Goal**
+   - Educational insights that surprise and delight users
+   - Unexpected nutritional discoveries ("Did you know...")
+   - Personalized achievements and progress celebrations
+   - Smart suggestions based on eating patterns
+
+2. **Friction Reduction (Top Priority)**
+   - Input speed and ease trumps feature complexity
+   - Every additional tap/step must justify retention benefit
+   - Error recovery must be instant and intuitive
+   - Progressive disclosure: advanced features hidden initially
+
+3. **AI Cost Optimization**
+   - AI costs evaluated per retained user, not per API call
+   - High-retention users justify higher AI investment
+   - Cost-per-retained-user as primary AI ROI metric
+   - Deterministic solutions preferred for cost efficiency
+
+**Feature Prioritization Framework:**
+- P0: Features that directly impact Week-1 retention
+- P1: Features that improve long-term engagement
+- P2: Features that reduce churn risk
+- P3: Nice-to-have features with unclear retention impact
+
+---
+
+## Data Strategy – Multi-Source Resolver v2
+
+**Goal:** Improve food matching accuracy and user trust for DACH market launch
+
+**Source Priority Order:**
+
+1. **User Cache** (Highest Priority)
+   - Previously logged foods by same user
+   - Instant recognition, zero latency
+   - Builds user confidence through consistency
+
+2. **DACH Source** (Planned - Critical for Launch)
+   - German/Austrian/Swiss specific food database
+   - Local brands, regional specialties, German portion sizes
+   - Essential for market penetration and user trust
+   - Reduces AI fallback dependency
+
+3. **Open Food Facts (OFF)** (Brand/EAN Fallback)
+   - Downgraded from primary to fallback role
+   - Specialized for branded products with EAN codes
+   - European brand coverage remains valuable
+   - NOT replaced, but repositioned strategically
+
+4. **USDA** (Canonical Generic Foods)
+   - Reliable source for generic food categories
+   - Standardized nutritional data
+   - Fallback for foods not in regional databases
+
+5. **AI Fallback** (Last Resort)
+   - Only when all deterministic sources fail
+   - Highest cost, lowest confidence
+   - Must be clearly marked as estimated
+
+**Strategic Rationale:**
+
+- **DACH Source Critical:** German market requires local food recognition for user trust and adoption
+- **OFF Repositioning:** Still valuable but not primary - focuses on its strength (branded products)
+- **Trust Building:** Local data sources increase user confidence in accuracy
+- **Cost Optimization:** Reduces expensive AI calls through better deterministic matching
+- **Match Quality:** Regional specificity improves portion size and nutritional accuracy
+
+**Implementation Notes:**
+- Resolver maintains existing architecture, only source priority changes
+- Each source maintains its specialized query adapters
+- Fallback chain ensures no user input goes unresolved
+- Performance monitoring per source to optimize query routing
+
+### Resolver Decision Layer
+
+**Candidate Ranking Criteria:**
+- **Match Quality:** Exact text match > partial match > fuzzy match
+- **Data Quality:** Complete nutritional profile > partial data > estimated values
+- **Kcal Consistency:** Values within expected ranges for food type and portion
+- **Source Trust:** User Cache > DACH > USDA > OFF > AI (descending reliability)
+
+**Confidence Thresholds:**
+- **High Confidence (≥85%):** Auto-accept, immediate save to journal
+  - Exact canonical match from User Cache
+  - Strong DACH match with complete nutritional data
+  - USDA match with portion consistency
+- **Medium Confidence (50-84%):** Accept with edit capability
+  - Partial matches requiring portion adjustment
+  - Good match but incomplete nutritional profile
+  - User can quickly modify before saving
+- **Low Confidence (<50%):** Require user clarification or fallback
+  - Multiple ambiguous candidates
+  - Significant data gaps or inconsistencies
+  - Present options to user for selection
+
+**Early Return Rules:**
+- Strong canonical match (>90% confidence) from User Cache → skip remaining sources
+- Exact brand match from DACH → skip OFF and later sources
+- Multiple high-confidence candidates from same source → rank and return best match
+- Zero candidates from primary sources → continue to fallback chain
+
+### Fallback & Failure Handling
+
+**Source-Specific Failure Modes:**
+- **OFF API Failures (503, timeout):** Skip quickly without retry loops to preserve API budget
+- **DACH Source Unavailable:** Log degradation, continue to OFF without user notification
+- **USDA Query Errors:** Fallback to AI with explicit "estimated" marking
+- **Network Failures:** Cache last successful results, show offline indicator
+
+**No-Match Scenarios:**
+- **Complete Resolution Failure:** Show clear UI feedback instead of silent failure
+- **Partial Matches Only:** Present best candidates with confidence indicators
+- **Zero Nutritional Data:** Block save operation, request user input for basic macros
+- **Ambiguous Input:** Guide user to more specific description rather than guessing
+
+**Zero-Macro Protection:**
+- **Hard Block:** No food entry with kcal=0 can be saved to journal
+- **No Food-Specific Bypass:** Rule applies universally, no exceptions for specific foods
+- **User Feedback:** Clear error message explaining why save was blocked
+- **Recovery Path:** Suggest portion adjustment or alternative food selection
+
+### Input Quality Integration
+
+**Input Classification System:**
+- **High Quality Input:** Specific food name + clear portion (e.g., "200g Quark", "2 Eier")
+  - Route to fast deterministic resolution path
+  - High confidence threshold (≥85%) for auto-acceptance
+  - Minimal user interaction required
+- **Medium Quality Input:** Recognizable food, unclear portion (e.g., "Buttertoast", "Schinken")
+  - Standard resolution with medium confidence acceptance (50-84%)
+  - Present portion options for user selection
+  - Allow quick edit before saving
+- **Low Quality Input:** Vague or complex descriptions (e.g., "etwas Süßes", "Mittagessen")
+  - Request clarification instead of attempting resolution
+  - Guide user toward more specific input
+  - Avoid expensive AI calls on ambiguous queries
+
+**Quality-Confidence Integration:**
+- **High Quality + High Confidence:** Instant save, optimal user experience
+- **High Quality + Low Confidence:** Data quality issue, investigate source reliability
+- **Low Quality + Any Confidence:** Always request clarification, never auto-accept
+- **Medium Quality + Medium Confidence:** Standard edit flow, balanced trust/control
+
+**Retention Impact Connection:**
+- **Trust Building:** High-quality inputs with successful resolution build user confidence
+- **Control Preservation:** Medium/low quality inputs maintain user agency through edit capability
+- **Friction Reduction:** Quality classification enables appropriate UX flow selection
+- **Learning Loop:** User corrections on medium-quality inputs improve future classification
+
+---
+
 ## EPIC: Zero-Friction Input System (P0 - CORE PRODUCT)
 
 Goal:

@@ -62,7 +62,7 @@ export class LogFoodFromRawInputUseCase {
   ): Promise<FoodEntry> {
     const { rawText, rawInput } = input;
     const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    console.log(`[${traceId}] PROOF UseCase entered rawText="${rawText}" rawInput="${rawInput}"`);
+    console.log(`[${traceId}] PROOF_USECASE_ENTERED rawText="${rawText}" rawInput="${rawInput}"`);
     try {
       if (isDebugLoggingEnabled()) {
         console.log(`[${traceId}] START rawText="${rawText}" rawInput="${rawInput}"`);
@@ -136,7 +136,9 @@ export class LogFoodFromRawInputUseCase {
 
       // Sprint 5.3: Canonical Food Catalog Flow
       if (this.resolver) {
+        console.log(`[${traceId}] PROOF_ABOUT_TO_RESOLVE query="${parsed.name}"`);
         const result = await this.resolveCanonicalFood(parsed.name, originalRawInput, traceId);
+        console.log(`[${traceId}] PROOF_RESOLVER_CALLED query="${parsed.name}"`);
         resolverDecision = result.resolverDecision;
         resolverDecisionSummary = result.resolverDecisionSummary;
 
@@ -145,6 +147,8 @@ export class LogFoodFromRawInputUseCase {
           const targetGrams = resolvePortionGrams(parsed.name, quantityGrams, parsed.quantityCount);
           const computed = computeTotals(result.canonicalFood.per100g, targetGrams, 1);
           calcBreakdown = computed;
+
+          console.log(`[${traceId}] PROOF_MACROS_CALCULATED kcal=${computed.totals.calories}`);
 
           if (isDebugLoggingEnabled() && traceId) {
             console.log(
@@ -233,6 +237,16 @@ export class LogFoodFromRawInputUseCase {
               multiplier: computed.multiplier,
             },
           };
+
+          console.log(
+            `[${traceId}] PROOF_CANDIDATES_COUNT count=${result.resolverDecision?.candidates.length ?? 0}`,
+          );
+
+          if (result.sourceType === 'generic') {
+            // Assuming resolver calls OFF and USDA internally, log these
+            console.log(`[${traceId}] PROOF_OFF_SOURCE_CALLED`);
+            console.log(`[${traceId}] PROOF_USDA_SOURCE_CALLED`);
+          }
         }
       } else {
         console.log(`[${traceId}] PROOF early_exit reason="RESOLVER_IS_UNDEFINED"`);
@@ -319,6 +333,8 @@ export class LogFoodFromRawInputUseCase {
 
       // Persist
       await this.repository.addEntry(entry);
+
+      console.log(`[${traceId}] PROOF_PERSIST_SUCCESS entryId="${entry.id}"`);
 
       if (isDebugLoggingEnabled()) {
         const durationMs = Date.now() - startTimeMs;

@@ -17,6 +17,14 @@ describe('detectCanonicalEntity', () => {
     expect(detectCanonicalEntity('eggs')?.id).toBe('egg');
   });
 
+  it("should detect 'toast' as toast", () => {
+    expect(detectCanonicalEntity('toast')?.id).toBe('toast');
+  });
+
+  it("should detect 'buttertoast' as toast", () => {
+    expect(detectCanonicalEntity('buttertoast')?.id).toBe('toast');
+  });
+
   it('should return null for unknown food', () => {
     expect(detectCanonicalEntity('unknownfood')).toBeNull();
   });

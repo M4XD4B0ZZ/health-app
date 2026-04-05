@@ -2,25 +2,37 @@
 
 Diese Anleitung unterstützt die feste Debug-Testserie für `P0-007 Proof-of-Call Tracing`.
 
-## 1. Emulator vorher starten
+## 1. Debug-Skript starten
 
-Starte den Android-Emulator vor Expo.
+Die neue Standard-Vorgehensweise zum Erfassen der Logs ist das Skript `scripts/debug-run.ps1`.
 
-Dann musst du in Expo nicht mehr `a` drücken.
-
-## 2. Alte Logdatei löschen
+Wenn du ein Terminal außerhalb des Projekts geöffnet hast:
 
 ```powershell
-Remove-Item .\expo_logs.txt -ErrorAction SilentlyContinue
+cd D:\Workspaces_VSCode\HealthApp; powershell -ExecutionPolicy Bypass -File .\scripts\debug-run.ps1
 ```
 
-## 3. Expo direkt mit Android starten und in Datei loggen
+Alternativ direkt aus dem Projekt-Root:
 
 ```powershell
-npx expo start --android > expo_logs.txt 2>&1
+powershell -ExecutionPolicy Bypass -File .\scripts\debug-run.ps1
 ```
 
-## 4. Genau definierte Testserie ausführen
+Wenn du bereits im Projekt-Root `D:\Workspaces_VSCode\HealthApp` bist, geht auch:
+
+```powershell
+.\scripts\debug-run.ps1
+```
+
+Das Skript übernimmt:
+
+- ADB-Start
+- Emulator-Start falls noch kein Gerät läuft
+- Warten bis der Emulator als `device` erkannt wird
+- Löschen der alten `expo_logs.txt`
+- Start von Expo mit Umleitung aller Logs nach `expo_logs.txt`
+
+## 2. Genau definierte Testserie ausführen
 
 Für saubere Vergleiche immer dieselbe Reihenfolge verwenden:
 
@@ -33,11 +45,11 @@ Für saubere Vergleiche immer dieselbe Reihenfolge verwenden:
 7. `buttertoast`
 8. `200g rührei`
 
-## 5. Nach der Serie `Ctrl + C`
+## 3. Nach der Serie `Ctrl + C`
 
 Danach ist `expo_logs.txt` vollständig geschrieben.
 
-## 6. Logdatei gezielt durchsuchen
+## 4. Logdatei gezielt durchsuchen
 
 ```powershell
 Select-String -Path .\expo_logs.txt -Pattern "PROOF_USECASE_ENTERED|DUPLICATE|OFF|USDA|RESOLVER_DEBUG|ERROR|BLOCKED"

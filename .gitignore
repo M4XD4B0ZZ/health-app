@@ -25,6 +25,7 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+logs/
 expo_logs.txt
 
 # macOS
@@ -55,7 +56,3 @@ build/
 coverage
 Thumbs.db
 .env.local
-
-# Plans
-EMULATOR_SMOKE_TEST_PLAN.md
-supabase/.temp/cli-latest

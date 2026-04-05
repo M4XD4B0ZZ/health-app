@@ -156,20 +156,31 @@ async function fetchFromOff(
     page_size: String(OFF_PAGE_SIZE),
     fields:
       "code,product_name,product_name_en,product_name_de,brands,nutriments",
+    countries: "Germany",
+    lang: "de",
+    countries_tags: "de",
   });
 
-  const response = await fetch(
-    `https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`,
-    { method: "GET" },
-  );
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`;
+  console.debug("OFF fetch URL:", url);
 
-  if (!response.ok) {
-    throw new AppError("OFF_FETCH_FAILED", `OFF returned ${response.status}`, 500);
+  // Fail-fast logic: abort early on known failure conditions
+  try {
+    const response = await fetch(url, { method: "GET" });
+
+    if (!response.ok) {
+      console.log("OFF_FAIL_FAST", `OFF returned status ${response.status}`);
+      throw new AppError("OFF_FETCH_FAILED", `OFF returned ${response.status}`, 500);
+    }
+
+    const payload = await response.json() as OffResponse;
+    const products = payload.products ?? [];
+    return mapOffToCanonical(products, normalizedQuery, locale);
+  } catch (err) {
+    console.log("OFF_FAIL_FAST", `OFF fetch failed: ${err.message || err}`);
+    // Suppress retries or further processing here if needed
+    throw err;
   }
-
-  const payload = await response.json() as OffResponse;
-  const products = payload.products ?? [];
-  return mapOffToCanonical(products, normalizedQuery, locale);
 }
 
 Deno.serve(async (req: Request) => {

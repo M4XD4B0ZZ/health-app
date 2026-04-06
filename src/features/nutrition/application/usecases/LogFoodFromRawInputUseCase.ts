@@ -429,6 +429,7 @@ export class LogFoodFromRawInputUseCase {
           raw: rawInput,
           normalized,
           locale: 'de',
+          inputType,
         },
         { traceId },
       );

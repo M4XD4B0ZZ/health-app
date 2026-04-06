@@ -6,6 +6,8 @@ export interface FoodSearchQuery {
   locale: 'de' | 'en';
   /** Optional trace ID for request tracking across sources */
   traceId?: string;
+  /** Input classification for source routing decisions */
+  inputType?: 'generic' | 'branded' | 'ambiguous';
 }
 
 export interface CanonicalFood {

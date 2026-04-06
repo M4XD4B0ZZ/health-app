@@ -74,6 +74,12 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const normalizedQuery = normalizeText(query.normalized || query.raw);
     const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
 
+    // DACH Data Strategy: Input Classification-based Source Routing
+    const routingStrategy = this.determineSourceRoutingStrategy(query, traceId);
+    console.log(
+      `[${traceId}] PROOF_SOURCE_ROUTING_DECISION rawInput="${query.raw}" classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
+    );
+
     // Initialize debug collector if tracing is enabled
     const debugCollector =
       isDebugLoggingEnabled() && traceId
@@ -296,7 +302,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           // Block OFF early return for generic canonical foods to allow USDA comparison
           const canonicalResult = detectCanonicalEntity(normalizedQuery, 'de');
           const isGenericCanonical = canonicalResult.canonicalId !== null;
-          const earlyReturn = confidenceCheck && !isGenericCanonical;
+
+          // DACH Data Strategy: Apply routing strategy to early return decision
+          const routingDisablesEarlyReturn = routingStrategy.offEarlyReturnDisabled;
+          const earlyReturn = confidenceCheck && !isGenericCanonical && !routingDisablesEarlyReturn;
 
           if (this.config.enableDebugLogs) {
             console.debug('[SequentialFoodCatalogResolver] OFF evaluation', {
@@ -306,6 +315,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
               confidenceCheck,
               isGenericCanonical,
               canonicalId: canonicalResult.canonicalId,
+              routingDisablesEarlyReturn,
+              routingStrategy: routingStrategy.name,
               earlyReturn,
               foodName: best.food.name,
             });
@@ -594,6 +605,39 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         }, timeoutMs);
       }),
     ]);
+  }
+
+  /**
+   * DACH Data Strategy: Determine source routing strategy based on input classification
+   */
+  private determineSourceRoutingStrategy(
+    query: FoodSearchQuery,
+    traceId?: string,
+  ): { name: string; offEarlyReturnDisabled: boolean } {
+    const inputType = query.inputType || 'ambiguous';
+    const locale = query.locale || 'en';
+
+    // For German locale with generic classification: prioritize DACH-compatible sources
+    if (locale === 'de' && inputType === 'generic') {
+      return {
+        name: 'DACH_GENERIC_FIRST',
+        offEarlyReturnDisabled: true, // Allow USDA to compete with OFF for better DACH matches
+      };
+    }
+
+    // For branded products: prioritize OFF (branded database)
+    if (inputType === 'branded') {
+      return {
+        name: 'BRANDED_OFF_FIRST',
+        offEarlyReturnDisabled: false, // Standard early return behavior
+      };
+    }
+
+    // Default/ambiguous: standard behavior
+    return {
+      name: 'STANDARD_SEQUENTIAL',
+      offEarlyReturnDisabled: false,
+    };
   }
 
   private generateTraceId(): string {

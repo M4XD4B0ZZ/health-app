@@ -47,7 +47,7 @@ describe('DACH Routing Correction', () => {
       });
 
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].food.name).toContain('Ruehrei');
+      expect(results[0].food.name).toContain('Huehnerei');
     });
 
     test('BLS should skip German branded inputs', async () => {
@@ -72,7 +72,7 @@ describe('DACH Routing Correction', () => {
       expect(results.length).toBe(0);
     });
 
-    test('BLS should find rührei for ei input', async () => {
+    test('BLS should find neutral egg for ei input (CORRECTED)', async () => {
       const results = await blsSource.search({
         raw: 'ei',
         locale: 'de',
@@ -83,9 +83,9 @@ describe('DACH Routing Correction', () => {
 
       expect(results.length).toBeGreaterThan(0);
       const bestMatch = results[0];
-      expect(bestMatch.food.name).toBe('Ruehrei gebraten');
-      expect(bestMatch.food.macrosPer100g.kcal).toBe(203);
-      expect(bestMatch.food.macrosPer100g.protein).toBe(12.88);
+      expect(bestMatch.food.name).toBe('Huehnerei ganz roh');
+      expect(bestMatch.food.macrosPer100g.kcal).toBe(137);
+      expect(bestMatch.food.macrosPer100g.protein).toBe(11.9);
     });
 
     test('BLS should find magerquark for quark input', async () => {
@@ -139,7 +139,7 @@ describe('DACH Routing Correction', () => {
       
       // Test various German ambiguous inputs
       const testCases = [
-        { input: 'ei', expected: 'Ruehrei' },
+        { input: 'ei', expected: 'Huehnerei' }, // CORRECTED: now expects neutral egg
         { input: 'brot', expected: null }, // might not have direct match
       ];
 

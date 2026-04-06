@@ -35,6 +35,15 @@ const BLS_GENERIC_FOODS: readonly BlsFoodRecord[] = [
     macrosPer100g: { kcal: 64, protein: 11.9, carbs: 3, fat: 0.2 },
   },
   {
+    id: 'bls-ei-roh',
+    sourceId: 'Y720100',
+    displayName: 'Huehnerei ganz roh',
+    normalizedName: 'ei',
+    aliases: ['ei', 'eier', 'huehnerei', 'hühnerei'],
+    tokens: ['huhn', 'hühn', 'ei', 'eier', 'roh'],
+    macrosPer100g: { kcal: 137, protein: 11.9, carbs: 1.5, fat: 9.3 },
+  },
+  {
     id: 'bls-ruehrei',
     sourceId: 'Y720143',
     displayName: 'Ruehrei gebraten',
@@ -80,90 +89,126 @@ function tokenize(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[äöüß]/g, (match) => {
-      const map: Record<string, string> = { 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss' };
+      const map: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' };
       return map[match] || match;
     })
     .split(/[\s\-_/,]+/)
-    .filter(token => token.length > 1); // Filter out single characters
+    .filter((token) => token.length > 1); // Filter out single characters
 }
 
-function calculateTokenScore(inputTokens: string[], recordTokens: string[], aliases: string[]): number {
+function calculateTokenScore(
+  inputTokens: string[],
+  recordTokens: string[],
+  aliases: string[],
+  recordDisplayName: string,
+): number {
   // Combine record tokens with alias tokens for matching
-  const allRecordTokens = [...recordTokens, ...aliases.flatMap(alias => tokenize(alias))];
+  const allRecordTokens = [...recordTokens, ...aliases.flatMap((alias) => tokenize(alias))];
   const uniqueRecordTokens = [...new Set(allRecordTokens)];
-  
+
   let matchedTokens = 0;
   let totalInputTokens = inputTokens.length;
-  
+
   for (const inputToken of inputTokens) {
     // Check for exact token match
-    if (uniqueRecordTokens.some(recordToken => recordToken === inputToken)) {
+    if (uniqueRecordTokens.some((recordToken) => recordToken === inputToken)) {
       matchedTokens += 1;
       continue;
     }
-    
+
     // Check for partial token match (input token contains record token or vice versa)
-    if (uniqueRecordTokens.some(recordToken =>
-      inputToken.includes(recordToken) || recordToken.includes(inputToken)
-    )) {
+    if (
+      uniqueRecordTokens.some(
+        (recordToken) => inputToken.includes(recordToken) || recordToken.includes(inputToken),
+      )
+    ) {
       matchedTokens += 0.8; // Partial match gets lower score
     }
   }
-  
-  return totalInputTokens > 0 ? matchedTokens / totalInputTokens : 0;
+
+  const baseScore = totalInputTokens > 0 ? matchedTokens / totalInputTokens : 0;
+
+  // DACH Guard: Prevent overly broad inputs from matching prepared/cooked variants
+  // If input is very short (1-2 chars) and matches a prepared food, reduce confidence
+  if (inputTokens.length === 1 && inputTokens[0].length <= 2) {
+    const isPreparedFood =
+      recordDisplayName.toLowerCase().includes('gebraten') ||
+      recordDisplayName.toLowerCase().includes('gekocht') ||
+      recordDisplayName.toLowerCase().includes('zubereitung') ||
+      recordDisplayName.toLowerCase().includes('gebacken');
+
+    if (isPreparedFood && baseScore >= 0.9) {
+      console.log(
+        `[DEBUG] BLS GUARD: Reducing score for broad input "${inputTokens[0]}" -> "${recordDisplayName}" from ${baseScore} to 0.6`,
+      );
+      return 0.6; // Lower confidence for broad->prepared matches
+    }
+  }
+
+  return baseScore;
 }
 
 export function searchBlsGenericFoods(normalizedQuery: string): FoodCandidate[] {
   const normalizedInput = normalize(normalizedQuery);
   const inputTokens = tokenize(normalizedInput);
-  
+
   // First try exact alias match (highest priority)
   const exactMatches = BLS_GENERIC_FOODS.filter((record) =>
-    record.aliases.some(alias => normalize(alias) === normalizedInput)
+    record.aliases.some((alias) => normalize(alias) === normalizedInput),
   ).map((record) => toCandidate(record, true, 1.0));
-  
+
   if (exactMatches.length > 0) {
     console.log(`[DEBUG] BLS EXACT_MATCH found for "${normalizedInput}"`);
     return exactMatches;
   }
-  
+
   // Token-based matching with scoring
-  const tokenMatches: Array<{ record: BlsFoodRecord; score: number }> = [];
-  
+  const tokenMatches: { record: BlsFoodRecord; score: number }[] = [];
+
   for (const record of BLS_GENERIC_FOODS) {
-    const tokenScore = calculateTokenScore(inputTokens, record.tokens, record.aliases);
-    
-    if (tokenScore > 0.5) { // Minimum threshold for token matching
+    const tokenScore = calculateTokenScore(
+      inputTokens,
+      record.tokens,
+      record.aliases,
+      record.displayName,
+    );
+
+    if (tokenScore > 0.5) {
+      // Minimum threshold for token matching
       tokenMatches.push({ record, score: tokenScore });
     }
   }
-  
+
   // Sort by score (highest first) and convert to candidates
   const sortedMatches = tokenMatches
     .sort((a, b) => b.score - a.score)
     .slice(0, 3) // Return top 3 matches
     .map(({ record, score }) => toCandidate(record, false, score));
-  
+
   if (sortedMatches.length > 0) {
-    console.log(`[DEBUG] BLS TOKEN_MATCH found ${sortedMatches.length} candidates for "${normalizedInput}"`);
+    console.log(
+      `[DEBUG] BLS TOKEN_MATCH found ${sortedMatches.length} candidates for "${normalizedInput}"`,
+    );
     sortedMatches.forEach((candidate, index) => {
-      console.log(`[DEBUG] BLS TOKEN_MATCH [${index}] "${candidate.food.name}" score=${candidate.match.similarity}`);
+      console.log(
+        `[DEBUG] BLS TOKEN_MATCH [${index}] "${candidate.food.name}" score=${candidate.match.similarity}`,
+      );
     });
   }
-  
+
   // Fallback: try includes matching (lowest priority)
   if (sortedMatches.length === 0) {
     const includesMatches = BLS_GENERIC_FOODS.filter((record) =>
-      record.aliases.some(alias => normalize(alias).includes(normalizedInput))
+      record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
     ).map((record) => toCandidate(record, false, 0.7));
-    
+
     if (includesMatches.length > 0) {
       console.log(`[DEBUG] BLS INCLUDES_MATCH found for "${normalizedInput}"`);
     }
-    
+
     return includesMatches;
   }
-  
+
   return sortedMatches;
 }
 
@@ -174,7 +219,7 @@ function toCandidate(
 ): FoodCandidate {
   let similarity: number;
   let usedHeuristic: 'alias' | undefined;
-  
+
   if (typeof similarityOrHeuristic === 'number') {
     similarity = similarityOrHeuristic;
     usedHeuristic = exact ? 'alias' : undefined;
@@ -182,7 +227,7 @@ function toCandidate(
     similarity = exact ? 1 : 0.98;
     usedHeuristic = similarityOrHeuristic;
   }
-  
+
   return {
     food: {
       id: record.id,

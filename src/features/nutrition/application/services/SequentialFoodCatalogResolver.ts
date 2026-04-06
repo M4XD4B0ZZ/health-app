@@ -22,6 +22,8 @@ import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidates
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/CanonicalFood';
 import { ResolverDebugCollector, SourceCandidate, CandidateEvaluation } from './ResolverDebugTypes';
+import { InputConfidenceClassifier } from '../../domain/confidence/InputConfidenceClassifier';
+import { DefaultInputConfidenceClassifier } from './DefaultInputConfidenceClassifier';
 
 interface LookupMetrics {
   traceId?: string;
@@ -46,6 +48,8 @@ interface RawResolverCandidate {
 interface SourceRoutingStrategy {
   name: string;
   offEarlyReturnDisabled: boolean;
+  blsEarlyReturnDisabled: boolean;
+  userEarlyReturnDisabled: boolean;
   sourcePriority: FoodCatalogSource['type'][];
 }
 
@@ -53,11 +57,13 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   private readonly circuitBreaker: CircuitBreakerManager;
   private readonly negativeCache: NegativeCacheHelper;
   private readonly scoreCalculator: ScoreCalculator;
+  private readonly inputConfidenceClassifier: InputConfidenceClassifier;
 
   constructor(
     private readonly sources: FoodCatalogSource[],
     private readonly _confidenceEngine: ConfidenceEngine,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
+    inputConfidenceClassifier?: InputConfidenceClassifier,
   ) {
     this.circuitBreaker = new CircuitBreakerManager(
       config.circuitBreaker.failureThreshold,
@@ -66,6 +72,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     );
     this.negativeCache = new NegativeCacheHelper();
     this.scoreCalculator = new ScoreCalculator();
+    this.inputConfidenceClassifier = inputConfidenceClassifier || new DefaultInputConfidenceClassifier();
   }
 
   async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
@@ -470,7 +477,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       }
 
       this.logSummary(metrics, decision.best);
-      return decision;
+      return this.addInputConfidence(decision, query, normalizedQuery);
     }
 
     if (!hadCountableError) {
@@ -500,7 +507,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     }
 
     this.logSummary(metrics);
-    return this.buildDecision(normalizedQuery, []);
+    const emptyDecision = this.buildDecision(normalizedQuery, []);
+    return this.addInputConfidence(emptyDecision, query, normalizedQuery);
   }
 
   private mapCandidates(
@@ -593,6 +601,54 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       candidates,
       topN: 5,
     });
+  }
+
+  private addInputConfidence(
+    decision: ResolverDecision,
+    query: FoodSearchQuery,
+    normalizedQuery: string,
+  ): ResolverDecision {
+    const matchMetadata = this.extractMatchMetadata(decision.best);
+    const inputConfidence = this.inputConfidenceClassifier.classify(
+      query.raw,
+      normalizedQuery,
+      matchMetadata,
+    );
+    
+    decision.inputConfidence = inputConfidence;
+
+    // Log input confidence
+    console.log(
+      `PROOF_INPUT_CONFIDENCE input="${query.raw}" level="${inputConfidence.level}" reason="${inputConfidence.reason}"`,
+    );
+
+    return decision;
+  }
+
+  private extractMatchMetadata(best?: ResolvedFoodCandidate) {
+    if (!best) return undefined;
+
+    // Extract metadata from the best candidate
+    const metadata: any = {};
+    
+    // Check for alias usage in breakdown notes
+    if (best.breakdown.notes.some(note => note.includes('alias'))) {
+      metadata.fromAlias = true;
+      metadata.usedHeuristic = 'alias';
+    }
+
+    // Check for fuzzy matching indicators
+    if (best.breakdown.notes.some(note => note.includes('fuzzy'))) {
+      metadata.usedHeuristic = 'fuzzy';
+      metadata.exact = false;
+    }
+
+    // Check for exact match indicators
+    if (best.breakdown.matchScore >= 0.95) {
+      metadata.exact = true;
+    }
+
+    return metadata;
   }
 
   private logSummary(metrics: LookupMetrics, decisionBest?: ResolvedFoodCandidate): void {

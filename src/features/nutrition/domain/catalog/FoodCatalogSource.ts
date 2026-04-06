@@ -1,5 +1,12 @@
 export type FoodSourceType = 'user' | 'off' | 'bls' | 'usda' | 'ai';
 
+export type InputConfidenceLevel = 'high' | 'medium' | 'low';
+
+export interface InputConfidence {
+  level: InputConfidenceLevel;
+  reason?: string;
+}
+
 export interface FoodSearchQuery {
   raw: string;
   normalized: string;
@@ -8,6 +15,8 @@ export interface FoodSearchQuery {
   traceId?: string;
   /** Input classification for source routing decisions */
   inputType?: 'generic' | 'branded' | 'ambiguous';
+  /** Input confidence level for early return control */
+  inputConfidence?: InputConfidence;
 }
 
 export interface CanonicalFood {

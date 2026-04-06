@@ -39,15 +39,21 @@ export function detectInputType(rawInput: string): 'generic' | 'branded' | 'ambi
 
   for (const brand of knownBrands) {
     if (normalized.includes(brand)) {
-      return 'branded';
+      const inputType = 'branded';
+      console.log(`[DEBUG] INPUT TYPE: "${rawInput}" => ${inputType}`);
+      return inputType;
     }
   }
 
   for (const generic of genericFoods) {
     if (normalized.includes(generic)) {
-      return 'generic';
+      const inputType = 'generic';
+      console.log(`[DEBUG] INPUT TYPE: "${rawInput}" => ${inputType}`);
+      return inputType;
     }
   }
 
-  return 'ambiguous';
+  const inputType = 'ambiguous';
+  console.log(`[DEBUG] INPUT TYPE: "${rawInput}" => ${inputType}`);
+  return inputType;
 }

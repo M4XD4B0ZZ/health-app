@@ -83,6 +83,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     // DACH Data Strategy: Input Classification-based Source Routing
     const routingStrategy = this.determineSourceRoutingStrategy(query);
     const orderedSources = this.getOrderedSources(routingStrategy);
+    const sources = orderedSources.map(s => s.type);
+    console.log(`[DEBUG] ROUTING sources=${sources.join(",")}`);
     console.log(
       `[${traceId}] PROOF_SOURCE_ROUTING_DECISION rawInput="${query.raw}" classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
     );

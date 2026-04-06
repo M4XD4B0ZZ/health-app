@@ -28,7 +28,7 @@ const BLS_GENERIC_FOODS: readonly BlsFoodRecord[] = [
     sourceId: 'M820100',
     displayName: 'Frischkaesezubereitung Natur < 10 % Fett i. Tr.',
     normalizedName: 'frischkaese',
-    aliases: ['frischkaese', 'cream cheese'],
+    aliases: ['frischkaese', 'frischkäse', 'cream cheese'],
     macrosPer100g: { kcal: 64, protein: 11.9, carbs: 3, fat: 0.2 },
   },
   {
@@ -44,7 +44,7 @@ const BLS_GENERIC_FOODS: readonly BlsFoodRecord[] = [
     sourceId: 'B314000',
     displayName: 'Weizentoastbrot/Buttertoastbrot',
     normalizedName: 'toast',
-    aliases: ['toast', 'toastbrot', 'weizentoastbrot'],
+    aliases: ['toast', 'toastbrot', 'weizentoastbrot', 'buttertoast'],
     macrosPer100g: { kcal: 261, protein: 8.29, carbs: 46.8, fat: 3.59 },
   },
 ];
@@ -66,10 +66,28 @@ export function getBlsShortcutCandidate(normalizedQuery: string): FoodCandidate 
   return record ? toCandidate(record, true, 'alias') : null;
 }
 
+function normalize(s: string): string {
+  return s.toLowerCase().trim();
+}
+
 export function searchBlsGenericFoods(normalizedQuery: string): FoodCandidate[] {
-  return BLS_GENERIC_FOODS.filter((record) => record.aliases.includes(normalizedQuery)).map(
-    (record) => toCandidate(record, normalizedQuery === record.normalizedName),
-  );
+  const normalizedInput = normalize(normalizedQuery);
+  
+  // First try exact match
+  const exactMatches = BLS_GENERIC_FOODS.filter((record) =>
+    record.aliases.some(alias => normalize(alias) === normalizedInput)
+  ).map((record) => toCandidate(record, normalizedInput === normalize(record.normalizedName)));
+  
+  if (exactMatches.length > 0) {
+    return exactMatches;
+  }
+  
+  // Fallback: try includes matching
+  const includesMatches = BLS_GENERIC_FOODS.filter((record) =>
+    record.aliases.some(alias => normalize(alias).includes(normalizedInput))
+  ).map((record) => toCandidate(record, false));
+  
+  return includesMatches;
 }
 
 function toCandidate(

@@ -314,8 +314,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         if (
           source.type === 'bls' &&
           query.locale === 'de' &&
-          query.inputType === 'generic' &&
-          best.score >= 0.75
+          (query.inputType === 'generic' || query.inputType === 'ambiguous') &&
+          best.score >= (query.inputType === 'generic' ? 0.75 : 0.85) // Higher threshold for ambiguous
         ) {
           metrics.totalElapsedMs = Date.now() - resolverStartTime;
           metrics.winnerSource = best.source;
@@ -721,11 +721,14 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const inputType = query.inputType || 'ambiguous';
     const locale = query.locale || 'en';
 
-    // For German locale with generic classification: prioritize DACH-compatible sources
-    if (locale === 'de' && inputType === 'generic') {
+    // For German locale with generic OR ambiguous classification: prioritize DACH-compatible sources
+    if (locale === 'de' && (inputType === 'generic' || inputType === 'ambiguous')) {
+      const strategyName = inputType === 'generic' ? 'DACH_GENERIC_FIRST' : 'DACH_AMBIGUOUS_FIRST';
       return {
-        name: 'DACH_GENERIC_FIRST',
+        name: strategyName,
         offEarlyReturnDisabled: true, // Allow USDA to compete with OFF for better DACH matches
+        blsEarlyReturnDisabled: false, // Allow BLS early return for high confidence
+        userEarlyReturnDisabled: false, // Allow user early return
         sourcePriority: ['user', 'bls', 'off', 'usda', 'ai'],
       };
     }
@@ -735,6 +738,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       return {
         name: 'BRANDED_OFF_FIRST',
         offEarlyReturnDisabled: false, // Standard early return behavior
+        blsEarlyReturnDisabled: false, // Standard early return behavior
+        userEarlyReturnDisabled: false, // Standard early return behavior
         sourcePriority: ['user', 'off', 'bls', 'usda', 'ai'],
       };
     }
@@ -743,6 +748,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     return {
       name: 'STANDARD_SEQUENTIAL',
       offEarlyReturnDisabled: false,
+      blsEarlyReturnDisabled: false,
+      userEarlyReturnDisabled: false,
       sourcePriority: ['user', 'off', 'bls', 'usda', 'ai'],
     };
   }

@@ -3,9 +3,14 @@ $ErrorActionPreference = "Stop"
 $projectRoot = "D:\Workspaces_VSCode\HealthApp"
 $emulatorExe = "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe"
 $avdName = "Pixel_7"
-$logFile = Join-Path $projectRoot ("expo_logs_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".txt")
+$logDir = Join-Path $projectRoot "logs\expo"
+$logFile = Join-Path $logDir ("expo_logs_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".txt")
 
 Set-Location $projectRoot
+
+if (-not (Test-Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
 
 Write-Host "==> Starte ADB..."
 adb start-server | Out-Null

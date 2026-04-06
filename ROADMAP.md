@@ -5,6 +5,91 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 
 ---
 
+## DACH Data Strategy – Generic vs Branded Separation
+
+### 1. Problem Statement
+
+- Generische Lebensmittel sind kulturell nicht eindeutig (z.B. quark, schmand, curd)
+- Internationale Datenquellen (USDA) führen zu semantisch falschen Matches
+- Mittelwertbildung über mehrere Quellen ist nicht zulässig (unterschiedliche Produktklassen)
+
+### 2. Core Principle
+
+- "Locale-first truth before global approximation"
+- Deutsche Inputs müssen gegen deutsche Produktrealität aufgelöst werden
+- Klassifikation vor Datenwahl (nicht andersrum)
+
+### 3. Data Layer Separation
+
+#### Generic Foods (z.B. quark, ei, toast, schmand)
+
+Priority:
+
+1. DACH Generic Source (BLS – Bundeslebensmittelschlüssel)
+2. OFF (nur wenn plausibel und generisch)
+3. USDA als Fallback
+4. AI nur als Mapping, nicht als Makroquelle
+
+Definition:
+
+- Canonical Food Layer bleibt bestehen
+- Wird erweitert um DACH-validierte Referenzwerte
+
+#### Branded / Packaged Foods
+
+Priority:
+
+1. OFF (DE/DACH filtered)
+2. User Cache
+3. später eigener Supabase DACH Cache
+
+### 4. Ranking Adjustments
+
+Für locale = de:
+
+- - Score Boost für:
+  * deutsche Namen / Aliases
+  * generische DACH-Produkte
+  * plausible Standard-Makros
+
+- − Penalty für:
+  - Dessert-/Fruchtvarianten
+  - Protein-/Fitnessprodukte
+  - internationale Surrogate (curd, cottage cheese)
+  - implausible Makros
+
+### 5. Resolver Decision Rule
+
+Wenn:
+
+- input = generic
+- locale = de
+- hoher Match auf DACH-Generic vorhanden
+
+Dann:
+
+- skip USDA
+- akzeptiere DACH Source als truth
+
+Wenn:
+
+- mehrere plausible Treffer
+  → status = ambiguous (kein blindes accept)
+
+### 6. No-Average Rule
+
+- Keine Mittelwertbildung über mehrere Quellen
+- Jede Quelle wird einzeln bewertet
+- Entscheidung basiert auf best match + plausibility, nicht Durchschnitt
+
+### 7. Future Extension (optional, kein Scope jetzt)
+
+- Aufbau eines eigenen DACH Canonical Cache (Supabase)
+- Traffic-driven self-improving dataset
+- Cross-source validation nur für Ranking, nicht für averaging
+
+---
+
 ## SSOK Rules
 
 - **ROADMAP.md is the Single Source of Knowledge (SSOK) for all planned and completed work.**
@@ -41,6 +126,7 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 **Primary KPI:** Week-1 retention rate
 
 **Core Philosophy:**
+
 - Retention is the single most important product metric
 - All feature decisions must be evaluated through retention impact lens
 - User engagement quality over feature quantity
@@ -66,6 +152,7 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
    - Deterministic solutions preferred for cost efficiency
 
 **Feature Prioritization Framework:**
+
 - P0: Features that directly impact Week-1 retention
 - P1: Features that improve long-term engagement
 - P2: Features that reduce churn risk
@@ -115,6 +202,7 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 - **Match Quality:** Regional specificity improves portion size and nutritional accuracy
 
 **Implementation Notes:**
+
 - Resolver maintains existing architecture, only source priority changes
 - Each source maintains its specialized query adapters
 - Fallback chain ensures no user input goes unresolved
@@ -123,12 +211,14 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 ### Resolver Decision Layer
 
 **Candidate Ranking Criteria:**
+
 - **Match Quality:** Exact text match > partial match > fuzzy match
 - **Data Quality:** Complete nutritional profile > partial data > estimated values
 - **Kcal Consistency:** Values within expected ranges for food type and portion
 - **Source Trust:** User Cache > DACH > USDA > OFF > AI (descending reliability)
 
 **Confidence Thresholds:**
+
 - **High Confidence (≥85%):** Auto-accept, immediate save to journal
   - Exact canonical match from User Cache
   - Strong DACH match with complete nutritional data
@@ -143,6 +233,7 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
   - Present options to user for selection
 
 **Early Return Rules:**
+
 - Strong canonical match (>90% confidence) from User Cache → skip remaining sources
 - Exact brand match from DACH → skip OFF and later sources
 - Multiple high-confidence candidates from same source → rank and return best match
@@ -151,18 +242,21 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 ### Fallback & Failure Handling
 
 **Source-Specific Failure Modes:**
+
 - **OFF API Failures (503, timeout):** Skip quickly without retry loops to preserve API budget
 - **DACH Source Unavailable:** Log degradation, continue to OFF without user notification
 - **USDA Query Errors:** Fallback to AI with explicit "estimated" marking
 - **Network Failures:** Cache last successful results, show offline indicator
 
 **No-Match Scenarios:**
+
 - **Complete Resolution Failure:** Show clear UI feedback instead of silent failure
 - **Partial Matches Only:** Present best candidates with confidence indicators
 - **Zero Nutritional Data:** Block save operation, request user input for basic macros
 - **Ambiguous Input:** Guide user to more specific description rather than guessing
 
 **Zero-Macro Protection:**
+
 - **Hard Block:** No food entry with kcal=0 can be saved to journal
 - **No Food-Specific Bypass:** Rule applies universally, no exceptions for specific foods
 - **User Feedback:** Clear error message explaining why save was blocked
@@ -171,6 +265,7 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
 ### Input Quality Integration
 
 **Input Classification System:**
+
 - **High Quality Input:** Specific food name + clear portion (e.g., "200g Quark", "2 Eier")
   - Route to fast deterministic resolution path
   - High confidence threshold (≥85%) for auto-acceptance
@@ -185,12 +280,14 @@ Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition
   - Avoid expensive AI calls on ambiguous queries
 
 **Quality-Confidence Integration:**
+
 - **High Quality + High Confidence:** Instant save, optimal user experience
 - **High Quality + Low Confidence:** Data quality issue, investigate source reliability
 - **Low Quality + Any Confidence:** Always request clarification, never auto-accept
 - **Medium Quality + Medium Confidence:** Standard edit flow, balanced trust/control
 
 **Retention Impact Connection:**
+
 - **Trust Building:** High-quality inputs with successful resolution build user confidence
 - **Control Preservation:** Medium/low quality inputs maintain user agency through edit capability
 - **Friction Reduction:** Quality classification enables appropriate UX flow selection

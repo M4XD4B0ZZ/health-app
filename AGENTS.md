@@ -8,6 +8,11 @@
 
 ---
 
+## DACH Data Strategy Reference
+
+- Neue DACH-spezifische Datenstrategie für generische vs. Marken-Lebensmittel in Resolver und Ranking.
+- Fokus auf locale-aware Matching und Plausibility statt Mittelwertbildung.
+
 This repository uses OpenCode-style deterministic edits and agent governance.
 
 ---

@@ -11,6 +11,7 @@ import { AiFoodMapper } from '../ports/AiFoodMapper';
 import { DeterministicFoodParser } from '../../infrastructure/parsers/DeterministicFoodParser';
 import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 import { normalizeText } from '../utils/normalizeText';
+import { detectInputType } from '../utils/detectInputType';
 import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
 import { ResolverDecision, ResolverDecisionSummary } from '../../domain/models';
 import { PortionParser } from '../../domain/portion/PortionParser';
@@ -135,9 +136,19 @@ export class LogFoodFromRawInputUseCase {
       };
 
       // Sprint 5.3: Canonical Food Catalog Flow
+      const inputType = detectInputType(rawInput);
+      console.log(
+        `[${traceId}] PROOF_INPUT_CLASSIFICATION type="${inputType}" rawInput="${rawInput}"`,
+      );
+
       if (this.resolver) {
         console.log(`[${traceId}] PROOF_ABOUT_TO_RESOLVE query="${parsed.name}"`);
-        const result = await this.resolveCanonicalFood(parsed.name, originalRawInput, traceId);
+        const result = await this.resolveCanonicalFood(
+          parsed.name,
+          originalRawInput,
+          traceId,
+          inputType,
+        );
         console.log(`[${traceId}] PROOF_RESOLVER_CALLED query="${parsed.name}"`);
         resolverDecision = result.resolverDecision;
         resolverDecisionSummary = result.resolverDecisionSummary;
@@ -366,6 +377,7 @@ export class LogFoodFromRawInputUseCase {
     parsedName: string,
     rawInput: string,
     traceId?: string,
+    inputType?: 'generic' | 'branded' | 'ambiguous',
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };

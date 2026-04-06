@@ -6,6 +6,11 @@ Die hier definierten Verify-Regeln folgen der übergeordneten Governance-Definit
 
 ---
 
+## DACH Data Strategy Verification Note
+
+- Plausibility-basierte Bewertung statt Mittelwertbildung bei mehreren Quellen.
+- Fokus auf einzelne Quellenbewertung und best match.
+
 ## 1 Verification Philosophy
 
 HealthApp uses deterministic verification to ensure the repository remains stable and reproducible.

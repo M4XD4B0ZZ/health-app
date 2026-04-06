@@ -1,0 +1,18 @@
+project_doc_fallback_filenames = ["ROADMAP.md", "VERIFY.md", "SSOK.md"]
+
+developer_instructions = """
+This repository is governed by AGENTS.md. Treat ROADMAP.md as task truth, VERIFY.md as verification truth, and SSOK.md as workflow context.
+
+Before substantial work, classify the request into one of these repo-local role contracts and read the matching file:
+- .codex/roles/analysis.md
+- .codex/roles/implementation.md
+- .codex/roles/review.md
+
+Repository rules:
+- Prefer deterministic, minimal edits over broad changes.
+- Do not start broad refactors or restructure files without explicit need.
+- If implementing, keep scope tight, update ROADMAP.md task status when work starts and when it is verified done.
+- Do not claim completion until required verification from VERIFY.md has been run and reported accurately.
+- For analysis requests, prefer read-heavy behavior and avoid writes unless the user explicitly asks for changes.
+- For review requests, focus on current diffs, risk, regressions, and missing verification evidence.
+"""

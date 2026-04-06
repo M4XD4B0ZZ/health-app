@@ -318,7 +318,7 @@ export const CANONICAL_FOODS: CanonicalFood[] = [
   {
     id: 'toast',
     aliases: {
-      de: ['toast', 'buttertoast'],
+      de: ['toast'],
       en: ['toast', 'buttered toast'],
     },
     defaultPortion: {
@@ -328,6 +328,21 @@ export const CANONICAL_FOODS: CanonicalFood[] = [
     sourceQueries: {
       usda: 'toast',
       off: 'toast',
+    },
+  },
+  {
+    id: 'buttertoast',
+    aliases: {
+      de: ['buttertoast'],
+      en: ['buttered toast'],
+    },
+    defaultPortion: {
+      unit: 'piece',
+      grams: 40,
+    },
+    sourceQueries: {
+      usda: 'buttered toast',
+      off: 'buttertoast',
     },
   },
 ];

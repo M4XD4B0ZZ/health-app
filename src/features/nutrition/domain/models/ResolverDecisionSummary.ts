@@ -2,6 +2,7 @@ import { ResolverStatus } from './ResolverDecision';
 
 export type ResolverSourceLabel =
   | 'OFF'
+  | 'BLS'
   | 'USDA'
   | 'MOCK_OFF'
   | 'MOCK_USDA'

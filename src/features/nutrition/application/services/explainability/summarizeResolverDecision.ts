@@ -9,6 +9,7 @@ function toResolverSourceLabel(value: string): ResolverSourceLabel {
   const normalized = value.toUpperCase();
   switch (normalized) {
     case 'OFF':
+    case 'BLS':
     case 'USDA':
     case 'MOCK_OFF':
     case 'MOCK_USDA':

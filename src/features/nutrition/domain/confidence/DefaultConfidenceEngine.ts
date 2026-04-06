@@ -5,6 +5,7 @@ export class DefaultConfidenceEngine implements ConfidenceEngine {
   private readonly baseWeights: Record<FoodSourceType, number> = {
     user: 0.98,
     off: 0.92,
+    bls: 0.96,
     usda: 0.88,
     ai: 0.75,
   };

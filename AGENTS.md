@@ -33,6 +33,17 @@ Agents must read both files before starting any task.
 - Plan before coding. State the plan explicitly before making changes.
 - Identify which files will be touched and why.
 - Do not start broad refactors without a clear, scoped reason.
+- **All planning documents must be created in the `plans/` directory, never in the project root.**
+
+#### Plans Directory Rules
+
+- Plan files are identified by having `PLAN` in the filename
+- Use naming convention: `[FEATURE]_[TYPE]_PLAN.md`
+- Examples:
+  - ✅ `plans/USER_AUTH_IMPLEMENTATION_PLAN.md`
+  - ✅ `plans/DATABASE_MIGRATION_PLAN.md`
+  - ❌ `USER_AUTH_IMPLEMENTATION_PLAN.md` (in root)
+- When referencing plans, always use full path: `plans/PLAN_NAME.md`
 
 ### Editing
 

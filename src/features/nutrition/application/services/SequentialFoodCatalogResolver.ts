@@ -43,6 +43,12 @@ interface RawResolverCandidate {
   match: FoodCandidate['match'];
 }
 
+interface SourceRoutingStrategy {
+  name: string;
+  offEarlyReturnDisabled: boolean;
+  sourcePriority: FoodCatalogSource['type'][];
+}
+
 export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   private readonly circuitBreaker: CircuitBreakerManager;
   private readonly negativeCache: NegativeCacheHelper;
@@ -75,7 +81,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
 
     // DACH Data Strategy: Input Classification-based Source Routing
-    const routingStrategy = this.determineSourceRoutingStrategy(query, traceId);
+    const routingStrategy = this.determineSourceRoutingStrategy(query);
+    const orderedSources = this.getOrderedSources(routingStrategy);
     console.log(
       `[${traceId}] PROOF_SOURCE_ROUTING_DECISION rawInput="${query.raw}" classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
     );
@@ -167,7 +174,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
     let hadCountableError = false;
 
-    for (const source of this.sources) {
+    for (const source of orderedSources) {
       const elapsedMs = Date.now() - resolverStartTime;
       if (elapsedMs >= this.config.resolverBudgetMs) {
         if (this.config.enableDebugLogs) {
@@ -197,7 +204,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         // Debug logging for skipped source
         if (debugCollector) {
           debugCollector.addSourceResult({
-            source: source.type as 'off' | 'usda' | 'user',
+            source: source.type as 'off' | 'bls' | 'usda' | 'user',
             status: 'skipped',
             durationMs: 0,
             candidates: [],
@@ -253,7 +260,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         // Debug logging for successful source result
         if (debugCollector) {
           debugCollector.addSourceResult({
-            source: source.type as 'off' | 'usda' | 'user',
+            source: source.type as 'off' | 'bls' | 'usda' | 'user',
             status: 'success',
             durationMs: sourceElapsedMs,
             candidates: this.convertToSourceCandidates(rawCandidates),
@@ -286,6 +293,34 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
               reason: 'early_return_user',
               status: 'accepted',
               reasonCodes: ['USER_SOURCE_PRIORITY'],
+            });
+            debugCollector.setTotalTime(metrics.totalElapsedMs);
+            debugCollector.logToConsole();
+          }
+
+          this.logSummary(metrics, best);
+          return this.buildDecision(normalizedQuery, scored);
+        }
+
+        if (
+          source.type === 'bls' &&
+          query.locale === 'de' &&
+          query.inputType === 'generic' &&
+          best.score >= 0.75
+        ) {
+          metrics.totalElapsedMs = Date.now() - resolverStartTime;
+          metrics.winnerSource = best.source;
+          metrics.winnerConfidence = best.score;
+
+          if (debugCollector) {
+            debugCollector.addEvaluation(this.convertToEvaluations(scored));
+            debugCollector.setDecision({
+              winner: best.food.name,
+              source: best.source,
+              confidence: best.score,
+              reason: 'early_return_bls',
+              status: 'accepted',
+              reasonCodes: ['BLS_GENERIC_TRUTH'],
             });
             debugCollector.setTotalTime(metrics.totalElapsedMs);
             debugCollector.logToConsole();
@@ -368,7 +403,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         if (debugCollector) {
           const status = errorKind === 'timeout' ? 'timeout' : 'error';
           debugCollector.addSourceResult({
-            source: source.type as 'off' | 'usda' | 'user',
+            source: source.type as 'off' | 'bls' | 'usda' | 'user',
             status,
             durationMs: sourceElapsedMs,
             candidates: [],
@@ -559,6 +594,18 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   private logSummary(metrics: LookupMetrics, decisionBest?: ResolvedFoodCandidate): void {
+    if (decisionBest?.source === RESOLVER_SOURCE_LABELS.BLS && metrics.traceId) {
+      console.log(
+        `[${metrics.traceId}] PROOF_BLS_SOURCE_USED candidate="${decisionBest.food.name}"`,
+      );
+
+      if (decisionBest.food.sourceId?.startsWith('shortcut:')) {
+        console.log(
+          `[${metrics.traceId}] PROOF_CANONICAL_SHORTCUT_USED shortcut="${decisionBest.food.normalizedName}"`,
+        );
+      }
+    }
+
     if (isDebugLoggingEnabled() && metrics.traceId) {
       if (decisionBest) {
         console.log(
@@ -612,8 +659,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
    */
   private determineSourceRoutingStrategy(
     query: FoodSearchQuery,
-    traceId?: string,
-  ): { name: string; offEarlyReturnDisabled: boolean } {
+  ): SourceRoutingStrategy {
     const inputType = query.inputType || 'ambiguous';
     const locale = query.locale || 'en';
 
@@ -622,6 +668,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       return {
         name: 'DACH_GENERIC_FIRST',
         offEarlyReturnDisabled: true, // Allow USDA to compete with OFF for better DACH matches
+        sourcePriority: ['user', 'bls', 'off', 'usda', 'ai'],
       };
     }
 
@@ -630,6 +677,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       return {
         name: 'BRANDED_OFF_FIRST',
         offEarlyReturnDisabled: false, // Standard early return behavior
+        sourcePriority: ['user', 'off', 'bls', 'usda', 'ai'],
       };
     }
 
@@ -637,7 +685,18 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     return {
       name: 'STANDARD_SEQUENTIAL',
       offEarlyReturnDisabled: false,
+      sourcePriority: ['user', 'off', 'bls', 'usda', 'ai'],
     };
+  }
+
+  private getOrderedSources(strategy: SourceRoutingStrategy): FoodCatalogSource[] {
+    const rank = new Map(strategy.sourcePriority.map((type, index) => [type, index]));
+
+    return [...this.sources].sort((left, right) => {
+      const leftRank = rank.get(left.type) ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = rank.get(right.type) ?? Number.MAX_SAFE_INTEGER;
+      return leftRank - rightRank;
+    });
   }
 
   private generateTraceId(): string {

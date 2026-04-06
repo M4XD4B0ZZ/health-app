@@ -1,7 +1,6 @@
 // Minimal Input Classification Layer for Nutrition Resolver
 
 const knownBrands = new Set([
-  'quark',
   'milka',
   'nutella',
   'oreo',
@@ -23,6 +22,15 @@ const genericFoods = new Set([
   'tomato',
   'onion',
   'butter',
+  'quark',
+  'magerquark',
+  'frischkaese',
+  'frischkäse',
+  'ruehrei',
+  'rührei',
+  'toast',
+  'toastbrot',
+  'buttertoast',
   // Add more generic food keywords here
 ]);
 

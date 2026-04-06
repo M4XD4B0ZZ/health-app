@@ -2,6 +2,7 @@ import { FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
 
 export const RESOLVER_SOURCE_LABELS = {
   OFF: 'OFF',
+  BLS: 'BLS',
   USDA: 'USDA',
   MOCK_OFF: 'MOCK_OFF',
   MOCK_USDA: 'MOCK_USDA',
@@ -21,6 +22,10 @@ export function toResolverSourceLabel(
 
   if (sourceType === 'off') {
     return isMock ? RESOLVER_SOURCE_LABELS.MOCK_OFF : RESOLVER_SOURCE_LABELS.OFF;
+  }
+
+  if (sourceType === 'bls') {
+    return RESOLVER_SOURCE_LABELS.BLS;
   }
 
   if (sourceType === 'usda') {
@@ -43,5 +48,9 @@ export function isMockResolverSourceLabel(source: ResolverSourceLabel): boolean 
 }
 
 export function isRealResolverSourceLabel(source: ResolverSourceLabel): boolean {
-  return source === RESOLVER_SOURCE_LABELS.OFF || source === RESOLVER_SOURCE_LABELS.USDA;
+  return (
+    source === RESOLVER_SOURCE_LABELS.OFF ||
+    source === RESOLVER_SOURCE_LABELS.BLS ||
+    source === RESOLVER_SOURCE_LABELS.USDA
+  );
 }

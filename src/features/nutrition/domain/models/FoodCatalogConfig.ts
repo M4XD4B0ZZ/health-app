@@ -50,7 +50,7 @@ export interface FoodCatalogConfig {
    *
    * Maximale Zeit pro Source. Key ist source.type ('off', 'usda', etc.)
    *
-   * @default { off: 700, usda: 700 }
+ * @default { off: 700, usda: 700 }
    */
   sourceBudgets: Record<string, number>;
 
@@ -102,6 +102,7 @@ export const DEFAULT_CATALOG_CONFIG: FoodCatalogConfig = {
     ? 6000
     : 1500,
   sourceBudgets: {
+    bls: 200,
     off: (typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development')
       ? 1500
       : 700,

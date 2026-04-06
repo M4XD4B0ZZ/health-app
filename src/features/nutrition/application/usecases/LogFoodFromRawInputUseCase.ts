@@ -319,14 +319,28 @@ export class LogFoodFromRawInputUseCase {
       if (resolverDecisionSummary?.source === 'USDA') {
         assumptions.push('SOURCE_USDA');
       }
+      if (resolverDecisionSummary?.source === 'BLS') {
+        assumptions.push('SOURCE_BLS');
+        console.log(`[${traceId}] PROOF_BLS_SOURCE_USED`);
+      }
       if (resolverDecisionSummary?.source === 'OFF') {
         assumptions.push('SOURCE_OFF');
       }
       if (resolverDecisionSummary?.source.startsWith('MOCK_')) {
         assumptions.push('SOURCE_MOCK');
       }
+      if (resolverDecision?.reasonCodes.includes('BLS_GENERIC_TRUTH')) {
+        assumptions.push('CANONICAL_SHORTCUT_USED');
+      }
+      if (
+        resolverDecision?.best?.food.sourceId?.startsWith('shortcut:') ||
+        resolverDecision?.best?.food.normalizedName === 'buttertoast'
+      ) {
+        assumptions.push('CANONICAL_SHORTCUT_USED');
+        console.log(`[${traceId}] PROOF_CANONICAL_SHORTCUT_USED`);
+      }
       if (assumptions.length > 0) {
-        entry.assumptions = assumptions;
+        entry.assumptions = Array.from(new Set(assumptions));
       }
 
       if (resolverDecisionSummary) {

@@ -1,4 +1,4 @@
-export type FoodSourceType = 'user' | 'off' | 'usda' | 'ai';
+export type FoodSourceType = 'user' | 'off' | 'bls' | 'usda' | 'ai';
 
 export interface FoodSearchQuery {
   raw: string;

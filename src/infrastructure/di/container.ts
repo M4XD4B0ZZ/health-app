@@ -40,6 +40,7 @@ import { SequentialFoodCatalogResolver } from '../../features/nutrition/applicat
 import { DefaultConfidenceEngine } from '../../features/nutrition/domain/confidence/DefaultConfidenceEngine';
 import { MockOffSource } from '../../features/nutrition/infrastructure/catalog/sources/MockOffSource';
 import { MockUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/MockUsdaSource';
+import { BlsStaticSource } from '../../features/nutrition/infrastructure/catalog/sources/BlsStaticSource';
 import { SupabaseEdgeOffSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeOffSource';
 import { SupabaseEdgeUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeUsdaSource';
 import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
@@ -185,6 +186,7 @@ class Container {
     // Erstelle Sequential Resolver mit User Aliases -> OFF -> USDA (+ optional mocks in dev/test)
     const confidenceEngine = new DefaultConfidenceEngine();
     const userAliasSource = new SupabaseUserAliasSource(supabase, DEFAULT_CATALOG_CONFIG);
+    const blsSource = new BlsStaticSource();
     const offSource = new SupabaseEdgeOffSource(
       new SupabaseEdgeOffProvider(supabase),
       DEFAULT_CATALOG_CONFIG,
@@ -193,7 +195,7 @@ class Container {
       new SupabaseEdgeUsdaProvider(supabase),
       DEFAULT_CATALOG_CONFIG,
     );
-    const resolverSources: FoodCatalogSource[] = [userAliasSource, offSource, usdaSource];
+    const resolverSources: FoodCatalogSource[] = [userAliasSource, blsSource, offSource, usdaSource];
 
     // Mocks are only allowed in test environments OR if explicitly requested via env.
     // This enforces real-world resolver paths during standard Expo development (npm start)

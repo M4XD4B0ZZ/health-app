@@ -16,7 +16,7 @@ export interface ResolverDebugLog {
 }
 
 export interface SourceDebugInfo {
-  source: 'off' | 'usda' | 'user';
+  source: 'off' | 'bls' | 'usda' | 'user';
   status: 'success' | 'error' | 'skipped' | 'timeout';
   durationMs: number;
   candidates: SourceCandidate[];
@@ -66,6 +66,7 @@ export interface DecisionInfo {
   confidence?: number;
   reason:
     | 'early_return_user'
+    | 'early_return_bls'
     | 'early_return_off'
     | 'best_score'
     | 'no_candidates'

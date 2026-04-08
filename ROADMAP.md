@@ -605,8 +605,191 @@ Each will be broken into concrete tasks when Phase 0 62 are stable.
 
 ---
 
+## Resolver V2 – Multi-Source Fusion Architecture
+
+**Goal:** Redesign nutrition resolver to eliminate early translation bias and enable true multi-source comparison for better food matching accuracy.
+
+**Current Problems:**
+- Early translation biases source selection (DE→EN before querying)
+- Better matches in other sources are skipped due to sequential early-return logic
+- No true multi-source comparison across all candidates
+- Supabase underused (only cache, not knowledge layer)
+
+**Target Architecture:**
+
+### Core Principles
+
+1. **NO EARLY TRANSLATION**
+   - Input stays language-native until source-specific adaptation
+   - Only normalize (case, umlauts, punctuation, tokens)
+   - Each source receives appropriate query variant
+
+2. **SOURCE-NATIVE QUERYING**
+   - BLS receives "ei", "eier" (German terms)
+   - USDA receives "egg" (English equivalent)
+   - OFF receives original input (multilingual database)
+
+3. **MULTI-SOURCE CANDIDATE RETRIEVAL**
+   - All relevant sources return candidates before decision
+   - No early return before cross-source comparison
+   - Negative cache only exception
+
+4. **CANDIDATE FUSION LAYER**
+   - Central ranking across ALL sources
+   - Unified scoring: lexical match + token overlap + source trust + locale relevance + data completeness + plausibility
+   - Traceable decision process
+
+5. **SUPABASE AS KNOWLEDGE LAYER**
+   - Store queries, candidates, decisions, corrections, alias evolution
+   - Build long-term canonical dataset from user interactions
+   - Enable learning from resolution patterns
+
+6. **OPTIONAL AI (STRICTLY LIMITED)**
+   - ONLY for re-ranking low-confidence cases and semantic similarity
+   - NEVER for macro calculation or silent decisions
+   - Must be traceable and rate-limited
+
+### Implementation Tasks
+
+#### RESOLVER-V2-001: Remove Early Translation Layer
+Status: `todo`
+
+**Description:**
+Remove global translation before source querying. Keep normalization only (case, umlauts, punctuation). Input must reach multiple sources unchanged.
+
+**DoD:**
+- Tests confirm same normalized input reaches multiple sources
+- No DE→EN translation before source routing
+- [`getSourceQuery()`](src/features/nutrition/domain/catalog/CanonicalFood.ts:199) only adapts per source, not globally
+
+**Verify:** Unit tests show "ei" sent to BLS, "egg" sent to USDA, "ei" sent to OFF
+
+---
+
+#### RESOLVER-V2-002: Implement Source-Native Query Adapters
+Status: `todo`
+
+**Description:**
+Each source builds its own query from normalized input. No shared query string across sources.
+
+**DoD:**
+- BLS adapter generates German-specific queries
+- USDA adapter generates English equivalents
+- OFF adapter preserves original multilingual input
+- Logging shows different queries per source
+
+**Verify:** Debug logs show source-specific query adaptation
+
+---
+
+#### RESOLVER-V2-003: Implement Multi-Source Candidate Retrieval
+Status: `todo`
+
+**Description:**
+All sources return candidates before decision. Remove early-return logic except negative cache.
+
+**DoD:**
+- [`SequentialFoodCatalogResolver`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:56) collects from all sources
+- No early return based on confidence thresholds
+- Logs show candidates from multiple sources per query
+
+**Verify:** Resolution logs show multi-source candidate collection
+
+---
+
+#### RESOLVER-V2-004: Build Candidate Fusion Layer
+Status: `todo`
+
+**Description:**
+Central scoring across all sources. Introduce unified Candidate type with cross-source ranking.
+
+**DoD:**
+- Unified candidate scoring algorithm
+- Cross-source comparison logic
+- Ranking logs show source comparison rationale
+
+**Verify:** Ranking logs demonstrate cross-source candidate evaluation
+
+---
+
+#### RESOLVER-V2-005: Introduce Supabase Knowledge Layer Tables
+Status: `todo`
+
+**Description:**
+Define schema for persistent knowledge accumulation.
+
+**Tables:**
+- `canonical_foods`: Long-term food definitions
+- `food_source_items`: Source-specific food mappings
+- `food_aliases`: User-validated aliases
+- `query_logs`: Resolution history
+- `corrections`: User feedback on decisions
+
+**DoD:**
+- Schema exists and is documented
+- Migration scripts available
+- Edge functions can access tables
+
+**Verify:** Schema documentation exists, tables accessible from Edge functions
+
+---
+
+#### RESOLVER-V2-006: Persist Resolution Decisions
+Status: `todo`
+
+**Description:**
+Store query → candidates → final decision chain for learning and debugging.
+
+**DoD:**
+- Every resolution creates DB entries
+- Decision rationale is traceable
+- User corrections update knowledge base
+
+**Verify:** DB entries created per resolution, correction flow works
+
+---
+
+#### RESOLVER-V2-007: AI-Assisted Re-Ranking (Optional)
+Status: `todo`
+
+**Description:**
+AI only for low-confidence cases. Must be traceable and rate-limited.
+
+**DoD:**
+- AI triggered only below confidence threshold
+- Usage logged and rate-limited
+- Never authoritative, always assistive
+
+**Verify:** AI usage logs exist, rate limiting works, confidence thresholds respected
+
+---
+
+### Resolver Rules (Global)
+
+- **NEVER translate input before source querying**
+- **ALWAYS allow multi-source candidate comparison**
+- **BLS, OFF, USDA are candidate providers, not truth sources**
+- **Supabase is long-term source of truth**
+- **AI is assistive only, never authoritative**
+
+### Verify Checklist
+
+Before marking Resolver V2 as done:
+
+- [ ] Same input sent to multiple sources without early translation
+- [ ] No early translation exists in resolver pipeline
+- [ ] Multiple candidates logged from different sources
+- [ ] Final decision is traceable through logs
+- [ ] Supabase stores resolution decisions
+- [ ] Confidence system still works
+- [ ] Existing tests pass
+- [ ] Performance within acceptable bounds
+
+---
+
 ## Decisions Log
 
 - **Anon vs. Auth for Food Search:** Food search functions are anon for MVP (`verify_jwt=false`) with strict guardrails.
 - **AI Endpoints gating:** AI endpoints will never be anon. Strictly JWT + subscription/entitlement required.
 - **Deterministic-first:** No LLM calls in core logging pipeline. AI only for complex multi-item parsing when deterministic logic is insufficient.
+- **Resolver V2 Architecture:** Multi-source fusion replaces sequential early-return to eliminate translation bias and improve match quality.

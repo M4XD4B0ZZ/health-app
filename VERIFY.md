@@ -129,3 +129,52 @@ If any verification step fails:
   - type safety
   - API contracts
   - database schema
+
+---
+
+## Resolver V2 Verification
+
+### Multi-Source Fusion Verification
+
+Spezifische Verifikation für die neue Resolver V2 Multi-Source Fusion Architecture:
+
+```bash
+# Resolver-spezifische Tests
+npm run test -- --testPathPattern="resolver|Resolver"
+npm run test -- --testPathPattern="SequentialFoodCatalogResolver"
+npm run test -- --testPathPattern="MultiSource|Fusion"
+```
+
+### Resolver V2 Compliance Checks
+
+Vor dem Abschluss von Resolver V2 Tasks:
+
+- [ ] **No Early Translation**: Input erreicht alle Quellen unübersetzt
+- [ ] **Source-Native Queries**: Verschiedene Queries pro Quelle in Logs sichtbar
+- [ ] **Multi-Source Candidates**: Kandidaten von mehreren Quellen gesammelt
+- [ ] **Fusion Layer**: Cross-Source Ranking funktioniert
+- [ ] **Knowledge Persistence**: Supabase speichert Entscheidungen
+- [ ] **AI Rate Limiting**: AI-Nutzung ist begrenzt und geloggt
+
+### Resolver Debug Verification
+
+```bash
+# Debug-Logs für Resolver-Verhalten
+npm run test -- --testPathPattern="resolver.*debug" --verbose
+```
+
+### Performance Verification
+
+```bash
+# Resolver-Performance innerhalb Budget
+npm run test -- --testPathPattern="resolver.*performance"
+```
+
+**Resolver V2 Definition of Done:**
+
+Ein Resolver V2 Task ist nur dann abgeschlossen, wenn:
+- Standard-Verifikation (`npm run verify`) erfolgreich
+- Resolver-spezifische Tests bestehen
+- Debug-Logs zeigen erwartetes Multi-Source-Verhalten
+- Performance bleibt innerhalb definierter Budgets
+- Keine Regression in bestehenden Resolver-Tests

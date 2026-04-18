@@ -21,6 +21,7 @@ import { CandidateScorer } from '../../domain/fusion/CandidateScorer';
  */
 export class FusionCandidateResolver implements FoodCatalogResolver {
   private readonly scorer: CandidateScorer;
+  private lastScoredCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }[] = [];
 
   constructor(
     private readonly sources: FoodCatalogSource[],
@@ -76,7 +77,14 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
   ): Promise<{ source: FoodCatalogSource; candidates: FoodCandidate[] }[]> {
     const promises = this.sources.map(async (source) => {
       try {
+        // Log source input
+        console.log(`[${traceId}] PROOF_SOURCE_INPUT source="${source.type}" input="${query.normalized}"`);
+        
         const candidates = await source.search(query);
+        
+        // Log source output
+        console.log(`[${traceId}] PROOF_SOURCE_OUTPUT source="${source.type}" candidates=[${candidates.map(c => `"${c.food.name}"`).join(', ')}]`);
+        
         return { source, candidates };
       } catch (error) {
         console.warn(`[${traceId}] Source ${source.type} failed:`, error);
@@ -150,7 +158,7 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     query: FoodSearchQuery,
     traceId: string,
   ): { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }[] {
-    return candidates.map((candidate, index) => {
+    const scoredCandidates = candidates.map((candidate, index) => {
       const breakdown = this.scorer.scoreCandidate(candidate, query);
       
       // Log individual score
@@ -158,6 +166,11 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
       
       return { candidate, breakdown };
     });
+    
+    // Store for later use in adaptToLegacyFormat
+    this.lastScoredCandidates = scoredCandidates;
+    
+    return scoredCandidates;
   }
 
   /**
@@ -189,17 +202,22 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     const best = rankedCandidates[0];
     const secondBest = rankedCandidates[1];
 
+    // Additional guardrail: reject if top candidate has very weak semantic/token relation
+    if (best.breakdown.tokenContribution < 0.2 && best.breakdown.lexicalContribution < 0.2) {
+      return this.createRejectedDecision(rankedCandidates, query, traceId);
+    }
+
     // Check for conflicting high scores
-    if (secondBest && Math.abs(best.breakdown.finalScore - secondBest.breakdown.finalScore) <= FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
+    if (secondBest && Math.abs(best.breakdown.finalScore - secondBest.breakdown.finalScore) < 0.12) {
       return this.createAmbiguousDecision(rankedCandidates, query, traceId);
     }
 
     // Apply confidence thresholds
-    if (best.breakdown.finalScore >= FUSION_THRESHOLDS.HIGH_CONFIDENCE) {
+    if (best.breakdown.finalScore >= 0.82) {
       return this.createAcceptedDecision(rankedCandidates, query, traceId, 'ACCEPTED');
-    } else if (best.breakdown.finalScore >= FUSION_THRESHOLDS.MEDIUM_CONFIDENCE) {
+    } else if (best.breakdown.finalScore >= 0.62) {
       return this.createAcceptedDecision(rankedCandidates, query, traceId, 'ACCEPTED_WITH_ASSUMPTION');
-    } else if (best.breakdown.finalScore >= FUSION_THRESHOLDS.LOW_CONFIDENCE) {
+    } else if (best.breakdown.finalScore >= 0.42) {
       return this.createAmbiguousDecision(rankedCandidates, query, traceId);
     } else {
       return this.createRejectedDecision(rankedCandidates, query, traceId);
@@ -339,36 +357,45 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
    * Convert FusionResolverDecision to legacy ResolverDecision format
    */
   private adaptToLegacyFormat(fusionDecision: FusionResolverDecision): ResolverDecision {
+    // We need to preserve the scored candidates with their breakdowns
+    const scoredCandidates = this.lastScoredCandidates || [];
+    
     return {
       normalizedQuery: fusionDecision.normalizedQuery,
       status: fusionDecision.status,
       reasonCodes: fusionDecision.reasonCodes,
-      candidates: fusionDecision.candidates.map(fc => ({
-        id: fc.id,
-        source: fc.source,
-        food: {
-          id: fc.sourceId,
-          name: fc.name,
-          normalizedName: fc.normalizedName,
-          macrosPer100g: {
-            kcal: fc.macrosPer100g.kcal,
-            protein: fc.macrosPer100g.protein,
-            carbs: fc.macrosPer100g.carbs,
-            fat: fc.macrosPer100g.fat,
-          },
+      candidates: fusionDecision.candidates.map(fc => {
+        // Find the corresponding scored candidate
+        const scoredCandidate = scoredCandidates.find((sc: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }) => sc.candidate.id === fc.id);
+        const breakdown = scoredCandidate?.breakdown || fusionDecision.explanation.confidenceBreakdown;
+        
+        return {
+          id: fc.id,
           source: fc.source,
-          sourceId: fc.sourceId,
-        },
-        score: 0, // TODO: Map from fusion score
-        breakdown: {
-          matchScore: fc.matchSignals.lexicalScore,
-          dataQualityScore: fc.metadata.dataCompleteness,
-          kcalConsistencyScore: fc.macrosPer100g.plausibilityScore,
-          sourceTrustScore: fc.metadata.sourceQuality.trustLevel,
-          finalScore: 0, // TODO: Map from fusion score
-          notes: fc.metadata.assumptions,
-        },
-      })),
+          food: {
+            id: fc.sourceId,
+            name: fc.name,
+            normalizedName: fc.normalizedName,
+            macrosPer100g: {
+              kcal: fc.macrosPer100g.kcal,
+              protein: fc.macrosPer100g.protein,
+              carbs: fc.macrosPer100g.carbs,
+              fat: fc.macrosPer100g.fat,
+            },
+            source: fc.source,
+            sourceId: fc.sourceId,
+          },
+          score: breakdown.finalScore,
+          breakdown: {
+            matchScore: breakdown.lexicalContribution,
+            dataQualityScore: fc.metadata.dataCompleteness,
+            kcalConsistencyScore: fc.macrosPer100g.plausibilityScore,
+            sourceTrustScore: breakdown.sourceTrustContribution,
+            finalScore: breakdown.finalScore,
+            notes: fc.metadata.assumptions,
+          },
+        };
+      }),
       best: fusionDecision.best ? {
         id: fusionDecision.best.id,
         source: fusionDecision.best.source,
@@ -453,13 +480,31 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
 
   private getSourceTrustLevel(sourceType: string): number {
     const trustLevels: Record<string, number> = {
-      user: 1.0,
-      bls: 0.9,
-      usda: 0.8,
-      off: 0.7,
-      ai: 0.3,
+      user: 0.88,
+      bls: 0.82,
+      usda: 0.76,
+      off: 0.72,
+      ai: 0.35,
     };
     return trustLevels[sourceType] || 0.5;
+  }
+
+  private calculatePenalties(candidate: FusionCandidate): number {
+    let totalPenalties = 0;
+
+    if (candidate.matchSignals.aliasUsed) {
+      totalPenalties += -0.08;
+    }
+
+    if (candidate.matchSignals.fuzzyMatch) {
+      totalPenalties += -0.15;
+    }
+
+    if (candidate.matchSignals.semanticNarrowing) {
+      totalPenalties += -0.20;
+    }
+
+    return totalPenalties;
   }
 
   private getCoverageRelevance(sourceType: string, locale: string): number {

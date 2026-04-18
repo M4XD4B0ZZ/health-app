@@ -12,7 +12,14 @@ import {
  * Implements the scoring model from the architecture plan
  */
 export class CandidateScorer {
-  constructor(private readonly weights: FusionScoringWeights = DEFAULT_FUSION_WEIGHTS) {}
+  constructor(private readonly weights: FusionScoringWeights = {
+  lexical: 0.40,
+  tokenOverlap: 0.25,
+  sourceTrust: 0.12,
+  localeMatch: 0.10,
+  completeness: 0.05,
+  plausibility: 0.08
+}) {}
 
   /**
    * Calculate final score for a fusion candidate
@@ -125,15 +132,15 @@ export class CandidateScorer {
 
     // Match signal penalties
     if (candidate.matchSignals.aliasUsed) {
-      totalPenalties += FUSION_PENALTIES.ALIAS_USAGE;
+      totalPenalties += -0.08;
     }
 
     if (candidate.matchSignals.fuzzyMatch) {
-      totalPenalties += FUSION_PENALTIES.FUZZY_MATCH;
+      totalPenalties += -0.15;
     }
 
     if (candidate.matchSignals.semanticNarrowing) {
-      totalPenalties += FUSION_PENALTIES.SEMANTIC_NARROWING;
+      totalPenalties += -0.20;
     }
 
     // Data quality penalties

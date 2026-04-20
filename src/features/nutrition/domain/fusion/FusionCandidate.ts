@@ -168,8 +168,8 @@ export const FUSION_PENALTIES = {
  * Decision thresholds from architecture plan
  */
 export const FUSION_THRESHOLDS = {
-  HIGH_CONFIDENCE: 0.85,    // Auto-accept
-  MEDIUM_CONFIDENCE: 0.70,  // Accept with assumption
-  LOW_CONFIDENCE: 0.50,     // Ambiguous/reject threshold
-  AMBIGUOUS_DIFF: 0.05,     // Max diff between top 2 for clear winner
+  HIGH_CONFIDENCE: 0.82,    // Auto-accept (CALIBRATION-004)
+  MEDIUM_CONFIDENCE: 0.62,  // Accept with assumption
+  LOW_CONFIDENCE: 0.42,     // Ambiguous/reject threshold
+  AMBIGUOUS_DIFF: 0.04,     // Max diff between top 2 for clear winner (CALIBRATION-004)
 } as const;

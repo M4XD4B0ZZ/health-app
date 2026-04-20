@@ -23,6 +23,9 @@
 			"args": [
 				"-y",
 				"@upstash/context7-mcp"
+			],
+			"alwaysAllow": [
+				"query-docs"
 			]
 		}
 	},

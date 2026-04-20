@@ -123,7 +123,7 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
           },
           matchSignals: {
             lexicalScore: candidate.match.similarity,
-            tokenOverlap: this.calculateTokenOverlap(query.normalized, candidate.food.normalizedName),
+            tokenOverlap: this.calculateTokenOverlap(query.normalized, candidate.food.normalizedName, candidate.match.exact ? 'exact' : candidate.match.similarity > 0.7 ? 'partial' : 'weak'),
             exactMatch: candidate.match.exact,
             aliasUsed: candidate.match.usedHeuristic === 'alias',
             fuzzyMatch: candidate.match.usedHeuristic === 'fuzzy',
@@ -208,16 +208,19 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     }
 
     // Check for conflicting high scores
-    if (secondBest && Math.abs(best.breakdown.finalScore - secondBest.breakdown.finalScore) < 0.12) {
-      return this.createAmbiguousDecision(rankedCandidates, query, traceId);
-    }
+    const scoreGap = secondBest ? best.breakdown.finalScore - secondBest.breakdown.finalScore : 1.0;
+
+// CALIBRATION-004: Use centralized thresholds
+if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
+  return this.createAmbiguousDecision(rankedCandidates, query, traceId);
+}
 
     // Apply confidence thresholds
-    if (best.breakdown.finalScore >= 0.82) {
+    if (best.breakdown.finalScore >= FUSION_THRESHOLDS.HIGH_CONFIDENCE) {
       return this.createAcceptedDecision(rankedCandidates, query, traceId, 'ACCEPTED');
-    } else if (best.breakdown.finalScore >= 0.62) {
+    } else if (best.breakdown.finalScore >= FUSION_THRESHOLDS.MEDIUM_CONFIDENCE) {
       return this.createAcceptedDecision(rankedCandidates, query, traceId, 'ACCEPTED_WITH_ASSUMPTION');
-    } else if (best.breakdown.finalScore >= 0.42) {
+    } else if (best.breakdown.finalScore >= FUSION_THRESHOLDS.LOW_CONFIDENCE) {
       return this.createAmbiguousDecision(rankedCandidates, query, traceId);
     } else {
       return this.createRejectedDecision(rankedCandidates, query, traceId);
@@ -457,6 +460,16 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     return macros.kcal === 0 || macros.protein === 0 || macros.carbs === 0 || macros.fat === 0;
   }
 
+  // Decision guardrail relaxation
+  private isAccepted(score: number, gap: number): boolean {
+    return score >= 0.80 && gap >= 0.06;
+  }
+
+  // Ambiguity detection
+  private isAmbiguous(gap: number, top2SemanticallyDifferent: boolean): boolean {
+    return gap < 0.06 || top2SemanticallyDifferent;
+  }
+
   private calculatePlausibilityScore(macros: any): number {
     // Simple plausibility check: kcal should roughly match macros
     const calculatedKcal = (macros.protein * 4) + (macros.carbs * 4) + (macros.fat * 9);
@@ -464,11 +477,23 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     return Math.max(0, 1 - (diff / Math.max(macros.kcal, calculatedKcal)));
   }
 
-  private calculateTokenOverlap(query: string, name: string): number {
+  private calculateTokenOverlap(query: string, name: string, matchQuality: 'exact' | 'partial' | 'weak'): number {
     const queryTokens = new Set(query.toLowerCase().split(/\s+/));
     const nameTokens = new Set(name.toLowerCase().split(/\s+/));
     const intersection = new Set([...queryTokens].filter(x => nameTokens.has(x)));
-    return intersection.size / Math.max(queryTokens.size, nameTokens.size);
+    const baseOverlap = intersection.size / Math.max(queryTokens.size, nameTokens.size);
+
+    // Scale by match quality
+    let scale = 0.1;
+    if (matchQuality === 'exact') {
+      scale = 1.0;
+    } else if (matchQuality === 'partial') {
+      scale = 0.5 + 0.2 * baseOverlap; // 0.5 to 0.7 depending on baseOverlap
+    } else if (matchQuality === 'weak') {
+      scale = 0.1 + 0.2 * baseOverlap; // 0.1 to 0.3 depending on baseOverlap
+    }
+
+    return baseOverlap * scale;
   }
 
   private detectLocale(sourceType: string, name: string): string {

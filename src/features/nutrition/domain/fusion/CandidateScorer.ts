@@ -2,7 +2,6 @@ import {
   FusionCandidate,
   ConfidenceBreakdown,
   FusionScoringWeights,
-  DEFAULT_FUSION_WEIGHTS,
   SOURCE_TRUST_SCORES,
   FUSION_PENALTIES,
 } from './FusionCandidate';
@@ -143,6 +142,11 @@ export class CandidateScorer {
       totalPenalties += -0.20;
     }
 
+    // Semantic penalty: branded vs generic mismatch
+    if (this.isGenericInput(candidate) && this.isBrandedCandidate(candidate)) {
+      totalPenalties += -0.12; // Penalty between -0.10 and -0.15
+    }
+
     // Data quality penalties
     if (candidate.macrosPer100g.hasIncompleteData) {
       totalPenalties += FUSION_PENALTIES.INCOMPLETE_DATA;
@@ -153,6 +157,19 @@ export class CandidateScorer {
     }
 
     return totalPenalties;
+  }
+
+  private isGenericInput(candidate: FusionCandidate): boolean {
+    // Simple heuristic: input normalized query is generic if it contains no brand keywords
+    const genericKeywords = ['quark', 'milch', 'ei', 'toast', 'protein'];
+    // candidate has metadata.queryUsed property with normalized query string
+    return genericKeywords.some(keyword => candidate.metadata.queryUsed.toLowerCase().includes(keyword));
+  }
+
+  private isBrandedCandidate(candidate: FusionCandidate): boolean {
+    // Simple heuristic: branded if name contains brand or specific keywords
+    const brandedKeywords = ['high protein', 'brand', 'marke', 'premium'];
+    return brandedKeywords.some(keyword => candidate.normalizedName.includes(keyword));
   }
 
   /**
@@ -181,6 +198,10 @@ export class CandidateScorer {
 
     if (candidate.matchSignals.aliasUsed) {
       explanations.push(`Alias usage penalty (-${(FUSION_PENALTIES.ALIAS_USAGE * 100).toFixed(0)}%)`);
+    }
+
+    if (this.isGenericInput(candidate) && this.isBrandedCandidate(candidate)) {
+      explanations.push(`Semantic penalty for branded vs generic mismatch (-12%)`);
     }
 
     if (candidate.macrosPer100g.hasIncompleteData) {

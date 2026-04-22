@@ -75,12 +75,13 @@ export class LogFoodFromRawInputUseCase {
       const parsed = this.parser.parse(rawText);
       const originalParsedName = parsed.name; // Preserve original for parsedName field
 
-      // Integration: Canonical Entity Detection vor Resolver
+      // Integration: Canonical Entity Detection - preserve original for resolver
       const canonicalEntity = detectCanonicalEntity(parsed.name);
-      if (canonicalEntity) {
-        // Ersetze parsed.name mit kanonischem Namen für Resolver
-        parsed.name = canonicalEntity.id;
-      }
+      // Note: Do NOT override parsed.name here - let resolver handle source-specific mapping
+
+      console.log(
+        `[${traceId}] PROOF_INPUT_PRESERVATION rawInput="${rawInput}" parsedName="${parsed.name}" canonicalId="${canonicalEntity?.id || 'none'}"`,
+      );
 
       // Bestimme Datum
       const entryDate = dateISO ? this.parseDateISO(dateISO) : this.clock.now();
@@ -95,9 +96,9 @@ export class LogFoodFromRawInputUseCase {
         confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
       } else if (
         parsed.quantityCount !== undefined &&
-        canonicalEntity?.defaultPortion?.unit === 'piece' &&
-        canonicalEntity.defaultPortion.grams
+        canonicalEntity?.defaultPortion?.grams
       ) {
+        // Support both 'piece' and 'gram' units for quantityCount
         quantityGrams = parsed.quantityCount * canonicalEntity.defaultPortion.grams;
         confidenceScore = 0.5;
       } else if (parsed.quantityCount !== undefined) {

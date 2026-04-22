@@ -460,15 +460,6 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
     return macros.kcal === 0 || macros.protein === 0 || macros.carbs === 0 || macros.fat === 0;
   }
 
-  // Decision guardrail relaxation
-  private isAccepted(score: number, gap: number): boolean {
-    return score >= 0.80 && gap >= 0.06;
-  }
-
-  // Ambiguity detection
-  private isAmbiguous(gap: number, top2SemanticallyDifferent: boolean): boolean {
-    return gap < 0.06 || top2SemanticallyDifferent;
-  }
 
   private calculatePlausibilityScore(macros: any): number {
     // Simple plausibility check: kcal should roughly match macros
@@ -514,23 +505,6 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
     return trustLevels[sourceType] || 0.5;
   }
 
-  private calculatePenalties(candidate: FusionCandidate): number {
-    let totalPenalties = 0;
-
-    if (candidate.matchSignals.aliasUsed) {
-      totalPenalties += -0.08;
-    }
-
-    if (candidate.matchSignals.fuzzyMatch) {
-      totalPenalties += -0.15;
-    }
-
-    if (candidate.matchSignals.semanticNarrowing) {
-      totalPenalties += -0.20;
-    }
-
-    return totalPenalties;
-  }
 
   private getCoverageRelevance(sourceType: string, locale: string): number {
     if (locale === 'de' && sourceType === 'bls') return 1.0;

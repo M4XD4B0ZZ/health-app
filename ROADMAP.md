@@ -1,6 +1,8 @@
 # HealthApp 6 Master Roadmap (SSOK)
 
 Status: Active
+
+- [x] P0-002: Kerninputs Proof
 Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
 
 ---

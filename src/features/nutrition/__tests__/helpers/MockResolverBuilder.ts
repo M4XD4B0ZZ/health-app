@@ -321,6 +321,7 @@ export class MockResolverBuilder {
         .withAcceptedFood('ei', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
         .withAcceptedFood('2 eggs', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
         .withAcceptedFood('zwei eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
+        .withAcceptedFood('zwei scheiben schinken', 'Schinken, gekocht', { kcal: 125, protein: 20.5, carbs: 0.5, fat: 4.2 })
         .withAcceptedFood('2 eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
         .withAcceptedFood('gekochte eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
 

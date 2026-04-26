@@ -73,7 +73,17 @@ const mockAiFoodMapper = {
 };
 
 const mockNutritionLookup = {
-  getPer100gByName: jest.fn().mockResolvedValue(null)
+  getPer100gByName: jest.fn().mockImplementation(async (name: string) => {
+    // Provide nutrition data for the test foods
+    const nutritionData: Record<string, any> = {
+      'bls-schinken-001': { kcal: 125, protein: 20.5, carbs: 0.5, fat: 4.2 },
+      'bls-ei-001': { kcal: 155, protein: 13.0, carbs: 1.0, fat: 11.0 },
+      'bls-quark-001': { kcal: 101, protein: 12.6, carbs: 4.0, fat: 4.2 },
+      'off-buttertoast-001': { kcal: 265, protein: 8.5, carbs: 45.0, fat: 5.2 }
+    };
+    
+    return nutritionData[name] || null;
+  })
 };
 
 // Proof-Tracking Resolver Mock

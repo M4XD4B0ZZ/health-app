@@ -61,3 +61,10 @@ Thumbs.db
 # Test artifacts
 test-results/
 /tests/
+
+# Agent Orchestrator outputs (keep .gitkeep)
+.agent/out/*.json
+.agent/out/*.md
+.agent/out/opencode-report.md
+.agent/state.json
+.agent/out/fix-prompt.md

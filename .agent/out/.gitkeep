@@ -1,0 +1,7 @@
+# Agent Output Directory
+# 
+# Dieses Verzeichnis enthält die generierten Outputs der Agent-Scripts:
+# - selected-task.json (von select-next-task.mjs)
+# - next-prompt.md (von build-roo-prompt.mjs)
+# - handoff-template.md (von write-handoff-template.mjs)
+# - verify-report.md (von run-verify.mjs)

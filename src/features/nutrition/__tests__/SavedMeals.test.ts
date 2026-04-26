@@ -368,5 +368,37 @@ describe('Saved Meals System', () => {
       const entriesOnDate1 = await foodEntryRepo.listEntriesForDate(date1);
       expect(entriesOnDate1).toHaveLength(2);
     });
+
+    // P0-004: Zero-Macro Blocker Test
+    it('should block saving entries with zero macros', async () => {
+      // Arrange: Add a food with zero macros to the lookup
+      await lookup.upsertPer100gByName('zero-macro-food', {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      });
+
+      // Create template with item that has zero nutrition data
+      const template = {
+        id: 'template-zero-macro',
+        name: 'Zero Macro Meal',
+        items: [
+          { parsedName: 'zero-macro-food', quantityGrams: 100 }, // This will be found but has 0 calories
+        ],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act & Assert: Should throw error when trying to log
+      await expect(logUseCase.execute('template-zero-macro', '2024-01-17')).rejects.toThrow(
+        'ZERO_MACROS_BLOCKED for saved meal item: 100g zero-macro-food',
+      );
+
+      // Verify: No entries were persisted
+      const persistedEntries = await foodEntryRepo.listEntriesForDate('2024-01-17');
+      expect(persistedEntries).toHaveLength(0);
+    });
   });
 });

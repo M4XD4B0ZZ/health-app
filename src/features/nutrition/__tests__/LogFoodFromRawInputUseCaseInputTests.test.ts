@@ -1,7 +1,7 @@
 import { LogFoodFromRawInputUseCase } from '../application/usecases/LogFoodFromRawInputUseCase';
 
 // Dummy Mocks für Konstruktor-Parameter
-const mockRepository = {};
+const mockRepository = { addEntry: jest.fn().mockResolvedValue(undefined) };
 const mockClock = { now: () => new Date() };
 const mockIdGenerator = { newId: () => 'test-id' };
 const mockParser = { parse: jest.fn().mockImplementation((text) => ({ name: text })) };
@@ -11,42 +11,36 @@ const mockAiFoodMapper = { mapToCanonicalFood: jest.fn() };
 const mockNutritionLookup = { getPer100gByName: jest.fn() };
 const mockResolver = {
   resolve: jest.fn().mockResolvedValue({
-    resolverDecision: {
-      candidates: [
-        {
-          food: {
-            id: 'test-food',
-            name: 'Test Food',
-            macrosPer100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
-            sourceId: 'test-source',
-            normalizedName: 'test food',
-          },
-          score: 0.9,
-          source: 'generic',
-          reasonCodes: [],
-          breakdown: { notes: [] },
-        },
-      ],
-      best: {
+    candidates: [
+      {
         food: {
           id: 'test-food',
           name: 'Test Food',
           macrosPer100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
           sourceId: 'test-source',
           normalizedName: 'test food',
+          source: 'generic',
         },
         score: 0.9,
         source: 'generic',
         reasonCodes: [],
         breakdown: { notes: [] },
       },
+    ],
+    best: {
+      food: {
+        id: 'test-food',
+        name: 'Test Food',
+        macrosPer100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
+        sourceId: 'test-source',
+        normalizedName: 'test food',
+        source: 'generic',
+      },
+      score: 0.9,
+      source: 'generic',
       reasonCodes: [],
+      breakdown: { notes: [] },
     },
-    resolverDecisionSummary: {},
-    canonicalFood: null,
-    sourceType: 'generic',
-    confidence: 0.8,
-    explanation: '',
     reasonCodes: [],
   }),
 };

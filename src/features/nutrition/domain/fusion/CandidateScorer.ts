@@ -4,6 +4,7 @@ import {
   FusionScoringWeights,
   SOURCE_TRUST_SCORES,
   FUSION_PENALTIES,
+  DEFAULT_FUSION_WEIGHTS,
 } from './FusionCandidate';
 
 /**
@@ -11,16 +12,7 @@ import {
  * Implements the scoring model from the architecture plan
  */
 export class CandidateScorer {
-  constructor(
-    private readonly weights: FusionScoringWeights = {
-      lexical: 0.4,
-      tokenOverlap: 0.25,
-      sourceTrust: 0.12,
-      localeMatch: 0.1,
-      completeness: 0.05,
-      plausibility: 0.08,
-    },
-  ) {}
+  constructor(private readonly weights: FusionScoringWeights = DEFAULT_FUSION_WEIGHTS) {}
 
   /**
    * Calculate final score for a fusion candidate
@@ -157,20 +149,20 @@ export class CandidateScorer {
 
     // Match signal penalties
     if (candidate.matchSignals.aliasUsed) {
-      totalPenalties += -0.08;
+      totalPenalties += FUSION_PENALTIES.ALIAS_USAGE;
     }
 
     if (candidate.matchSignals.fuzzyMatch) {
-      totalPenalties += -0.15;
+      totalPenalties += FUSION_PENALTIES.FUZZY_MATCH;
     }
 
     if (candidate.matchSignals.semanticNarrowing) {
-      totalPenalties += -0.2;
+      totalPenalties += FUSION_PENALTIES.SEMANTIC_NARROWING;
     }
 
     // Semantic penalty: branded vs generic mismatch
     if (this.isGenericInput(candidate) && this.isBrandedCandidate(candidate)) {
-      totalPenalties += -0.12; // Penalty between -0.10 and -0.15
+      totalPenalties += 0.12; // Penalty between 0.10 and 0.15
     }
 
     // Data quality penalties

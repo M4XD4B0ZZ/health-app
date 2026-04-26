@@ -162,7 +162,81 @@ export function searchBlsGenericFoods(normalizedQuery: string): FoodCandidate[] 
     return exactMatches;
   }
 
-  // Token-based matching with scoring
+  // DACH Guard: Prevent compound splitting for unknown compounds
+  // Check if this looks like a potential compound word (length > 6 chars and no exact/includes match)
+  if (normalizedInput.length > 6 && inputTokens.length === 1) {
+    // Check if this looks like a compound word that we don't explicitly support
+    const hasIncludesMatch = BLS_GENERIC_FOODS.some((record) =>
+      record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
+    );
+
+    // If no includes match, check if it could be a compound by seeing if token matching would find multiple different foods
+    if (!hasIncludesMatch) {
+      // Quick check: if token matching would find results from different base foods, it's likely compound splitting
+      const potentialMatches = new Set();
+      for (const record of BLS_GENERIC_FOODS) {
+        const tokenScore = calculateTokenScore(
+          inputTokens,
+          record.tokens,
+          record.aliases,
+          record.displayName,
+        );
+        if (tokenScore > 0.5) {
+          potentialMatches.add(record.normalizedName);
+        }
+      }
+
+      // If we would match multiple different foods, it's likely unwanted compound splitting
+      if (potentialMatches.size > 1) {
+        console.log(
+          `[DEBUG] BLS COMPOUND_GUARD: Rejecting unknown compound "${normalizedInput}" (would split into ${potentialMatches.size} foods)`,
+        );
+        return [];
+      }
+    } else {
+      // If we have an includes match, only return that specific match, no token splitting
+      const includesMatches = BLS_GENERIC_FOODS.filter((record) =>
+        record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
+      ).map((record) => toCandidate(record, false, 0.7));
+
+      if (includesMatches.length > 0) {
+        console.log(`[DEBUG] BLS INCLUDES_MATCH found for compound "${normalizedInput}"`);
+        return includesMatches;
+      }
+    }
+  }
+
+  // Handle multi-token inputs (space-separated)
+  if (inputTokens.length > 1) {
+    // Check if this looks like a compound word that we don't explicitly support
+    const hasIncludesMatch = BLS_GENERIC_FOODS.some((record) =>
+      record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
+    );
+
+    // If no includes match, reject compound splitting entirely
+    if (!hasIncludesMatch) {
+      console.log(
+        `[DEBUG] BLS COMPOUND_GUARD: Rejecting unknown multi-token compound "${normalizedInput}"`,
+      );
+      return [];
+    }
+
+    // If we have an includes match, only return that specific match, no token splitting
+    const includesMatches = BLS_GENERIC_FOODS.filter((record) =>
+      record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
+    ).map((record) => toCandidate(record, false, 0.7));
+
+    if (includesMatches.length > 0) {
+      console.log(`[DEBUG] BLS INCLUDES_MATCH found for multi-token compound "${normalizedInput}"`);
+      return includesMatches;
+    }
+
+    // If we reach here, it means we have multiple tokens but no known compound
+    // Return empty to prevent token splitting
+    return [];
+  }
+
+  // Token-based matching with scoring (only for single tokens)
   const tokenMatches: { record: BlsFoodRecord; score: number }[] = [];
 
   for (const record of BLS_GENERIC_FOODS) {
@@ -194,22 +268,19 @@ export function searchBlsGenericFoods(normalizedQuery: string): FoodCandidate[] 
         `[DEBUG] BLS TOKEN_MATCH [${index}] "${candidate.food.name}" score=${candidate.match.similarity}`,
       );
     });
+    return sortedMatches;
   }
 
-  // Fallback: try includes matching (lowest priority)
-  if (sortedMatches.length === 0) {
-    const includesMatches = BLS_GENERIC_FOODS.filter((record) =>
-      record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
-    ).map((record) => toCandidate(record, false, 0.7));
+  // Fallback: try includes matching (lowest priority, only for single tokens)
+  const includesMatches = BLS_GENERIC_FOODS.filter((record) =>
+    record.aliases.some((alias) => normalize(alias).includes(normalizedInput)),
+  ).map((record) => toCandidate(record, false, 0.7));
 
-    if (includesMatches.length > 0) {
-      console.log(`[DEBUG] BLS INCLUDES_MATCH found for "${normalizedInput}"`);
-    }
-
-    return includesMatches;
+  if (includesMatches.length > 0) {
+    console.log(`[DEBUG] BLS INCLUDES_MATCH found for "${normalizedInput}"`);
   }
 
-  return sortedMatches;
+  return includesMatches;
 }
 
 function toCandidate(

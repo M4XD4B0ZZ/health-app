@@ -720,11 +720,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const inputType = query.inputType || 'ambiguous';
     const locale = query.locale || 'en';
 
-    // For German locale with generic OR ambiguous classification: prioritize DACH-compatible sources
-    if (locale === 'de' && (inputType === 'generic' || inputType === 'ambiguous')) {
-      const strategyName = inputType === 'generic' ? 'DACH_GENERIC_FIRST' : 'DACH_AMBIGUOUS_FIRST';
+    // For German locale with generic classification: prioritize DACH-compatible sources
+    if (locale === 'de' && inputType === 'generic') {
       return {
-        name: strategyName,
+        name: 'DACH_GENERIC_FIRST',
         offEarlyReturnDisabled: true, // Allow USDA to compete with OFF for better DACH matches
         blsEarlyReturnDisabled: false, // Allow BLS early return for high confidence
         userEarlyReturnDisabled: false, // Allow user early return

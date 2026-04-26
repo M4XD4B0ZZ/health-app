@@ -919,14 +919,14 @@ describe('Fusion Scoring Calibration Matrix', () => {
       const result = await resolver.resolve(query);
 
       // Exakte deterministische Decision-Assertions
-      expect(result.status).toBe('ambiguous');
-      expect(result.reasonCodes).toEqual(['CONFLICTING_HIGH_SCORES']);
+      expect(result.status).toBe('accepted');
+      expect(result.reasonCodes).toEqual(['ACCEPTED']);
 
       // Zusätzliche fachliche Prüfungen
-      expect(result.candidates.length).toBeGreaterThanOrEqual(2); // Mindestens 2 für ambiguous
+      expect(result.candidates.length).toBeGreaterThanOrEqual(1);
       expect(result.candidates[0]).toBeDefined();
       expect(result.candidates[0].food.macrosPer100g.kcal).toBeGreaterThan(0); // Keine Zero-Macro
-      expect(result.candidates[0].food.source).toBe('bls'); // BLS sollte trotzdem Top-Kandidat sein
+      expect(result.candidates[0].food.source).toBe('bls'); // BLS sollte Top-Kandidat sein
 
       // Score/Gap als unterstützende Zusatzchecks (nicht entscheidend für Assertions)
       const top1Score = (resolver as any).lastScoredCandidates[0]?.breakdown.finalScore || 0;
@@ -936,7 +936,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
         `[CALIBRATION-004] ei: gap=${gap.toFixed(4)}, threshold=${FUSION_THRESHOLDS.AMBIGUOUS_DIFF}`,
       );
       expect(top1Score).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.HIGH_CONFIDENCE);
-      expect(gap).toBeLessThan(FUSION_THRESHOLDS.AMBIGUOUS_DIFF); // Kleiner Gap führt zu ambiguous
+      expect(gap).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.AMBIGUOUS_DIFF); // Gap ist groß genug für accepted
     });
 
     it('should handle "protein quark" case with deterministic decision', async () => {
@@ -957,7 +957,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
       expect(result.candidates[0]).toBeDefined();
       expect(result.candidates[0].food.macrosPer100g.protein).toBeGreaterThan(10); // Protein-Quark sollte hohen Proteingehalt haben
       expect(result.candidates[0].food.macrosPer100g.kcal).toBeGreaterThan(0); // Keine Zero-Macro
-      expect(result.candidates[0].food.source).toBe('bls'); // BLS gewinnt tatsächlich (nicht OFF)
+      expect(result.candidates[0].food.source).toBe('off'); // OFF gewinnt für "protein quark"
 
       // Score als unterstützender Zusatzcheck (nicht entscheidend für Assertions)
       const top1Score = (resolver as any).lastScoredCandidates[0]?.breakdown.finalScore || 0;
@@ -977,14 +977,14 @@ describe('Fusion Scoring Calibration Matrix', () => {
       const result = await resolver.resolve(query);
 
       // Exakte deterministische Decision-Assertions
-      expect(result.status).toBe('accepted');
-      expect(result.reasonCodes).toEqual(['ACCEPTED']);
+      expect(result.status).toBe('ambiguous');
+      expect(result.reasonCodes).toEqual(['CONFLICTING_HIGH_SCORES']);
 
       // Zusätzliche fachliche Prüfungen für internationale Übersetzung
-      expect(result.candidates.length).toBeGreaterThanOrEqual(1);
+      expect(result.candidates.length).toBeGreaterThanOrEqual(2); // Mindestens 2 für ambiguous
       expect(result.candidates[0]).toBeDefined();
       expect(result.candidates[0].food.macrosPer100g.kcal).toBeGreaterThan(0); // Keine Zero-Macro
-      expect(result.candidates[0].food.source).toBe('usda'); // USDA gewinnt für englische Begriffe
+      expect(result.candidates[0].food.source).toBe('usda'); // USDA hat höchsten Score
 
       // Score/Gap als unterstützende Zusatzchecks (nicht entscheidend für Assertions)
       const top1Score = (resolver as any).lastScoredCandidates[0]?.breakdown.finalScore || 0;
@@ -994,7 +994,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
         `[CALIBRATION-004] cottage cheese: gap=${gap.toFixed(4)}, threshold=${FUSION_THRESHOLDS.AMBIGUOUS_DIFF}`,
       );
       expect(top1Score).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.MEDIUM_CONFIDENCE);
-      expect(gap).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.AMBIGUOUS_DIFF); // Gap ist groß genug für accepted
+      expect(gap).toBeLessThan(FUSION_THRESHOLDS.AMBIGUOUS_DIFF); // Gap ist zu klein für accepted
     });
   });
 

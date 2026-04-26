@@ -386,6 +386,7 @@ mkdir -p .agent/out
 **Verhalten:**
 
 - Robust Repo-Root ermitteln
+- **Konfiguration laden:** Liest `.agent/config.json` falls vorhanden, sonst Default-Werte
 - Prüfen auf `.agent/out/next-prompt.md`, Fehlermeldung falls nicht vorhanden
 - Safety-Header vor Prompt setzen:
   - "You are running as an automated OpenCode worker."
@@ -394,7 +395,8 @@ mkdir -p .agent/out
   - "Do not edit .env or secrets."
   - "Do not install dependencies."
   - "After editing, summarize changed files and required verification."
-- OpenCode non-interactive starten (spawn, PowerShell-kompatibel)
+- **OpenCode mit explizitem Modell starten:** `opencode run "<prompt>" --model <model>`
+- Optional: `--agent <agent>` Parameter falls konfiguriert
 - Ausgabe vollständig in `.agent/out/opencode-report.md` schreiben
 - State in `.agent/state.json` aktualisieren
 - Fehlerbehandlung bei fehlendem OpenCode oder non-zero Exit-Code
@@ -406,6 +408,54 @@ npm run agent:worker
 ```
 
 **Output:** `.agent/out/opencode-report.md`, aktualisierte `.agent/state.json`
+
+### OpenCode Konfiguration
+
+**Konfigurationsdatei:** `.agent/config.json` (optional)
+
+**Beispiel-Konfiguration:** `.agent/config.example.json`
+
+```json
+{
+  "opencode": {
+    "model": "openai/gpt-4.1",
+    "agent": null,
+    "command": "opencode",
+    "maxFixAttempts": 1
+  }
+}
+```
+
+**Default-Konfiguration (falls keine config.json vorhanden):**
+
+- **model:** `openai/gpt-4.1` (funktionierendes Modell)
+- **agent:** `null` (kein spezifischer Agent)
+- **command:** `opencode` (Standard-Befehl)
+- **maxFixAttempts:** `1` (maximale Fix-Versuche)
+
+**Andere unterstützte Modelle:**
+
+- `openai/gpt-4.1` (Standard, funktioniert)
+- `openai/gpt-5.1-codex` (falls verfügbar)
+- `anthropic/claude-sonnet-4-5` (falls verfügbar)
+
+**Wichtiger Hinweis:** Teste neue Modelle zuerst manuell:
+
+```bash
+opencode run "Say hello and exit" --model <neues-modell>
+```
+
+**Konfiguration erstellen:**
+
+1. Kopiere `.agent/config.example.json` nach `.agent/config.json`
+2. Passe `model` und `agent` nach Bedarf an
+3. Die Datei `.agent/config.json` wird automatisch von git ignoriert
+
+**Fehlerbehebung:**
+
+- **404 "Application not found":** Falsches oder nicht verfügbares Modell
+- **Lösung:** Explizites `--model` verwenden oder Konfiguration anpassen
+- **Test:** `opencode run "Say hello and exit" --model openai/gpt-4.1`
 
 ### Workflow Phase C
 
@@ -428,6 +478,122 @@ npm run agent:worker
 
 Primär: `opencode run "<prompt>"`
 Fallback: `opencode -p "<prompt>" -q` (umstellbar im Code)
+
+## Phase D: Agent Auto Task Runner
+
+### 7. run-auto-task.mjs
+
+**Zweck:** Implementiert agent:auto für genau einen Task mit maximal einem Fix-Versuch.
+
+**Verhalten:**
+
+Der Orchestrator automatisiert einen vollständigen Task-Zyklus:
+
+1. **Task/Prompt vorbereiten:** Sicherstellen, dass ein Prompt existiert (falls nicht: run-agent-loop.mjs ausführen)
+2. **OpenCode Worker ausführen:** npm run agent:worker
+3. **Verify ausführen:** npm run agent:verify
+4. **State aktualisieren:** npm run agent:run ausführen
+5. **Fix-Logik:** Bei Verify-Fail genau einen Fix-Prompt erzeugen und optional noch einmal OpenCode ausführen
+6. **Human Review Gate:** Danach IMMER stoppen
+
+**Verwendung:**
+
+```bash
+npm run agent:auto
+```
+
+**Wichtige Grenzen:**
+
+- **Kein Commit/Push**
+- **Keine .env-Dateien** lesen oder ändern
+- **Keine Secrets** anfassen
+- **Keine Dependencies** installieren
+- **Keine ROADMAP-Tasks** automatisch auf done setzen
+- **Kein Multi-Task-Loop**
+- **Maximal 1 Fix-Versuch**
+- **Nach Erfolg oder finalem Fehler immer stoppen**
+
+**Fix-Logik:**
+
+- **Wenn Verify erfolgreich:**
+  - write-handoff-template.mjs ausführen (via agent:run)
+  - State: `status = "ready_for_human_review"`, `verifyPassed = true`
+  - Gate: "Review git diff, verify report, opencode report and handoff. Commit manually if acceptable."
+  - Exit Code 0
+
+- **Wenn Verify fehlschlägt:**
+  - agent:run erzeugt fix-prompt.md
+  - Wenn fix-prompt.md existiert und noch kein Fix-Versuch: OpenCode mit fix-prompt.md ausführen
+  - Danach erneut npm run agent:verify und npm run agent:run
+  - **Wenn Verify danach immer noch fehlschlägt:**
+    - State: `status = "auto_failed_needs_human"`, `verifyPassed = false`
+    - Gate: "Auto fix failed. Review verify-report.md, fix-prompt.md and opencode-report.md manually."
+    - Exit Code 1
+
+**State-Erweiterungen:**
+
+```json
+{
+  "autoMode": true,
+  "fixAttempts": 0,
+  "maxFixAttempts": 1
+}
+```
+
+**Output:** `.agent/out/auto-report.md`
+
+**Auto-Report enthält:**
+
+- Task-ID/Titel
+- Zeitstempel
+- Worker Exit Code
+- Verify Ergebnis
+- Fix-Versuch ja/nein
+- Finaler Status
+- Nächste manuelle Aktion
+
+### Erweiterte OpenCode Worker Funktionalität
+
+**run-opencode-worker.mjs** wurde erweitert um optionale Prompt-Dateien:
+
+```bash
+# Standard (next-prompt.md)
+npm run agent:worker
+
+# Mit benutzerdefinierter Prompt-Datei
+node scripts/agent/run-opencode-worker.mjs .agent/out/fix-prompt.md
+```
+
+### Workflow Phase D
+
+**Nutzungsschritte:**
+
+1. `npm run agent:auto` - Vollständiger automatisierter Task-Zyklus
+2. **Human Review Gate** - Manuelle Review und Commit-Entscheidung
+
+**Wichtige Hinweise:**
+
+- VS Code + Roo bleiben das Cockpit
+- OpenCode ist automatisierter Worker
+- **Kein Multi-Task-Loop** in Phase D
+- **Kein automatisches Commit/Push**
+- **Maximal 1 Fix-Versuch** pro agent:auto Ausführung
+- **Immer Human Review Gate** am Ende
+
+**Beispiel-Ablauf:**
+
+```bash
+# Automatisierter Task-Zyklus
+npm run agent:auto
+
+# Bei Erfolg: Exit Code 0
+# Gate: Review git diff, verify report, opencode report and handoff
+
+# Bei Fehler: Exit Code 1
+# Gate: Review verify-report.md, fix-prompt.md and opencode-report.md
+
+# Manuelle Entscheidung: Commit oder weitere Fixes
+```
 
 ---
 

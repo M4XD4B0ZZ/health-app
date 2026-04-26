@@ -66,5 +66,7 @@ test-results/
 .agent/out/*.json
 .agent/out/*.md
 .agent/out/opencode-report.md
+.agent/out/auto-report.md
 .agent/state.json
 .agent/out/fix-prompt.md
+.agent/config.json

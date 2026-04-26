@@ -6,18 +6,67 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load OpenCode configuration
+function loadOpenCodeConfig(repoRoot) {
+  const configPath = path.join(repoRoot, '.agent', 'config.json');
+
+  // Default configuration
+  const defaultConfig = {
+    model: 'openai/gpt-4.1',
+    agent: null,
+    command: 'opencode',
+    maxFixAttempts: 1,
+  };
+
+  if (fs.existsSync(configPath)) {
+    try {
+      const configContent = fs.readFileSync(configPath, 'utf-8');
+      const config = JSON.parse(configContent);
+      return { ...defaultConfig, ...config.opencode };
+    } catch (e) {
+      console.warn(`Warnung: Fehler beim Lesen von .agent/config.json: ${e.message}`);
+      console.warn('Verwende Default-Konfiguration.');
+      return defaultConfig;
+    }
+  }
+
+  return defaultConfig;
+}
+
 async function main() {
   try {
     // Robust repo root detection
     const repoRoot = path.resolve(__dirname, '../../');
-    const promptPath = path.join(repoRoot, '.agent', 'out', 'next-prompt.md');
+
+    // Load OpenCode configuration
+    const openCodeConfig = loadOpenCodeConfig(repoRoot);
+    console.log(
+      `OpenCode Konfiguration: model=${openCodeConfig.model}, agent=${openCodeConfig.agent || 'null'}`,
+    );
+
+    // Check for optional prompt file argument
+    const customPromptFile = process.argv[2];
+    let promptPath;
+
+    if (customPromptFile) {
+      // Use custom prompt file (e.g., fix-prompt.md)
+      promptPath = path.isAbsolute(customPromptFile)
+        ? customPromptFile
+        : path.join(repoRoot, customPromptFile);
+      console.log(`Verwende benutzerdefinierte Prompt-Datei: ${promptPath}`);
+    } else {
+      // Use default next-prompt.md
+      promptPath = path.join(repoRoot, '.agent', 'out', 'next-prompt.md');
+    }
+
     const reportPath = path.join(repoRoot, '.agent', 'out', 'opencode-report.md');
     const statePath = path.join(repoRoot, '.agent', 'state.json');
 
     // Check if prompt file exists
     if (!fs.existsSync(promptPath)) {
+      const expectedFile = customPromptFile || '.agent/out/next-prompt.md';
       console.error(
-        'Fehler: .agent/out/next-prompt.md nicht gefunden. Bitte zuerst `npm run agent:run` ausführen.',
+        `Fehler: ${expectedFile} nicht gefunden. ${customPromptFile ? 'Prüfe Pfad zur Prompt-Datei.' : 'Bitte zuerst `npm run agent:run` ausführen.'}`,
       );
       process.exit(1);
     }
@@ -40,14 +89,23 @@ async function main() {
 
     console.log('OpenCode Worker gestartet...');
 
-    // Spawn OpenCode process
-    // Primary command: opencode run "<prompt>"
-    // Fallback command (commented): opencode -p "<prompt>" -q
-    const args = ['run', fullPrompt];
-    // To switch to fallback, comment above and uncomment below:
-    // const args = ['-p', fullPrompt, '-q'];
+    // Spawn OpenCode process with explicit model configuration
+    // Primary command: opencode run "<prompt>" --model <model>
+    // Fallback command (commented): opencode -p "<prompt>" -q --model <model>
+    const args = ['run', fullPrompt, '--model', openCodeConfig.model];
 
-    const opencode = spawn('opencode', args, {
+    // Add agent parameter if configured
+    if (openCodeConfig.agent) {
+      args.push('--agent', openCodeConfig.agent);
+    }
+
+    // To switch to fallback, comment above and uncomment below:
+    // const args = ['-p', fullPrompt, '-q', '--model', openCodeConfig.model];
+    // if (openCodeConfig.agent) {
+    //   args.push('--agent', openCodeConfig.agent);
+    // }
+
+    const opencode = spawn(openCodeConfig.command, args, {
       shell: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -63,7 +121,11 @@ async function main() {
 
     reportStream.write(`# OpenCode Worker Report\n\n`);
     reportStream.write(`Started: ${new Date().toISOString()}\n\n`);
-    reportStream.write(`## Command\n\`opencode ${args.join(' ')}\`\n\n`);
+    reportStream.write(`## Configuration\n`);
+    reportStream.write(`Model: ${openCodeConfig.model}\n`);
+    reportStream.write(`Agent: ${openCodeConfig.agent || 'null'}\n`);
+    reportStream.write(`Command: ${openCodeConfig.command}\n\n`);
+    reportStream.write(`## Command\n\`${openCodeConfig.command} ${args.join(' ')}\`\n\n`);
     reportStream.write(`## Output\n\n`);
 
     opencode.stdout.on('data', (data) => {

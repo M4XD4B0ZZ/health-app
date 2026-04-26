@@ -365,7 +365,7 @@ No artificial splitting while deterministic parser is unstable.
 
 ## P0-002 Single Item 6 Resolver 6 Macros Pipeline
 
-Status: `in_progress`
+Status: `done`
 
 Minimal working chain:
 
@@ -416,7 +416,7 @@ Status: `done`
 
 ## P0-007 Proof-of-Call Tracing (Gate)
 
-Status: `in_progress`
+Status: `done`
 
 Verify full resolver call chain via logs:
 

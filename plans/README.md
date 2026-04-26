@@ -11,6 +11,7 @@ Dieser Ordner enthält alle Planungsdokumente für das HealthApp-Projekt.
 ## Namenskonvention
 
 Plan-Dateien sollten folgende Namenskonvention verwenden:
+
 - `[FEATURE]_[TYPE]_PLAN.md` für Feature-spezifische Pläne
 - `[COMPONENT]_IMPLEMENTATION_PLAN.md` für Implementierungspläne
 - `[AREA]_TEST_PLAN.md` für Testpläne
@@ -20,6 +21,7 @@ Plan-Dateien sollten folgende Namenskonvention verwenden:
 **Wichtig**: Alle neuen Pläne müssen in diesem Ordner (`plans/`) erstellt werden, nicht im Projekt-Root.
 
 ### Beispiele:
+
 - ✅ `plans/USER_AUTH_IMPLEMENTATION_PLAN.md`
 - ✅ `plans/DATABASE_MIGRATION_PLAN.md`
 - ❌ `USER_AUTH_IMPLEMENTATION_PLAN.md` (im Root)

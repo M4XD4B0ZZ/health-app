@@ -12,13 +12,13 @@ describe('BLS Resolver Integration', () => {
 
   beforeEach(() => {
     blsSource = new BlsStaticSource();
-    
+
     // Mock OFF source that returns empty results
     mockOffSource = {
       type: 'off',
       search: jest.fn().mockResolvedValue([]),
     };
-    
+
     // Mock USDA source that returns empty results
     mockUsdaSource = {
       type: 'usda',
@@ -48,7 +48,7 @@ describe('BLS Resolver Integration', () => {
       expect(result.best?.source).toBe('BLS');
       expect(result.best?.food.name).toContain('Speisequark');
       expect(result.best?.food.sourceId).toBe('M713100');
-      
+
       // Verify BLS was called
       expect(blsSource.search).toBeDefined();
     });
@@ -68,7 +68,7 @@ describe('BLS Resolver Integration', () => {
       expect(result.best?.source).toBe('BLS');
       expect(result.best?.food.name).toContain('Ruehrei');
       expect(result.reasonCodes).toContain('ACCEPTED_STRONG_MATCH');
-      
+
       // USDA should not be called due to BLS early return
       expect(mockUsdaSource.search).not.toHaveBeenCalled();
     });
@@ -157,10 +157,12 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_BLS_MATCH input="magerquark"')
+        expect.stringContaining('PROOF_BLS_MATCH input="magerquark"'),
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('best_match="Speisequark Magerstufe, Magerquark < 10 % Fett i. Tr."')
+        expect.stringContaining(
+          'best_match="Speisequark Magerstufe, Magerquark < 10 % Fett i. Tr."',
+        ),
       );
 
       consoleSpy.mockRestore();
@@ -180,7 +182,7 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_BLS_SOURCE_USED candidate="Ruehrei gebraten"')
+        expect.stringContaining('PROOF_BLS_SOURCE_USED candidate="Ruehrei gebraten"'),
       );
 
       consoleSpy.mockRestore();
@@ -200,7 +202,7 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_CANONICAL_SHORTCUT_USED shortcut="buttertoast"')
+        expect.stringContaining('PROOF_CANONICAL_SHORTCUT_USED shortcut="buttertoast"'),
       );
 
       consoleSpy.mockRestore();

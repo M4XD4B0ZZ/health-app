@@ -195,7 +195,12 @@ class Container {
       new SupabaseEdgeUsdaProvider(supabase),
       DEFAULT_CATALOG_CONFIG,
     );
-    const resolverSources: FoodCatalogSource[] = [userAliasSource, blsSource, offSource, usdaSource];
+    const resolverSources: FoodCatalogSource[] = [
+      userAliasSource,
+      blsSource,
+      offSource,
+      usdaSource,
+    ];
 
     // Mocks are only allowed in test environments OR if explicitly requested via env.
     // This enforces real-world resolver paths during standard Expo development (npm start)

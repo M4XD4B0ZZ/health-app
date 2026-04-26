@@ -3,7 +3,7 @@
 Status: Active
 
 - [x] P0-002: Kerninputs Proof
-Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
+      Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
 
 ---
 
@@ -612,6 +612,7 @@ Each will be broken into concrete tasks when Phase 0 62 are stable.
 **Goal:** Redesign nutrition resolver to eliminate early translation bias and enable true multi-source comparison for better food matching accuracy.
 
 **Current Problems:**
+
 - Early translation biases source selection (DE→EN before querying)
 - Better matches in other sources are skipped due to sequential early-return logic
 - No true multi-source comparison across all candidates
@@ -654,12 +655,14 @@ Each will be broken into concrete tasks when Phase 0 62 are stable.
 ### Implementation Tasks
 
 #### RESOLVER-V2-001: Remove Early Translation Layer
+
 Status: `todo`
 
 **Description:**
 Remove global translation before source querying. Keep normalization only (case, umlauts, punctuation). Input must reach multiple sources unchanged.
 
 **DoD:**
+
 - Tests confirm same normalized input reaches multiple sources
 - No DE→EN translation before source routing
 - [`getSourceQuery()`](src/features/nutrition/domain/catalog/CanonicalFood.ts:199) only adapts per source, not globally
@@ -669,12 +672,14 @@ Remove global translation before source querying. Keep normalization only (case,
 ---
 
 #### RESOLVER-V2-002: Implement Source-Native Query Adapters
+
 Status: `todo`
 
 **Description:**
 Each source builds its own query from normalized input. No shared query string across sources.
 
 **DoD:**
+
 - BLS adapter generates German-specific queries
 - USDA adapter generates English equivalents
 - OFF adapter preserves original multilingual input
@@ -685,12 +690,14 @@ Each source builds its own query from normalized input. No shared query string a
 ---
 
 #### RESOLVER-V2-003: Implement Multi-Source Candidate Retrieval
+
 Status: `todo`
 
 **Description:**
 All sources return candidates before decision. Remove early-return logic except negative cache.
 
 **DoD:**
+
 - [`SequentialFoodCatalogResolver`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:56) collects from all sources
 - No early return based on confidence thresholds
 - Logs show candidates from multiple sources per query
@@ -700,12 +707,14 @@ All sources return candidates before decision. Remove early-return logic except 
 ---
 
 #### RESOLVER-V2-004: Build Candidate Fusion Layer
+
 Status: `todo`
 
 **Description:**
 Central scoring across all sources. Introduce unified Candidate type with cross-source ranking.
 
 **DoD:**
+
 - Unified candidate scoring algorithm
 - Cross-source comparison logic
 - Ranking logs show source comparison rationale
@@ -715,12 +724,14 @@ Central scoring across all sources. Introduce unified Candidate type with cross-
 ---
 
 #### RESOLVER-V2-005: Introduce Supabase Knowledge Layer Tables
+
 Status: `todo`
 
 **Description:**
 Define schema for persistent knowledge accumulation.
 
 **Tables:**
+
 - `canonical_foods`: Long-term food definitions
 - `food_source_items`: Source-specific food mappings
 - `food_aliases`: User-validated aliases
@@ -728,6 +739,7 @@ Define schema for persistent knowledge accumulation.
 - `corrections`: User feedback on decisions
 
 **DoD:**
+
 - Schema exists and is documented
 - Migration scripts available
 - Edge functions can access tables
@@ -737,12 +749,14 @@ Define schema for persistent knowledge accumulation.
 ---
 
 #### RESOLVER-V2-006: Persist Resolution Decisions
+
 Status: `todo`
 
 **Description:**
 Store query → candidates → final decision chain for learning and debugging.
 
 **DoD:**
+
 - Every resolution creates DB entries
 - Decision rationale is traceable
 - User corrections update knowledge base
@@ -752,12 +766,14 @@ Store query → candidates → final decision chain for learning and debugging.
 ---
 
 #### RESOLVER-V2-007: AI-Assisted Re-Ranking (Optional)
+
 Status: `todo`
 
 **Description:**
 AI only for low-confidence cases. Must be traceable and rate-limited.
 
 **DoD:**
+
 - AI triggered only below confidence threshold
 - Usage logged and rate-limited
 - Never authoritative, always assistive

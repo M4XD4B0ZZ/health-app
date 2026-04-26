@@ -21,7 +21,8 @@ import { CandidateScorer } from '../../domain/fusion/CandidateScorer';
  */
 export class FusionCandidateResolver implements FoodCatalogResolver {
   private readonly scorer: CandidateScorer;
-  private lastScoredCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }[] = [];
+  private lastScoredCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }[] =
+    [];
 
   constructor(
     private readonly sources: FoodCatalogSource[],
@@ -33,35 +34,34 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
   async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
     const startTime = Date.now();
     const traceId = ctx?.traceId || query.traceId || this.generateTraceId();
-    
+
     // Log fusion input
     this.logFusionInput(traceId, query);
 
     try {
       // Step 1: Collect candidates from all sources in parallel
       const allCandidates = await this.collectCandidatesFromAllSources(query, traceId);
-      
+
       // Step 2: Convert to FusionCandidates
       const fusionCandidates = this.convertToFusionCandidates(allCandidates, query);
-      
+
       // Step 3: Score all candidates
       const scoredCandidates = this.scoreAllCandidates(fusionCandidates, query, traceId);
-      
+
       // Step 4: Rank candidates by score
       const rankedCandidates = this.rankCandidates(scoredCandidates);
-      
+
       // Step 5: Make decision based on thresholds
       const fusionDecision = this.makeDecision(rankedCandidates, query, traceId);
-      
+
       // Step 6: Create metrics
       const metrics = this.createMetrics(startTime, traceId, allCandidates);
-      
+
       // Step 7: Log winner
       this.logFusionWinner(traceId, fusionDecision, metrics);
-      
+
       // Convert to legacy ResolverDecision format
       return this.adaptToLegacyFormat(fusionDecision);
-      
     } catch (error) {
       console.error(`[${traceId}] PROOF_FUSION_ERROR`, error);
       return this.createErrorDecision(query, error);
@@ -78,13 +78,17 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     const promises = this.sources.map(async (source) => {
       try {
         // Log source input
-        console.log(`[${traceId}] PROOF_SOURCE_INPUT source="${source.type}" input="${query.normalized}"`);
-        
+        console.log(
+          `[${traceId}] PROOF_SOURCE_INPUT source="${source.type}" input="${query.normalized}"`,
+        );
+
         const candidates = await source.search(query);
-        
+
         // Log source output
-        console.log(`[${traceId}] PROOF_SOURCE_OUTPUT source="${source.type}" candidates=[${candidates.map(c => `"${c.food.name}"`).join(', ')}]`);
-        
+        console.log(
+          `[${traceId}] PROOF_SOURCE_OUTPUT source="${source.type}" candidates=[${candidates.map((c) => `"${c.food.name}"`).join(', ')}]`,
+        );
+
         return { source, candidates };
       } catch (error) {
         console.warn(`[${traceId}] Source ${source.type} failed:`, error);
@@ -123,7 +127,15 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
           },
           matchSignals: {
             lexicalScore: candidate.match.similarity,
-            tokenOverlap: this.calculateTokenOverlap(query.normalized, candidate.food.normalizedName, candidate.match.exact ? 'exact' : candidate.match.similarity > 0.7 ? 'partial' : 'weak'),
+            tokenOverlap: this.calculateTokenOverlap(
+              query.normalized,
+              candidate.food.normalizedName,
+              candidate.match.exact
+                ? 'exact'
+                : candidate.match.similarity > 0.7
+                  ? 'partial'
+                  : 'weak',
+            ),
             exactMatch: candidate.match.exact,
             aliasUsed: candidate.match.usedHeuristic === 'alias',
             fuzzyMatch: candidate.match.usedHeuristic === 'fuzzy',
@@ -160,16 +172,16 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
   ): { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }[] {
     const scoredCandidates = candidates.map((candidate, index) => {
       const breakdown = this.scorer.scoreCandidate(candidate, query);
-      
+
       // Log individual score
       this.logFusionScore(traceId, candidate, breakdown, index + 1);
-      
+
       return { candidate, breakdown };
     });
-    
+
     // Store for later use in adaptToLegacyFormat
     this.lastScoredCandidates = scoredCandidates;
-    
+
     return scoredCandidates;
   }
 
@@ -180,7 +192,7 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     scoredCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }[],
   ): { candidate: FusionCandidate; breakdown: ConfidenceBreakdown; rank: number }[] {
     const sorted = scoredCandidates.sort((a, b) => b.breakdown.finalScore - a.breakdown.finalScore);
-    
+
     return sorted.map((item, index) => ({
       ...item,
       rank: index + 1,
@@ -191,7 +203,11 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
    * Make decision based on fusion thresholds
    */
   private makeDecision(
-    rankedCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown; rank: number }[],
+    rankedCandidates: {
+      candidate: FusionCandidate;
+      breakdown: ConfidenceBreakdown;
+      rank: number;
+    }[],
     query: FoodSearchQuery,
     traceId: string,
   ): FusionResolverDecision {
@@ -210,16 +226,21 @@ export class FusionCandidateResolver implements FoodCatalogResolver {
     // Check for conflicting high scores
     const scoreGap = secondBest ? best.breakdown.finalScore - secondBest.breakdown.finalScore : 1.0;
 
-// CALIBRATION-004: Use centralized thresholds
-if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
-  return this.createAmbiguousDecision(rankedCandidates, query, traceId);
-}
+    // CALIBRATION-004: Use centralized thresholds
+    if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
+      return this.createAmbiguousDecision(rankedCandidates, query, traceId);
+    }
 
     // Apply confidence thresholds
     if (best.breakdown.finalScore >= FUSION_THRESHOLDS.HIGH_CONFIDENCE) {
       return this.createAcceptedDecision(rankedCandidates, query, traceId, 'ACCEPTED');
     } else if (best.breakdown.finalScore >= FUSION_THRESHOLDS.MEDIUM_CONFIDENCE) {
-      return this.createAcceptedDecision(rankedCandidates, query, traceId, 'ACCEPTED_WITH_ASSUMPTION');
+      return this.createAcceptedDecision(
+        rankedCandidates,
+        query,
+        traceId,
+        'ACCEPTED_WITH_ASSUMPTION',
+      );
     } else if (best.breakdown.finalScore >= FUSION_THRESHOLDS.LOW_CONFIDENCE) {
       return this.createAmbiguousDecision(rankedCandidates, query, traceId);
     } else {
@@ -231,7 +252,11 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
    * Create accepted decision with explanation
    */
   private createAcceptedDecision(
-    rankedCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown; rank: number }[],
+    rankedCandidates: {
+      candidate: FusionCandidate;
+      breakdown: ConfidenceBreakdown;
+      rank: number;
+    }[],
     query: FoodSearchQuery,
     traceId: string,
     reasonCode: string,
@@ -243,16 +268,18 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
       normalizedQuery: query.normalized,
       status: 'accepted',
       reasonCodes: [reasonCode],
-      candidates: rankedCandidates.map(r => r.candidate),
+      candidates: rankedCandidates.map((r) => r.candidate),
       best: best.candidate,
       secondBest: rankedCandidates[1]?.candidate,
       createdAt: new Date().toISOString(),
       explanation: {
         winningReasons: this.scorer.generateScoreExplanation(best.breakdown, best.candidate),
-        rejectedCandidates: alternatives.map(alt => ({
+        rejectedCandidates: alternatives.map((alt) => ({
           candidate: alt.candidate,
           score: alt.breakdown.finalScore,
-          rejectionReasons: [`Lower score (${alt.breakdown.finalScore.toFixed(3)} vs ${best.breakdown.finalScore.toFixed(3)})`],
+          rejectionReasons: [
+            `Lower score (${alt.breakdown.finalScore.toFixed(3)} vs ${best.breakdown.finalScore.toFixed(3)})`,
+          ],
         })),
         assumptions: best.candidate.metadata.assumptions,
         confidenceBreakdown: best.breakdown,
@@ -266,7 +293,11 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
    * Create ambiguous decision
    */
   private createAmbiguousDecision(
-    rankedCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown; rank: number }[],
+    rankedCandidates: {
+      candidate: FusionCandidate;
+      breakdown: ConfidenceBreakdown;
+      rank: number;
+    }[],
     query: FoodSearchQuery,
     traceId: string,
   ): FusionResolverDecision {
@@ -276,7 +307,7 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
       normalizedQuery: query.normalized,
       status: 'ambiguous',
       reasonCodes: ['CONFLICTING_HIGH_SCORES'],
-      candidates: topCandidates.map(r => r.candidate),
+      candidates: topCandidates.map((r) => r.candidate),
       createdAt: new Date().toISOString(),
       explanation: {
         winningReasons: ['Multiple high-quality matches found'],
@@ -293,7 +324,11 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
    * Create rejected decision
    */
   private createRejectedDecision(
-    rankedCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown; rank: number }[],
+    rankedCandidates: {
+      candidate: FusionCandidate;
+      breakdown: ConfidenceBreakdown;
+      rank: number;
+    }[],
     query: FoodSearchQuery,
     traceId: string,
   ): FusionResolverDecision {
@@ -301,17 +336,17 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
       normalizedQuery: query.normalized,
       status: 'rejected',
       reasonCodes: ['LOW_CONFIDENCE_MATCHES'],
-      candidates: rankedCandidates.slice(0, 3).map(r => r.candidate),
+      candidates: rankedCandidates.slice(0, 3).map((r) => r.candidate),
       createdAt: new Date().toISOString(),
       explanation: {
         winningReasons: [],
-        rejectedCandidates: rankedCandidates.slice(0, 3).map(r => ({
+        rejectedCandidates: rankedCandidates.slice(0, 3).map((r) => ({
           candidate: r.candidate,
           score: r.breakdown.finalScore,
           rejectionReasons: [`Low confidence score: ${r.breakdown.finalScore.toFixed(3)}`],
         })),
         assumptions: ['Query too vague or unknown food'],
-        confidenceBreakdown: rankedCandidates[0]?.breakdown || {} as ConfidenceBreakdown,
+        confidenceBreakdown: rankedCandidates[0]?.breakdown || ({} as ConfidenceBreakdown),
         sourceComparison: this.createSourceComparison(rankedCandidates),
       },
       fusionMetrics: this.createMetrics(Date.now(), traceId, []),
@@ -334,8 +369,8 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
         assumptions: ['All sources exhausted'],
         confidenceBreakdown: {} as ConfidenceBreakdown,
         sourceComparison: {
-          sourcesQueried: this.sources.map(s => s.type),
-          candidatesPerSource: Object.fromEntries(this.sources.map(s => [s.type, 0])),
+          sourcesQueried: this.sources.map((s) => s.type),
+          candidatesPerSource: Object.fromEntries(this.sources.map((s) => [s.type, 0])),
           bestPerSource: {},
         },
       },
@@ -362,16 +397,20 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
   private adaptToLegacyFormat(fusionDecision: FusionResolverDecision): ResolverDecision {
     // We need to preserve the scored candidates with their breakdowns
     const scoredCandidates = this.lastScoredCandidates || [];
-    
+
     return {
       normalizedQuery: fusionDecision.normalizedQuery,
       status: fusionDecision.status,
       reasonCodes: fusionDecision.reasonCodes,
-      candidates: fusionDecision.candidates.map(fc => {
+      candidates: fusionDecision.candidates.map((fc) => {
         // Find the corresponding scored candidate
-        const scoredCandidate = scoredCandidates.find((sc: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }) => sc.candidate.id === fc.id);
-        const breakdown = scoredCandidate?.breakdown || fusionDecision.explanation.confidenceBreakdown;
-        
+        const scoredCandidate = scoredCandidates.find(
+          (sc: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown }) =>
+            sc.candidate.id === fc.id,
+        );
+        const breakdown =
+          scoredCandidate?.breakdown || fusionDecision.explanation.confidenceBreakdown;
+
         return {
           id: fc.id,
           source: fc.source,
@@ -399,58 +438,62 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
           },
         };
       }),
-      best: fusionDecision.best ? {
-        id: fusionDecision.best.id,
-        source: fusionDecision.best.source,
-        food: {
-          id: fusionDecision.best.sourceId,
-          name: fusionDecision.best.name,
-          normalizedName: fusionDecision.best.normalizedName,
-          macrosPer100g: {
-            kcal: fusionDecision.best.macrosPer100g.kcal,
-            protein: fusionDecision.best.macrosPer100g.protein,
-            carbs: fusionDecision.best.macrosPer100g.carbs,
-            fat: fusionDecision.best.macrosPer100g.fat,
-          },
-          source: fusionDecision.best.source,
-          sourceId: fusionDecision.best.sourceId,
-        },
-        score: 0, // TODO: Map from fusion score
-        breakdown: {
-          matchScore: fusionDecision.best.matchSignals.lexicalScore,
-          dataQualityScore: fusionDecision.best.metadata.dataCompleteness,
-          kcalConsistencyScore: fusionDecision.best.macrosPer100g.plausibilityScore,
-          sourceTrustScore: fusionDecision.best.metadata.sourceQuality.trustLevel,
-          finalScore: 0, // TODO: Map from fusion score
-          notes: fusionDecision.best.metadata.assumptions,
-        },
-      } : undefined,
-      secondBest: fusionDecision.secondBest ? {
-        id: fusionDecision.secondBest.id,
-        source: fusionDecision.secondBest.source,
-        food: {
-          id: fusionDecision.secondBest.sourceId,
-          name: fusionDecision.secondBest.name,
-          normalizedName: fusionDecision.secondBest.normalizedName,
-          macrosPer100g: {
-            kcal: fusionDecision.secondBest.macrosPer100g.kcal,
-            protein: fusionDecision.secondBest.macrosPer100g.protein,
-            carbs: fusionDecision.secondBest.macrosPer100g.carbs,
-            fat: fusionDecision.secondBest.macrosPer100g.fat,
-          },
-          source: fusionDecision.secondBest.source,
-          sourceId: fusionDecision.secondBest.sourceId,
-        },
-        score: 0, // TODO: Map from fusion score
-        breakdown: {
-          matchScore: fusionDecision.secondBest.matchSignals.lexicalScore,
-          dataQualityScore: fusionDecision.secondBest.metadata.dataCompleteness,
-          kcalConsistencyScore: fusionDecision.secondBest.macrosPer100g.plausibilityScore,
-          sourceTrustScore: fusionDecision.secondBest.metadata.sourceQuality.trustLevel,
-          finalScore: 0, // TODO: Map from fusion score
-          notes: fusionDecision.secondBest.metadata.assumptions,
-        },
-      } : undefined,
+      best: fusionDecision.best
+        ? {
+            id: fusionDecision.best.id,
+            source: fusionDecision.best.source,
+            food: {
+              id: fusionDecision.best.sourceId,
+              name: fusionDecision.best.name,
+              normalizedName: fusionDecision.best.normalizedName,
+              macrosPer100g: {
+                kcal: fusionDecision.best.macrosPer100g.kcal,
+                protein: fusionDecision.best.macrosPer100g.protein,
+                carbs: fusionDecision.best.macrosPer100g.carbs,
+                fat: fusionDecision.best.macrosPer100g.fat,
+              },
+              source: fusionDecision.best.source,
+              sourceId: fusionDecision.best.sourceId,
+            },
+            score: 0, // TODO: Map from fusion score
+            breakdown: {
+              matchScore: fusionDecision.best.matchSignals.lexicalScore,
+              dataQualityScore: fusionDecision.best.metadata.dataCompleteness,
+              kcalConsistencyScore: fusionDecision.best.macrosPer100g.plausibilityScore,
+              sourceTrustScore: fusionDecision.best.metadata.sourceQuality.trustLevel,
+              finalScore: 0, // TODO: Map from fusion score
+              notes: fusionDecision.best.metadata.assumptions,
+            },
+          }
+        : undefined,
+      secondBest: fusionDecision.secondBest
+        ? {
+            id: fusionDecision.secondBest.id,
+            source: fusionDecision.secondBest.source,
+            food: {
+              id: fusionDecision.secondBest.sourceId,
+              name: fusionDecision.secondBest.name,
+              normalizedName: fusionDecision.secondBest.normalizedName,
+              macrosPer100g: {
+                kcal: fusionDecision.secondBest.macrosPer100g.kcal,
+                protein: fusionDecision.secondBest.macrosPer100g.protein,
+                carbs: fusionDecision.secondBest.macrosPer100g.carbs,
+                fat: fusionDecision.secondBest.macrosPer100g.fat,
+              },
+              source: fusionDecision.secondBest.source,
+              sourceId: fusionDecision.secondBest.sourceId,
+            },
+            score: 0, // TODO: Map from fusion score
+            breakdown: {
+              matchScore: fusionDecision.secondBest.matchSignals.lexicalScore,
+              dataQualityScore: fusionDecision.secondBest.metadata.dataCompleteness,
+              kcalConsistencyScore: fusionDecision.secondBest.macrosPer100g.plausibilityScore,
+              sourceTrustScore: fusionDecision.secondBest.metadata.sourceQuality.trustLevel,
+              finalScore: 0, // TODO: Map from fusion score
+              notes: fusionDecision.secondBest.metadata.assumptions,
+            },
+          }
+        : undefined,
       createdAt: fusionDecision.createdAt,
     };
   }
@@ -460,18 +503,21 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
     return macros.kcal === 0 || macros.protein === 0 || macros.carbs === 0 || macros.fat === 0;
   }
 
-
   private calculatePlausibilityScore(macros: any): number {
     // Simple plausibility check: kcal should roughly match macros
-    const calculatedKcal = (macros.protein * 4) + (macros.carbs * 4) + (macros.fat * 9);
+    const calculatedKcal = macros.protein * 4 + macros.carbs * 4 + macros.fat * 9;
     const diff = Math.abs(macros.kcal - calculatedKcal);
-    return Math.max(0, 1 - (diff / Math.max(macros.kcal, calculatedKcal)));
+    return Math.max(0, 1 - diff / Math.max(macros.kcal, calculatedKcal));
   }
 
-  private calculateTokenOverlap(query: string, name: string, matchQuality: 'exact' | 'partial' | 'weak'): number {
+  private calculateTokenOverlap(
+    query: string,
+    name: string,
+    matchQuality: 'exact' | 'partial' | 'weak',
+  ): number {
     const queryTokens = new Set(query.toLowerCase().split(/\s+/));
     const nameTokens = new Set(name.toLowerCase().split(/\s+/));
-    const intersection = new Set([...queryTokens].filter(x => nameTokens.has(x)));
+    const intersection = new Set([...queryTokens].filter((x) => nameTokens.has(x)));
     const baseOverlap = intersection.size / Math.max(queryTokens.size, nameTokens.size);
 
     // Scale by match quality
@@ -505,7 +551,6 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
     return trustLevels[sourceType] || 0.5;
   }
 
-
   private getCoverageRelevance(sourceType: string, locale: string): number {
     if (locale === 'de' && sourceType === 'bls') return 1.0;
     if (locale === 'en' && sourceType === 'usda') return 1.0;
@@ -523,16 +568,21 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
   }
 
   private createSourceComparison(
-    rankedCandidates: { candidate: FusionCandidate; breakdown: ConfidenceBreakdown; rank: number }[],
+    rankedCandidates: {
+      candidate: FusionCandidate;
+      breakdown: ConfidenceBreakdown;
+      rank: number;
+    }[],
   ): SourceComparison {
-    const sourcesQueried = [...new Set(rankedCandidates.map(r => r.candidate.source))];
+    const sourcesQueried = [...new Set(rankedCandidates.map((r) => r.candidate.source))];
     const candidatesPerSource: Record<string, number> = {};
     const bestPerSource: Record<string, number> = {};
 
     for (const source of sourcesQueried) {
-      const sourceCandidates = rankedCandidates.filter(r => r.candidate.source === source);
+      const sourceCandidates = rankedCandidates.filter((r) => r.candidate.source === source);
       candidatesPerSource[source] = sourceCandidates.length;
-      bestPerSource[source] = sourceCandidates.length > 0 ? sourceCandidates[0].breakdown.finalScore : 0;
+      bestPerSource[source] =
+        sourceCandidates.length > 0 ? sourceCandidates[0].breakdown.finalScore : 0;
     }
 
     return {
@@ -547,8 +597,8 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
       traceId,
       totalCandidates: sourceResults.reduce((sum, r) => sum + r.candidates.length, 0),
       processingTimeMs: Date.now() - startTime,
-      sourcesQueried: this.sources.map(s => s.type),
-      sourcesSucceeded: this.sources.map(s => s.type), // TODO: Track actual success/failure
+      sourcesQueried: this.sources.map((s) => s.type),
+      sourcesSucceeded: this.sources.map((s) => s.type), // TODO: Track actual success/failure
       sourcesFailed: [],
       cacheHits: 0, // TODO: Implement caching
       degradedMode: false,
@@ -557,19 +607,34 @@ if (secondBest && scoreGap < FUSION_THRESHOLDS.AMBIGUOUS_DIFF) {
 
   // Logging methods
   private logFusionInput(traceId: string, query: FoodSearchQuery): void {
-    console.log(`[${traceId}] PROOF_FUSION_INPUT query="${query.normalized}" sources="${this.sources.map(s => s.type).join(',')}"`);
+    console.log(
+      `[${traceId}] PROOF_FUSION_INPUT query="${query.normalized}" sources="${this.sources.map((s) => s.type).join(',')}"`,
+    );
   }
 
-  private logFusionScore(traceId: string, candidate: FusionCandidate, breakdown: ConfidenceBreakdown, rank: number): void {
-    console.log(`[${traceId}] PROOF_FUSION_SCORES id="${candidate.id}" source="${candidate.source}" score=${breakdown.finalScore.toFixed(3)} rank=${rank}`);
+  private logFusionScore(
+    traceId: string,
+    candidate: FusionCandidate,
+    breakdown: ConfidenceBreakdown,
+    rank: number,
+  ): void {
+    console.log(
+      `[${traceId}] PROOF_FUSION_SCORES id="${candidate.id}" source="${candidate.source}" score=${breakdown.finalScore.toFixed(3)} rank=${rank}`,
+    );
   }
 
-  private logFusionWinner(traceId: string, decision: FusionResolverDecision, metrics: FusionMetrics): void {
+  private logFusionWinner(
+    traceId: string,
+    decision: FusionResolverDecision,
+    metrics: FusionMetrics,
+  ): void {
     const winnerId = decision.best?.id || 'none';
     const winnerSource = decision.best?.source || 'none';
     const winnerScore = decision.explanation.confidenceBreakdown.finalScore || 0;
-    
-    console.log(`[${traceId}] PROOF_FUSION_WINNER id="${winnerId}" source="${winnerSource}" score=${winnerScore.toFixed(3)} status="${decision.status}"`);
+
+    console.log(
+      `[${traceId}] PROOF_FUSION_WINNER id="${winnerId}" source="${winnerSource}" score=${winnerScore.toFixed(3)} status="${decision.status}"`,
+    );
   }
 
   private generateTraceId(): string {

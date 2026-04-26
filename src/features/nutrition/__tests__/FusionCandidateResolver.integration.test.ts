@@ -1,5 +1,9 @@
 import { FusionCandidateResolver } from '../application/services/FusionCandidateResolver';
-import { FoodCatalogSource, FoodCandidate, FoodSearchQuery } from '../domain/catalog/FoodCatalogSource';
+import {
+  FoodCatalogSource,
+  FoodCandidate,
+  FoodSearchQuery,
+} from '../domain/catalog/FoodCatalogSource';
 
 describe('FusionCandidateResolver Integration', () => {
   let resolver: FusionCandidateResolver;
@@ -11,7 +15,7 @@ describe('FusionCandidateResolver Integration', () => {
     mockBlsSource = createMockSource('bls');
     mockOffSource = createMockSource('off');
     mockUsdaSource = createMockSource('usda');
-    
+
     resolver = new FusionCandidateResolver([mockBlsSource, mockOffSource, mockUsdaSource]);
   });
 
@@ -35,7 +39,7 @@ describe('FusionCandidateResolver Integration', () => {
           name: 'Apple, raw',
           normalizedName: 'apple raw',
           source: 'usda',
-          similarity: 0.80,
+          similarity: 0.8,
           exact: false,
         }),
       ]);
@@ -105,7 +109,7 @@ describe('FusionCandidateResolver Integration', () => {
           name: 'Hühnerei',
           normalizedName: 'hühnerei',
           source: 'bls',
-          similarity: 0.90,
+          similarity: 0.9,
           exact: false,
         }),
       ]);
@@ -176,7 +180,7 @@ describe('FusionCandidateResolver Integration', () => {
           name: 'Unrelated Food',
           normalizedName: 'unrelated food',
           source: 'bls',
-          similarity: 0.30,
+          similarity: 0.3,
           exact: false,
           usedHeuristic: 'fuzzy',
         }),
@@ -290,13 +294,13 @@ describe('FusionCandidateResolver Integration', () => {
 
       // Verify logging calls
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[test-trace-log] PROOF_FUSION_INPUT')
+        expect.stringContaining('[test-trace-log] PROOF_FUSION_INPUT'),
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[test-trace-log] PROOF_FUSION_SCORES')
+        expect.stringContaining('[test-trace-log] PROOF_FUSION_SCORES'),
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[test-trace-log] PROOF_FUSION_WINNER')
+        expect.stringContaining('[test-trace-log] PROOF_FUSION_WINNER'),
       );
 
       consoleSpy.mockRestore();
@@ -341,6 +345,8 @@ function createMockCandidate(overrides: {
       usedHeuristic: overrides.usedHeuristic,
     },
     confidence: overrides.similarity,
-    reasons: overrides.usedHeuristic ? [`Used ${overrides.usedHeuristic} matching`] : ['Direct match'],
+    reasons: overrides.usedHeuristic
+      ? [`Used ${overrides.usedHeuristic} matching`]
+      : ['Direct match'],
   };
 }

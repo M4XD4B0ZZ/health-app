@@ -4,7 +4,11 @@
 
 import { SequentialFoodCatalogResolver } from '../application/services/SequentialFoodCatalogResolver';
 import { DefaultConfidenceEngine } from '../domain/confidence/DefaultConfidenceEngine';
-import { FoodCandidate, FoodCatalogSource, FoodSearchQuery } from '../domain/catalog/FoodCatalogSource';
+import {
+  FoodCandidate,
+  FoodCatalogSource,
+  FoodSearchQuery,
+} from '../domain/catalog/FoodCatalogSource';
 import { DEFAULT_CATALOG_CONFIG } from '../domain/models/FoodCatalogConfig';
 
 const createMockBlsSource = (results: FoodCandidate[] = []): FoodCatalogSource => ({

@@ -50,7 +50,7 @@ export interface FoodCatalogConfig {
    *
    * Maximale Zeit pro Source. Key ist source.type ('off', 'usda', etc.)
    *
- * @default { off: 700, usda: 700 }
+   * @default { off: 700, usda: 700 }
    */
   sourceBudgets: Record<string, number>;
 

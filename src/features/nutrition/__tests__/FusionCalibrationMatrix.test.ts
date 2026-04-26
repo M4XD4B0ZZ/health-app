@@ -5,21 +5,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const TEST_CASES = [
-  "quark",
-  "magerquark",
-  "frischkäse",
-  "ei",
-  "eier",
-  "rührei",
-  "toast",
-  "buttertoast",
-  "protein quark",
-  "greek yogurt",
-  "cottage cheese",
-  "curd",
-  "schinken",
-  "hähnchen",
-  "milch"
+  'quark',
+  'magerquark',
+  'frischkäse',
+  'ei',
+  'eier',
+  'rührei',
+  'toast',
+  'buttertoast',
+  'protein quark',
+  'greek yogurt',
+  'cottage cheese',
+  'curd',
+  'schinken',
+  'hähnchen',
+  'milch',
 ];
 
 // Global storage for integrity checks
@@ -30,10 +30,10 @@ const mockBlsSource: FoodCatalogSource = {
   type: 'bls',
   search: jest.fn().mockImplementation((query: FoodSearchQuery) => {
     const input = query.normalized;
-    
+
     // Input-specific BLS candidates - COMPLETE coverage for all TEST_CASES
     const blsCandidates: Record<string, any[]> = {
-      'quark': [
+      quark: [
         {
           food: {
             id: 'bls-quark-1',
@@ -41,14 +41,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'quark',
             macrosPer100g: { kcal: 66, protein: 11.85, carbs: 3.68, fat: 0.18 },
             source: 'bls' as const,
-            sourceId: 'M713100'
+            sourceId: 'M713100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'magerquark': [
+      magerquark: [
         {
           food: {
             id: 'bls-magerquark-1',
@@ -56,14 +56,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'magerquark',
             macrosPer100g: { kcal: 66, protein: 11.85, carbs: 3.68, fat: 0.18 },
             source: 'bls' as const,
-            sourceId: 'M713100'
+            sourceId: 'M713100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'frischkäse': [
+      frischkäse: [
         {
           food: {
             id: 'bls-frischkaese-1',
@@ -71,14 +71,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'frischkäse',
             macrosPer100g: { kcal: 206, protein: 11, carbs: 2.7, fat: 17 },
             source: 'bls' as const,
-            sourceId: 'M714100'
+            sourceId: 'M714100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'ei': [
+      ei: [
         {
           food: {
             id: 'bls-ei-1',
@@ -86,14 +86,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'ei',
             macrosPer100g: { kcal: 155, protein: 13, carbs: 1.1, fat: 11 },
             source: 'bls' as const,
-            sourceId: 'L111100'
+            sourceId: 'L111100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'eier': [
+      eier: [
         {
           food: {
             id: 'bls-eier-1',
@@ -101,14 +101,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'eier',
             macrosPer100g: { kcal: 155, protein: 13, carbs: 1.1, fat: 11 },
             source: 'bls' as const,
-            sourceId: 'L111100'
+            sourceId: 'L111100',
           },
           match: { exact: false, similarity: 0.95, usedHeuristic: 'alias' },
           confidence: 0.95,
-          reasons: ['BLS alias match (eier -> ei)']
-        }
+          reasons: ['BLS alias match (eier -> ei)'],
+        },
       ],
-      'rührei': [
+      rührei: [
         {
           food: {
             id: 'bls-ruehrei-1',
@@ -116,14 +116,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'rührei',
             macrosPer100g: { kcal: 154, protein: 10.5, carbs: 1.4, fat: 11.2 },
             source: 'bls' as const,
-            sourceId: 'L111300'
+            sourceId: 'L111300',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'toast': [
+      toast: [
         {
           food: {
             id: 'bls-toast-1',
@@ -131,14 +131,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'toast',
             macrosPer100g: { kcal: 259, protein: 8.4, carbs: 49, fat: 3.2 },
             source: 'bls' as const,
-            sourceId: 'G111200'
+            sourceId: 'G111200',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'buttertoast': [
+      buttertoast: [
         {
           food: {
             id: 'bls-buttertoast-1',
@@ -146,12 +146,12 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'buttertoast',
             macrosPer100g: { kcal: 312, protein: 7.8, carbs: 45, fat: 11.2 },
             source: 'bls' as const,
-            sourceId: 'G111201'
+            sourceId: 'G111201',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
       'protein quark': [
         {
@@ -161,12 +161,12 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'protein quark',
             macrosPer100g: { kcal: 85, protein: 15, carbs: 3.2, fat: 0.2 },
             source: 'bls' as const,
-            sourceId: 'M713200'
+            sourceId: 'M713200',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: 'fuzzy' },
           confidence: 0.9,
-          reasons: ['BLS fuzzy match for protein quark']
-        }
+          reasons: ['BLS fuzzy match for protein quark'],
+        },
       ],
       'greek yogurt': [
         {
@@ -176,12 +176,12 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'greek yogurt',
             macrosPer100g: { kcal: 133, protein: 9, carbs: 4, fat: 10 },
             source: 'bls' as const,
-            sourceId: 'M712300'
+            sourceId: 'M712300',
           },
           match: { exact: false, similarity: 0.8, usedHeuristic: 'translation' },
           confidence: 0.8,
-          reasons: ['BLS translation match (greek yogurt -> griechischer joghurt)']
-        }
+          reasons: ['BLS translation match (greek yogurt -> griechischer joghurt)'],
+        },
       ],
       'cottage cheese': [
         {
@@ -191,14 +191,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'cottage cheese',
             macrosPer100g: { kcal: 102, protein: 12.5, carbs: 3.5, fat: 4.3 },
             source: 'bls' as const,
-            sourceId: 'M714200'
+            sourceId: 'M714200',
           },
           match: { exact: false, similarity: 0.85, usedHeuristic: 'translation' },
           confidence: 0.85,
-          reasons: ['BLS translation match (cottage cheese -> körniger frischkäse)']
-        }
+          reasons: ['BLS translation match (cottage cheese -> körniger frischkäse)'],
+        },
       ],
-      'curd': [
+      curd: [
         {
           food: {
             id: 'bls-curd-1',
@@ -206,14 +206,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'curd',
             macrosPer100g: { kcal: 62, protein: 3.4, carbs: 4.1, fat: 3.5 },
             source: 'bls' as const,
-            sourceId: 'M711200'
+            sourceId: 'M711200',
           },
           match: { exact: false, similarity: 0.7, usedHeuristic: 'alias' },
           confidence: 0.7,
-          reasons: ['BLS alias match for curd']
-        }
+          reasons: ['BLS alias match for curd'],
+        },
       ],
-      'schinken': [
+      schinken: [
         {
           food: {
             id: 'bls-schinken-1',
@@ -221,14 +221,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'schinken',
             macrosPer100g: { kcal: 125, protein: 22.5, carbs: 0.5, fat: 3.2 },
             source: 'bls' as const,
-            sourceId: 'F211100'
+            sourceId: 'F211100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'hähnchen': [
+      hähnchen: [
         {
           food: {
             id: 'bls-haehnchen-1',
@@ -236,14 +236,14 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'hähnchen',
             macrosPer100g: { kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
             source: 'bls' as const,
-            sourceId: 'F312100'
+            sourceId: 'F312100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
+          reasons: ['Exact BLS match'],
+        },
       ],
-      'milch': [
+      milch: [
         {
           food: {
             id: 'bls-milch-1',
@@ -251,29 +251,31 @@ const mockBlsSource: FoodCatalogSource = {
             normalizedName: 'milch',
             macrosPer100g: { kcal: 64, protein: 3.3, carbs: 4.8, fat: 3.5 },
             source: 'bls' as const,
-            sourceId: 'M111100'
+            sourceId: 'M111100',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['Exact BLS match']
-        }
-      ]
+          reasons: ['Exact BLS match'],
+        },
+      ],
     };
-    
+
     const candidates = blsCandidates[input] || [];
-    console.log(`SOURCE_RAW_CANDIDATES input="${input}" source="bls" names=[${candidates.map(c => `"${c.food.name}"`).join(', ')}]`);
+    console.log(
+      `SOURCE_RAW_CANDIDATES input="${input}" source="bls" names=[${candidates.map((c) => `"${c.food.name}"`).join(', ')}]`,
+    );
     return Promise.resolve(candidates);
-  })
+  }),
 };
 
 const mockOffSource: FoodCatalogSource = {
   type: 'off',
   search: jest.fn().mockImplementation((query: FoodSearchQuery) => {
     const input = query.normalized;
-    
+
     // Input-specific OFF candidates - COMPLETE coverage for all TEST_CASES
     const offCandidates: Record<string, any[]> = {
-      'quark': [
+      quark: [
         {
           food: {
             id: 'off-quark-1',
@@ -281,14 +283,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'quark',
             macrosPer100g: { kcal: 95, protein: 12, carbs: 4, fat: 0.2 },
             source: 'off' as const,
-            sourceId: 'off-quark-1'
+            sourceId: 'off-quark-1',
           },
           match: { exact: false, similarity: 0.85, usedHeuristic: 'fuzzy' },
           confidence: 0.85,
-          reasons: ['OFF branded quark match']
-        }
+          reasons: ['OFF branded quark match'],
+        },
       ],
-      'magerquark': [
+      magerquark: [
         {
           food: {
             id: 'off-magerquark-1',
@@ -296,14 +298,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'magerquark',
             macrosPer100g: { kcal: 62, protein: 11, carbs: 4, fat: 0.2 },
             source: 'off' as const,
-            sourceId: 'off-magerquark-1'
+            sourceId: 'off-magerquark-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact magerquark match']
-        }
+          reasons: ['OFF exact magerquark match'],
+        },
       ],
-      'frischkäse': [
+      frischkäse: [
         {
           food: {
             id: 'off-frischkaese-1',
@@ -311,14 +313,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'frischkäse',
             macrosPer100g: { kcal: 255, protein: 5.6, carbs: 3.2, fat: 24 },
             source: 'off' as const,
-            sourceId: 'off-frischkaese-1'
+            sourceId: 'off-frischkaese-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact frischkäse match']
-        }
+          reasons: ['OFF exact frischkäse match'],
+        },
       ],
-      'ei': [
+      ei: [
         {
           food: {
             id: 'off-ei-1',
@@ -326,14 +328,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'ei',
             macrosPer100g: { kcal: 150, protein: 12.8, carbs: 0.7, fat: 10.5 },
             source: 'off' as const,
-            sourceId: 'off-ei-1'
+            sourceId: 'off-ei-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact ei match']
-        }
+          reasons: ['OFF exact ei match'],
+        },
       ],
-      'eier': [
+      eier: [
         {
           food: {
             id: 'off-eier-1',
@@ -341,14 +343,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'eier',
             macrosPer100g: { kcal: 150, protein: 12.8, carbs: 0.7, fat: 10.5 },
             source: 'off' as const,
-            sourceId: 'off-eier-1'
+            sourceId: 'off-eier-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact eier match']
-        }
+          reasons: ['OFF exact eier match'],
+        },
       ],
-      'rührei': [
+      rührei: [
         {
           food: {
             id: 'off-ruehrei-1',
@@ -356,14 +358,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'rührei',
             macrosPer100g: { kcal: 165, protein: 9.8, carbs: 2.1, fat: 12.5 },
             source: 'off' as const,
-            sourceId: 'off-ruehrei-1'
+            sourceId: 'off-ruehrei-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact rührei match']
-        }
+          reasons: ['OFF exact rührei match'],
+        },
       ],
-      'toast': [
+      toast: [
         {
           food: {
             id: 'off-toast-1',
@@ -371,14 +373,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'toast',
             macrosPer100g: { kcal: 265, protein: 8.5, carbs: 48, fat: 4.2 },
             source: 'off' as const,
-            sourceId: 'off-toast-1'
+            sourceId: 'off-toast-1',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: undefined },
           confidence: 0.9,
-          reasons: ['OFF branded toast match']
-        }
+          reasons: ['OFF branded toast match'],
+        },
       ],
-      'buttertoast': [
+      buttertoast: [
         {
           food: {
             id: 'off-buttertoast-1',
@@ -386,12 +388,12 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'buttertoast',
             macrosPer100g: { kcal: 265, protein: 8.5, carbs: 48, fat: 4.2 },
             source: 'off' as const,
-            sourceId: 'off-buttertoast-1'
+            sourceId: 'off-buttertoast-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact branded match']
-        }
+          reasons: ['OFF exact branded match'],
+        },
       ],
       'protein quark': [
         {
@@ -401,12 +403,12 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'protein quark',
             macrosPer100g: { kcal: 95, protein: 15, carbs: 4, fat: 0.2 },
             source: 'off' as const,
-            sourceId: 'off-protein-quark-1'
+            sourceId: 'off-protein-quark-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact protein quark match']
-        }
+          reasons: ['OFF exact protein quark match'],
+        },
       ],
       'greek yogurt': [
         {
@@ -416,12 +418,12 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'greek yogurt',
             macrosPer100g: { kcal: 57, protein: 10, carbs: 4, fat: 0 },
             source: 'off' as const,
-            sourceId: 'off-greek-yogurt-1'
+            sourceId: 'off-greek-yogurt-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact greek yogurt match']
-        }
+          reasons: ['OFF exact greek yogurt match'],
+        },
       ],
       'cottage cheese': [
         {
@@ -431,14 +433,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'cottage cheese',
             macrosPer100g: { kcal: 102, protein: 12.5, carbs: 3.5, fat: 4.3 },
             source: 'off' as const,
-            sourceId: 'off-cottage-cheese-1'
+            sourceId: 'off-cottage-cheese-1',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: 'translation' },
           confidence: 0.9,
-          reasons: ['OFF translation match (cottage cheese -> körniger frischkäse)']
-        }
+          reasons: ['OFF translation match (cottage cheese -> körniger frischkäse)'],
+        },
       ],
-      'curd': [
+      curd: [
         {
           food: {
             id: 'off-curd-1',
@@ -446,14 +448,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'curd',
             macrosPer100g: { kcal: 85, protein: 13, carbs: 3, fat: 2.5 },
             source: 'off' as const,
-            sourceId: 'off-curd-1'
+            sourceId: 'off-curd-1',
           },
           match: { exact: false, similarity: 0.8, usedHeuristic: 'alias' },
           confidence: 0.8,
-          reasons: ['OFF alias match for curd']
-        }
+          reasons: ['OFF alias match for curd'],
+        },
       ],
-      'schinken': [
+      schinken: [
         {
           food: {
             id: 'off-schinken-1',
@@ -461,14 +463,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'schinken',
             macrosPer100g: { kcal: 135, protein: 24, carbs: 0.8, fat: 3.8 },
             source: 'off' as const,
-            sourceId: 'off-schinken-1'
+            sourceId: 'off-schinken-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact schinken match']
-        }
+          reasons: ['OFF exact schinken match'],
+        },
       ],
-      'hähnchen': [
+      hähnchen: [
         {
           food: {
             id: 'off-haehnchen-1',
@@ -476,14 +478,14 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'hähnchen',
             macrosPer100g: { kcal: 172, protein: 32, carbs: 0, fat: 4.2 },
             source: 'off' as const,
-            sourceId: 'off-haehnchen-1'
+            sourceId: 'off-haehnchen-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact hähnchen match']
-        }
+          reasons: ['OFF exact hähnchen match'],
+        },
       ],
-      'milch': [
+      milch: [
         {
           food: {
             id: 'off-milch-1',
@@ -491,29 +493,31 @@ const mockOffSource: FoodCatalogSource = {
             normalizedName: 'milch',
             macrosPer100g: { kcal: 65, protein: 3.4, carbs: 4.8, fat: 3.8 },
             source: 'off' as const,
-            sourceId: 'off-milch-1'
+            sourceId: 'off-milch-1',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['OFF exact milch match']
-        }
-      ]
+          reasons: ['OFF exact milch match'],
+        },
+      ],
     };
-    
+
     const candidates = offCandidates[input] || [];
-    console.log(`SOURCE_RAW_CANDIDATES input="${input}" source="off" names=[${candidates.map(c => `"${c.food.name}"`).join(', ')}]`);
+    console.log(
+      `SOURCE_RAW_CANDIDATES input="${input}" source="off" names=[${candidates.map((c) => `"${c.food.name}"`).join(', ')}]`,
+    );
     return Promise.resolve(candidates);
-  })
+  }),
 };
 
 const mockUsdaSource: FoodCatalogSource = {
   type: 'usda',
   search: jest.fn().mockImplementation((query: FoodSearchQuery) => {
     const input = query.normalized;
-    
+
     // Input-specific USDA candidates - COMPLETE coverage for all TEST_CASES
     const usdaCandidates: Record<string, any[]> = {
-      'quark': [
+      quark: [
         {
           food: {
             id: 'usda-quark-1',
@@ -521,14 +525,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'quark',
             macrosPer100g: { kcal: 98, protein: 11, carbs: 3.4, fat: 4.3 },
             source: 'usda' as const,
-            sourceId: '01015'
+            sourceId: '01015',
           },
           match: { exact: false, similarity: 0.7, usedHeuristic: 'alias' },
           confidence: 0.7,
-          reasons: ['USDA alias match (quark -> cottage cheese)']
-        }
+          reasons: ['USDA alias match (quark -> cottage cheese)'],
+        },
       ],
-      'magerquark': [
+      magerquark: [
         {
           food: {
             id: 'usda-magerquark-1',
@@ -536,14 +540,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'magerquark',
             macrosPer100g: { kcal: 72, protein: 12.4, carbs: 2.7, fat: 0.3 },
             source: 'usda' as const,
-            sourceId: '01016'
+            sourceId: '01016',
           },
           match: { exact: false, similarity: 0.75, usedHeuristic: 'translation' },
           confidence: 0.75,
-          reasons: ['USDA translation match (magerquark -> nonfat cottage cheese)']
-        }
+          reasons: ['USDA translation match (magerquark -> nonfat cottage cheese)'],
+        },
       ],
-      'frischkäse': [
+      frischkäse: [
         {
           food: {
             id: 'usda-frischkaese-1',
@@ -551,12 +555,12 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'frischkäse',
             macrosPer100g: { kcal: 342, protein: 5.9, carbs: 4.1, fat: 34 },
             source: 'usda' as const,
-            sourceId: '01017'
+            sourceId: '01017',
           },
           match: { exact: false, similarity: 0.8, usedHeuristic: 'translation' },
           confidence: 0.8,
-          reasons: ['USDA translation match (frischkäse -> cream cheese)']
-        }
+          reasons: ['USDA translation match (frischkäse -> cream cheese)'],
+        },
       ],
       'cottage cheese': [
         {
@@ -566,14 +570,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'cottage cheese',
             macrosPer100g: { kcal: 98, protein: 11, carbs: 3.4, fat: 4.3 },
             source: 'usda' as const,
-            sourceId: '01015'
+            sourceId: '01015',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['USDA exact match']
-        }
+          reasons: ['USDA exact match'],
+        },
       ],
-      'curd': [
+      curd: [
         {
           food: {
             id: 'usda-curd-1',
@@ -581,12 +585,12 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'curd',
             macrosPer100g: { kcal: 98, protein: 11, carbs: 3.4, fat: 4.3 },
             source: 'usda' as const,
-            sourceId: '01015'
+            sourceId: '01015',
           },
           match: { exact: false, similarity: 0.8, usedHeuristic: 'alias' },
           confidence: 0.8,
-          reasons: ['USDA alias match for curd']
-        }
+          reasons: ['USDA alias match for curd'],
+        },
       ],
       'greek yogurt': [
         {
@@ -596,14 +600,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'greek yogurt',
             macrosPer100g: { kcal: 59, protein: 10, carbs: 3.6, fat: 0.4 },
             source: 'usda' as const,
-            sourceId: '01256'
+            sourceId: '01256',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['USDA exact match']
-        }
+          reasons: ['USDA exact match'],
+        },
       ],
-      'ei': [
+      ei: [
         {
           food: {
             id: 'usda-egg-1',
@@ -611,14 +615,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'egg',
             macrosPer100g: { kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
             source: 'usda' as const,
-            sourceId: '01123'
+            sourceId: '01123',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: 'translation' },
           confidence: 0.9,
-          reasons: ['USDA translation match (ei -> egg)']
-        }
+          reasons: ['USDA translation match (ei -> egg)'],
+        },
       ],
-      'eier': [
+      eier: [
         {
           food: {
             id: 'usda-eggs-1',
@@ -626,14 +630,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'eggs',
             macrosPer100g: { kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
             source: 'usda' as const,
-            sourceId: '01123'
+            sourceId: '01123',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: 'translation' },
           confidence: 0.9,
-          reasons: ['USDA translation match (eier -> eggs)']
-        }
+          reasons: ['USDA translation match (eier -> eggs)'],
+        },
       ],
-      'rührei': [
+      rührei: [
         {
           food: {
             id: 'usda-scrambled-eggs-1',
@@ -641,14 +645,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'scrambled eggs',
             macrosPer100g: { kcal: 149, protein: 9.9, carbs: 1.6, fat: 11 },
             source: 'usda' as const,
-            sourceId: '01128'
+            sourceId: '01128',
           },
           match: { exact: false, similarity: 0.85, usedHeuristic: 'translation' },
           confidence: 0.85,
-          reasons: ['USDA translation match (rührei -> scrambled eggs)']
-        }
+          reasons: ['USDA translation match (rührei -> scrambled eggs)'],
+        },
       ],
-      'toast': [
+      toast: [
         {
           food: {
             id: 'usda-toast-1',
@@ -656,14 +660,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'toast',
             macrosPer100g: { kcal: 313, protein: 9.7, carbs: 59, fat: 4.2 },
             source: 'usda' as const,
-            sourceId: '18069'
+            sourceId: '18069',
           },
           match: { exact: true, similarity: 1.0, usedHeuristic: undefined },
           confidence: 1.0,
-          reasons: ['USDA exact match']
-        }
+          reasons: ['USDA exact match'],
+        },
       ],
-      'buttertoast': [
+      buttertoast: [
         {
           food: {
             id: 'usda-butter-toast-1',
@@ -671,12 +675,12 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'butter toast',
             macrosPer100g: { kcal: 378, protein: 8.9, carbs: 54, fat: 14 },
             source: 'usda' as const,
-            sourceId: '18070'
+            sourceId: '18070',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: 'fuzzy' },
           confidence: 0.9,
-          reasons: ['USDA fuzzy match for butter toast']
-        }
+          reasons: ['USDA fuzzy match for butter toast'],
+        },
       ],
       'protein quark': [
         {
@@ -686,14 +690,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'protein cottage cheese',
             macrosPer100g: { kcal: 98, protein: 15, carbs: 3.4, fat: 2.3 },
             source: 'usda' as const,
-            sourceId: '01018'
+            sourceId: '01018',
           },
           match: { exact: false, similarity: 0.75, usedHeuristic: 'alias' },
           confidence: 0.75,
-          reasons: ['USDA alias match (protein quark -> high protein cottage cheese)']
-        }
+          reasons: ['USDA alias match (protein quark -> high protein cottage cheese)'],
+        },
       ],
-      'schinken': [
+      schinken: [
         {
           food: {
             id: 'usda-ham-1',
@@ -701,14 +705,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'ham',
             macrosPer100g: { kcal: 145, protein: 21, carbs: 1.5, fat: 5.5 },
             source: 'usda' as const,
-            sourceId: '07025'
+            sourceId: '07025',
           },
           match: { exact: false, similarity: 0.85, usedHeuristic: 'translation' },
           confidence: 0.85,
-          reasons: ['USDA translation match (schinken -> ham)']
-        }
+          reasons: ['USDA translation match (schinken -> ham)'],
+        },
       ],
-      'hähnchen': [
+      hähnchen: [
         {
           food: {
             id: 'usda-chicken-1',
@@ -716,14 +720,14 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'chicken',
             macrosPer100g: { kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
             source: 'usda' as const,
-            sourceId: '05062'
+            sourceId: '05062',
           },
           match: { exact: false, similarity: 0.85, usedHeuristic: 'translation' },
           confidence: 0.85,
-          reasons: ['USDA translation match (hähnchen -> chicken)']
-        }
+          reasons: ['USDA translation match (hähnchen -> chicken)'],
+        },
       ],
-      'milch': [
+      milch: [
         {
           food: {
             id: 'usda-milk-1',
@@ -731,19 +735,21 @@ const mockUsdaSource: FoodCatalogSource = {
             normalizedName: 'milk',
             macrosPer100g: { kcal: 50, protein: 3.3, carbs: 4.8, fat: 2.0 },
             source: 'usda' as const,
-            sourceId: '01077'
+            sourceId: '01077',
           },
           match: { exact: false, similarity: 0.9, usedHeuristic: 'translation' },
           confidence: 0.9,
-          reasons: ['USDA translation match (milch -> milk)']
-        }
-      ]
+          reasons: ['USDA translation match (milch -> milk)'],
+        },
+      ],
     };
-    
+
     const candidates = usdaCandidates[input] || [];
-    console.log(`SOURCE_RAW_CANDIDATES input="${input}" source="usda" names=[${candidates.map(c => `"${c.food.name}"`).join(', ')}]`);
+    console.log(
+      `SOURCE_RAW_CANDIDATES input="${input}" source="usda" names=[${candidates.map((c) => `"${c.food.name}"`).join(', ')}]`,
+    );
     return Promise.resolve(candidates);
-  })
+  }),
 };
 
 const resolver = new FusionCandidateResolver([mockBlsSource, mockOffSource, mockUsdaSource]);
@@ -775,7 +781,12 @@ describe('Fusion Scoring Calibration Matrix', () => {
 
   TEST_CASES.forEach((input) => {
     it(`should calibrate fusion scoring for input: ${input}`, async () => {
-      const query = { raw: input, normalized: input.toLowerCase(), locale: 'de' as const, traceId: `calibration-${input}` };
+      const query = {
+        raw: input,
+        normalized: input.toLowerCase(),
+        locale: 'de' as const,
+        traceId: `calibration-${input}`,
+      };
 
       const result = await resolver.resolve(query);
       const candidates = result.candidates;
@@ -785,19 +796,21 @@ describe('Fusion Scoring Calibration Matrix', () => {
       expect(candidates.length).toBeGreaterThanOrEqual(1);
 
       // Extract scores from lastScoredCandidates breakdown
-      const scores = scoredCandidates.map(({ candidate, breakdown }: { candidate: any; breakdown: any }) => {
-        return {
-          id: candidate.id,
-          source: candidate.source,
-          displayName: candidate.name,
-          finalScore: breakdown.finalScore,
-          lexicalScore: breakdown.lexicalContribution,
-          tokenOverlap: breakdown.tokenContribution,
-          sourceTrust: breakdown.sourceTrustContribution,
-          localeScore: breakdown.localeContribution,
-          penalties: breakdown.totalPenalties,
-        };
-      });
+      const scores = scoredCandidates.map(
+        ({ candidate, breakdown }: { candidate: any; breakdown: any }) => {
+          return {
+            id: candidate.id,
+            source: candidate.source,
+            displayName: candidate.name,
+            finalScore: breakdown.finalScore,
+            lexicalScore: breakdown.lexicalContribution,
+            tokenOverlap: breakdown.tokenContribution,
+            sourceTrust: breakdown.sourceTrustContribution,
+            localeScore: breakdown.localeContribution,
+            penalties: breakdown.totalPenalties,
+          };
+        },
+      );
 
       // Sort scores descending
       scores.sort((a: any, b: any) => b.finalScore - a.finalScore);
@@ -837,18 +850,26 @@ describe('Fusion Scoring Calibration Matrix', () => {
       }
 
       // Log final top-3 for debugging
-      console.log(`FUSION_FINAL_TOP3 input="${input}" names=[${top3Names.map((name: string) => `"${name}"`).join(', ')}]`);
+      console.log(
+        `FUSION_FINAL_TOP3 input="${input}" names=[${top3Names.map((name: string) => `"${name}"`).join(', ')}]`,
+      );
 
       const logLines: string[] = [];
       logLines.push(`\n=== FUSION CALIBRATION: ${input} ===`);
       logLines.push('Top Candidates:');
       topCandidates.forEach((c: any, idx: any) => {
-        logLines.push(`${idx + 1}) [${c.source}] name="${c.displayName}" score=${c.finalScore.toFixed(4)}`);
-        logLines.push(`   lexical=${c.lexicalScore.toFixed(4)} token=${c.tokenOverlap.toFixed(4)} trust=${c.sourceTrust.toFixed(4)} locale=${c.localeScore.toFixed(4)} penalties=${c.penalties.toFixed(4)}`);
+        logLines.push(
+          `${idx + 1}) [${c.source}] name="${c.displayName}" score=${c.finalScore.toFixed(4)}`,
+        );
+        logLines.push(
+          `   lexical=${c.lexicalScore.toFixed(4)} token=${c.tokenOverlap.toFixed(4)} trust=${c.sourceTrust.toFixed(4)} locale=${c.localeScore.toFixed(4)} penalties=${c.penalties.toFixed(4)}`,
+        );
       });
 
       logLines.push(`Winner:`);
-      logLines.push(`→ [${winner.source}] name="${winner.displayName}" score=${winner.finalScore.toFixed(4)}`);
+      logLines.push(
+        `→ [${winner.source}] name="${winner.displayName}" score=${winner.finalScore.toFixed(4)}`,
+      );
       logLines.push(`Score Gap: ${(top1 - top2).toFixed(4)}`);
       logLines.push(`Decision: ${result.status}`);
 
@@ -856,7 +877,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
 
       // Write to file - overwrite on first test, append on subsequent tests
       const logFilePath = path.resolve(__dirname, '../../../../logs/fusion_calibration.log');
-      
+
       if (isFirstTest) {
         fs.writeFileSync(logFilePath, logLines.join('\n') + '\n\n');
         isFirstTest = false;
@@ -866,13 +887,22 @@ describe('Fusion Scoring Calibration Matrix', () => {
 
       // Edge case warnings
       if (top1 - top2 < FUSION_THRESHOLDS.AMBIGUOUS_DIFF * 2) {
-        console.warn(`[WARNING] Potential bias detected: score gap < ${FUSION_THRESHOLDS.AMBIGUOUS_DIFF * 2} for input '${input}'`);
+        console.warn(
+          `[WARNING] Potential bias detected: score gap < ${FUSION_THRESHOLDS.AMBIGUOUS_DIFF * 2} for input '${input}'`,
+        );
       }
       if (winner.lexicalScore < (topCandidates[1]?.lexicalScore ?? 0)) {
-        console.warn(`[WARNING] Potential bias detected: winner lexical score lower than runner-up for input '${input}'`);
+        console.warn(
+          `[WARNING] Potential bias detected: winner lexical score lower than runner-up for input '${input}'`,
+        );
       }
-      if (winner.sourceTrust > (topCandidates[1]?.sourceTrust ?? 0) && winner.tokenOverlap < (topCandidates[1]?.tokenOverlap ?? 0)) {
-        console.warn(`[WARNING] Potential bias detected: winner from higher trust source but worse token match for input '${input}'`);
+      if (
+        winner.sourceTrust > (topCandidates[1]?.sourceTrust ?? 0) &&
+        winner.tokenOverlap < (topCandidates[1]?.tokenOverlap ?? 0)
+      ) {
+        console.warn(
+          `[WARNING] Potential bias detected: winner from higher trust source but worse token match for input '${input}'`,
+        );
       }
     });
   });
@@ -880,68 +910,89 @@ describe('Fusion Scoring Calibration Matrix', () => {
   // CALIBRATION-004: Isolierte Spezialfall-Tests
   describe('CALIBRATION-004 Special Cases', () => {
     it('should handle "ei" case with deterministic decision', async () => {
-      const query = { raw: 'ei', normalized: 'ei', locale: 'de' as const, traceId: 'calibration-004-ei' };
+      const query = {
+        raw: 'ei',
+        normalized: 'ei',
+        locale: 'de' as const,
+        traceId: 'calibration-004-ei',
+      };
       const result = await resolver.resolve(query);
-      
+
       // Exakte deterministische Decision-Assertions
       expect(result.status).toBe('ambiguous');
       expect(result.reasonCodes).toEqual(['CONFLICTING_HIGH_SCORES']);
-      
+
       // Zusätzliche fachliche Prüfungen
       expect(result.candidates.length).toBeGreaterThanOrEqual(2); // Mindestens 2 für ambiguous
       expect(result.candidates[0]).toBeDefined();
       expect(result.candidates[0].food.macrosPer100g.kcal).toBeGreaterThan(0); // Keine Zero-Macro
       expect(result.candidates[0].food.source).toBe('bls'); // BLS sollte trotzdem Top-Kandidat sein
-      
+
       // Score/Gap als unterstützende Zusatzchecks (nicht entscheidend für Assertions)
       const top1Score = (resolver as any).lastScoredCandidates[0]?.breakdown.finalScore || 0;
       const top2Score = (resolver as any).lastScoredCandidates[1]?.breakdown.finalScore || 0;
       const gap = top1Score - top2Score;
-      console.log(`[CALIBRATION-004] ei: gap=${gap.toFixed(4)}, threshold=${FUSION_THRESHOLDS.AMBIGUOUS_DIFF}`);
+      console.log(
+        `[CALIBRATION-004] ei: gap=${gap.toFixed(4)}, threshold=${FUSION_THRESHOLDS.AMBIGUOUS_DIFF}`,
+      );
       expect(top1Score).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.HIGH_CONFIDENCE);
       expect(gap).toBeLessThan(FUSION_THRESHOLDS.AMBIGUOUS_DIFF); // Kleiner Gap führt zu ambiguous
     });
 
     it('should handle "protein quark" case with deterministic decision', async () => {
-      const query = { raw: 'protein quark', normalized: 'protein quark', locale: 'de' as const, traceId: 'calibration-004-protein-quark' };
+      const query = {
+        raw: 'protein quark',
+        normalized: 'protein quark',
+        locale: 'de' as const,
+        traceId: 'calibration-004-protein-quark',
+      };
       const result = await resolver.resolve(query);
-      
+
       // Exakte deterministische Decision-Assertions
       expect(result.status).toBe('accepted');
       expect(result.reasonCodes).toEqual(['ACCEPTED']);
-      
+
       // Zusätzliche fachliche Prüfungen für Protein-Produkt
       expect(result.candidates.length).toBeGreaterThanOrEqual(1);
       expect(result.candidates[0]).toBeDefined();
       expect(result.candidates[0].food.macrosPer100g.protein).toBeGreaterThan(10); // Protein-Quark sollte hohen Proteingehalt haben
       expect(result.candidates[0].food.macrosPer100g.kcal).toBeGreaterThan(0); // Keine Zero-Macro
       expect(result.candidates[0].food.source).toBe('bls'); // BLS gewinnt tatsächlich (nicht OFF)
-      
+
       // Score als unterstützender Zusatzcheck (nicht entscheidend für Assertions)
       const top1Score = (resolver as any).lastScoredCandidates[0]?.breakdown.finalScore || 0;
-      console.log(`[CALIBRATION-004] protein quark: score=${top1Score.toFixed(4)}, threshold=${FUSION_THRESHOLDS.MEDIUM_CONFIDENCE}`);
+      console.log(
+        `[CALIBRATION-004] protein quark: score=${top1Score.toFixed(4)}, threshold=${FUSION_THRESHOLDS.MEDIUM_CONFIDENCE}`,
+      );
       expect(top1Score).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.MEDIUM_CONFIDENCE);
     });
 
     it('should handle "cottage cheese" case with deterministic decision', async () => {
-      const query = { raw: 'cottage cheese', normalized: 'cottage cheese', locale: 'de' as const, traceId: 'calibration-004-cottage-cheese' };
+      const query = {
+        raw: 'cottage cheese',
+        normalized: 'cottage cheese',
+        locale: 'de' as const,
+        traceId: 'calibration-004-cottage-cheese',
+      };
       const result = await resolver.resolve(query);
-      
+
       // Exakte deterministische Decision-Assertions
       expect(result.status).toBe('accepted');
       expect(result.reasonCodes).toEqual(['ACCEPTED']);
-      
+
       // Zusätzliche fachliche Prüfungen für internationale Übersetzung
       expect(result.candidates.length).toBeGreaterThanOrEqual(1);
       expect(result.candidates[0]).toBeDefined();
       expect(result.candidates[0].food.macrosPer100g.kcal).toBeGreaterThan(0); // Keine Zero-Macro
       expect(result.candidates[0].food.source).toBe('usda'); // USDA gewinnt für englische Begriffe
-      
+
       // Score/Gap als unterstützende Zusatzchecks (nicht entscheidend für Assertions)
       const top1Score = (resolver as any).lastScoredCandidates[0]?.breakdown.finalScore || 0;
       const top2Score = (resolver as any).lastScoredCandidates[1]?.breakdown.finalScore || 0;
       const gap = top1Score - top2Score;
-      console.log(`[CALIBRATION-004] cottage cheese: gap=${gap.toFixed(4)}, threshold=${FUSION_THRESHOLDS.AMBIGUOUS_DIFF}`);
+      console.log(
+        `[CALIBRATION-004] cottage cheese: gap=${gap.toFixed(4)}, threshold=${FUSION_THRESHOLDS.AMBIGUOUS_DIFF}`,
+      );
       expect(top1Score).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.MEDIUM_CONFIDENCE);
       expect(gap).toBeGreaterThanOrEqual(FUSION_THRESHOLDS.AMBIGUOUS_DIFF); // Gap ist groß genug für accepted
     });
@@ -950,7 +1001,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
   // INTEGRITY CHECK: Run after all individual tests
   afterAll(() => {
     console.log('\n=== INTEGRITY CHECK ===');
-    
+
     // Check for identical winners across semantically different inputs
     const semanticallyDifferentPairs = [
       ['quark', 'ei'],
@@ -960,7 +1011,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
       ['ei', 'milch'],
       ['toast', 'hähnchen'],
       ['frischkäse', 'schinken'],
-      ['milch', 'hähnchen']
+      ['milch', 'hähnchen'],
     ];
 
     let integrityFailures = 0;
@@ -968,19 +1019,23 @@ describe('Fusion Scoring Calibration Matrix', () => {
     semanticallyDifferentPairs.forEach(([input1, input2]) => {
       const result1 = globalResults[input1];
       const result2 = globalResults[input2];
-      
+
       if (result1 && result2) {
         // Check if winners are identical
         if (result1.winnerName === result2.winnerName) {
-          console.error(`[INTEGRITY FAILURE] Identical winner for semantically different inputs: "${input1}" and "${input2}" both have winner "${result1.winnerName}"`);
+          console.error(
+            `[INTEGRITY FAILURE] Identical winner for semantically different inputs: "${input1}" and "${input2}" both have winner "${result1.winnerName}"`,
+          );
           integrityFailures++;
         }
-        
+
         // Check if top-3 are identical
         const top3_1 = result1.top3Names.slice(0, 3).sort();
         const top3_2 = result2.top3Names.slice(0, 3).sort();
         if (JSON.stringify(top3_1) === JSON.stringify(top3_2)) {
-          console.error(`[INTEGRITY FAILURE] Identical top-3 for semantically different inputs: "${input1}" and "${input2}" both have top-3 [${top3_1.join(', ')}]`);
+          console.error(
+            `[INTEGRITY FAILURE] Identical top-3 for semantically different inputs: "${input1}" and "${input2}" both have top-3 [${top3_1.join(', ')}]`,
+          );
           integrityFailures++;
         }
       }
@@ -988,25 +1043,33 @@ describe('Fusion Scoring Calibration Matrix', () => {
 
     // Check for specific problematic cases mentioned in the task
     const problematicInputs = ['quark', 'ei', 'toast', 'milch', 'hähnchen'];
-    const allWinners = problematicInputs.map(input => globalResults[input]?.winnerName).filter(Boolean);
+    const allWinners = problematicInputs
+      .map((input) => globalResults[input]?.winnerName)
+      .filter(Boolean);
     const uniqueWinners = new Set(allWinners);
-    
+
     if (uniqueWinners.size < Math.min(3, allWinners.length)) {
-      console.error(`[INTEGRITY FAILURE] Too few unique winners for diverse inputs. Expected at least 3 different winners for [${problematicInputs.join(', ')}], got ${uniqueWinners.size}: [${Array.from(uniqueWinners).join(', ')}]`);
+      console.error(
+        `[INTEGRITY FAILURE] Too few unique winners for diverse inputs. Expected at least 3 different winners for [${problematicInputs.join(', ')}], got ${uniqueWinners.size}: [${Array.from(uniqueWinners).join(', ')}]`,
+      );
       integrityFailures++;
     }
 
     console.log(`\n=== INTEGRITY SUMMARY ===`);
     console.log(`Total inputs tested: ${Object.keys(globalResults).length}`);
-    console.log(`Unique winners: ${new Set(Object.values(globalResults).map(r => r.winnerName)).size}`);
+    console.log(
+      `Unique winners: ${new Set(Object.values(globalResults).map((r) => r.winnerName)).size}`,
+    );
     console.log(`Integrity failures: ${integrityFailures}`);
-    
+
     // Generate calibration report summary
     console.log('\n=== CALIBRATION REPORT SUMMARY ===');
     console.log(`Correct cases: ${calibrationReport.correct.join(', ')}`);
     console.log(`Suspicious cases: ${calibrationReport.suspicious.join(', ')}`);
     console.log(`Wrong winners: ${calibrationReport.wrongWinners.join(', ')}`);
-    console.log(`Ambiguous cases (score gap < ${FUSION_THRESHOLDS.AMBIGUOUS_DIFF * 2}): ${calibrationReport.ambiguous.join(', ')}`);
+    console.log(
+      `Ambiguous cases (score gap < ${FUSION_THRESHOLDS.AMBIGUOUS_DIFF * 2}): ${calibrationReport.ambiguous.join(', ')}`,
+    );
 
     // Group issues by cause (simplified heuristic)
     const issueGroups = {
@@ -1017,9 +1080,11 @@ describe('Fusion Scoring Calibration Matrix', () => {
       thresholdsWeak: [] as string[],
     };
 
-    calibrationReport.wrongWinners.forEach(input => {
+    calibrationReport.wrongWinners.forEach((input) => {
       // Example heuristic grouping based on score components
-      const scored = (resolver as any).lastScoredCandidates.find((c: any) => c.candidate.name === semanticCorrectWinners[input]);
+      const scored = (resolver as any).lastScoredCandidates.find(
+        (c: any) => c.candidate.name === semanticCorrectWinners[input],
+      );
       if (!scored) {
         issueGroups.sourceTrustTooStrong.push(input);
       } else {
@@ -1051,7 +1116,7 @@ describe('Fusion Scoring Calibration Matrix', () => {
     }
 
     const simpleFoods = ['ei', 'milch', 'toast'];
-    simpleFoods.forEach(food => {
+    simpleFoods.forEach((food) => {
       const result = globalResults[food];
       if (result && result.top3Names && result.top3Names.length > 0) {
         // Use a heuristic: if top 2 names are different, consider ambiguous
@@ -1063,7 +1128,9 @@ describe('Fusion Scoring Calibration Matrix', () => {
     });
 
     // Check for fewer universal ambiguous results
-    const ambiguousCount = Object.values(globalResults).filter(r => r.top3Names && r.top3Names.length > 0 && r.top3Names[0] !== r.top3Names[1]).length;
+    const ambiguousCount = Object.values(globalResults).filter(
+      (r) => r.top3Names && r.top3Names.length > 0 && r.top3Names[0] !== r.top3Names[1],
+    ).length;
     if (ambiguousCount > 10) {
       console.warn('Too many universal ambiguous results');
     }
@@ -1073,11 +1140,15 @@ describe('Fusion Scoring Calibration Matrix', () => {
     console.log('- Slightly reduce sourceTrust weight for problematic inputs');
     console.log('- Adjust token overlap threshold to be more strict');
     console.log('- Increase penalties for ambiguous cases');
-    
+
     if (integrityFailures > 0) {
-      throw new Error(`Calibration integrity check failed with ${integrityFailures} failures. Different inputs are producing identical results.`);
+      throw new Error(
+        `Calibration integrity check failed with ${integrityFailures} failures. Different inputs are producing identical results.`,
+      );
     } else {
-      console.log('✅ Calibration integrity check PASSED - Different inputs produce different results');
+      console.log(
+        '✅ Calibration integrity check PASSED - Different inputs produce different results',
+      );
     }
   });
 });

@@ -3,13 +3,16 @@
 ## Root Cause Analysis
 
 ### Problem
+
 Deutsche Inputs wie `ei` werden als `inputType="ambiguous"` klassifiziert und dadurch wird BLS übersprungen, obwohl BLS passende Daten hat (z.B. `ei` als Token in `rührei`).
 
 ### Current Behavior
+
 - `quark` → `inputType="generic"` → `chosenPriority="DACH_GENERIC_FIRST"` → BLS early return ✅
 - `ei` → `inputType="ambiguous"` → `chosenPriority="STANDARD_SEQUENTIAL"` → `BLS SKIPPED locale="de" inputType="ambiguous"` ❌
 
 ### Root Cause
+
 1. **[`detectInputType.ts`](src/features/nutrition/application/utils/detectInputType.ts:25)**: `quark` ist in `genericFoods` Liste, `ei` fehlt
 2. **[`BlsStaticSource.ts`](src/features/nutrition/infrastructure/catalog/sources/BlsStaticSource.ts:15)**: Harte Regel `query.inputType !== 'generic'` → BLS skip
 3. **[`SequentialFoodCatalogResolver.ts`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:725)**: `ambiguous` → `STANDARD_SEQUENTIAL` statt DACH-first
@@ -17,6 +20,7 @@ Deutsche Inputs wie `ei` werden als `inputType="ambiguous"` klassifiziert und da
 ## Solution Strategy
 
 **Option B: BLS Routing-Logik ändern** (gewählt)
+
 - Für `locale=de` soll BLS auch bei `inputType=ambiguous` versucht werden
 - DACH-first Strategie für deutsche generische UND unscharfe Alltagsfoods
 - Minimal-invasive Änderung ohne große Refactor-Orgie
@@ -28,6 +32,7 @@ Deutsche Inputs wie `ei` werden als `inputType="ambiguous"` klassifiziert und da
 **Datei**: [`src/features/nutrition/infrastructure/catalog/sources/BlsStaticSource.ts`](src/features/nutrition/infrastructure/catalog/sources/BlsStaticSource.ts:15)
 
 **Aktuell**:
+
 ```typescript
 if (query.locale !== 'de' || query.inputType !== 'generic') {
   console.log(`[DEBUG] BLS SKIPPED locale="${query.locale}" inputType="${query.inputType}"`);
@@ -36,16 +41,21 @@ if (query.locale !== 'de' || query.inputType !== 'generic') {
 ```
 
 **Neu**:
+
 ```typescript
 // DACH Strategy: Allow BLS for German generic AND ambiguous inputs
 const allowedInputTypes = ['generic', 'ambiguous'];
 if (query.locale !== 'de' || !allowedInputTypes.includes(query.inputType || 'ambiguous')) {
   const reason = query.locale !== 'de' ? 'non_german_locale' : 'branded_input_type';
-  console.log(`[${traceId}] PROOF_BLS_SKIPPED reason="${reason}" locale="${query.locale}" inputType="${query.inputType}"`);
+  console.log(
+    `[${traceId}] PROOF_BLS_SKIPPED reason="${reason}" locale="${query.locale}" inputType="${query.inputType}"`,
+  );
   return [];
 }
 
-console.log(`[${traceId}] PROOF_BLS_ALLOWED locale="${query.locale}" inputType="${query.inputType}"`);
+console.log(
+  `[${traceId}] PROOF_BLS_ALLOWED locale="${query.locale}" inputType="${query.inputType}"`,
+);
 ```
 
 ### 2. Erweitere Routing-Strategie für ambiguous
@@ -53,6 +63,7 @@ console.log(`[${traceId}] PROOF_BLS_ALLOWED locale="${query.locale}" inputType="
 **Datei**: [`src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:725)
 
 **Aktuell**:
+
 ```typescript
 // For German locale with generic classification: prioritize DACH-compatible sources
 if (locale === 'de' && inputType === 'generic') {
@@ -70,6 +81,7 @@ return {
 ```
 
 **Neu**:
+
 ```typescript
 // For German locale with generic OR ambiguous classification: prioritize DACH-compatible sources
 if (locale === 'de' && (inputType === 'generic' || inputType === 'ambiguous')) {
@@ -89,6 +101,7 @@ if (locale === 'de' && (inputType === 'generic' || inputType === 'ambiguous')) {
 **Datei**: [`src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:314)
 
 **Aktuell**:
+
 ```typescript
 if (
   source.type === 'bls' &&
@@ -101,6 +114,7 @@ if (
 ```
 
 **Neu**:
+
 ```typescript
 if (
   source.type === 'bls' &&
@@ -115,6 +129,7 @@ if (
 ### 4. Verbessere Logging
 
 **Neue Logs hinzufügen**:
+
 - `PROOF_BLS_ALLOWED locale="de" inputType="ambiguous"`
 - `PROOF_BLS_SKIPPED reason="branded_input_type" locale="de" inputType="branded"`
 - `PROOF_SOURCE_ROUTING_DECISION` bereits vorhanden, wird erweitert
@@ -124,11 +139,13 @@ if (
 Nach der Implementierung:
 
 ### Für `locale=de`:
+
 - **generic** → `user, bls, off, usda` (BLS early return bei score ≥ 0.75)
 - **ambiguous** → `user, bls, off, usda` (BLS early return bei score ≥ 0.85)
 - **branded** → `user, off, bls, usda` (OFF-first beibehalten)
 
 ### Für andere locales:
+
 - Unverändert: `STANDARD_SEQUENTIAL`
 
 ## Files to Modify
@@ -144,6 +161,7 @@ Nach der Implementierung:
 ## Verification Strategy
 
 ### Test Cases
+
 ```typescript
 // Kernfälle die funktionieren müssen:
 const testCases = [
@@ -157,6 +175,7 @@ const testCases = [
 ```
 
 ### Expected Log Patterns
+
 ```
 [traceId] PROOF_SOURCE_ROUTING_DECISION rawInput="ei" classification="ambiguous" locale="de" chosenPriority="DACH_AMBIGUOUS_FIRST"
 [traceId] PROOF_BLS_ALLOWED locale="de" inputType="ambiguous"
@@ -164,6 +183,7 @@ const testCases = [
 ```
 
 ### Verify Commands
+
 ```bash
 npm run verify
 npm run test -- --testNamePattern="BlsResolverIntegration"
@@ -172,16 +192,19 @@ npm run test -- --testNamePattern="BlsResolverIntegration"
 ## Risk Assessment
 
 ### Low Risk
+
 - ✅ Minimal code changes
 - ✅ Nur BLS Routing-Logik betroffen
 - ✅ Branded behavior unverändert
 - ✅ Andere locales unverändert
 
 ### Medium Risk
+
 - ⚠️ Ambiguous inputs könnten mehr BLS false positives erzeugen
 - ⚠️ Performance: BLS wird öfter aufgerufen
 
 ### Mitigation
+
 - Höhere Confidence-Schwelle für ambiguous (0.85 statt 0.75)
 - Ausführliches Logging für Monitoring
 - Schrittweise Rollout möglich
@@ -203,19 +226,19 @@ flowchart TD
     C --> D{locale === 'de'?}
     D -->|Yes| E[DACH_AMBIGUOUS_FIRST Strategy]
     D -->|No| F[STANDARD_SEQUENTIAL Strategy]
-    
+
     E --> G[Sources: user, bls, off, usda]
     F --> H[Sources: user, off, bls, usda]
-    
+
     G --> I[BLS Called]
     I --> J{BLS finds 'rührei'?}
     J -->|Yes, score ≥ 0.85| K[BLS Early Return]
     J -->|Yes, score < 0.85| L[Continue to OFF]
     J -->|No| L
-    
+
     K --> M[Result: rührei from BLS]
     L --> N[OFF/USDA processing...]
-    
+
     style A fill:#e1f5fe
     style C fill:#fff3e0
     style E fill:#e8f5e8
@@ -226,7 +249,7 @@ flowchart TD
 ## Implementation Order
 
 1. **Phase 1**: Ändere BlsStaticSource Skip-Logik
-2. **Phase 2**: Erweitere Routing-Strategie 
+2. **Phase 2**: Erweitere Routing-Strategie
 3. **Phase 3**: Anpasse BLS Early Return
 4. **Phase 4**: Teste mit Kernfällen
 5. **Phase 5**: Verify & Deploy

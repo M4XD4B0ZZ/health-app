@@ -22,7 +22,7 @@ export class FusionResolverAdapter implements FoodCatalogResolver {
       enableFusion: true,
       enableFallback: false,
       logComparison: false,
-    }
+    },
   ) {
     this.fusionResolver = new FusionCandidateResolver(sources);
     this.fallbackResolver = fallbackResolver;
@@ -35,14 +35,14 @@ export class FusionResolverAdapter implements FoodCatalogResolver {
       // Primary path: Use Fusion Resolver
       if (this.config.enableFusion) {
         console.log(`[${traceId}] PROOF_FUSION_ADAPTER using fusion resolver`);
-        
+
         const fusionResult = await this.fusionResolver.resolve(query, { traceId });
-        
+
         // Optional: Compare with fallback for validation
         if (this.config.enableFallback && this.fallbackResolver && this.config.logComparison) {
           await this.compareWithFallback(query, fusionResult, traceId);
         }
-        
+
         return fusionResult;
       }
 
@@ -54,16 +54,15 @@ export class FusionResolverAdapter implements FoodCatalogResolver {
 
       // No resolver available - should not happen in production
       throw new Error('No resolver configured');
-
     } catch (error) {
       console.error(`[${traceId}] PROOF_FUSION_ADAPTER_ERROR`, error);
-      
+
       // Graceful degradation to fallback
       if (this.fallbackResolver && this.config.enableFallback) {
         console.log(`[${traceId}] PROOF_FUSION_ADAPTER degrading to fallback`);
         return await this.fallbackResolver.resolve(query, ctx);
       }
-      
+
       // Return error decision
       return this.createErrorDecision(query, error);
     }
@@ -75,13 +74,13 @@ export class FusionResolverAdapter implements FoodCatalogResolver {
   private async compareWithFallback(
     query: FoodSearchQuery,
     fusionResult: ResolverDecision,
-    traceId: string
+    traceId: string,
   ): Promise<void> {
     if (!this.fallbackResolver) return;
 
     try {
       const fallbackResult = await this.fallbackResolver.resolve(query, { traceId });
-      
+
       const comparison = {
         fusionStatus: fusionResult.status,
         fallbackStatus: fallbackResult.status,
@@ -92,9 +91,8 @@ export class FusionResolverAdapter implements FoodCatalogResolver {
         agreement: fusionResult.status === fallbackResult.status,
         winnerAgreement: fusionResult.best?.source === fallbackResult.best?.source,
       };
-      
+
       console.log(`[${traceId}] PROOF_FUSION_COMPARISON`, JSON.stringify(comparison));
-      
     } catch (error) {
       console.warn(`[${traceId}] PROOF_FUSION_COMPARISON_FAILED`, error);
     }
@@ -138,7 +136,7 @@ export class FusionResolverAdapterFactory {
    */
   static createTestingAdapter(
     sources: FoodCatalogSource[],
-    fallbackResolver: FoodCatalogResolver
+    fallbackResolver: FoodCatalogResolver,
   ): FusionResolverAdapter {
     return new FusionResolverAdapter(sources, fallbackResolver, {
       enableFusion: true,
@@ -153,7 +151,7 @@ export class FusionResolverAdapterFactory {
   static createRolloutAdapter(
     sources: FoodCatalogSource[],
     fallbackResolver: FoodCatalogResolver,
-    useFusion: boolean = false
+    useFusion: boolean = false,
   ): FusionResolverAdapter {
     return new FusionResolverAdapter(sources, fallbackResolver, {
       enableFusion: useFusion,
@@ -167,7 +165,7 @@ export class FusionResolverAdapterFactory {
    */
   static createDebugAdapter(
     sources: FoodCatalogSource[],
-    fallbackResolver: FoodCatalogResolver
+    fallbackResolver: FoodCatalogResolver,
   ): FusionResolverAdapter {
     return new FusionResolverAdapter(sources, fallbackResolver, {
       enableFusion: true,

@@ -1,5 +1,7 @@
 // Quick test script for DACH routing correction
-const { BlsStaticSource } = require('./src/features/nutrition/infrastructure/catalog/sources/BlsStaticSource');
+const {
+  BlsStaticSource,
+} = require('./src/features/nutrition/infrastructure/catalog/sources/BlsStaticSource');
 const { detectInputType } = require('./src/features/nutrition/application/utils/detectInputType');
 
 async function testDachRouting() {
@@ -24,7 +26,7 @@ async function testDachRouting() {
       locale: 'de',
       inputType: 'ambiguous',
       normalized: 'ei',
-      traceId: 'test-ei'
+      traceId: 'test-ei',
     });
     console.log(`   ✅ ei found ${eiResults.length} results`);
     if (eiResults.length > 0) {
@@ -42,7 +44,7 @@ async function testDachRouting() {
       locale: 'de',
       inputType: 'generic',
       normalized: 'quark',
-      traceId: 'test-quark'
+      traceId: 'test-quark',
     });
     console.log(`   ✅ quark found ${quarkResults.length} results`);
     if (quarkResults.length > 0) {
@@ -60,7 +62,7 @@ async function testDachRouting() {
       locale: 'de',
       inputType: 'branded',
       normalized: 'nutella',
-      traceId: 'test-nutella'
+      traceId: 'test-nutella',
     });
     console.log(`   ✅ nutella found ${nutellaResults.length} results (should be 0)`);
   } catch (error) {
@@ -75,7 +77,7 @@ async function testDachRouting() {
       locale: 'en',
       inputType: 'generic',
       normalized: 'egg',
-      traceId: 'test-egg'
+      traceId: 'test-egg',
     });
     console.log(`   ✅ egg found ${eggResults.length} results (should be 0)`);
   } catch (error) {

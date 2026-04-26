@@ -15,43 +15,40 @@ const canonicalFoods = [
       unit: 'gram',
       grams: 30,
     },
-  }
+  },
 ];
 
 function detectCanonicalEntity(input) {
   const normalizedInput = input.toLowerCase().trim();
-  
+
   for (const food of canonicalFoods) {
     if (food.aliases.de.includes(normalizedInput) || food.aliases.en.includes(normalizedInput)) {
       return food;
     }
   }
-  
+
   return null;
 }
 
 function parseInput(text) {
   const normalized = text.trim().toLowerCase();
-  
+
   // "zwei scheiben schinken" -> name: "schinken", quantityCount: 2
   if (normalized.includes('zwei scheiben')) {
     return { name: 'schinken', quantityCount: 2 };
   }
-  
+
   return { name: normalized };
 }
 
 function calculateQuantity(parsed, canonicalEntity) {
   let quantityGrams = 0;
   let quantitySource = 'unknown';
-  
+
   if (parsed.quantityGrams !== undefined) {
     quantityGrams = parsed.quantityGrams;
     quantitySource = 'explicit_grams';
-  } else if (
-    parsed.quantityCount !== undefined &&
-    canonicalEntity?.defaultPortion?.grams
-  ) {
+  } else if (parsed.quantityCount !== undefined && canonicalEntity?.defaultPortion?.grams) {
     // Support both 'piece' and 'gram' units for quantityCount
     quantityGrams = parsed.quantityCount * canonicalEntity.defaultPortion.grams;
     quantitySource = 'count_x_default';
@@ -66,7 +63,7 @@ function calculateQuantity(parsed, canonicalEntity) {
       quantitySource = 'default_portion';
     }
   }
-  
+
   return { quantityGrams, quantitySource };
 }
 
@@ -84,10 +81,15 @@ console.log('Parsed:', JSON.stringify(parsed, null, 2));
 
 // 2. Detect Canonical Entity
 const canonicalEntity = detectCanonicalEntity(parsed.name);
-console.log('Canonical Entity:', canonicalEntity ? {
-  id: canonicalEntity.id,
-  defaultPortion: canonicalEntity.defaultPortion
-} : 'NOT FOUND');
+console.log(
+  'Canonical Entity:',
+  canonicalEntity
+    ? {
+        id: canonicalEntity.id,
+        defaultPortion: canonicalEntity.defaultPortion,
+      }
+    : 'NOT FOUND',
+);
 
 // 3. Calculate Quantity
 const { quantityGrams, quantitySource } = calculateQuantity(parsed, canonicalEntity);
@@ -113,22 +115,26 @@ if (success) {
   console.log('✅ "zwei scheiben schinken" sollte funktionieren!');
   console.log(`   - Parsed name: "${parsed.name}"`);
   console.log(`   - Canonical entity found: ${canonicalEntity?.id}`);
-  console.log(`   - Quantity calculation: ${parsed.quantityCount} × ${canonicalEntity?.defaultPortion?.grams}g = ${quantityGrams}g`);
+  console.log(
+    `   - Quantity calculation: ${parsed.quantityCount} × ${canonicalEntity?.defaultPortion?.grams}g = ${quantityGrams}g`,
+  );
   console.log(`   - Estimated macros: ${estimatedKcal} kcal`);
 } else {
   console.log('❌ "zwei scheiben schinken" hat ein Problem:');
-  
+
   if (!canonicalEntity) {
     console.log('   - Canonical entity nicht gefunden');
   }
-  
+
   if (zeroMacroBlock) {
     console.log('   - Zero-Macro Block aktiviert');
     console.log(`   - quantityGrams = ${quantityGrams}`);
     console.log(`   - parsed.quantityCount = ${parsed.quantityCount}`);
-    console.log(`   - canonicalEntity.defaultPortion.grams = ${canonicalEntity?.defaultPortion?.grams}`);
+    console.log(
+      `   - canonicalEntity.defaultPortion.grams = ${canonicalEntity?.defaultPortion?.grams}`,
+    );
   }
-  
+
   if (estimatedKcal === 0) {
     console.log('   - Keine Kalorien berechnet');
   }

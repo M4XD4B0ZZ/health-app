@@ -11,14 +11,16 @@ import {
  * Implements the scoring model from the architecture plan
  */
 export class CandidateScorer {
-  constructor(private readonly weights: FusionScoringWeights = {
-  lexical: 0.40,
-  tokenOverlap: 0.25,
-  sourceTrust: 0.12,
-  localeMatch: 0.10,
-  completeness: 0.05,
-  plausibility: 0.08
-}) {}
+  constructor(
+    private readonly weights: FusionScoringWeights = {
+      lexical: 0.4,
+      tokenOverlap: 0.25,
+      sourceTrust: 0.12,
+      localeMatch: 0.1,
+      completeness: 0.05,
+      plausibility: 0.08,
+    },
+  ) {}
 
   /**
    * Calculate final score for a fusion candidate
@@ -31,16 +33,20 @@ export class CandidateScorer {
     // Calculate individual score components
     const lexicalContribution = this.weights.lexical * candidate.matchSignals.lexicalScore;
     const tokenContribution = this.weights.tokenOverlap * candidate.matchSignals.tokenOverlap;
-    const sourceTrustContribution = this.weights.sourceTrust * this.getSourceTrustScore(candidate.source);
-    const localeContribution = this.weights.localeMatch * this.getLocaleMatchScore(candidate, query.locale);
-    const completenessContribution = this.weights.completeness * candidate.metadata.dataCompleteness;
-    const plausibilityContribution = this.weights.plausibility * candidate.macrosPer100g.plausibilityScore;
+    const sourceTrustContribution =
+      this.weights.sourceTrust * this.getSourceTrustScore(candidate.source);
+    const localeContribution =
+      this.weights.localeMatch * this.getLocaleMatchScore(candidate, query.locale);
+    const completenessContribution =
+      this.weights.completeness * candidate.metadata.dataCompleteness;
+    const plausibilityContribution =
+      this.weights.plausibility * candidate.macrosPer100g.plausibilityScore;
 
     // Calculate penalties
     const totalPenalties = this.calculatePenalties(candidate);
 
     // Final score calculation
-    const baseScore = 
+    const baseScore =
       lexicalContribution +
       tokenContribution +
       sourceTrustContribution +
@@ -75,7 +81,7 @@ export class CandidateScorer {
   private getLocaleMatchScore(candidate: FusionCandidate, queryLocale: 'de' | 'en'): number {
     const baseScore = this.getBaseLocaleScore(candidate.source, queryLocale);
     const boost = this.getLocaleBoost(candidate.source, queryLocale);
-    
+
     return Math.min(1.0, baseScore + boost);
   }
 
@@ -85,21 +91,34 @@ export class CandidateScorer {
   private getBaseLocaleScore(source: FusionCandidate['source'], queryLocale: 'de' | 'en'): number {
     if (queryLocale === 'de') {
       switch (source) {
-        case 'bls': return 1.0;   // Perfect for German
-        case 'off': return 0.8;   // Good multilingual coverage
-        case 'usda': return 0.6;  // English-focused but usable
-        case 'user': return 1.0;  // User data is always relevant
-        case 'ai': return 0.7;    // AI can adapt to locale
-        default: return 0.5;
+        case 'bls':
+          return 1.0; // Perfect for German
+        case 'off':
+          return 0.8; // Good multilingual coverage
+        case 'usda':
+          return 0.6; // English-focused but usable
+        case 'user':
+          return 1.0; // User data is always relevant
+        case 'ai':
+          return 0.7; // AI can adapt to locale
+        default:
+          return 0.5;
       }
-    } else { // 'en'
+    } else {
+      // 'en'
       switch (source) {
-        case 'usda': return 1.0;  // Perfect for English
-        case 'off': return 0.8;   // Good multilingual coverage
-        case 'bls': return 0.4;   // German-focused
-        case 'user': return 1.0;  // User data is always relevant
-        case 'ai': return 0.7;    // AI can adapt to locale
-        default: return 0.5;
+        case 'usda':
+          return 1.0; // Perfect for English
+        case 'off':
+          return 0.8; // Good multilingual coverage
+        case 'bls':
+          return 0.4; // German-focused
+        case 'user':
+          return 1.0; // User data is always relevant
+        case 'ai':
+          return 0.7; // AI can adapt to locale
+        default:
+          return 0.5;
       }
     }
   }
@@ -110,15 +129,22 @@ export class CandidateScorer {
   private getLocaleBoost(source: FusionCandidate['source'], queryLocale: 'de' | 'en'): number {
     if (queryLocale === 'de') {
       switch (source) {
-        case 'bls': return 0.1;   // Strong boost for German queries
-        case 'off': return 0.05;  // Small boost for multilingual
-        default: return 0;
+        case 'bls':
+          return 0.1; // Strong boost for German queries
+        case 'off':
+          return 0.05; // Small boost for multilingual
+        default:
+          return 0;
       }
-    } else { // 'en'
+    } else {
+      // 'en'
       switch (source) {
-        case 'usda': return 0.1;  // Strong boost for English queries
-        case 'off': return 0.05;  // Small boost for multilingual
-        default: return 0;
+        case 'usda':
+          return 0.1; // Strong boost for English queries
+        case 'off':
+          return 0.05; // Small boost for multilingual
+        default:
+          return 0;
       }
     }
   }
@@ -139,7 +165,7 @@ export class CandidateScorer {
     }
 
     if (candidate.matchSignals.semanticNarrowing) {
-      totalPenalties += -0.20;
+      totalPenalties += -0.2;
     }
 
     // Semantic penalty: branded vs generic mismatch
@@ -163,13 +189,15 @@ export class CandidateScorer {
     // Simple heuristic: input normalized query is generic if it contains no brand keywords
     const genericKeywords = ['quark', 'milch', 'ei', 'toast', 'protein'];
     // candidate has metadata.queryUsed property with normalized query string
-    return genericKeywords.some(keyword => candidate.metadata.queryUsed.toLowerCase().includes(keyword));
+    return genericKeywords.some((keyword) =>
+      candidate.metadata.queryUsed.toLowerCase().includes(keyword),
+    );
   }
 
   private isBrandedCandidate(candidate: FusionCandidate): boolean {
     // Simple heuristic: branded if name contains brand or specific keywords
     const brandedKeywords = ['high protein', 'brand', 'marke', 'premium'];
-    return brandedKeywords.some(keyword => candidate.normalizedName.includes(keyword));
+    return brandedKeywords.some((keyword) => candidate.normalizedName.includes(keyword));
   }
 
   /**
@@ -180,24 +208,32 @@ export class CandidateScorer {
 
     // Positive contributions
     if (breakdown.lexicalContribution > 0.25) {
-      explanations.push(`Strong lexical match (${(breakdown.lexicalContribution * 100).toFixed(0)}%)`);
+      explanations.push(
+        `Strong lexical match (${(breakdown.lexicalContribution * 100).toFixed(0)}%)`,
+      );
     }
 
     if (breakdown.sourceTrustContribution > 0.15) {
-      explanations.push(`High source trust: ${candidate.source.toUpperCase()} (${(breakdown.sourceTrustContribution * 100).toFixed(0)}%)`);
+      explanations.push(
+        `High source trust: ${candidate.source.toUpperCase()} (${(breakdown.sourceTrustContribution * 100).toFixed(0)}%)`,
+      );
     }
 
-    if (breakdown.localeContribution > 0.10) {
+    if (breakdown.localeContribution > 0.1) {
       explanations.push(`Good locale match (${(breakdown.localeContribution * 100).toFixed(0)}%)`);
     }
 
     // Penalties
     if (candidate.matchSignals.fuzzyMatch) {
-      explanations.push(`Fuzzy matching penalty (-${(FUSION_PENALTIES.FUZZY_MATCH * 100).toFixed(0)}%)`);
+      explanations.push(
+        `Fuzzy matching penalty (-${(FUSION_PENALTIES.FUZZY_MATCH * 100).toFixed(0)}%)`,
+      );
     }
 
     if (candidate.matchSignals.aliasUsed) {
-      explanations.push(`Alias usage penalty (-${(FUSION_PENALTIES.ALIAS_USAGE * 100).toFixed(0)}%)`);
+      explanations.push(
+        `Alias usage penalty (-${(FUSION_PENALTIES.ALIAS_USAGE * 100).toFixed(0)}%)`,
+      );
     }
 
     if (this.isGenericInput(candidate) && this.isBrandedCandidate(candidate)) {
@@ -205,7 +241,9 @@ export class CandidateScorer {
     }
 
     if (candidate.macrosPer100g.hasIncompleteData) {
-      explanations.push(`Incomplete data penalty (-${(FUSION_PENALTIES.INCOMPLETE_DATA * 100).toFixed(0)}%)`);
+      explanations.push(
+        `Incomplete data penalty (-${(FUSION_PENALTIES.INCOMPLETE_DATA * 100).toFixed(0)}%)`,
+      );
     }
 
     return explanations;

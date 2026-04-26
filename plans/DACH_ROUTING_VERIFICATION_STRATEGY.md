@@ -16,9 +16,9 @@ const coreTestCases = [
     expectedBLSCalled: true,
     expectedBLSMatch: 'Ruehrei gebraten',
     expectedWinnerSource: 'bls',
-    description: 'ei sollte über BLS Token-Matching rührei finden'
+    description: 'ei sollte über BLS Token-Matching rührei finden',
   },
-  
+
   // Regression: quark muss weiter funktionieren
   {
     input: 'quark',
@@ -29,9 +29,9 @@ const coreTestCases = [
     expectedBLSCalled: true,
     expectedBLSMatch: 'Speisequark Magerstufe, Magerquark < 10 % Fett i. Tr.',
     expectedWinnerSource: 'bls',
-    description: 'quark muss weiter über BLS early return funktionieren'
+    description: 'quark muss weiter über BLS early return funktionieren',
   },
-  
+
   // Weitere deutsche Kernfälle
   {
     input: 'magerquark',
@@ -40,9 +40,9 @@ const coreTestCases = [
     expectedStrategy: 'DACH_GENERIC_FIRST',
     expectedBLSCalled: true,
     expectedWinnerSource: 'bls',
-    description: 'magerquark direkter BLS Match'
+    description: 'magerquark direkter BLS Match',
   },
-  
+
   {
     input: 'rührei',
     locale: 'de',
@@ -50,9 +50,9 @@ const coreTestCases = [
     expectedStrategy: 'DACH_GENERIC_FIRST',
     expectedBLSCalled: true,
     expectedWinnerSource: 'bls',
-    description: 'rührei direkter BLS Match'
+    description: 'rührei direkter BLS Match',
   },
-  
+
   {
     input: 'toast',
     locale: 'de',
@@ -60,9 +60,9 @@ const coreTestCases = [
     expectedStrategy: 'DACH_GENERIC_FIRST',
     expectedBLSCalled: true,
     expectedWinnerSource: 'bls',
-    description: 'toast direkter BLS Match'
+    description: 'toast direkter BLS Match',
   },
-  
+
   {
     input: 'buttertoast',
     locale: 'de',
@@ -71,8 +71,8 @@ const coreTestCases = [
     expectedBLSCalled: true,
     expectedBLSMatch: 'Buttertoast (Default-Shortcut aus BLS-Toast + Butter-Annahme)',
     expectedWinnerSource: 'bls',
-    description: 'buttertoast über BLS Shortcut'
-  }
+    description: 'buttertoast über BLS Shortcut',
+  },
 ];
 ```
 
@@ -88,17 +88,17 @@ const brandedTestCases = [
     expectedSourceOrder: ['user', 'off', 'bls', 'usda'],
     expectedBLSCalled: false,
     expectedWinnerSource: 'off',
-    description: 'Branded inputs sollen OFF-first bleiben'
+    description: 'Branded inputs sollen OFF-first bleiben',
   },
-  
+
   {
     input: 'milka schokolade',
     locale: 'de',
     expectedInputType: 'branded',
     expectedStrategy: 'BRANDED_OFF_FIRST',
     expectedBLSCalled: false,
-    description: 'Branded inputs mit Zusatz sollen OFF-first bleiben'
-  }
+    description: 'Branded inputs mit Zusatz sollen OFF-first bleiben',
+  },
 ];
 ```
 
@@ -114,9 +114,9 @@ const edgeCases = [
     expectedStrategy: 'STANDARD_SEQUENTIAL',
     expectedSourceOrder: ['user', 'off', 'bls', 'usda'],
     expectedBLSCalled: false,
-    description: 'Englische Inputs sollen BLS nicht aufrufen'
+    description: 'Englische Inputs sollen BLS nicht aufrufen',
   },
-  
+
   // Ambiguous non-German
   {
     input: 'xyz',
@@ -124,9 +124,9 @@ const edgeCases = [
     expectedInputType: 'ambiguous',
     expectedStrategy: 'STANDARD_SEQUENTIAL',
     expectedBLSCalled: false,
-    description: 'Ambiguous non-German sollen STANDARD_SEQUENTIAL verwenden'
+    description: 'Ambiguous non-German sollen STANDARD_SEQUENTIAL verwenden',
   },
-  
+
   // Deutsche ambiguous ohne BLS Match
   {
     input: 'unbekanntes essen',
@@ -136,8 +136,8 @@ const edgeCases = [
     expectedBLSCalled: true,
     expectedBLSMatch: null,
     expectedWinnerSource: 'off', // Fallback zu OFF/USDA
-    description: 'Deutsche ambiguous ohne BLS Match sollen zu OFF/USDA fallen'
-  }
+    description: 'Deutsche ambiguous ohne BLS Match sollen zu OFF/USDA fallen',
+  },
 ];
 ```
 
@@ -178,22 +178,22 @@ describe('DACH Routing Correction', () => {
       const result = await resolver.resolve({
         raw: testCase.input,
         locale: testCase.locale,
-        inputType: testCase.expectedInputType
+        inputType: testCase.expectedInputType,
       });
-      
+
       expect(result.best?.source).toBe(testCase.expectedWinnerSource);
       if (testCase.expectedBLSMatch) {
         expect(result.best?.food.name).toContain(testCase.expectedBLSMatch);
       }
     });
   });
-  
+
   describe('Branded Regression', () => {
     test.each(brandedTestCases)('$description', async (testCase) => {
       // Test branded behavior unchanged
     });
   });
-  
+
   describe('Edge Cases', () => {
     test.each(edgeCases)('$description', async (testCase) => {
       // Test edge cases
@@ -209,22 +209,22 @@ describe('DACH Routing Correction', () => {
 describe('DACH Routing Integration', () => {
   test('ei routing flow end-to-end', async () => {
     const query = { raw: 'ei', locale: 'de' };
-    
+
     // 1. Input classification
     const inputType = detectInputType(query.raw);
     expect(inputType).toBe('ambiguous');
-    
+
     // 2. Routing strategy
-    const strategy = resolver.determineSourceRoutingStrategy({...query, inputType});
+    const strategy = resolver.determineSourceRoutingStrategy({ ...query, inputType });
     expect(strategy.name).toBe('DACH_AMBIGUOUS_FIRST');
     expect(strategy.sourcePriority).toEqual(['user', 'bls', 'off', 'usda', 'ai']);
-    
+
     // 3. BLS call
     const blsSource = new BlsStaticSource();
-    const blsResults = await blsSource.search({...query, inputType, normalized: 'ei'});
+    const blsResults = await blsSource.search({ ...query, inputType, normalized: 'ei' });
     expect(blsResults.length).toBeGreaterThan(0);
     expect(blsResults[0].food.name).toContain('Ruehrei');
-    
+
     // 4. Full resolution
     const decision = await resolver.resolve(query);
     expect(decision.best?.source).toBe('bls');
@@ -311,13 +311,13 @@ const falsePositiveTests = [
   {
     input: 'random text',
     locale: 'de',
-    description: 'Zufälliger Text sollte nicht fälschlicherweise BLS matchen'
+    description: 'Zufälliger Text sollte nicht fälschlicherweise BLS matchen',
   },
   {
     input: 'english word',
-    locale: 'de', 
-    description: 'Englische Wörter sollten nicht BLS matchen'
-  }
+    locale: 'de',
+    description: 'Englische Wörter sollten nicht BLS matchen',
+  },
 ];
 ```
 
@@ -328,18 +328,18 @@ const falsePositiveTests = [
 test('BLS call frequency monitoring', async () => {
   const testInputs = ['ei', 'quark', 'nutella', 'random'];
   let blsCallCount = 0;
-  
+
   // Mock BLS to count calls
   const originalSearch = BlsStaticSource.prototype.search;
-  BlsStaticSource.prototype.search = async function(...args) {
+  BlsStaticSource.prototype.search = async function (...args) {
     blsCallCount++;
     return originalSearch.apply(this, args);
   };
-  
+
   for (const input of testInputs) {
     await resolver.resolve({ raw: input, locale: 'de' });
   }
-  
+
   // Erwarte: ei=1, quark=1, nutella=0, random=1 = 3 calls total
   expect(blsCallCount).toBe(3);
 });
@@ -365,9 +365,11 @@ if (query.locale !== 'de' || query.inputType !== 'generic') {
 // Für schrittweisen Rollout
 const ENABLE_AMBIGUOUS_BLS = process.env.ENABLE_AMBIGUOUS_BLS === 'true';
 
-if (query.locale !== 'de' || 
-    (!ENABLE_AMBIGUOUS_BLS && query.inputType !== 'generic') ||
-    (ENABLE_AMBIGUOUS_BLS && !['generic', 'ambiguous'].includes(query.inputType))) {
+if (
+  query.locale !== 'de' ||
+  (!ENABLE_AMBIGUOUS_BLS && query.inputType !== 'generic') ||
+  (ENABLE_AMBIGUOUS_BLS && !['generic', 'ambiguous'].includes(query.inputType))
+) {
   // skip BLS
 }
 ```

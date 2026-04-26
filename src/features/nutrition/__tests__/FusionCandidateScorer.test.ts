@@ -39,7 +39,7 @@ describe('CandidateScorer', () => {
       });
 
       const query = { normalized: 'apfel', locale: 'de' as const };
-      
+
       const exactScore = scorer.scoreCandidate(exactCandidate, query);
       const fuzzyScore = scorer.scoreCandidate(fuzzyCandidate, query);
 
@@ -58,7 +58,7 @@ describe('CandidateScorer', () => {
       });
 
       const deQuery = { normalized: 'apfel', locale: 'de' as const };
-      
+
       const blsScore = scorer.scoreCandidate(blsCandidate, deQuery);
       const usdaScore = scorer.scoreCandidate(usdaCandidate, deQuery);
 
@@ -91,7 +91,7 @@ describe('CandidateScorer', () => {
       });
 
       const query = { normalized: 'quark', locale: 'de' as const };
-      
+
       const normalScore = scorer.scoreCandidate(normalCandidate, query);
       const narrowedScore = scorer.scoreCandidate(narrowedCandidate, query);
 
@@ -125,7 +125,7 @@ describe('CandidateScorer', () => {
       });
 
       const query = { normalized: 'test', locale: 'de' as const };
-      
+
       const completeScore = scorer.scoreCandidate(completeCandidate, query);
       const incompleteScore = scorer.scoreCandidate(incompleteCandidate, query);
 
@@ -136,8 +136,8 @@ describe('CandidateScorer', () => {
     it('should apply correct source trust scores', () => {
       const sources: FusionCandidate['source'][] = ['user', 'bls', 'usda', 'off', 'ai'];
       const query = { normalized: 'test', locale: 'de' as const };
-      
-      const scores = sources.map(source => {
+
+      const scores = sources.map((source) => {
         const candidate = createTestCandidate({ source });
         return {
           source,
@@ -146,24 +146,32 @@ describe('CandidateScorer', () => {
       });
 
       // Verify trust score ordering: user > bls > usda > off > ai
-      expect(scores[0].score.sourceTrustContribution).toBeGreaterThan(scores[1].score.sourceTrustContribution); // user > bls
-      expect(scores[1].score.sourceTrustContribution).toBeGreaterThan(scores[2].score.sourceTrustContribution); // bls > usda
-      expect(scores[2].score.sourceTrustContribution).toBeGreaterThan(scores[3].score.sourceTrustContribution); // usda > off
-      expect(scores[3].score.sourceTrustContribution).toBeGreaterThan(scores[4].score.sourceTrustContribution); // off > ai
+      expect(scores[0].score.sourceTrustContribution).toBeGreaterThan(
+        scores[1].score.sourceTrustContribution,
+      ); // user > bls
+      expect(scores[1].score.sourceTrustContribution).toBeGreaterThan(
+        scores[2].score.sourceTrustContribution,
+      ); // bls > usda
+      expect(scores[2].score.sourceTrustContribution).toBeGreaterThan(
+        scores[3].score.sourceTrustContribution,
+      ); // usda > off
+      expect(scores[3].score.sourceTrustContribution).toBeGreaterThan(
+        scores[4].score.sourceTrustContribution,
+      ); // off > ai
     });
   });
 
   describe('score components validation', () => {
     it('should use correct default weights', () => {
       const weights = DEFAULT_FUSION_WEIGHTS;
-      
+
       expect(weights.lexical).toBe(0.35);
-      expect(weights.tokenOverlap).toBe(0.20);
-      expect(weights.sourceTrust).toBe(0.20);
+      expect(weights.tokenOverlap).toBe(0.2);
+      expect(weights.sourceTrust).toBe(0.2);
       expect(weights.localeMatch).toBe(0.15);
       expect(weights.completeness).toBe(0.05);
       expect(weights.plausibility).toBe(0.05);
-      
+
       // Weights should sum to 1.0
       const total = Object.values(weights).reduce((sum, weight) => sum + weight, 0);
       expect(total).toBeCloseTo(1.0, 3);
@@ -202,7 +210,7 @@ describe('CandidateScorer', () => {
       });
 
       const query = { normalized: 'apfel', locale: 'de' as const };
-      
+
       const score1 = scorer.scoreCandidate(candidate, query);
       const score2 = scorer.scoreCandidate(candidate, query);
 
@@ -231,7 +239,7 @@ describe('CandidateScorer', () => {
         source: 'usda',
         name: 'Apple',
         matchSignals: {
-          lexicalScore: 0.90,
+          lexicalScore: 0.9,
           tokenOverlap: 0.8,
           exactMatch: false,
           aliasUsed: false,
@@ -241,7 +249,7 @@ describe('CandidateScorer', () => {
       });
 
       const query = { normalized: 'apfel', locale: 'de' as const };
-      
+
       const blsScore = scorer.scoreCandidate(blsCandidate, query);
       const usdaScore = scorer.scoreCandidate(usdaCandidate, query);
 
@@ -266,7 +274,7 @@ describe('CandidateScorer', () => {
         source: 'usda',
         name: 'Cola beverage',
         matchSignals: {
-          lexicalScore: 0.80,
+          lexicalScore: 0.8,
           tokenOverlap: 0.7,
           exactMatch: false,
           aliasUsed: false,
@@ -276,7 +284,7 @@ describe('CandidateScorer', () => {
       });
 
       const query = { normalized: 'coca cola', locale: 'en' as const };
-      
+
       const offScore = scorer.scoreCandidate(offCandidate, query);
       const usdaScore = scorer.scoreCandidate(usdaCandidate, query);
 

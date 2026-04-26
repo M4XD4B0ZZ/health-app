@@ -94,10 +94,7 @@ export class LogFoodFromRawInputUseCase {
         // Gramm-Angabe vorhanden
         quantityGrams = parsed.quantityGrams;
         confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
-      } else if (
-        parsed.quantityCount !== undefined &&
-        canonicalEntity?.defaultPortion?.grams
-      ) {
+      } else if (parsed.quantityCount !== undefined && canonicalEntity?.defaultPortion?.grams) {
         // Support both 'piece' and 'gram' units for quantityCount
         quantityGrams = parsed.quantityCount * canonicalEntity.defaultPortion.grams;
         confidenceScore = 0.5;

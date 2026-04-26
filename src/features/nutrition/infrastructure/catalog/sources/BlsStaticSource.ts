@@ -16,11 +16,15 @@ export class BlsStaticSource implements FoodCatalogSource {
     const allowedInputTypes = ['generic', 'ambiguous'];
     if (query.locale !== 'de' || !allowedInputTypes.includes(query.inputType || 'ambiguous')) {
       const reason = query.locale !== 'de' ? 'non_german_locale' : 'branded_input_type';
-      console.log(`[${traceId}] PROOF_BLS_SKIPPED reason="${reason}" locale="${query.locale}" inputType="${query.inputType}"`);
+      console.log(
+        `[${traceId}] PROOF_BLS_SKIPPED reason="${reason}" locale="${query.locale}" inputType="${query.inputType}"`,
+      );
       return [];
     }
 
-    console.log(`[${traceId}] PROOF_BLS_ALLOWED locale="${query.locale}" inputType="${query.inputType}"`);
+    console.log(
+      `[${traceId}] PROOF_BLS_ALLOWED locale="${query.locale}" inputType="${query.inputType}"`,
+    );
 
     const shortcutCandidate = getBlsShortcutCandidate(query.normalized);
     if (shortcutCandidate) {
@@ -33,7 +37,7 @@ export class BlsStaticSource implements FoodCatalogSource {
 
     const results = searchBlsGenericFoods(query.normalized);
     console.log(`[DEBUG] BLS RESULTS count=${results.length}`);
-    
+
     if (results.length === 0) {
       console.log(`[DEBUG] BLS NO MATCH for "${query.normalized}"`);
     } else {
@@ -43,7 +47,7 @@ export class BlsStaticSource implements FoodCatalogSource {
         `[${traceId}] PROOF_BLS_MATCH input="${query.normalized}" candidates_count=${results.length} best_match="${bestMatch.food.name}" score=${bestMatch.match.similarity}`,
       );
     }
-    
+
     return results;
   }
 }

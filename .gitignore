@@ -57,3 +57,7 @@ build/
 coverage
 Thumbs.db
 .env.local
+
+# Test artifacts
+test-results/
+/tests/

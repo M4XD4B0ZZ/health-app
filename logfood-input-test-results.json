@@ -1,1 +1,119 @@
-{"numFailedTestSuites":1,"numFailedTests":5,"numPassedTestSuites":0,"numPassedTests":0,"numPendingTestSuites":0,"numPendingTests":0,"numRuntimeErrorTestSuites":0,"numTodoTests":0,"numTotalTestSuites":1,"numTotalTests":5,"openHandles":[],"snapshot":{"added":0,"didUpdate":false,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0},"startTime":1776838191847,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":["LogFoodFromRawInputUseCase Input Tests"],"duration":14,"failureDetails":[{}],"failureMessages":["Error: RESOLVER_FAILED_OR_NO_MACROS for input: ei\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"],"fullName":"LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: ei","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"should process input and log PROOF logs for: ei"},{"ancestorTitles":["LogFoodFromRawInputUseCase Input Tests"],"duration":1,"failureDetails":[{}],"failureMessages":["Error: RESOLVER_FAILED_OR_NO_MACROS for input: zwei eier\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"],"fullName":"LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: zwei eier","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"should process input and log PROOF logs for: zwei eier"},{"ancestorTitles":["LogFoodFromRawInputUseCase Input Tests"],"duration":1,"failureDetails":[{}],"failureMessages":["Error: RESOLVER_FAILED_OR_NO_MACROS for input: 200g quark\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"],"fullName":"LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: 200g quark","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"should process input and log PROOF logs for: 200g quark"},{"ancestorTitles":["LogFoodFromRawInputUseCase Input Tests"],"duration":0,"failureDetails":[{}],"failureMessages":["Error: RESOLVER_FAILED_OR_NO_MACROS for input: buttertoast\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"],"fullName":"LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: buttertoast","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"should process input and log PROOF logs for: buttertoast"},{"ancestorTitles":["LogFoodFromRawInputUseCase Input Tests"],"duration":1,"failureDetails":[{}],"failureMessages":["Error: RESOLVER_FAILED_OR_NO_MACROS for input: zwei scheiben schinken\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"],"fullName":"LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: zwei scheiben schinken","invocations":1,"location":null,"numPassingAsserts":0,"retryReasons":[],"status":"failed","title":"should process input and log PROOF logs for: zwei scheiben schinken"}],"endTime":1776838195541,"message":"  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: ei\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: ei\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: zwei eier\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: zwei eier\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: 200g quark\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: 200g quark\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: buttertoast\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: buttertoast\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: zwei scheiben schinken\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: zwei scheiben schinken\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n","name":"D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts","startTime":1776838192136,"status":"failed","summary":""}],"wasInterrupted":false}
+{
+  "numFailedTestSuites": 1,
+  "numFailedTests": 5,
+  "numPassedTestSuites": 0,
+  "numPassedTests": 0,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 1,
+  "numTotalTests": 5,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1776838191847,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["LogFoodFromRawInputUseCase Input Tests"],
+          "duration": 14,
+          "failureDetails": [{}],
+          "failureMessages": [
+            "Error: RESOLVER_FAILED_OR_NO_MACROS for input: ei\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"
+          ],
+          "fullName": "LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: ei",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "should process input and log PROOF logs for: ei"
+        },
+        {
+          "ancestorTitles": ["LogFoodFromRawInputUseCase Input Tests"],
+          "duration": 1,
+          "failureDetails": [{}],
+          "failureMessages": [
+            "Error: RESOLVER_FAILED_OR_NO_MACROS for input: zwei eier\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"
+          ],
+          "fullName": "LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: zwei eier",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "should process input and log PROOF logs for: zwei eier"
+        },
+        {
+          "ancestorTitles": ["LogFoodFromRawInputUseCase Input Tests"],
+          "duration": 1,
+          "failureDetails": [{}],
+          "failureMessages": [
+            "Error: RESOLVER_FAILED_OR_NO_MACROS for input: 200g quark\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"
+          ],
+          "fullName": "LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: 200g quark",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "should process input and log PROOF logs for: 200g quark"
+        },
+        {
+          "ancestorTitles": ["LogFoodFromRawInputUseCase Input Tests"],
+          "duration": 0,
+          "failureDetails": [{}],
+          "failureMessages": [
+            "Error: RESOLVER_FAILED_OR_NO_MACROS for input: buttertoast\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"
+          ],
+          "fullName": "LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: buttertoast",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "should process input and log PROOF logs for: buttertoast"
+        },
+        {
+          "ancestorTitles": ["LogFoodFromRawInputUseCase Input Tests"],
+          "duration": 1,
+          "failureDetails": [{}],
+          "failureMessages": [
+            "Error: RESOLVER_FAILED_OR_NO_MACROS for input: zwei scheiben schinken\n    at LogFoodFromRawInputUseCase.execute (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\application\\usecases\\LogFoodFromRawInputUseCase.ts:356:15)\n    at Object.<anonymous> (D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)"
+          ],
+          "fullName": "LogFoodFromRawInputUseCase Input Tests should process input and log PROOF logs for: zwei scheiben schinken",
+          "invocations": 1,
+          "location": null,
+          "numPassingAsserts": 0,
+          "retryReasons": [],
+          "status": "failed",
+          "title": "should process input and log PROOF logs for: zwei scheiben schinken"
+        }
+      ],
+      "endTime": 1776838195541,
+      "message": "  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: ei\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: ei\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: zwei eier\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: zwei eier\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: 200g quark\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: 200g quark\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: buttertoast\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: buttertoast\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n\n  ● LogFoodFromRawInputUseCase Input Tests › should process input and log PROOF logs for: zwei scheiben schinken\n\n    RESOLVER_FAILED_OR_NO_MACROS for input: zwei scheiben schinken\n\n    \u001b[0m \u001b[90m 354 |\u001b[39m           console\u001b[33m.\u001b[39mlog(\u001b[32m`[${traceId}] BLOCKED reason=\"NO_MATCH_OR_ZERO_MACROS\"`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m 355 |\u001b[39m         }\n    \u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 356 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`\u001b[39m)\u001b[33m;\u001b[39m\n     \u001b[90m     |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n     \u001b[90m 357 |\u001b[39m       }\n     \u001b[90m 358 |\u001b[39m\n     \u001b[90m 359 |\u001b[39m       \u001b[90m// Persist\u001b[39m\u001b[0m\n\n      at LogFoodFromRawInputUseCase.execute (src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts:356:15)\n      at Object.<anonymous> (src/features/nutrition/__tests__/LogFoodFromRawInputUseCaseInputTests.test.ts:72:7)\n",
+      "name": "D:\\Workspaces_VSCode\\HealthApp\\src\\features\\nutrition\\__tests__\\LogFoodFromRawInputUseCaseInputTests.test.ts",
+      "startTime": 1776838192136,
+      "status": "failed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}

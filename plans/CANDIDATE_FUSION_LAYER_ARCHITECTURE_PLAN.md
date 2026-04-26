@@ -2,7 +2,7 @@
 
 **Status:** Design Phase  
 **Target:** Resolver V2 Multi-Source Fusion  
-**Created:** 2026-04-08  
+**Created:** 2026-04-08
 
 ---
 
@@ -21,44 +21,44 @@ Die Candidate Fusion Layer ist das Herzstück der neuen Resolver V2 Architektur.
 ```typescript
 interface FusionCandidate {
   // Core Identity
-  id: string;                    // Unique fusion candidate ID
-  source: FoodSourceType;        // 'bls' | 'off' | 'usda' | 'user' | 'ai'
-  sourceId: string;              // Original ID in source system
-  
+  id: string; // Unique fusion candidate ID
+  source: FoodSourceType; // 'bls' | 'off' | 'usda' | 'user' | 'ai'
+  sourceId: string; // Original ID in source system
+
   // Food Data
-  name: string;                  // Original name from source
-  normalizedName: string;        // Normalized for comparison
-  macrosPer100g: MacroProfile;   // Standardized macro structure
-  
+  name: string; // Original name from source
+  normalizedName: string; // Normalized for comparison
+  macrosPer100g: MacroProfile; // Standardized macro structure
+
   // Match Signals
   matchSignals: MatchSignals;
-  
+
   // Metadata
   metadata: CandidateMetadata;
 }
 
 interface MatchSignals {
-  lexicalScore: number;          // 0.0 - 1.0: exact text similarity
-  tokenOverlap: number;          // 0.0 - 1.0: token intersection ratio
-  exactMatch: boolean;           // Perfect name match
-  aliasUsed: boolean;            // Used alias/synonym
-  fuzzyMatch: boolean;           // Used fuzzy matching
-  semanticNarrowing: boolean;    // quark → magerquark
+  lexicalScore: number; // 0.0 - 1.0: exact text similarity
+  tokenOverlap: number; // 0.0 - 1.0: token intersection ratio
+  exactMatch: boolean; // Perfect name match
+  aliasUsed: boolean; // Used alias/synonym
+  fuzzyMatch: boolean; // Used fuzzy matching
+  semanticNarrowing: boolean; // quark → magerquark
 }
 
 interface CandidateMetadata {
-  locale: string;                // Source locale (de/en/multi)
-  sourceQuality: SourceQuality;  // Source-specific quality metrics
-  dataCompleteness: number;      // 0.0 - 1.0: macro completeness
-  assumptions: string[];         // Applied assumptions/heuristics
-  usedHeuristic: string[];       // Specific heuristics used
-  queryUsed: string;             // Actual query sent to source
+  locale: string; // Source locale (de/en/multi)
+  sourceQuality: SourceQuality; // Source-specific quality metrics
+  dataCompleteness: number; // 0.0 - 1.0: macro completeness
+  assumptions: string[]; // Applied assumptions/heuristics
+  usedHeuristic: string[]; // Specific heuristics used
+  queryUsed: string; // Actual query sent to source
 }
 
 interface SourceQuality {
-  trustLevel: number;            // 0.0 - 1.0: source reliability
-  dataFreshness: number;         // 0.0 - 1.0: data recency
-  coverageRelevance: number;     // 0.0 - 1.0: locale/domain relevance
+  trustLevel: number; // 0.0 - 1.0: source reliability
+  dataFreshness: number; // 0.0 - 1.0: data recency
+  coverageRelevance: number; // 0.0 - 1.0: locale/domain relevance
 }
 ```
 
@@ -70,11 +70,11 @@ interface MacroProfile {
   protein: number;
   carbs: number;
   fat: number;
-  
+
   // Quality indicators
   isEstimated: boolean;
   hasIncompleteData: boolean;
-  plausibilityScore: number;     // 0.0 - 1.0: macro consistency
+  plausibilityScore: number; // 0.0 - 1.0: macro consistency
 }
 ```
 
@@ -97,46 +97,46 @@ finalScore = (
 
 ### 2.2 Scoring Weights
 
-| Component | Weight | Rationale |
-|-----------|--------|-----------|
-| **Lexical Match** | 0.35 | Primary signal for user intent |
-| **Token Overlap** | 0.20 | Handles partial matches |
-| **Source Trust** | 0.20 | Quality differentiation |
-| **Locale Match** | 0.15 | DACH strategy priority |
-| **Data Completeness** | 0.05 | Prefer complete data |
-| **Plausibility** | 0.05 | Sanity check |
-| **Total** | 1.00 | |
+| Component             | Weight | Rationale                      |
+| --------------------- | ------ | ------------------------------ |
+| **Lexical Match**     | 0.35   | Primary signal for user intent |
+| **Token Overlap**     | 0.20   | Handles partial matches        |
+| **Source Trust**      | 0.20   | Quality differentiation        |
+| **Locale Match**      | 0.15   | DACH strategy priority         |
+| **Data Completeness** | 0.05   | Prefer complete data           |
+| **Plausibility**      | 0.05   | Sanity check                   |
+| **Total**             | 1.00   |                                |
 
 ### 2.3 Source Trust Scores
 
-| Source | Trust Score | Rationale |
-|--------|-------------|-----------|
-| **User Cache** | 1.0 | User-validated, highest trust |
-| **BLS** | 0.9 | Official German database |
-| **USDA** | 0.8 | Official US database |
-| **OFF** | 0.7 | Community-driven, variable quality |
-| **AI** | 0.3 | Estimated, lowest trust |
+| Source         | Trust Score | Rationale                          |
+| -------------- | ----------- | ---------------------------------- |
+| **User Cache** | 1.0         | User-validated, highest trust      |
+| **BLS**        | 0.9         | Official German database           |
+| **USDA**       | 0.8         | Official US database               |
+| **OFF**        | 0.7         | Community-driven, variable quality |
+| **AI**         | 0.3         | Estimated, lowest trust            |
 
 ### 2.4 Locale Match Scores
 
 | Input Locale | Source | Locale Score | Boost |
-|--------------|--------|--------------|-------|
-| DE | BLS | 1.0 | +0.1 |
-| DE | OFF | 0.8 | +0.05 |
-| DE | USDA | 0.6 | 0 |
-| EN | USDA | 1.0 | +0.1 |
-| EN | OFF | 0.8 | +0.05 |
-| EN | BLS | 0.4 | 0 |
+| ------------ | ------ | ------------ | ----- |
+| DE           | BLS    | 1.0          | +0.1  |
+| DE           | OFF    | 0.8          | +0.05 |
+| DE           | USDA   | 0.6          | 0     |
+| EN           | USDA   | 1.0          | +0.1  |
+| EN           | OFF    | 0.8          | +0.05 |
+| EN           | BLS    | 0.4          | 0     |
 
 ### 2.5 Penalty System
 
-| Penalty Type | Deduction | Condition |
-|--------------|-----------|-----------|
-| **Alias Usage** | -0.05 | `aliasUsed = true` |
-| **Fuzzy Match** | -0.10 | `fuzzyMatch = true` |
-| **Semantic Narrowing** | -0.15 | `semanticNarrowing = true` |
-| **Incomplete Data** | -0.08 | Missing macros |
-| **Low Plausibility** | -0.12 | `plausibilityScore < 0.5` |
+| Penalty Type           | Deduction | Condition                  |
+| ---------------------- | --------- | -------------------------- |
+| **Alias Usage**        | -0.05     | `aliasUsed = true`         |
+| **Fuzzy Match**        | -0.10     | `fuzzyMatch = true`        |
+| **Semantic Narrowing** | -0.15     | `semanticNarrowing = true` |
+| **Incomplete Data**    | -0.08     | Missing macros             |
+| **Low Plausibility**   | -0.12     | `plausibilityScore < 0.5`  |
 
 ---
 
@@ -190,21 +190,21 @@ finalScore = (
 
 ### 4.1 Confidence Levels
 
-| Final Score | Status | Action | Confidence |
-|-------------|--------|--------|------------|
-| **≥ 0.85** | `ACCEPTED` | Auto-accept, save to journal | High |
-| **0.70 - 0.84** | `ACCEPTED_WITH_ASSUMPTION` | Accept with edit capability | Medium |
-| **0.50 - 0.69** | `AMBIGUOUS` | Present options to user | Low |
-| **< 0.50** | `REJECTED` | Request clarification | Very Low |
+| Final Score     | Status                     | Action                       | Confidence |
+| --------------- | -------------------------- | ---------------------------- | ---------- |
+| **≥ 0.85**      | `ACCEPTED`                 | Auto-accept, save to journal | High       |
+| **0.70 - 0.84** | `ACCEPTED_WITH_ASSUMPTION` | Accept with edit capability  | Medium     |
+| **0.50 - 0.69** | `AMBIGUOUS`                | Present options to user      | Low        |
+| **< 0.50**      | `REJECTED`                 | Request clarification        | Very Low   |
 
 ### 4.2 Special Cases
 
-| Condition | Override | Rationale |
-|-----------|----------|-----------|
-| **User Cache Hit** | Auto-accept if score ≥ 0.70 | User-validated data |
-| **Single Candidate** | Lower threshold to 0.60 | No alternatives |
-| **Multiple High Scores** | Mark as ambiguous if top 2 within 0.05 | Unclear winner |
-| **All Low Scores** | Reject if best < 0.50 | No good matches |
+| Condition                | Override                               | Rationale           |
+| ------------------------ | -------------------------------------- | ------------------- |
+| **User Cache Hit**       | Auto-accept if score ≥ 0.70            | User-validated data |
+| **Single Candidate**     | Lower threshold to 0.60                | No alternatives     |
+| **Multiple High Scores** | Mark as ambiguous if top 2 within 0.05 | Unclear winner      |
+| **All Low Scores**       | Reject if best < 0.50                  | No good matches     |
 
 ---
 
@@ -219,9 +219,9 @@ interface FusionResolverDecision extends ResolverDecision {
 }
 
 interface FusionExplanation {
-  winningReasons: string[];           // Why this candidate won
+  winningReasons: string[]; // Why this candidate won
   rejectedCandidates: RejectedCandidate[]; // Top 3 alternatives
-  assumptions: string[];              // Applied assumptions
+  assumptions: string[]; // Applied assumptions
   confidenceBreakdown: ConfidenceBreakdown;
   sourceComparison: SourceComparison;
 }
@@ -254,17 +254,17 @@ interface SourceComparison {
 ```typescript
 // Example explanations
 winningReasons: [
-  "Exact lexical match (score: 0.95)",
-  "High source trust: BLS official database (score: 0.9)",
-  "Perfect locale match for German input (score: 1.0)",
-  "Complete nutritional data (score: 1.0)"
-]
+  'Exact lexical match (score: 0.95)',
+  'High source trust: BLS official database (score: 0.9)',
+  'Perfect locale match for German input (score: 1.0)',
+  'Complete nutritional data (score: 1.0)',
+];
 
 rejectionReasons: [
-  "Lower lexical similarity (0.72 vs 0.95)",
-  "Used fuzzy matching (-0.10 penalty)",
-  "Incomplete macro data (-0.08 penalty)"
-]
+  'Lower lexical similarity (0.72 vs 0.95)',
+  'Used fuzzy matching (-0.10 penalty)',
+  'Incomplete macro data (-0.08 penalty)',
+];
 ```
 
 ---
@@ -405,11 +405,13 @@ PROOF_FUSION_PERFORMANCE: {
 ### 8.1 Replacing SequentialFoodCatalogResolver
 
 **Current Flow:**
+
 ```
 Query → Source 1 → Early Return? → Source 2 → Early Return? → Decision
 ```
 
 **New Flow:**
+
 ```
 Query → All Sources (Parallel) → Fusion Layer → Decision
 ```
@@ -437,7 +439,7 @@ Query → All Sources (Parallel) → Fusion Layer → Decision
 // Adapter pattern for existing interfaces
 class FusionResolverAdapter implements FoodCatalogResolver {
   private fusionResolver: FusionCandidateResolver;
-  
+
   async resolve(query: FoodSearchQuery): Promise<ResolverDecision> {
     const fusionDecision = await this.fusionResolver.resolve(query);
     return this.adaptToLegacyFormat(fusionDecision);
@@ -447,12 +449,12 @@ class FusionResolverAdapter implements FoodCatalogResolver {
 
 ### 8.4 Performance Considerations
 
-| Metric | Current | Target | Strategy |
-|--------|---------|--------|----------|
-| **Latency** | 200-500ms | 300-600ms | Parallel source queries |
-| **Accuracy** | 75% | 85%+ | Better cross-source comparison |
-| **Cache Hit Rate** | 60% | 70%+ | Improved candidate caching |
-| **Source Utilization** | Sequential | Parallel | All sources contribute |
+| Metric                 | Current    | Target    | Strategy                       |
+| ---------------------- | ---------- | --------- | ------------------------------ |
+| **Latency**            | 200-500ms  | 300-600ms | Parallel source queries        |
+| **Accuracy**           | 75%        | 85%+      | Better cross-source comparison |
+| **Cache Hit Rate**     | 60%        | 70%+      | Improved candidate caching     |
+| **Source Utilization** | Sequential | Parallel  | All sources contribute         |
 
 ---
 
@@ -468,13 +470,13 @@ describe('FusionCandidateResolver', () => {
     it('should penalize semantic narrowing');
     it('should handle missing macro data gracefully');
   });
-  
+
   describe('ranking', () => {
     it('should rank by final score descending');
     it('should break ties using source priority');
     it('should handle empty candidate arrays');
   });
-  
+
   describe('decision thresholds', () => {
     it('should accept high confidence matches automatically');
     it('should mark conflicting scores as ambiguous');
@@ -496,12 +498,12 @@ describe('FusionResolver Integration', () => {
 
 ### 9.3 A/B Testing Metrics
 
-| Metric | Description | Target |
-|--------|-------------|--------|
-| **Match Accuracy** | User acceptance rate | >85% |
-| **Decision Speed** | Time to final decision | <600ms |
-| **User Satisfaction** | Edit rate after acceptance | <15% |
-| **Source Coverage** | % queries using multiple sources | >70% |
+| Metric                | Description                      | Target |
+| --------------------- | -------------------------------- | ------ |
+| **Match Accuracy**    | User acceptance rate             | >85%   |
+| **Decision Speed**    | Time to final decision           | <600ms |
+| **User Satisfaction** | Edit rate after acceptance       | <15%   |
+| **Source Coverage**   | % queries using multiple sources | >70%   |
 
 ---
 
@@ -540,7 +542,7 @@ describe('FusionResolver Integration', () => {
 ✅ **Deterministic Scoring**: Same input produces same ranking  
 ✅ **Explainable Decisions**: Clear reasoning for every choice  
 ✅ **Performance**: Maintains <600ms response time  
-✅ **Accuracy**: >85% user acceptance rate  
+✅ **Accuracy**: >85% user acceptance rate
 
 ### 11.2 Technical Requirements
 
@@ -548,7 +550,7 @@ describe('FusionResolver Integration', () => {
 ✅ **Testability**: >90% test coverage  
 ✅ **Observability**: Structured logging for all decisions  
 ✅ **Maintainability**: Clear separation of concerns  
-✅ **Extensibility**: Easy to add new sources or scoring factors  
+✅ **Extensibility**: Easy to add new sources or scoring factors
 
 ---
 

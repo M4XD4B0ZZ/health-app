@@ -61,7 +61,7 @@ describe('LogFoodFromRawInputUseCase Input Tests', () => {
     mockAliasRepository as any,
     mockAiFoodMapper as any,
     mockNutritionLookup as any,
-    mockResolver as any
+    mockResolver as any,
   );
 
   const inputs = ['ei', 'zwei eier', '200g quark', 'buttertoast', 'zwei scheiben schinken'];
@@ -74,7 +74,9 @@ describe('LogFoodFromRawInputUseCase Input Tests', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/PROOF_USECASE_ENTERED/));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/PROOF_ABOUT_TO_RESOLVE/));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/PROOF_RESOLVER_CALLED/));
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/PROOF_OFF_SOURCE_CALLED|PROOF_USDA_SOURCE_CALLED/));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/PROOF_OFF_SOURCE_CALLED|PROOF_USDA_SOURCE_CALLED/),
+      );
 
       consoleSpy.mockRestore();
     });

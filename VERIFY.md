@@ -173,6 +173,7 @@ npm run test -- --testPathPattern="resolver.*performance"
 **Resolver V2 Definition of Done:**
 
 Ein Resolver V2 Task ist nur dann abgeschlossen, wenn:
+
 - Standard-Verifikation (`npm run verify`) erfolgreich
 - Resolver-spezifische Tests bestehen
 - Debug-Logs zeigen erwartetes Multi-Source-Verhalten

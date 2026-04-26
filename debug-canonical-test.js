@@ -30,7 +30,7 @@ const CANONICAL_FOODS = [
       usda: 'egg',
       off: 'egg',
     },
-  }
+  },
 ];
 
 function detectCanonicalEntity(input) {
@@ -50,13 +50,18 @@ console.log('=== CANONICAL ENTITY TEST ===');
 
 const testInputs = ['schinken', 'ei', 'eier', 'ham'];
 
-testInputs.forEach(input => {
+testInputs.forEach((input) => {
   const result = detectCanonicalEntity(input);
   console.log(`Input: "${input}"`);
-  console.log(`Result:`, result ? {
-    id: result.id,
-    defaultPortion: result.defaultPortion
-  } : null);
+  console.log(
+    `Result:`,
+    result
+      ? {
+          id: result.id,
+          defaultPortion: result.defaultPortion,
+        }
+      : null,
+  );
   console.log('---');
 });
 
@@ -72,15 +77,23 @@ console.log(`Parsed Name: "${parsedName}"`);
 console.log(`Quantity Count: ${quantityCount}`);
 
 const canonicalEntity = detectCanonicalEntity(parsedName);
-console.log(`Canonical Entity:`, canonicalEntity ? {
-  id: canonicalEntity.id,
-  defaultPortion: canonicalEntity.defaultPortion
-} : null);
+console.log(
+  `Canonical Entity:`,
+  canonicalEntity
+    ? {
+        id: canonicalEntity.id,
+        defaultPortion: canonicalEntity.defaultPortion,
+      }
+    : null,
+);
 
 if (canonicalEntity?.defaultPortion?.unit === 'piece' && canonicalEntity.defaultPortion.grams) {
   const quantityGrams = quantityCount * canonicalEntity.defaultPortion.grams;
   console.log(`✅ Calculated quantityGrams: ${quantityGrams}`);
-} else if (canonicalEntity?.defaultPortion?.unit === 'gram' && canonicalEntity.defaultPortion.grams) {
+} else if (
+  canonicalEntity?.defaultPortion?.unit === 'gram' &&
+  canonicalEntity.defaultPortion.grams
+) {
   const quantityGrams = quantityCount * canonicalEntity.defaultPortion.grams;
   console.log(`✅ Calculated quantityGrams: ${quantityGrams}`);
 } else {

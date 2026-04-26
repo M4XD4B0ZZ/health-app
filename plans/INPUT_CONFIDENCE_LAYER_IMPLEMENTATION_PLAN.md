@@ -44,6 +44,7 @@ Input → detectInputType → SequentialFoodCatalogResolver → ResolverDecision
 ### 1. Domain Model
 
 #### InputConfidenceLevel
+
 ```typescript
 export type InputConfidenceLevel = 'high' | 'medium' | 'low';
 
@@ -55,6 +56,7 @@ export interface InputConfidenceClassification {
 ```
 
 #### Erweiterte ResolverDecision
+
 ```typescript
 export interface ResolverDecision {
   normalizedQuery: string;
@@ -64,7 +66,7 @@ export interface ResolverDecision {
   best?: ResolvedFoodCandidate;
   secondBest?: ResolvedFoodCandidate;
   createdAt: string;
-  
+
   // NEU: Input Confidence Information
   inputConfidence: InputConfidenceClassification;
 }
@@ -73,17 +75,19 @@ export interface ResolverDecision {
 ### 2. Input Confidence Classifier
 
 #### InputConfidenceClassifier Service
+
 ```typescript
 export interface InputConfidenceClassifier {
   classify(
     rawInput: string,
     normalizedInput: string,
-    resolverResult?: ResolverDecision
+    resolverResult?: ResolverDecision,
   ): InputConfidenceClassification;
 }
 ```
 
 #### Klassifikationslogik
+
 - **HIGH**: Exakte bekannte Foods (magerquark, toast)
 - **MEDIUM**: Alias-Match (quark → magerquark)
 - **LOW**: Vage Inputs (pizza, essen)
@@ -91,10 +95,12 @@ export interface InputConfidenceClassifier {
 ### 3. Confidence Downgrading Rules
 
 #### Alias Usage Detection
+
 - Wenn `usedHeuristic: 'alias'` → downgrade zu MEDIUM
 - Wenn cached alias verwendet → downgrade zu MEDIUM
 
 #### Non-Exact Matches
+
 - Wenn `exact: false` → downgrade zu MEDIUM/LOW
 - Wenn `usedHeuristic: 'fuzzy'` → downgrade zu LOW
 
@@ -103,6 +109,7 @@ export interface InputConfidenceClassifier {
 ### Phase 1: Domain Model Extension
 
 #### 1.1 Erweitere ResolverDecision
+
 **Datei:** [`src/features/nutrition/domain/models/ResolverDecision.ts`](src/features/nutrition/domain/models/ResolverDecision.ts)
 
 ```typescript
@@ -123,6 +130,7 @@ export interface ResolverDecision {
 ```
 
 #### 1.2 Erstelle InputConfidenceClassifier
+
 **Datei:** `src/features/nutrition/domain/confidence/InputConfidenceClassifier.ts`
 
 ```typescript
@@ -135,7 +143,7 @@ export interface InputConfidenceClassifier {
       exact?: boolean;
       fromAlias?: boolean;
       fromCache?: boolean;
-    }
+    },
   ): InputConfidenceClassification;
 }
 ```
@@ -143,6 +151,7 @@ export interface InputConfidenceClassifier {
 ### Phase 2: Confidence Classification Implementation
 
 #### 2.1 Default Implementation
+
 **Datei:** `src/features/nutrition/application/services/DefaultInputConfidenceClassifier.ts`
 
 ```typescript
@@ -150,7 +159,7 @@ export class DefaultInputConfidenceClassifier implements InputConfidenceClassifi
   classify(
     rawInput: string,
     normalizedInput: string,
-    matchMetadata?: MatchMetadata
+    matchMetadata?: MatchMetadata,
   ): InputConfidenceClassification {
     // 1. Prüfe auf exakte bekannte Foods
     if (this.isExactKnownFood(normalizedInput)) {
@@ -197,6 +206,7 @@ export class DefaultInputConfidenceClassifier implements InputConfidenceClassifi
 ### Phase 3: Integration in Resolution Pipeline
 
 #### 3.1 Erweitere SequentialFoodCatalogResolver
+
 **Datei:** [`src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts)
 
 ```typescript
@@ -205,7 +215,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     private readonly sources: FoodCatalogSource[],
     private readonly _confidenceEngine: ConfidenceEngine,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
-    private readonly inputConfidenceClassifier: InputConfidenceClassifier = new DefaultInputConfidenceClassifier()
+    private readonly inputConfidenceClassifier: InputConfidenceClassifier = new DefaultInputConfidenceClassifier(),
   ) {
     // ...
   }
@@ -215,7 +225,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
     // NEU: Klassifiziere Input Confidence
     const inputConfidence = this.classifyInputConfidence(query, decision);
-    
+
     return {
       ...decision,
       inputConfidence,
@@ -224,20 +234,17 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
   private classifyInputConfidence(
     query: FoodSearchQuery,
-    decision: ResolverDecision
+    decision: ResolverDecision,
   ): InputConfidenceClassification {
     const matchMetadata = this.extractMatchMetadata(decision.best);
-    
-    return this.inputConfidenceClassifier.classify(
-      query.raw,
-      query.normalized,
-      matchMetadata
-    );
+
+    return this.inputConfidenceClassifier.classify(query.raw, query.normalized, matchMetadata);
   }
 }
 ```
 
 #### 3.2 Erweitere ResolverDecisionPolicy
+
 **Datei:** [`src/features/nutrition/application/services/ResolverDecisionPolicy.ts`](src/features/nutrition/application/services/ResolverDecisionPolicy.ts)
 
 ```typescript
@@ -262,6 +269,7 @@ export function buildResolverDecision(input: {
 ### Phase 4: Alias Detection Enhancement
 
 #### 4.1 Erweitere Alias Repository Interface
+
 **Datei:** [`src/features/nutrition/application/ports/FoodAliasRepository.ts`](src/features/nutrition/application/ports/FoodAliasRepository.ts)
 
 ```typescript
@@ -279,6 +287,7 @@ export interface FoodAliasRepository {
 ```
 
 #### 4.2 Update LogFoodFromRawInputUseCase
+
 **Datei:** [`src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts`](src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts)
 
 ```typescript
@@ -314,7 +323,7 @@ graph TD
     C -->|HIGH| D[Exact Known Food]
     C -->|MEDIUM| E[Alias/Cached Match]
     C -->|LOW| F[Vague/Fuzzy Input]
-    
+
     A --> G[SequentialFoodCatalogResolver]
     G --> H[Source Resolution]
     H --> I[Match Metadata Analysis]
@@ -323,11 +332,11 @@ graph TD
     J -->|No| L{Fuzzy Match?}
     L -->|Yes| M[Downgrade to LOW]
     L -->|No| N[Keep Original Level]
-    
+
     K --> O[ResolverDecision + InputConfidence]
     M --> O
     N --> O
-    
+
     O --> P[LogFoodFromRawInputUseCase]
     P --> Q[Result with Confidence Info]
 ```
@@ -341,23 +350,23 @@ sequenceDiagram
     participant R as Resolver
     participant S as Sources
     participant D as Decision Builder
-    
+
     UI->>IC: classify("quark")
     IC->>IC: Initial: HIGH (known food?)
     IC-->>R: Initial Classification
-    
+
     R->>S: Search Sources
     S-->>R: Candidates with metadata
     Note over S: usedHeuristic: 'alias'
-    
+
     R->>IC: Re-classify with match metadata
     IC->>IC: Detect alias usage
     IC->>IC: Downgrade HIGH → MEDIUM
     IC-->>R: Final Classification
-    
+
     R->>D: Build Decision
     D-->>UI: ResolverDecision + InputConfidence
-    
+
     Note over UI: {<br/>  level: "medium",<br/>  reason: "alias_match",<br/>  assumptions: ["interpreted as magerquark"]<br/>}
 ```
 
@@ -366,6 +375,7 @@ sequenceDiagram
 ### Unit Tests
 
 #### InputConfidenceClassifier Tests
+
 ```typescript
 describe('DefaultInputConfidenceClassifier', () => {
   it('should classify exact known foods as HIGH', () => {
@@ -396,12 +406,13 @@ describe('DefaultInputConfidenceClassifier', () => {
 ```
 
 #### Integration Tests
+
 ```typescript
 describe('Input Confidence Integration', () => {
   it('should downgrade confidence when alias is used', async () => {
     const resolver = new SequentialFoodCatalogResolver(sources, engine, config, classifier);
     const result = await resolver.resolve({ raw: 'quark', normalized: 'quark', locale: 'de' });
-    
+
     expect(result.inputConfidence.level).toBe('medium');
     expect(result.inputConfidence.reason).toBe('alias_match');
   });
@@ -411,11 +422,13 @@ describe('Input Confidence Integration', () => {
 ## Migration Strategy
 
 ### Backward Compatibility
+
 - Bestehende ResolverDecision Interfaces bleiben kompatibel
 - InputConfidence wird als optionales Feld hinzugefügt
 - Fallback auf default confidence wenn nicht klassifiziert
 
 ### Rollout Plan
+
 1. **Phase 1:** Domain Model Extension (keine Breaking Changes)
 2. **Phase 2:** Classifier Implementation (interne Services)
 3. **Phase 3:** Integration in Resolution Pipeline
@@ -425,6 +438,7 @@ describe('Input Confidence Integration', () => {
 ## Erwartete Ergebnisse
 
 ### Vor der Implementierung
+
 ```typescript
 // Input: "quark"
 {
@@ -436,6 +450,7 @@ describe('Input Confidence Integration', () => {
 ```
 
 ### Nach der Implementierung
+
 ```typescript
 // Input: "quark"
 {

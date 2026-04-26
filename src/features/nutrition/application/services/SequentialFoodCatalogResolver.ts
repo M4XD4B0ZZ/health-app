@@ -72,7 +72,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     );
     this.negativeCache = new NegativeCacheHelper();
     this.scoreCalculator = new ScoreCalculator();
-    this.inputConfidenceClassifier = inputConfidenceClassifier || new DefaultInputConfidenceClassifier();
+    this.inputConfidenceClassifier =
+      inputConfidenceClassifier || new DefaultInputConfidenceClassifier();
   }
 
   async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
@@ -90,8 +91,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     // DACH Data Strategy: Input Classification-based Source Routing
     const routingStrategy = this.determineSourceRoutingStrategy(query);
     const orderedSources = this.getOrderedSources(routingStrategy);
-    const sources = orderedSources.map(s => s.type);
-    console.log(`[DEBUG] ROUTING sources=${sources.join(",")}`);
+    const sources = orderedSources.map((s) => s.type);
+    console.log(`[DEBUG] ROUTING sources=${sources.join(',')}`);
     console.log(
       `[${traceId}] PROOF_SOURCE_ROUTING_DECISION rawInput="${query.raw}" classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
     );
@@ -614,7 +615,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       normalizedQuery,
       matchMetadata,
     );
-    
+
     decision.inputConfidence = inputConfidence;
 
     // Log input confidence
@@ -630,15 +631,15 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
     // Extract metadata from the best candidate
     const metadata: any = {};
-    
+
     // Check for alias usage in breakdown notes
-    if (best.breakdown.notes.some(note => note.includes('alias'))) {
+    if (best.breakdown.notes.some((note) => note.includes('alias'))) {
       metadata.fromAlias = true;
       metadata.usedHeuristic = 'alias';
     }
 
     // Check for fuzzy matching indicators
-    if (best.breakdown.notes.some(note => note.includes('fuzzy'))) {
+    if (best.breakdown.notes.some((note) => note.includes('fuzzy'))) {
       metadata.usedHeuristic = 'fuzzy';
       metadata.exact = false;
     }
@@ -715,9 +716,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   /**
    * DACH Data Strategy: Determine source routing strategy based on input classification
    */
-  private determineSourceRoutingStrategy(
-    query: FoodSearchQuery,
-  ): SourceRoutingStrategy {
+  private determineSourceRoutingStrategy(query: FoodSearchQuery): SourceRoutingStrategy {
     const inputType = query.inputType || 'ambiguous';
     const locale = query.locale || 'en';
 

@@ -11,6 +11,6 @@ export interface InputConfidenceClassifier {
   classify(
     rawInput: string,
     normalizedInput: string,
-    matchMetadata?: MatchMetadata
+    matchMetadata?: MatchMetadata,
   ): InputConfidenceClassification;
 }

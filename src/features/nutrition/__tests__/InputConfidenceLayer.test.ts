@@ -10,7 +10,7 @@ describe('Input Confidence Layer', () => {
   describe('DefaultInputConfidenceClassifier', () => {
     it('should classify exact known foods as HIGH confidence', () => {
       const result = classifier.classify('magerquark', 'magerquark');
-      
+
       expect(result.level).toBe('high');
       expect(result.reason).toBe('exact_known_food');
       expect(result.assumptions).toBeUndefined();
@@ -21,7 +21,7 @@ describe('Input Confidence Layer', () => {
         usedHeuristic: 'alias',
         fromAlias: true,
       });
-      
+
       expect(result.level).toBe('medium');
       expect(result.reason).toBe('alias_match');
       expect(result.assumptions).toContain('interpreted as magerquark');
@@ -32,21 +32,21 @@ describe('Input Confidence Layer', () => {
         usedHeuristic: 'fuzzy',
         exact: false,
       });
-      
+
       expect(result.level).toBe('low');
       expect(result.reason).toBe('fuzzy_or_partial_match');
     });
 
     it('should classify vague inputs as LOW confidence', () => {
       const result = classifier.classify('essen', 'essen');
-      
+
       expect(result.level).toBe('low');
       expect(result.reason).toBe('vague_input');
     });
 
     it('should default to MEDIUM confidence for unknown inputs', () => {
       const result = classifier.classify('unknown_food', 'unknown_food');
-      
+
       expect(result.level).toBe('medium');
       expect(result.reason).toBe('default_classification');
     });
@@ -56,7 +56,7 @@ describe('Input Confidence Layer', () => {
         usedHeuristic: 'alias',
         fromAlias: true,
       });
-      
+
       expect(result.level).toBe('medium');
       expect(result.reason).toBe('alias_match');
     });
@@ -66,7 +66,7 @@ describe('Input Confidence Layer', () => {
         usedHeuristic: 'fuzzy',
         exact: false,
       });
-      
+
       expect(result.level).toBe('low');
       expect(result.reason).toBe('fuzzy_or_partial_match');
     });

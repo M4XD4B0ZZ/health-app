@@ -156,7 +156,9 @@ describe('BLS Token-based Matching', () => {
 
       if (results.length > 1) {
         for (let i = 0; i < results.length - 1; i++) {
-          expect(results[i].match.similarity).toBeGreaterThanOrEqual(results[i + 1].match.similarity);
+          expect(results[i].match.similarity).toBeGreaterThanOrEqual(
+            results[i + 1].match.similarity,
+          );
         }
       }
     });

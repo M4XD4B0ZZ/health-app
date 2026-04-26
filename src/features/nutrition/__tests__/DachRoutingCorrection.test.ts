@@ -31,7 +31,7 @@ describe('DACH Routing Correction', () => {
         raw: 'quark',
         locale: 'de',
         inputType: 'generic',
-        normalized: 'quark'
+        normalized: 'quark',
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -43,7 +43,7 @@ describe('DACH Routing Correction', () => {
         raw: 'ei',
         locale: 'de',
         inputType: 'ambiguous',
-        normalized: 'ei'
+        normalized: 'ei',
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -55,7 +55,7 @@ describe('DACH Routing Correction', () => {
         raw: 'nutella',
         locale: 'de',
         inputType: 'branded',
-        normalized: 'nutella'
+        normalized: 'nutella',
       });
 
       expect(results.length).toBe(0);
@@ -66,7 +66,7 @@ describe('DACH Routing Correction', () => {
         raw: 'egg',
         locale: 'en',
         inputType: 'generic',
-        normalized: 'egg'
+        normalized: 'egg',
       });
 
       expect(results.length).toBe(0);
@@ -78,7 +78,7 @@ describe('DACH Routing Correction', () => {
         locale: 'de',
         inputType: 'ambiguous',
         normalized: 'ei',
-        traceId: 'test-trace'
+        traceId: 'test-trace',
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -94,7 +94,7 @@ describe('DACH Routing Correction', () => {
         locale: 'de',
         inputType: 'generic',
         normalized: 'quark',
-        traceId: 'test-trace'
+        traceId: 'test-trace',
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -109,7 +109,7 @@ describe('DACH Routing Correction', () => {
         locale: 'de',
         inputType: 'generic',
         normalized: 'toast',
-        traceId: 'test-trace'
+        traceId: 'test-trace',
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -123,7 +123,7 @@ describe('DACH Routing Correction', () => {
         locale: 'de',
         inputType: 'generic',
         normalized: 'buttertoast',
-        traceId: 'test-trace'
+        traceId: 'test-trace',
       });
 
       expect(results.length).toBeGreaterThan(0);
@@ -136,7 +136,7 @@ describe('DACH Routing Correction', () => {
   describe('Core Functionality Tests', () => {
     test('German ambiguous inputs should be allowed in BLS', async () => {
       const blsSource = new BlsStaticSource();
-      
+
       // Test various German ambiguous inputs
       const testCases = [
         { input: 'ei', expected: 'Huehnerei' }, // CORRECTED: now expects neutral egg
@@ -149,7 +149,7 @@ describe('DACH Routing Correction', () => {
           locale: 'de',
           inputType: 'ambiguous',
           normalized: testCase.input,
-          traceId: `test-${testCase.input}`
+          traceId: `test-${testCase.input}`,
         });
 
         if (testCase.expected) {

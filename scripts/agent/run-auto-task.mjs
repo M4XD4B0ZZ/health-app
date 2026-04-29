@@ -179,6 +179,23 @@ function analyzeVerifyReport() {
   };
 }
 
+// Model Selection laden
+function loadModelSelection() {
+  const modelSelectionPath = '.agent/out/model-selection.json';
+
+  if (!existsSync(modelSelectionPath)) {
+    return null;
+  }
+
+  try {
+    const selectionContent = readFileSync(modelSelectionPath, 'utf-8');
+    return JSON.parse(selectionContent);
+  } catch (e) {
+    console.warn(`⚠️  Fehler beim Lesen von model-selection.json: ${e.message}`);
+    return null;
+  }
+}
+
 // Auto-Report Generator
 function generateAutoReport(
   taskId,
@@ -188,16 +205,29 @@ function generateAutoReport(
   fixAttempted,
   finalStatus,
   nextAction,
+  modelSelection = null,
 ) {
   const timestamp = new Date().toISOString();
+
+  const modelInfo = modelSelection
+    ? `
+## Model Selection
+
+**Gewähltes Modell:** ${modelSelection.model}
+**Cost Tier:** ${modelSelection.cost || 'N/A'}
+**Risk Level:** ${modelSelection.risk}
+**Grund:** ${modelSelection.reason}
+**Quelle:** ${modelSelection.source}
+
+---`
+    : '';
 
   return `# Auto Task Report
 
 **Generiert:** ${timestamp}
 **Task-ID:** ${taskId || 'N/A'}
 **Task-Titel:** ${taskTitle || 'N/A'}
-
----
+${modelInfo}
 
 ## Ausführung
 
@@ -295,6 +325,16 @@ async function main() {
     // State nach Prompt-Vorbereitung aktualisieren
     state = loadState();
 
+    // 1.5. Model Selection durchführen
+    console.log('\n🎯 Phase 1.5: Model Selection');
+    const modelResult = await runScript('scripts/agent/select-model.mjs');
+
+    if (!modelResult.success) {
+      console.warn('⚠️  Model Selection fehlgeschlagen, Worker verwendet Fallback');
+    } else {
+      console.log('✅ Model Selection erfolgreich');
+    }
+
     // 2. OpenCode Worker ausführen
     console.log('\n🎯 Phase 2: OpenCode Worker ausführen');
     const workerResult = await runNpmScript('agent:worker');
@@ -314,6 +354,9 @@ async function main() {
     // Verify-Report analysieren
     const verifyReport = analyzeVerifyReport();
 
+    // Model Selection für Report laden
+    const modelSelection = loadModelSelection();
+
     if (verifyReport.passed) {
       // Erfolg: Handoff-Template sollte bereits erstellt sein
       console.log('\n✅ Verification erfolgreich');
@@ -332,6 +375,7 @@ async function main() {
         false,
         'ready_for_human_review',
         'Review git diff, verify report, opencode report and handoff. Commit manually if acceptable.',
+        modelSelection,
       );
       writeFileSync(AUTO_REPORT_PATH, autoReport);
 
@@ -384,6 +428,7 @@ async function main() {
             true,
             'ready_for_human_review',
             'Review git diff, verify report, opencode report and handoff. Commit manually if acceptable.',
+            modelSelection,
           );
           writeFileSync(AUTO_REPORT_PATH, autoReport);
 
@@ -409,6 +454,7 @@ async function main() {
             true,
             'auto_failed_needs_human',
             'Auto fix failed. Review verify-report.md, fix-prompt.md and opencode-report.md manually.',
+            modelSelection,
           );
           writeFileSync(AUTO_REPORT_PATH, autoReport);
 
@@ -435,6 +481,7 @@ async function main() {
           false,
           'auto_failed_needs_human',
           'Verification failed and no fix available. Review verify-report.md and opencode-report.md manually.',
+          modelSelection,
         );
         writeFileSync(AUTO_REPORT_PATH, autoReport);
 
@@ -454,6 +501,7 @@ async function main() {
       error: error.message,
     });
 
+    const modelSelection = loadModelSelection();
     const autoReport = generateAutoReport(
       state.currentTaskId,
       state.currentTaskTitle,
@@ -462,6 +510,7 @@ async function main() {
       false,
       'error',
       `Unerwarteter Fehler: ${error.message}`,
+      modelSelection,
     );
     writeFileSync(AUTO_REPORT_PATH, autoReport);
 

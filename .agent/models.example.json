@@ -1,0 +1,32 @@
+{
+  "models": [
+    {
+      "id": "openai/gpt-4.1",
+      "tier": "cheap",
+      "strengths": ["simple_tasks"],
+      "risk": "low",
+      "cost": "low"
+    },
+    {
+      "id": "openai/gpt-5.3-codex",
+      "tier": "default",
+      "strengths": ["code_editing", "tests", "refactor"],
+      "risk": "medium",
+      "cost": "medium"
+    },
+    {
+      "id": "openai/gpt-5.4",
+      "tier": "strong",
+      "strengths": ["reasoning", "architecture", "multi_file"],
+      "risk": "high",
+      "cost": "high"
+    },
+    {
+      "id": "anthropic/claude-sonnet-4-5",
+      "tier": "strong",
+      "strengths": ["long_context", "analysis"],
+      "risk": "high",
+      "cost": "high"
+    }
+  ]
+}

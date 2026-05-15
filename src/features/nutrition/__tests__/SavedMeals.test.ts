@@ -42,7 +42,7 @@ describe('Saved Meals System', () => {
   let createUseCase: CreateSavedMealFromDateUseCase;
   let logUseCase: LogSavedMealToDateUseCase;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     foodEntryRepo = new InMemoryFoodEntryRepository();
     savedMealRepo = new InMemorySavedMealRepository();
     lookup = new InMemoryNutritionLookup();
@@ -52,6 +52,25 @@ describe('Saved Meals System', () => {
     createUseCase = new CreateSavedMealFromDateUseCase(foodEntryRepo, savedMealRepo, clock, idGen);
 
     logUseCase = new LogSavedMealToDateUseCase(savedMealRepo, foodEntryRepo, clock, idGen, lookup);
+
+    await lookup.upsertPer100gByName('chicken', {
+      calories: 165,
+      protein: 31,
+      carbs: 0,
+      fat: 3.6,
+    });
+    await lookup.upsertPer100gByName('rice', {
+      calories: 130,
+      protein: 2.8,
+      carbs: 28,
+      fat: 0.3,
+    });
+    await lookup.upsertPer100gByName('broccoli', {
+      calories: 34,
+      protein: 2.8,
+      carbs: 6.6,
+      fat: 0.4,
+    });
   });
 
   describe('CreateSavedMealFromDateUseCase', () => {
@@ -256,7 +275,7 @@ describe('Saved Meals System', () => {
       expect(entries[0].confidenceReason).toBe('Exact match found in generic database.');
     });
 
-    it('should use user source type if lookup not found', async () => {
+    it('should block save if lookup not found', async () => {
       // Arrange: Create template with unknown food
       const template = {
         id: 'template-1',
@@ -267,15 +286,12 @@ describe('Saved Meals System', () => {
       };
       await savedMealRepo.create(template);
 
-      // Act
-      const entries = await logUseCase.execute('template-1', '2024-01-16');
+      await expect(logUseCase.execute('template-1', '2024-01-16')).rejects.toThrow(
+        'ZERO_MACROS_BLOCKED for saved meal item: 100g unknown-food',
+      );
 
-      // Assert: Not enriched, user source type
-      expect(entries[0].calories).toBe(0);
-      expect(entries[0].protein).toBe(0);
-      expect(entries[0].sourceType).toBe('user');
-      expect(entries[0].confidenceScore).toBe(0.3); // low confidence
-      expect(entries[0].confidenceReason).toBe('Grams provided but nutrition unknown.');
+      const persistedEntries = await foodEntryRepo.listEntriesForDate('2024-01-16');
+      expect(persistedEntries).toHaveLength(0);
     });
 
     it('should persist all entries to repository', async () => {

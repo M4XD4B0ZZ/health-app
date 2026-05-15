@@ -8,6 +8,7 @@ describe('logResolvedNutritionInput', () => {
     expect(result.dispatch.readyRequests.length).toBeGreaterThan(0);
     expect(result.resolvedResults.length).toBe(result.dispatch.readyRequests.length);
     expect(result.persistedEntries.length).toBe(result.dispatch.readyRequests.length);
+    expect(result.blockedEntries).toBe(0);
     expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 
@@ -18,6 +19,7 @@ describe('logResolvedNutritionInput', () => {
     expect(result.dispatch.readyRequests.length).toBe(1);
     expect(result.resolvedResults.length).toBe(1);
     expect(result.persistedEntries.length).toBe(1);
+    expect(result.blockedEntries).toBe(0);
     expect(result.dispatch.unresolvedRequests.length).toBe(1);
   });
 
@@ -28,6 +30,7 @@ describe('logResolvedNutritionInput', () => {
     expect(result.dispatch.readyRequests.length).toBe(0);
     expect(result.resolvedResults.length).toBe(0);
     expect(result.persistedEntries.length).toBe(0);
+    expect(result.blockedEntries).toBe(0);
     expect(result.dispatch.unresolvedRequests.length).toBe(1);
   });
 });

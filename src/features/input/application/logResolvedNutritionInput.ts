@@ -9,6 +9,7 @@ export interface LogResolvedNutritionInputResult {
   dispatch: PreparedNutritionResolverDispatch;
   resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
   persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
+  blockedEntries: number;
 }
 
 /**
@@ -26,10 +27,12 @@ export async function logResolvedNutritionInput(
       : await resolvePreparedNutritionInputs(rawInputOrDispatch);
 
   const persistedEntries = resolvedResults.filter((resolved) => resolved.calories > 0);
+  const blockedEntries = Math.max(0, dispatch.readyRequests.length - persistedEntries.length);
 
   return {
     dispatch,
     resolvedResults,
     persistedEntries,
+    blockedEntries,
   };
 }

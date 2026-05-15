@@ -79,6 +79,7 @@ const JournalScreen: React.FC = () => {
       const result = await logResolvedNutritionInput(rawInput);
       const persistedCount = result.persistedEntries.length;
       const unresolvedCount = result.dispatch.unresolvedRequests.length;
+      const blockedCount = result.blockedEntries;
 
       setUnresolvedItems(
         result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
@@ -97,6 +98,12 @@ const JournalScreen: React.FC = () => {
       });
 
       setRecognizedItems(recognizedWithKcal);
+
+      if (blockedCount > 0) {
+        setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+        setProcessingState('error');
+        return;
+      }
 
       if (persistedCount > 0 && unresolvedCount === 0) {
         setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);

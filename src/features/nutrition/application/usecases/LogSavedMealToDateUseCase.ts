@@ -77,13 +77,13 @@ export class LogSavedMealToDateUseCase {
 
           // Update confidence
           entry.confidenceScore = this.engine.confidenceForSource('generic');
-
-          // P0-004: Strict Zero-Macro Blocker
-          // Only block if nutrition data was found but resulted in zero macros
-          if (!entry.calories || entry.calories <= 0) {
-            throw new Error(`ZERO_MACROS_BLOCKED for saved meal item: ${rawInput}`);
-          }
         }
+      }
+
+      // P0-004: Strict Zero-Macro Blocker
+      // Block persistence for unresolved or zero-macro entries.
+      if (!entry.calories || entry.calories <= 0) {
+        throw new Error(`ZERO_MACROS_BLOCKED for saved meal item: ${rawInput}`);
       }
 
       // Generate confidence metadata

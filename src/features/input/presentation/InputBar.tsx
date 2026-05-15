@@ -25,8 +25,11 @@ export const InputBar: React.FC = () => {
       const result = await logResolvedNutritionInput(value);
       const persistedCount = result.persistedEntries.length;
       const unresolved = result.dispatch.unresolvedRequests.length;
+      const blocked = result.blockedEntries;
 
-      if (persistedCount > 0) {
+      if (blocked > 0) {
+        setErrorMessage('Eintrag konnte nicht verarbeitet werden');
+      } else if (persistedCount > 0) {
         if (unresolved > 0) {
           setSuccessMessage(
             `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolved} nicht erkannt`,
@@ -46,8 +49,8 @@ export const InputBar: React.FC = () => {
       // Set recognized items from parsed input
       setRecognizedItems(result.dispatch.parsed.items);
 
-      // Dish detection hint
-      if (result.dispatch.interpretation.type === 'dish') {
+      // Dish detection hint (only after at least one successful persistence)
+      if (result.dispatch.interpretation.type === 'dish' && persistedCount > 0 && blocked === 0) {
         const dishName =
           result.dispatch.interpretation.summary === 'dish_detected'
             ? value.trim()

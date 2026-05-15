@@ -52,6 +52,37 @@ npm run agent:prompt
 
 **Output:** `.agent/out/next-prompt.md`
 
+### 2.1. build-worker-prompt.mjs
+
+**Zweck:** Erstellt einen kompakten, execution-orientierten Prompt für OpenCode Worker.
+
+**Verhalten:**
+
+- Liest `.agent/out/selected-task.json`
+- Erstellt kompakten Prompt (ca. 1200-1800 Wörter) mit:
+  - Task-Informationen
+  - Arbeitsauftrag
+  - Harte Grenzen
+  - Verify Commands
+  - Handoff-Erwartung
+- **Keine langen Governance-Abschnitte** - nur Referenzen
+- **Execution-orientiert** statt dokumentations-orientiert
+
+**Verwendung:**
+
+```bash
+npm run agent:worker-prompt
+```
+
+**Voraussetzung:** `npm run agent:next` muss zuerst ausgeführt werden.
+
+**Output:** `.agent/out/worker-prompt.md`
+
+**Unterschied zu build-roo-prompt.mjs:**
+
+- **Roo-Prompt:** Ausführlich, governance-fokussiert, für manuelle Arbeit
+- **Worker-Prompt:** Kompakt, execution-fokussiert, für automatisierte Worker
+
 ### 3. run-verify.mjs
 
 **Zweck:** Führt die Standard-Verification-Pipeline aus und erstellt einen Report.
@@ -287,6 +318,7 @@ Alle Script-Outputs werden in `.agent/out/` gespeichert:
 
 - `selected-task.json` - Ausgewählter Task (von select-next-task.mjs)
 - `next-prompt.md` - Roo-Prompt (von build-roo-prompt.mjs)
+- `worker-prompt.md` - Worker-Prompt (von build-worker-prompt.mjs)
 - `verify-report.md` - Verification-Report (von run-verify.mjs)
 - `handoff-template.md` - Handoff-Template (von write-handoff-template.mjs)
 
@@ -387,7 +419,8 @@ mkdir -p .agent/out
 
 - Robust Repo-Root ermitteln
 - **Konfiguration laden:** Liest `.agent/config.json` falls vorhanden, sonst Default-Werte
-- Prüfen auf `.agent/out/next-prompt.md`, Fehlermeldung falls nicht vorhanden
+- **Standard-Prompt:** Verwendet `.agent/out/worker-prompt.md`, Fallback zu `next-prompt.md`
+- **Automatische Worker-Prompt-Erzeugung:** Falls `worker-prompt.md` fehlt, wird `npm run agent:worker-prompt` ausgeführt
 - Safety-Header vor Prompt setzen:
   - "You are running as an automated OpenCode worker."
   - "Implement only the selected task."
@@ -405,6 +438,12 @@ mkdir -p .agent/out
 
 ```bash
 npm run agent:worker
+```
+
+**CLI-Argument für custom Prompt:**
+
+```bash
+node scripts/agent/run-opencode-worker.mjs .agent/out/fix-prompt.md
 ```
 
 **Output:** `.agent/out/opencode-report.md`, aktualisierte `.agent/state.json`
@@ -490,11 +529,13 @@ Fallback: `opencode -p "<prompt>" -q` (umstellbar im Code)
 Der Orchestrator automatisiert einen vollständigen Task-Zyklus:
 
 1. **Task/Prompt vorbereiten:** Sicherstellen, dass ein Prompt existiert (falls nicht: run-agent-loop.mjs ausführen)
-2. **OpenCode Worker ausführen:** npm run agent:worker
-3. **Verify ausführen:** npm run agent:verify
-4. **State aktualisieren:** npm run agent:run ausführen
-5. **Fix-Logik:** Bei Verify-Fail genau einen Fix-Prompt erzeugen und optional noch einmal OpenCode ausführen
-6. **Human Review Gate:** Danach IMMER stoppen
+2. **Model Selection:** npm run agent:model
+3. **Worker-Prompt erstellen:** npm run agent:worker-prompt
+4. **OpenCode Worker ausführen:** npm run agent:worker
+5. **Verify ausführen:** npm run agent:verify
+6. **State aktualisieren:** npm run agent:run ausführen
+7. **Fix-Logik:** Bei Verify-Fail genau einen Fix-Prompt erzeugen und optional noch einmal OpenCode ausführen
+8. **Human Review Gate:** Danach IMMER stoppen
 
 **Verwendung:**
 
@@ -1195,6 +1236,95 @@ npm run agent:watch
 - Graceful Degradation bei fehlenden Dateien
 - JSON Parse Error Recovery
 - Sauberer Exit bei Interrupts
+
+## Phase D.9: Separater Worker Prompt
+
+### Problemstellung
+
+OpenCode funktioniert standalone mit kleinem Prompt, hängt aber bei `npm run agent:auto`/`agent:worker`. Ursache ist, dass `.agent/out/next-prompt.md` für Roo zu lang/zu breit ist und als Worker-Prompt ungeeignet ist.
+
+### Lösung: Prompt-Trennung
+
+**Roo-Prompt und OpenCode-Worker-Prompt sind jetzt getrennt:**
+
+- **`next-prompt.md`** - Ausführlich für Roo/manuelle Arbeit (ca. 3000+ Wörter)
+- **`worker-prompt.md`** - Kompakt für OpenCode/automation (ca. 1200-1800 Wörter)
+
+### Automatische Integration
+
+**run-agent-loop.mjs:**
+
+- Erzeugt automatisch beide Prompts bei Task-Auswahl
+- `worker-prompt.md` wird zusätzlich zu `next-prompt.md` erstellt
+
+**run-opencode-worker.mjs:**
+
+- Standard: `worker-prompt.md`
+- Fallback: `next-prompt.md` (mit Warnung)
+- CLI-Argument weiterhin möglich: `node scripts/agent/run-opencode-worker.mjs .agent/out/fix-prompt.md`
+
+**run-auto-task.mjs:**
+
+- Phase 1.6: Automatische Worker-Prompt-Erzeugung vor Worker-Start
+- Sicherstellt, dass `worker-prompt.md` verfügbar ist
+
+### Workflow-Änderungen
+
+**Manueller Workflow:**
+
+```bash
+# Roo/manuelle Arbeit
+npm run agent:run          # Erzeugt next-prompt.md + worker-prompt.md
+# Kopiere next-prompt.md in Roo
+
+# OpenCode Worker
+npm run agent:worker       # Verwendet worker-prompt.md automatisch
+```
+
+**Automatisierter Workflow:**
+
+```bash
+# Vollautomatisch
+npm run agent:auto         # Verwendet worker-prompt.md automatisch
+```
+
+**Worker-Prompt manuell erzeugen:**
+
+```bash
+npm run agent:worker-prompt
+```
+
+### Prompt-Unterschiede
+
+| Aspekt         | next-prompt.md (Roo)            | worker-prompt.md (Worker)      |
+| -------------- | ------------------------------- | ------------------------------ |
+| **Zielgruppe** | Manuelle Roo-Arbeit             | Automatisierte OpenCode Worker |
+| **Länge**      | ~3000+ Wörter                   | ~1200-1800 Wörter              |
+| **Governance** | Vollständige Abschnitte         | Nur Referenzen                 |
+| **Fokus**      | Dokumentation + Implementierung | Execution-orientiert           |
+| **Handoff**    | Ausführliches Template          | Kompakte Zusammenfassung       |
+
+### Technische Details
+
+**build-worker-prompt.mjs:**
+
+- Liest `selected-task.json`
+- Erzeugt kompakten, execution-orientierten Prompt
+- Keine langen Governance-Abschnitte
+- Fokus auf Arbeitsauftrag und harte Grenzen
+- Größenanzeige bei Erstellung
+
+**Fallback-Mechanismus:**
+
+- Worker prüft zuerst `worker-prompt.md`
+- Falls nicht vorhanden: `next-prompt.md` mit Warnung
+- CLI-Argument überschreibt beide
+
+**Integration in bestehende Workflows:**
+
+- Alle bestehenden Workflows funktionieren weiterhin
+- Neue Worker-Prompt-Funktionalität ist additiv
+- Keine Breaking Changes
 
 ---
 

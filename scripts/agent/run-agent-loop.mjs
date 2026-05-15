@@ -228,6 +228,18 @@ async function main() {
       const result = await runScript('scripts/agent/build-roo-prompt.mjs');
 
       if (result.success) {
+        // Zusätzlich worker-prompt.md erzeugen
+        console.log('🔄 Erzeuge zusätzlich worker-prompt.md...');
+        const workerPromptResult = await runScript('scripts/agent/build-worker-prompt.mjs');
+
+        if (workerPromptResult.success) {
+          console.log('✅ Worker-Prompt erstellt');
+        } else {
+          console.warn(
+            '⚠️  Worker-Prompt-Erstellung fehlgeschlagen, aber Roo-Prompt ist verfügbar',
+          );
+        }
+
         state = updateState({
           currentTaskId: state.currentTaskId,
           currentTaskTitle: state.currentTaskTitle,

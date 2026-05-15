@@ -335,13 +335,46 @@ async function main() {
       console.log('✅ Model Selection erfolgreich');
     }
 
+    // 1.6. Worker-Prompt sicherstellen
+    console.log('\n🎯 Phase 1.6: Worker-Prompt sicherstellen');
+    const workerPromptResult = await runNpmScript('agent:worker-prompt');
+
+    if (!workerPromptResult.success) {
+      console.warn('⚠️  Worker-Prompt-Erstellung fehlgeschlagen, Worker verwendet Fallback');
+    } else {
+      console.log('✅ Worker-Prompt erfolgreich erstellt');
+    }
+
     // 2. OpenCode Worker ausführen
     console.log('\n🎯 Phase 2: OpenCode Worker ausführen');
     const workerResult = await runNpmScript('agent:worker');
 
     console.log(`Worker Exit Code: ${workerResult.exitCode}`);
 
-    // 3. Verify ausführen
+    // Check if worker failed - if so, skip verify and exit
+    if (!workerResult.success) {
+      console.log('\n❌ Worker fehlgeschlagen - überspringe Verify');
+
+      // Model Selection für Report laden
+      const modelSelection = loadModelSelection();
+
+      const autoReport = generateAutoReport(
+        state.currentTaskId,
+        state.currentTaskTitle,
+        workerResult.exitCode,
+        { exists: false, passed: false },
+        false,
+        'worker_failed',
+        'Worker failed, review opencode-report.md',
+        modelSelection,
+      );
+      writeFileSync(AUTO_REPORT_PATH, autoReport);
+
+      console.log('\n🚪 Gate: Worker failed, review opencode-report.md');
+      process.exit(1);
+    }
+
+    // 3. Verify ausführen (nur wenn Worker erfolgreich)
     console.log('\n🎯 Phase 3: Verify ausführen');
     const verifyResult = await runNpmScript('agent:verify');
 

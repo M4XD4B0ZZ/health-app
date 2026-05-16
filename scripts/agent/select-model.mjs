@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { join } from 'path';
+import { checkStaleAndExit } from './stale-detection.mjs';
 
 /**
  * Model Selection Agent (Phase D.6)
@@ -243,6 +244,9 @@ function writeModelSelection(selection) {
 async function main() {
   try {
     console.log('🚀 Model Selection Agent gestartet (Phase D.6)\n');
+
+    // STALE DETECTION: Prüfe ob selected-task.json veraltet ist
+    checkStaleAndExit('select-model.mjs');
 
     // 1. Model Registry laden
     const registry = loadModelRegistry();

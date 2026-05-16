@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -10,6 +10,9 @@ import { join } from 'path';
  * 1. Bevorzugt ersten Task mit Status `in_progress`
  * 2. Falls kein `in_progress`, ersten Task mit Status `todo`
  * 3. Schreibt Ergebnis als JSON nach .agent/out/selected-task.json
+ *
+ * WICHTIG: Überschreibt IMMER die selected-task.json, auch wenn sie existiert.
+ * Parst IMMER aus der aktuellen ROADMAP.md, ignoriert vorherige Auswahl.
  */
 
 const ROADMAP_PATH = 'ROADMAP.md';
@@ -151,16 +154,23 @@ function main() {
       console.log(`💡 Grund: ${result.reason}`);
     }
 
-    // JSON-Output schreiben
+    // Output-Verzeichnis sicherstellen
+    const outputDir = '.agent/out';
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
+    }
+
+    // JSON-Output schreiben (IMMER überschreiben)
     const outputData = {
       timestamp: new Date().toISOString(),
       totalTasks: tasks.length,
       availableTasks: tasks.filter((t) => t.status === 'todo' || t.status === 'in_progress').length,
       result: result,
+      roadmapModified: existsSync(ROADMAP_PATH) ? statSync(ROADMAP_PATH).mtime.toISOString() : null,
     };
 
     writeFileSync(OUTPUT_PATH, JSON.stringify(outputData, null, 2));
-    console.log(`\n💾 Ergebnis gespeichert: ${OUTPUT_PATH}`);
+    console.log(`\n💾 Ergebnis gespeichert: ${OUTPUT_PATH} (überschrieben)`);
 
     // Exit-Code setzen
     process.exit(result.selected ? 0 : 1);

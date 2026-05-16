@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { join } from 'path';
+import { checkSelectedTaskStale, logStaleCheckResult } from './stale-detection.mjs';
 
 /**
  * Agent Orchestrator - Agent Loop Runner (Phase B)
@@ -170,6 +171,45 @@ async function main() {
 
     if (state.currentTaskId) {
       console.log(`📋 Aktueller Task: ${state.currentTaskId} - ${state.currentTaskTitle}`);
+    }
+
+    // STALE DETECTION: Prüfe vor Phase A/B ob selected-task.json veraltet ist
+    console.log('\n🔍 Stale Detection: Prüfe selected-task.json...');
+    const staleCheck = checkSelectedTaskStale();
+    logStaleCheckResult(staleCheck);
+
+    if (staleCheck.isStale && staleCheck.shouldReselect) {
+      console.log('\n🔄 selected-task.json ist veraltet - führe Neuauswahl durch');
+
+      // State auf task_selection_required setzen
+      state = updateState({
+        status: 'task_selection_required',
+        lastStep: 'stale_detection_triggered',
+        iteration: state.iteration + 1,
+      });
+
+      // Führe select-next-task.mjs aus
+      const result = await runScript('scripts/agent/select-next-task.mjs');
+
+      if (result.success) {
+        // Task-Informationen aus JSON laden
+        const taskData = JSON.parse(readFileSync(SELECTED_TASK_PATH, 'utf-8'));
+        const selectedTask = taskData.result.selected;
+
+        state = updateState({
+          currentTaskId: selectedTask ? selectedTask.id : null,
+          currentTaskTitle: selectedTask ? selectedTask.title : null,
+          status: 'task_selected',
+          lastStep: 'select_next_task_after_stale',
+          iteration: state.iteration + 1,
+        });
+
+        console.log(`✅ Neuer Task ausgewählt: ${state.currentTaskId}`);
+        return;
+      } else {
+        console.error('❌ Task-Neuauswahl fehlgeschlagen');
+        process.exit(1);
+      }
     }
 
     // A) Task-Auswahl und State-Update

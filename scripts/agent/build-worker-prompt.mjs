@@ -2,6 +2,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { checkStaleAndExit } from './stale-detection.mjs';
 
 /**
  * Agent Orchestrator - Worker Prompt Builder
@@ -113,6 +114,9 @@ Fasse am Ende deiner Antwort zusammen:
 
 function main() {
   try {
+    // STALE DETECTION: Prüfe ob selected-task.json veraltet ist
+    checkStaleAndExit('build-worker-prompt.mjs');
+
     // Selected task JSON prüfen
     if (!existsSync(SELECTED_TASK_PATH)) {
       console.error(`❌ ${SELECTED_TASK_PATH} nicht gefunden`);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, statSync } from 'fs';
 import { spawn } from 'child_process';
 import { join } from 'path';
 
@@ -268,6 +268,36 @@ function runNpmScript(scriptName) {
   });
 }
 
+// Task Artifacts löschen/invalidieren
+function cleanTaskArtifacts() {
+  const artifactPaths = [
+    '.agent/out/selected-task.json',
+    '.agent/out/next-prompt.md',
+    '.agent/out/worker-prompt.md',
+    '.agent/out/model-selection.json',
+    '.agent/out/opencode-worker-done.json',
+    '.agent/out/verify-report.md',
+    '.agent/out/fix-prompt.md',
+  ];
+
+  let deletedCount = 0;
+
+  artifactPaths.forEach((path) => {
+    if (existsSync(path)) {
+      try {
+        unlinkSync(path);
+        deletedCount++;
+        console.log(`🗑️  Gelöscht: ${path}`);
+      } catch (error) {
+        console.warn(`⚠️  Fehler beim Löschen von ${path}: ${error.message}`);
+      }
+    }
+  });
+
+  console.log(`✅ ${deletedCount} Task artifacts gelöscht/invalidiert`);
+  return deletedCount;
+}
+
 // Model Selection laden
 function loadModelSelection() {
   if (!existsSync(MODEL_SELECTION_PATH)) {
@@ -309,12 +339,49 @@ function generateMilestoneReport(startTime, config, tasks, finalStatus) {
   const duration = Date.now() - startTime;
   const durationMinutes = Math.round((duration / 60000) * 10) / 10;
 
+  // ROADMAP.md und selected-task.json Timestamps
+  let roadmapModified = 'N/A';
+  let selectedTaskTimestamp = 'N/A';
+
+  try {
+    if (existsSync('ROADMAP.md')) {
+      const roadmapStat = statSync('ROADMAP.md');
+      roadmapModified = roadmapStat.mtime.toISOString();
+    }
+  } catch (e) {
+    roadmapModified = `Error: ${e.message}`;
+  }
+
+  try {
+    if (existsSync('.agent/out/selected-task.json')) {
+      const selectedTaskContent = readFileSync('.agent/out/selected-task.json', 'utf-8');
+      const selectedTaskData = JSON.parse(selectedTaskContent);
+      selectedTaskTimestamp = selectedTaskData.timestamp || 'N/A';
+    }
+  } catch (e) {
+    selectedTaskTimestamp = `Error: ${e.message}`;
+  }
+
   let report = `# Milestone Report
 
 **Generiert:** ${timestamp}
 **Gestartet:** ${new Date(startTime).toISOString()}
 **Dauer:** ${durationMinutes} Minuten
 **Status:** ${finalStatus}
+
+---
+
+## Timestamps
+
+**ROADMAP.md Modified:** ${roadmapModified}
+**Selected Task Timestamp:** ${selectedTaskTimestamp}
+**Stale Detection:** ${
+    roadmapModified !== 'N/A' && selectedTaskTimestamp !== 'N/A'
+      ? new Date(roadmapModified) > new Date(selectedTaskTimestamp)
+        ? '⚠️ ROADMAP.md ist neuer'
+        : '✅ OK'
+      : 'N/A'
+  }
 
 ---
 
@@ -494,8 +561,12 @@ async function main() {
         failed: false,
       };
 
+      // 2.0. Task artifacts löschen/invalidieren
+      console.log('🧹 Phase 0: Task artifacts löschen');
+      cleanTaskArtifacts();
+
       // 2.1. Task vorbereiten
-      console.log('📋 Phase 1: Task vorbereiten');
+      console.log('\n📋 Phase 1: Task vorbereiten');
       const runResult = await runNpmScript('agent:run');
 
       if (!runResult.success) {

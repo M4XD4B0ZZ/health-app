@@ -164,6 +164,12 @@ async function main() {
   try {
     console.log('🚀 Agent Loop gestartet\n');
 
+    // Prüfe AGENT_NO_TASK_RESELECT Environment Variable
+    const noTaskReselect = process.env.AGENT_NO_TASK_RESELECT === '1';
+    if (noTaskReselect) {
+      console.log('🚫 AGENT_NO_TASK_RESELECT=1 - Task-Neuauswahl deaktiviert');
+    }
+
     // State laden/initialisieren
     let state = loadState();
     console.log(`📊 Aktueller Status: ${state.status}`);
@@ -173,43 +179,58 @@ async function main() {
       console.log(`📋 Aktueller Task: ${state.currentTaskId} - ${state.currentTaskTitle}`);
     }
 
-    // STALE DETECTION: Prüfe vor Phase A/B ob selected-task.json veraltet ist
-    console.log('\n🔍 Stale Detection: Prüfe selected-task.json...');
-    const staleCheck = checkSelectedTaskStale();
-    logStaleCheckResult(staleCheck);
+    // STALE DETECTION: Nur in bestimmten States und wenn nicht deaktiviert
+    const allowStaleDetection =
+      !noTaskReselect &&
+      ![
+        'worker_completed',
+        'ready_for_human_review',
+        'verify_failed',
+        'auto_failed_needs_human',
+      ].includes(state.status);
 
-    if (staleCheck.isStale && staleCheck.shouldReselect) {
-      console.log('\n🔄 selected-task.json ist veraltet - führe Neuauswahl durch');
+    if (allowStaleDetection) {
+      console.log('\n🔍 Stale Detection: Prüfe selected-task.json...');
+      const staleCheck = checkSelectedTaskStale();
+      logStaleCheckResult(staleCheck);
 
-      // State auf task_selection_required setzen
-      state = updateState({
-        status: 'task_selection_required',
-        lastStep: 'stale_detection_triggered',
-        iteration: state.iteration + 1,
-      });
+      if (staleCheck.isStale && staleCheck.shouldReselect) {
+        console.log('\n🔄 selected-task.json ist veraltet - führe Neuauswahl durch');
 
-      // Führe select-next-task.mjs aus
-      const result = await runScript('scripts/agent/select-next-task.mjs');
-
-      if (result.success) {
-        // Task-Informationen aus JSON laden
-        const taskData = JSON.parse(readFileSync(SELECTED_TASK_PATH, 'utf-8'));
-        const selectedTask = taskData.result.selected;
-
+        // State auf task_selection_required setzen
         state = updateState({
-          currentTaskId: selectedTask ? selectedTask.id : null,
-          currentTaskTitle: selectedTask ? selectedTask.title : null,
-          status: 'task_selected',
-          lastStep: 'select_next_task_after_stale',
+          status: 'task_selection_required',
+          lastStep: 'stale_detection_triggered',
           iteration: state.iteration + 1,
         });
 
-        console.log(`✅ Neuer Task ausgewählt: ${state.currentTaskId}`);
-        return;
-      } else {
-        console.error('❌ Task-Neuauswahl fehlgeschlagen');
-        process.exit(1);
+        // Führe select-next-task.mjs aus
+        const result = await runScript('scripts/agent/select-next-task.mjs');
+
+        if (result.success) {
+          // Task-Informationen aus JSON laden
+          const taskData = JSON.parse(readFileSync(SELECTED_TASK_PATH, 'utf-8'));
+          const selectedTask = taskData.result.selected;
+
+          state = updateState({
+            currentTaskId: selectedTask ? selectedTask.id : null,
+            currentTaskTitle: selectedTask ? selectedTask.title : null,
+            status: 'task_selected',
+            lastStep: 'select_next_task_after_stale',
+            iteration: state.iteration + 1,
+          });
+
+          console.log(`✅ Neuer Task ausgewählt: ${state.currentTaskId}`);
+          return;
+        } else {
+          console.error('❌ Task-Neuauswahl fehlgeschlagen');
+          process.exit(1);
+        }
       }
+    } else {
+      console.log(
+        `\n🚫 Stale Detection übersprungen (Status: ${state.status}, NoReselect: ${noTaskReselect})`,
+      );
     }
 
     // A) Task-Auswahl und State-Update

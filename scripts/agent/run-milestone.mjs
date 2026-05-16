@@ -243,13 +243,17 @@ function checkDiffGuard(config) {
 }
 
 // Script-Ausführung
-function runNpmScript(scriptName) {
+function runNpmScript(scriptName, env = {}) {
   return new Promise((resolve, reject) => {
     console.log(`🔄 Ausführung: npm run ${scriptName}`);
 
     const process = spawn('npm', ['run', scriptName], {
       stdio: 'inherit',
       shell: true,
+      env: {
+        ...process.env,
+        ...env,
+      },
     });
 
     process.on('close', (code) => {
@@ -642,9 +646,9 @@ async function main() {
       const verifyResult = await runNpmScript('agent:verify');
       console.log(`Verify Exit Code: ${verifyResult.exitCode}`);
 
-      // 2.7. State aktualisieren
+      // 2.7. State aktualisieren (ohne Task-Neuauswahl)
       console.log('\n🔄 Phase 6: State aktualisieren');
-      await runNpmScript('agent:run');
+      await runNpmScript('agent:run', { AGENT_NO_TASK_RESELECT: '1' });
 
       // Verify-Report analysieren
       const verifyReport = analyzeVerifyReport();

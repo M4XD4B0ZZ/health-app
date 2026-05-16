@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 import { readFileSync, existsSync, statSync } from 'fs';
+import { getTaskStatusFromRoadmap } from './roadmap-parser.mjs';
 
 /**
  * Stale Detection Utilities
  *
  * Hilfsfunktionen zur Erkennung veralteter selected-task.json Dateien
  * basierend auf ROADMAP.md Änderungen und Task-Status.
+ *
+ * Nutzt robusten Parser aus roadmap-parser.mjs für konsistente Task-Erkennung.
  */
 
 const ROADMAP_PATH = 'ROADMAP.md';
@@ -73,7 +76,9 @@ export function checkSelectedTaskStale() {
 
     // 5. Lade ROADMAP.md und prüfe Task-Status
     const roadmapContent = readFileSync(ROADMAP_PATH, 'utf-8');
-    const currentTaskStatus = getTaskStatusFromRoadmap(roadmapContent, selectedTask.id);
+    const currentTaskStatus = getTaskStatusFromRoadmap(roadmapContent, selectedTask.id, {
+      debug: false,
+    });
 
     if (!currentTaskStatus) {
       return {
@@ -126,55 +131,6 @@ export function checkSelectedTaskStale() {
       error: error.message,
     };
   }
-}
-
-/**
- * Extrahiert Task-Status aus ROADMAP.md
- * @param {string} roadmapContent - ROADMAP.md Inhalt
- * @param {string} taskId - Task ID (z.B. "P0-004")
- * @returns {string|null} Task status oder null wenn nicht gefunden
- */
-function getTaskStatusFromRoadmap(roadmapContent, taskId) {
-  const lines = roadmapContent.split('\n');
-
-  let inTaskSection = false;
-  let foundTask = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    // Task-Header erkennen (## P0-001, ## P1-002, etc.)
-    const taskMatch = line.match(/^##\s+(P\d+-\d+)\s+(.+)$/);
-    if (taskMatch) {
-      const currentTaskId = taskMatch[1];
-
-      if (currentTaskId === taskId) {
-        foundTask = true;
-        inTaskSection = true;
-        continue;
-      } else if (foundTask) {
-        // Anderer Task gefunden, wir sind fertig
-        break;
-      } else {
-        inTaskSection = false;
-      }
-    }
-
-    // Status erkennen wenn wir im richtigen Task sind
-    if (inTaskSection && foundTask) {
-      const statusMatch = line.match(/^Status:\s*`(.+)`$/);
-      if (statusMatch) {
-        return statusMatch[1];
-      }
-    }
-
-    // Section-Ende erkennen
-    if (line.startsWith('#') && !line.startsWith('##') && inTaskSection) {
-      break;
-    }
-  }
-
-  return null; // Task nicht gefunden
 }
 
 /**

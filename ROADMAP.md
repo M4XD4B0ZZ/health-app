@@ -480,7 +480,7 @@ OFF targets original text.
 
 ## P1-002 Canonical Food Entity Dictionary + Source Adapters
 
-Status: `todo`
+Status: `done`
 
 Evolve flat alias map into structured canonical food entities with DE+EN alias lists,
 portion hints, and source query adapters.

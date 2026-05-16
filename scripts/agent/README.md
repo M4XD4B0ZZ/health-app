@@ -1326,6 +1326,179 @@ npm run agent:worker-prompt
 - Neue Worker-Prompt-Funktionalität ist additiv
 - Keine Breaking Changes
 
+## Phase E: Agent Milestone Runner
+
+### 10. run-milestone.mjs
+
+**Zweck:** Implementiert agent:milestone für kontrollierte Multi-Task-Automation.
+
+**Verhalten:**
+
+Der Orchestrator automatisiert mehrere ROADMAP-Tasks nacheinander innerhalb strenger Sicherheitsgrenzen:
+
+1. **Git Status Check:** Sicherstellen, dass Working Tree sauber ist
+2. **Task-Loop:** Für jeden Task bis maxTasks:
+   - `npm run agent:run` - Task vorbereiten
+   - `npm run agent:model` - Model Selection
+   - High Risk Gate prüfen
+   - `npm run agent:worker-prompt` - Worker-Prompt sicherstellen
+   - `npm run agent:worker` - OpenCode Worker ausführen
+   - Worker Fail Gate prüfen
+   - `npm run agent:verify` - Verification durchführen
+   - Verify Fail Gate prüfen
+   - `npm run agent:run` - State aktualisieren/Handoff erzeugen
+   - Diff Guard prüfen (Anzahl Dateien/Zeilen)
+   - Large Diff Gate prüfen
+   - Human Review Gate (initial nach jedem Task)
+
+**Verwendung:**
+
+```bash
+npm run agent:milestone
+```
+
+**Wichtige Grenzen:**
+
+- **Kein Commit/Push**
+- **Keine .env-Dateien** lesen oder ändern
+- **Keine Secrets** anfassen
+- **Keine Dependencies** installieren
+- **Kein automatisches ROADMAP-done** ohne Verify
+- **Nach jedem Task muss Verify laufen**
+- **Stoppt immer bei Gate/Risiko**
+- **Initial: Stoppt nach jedem Task für Human Review**
+
+**Konfiguration:**
+
+**Standard-Defaults:**
+
+- `maxTasks = 2`
+- `maxFixAttemptsPerTask = 1`
+- `stopOnHighRisk = true`
+- `stopOnVerifyFail = true`
+- `stopOnWorkerFail = true`
+- `stopOnLargeDiff = true`
+- `maxChangedFiles = 8`
+- `maxDiffLines = 500`
+- `requireHumanReviewAfterRun = true`
+
+**Optional aus `.agent/config.json`:**
+
+```json
+{
+  "milestone": {
+    "maxTasks": 2,
+    "maxChangedFiles": 8,
+    "maxDiffLines": 500,
+    "requireHumanReviewAfterRun": true
+  }
+}
+```
+
+**Gates (Automatische Stopps):**
+
+1. **Dirty Working Tree Gate:** Stoppt wenn uncommitted changes existieren
+2. **High Risk Model Gate:** Stoppt bei risk = high und stopOnHighRisk=true
+3. **Worker Fail Gate:** Stoppt bei Worker-Fehler und stopOnWorkerFail=true
+4. **Verify Fail Gate:** Stoppt bei Verify-Fehler und stopOnVerifyFail=true
+5. **Large Diff Gate:** Stoppt bei zu vielen Änderungen und stopOnLargeDiff=true
+6. **Human Review Gate:** Stoppt nach jedem Task wenn requireHumanReviewAfterRun=true
+
+**State-Erweiterungen:**
+
+```json
+{
+  "milestoneMode": true,
+  "milestoneTaskCount": 0,
+  "lastMilestoneStatus": "running|completed|failed|stopped_for_review",
+  "lastGateReason": "High risk model: openai/gpt-5.4"
+}
+```
+
+**Output:** `.agent/out/milestone-report.md`
+
+**Milestone Report enthält:**
+
+- Zeitstempel und Dauer
+- Konfiguration
+- Pro Task:
+  - Task-ID/Titel
+  - Selected Model und Risk
+  - Worker Result
+  - Verify Result
+  - Changed Files Count
+  - Diff Lines
+  - Gate Reason
+- Final Status: `completed | stopped_for_review | failed`
+
+**Safety Checks:**
+
+- **Git Status Check:** Verhindert Start bei dirty working tree
+- **Diff Guard:** Überwacht Größe der Änderungen
+- **Risk Assessment:** Stoppt bei High-Risk-Modellen
+- **Verify Gates:** Stoppt bei Verification-Fehlern
+- **Worker Gates:** Stoppt bei Worker-Fehlern
+
+### Workflow Phase E
+
+**Empfohlener Ablauf:**
+
+```bash
+# 1. Sauberen Zustand sicherstellen
+git status  # Sollte clean sein
+
+# 2. Milestone starten
+npm run agent:milestone
+
+# 3. Bei Gate: Review und manuelle Entscheidung
+# - Prüfe milestone-report.md
+# - Prüfe git diff
+# - Prüfe verify-report.md
+# - Committe manuell wenn akzeptabel
+
+# 4. Nächsten Milestone-Zyklus starten (optional)
+npm run agent:milestone
+```
+
+**Debugging mit Agent Watch:**
+
+```bash
+# Terminal 1: Milestone ausführen
+npm run agent:milestone
+
+# Terminal 2: Live-Überwachung
+npm run agent:watch
+```
+
+**Wichtige Prinzipien:**
+
+- **Initial bewusst konservativ:** Stoppt nach jedem Task für Review
+- **maxTasks ist vorbereitet** für zukünftige Multi-Task-Automation
+- **Human Review bleibt Gate** - keine vollautomatische Multi-Task-Ausführung
+- **Später kann requireHumanReviewAfterRun=false getestet werden**
+
+**Unterschied zu Phase D (agent:auto):**
+
+| Aspekt         | Phase D (agent:auto) | Phase E (agent:milestone)  |
+| -------------- | -------------------- | -------------------------- |
+| **Scope**      | Genau 1 Task         | Bis zu maxTasks Tasks      |
+| **Gates**      | Human Review am Ende | Gates zwischen Tasks       |
+| **Diff Guard** | Nein                 | Ja (maxChangedFiles/Lines) |
+| **Risk Gates** | Nein                 | Ja (High Risk Model Gate)  |
+| **Multi-Task** | Nein                 | Ja (kontrolliert)          |
+| **Config**     | Hardcoded            | Konfigurierbar             |
+
+**Smoke Test Erwartung:**
+
+```bash
+npm run agent:milestone
+```
+
+- Bei clean working tree startet
+- Bearbeitet maximal 1 Task und stoppt am Review Gate
+- `milestone-report.md` wird geschrieben
+- Exit Code 0 bei stopped_for_review
+
 ---
 
 _Diese Scripts sind Teil der HealthApp Agent-Orchestrator-Foundation und folgen der SSOK-Definition in `SSOK.md`._

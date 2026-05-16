@@ -35,6 +35,7 @@
     "agent:worker-prompt": "node scripts/agent/build-worker-prompt.mjs",
     "agent:model": "node scripts/agent/select-model.mjs",
     "agent:auto": "node scripts/agent/run-auto-task.mjs",
+    "agent:milestone": "node scripts/agent/run-milestone.mjs",
     "agent:watch": "node scripts/agent/watch-agent.mjs"
   },
   "dependencies": {

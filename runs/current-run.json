@@ -1,12 +1,15 @@
 {
-  "run_id": "run_2026-05-19_ralph-005a",
-  "task_id": "RALPH-005A",
-  "status": "running",
-  "started_at": "2026-05-19T09:17:00Z",
-  "mode": "architect",
-  "tool": "claude-sonnet-4",
-  "allowed_scope": [
-    "plans/RALPH_DRY_RUN_SELECTOR_PLAN.md",
+  "run_id": "run_2026-05-19_ralph-006a",
+  "created_at": "2026-05-19T09:45:00Z",
+  "selected_task_id": "RALPH-006A",
+  "selected_task_title": "Dry-run task selector implementation",
+  "mode": "coordinator",
+  "status": "in_progress",
+  "selection_reason": "Next logical step after RALPH-005A planning completion. First executable Ralph-Loop component implementation.",
+  "blocked_reason": null,
+  "stop_reason": null,
+  "allowed_files": [
+    "scripts/agent/select-next-ralph-task.mjs",
     "tasks/task-state.json",
     "tasks/task-history.jsonl",
     "handoffs/latest-handoff.md",
@@ -15,7 +18,7 @@
     "validation/validation-results.jsonl",
     "reports/morning-review.md"
   ],
-  "forbidden_scope": [
+  "forbidden_files": [
     "SSOK.md",
     "AGENTS.md",
     "README.md",
@@ -26,39 +29,31 @@
     ".gitignore",
     "src/**/*",
     "supabase/**/*",
-    "scripts/**/*",
     ".roo/**/*",
     ".roomodes",
     ".agent/adapters/**/*",
     ".agent/prompts/**/*"
   ],
-  "stop_conditions": {
-    "max_files": 10,
-    "max_runtime_minutes": 30,
-    "validation_required": true,
-    "human_review_required": false,
-    "protected_file_modification": "immediate_stop",
-    "forbidden_file_modification": "immediate_stop"
-  },
-  "progress": {
-    "files_created": 1,
-    "files_modified": 3,
-    "files_deleted": 0,
-    "current_phase": "dry_run_task_selector_planning",
-    "completion_percentage": 80
+  "expected_outputs": [
+    "scripts/agent/select-next-ralph-task.mjs"
+  ],
+  "validation_requirements": {
+    "type": "standard",
+    "required_checks": [
+      "npm_run_verify"
+    ]
   },
   "safety_checks": {
-    "working_tree_clean": true,
     "protected_files_check": "passed",
     "scope_boundary_check": "passed",
     "forbidden_operations_check": "passed"
   },
   "metadata": {
     "ralph_loop_version": "0.1.0-alpha",
+    "selector_version": "1.0.0",
     "governance_version": "1.0.0",
-    "task_type": "planning_documentation",
-    "risk_assessment": "safe_autonomous",
-    "requires_npm_verify": false,
-    "notes": "Creating comprehensive dry-run task selector plan. Defining CLI interface, task eligibility rules, safety constraints, and implementation specifications. Planning only - no executable scripts or runtime behavior changes."
+    "selection_algorithm": "priority_risk_created_at",
+    "human_approval_required": true,
+    "notes": "RALPH-006A implementation in progress. First executable Ralph-Loop component. Conservative implementation with comprehensive safety checks and dry-run capabilities."
   }
 }

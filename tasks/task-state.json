@@ -230,11 +230,11 @@
     {
       "id": "RALPH-005A",
       "title": "Dry-run task selector plan",
-      "status": "in_progress", 
+      "status": "done",
       "priority": "medium",
       "risk_level": "safe_autonomous",
       "created_at": "2026-05-19T08:23:00Z",
-      "updated_at": "2026-05-19T09:17:00Z",
+      "updated_at": "2026-05-19T09:45:00Z",
       "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": false,
@@ -290,22 +290,43 @@
     {
       "id": "RALPH-006A",
       "title": "Dry-run task selector implementation",
-      "status": "not_started",
+      "status": "in_progress",
       "priority": "medium",
-      "risk_level": "review_required", 
+      "risk_level": "review_required",
       "created_at": "2026-05-19T08:23:00Z",
-      "updated_at": "2026-05-19T08:23:00Z",
-      "attempt_count": 0,
+      "updated_at": "2026-05-19T09:45:00Z",
+      "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": true,
       "allowed_files": [
-        "scripts/ralph/task-selector.mjs"
+        "scripts/agent/select-next-ralph-task.mjs",
+        "tasks/task-state.json",
+        "tasks/task-history.jsonl",
+        "handoffs/latest-handoff.md",
+        "runs/current-run.json",
+        "runs/run-history.jsonl",
+        "validation/validation-results.jsonl",
+        "reports/morning-review.md"
       ],
       "forbidden_files": [
+        "SSOK.md",
+        "AGENTS.md",
+        "README.md",
+        "ROADMAP.md",
+        "VERIFY.md",
+        "package.json",
+        "package-lock.json",
+        ".gitignore",
         "src/**/*",
-        "package.json"
+        "supabase/**/*",
+        ".roo/**/*",
+        ".roomodes",
+        ".agent/adapters/**/*",
+        ".agent/prompts/**/*"
       ],
-      "outputs": [],
+      "outputs": [
+        "scripts/agent/select-next-ralph-task.mjs"
+      ],
       "validation": {
         "type": "standard",
         "required_checks": [

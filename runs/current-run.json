@@ -1,0 +1,65 @@
+{
+  "run_id": "run_2026-05-19_ralph-002a",
+  "task_id": "RALPH-002A",
+  "status": "running",
+  "started_at": "2026-05-19T08:23:00Z",
+  "mode": "code",
+  "tool": "claude-sonnet-4",
+  "allowed_scope": [
+    "tasks/task-state.json",
+    "tasks/task-history.jsonl",
+    "handoffs/latest-handoff.md",
+    "handoffs/archive/.gitkeep",
+    "runs/current-run.json",
+    "runs/run-history.jsonl",
+    "runs/logs/.gitkeep",
+    "validation/validation-rules.json",
+    "validation/validation-results.jsonl",
+    "reports/morning-review.md"
+  ],
+  "forbidden_scope": [
+    "SSOK.md",
+    "AGENTS.md",
+    "README.md",
+    "ROADMAP.md",
+    "VERIFY.md",
+    "package.json",
+    "package-lock.json",
+    ".gitignore",
+    "src/**/*",
+    "supabase/**/*",
+    "scripts/**/*",
+    ".agent/**/*",
+    ".roo/**/*",
+    ".roomodes"
+  ],
+  "stop_conditions": {
+    "max_files": 10,
+    "max_runtime_minutes": 30,
+    "validation_required": true,
+    "human_review_required": true,
+    "protected_file_modification": "immediate_stop",
+    "forbidden_file_modification": "immediate_stop"
+  },
+  "progress": {
+    "files_created": 4,
+    "files_modified": 0,
+    "files_deleted": 0,
+    "current_phase": "foundation_creation",
+    "completion_percentage": 40
+  },
+  "safety_checks": {
+    "working_tree_clean": true,
+    "protected_files_check": "passed",
+    "scope_boundary_check": "passed",
+    "forbidden_operations_check": "passed"
+  },
+  "metadata": {
+    "ralph_loop_version": "0.1.0-alpha",
+    "governance_version": "1.0.0",
+    "task_type": "static_foundation",
+    "risk_assessment": "safe_autonomous",
+    "requires_npm_verify": false,
+    "notes": "Creating minimal runtime-state foundation files only. No runtime behavior changes."
+  }
+}

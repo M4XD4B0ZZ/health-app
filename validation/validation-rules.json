@@ -1,0 +1,204 @@
+{
+  "schema_version": "1.0.0",
+  "created_at": "2026-05-19T08:25:00Z",
+  "updated_at": "2026-05-19T08:25:00Z",
+  "description": "Ralph-Loop validation rules for ensuring safe and compliant task execution",
+  "verify_command_reference": {
+    "source": "VERIFY.md",
+    "default_blocking_validation": "npm run verify",
+    "description": "Default verification pipeline for code changes as defined in VERIFY.md"
+  },
+  "core_rules": {
+    "protected_files_check": {
+      "id": "protected_files_check",
+      "name": "Protected Files Modification Check",
+      "description": "Ensures no protected files are modified without explicit approval",
+      "type": "blocking",
+      "applies_to": "all_tasks",
+      "implementation": "scan_changed_files_against_protected_list",
+      "protected_patterns": [
+        ".env*",
+        "secrets/**/*",
+        "credentials/**/*",
+        "node_modules/**/*",
+        ".git/**/*"
+      ],
+      "conditional_protected_patterns": [
+        {
+          "pattern": "package.json",
+          "condition": "requires_explicit_dependency_task"
+        },
+        {
+          "pattern": "package-lock.json", 
+          "condition": "requires_explicit_dependency_task"
+        },
+        {
+          "pattern": "supabase/migrations/**/*",
+          "condition": "requires_explicit_migration_task"
+        }
+      ]
+    },
+    "required_handoff_sections_check": {
+      "id": "required_handoff_sections_check",
+      "name": "Handoff Completeness Check",
+      "description": "Validates that handoff documents contain all required sections",
+      "type": "blocking",
+      "applies_to": "all_tasks",
+      "required_sections": [
+        "Run Summary",
+        "Current Task", 
+        "Completed Work",
+        "Changed Files",
+        "Validation Status",
+        "Known Issues",
+        "Next Recommended Action",
+        "Human Review Needed",
+        "Risks / Assumptions"
+      ]
+    },
+    "json_syntax_check": {
+      "id": "json_syntax_check",
+      "name": "JSON Syntax Validation",
+      "description": "Validates all JSON files for correct syntax",
+      "type": "blocking",
+      "applies_to": "all_tasks",
+      "file_patterns": ["*.json"],
+      "implementation": "json_parse_validation"
+    },
+    "no_done_without_validation_check": {
+      "id": "no_done_without_validation_check",
+      "name": "No Task Completion Without Validation",
+      "description": "Prevents marking tasks as done without passing validation",
+      "type": "blocking",
+      "applies_to": "all_tasks",
+      "implementation": "verify_validation_passed_before_done_status"
+    },
+    "output_paths_check": {
+      "id": "output_paths_check",
+      "name": "Output Path Validation",
+      "description": "Ensures all created files are within allowed scope",
+      "type": "blocking",
+      "applies_to": "all_tasks",
+      "implementation": "validate_created_files_against_allowed_scope"
+    }
+  },
+  "conditional_rules": {
+    "edge_verification": {
+      "id": "edge_verification",
+      "name": "Supabase Edge Function Verification",
+      "description": "Required when Supabase Edge Functions are modified",
+      "type": "blocking",
+      "condition": "supabase_edge_functions_changed",
+      "file_patterns": ["supabase/functions/**/*"],
+      "validation_commands": [
+        "npm run verify:supabase:link",
+        "npm run verify:schema", 
+        "npm run verify:edge"
+      ],
+      "requirements": [
+        ".env file with valid Supabase credentials",
+        "Supabase CLI linked to correct project"
+      ]
+    },
+    "resolver_specific_tests": {
+      "id": "resolver_specific_tests",
+      "name": "Resolver-Specific Test Validation",
+      "description": "Required when resolver files are modified",
+      "type": "blocking",
+      "condition": "resolver_files_changed",
+      "file_patterns": [
+        "src/features/nutrition/**/*resolver*",
+        "src/features/nutrition/**/*Resolver*",
+        "src/features/nutrition/application/services/**/*"
+      ],
+      "validation_commands": [
+        "npm run test -- --testPathPattern=\"resolver|Resolver\"",
+        "npm run test -- --testPathPattern=\"SequentialFoodCatalogResolver\"",
+        "npm run test -- --testPathPattern=\"MultiSource|Fusion\""
+      ],
+      "compliance_checks": [
+        "no_early_translation",
+        "source_native_queries", 
+        "multi_source_candidates",
+        "fusion_layer_functional",
+        "knowledge_persistence",
+        "ai_rate_limiting"
+      ]
+    }
+  },
+  "validation_levels": {
+    "documentation_only": {
+      "description": "For documentation-only changes with no runtime impact",
+      "required_checks": [
+        "protected_files_check",
+        "required_handoff_sections_check"
+      ],
+      "npm_verify_required": false
+    },
+    "static_foundation_only": {
+      "description": "For static foundation files with no runtime behavior changes",
+      "required_checks": [
+        "protected_files_check",
+        "json_syntax_check",
+        "output_paths_check",
+        "required_handoff_sections_check"
+      ],
+      "npm_verify_required": false
+    },
+    "standard": {
+      "description": "Standard validation for code changes",
+      "required_checks": [
+        "protected_files_check",
+        "json_syntax_check", 
+        "no_done_without_validation_check",
+        "output_paths_check",
+        "required_handoff_sections_check"
+      ],
+      "npm_verify_required": true,
+      "blocking_commands": ["npm run verify"]
+    },
+    "full_loop_test": {
+      "description": "Full validation for Ralph-Loop system tests",
+      "required_checks": [
+        "protected_files_check",
+        "json_syntax_check",
+        "no_done_without_validation_check", 
+        "output_paths_check",
+        "required_handoff_sections_check"
+      ],
+      "npm_verify_required": true,
+      "blocking_commands": ["npm run verify"],
+      "additional_requirements": [
+        "single_task_only",
+        "human_review_gate",
+        "safety_systems_operational"
+      ]
+    },
+    "dry_run_only": {
+      "description": "Validation for dry-run tasks with no product code changes",
+      "required_checks": [
+        "protected_files_check",
+        "no_product_code_changes",
+        "documentation_only"
+      ],
+      "npm_verify_required": false,
+      "forbidden_patterns": [
+        "src/**/*",
+        "package.json",
+        "supabase/**/*"
+      ]
+    }
+  },
+  "enforcement": {
+    "blocking_validation_failure": "immediate_stop",
+    "warning_validation_failure": "require_human_review",
+    "validation_bypass": "never_allowed",
+    "human_override": "requires_explicit_approval_with_rationale"
+  },
+  "metadata": {
+    "ralph_loop_version": "0.1.0-alpha",
+    "governance_compliance": "1.0.0",
+    "last_review": "2026-05-19T08:25:00Z",
+    "next_review_due": "2026-06-19T08:25:00Z"
+  }
+}

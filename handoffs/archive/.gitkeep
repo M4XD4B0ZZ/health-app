@@ -1,0 +1,10 @@
+# Handoff Archive Directory
+
+This directory will contain archived handoff reports from completed Ralph-Loop runs.
+
+Files in this directory:
+- Completed handoff reports (*.md)
+- Historical handoff documentation
+- Run completion summaries
+
+This .gitkeep file ensures the directory structure is preserved in version control.

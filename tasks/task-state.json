@@ -1,0 +1,387 @@
+{
+  "schema_version": "1.0.0",
+  "created_at": "2026-05-19T08:23:00Z",
+  "updated_at": "2026-05-19T08:23:00Z",
+  "source_of_truth_note": "ROADMAP.md remains the single source of truth for task priorities and human-readable task descriptions. This file provides runtime state management for Ralph-Loop execution.",
+  "runtime_note": "This is Ralph runtime state for agent execution tracking. It does not replace ROADMAP.md as the authoritative task source. All task definitions and priorities remain in ROADMAP.md.",
+  "status_values": [
+    "not_started",
+    "in_progress", 
+    "needs_validation",
+    "needs_review",
+    "blocked",
+    "failed",
+    "done",
+    "skipped",
+    "cancelled"
+  ],
+  "tasks": [
+    {
+      "id": "RALPH-001A",
+      "title": "Minimal agent-neutral governance foundation",
+      "status": "done",
+      "priority": "high",
+      "risk_level": "safe_autonomous",
+      "created_at": "2026-05-19T08:00:00Z",
+      "updated_at": "2026-05-19T08:20:00Z",
+      "attempt_count": 1,
+      "max_attempts": 3,
+      "requires_human_review": false,
+      "allowed_files": [
+        ".governance/**/*"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        ".env*",
+        "package.json",
+        "package-lock.json",
+        "supabase/migrations/**/*"
+      ],
+      "outputs": [
+        ".governance/SYSTEM.md",
+        ".governance/RULES.md", 
+        ".governance/SAFETY.md",
+        ".governance/REVIEW_POLICY.md"
+      ],
+      "validation": {
+        "type": "documentation_only",
+        "required_checks": []
+      },
+      "acceptance_criteria": [
+        "Agent-neutral governance structure exists",
+        "Core policies migrated from Roo-specific to tool-neutral",
+        "Safety policies defined",
+        "Review policies established"
+      ],
+      "notes": "Completed - established minimal governance foundation for Ralph-Loop system"
+    },
+    {
+      "id": "RALPH-002A",
+      "title": "Minimal runtime-state and handoff foundation",
+      "status": "in_progress",
+      "priority": "high", 
+      "risk_level": "safe_autonomous",
+      "created_at": "2026-05-19T08:20:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 1,
+      "max_attempts": 3,
+      "requires_human_review": true,
+      "allowed_files": [
+        "tasks/task-state.json",
+        "tasks/task-history.jsonl",
+        "handoffs/latest-handoff.md",
+        "handoffs/archive/.gitkeep",
+        "runs/current-run.json",
+        "runs/run-history.jsonl", 
+        "runs/logs/.gitkeep",
+        "validation/validation-rules.json",
+        "validation/validation-results.jsonl",
+        "reports/morning-review.md"
+      ],
+      "forbidden_files": [
+        "SSOK.md",
+        "AGENTS.md",
+        "README.md",
+        "ROADMAP.md",
+        "VERIFY.md",
+        "package.json",
+        "package-lock.json",
+        ".gitignore",
+        "src/**/*",
+        "supabase/**/*",
+        "scripts/**/*",
+        ".agent/**/*",
+        ".roo/**/*",
+        ".roomodes"
+      ],
+      "outputs": [
+        "tasks/task-state.json",
+        "tasks/task-history.jsonl",
+        "handoffs/latest-handoff.md",
+        "handoffs/archive/.gitkeep",
+        "runs/current-run.json",
+        "runs/run-history.jsonl",
+        "runs/logs/.gitkeep", 
+        "validation/validation-rules.json",
+        "validation/validation-results.jsonl",
+        "reports/morning-review.md"
+      ],
+      "validation": {
+        "type": "static_foundation_only",
+        "required_checks": [
+          "json_syntax_validation",
+          "jsonl_syntax_validation",
+          "no_forbidden_files_modified"
+        ]
+      },
+      "acceptance_criteria": [
+        "All required runtime state files created",
+        "JSON files parse successfully",
+        "JSONL files are valid line-delimited JSON",
+        "No forbidden files modified",
+        "Static foundation only - no runtime behavior changes"
+      ],
+      "notes": "Currently creating minimal runtime state foundation files"
+    },
+    {
+      "id": "RALPH-003A",
+      "title": "Minimal agent prompt and adapter contracts",
+      "status": "not_started",
+      "priority": "high",
+      "risk_level": "review_required",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 3,
+      "requires_human_review": true,
+      "allowed_files": [
+        ".agent/adapters/**/*",
+        ".governance/contracts/**/*"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        ".env*",
+        "package.json"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "standard",
+        "required_checks": [
+          "npm_run_verify"
+        ]
+      },
+      "acceptance_criteria": [
+        "Agent adapter contracts defined",
+        "Tool-neutral prompt templates created",
+        "Adapter interface specifications complete"
+      ],
+      "notes": "Awaiting RALPH-002A completion"
+    },
+    {
+      "id": "RALPH-004A", 
+      "title": "Root governance transition notes",
+      "status": "not_started",
+      "priority": "medium",
+      "risk_level": "review_required",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 3,
+      "requires_human_review": true,
+      "allowed_files": [
+        "docs/ralph-transition.md",
+        "README.md"
+      ],
+      "forbidden_files": [
+        "SSOK.md",
+        "src/**/*"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "documentation_only",
+        "required_checks": []
+      },
+      "acceptance_criteria": [
+        "Transition documentation complete",
+        "Migration path documented",
+        "Rollback procedures defined"
+      ],
+      "notes": "Awaiting foundation completion"
+    },
+    {
+      "id": "RALPH-005A",
+      "title": "Dry-run task selector plan",
+      "status": "not_started", 
+      "priority": "medium",
+      "risk_level": "safe_autonomous",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 3,
+      "requires_human_review": false,
+      "allowed_files": [
+        "plans/RALPH_TASK_SELECTOR_PLAN.md"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "scripts/**/*"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "documentation_only",
+        "required_checks": []
+      },
+      "acceptance_criteria": [
+        "Task selection algorithm planned",
+        "Safety constraints defined",
+        "Selection criteria documented"
+      ],
+      "notes": "Planning phase for task selector"
+    },
+    {
+      "id": "RALPH-006A",
+      "title": "Dry-run task selector implementation",
+      "status": "not_started",
+      "priority": "medium",
+      "risk_level": "review_required", 
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 3,
+      "requires_human_review": true,
+      "allowed_files": [
+        "scripts/ralph/task-selector.mjs"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "package.json"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "standard",
+        "required_checks": [
+          "npm_run_verify"
+        ]
+      },
+      "acceptance_criteria": [
+        "Task selector script implemented",
+        "Dry-run mode functional",
+        "Safety checks operational"
+      ],
+      "notes": "Implementation phase for task selector"
+    },
+    {
+      "id": "RALPH-007A",
+      "title": "Morning review generator plan",
+      "status": "not_started",
+      "priority": "low",
+      "risk_level": "safe_autonomous",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 3,
+      "requires_human_review": false,
+      "allowed_files": [
+        "plans/RALPH_MORNING_REVIEW_PLAN.md"
+      ],
+      "forbidden_files": [
+        "src/**/*"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "documentation_only",
+        "required_checks": []
+      },
+      "acceptance_criteria": [
+        "Morning review process planned",
+        "Report generation strategy defined",
+        "Review workflow documented"
+      ],
+      "notes": "Planning phase for morning review system"
+    },
+    {
+      "id": "RALPH-008A",
+      "title": "Cline worker adapter preparation",
+      "status": "not_started",
+      "priority": "low",
+      "risk_level": "human_required",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 1,
+      "requires_human_review": true,
+      "allowed_files": [
+        ".agent/adapters/cline/**/*"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "package.json"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "standard",
+        "required_checks": [
+          "npm_run_verify"
+        ]
+      },
+      "acceptance_criteria": [
+        "Cline adapter interface defined",
+        "Integration points identified",
+        "Safety constraints established"
+      ],
+      "notes": "Requires human oversight for tool integration"
+    },
+    {
+      "id": "RALPH-009A",
+      "title": "First Cline dry run without product-code changes",
+      "status": "not_started",
+      "priority": "low",
+      "risk_level": "human_required",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 1,
+      "requires_human_review": true,
+      "allowed_files": [
+        "docs/**/*",
+        "plans/**/*"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "package.json",
+        "supabase/**/*"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "dry_run_only",
+        "required_checks": [
+          "no_product_code_changes",
+          "documentation_only"
+        ]
+      },
+      "acceptance_criteria": [
+        "Dry run completed successfully",
+        "No product code modified",
+        "Documentation changes only",
+        "Safety systems operational"
+      ],
+      "notes": "First controlled test of Ralph-Loop with Cline"
+    },
+    {
+      "id": "RALPH-010A",
+      "title": "First controlled single-task loop",
+      "status": "not_started",
+      "priority": "low",
+      "risk_level": "human_required",
+      "created_at": "2026-05-19T08:23:00Z",
+      "updated_at": "2026-05-19T08:23:00Z",
+      "attempt_count": 0,
+      "max_attempts": 1,
+      "requires_human_review": true,
+      "allowed_files": [
+        "TBD"
+      ],
+      "forbidden_files": [
+        ".env*",
+        "package.json",
+        "supabase/migrations/**/*"
+      ],
+      "outputs": [],
+      "validation": {
+        "type": "full_loop_test",
+        "required_checks": [
+          "npm_run_verify",
+          "single_task_only",
+          "human_review_gate"
+        ]
+      },
+      "acceptance_criteria": [
+        "Single task executed successfully",
+        "Loop stops at human review gate",
+        "All safety checks operational",
+        "State management functional"
+      ],
+      "notes": "First live test of complete Ralph-Loop system"
+    }
+  ]
+}

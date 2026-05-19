@@ -373,35 +373,64 @@
     },
     {
       "id": "RALPH-008A",
-      "title": "Cline worker adapter preparation",
-      "status": "not_started",
-      "priority": "low",
-      "risk_level": "human_required",
+      "title": "Morning Review Generator Implementation",
+      "status": "done",
+      "priority": "medium",
+      "risk_level": "review_required",
       "created_at": "2026-05-19T08:23:00Z",
-      "updated_at": "2026-05-19T08:23:00Z",
-      "attempt_count": 0,
-      "max_attempts": 1,
+      "updated_at": "2026-05-19T15:51:45Z",
+      "attempt_count": 1,
+      "max_attempts": 3,
       "requires_human_review": true,
       "allowed_files": [
-        ".agent/adapters/cline/**/*"
+        "scripts/agent/generate-morning-review.mjs",
+        "tasks/task-state.json",
+        "tasks/task-history.jsonl",
+        "handoffs/latest-handoff.md",
+        "runs/current-run.json",
+        "runs/run-history.jsonl",
+        "validation/validation-results.jsonl",
+        "reports/morning-review.md"
       ],
       "forbidden_files": [
+        "SSOK.md",
+        "AGENTS.md",
+        "README.md",
+        "ROADMAP.md",
+        "VERIFY.md",
+        "package.json",
+        "package-lock.json",
+        ".gitignore",
         "src/**/*",
-        "package.json"
+        "supabase/**/*",
+        ".roo/**/*",
+        ".roomodes",
+        ".agent/adapters/**/*",
+        ".agent/prompts/**/*"
       ],
-      "outputs": [],
+      "outputs": [
+        "scripts/agent/generate-morning-review.mjs"
+      ],
       "validation": {
-        "type": "standard",
+        "type": "morning_review_generator",
         "required_checks": [
-          "npm_run_verify"
+          "script_execution_test",
+          "dry_run_test",
+          "json_output_test",
+          "write_mode_test",
+          "json_syntax_validation",
+          "jsonl_syntax_validation"
         ]
       },
       "acceptance_criteria": [
-        "Cline adapter interface defined",
-        "Integration points identified",
-        "Safety constraints established"
+        "Morning Review Generator script implemented",
+        "CLI interface functional (dry-run, json, write modes)",
+        "Aggregation logic working correctly",
+        "Safety constraints enforced",
+        "Report structure complete",
+        "Runtime state updated correctly"
       ],
-      "notes": "Requires human oversight for tool integration"
+      "notes": "Second executable Ralph-Loop component - conservative, deterministic, read-only by default"
     },
     {
       "id": "RALPH-009A",

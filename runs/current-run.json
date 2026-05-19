@@ -1,24 +1,24 @@
 {
-  "run_id": "run_2026-05-19_ralph-004a",
-  "task_id": "RALPH-004A",
+  "run_id": "run_2026-05-19_ralph-005a",
+  "task_id": "RALPH-005A",
   "status": "running",
-  "started_at": "2026-05-19T08:57:53Z",
-  "mode": "code",
+  "started_at": "2026-05-19T09:17:00Z",
+  "mode": "architect",
   "tool": "claude-sonnet-4",
   "allowed_scope": [
-    "SSOK.md",
-    "AGENTS.md",
-    "README.md",
+    "plans/RALPH_DRY_RUN_SELECTOR_PLAN.md",
     "tasks/task-state.json",
     "tasks/task-history.jsonl",
     "handoffs/latest-handoff.md",
     "runs/current-run.json",
     "runs/run-history.jsonl",
     "validation/validation-results.jsonl",
-    "reports/morning-review.md",
-    "docs/RALPH_LOOP_TRANSITION_NOTES.md"
+    "reports/morning-review.md"
   ],
   "forbidden_scope": [
+    "SSOK.md",
+    "AGENTS.md",
+    "README.md",
     "ROADMAP.md",
     "VERIFY.md",
     "package.json",
@@ -28,22 +28,24 @@
     "supabase/**/*",
     "scripts/**/*",
     ".roo/**/*",
-    ".roomodes"
+    ".roomodes",
+    ".agent/adapters/**/*",
+    ".agent/prompts/**/*"
   ],
   "stop_conditions": {
     "max_files": 10,
     "max_runtime_minutes": 30,
     "validation_required": true,
-    "human_review_required": true,
+    "human_review_required": false,
     "protected_file_modification": "immediate_stop",
     "forbidden_file_modification": "immediate_stop"
   },
   "progress": {
-    "files_created": 0,
-    "files_modified": 2,
+    "files_created": 1,
+    "files_modified": 3,
     "files_deleted": 0,
-    "current_phase": "root_governance_transition_notes",
-    "completion_percentage": 20
+    "current_phase": "dry_run_task_selector_planning",
+    "completion_percentage": 80
   },
   "safety_checks": {
     "working_tree_clean": true,
@@ -54,9 +56,9 @@
   "metadata": {
     "ralph_loop_version": "0.1.0-alpha",
     "governance_version": "1.0.0",
-    "task_type": "governance_transition",
-    "risk_assessment": "review_required",
+    "task_type": "planning_documentation",
+    "risk_assessment": "safe_autonomous",
     "requires_npm_verify": false,
-    "notes": "Adding minimal root governance transition notes. Updates SSOK.md and AGENTS.md with Ralph-Loop governance sections. Creates transition documentation without modifying product code or scripts."
+    "notes": "Creating comprehensive dry-run task selector plan. Defining CLI interface, task eligibility rules, safety constraints, and implementation specifications. Planning only - no executable scripts or runtime behavior changes."
   }
 }

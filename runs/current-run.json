@@ -1,46 +1,55 @@
 {
-  "run_id": "run_2026-05-19_ralph-006a",
-  "created_at": "2026-05-19T13:59:35.495Z",
-  "selected_task_id": "RALPH-006A",
-  "selected_task_title": "Dry-run task selector implementation",
-  "mode": "coordinator",
-  "status": "task_selected",
-  "selection_reason": "Task RALPH-006A selected from 2 eligible candidates. Priority: medium, Status: in_progress, Risk: review_required. Eligibility: Status in_progress is eligible, Risk level is review_required with human review available",
+  "run_id": "run_2026-05-19_ralph-007a-state-fix",
+  "created_at": "2026-05-19T15:33:00Z",
+  "completed_at": "2026-05-19T15:33:00Z",
+  "selected_task_id": "RALPH-007A-STATE-FIX",
+  "selected_task_title": "Repair missing runtime-state updates for RALPH-007A",
+  "mode": "code",
+  "status": "completed",
+  "selection_reason": "State repair task to fix missing runtime-state updates for RALPH-007A completion",
   "blocked_reason": null,
-  "stop_reason": null,
+  "stop_reason": "task_completed",
   "allowed_files": [
-    "scripts/agent/select-next-ralph-task.mjs",
     "tasks/task-state.json",
     "tasks/task-history.jsonl",
-    "handoffs/latest-handoff.md",
     "runs/current-run.json",
     "runs/run-history.jsonl",
     "validation/validation-results.jsonl",
+    "handoffs/latest-handoff.md",
     "reports/morning-review.md"
   ],
   "forbidden_files": [
+    "plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md",
+    "scripts/**/*",
+    "package.json",
+    "package-lock.json",
+    "ROADMAP.md",
+    "VERIFY.md",
     "SSOK.md",
     "AGENTS.md",
     "README.md",
-    "ROADMAP.md",
-    "VERIFY.md",
-    "package.json",
-    "package-lock.json",
-    ".gitignore",
     "src/**/*",
     "supabase/**/*",
     ".roo/**/*",
     ".roomodes",
-    ".agent/adapters/**/*",
-    ".agent/prompts/**/*"
+    ".agent/prompts/**/*",
+    ".agent/adapters/**/*"
   ],
   "expected_outputs": [
-    "scripts/agent/select-next-ralph-task.mjs"
+    "tasks/task-state.json",
+    "tasks/task-history.jsonl",
+    "runs/current-run.json",
+    "runs/run-history.jsonl",
+    "validation/validation-results.jsonl",
+    "handoffs/latest-handoff.md",
+    "reports/morning-review.md"
   ],
   "validation_requirements": {
-    "type": "standard",
+    "type": "runtime_state_repair",
     "required_checks": [
-      "npm_run_verify"
+      "json_syntax_validation",
+      "jsonl_syntax_validation",
+      "no_forbidden_files_modified"
     ]
   },
   "safety_checks": {
@@ -52,8 +61,8 @@
     "ralph_loop_version": "0.1.0-alpha",
     "selector_version": "1.0.1",
     "governance_version": "1.0.0",
-    "selection_algorithm": "priority_risk_created_at",
-    "human_approval_required": true,
-    "notes": "Task selected by dry-run selector. Human approval required before implementation."
+    "selection_algorithm": "manual_state_repair",
+    "human_approval_required": false,
+    "notes": "State repair task completed successfully. RALPH-006A and RALPH-007A marked done, runtime state synchronized."
   }
 }

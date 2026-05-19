@@ -8,6 +8,39 @@
 > - verification → `VERIFY.md`
 > - task ordering → `ROADMAP.md`
 
+---
+
+## Ralph-Loop Governance Transition
+
+**⚠️ TRANSITION IN PROGRESS:** This repository is migrating from Roo-first governance to repository-first, agent-neutral Ralph-Loop governance.
+
+### Current Transition Status
+- **Roo remains the temporary legacy adapter** during migration
+- **Repository governance is becoming authoritative** - tools are adapters, not sources of truth
+- **Ralph-Loop foundation established** in [`.governance/`](.governance/), [`tasks/`](tasks/), [`runs/`](runs/), [`handoffs/`](handoffs/), [`validation/`](validation/), [`reports/`](reports/), [`.agent/`](.agent/)
+
+### Future Governance Hierarchy
+1. **Root project truth:** [`README.md`](README.md), [`ROADMAP.md`](ROADMAP.md), [`AGENTS.md`](AGENTS.md), [`VERIFY.md`](VERIFY.md), [`package.json`](package.json)
+2. **Ralph-Loop governance:** [`.governance/`](.governance/)
+3. **Runtime state:** [`tasks/`](tasks/), [`runs/`](runs/), [`handoffs/`](handoffs/), [`validation/`](validation/), [`reports/`](reports/)
+4. **Tool adapters:** [`.agent/adapters/`](.agent/adapters/)
+5. **Legacy Roo adapter:** [`.roo/`](.roo/) and [`.roomodes`](.roomodes) until explicitly retired
+
+### Tool Neutrality Principle
+- **Cline, OpenCode, Codex, and Roo are worker adapters**, not sources of truth
+- **Repository contracts define work requirements**, tools implement them
+- **[`ROADMAP.md`](ROADMAP.md) remains the product/task SSOK**
+- **[`VERIFY.md`](VERIFY.md) remains the verification SSOK**
+- **Tool-specific files are adapters**, not permanent project truth
+
+### Transition Notes
+- **Existing Roo sections below are legacy/current-transition context**, not the desired future target
+- **See [`docs/RALPH_LOOP_TRANSITION_NOTES.md`](docs/RALPH_LOOP_TRANSITION_NOTES.md)** for detailed transition documentation
+- **No product code or scripts changed** during foundation establishment
+- **Rollback principle:** Remove Ralph-Loop documentation files to return to pure Roo-first governance
+
+---
+
 ## 1. Zweck
 
 Diese SSOK definiert, wie das Projekt mit VS Code + Roo + mehreren Agenten geführt wird.

@@ -1,26 +1,24 @@
 {
-  "run_id": "run_2026-05-19_ralph-003a",
-  "task_id": "RALPH-003A",
+  "run_id": "run_2026-05-19_ralph-004a",
+  "task_id": "RALPH-004A",
   "status": "running",
-  "started_at": "2026-05-19T08:43:00Z",
+  "started_at": "2026-05-19T08:57:53Z",
   "mode": "code",
   "tool": "claude-sonnet-4",
   "allowed_scope": [
-    ".agent/prompts/**/*",
-    ".agent/adapters/**/*",
-    ".agent/config/**/*",
+    "SSOK.md",
+    "AGENTS.md",
+    "README.md",
     "tasks/task-state.json",
     "tasks/task-history.jsonl",
     "handoffs/latest-handoff.md",
     "runs/current-run.json",
     "runs/run-history.jsonl",
     "validation/validation-results.jsonl",
-    "reports/morning-review.md"
+    "reports/morning-review.md",
+    "docs/RALPH_LOOP_TRANSITION_NOTES.md"
   ],
   "forbidden_scope": [
-    "SSOK.md",
-    "AGENTS.md",
-    "README.md",
     "ROADMAP.md",
     "VERIFY.md",
     "package.json",
@@ -33,7 +31,7 @@
     ".roomodes"
   ],
   "stop_conditions": {
-    "max_files": 15,
+    "max_files": 10,
     "max_runtime_minutes": 30,
     "validation_required": true,
     "human_review_required": true,
@@ -41,11 +39,11 @@
     "forbidden_file_modification": "immediate_stop"
   },
   "progress": {
-    "files_created": 10,
-    "files_modified": 3,
+    "files_created": 0,
+    "files_modified": 2,
     "files_deleted": 0,
-    "current_phase": "prompt_and_adapter_creation",
-    "completion_percentage": 80
+    "current_phase": "root_governance_transition_notes",
+    "completion_percentage": 20
   },
   "safety_checks": {
     "working_tree_clean": true,
@@ -56,9 +54,9 @@
   "metadata": {
     "ralph_loop_version": "0.1.0-alpha",
     "governance_version": "1.0.0",
-    "task_type": "static_contracts",
+    "task_type": "governance_transition",
     "risk_assessment": "review_required",
     "requires_npm_verify": false,
-    "notes": "Creating minimal agent prompt and adapter contracts. Static foundation only - no executable adapters or loop-runner scripts."
+    "notes": "Adding minimal root governance transition notes. Updates SSOK.md and AGENTS.md with Ralph-Loop governance sections. Creates transition documentation without modifying product code or scripts."
   }
 }

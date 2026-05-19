@@ -8,6 +8,53 @@
 
 ---
 
+## Ralph-Loop Governance
+
+**⚠️ TRANSITION IN PROGRESS:** This repository is implementing Ralph-Loop governance alongside existing Roo-first governance.
+
+### Agent Neutrality Principle
+- **Agents must read [`.governance/`](.governance/) before Ralph-Loop migration/autonomous-loop work**
+- **Agents must work on exactly one assigned task** per run
+- **Agents must respect [`tasks/task-state.json`](tasks/task-state.json)** when operating in Ralph-Loop mode
+- **Agents must update [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md)** when explicitly allowed
+- **Agents must not claim done without validation evidence**
+- **Agents must respect [`.agent/config/protected-files.json`](.agent/config/protected-files.json)** and [`.governance/SAFETY.md`](.governance/SAFETY.md)
+- **Agents must stop on human-review, protected-file, ambiguity, or validation-failure conditions**
+
+### Tool Adapter Principle
+- **Roo, Cline, OpenCode, and Codex are adapters/workers**, not source of truth
+- **Repository governance in [`.governance/`](.governance/) is authoritative**, not tool-specific logic
+- **Task definitions in [`tasks/task-state.json`](tasks/task-state.json)** override agent assumptions
+- **Safety policies in [`.governance/SAFETY.md`](.governance/SAFETY.md)** supersede tool defaults
+- **Validation rules in [`validation/validation-rules.json`](validation/validation-rules.json)** are binding
+
+### Ralph-Loop Task Execution
+When working on Ralph-Loop migration tasks (RALPH-XXX), agents must:
+1. **Read governance files first:** [`.governance/SYSTEM.md`](.governance/SYSTEM.md), [`.governance/RULES.md`](.governance/RULES.md), [`.governance/SAFETY.md`](.governance/SAFETY.md)
+2. **Check task assignment:** [`runs/current-run.json`](runs/current-run.json) for current task details
+3. **Respect scope boundaries:** Only modify files listed in task's `allowed_files`
+4. **Follow safety policies:** Never modify files in task's `forbidden_files`
+5. **Execute validation:** Run required validation checks per task definition
+6. **Write handoff:** Document work in [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md)
+7. **Stop for review:** Never continue to next task automatically
+
+### Dual Governance During Transition
+- **For Ralph-Loop tasks (RALPH-XXX):** Follow [`.governance/`](.governance/) policies
+- **For existing product tasks:** Continue using [`.roo/`](.roo/) operational logic
+- **For conflicts:** [`.governance/`](.governance/) takes precedence on Ralph-Loop tasks
+- **Roo preservation:** Never delete or rewrite [`.roo/`](.roo/) or [`.roomodes`](.roomodes) unless explicitly tasked
+
+### Stop Conditions for Ralph-Loop Work
+Agents must stop immediately when:
+- **Task requirements are ambiguous** or conflicting
+- **Validation failures cannot be resolved** within scope
+- **Safety policy violations are detected**
+- **Task requires forbidden file modifications**
+- **Implementation exceeds allowed scope**
+- **Human review is required** per task definition
+
+---
+
 ## DACH Data Strategy Reference
 
 - Neue DACH-spezifische Datenstrategie für generische vs. Marken-Lebensmittel in Resolver und Ranking.

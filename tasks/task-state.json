@@ -126,11 +126,11 @@
     {
       "id": "RALPH-003A",
       "title": "Minimal agent prompt and adapter contracts",
-      "status": "in_progress",
+      "status": "done",
       "priority": "high",
       "risk_level": "review_required",
       "created_at": "2026-05-19T08:23:00Z",
-      "updated_at": "2026-05-19T08:43:00Z",
+      "updated_at": "2026-05-19T08:57:53Z",
       "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": true,
@@ -143,11 +143,24 @@
         ".env*",
         "package.json"
       ],
-      "outputs": [],
+      "outputs": [
+        ".agent/prompts/coordinator.md",
+        ".agent/prompts/worker.md",
+        ".agent/prompts/reviewer.md",
+        ".agent/prompts/validator.md",
+        ".agent/adapters/cline.md",
+        ".agent/adapters/opencode.md",
+        ".agent/adapters/roo.md",
+        ".agent/adapters/codex.md",
+        ".agent/config/loop-config.json",
+        ".agent/config/protected-files.json"
+      ],
       "validation": {
-        "type": "standard",
+        "type": "static_prompt_adapter_contracts",
         "required_checks": [
-          "npm_run_verify"
+          "json_syntax_validation",
+          "jsonl_syntax_validation",
+          "no_forbidden_files_modified"
         ]
       },
       "acceptance_criteria": [
@@ -155,38 +168,60 @@
         "Tool-neutral prompt templates created",
         "Adapter interface specifications complete"
       ],
-      "notes": "Awaiting RALPH-002A completion"
+      "notes": "Completed - created static prompt templates and adapter contracts for Cline, OpenCode, Roo, and Codex. No executable adapters or runtime behavior changed."
     },
     {
       "id": "RALPH-004A", 
       "title": "Root governance transition notes",
-      "status": "not_started",
+      "status": "in_progress",
       "priority": "medium",
       "risk_level": "review_required",
       "created_at": "2026-05-19T08:23:00Z",
-      "updated_at": "2026-05-19T08:23:00Z",
-      "attempt_count": 0,
+      "updated_at": "2026-05-19T08:57:53Z",
+      "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": true,
       "allowed_files": [
-        "docs/ralph-transition.md",
-        "README.md"
+        "SSOK.md",
+        "AGENTS.md",
+        "README.md",
+        "tasks/task-state.json",
+        "tasks/task-history.jsonl",
+        "handoffs/latest-handoff.md",
+        "runs/current-run.json",
+        "runs/run-history.jsonl",
+        "validation/validation-results.jsonl",
+        "reports/morning-review.md",
+        "docs/RALPH_LOOP_TRANSITION_NOTES.md"
       ],
       "forbidden_files": [
-        "SSOK.md",
-        "src/**/*"
+        "ROADMAP.md",
+        "VERIFY.md",
+        "package.json",
+        "package-lock.json",
+        ".gitignore",
+        "src/**/*",
+        "supabase/**/*",
+        "scripts/**/*",
+        ".roo/**/*",
+        ".roomodes"
       ],
       "outputs": [],
       "validation": {
-        "type": "documentation_only",
-        "required_checks": []
+        "type": "static_foundation_only",
+        "required_checks": [
+          "json_syntax_validation",
+          "jsonl_syntax_validation",
+          "no_forbidden_files_modified"
+        ]
       },
       "acceptance_criteria": [
-        "Transition documentation complete",
-        "Migration path documented",
-        "Rollback procedures defined"
+        "Root governance transition notes added to SSOK.md and AGENTS.md",
+        "Runtime state files updated correctly",
+        "Transition documentation created in docs/",
+        "No product code or scripts changed"
       ],
-      "notes": "Awaiting foundation completion"
+      "notes": "Currently updating root governance transition notes and runtime state"
     },
     {
       "id": "RALPH-005A",

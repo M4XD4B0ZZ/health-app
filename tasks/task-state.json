@@ -434,39 +434,66 @@
     },
     {
       "id": "RALPH-009A",
-      "title": "First Cline dry run without product-code changes",
-      "status": "not_started",
-      "priority": "low",
-      "risk_level": "human_required",
+      "title": "Cline Worker Adapter Preparation",
+      "status": "done",
+      "priority": "medium",
+      "risk_level": "safe_autonomous",
       "created_at": "2026-05-19T08:23:00Z",
-      "updated_at": "2026-05-19T08:23:00Z",
-      "attempt_count": 0,
-      "max_attempts": 1,
+      "updated_at": "2026-05-19T18:14:00Z",
+      "attempt_count": 1,
+      "max_attempts": 3,
       "requires_human_review": true,
       "allowed_files": [
-        "docs/**/*",
-        "plans/**/*"
+        "docs/CLINE_RALPH_WORKER_SETUP.md",
+        "docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md",
+        "plans/RALPH_CLINE_DRY_RUN_PLAN.md",
+        ".agent/adapters/cline.md",
+        "tasks/task-state.json",
+        "tasks/task-history.jsonl",
+        "runs/current-run.json",
+        "runs/run-history.jsonl",
+        "validation/validation-results.jsonl",
+        "handoffs/latest-handoff.md",
+        "reports/morning-review.md"
       ],
       "forbidden_files": [
-        "src/**/*",
         "package.json",
-        "supabase/**/*"
+        "package-lock.json",
+        "ROADMAP.md",
+        "VERIFY.md",
+        "README.md",
+        "src/**/*",
+        "supabase/**/*",
+        "scripts/**/*",
+        ".roo/**/*",
+        ".roomodes"
       ],
-      "outputs": [],
+      "outputs": [
+        "docs/CLINE_RALPH_WORKER_SETUP.md",
+        "docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md",
+        "plans/RALPH_CLINE_DRY_RUN_PLAN.md"
+      ],
       "validation": {
-        "type": "dry_run_only",
+        "type": "cline_worker_adapter_preparation",
         "required_checks": [
-          "no_product_code_changes",
-          "documentation_only"
+          "setup_docs_exist",
+          "dry_run_checklist_exists",
+          "dry_run_plan_exists",
+          "json_syntax_validation",
+          "jsonl_syntax_validation",
+          "no_forbidden_files_modified",
+          "no_product_code_changes"
         ]
       },
       "acceptance_criteria": [
-        "Dry run completed successfully",
-        "No product code modified",
-        "Documentation changes only",
-        "Safety systems operational"
+        "Cline worker adapter documentation created",
+        "First dry-run checklist prepared",
+        "Dry-run plan for RALPH-010A defined",
+        "Runtime state updated correctly",
+        "No Cline installation or execution performed",
+        "No product code modified"
       ],
-      "notes": "First controlled test of Ralph-Loop with Cline"
+      "notes": "Prepare Cline as worker adapter without installing or running it"
     },
     {
       "id": "RALPH-010A",

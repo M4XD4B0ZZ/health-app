@@ -208,7 +208,13 @@ As Ralph-Loop matures, the Cline adapter may evolve to:
 ## Important Notes
 
 ### Cline is NOT Installed/Configured by This Task
-This documentation describes how Cline should integrate with Ralph-Loop when it is installed and configured. The actual installation and configuration of Cline is handled by separate tasks (RALPH-008A and beyond).
+This documentation describes how Cline should integrate with Ralph-Loop when it is installed and configured. The actual installation and configuration of Cline is handled by separate tasks (RALPH-009A and beyond).
+
+### Additional Documentation
+For detailed setup and dry-run procedures, see:
+- `docs/CLINE_RALPH_WORKER_SETUP.md` - Comprehensive setup guide
+- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md` - First dry-run checklist
+- `plans/RALPH_CLINE_DRY_RUN_PLAN.md` - Detailed dry-run plan for RALPH-010A
 
 ### Repository-First Principle
 Cline is an adapter that implements repository contracts. The repository governance is authoritative, not Cline's internal logic or default behaviors. When conflicts arise, repository governance takes precedence.

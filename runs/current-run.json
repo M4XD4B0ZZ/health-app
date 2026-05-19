@@ -1,19 +1,19 @@
 {
-  "run_id": "run_2026-05-19_ralph-002a",
-  "task_id": "RALPH-002A",
+  "run_id": "run_2026-05-19_ralph-003a",
+  "task_id": "RALPH-003A",
   "status": "running",
-  "started_at": "2026-05-19T08:23:00Z",
+  "started_at": "2026-05-19T08:43:00Z",
   "mode": "code",
   "tool": "claude-sonnet-4",
   "allowed_scope": [
+    ".agent/prompts/**/*",
+    ".agent/adapters/**/*",
+    ".agent/config/**/*",
     "tasks/task-state.json",
     "tasks/task-history.jsonl",
     "handoffs/latest-handoff.md",
-    "handoffs/archive/.gitkeep",
     "runs/current-run.json",
     "runs/run-history.jsonl",
-    "runs/logs/.gitkeep",
-    "validation/validation-rules.json",
     "validation/validation-results.jsonl",
     "reports/morning-review.md"
   ],
@@ -29,12 +29,11 @@
     "src/**/*",
     "supabase/**/*",
     "scripts/**/*",
-    ".agent/**/*",
     ".roo/**/*",
     ".roomodes"
   ],
   "stop_conditions": {
-    "max_files": 10,
+    "max_files": 15,
     "max_runtime_minutes": 30,
     "validation_required": true,
     "human_review_required": true,
@@ -42,11 +41,11 @@
     "forbidden_file_modification": "immediate_stop"
   },
   "progress": {
-    "files_created": 4,
-    "files_modified": 0,
+    "files_created": 10,
+    "files_modified": 3,
     "files_deleted": 0,
-    "current_phase": "foundation_creation",
-    "completion_percentage": 40
+    "current_phase": "prompt_and_adapter_creation",
+    "completion_percentage": 80
   },
   "safety_checks": {
     "working_tree_clean": true,
@@ -57,9 +56,9 @@
   "metadata": {
     "ralph_loop_version": "0.1.0-alpha",
     "governance_version": "1.0.0",
-    "task_type": "static_foundation",
-    "risk_assessment": "safe_autonomous",
+    "task_type": "static_contracts",
+    "risk_assessment": "review_required",
     "requires_npm_verify": false,
-    "notes": "Creating minimal runtime-state foundation files only. No runtime behavior changes."
+    "notes": "Creating minimal agent prompt and adapter contracts. Static foundation only - no executable adapters or loop-runner scripts."
   }
 }

@@ -7,9 +7,10 @@
  * selects the next eligible task for execution. It operates exclusively in
  * dry-run mode and performs no task implementation or automatic status transitions.
  * 
- * @version 1.0.0
+ * @version 1.0.1
  * @author Ralph-Loop System
  * @created 2026-05-19
+ * @fixed 2026-05-19 - RALPH-006A-FIX
  */
 
 import fs from 'fs';
@@ -70,7 +71,7 @@ class RalphTaskSelector {
       const inputData = await this.readAndValidateInputs();
       
       // 2. Check for stale active runs
-      await this.checkStaleActiveRun(inputData.currentRun);
+      await this.checkStaleActiveRun(inputData.currentRun, inputData.taskState.tasks);
       
       // 3. Apply eligibility rules
       const eligibleTasks = this.filterEligibleTasks(inputData.taskState.tasks, inputData.loopConfig);
@@ -225,15 +226,27 @@ class RalphTaskSelector {
   /**
    * Check for stale active runs
    */
-  async checkStaleActiveRun(currentRun) {
+  async checkStaleActiveRun(currentRun, allTasks) {
     if (!currentRun) {
       return; // No active run
     }
     
     if (currentRun.status === 'running' || currentRun.status === 'in_progress') {
-      // Check if this is a different task than what we might select
-      // For now, we'll be conservative and stop on any active run
-      throw this.createError('STALE_ACTIVE_RUN', `Active run detected for task ${currentRun.selected_task_id}. Please complete or clear the current run before selecting a new task.`, EXIT_CODES.STALE_ACTIVE_RUN);
+      // Support both possible field names for task ID
+      const activeTaskId = currentRun.task_id || currentRun.selected_task_id;
+      
+      if (!activeTaskId) {
+        throw this.createError('STALE_ACTIVE_RUN', 'Active run detected but no task ID found. Please clear the current run.', EXIT_CODES.STALE_ACTIVE_RUN);
+      }
+      
+      // Find the next task that would be selected
+      const eligibleTasks = this.filterEligibleTasks(allTasks, { human_review_policy: { require_review_after_each_task: true } });
+      const nextTask = this.selectBestTask(eligibleTasks);
+      
+      // If active task differs from what would be selected, it's stale
+      if (nextTask && nextTask.id !== activeTaskId) {
+        throw this.createError('STALE_ACTIVE_RUN', `Stale active run detected. Active: ${activeTaskId}, Next: ${nextTask.id}. Please complete or clear the current run.`, EXIT_CODES.STALE_ACTIVE_RUN);
+      }
     }
   }
 
@@ -480,7 +493,7 @@ class RalphTaskSelector {
       },
       metadata: {
         ralph_loop_version: '0.1.0-alpha',
-        selector_version: '1.0.0',
+        selector_version: '1.0.1',
         governance_version: '1.0.0',
         selection_algorithm: 'priority_risk_created_at',
         human_approval_required: selectedTask.requires_human_review || selectedTask.risk_level === 'review_required',
@@ -587,6 +600,7 @@ function parseArgs(args) {
         break;
       case '--write':
         options.writeMode = true;
+        options.dryRun = false;
         break;
       case '--json':
         options.jsonOutput = true;
@@ -691,9 +705,7 @@ async function main() {
   }
 }
 
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
+// Always run main when this script is executed
+main();
 
 export { RalphTaskSelector, EXIT_CODES };

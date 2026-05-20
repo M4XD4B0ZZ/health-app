@@ -56,6 +56,19 @@ This document provides setup instructions and operational guidelines for using C
 
 ## Required Operating Rules
 
+### Command Syntax (Windows PowerShell)
+- This workspace uses Windows PowerShell by default.
+- Use PowerShell-compatible commands only; never assume Bash syntax.
+- Do not use `&&` chaining.
+- Prefer one command per execution; if needed, use `;` or run commands separately.
+- For conditional execution, use: `if ($LASTEXITCODE -eq 0) { <next command> }`.
+
+### Practical Terminal Reliability Note
+- Use short PowerShell-safe commands.
+- Avoid complex inline validation commands.
+- Prefer manual terminal verification for critical checks.
+- Report command/output issues instead of improvising.
+
 ### Task Execution Protocol
 1. **Read Assignment**: Parse `runs/current-run.json` for complete task details
 2. **Verify Scope**: Confirm allowed/forbidden files and operations

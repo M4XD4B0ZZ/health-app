@@ -63,6 +63,67 @@ Cline MUST follow Ralph-Loop governance:
 
 ## Cline Configuration Requirements
 
+## Terminal Command Policy for Windows PowerShell
+
+- This workspace uses Windows/PowerShell by default.
+- Never use Bash command chaining such as `&&`.
+- Prefer one command per terminal execution.
+- Avoid long `node -e` one-liners when possible.
+- Avoid complex nested quoting.
+- If a command produces no visible output, do not keep retrying with more complex quoting.
+- Stop and report the output-capture issue.
+- For validation, prefer short explicit commands.
+- For multi-step validation, ask the user to run commands manually if Cline terminal output is unreliable.
+- Keep terminal usage minimal; summarize results in the Cline chat.
+- If multiple commands are needed, use PowerShell semicolon `;` or run commands separately.
+- For conditional execution, use PowerShell-compatible logic:
+
+```powershell
+if ($LASTEXITCODE -eq 0) { <next command> }
+```
+
+- Never assume Bash syntax.
+- Prefer explicit PowerShell-safe commands.
+- Keep commands short to reduce token and terminal failure risk.
+
+Examples:
+
+Correct:
+
+```powershell
+git status --short
+```
+
+Correct:
+
+```powershell
+node --version
+```
+
+Correct:
+
+```powershell
+node scripts/agent/generate-morning-review.mjs --dry-run
+```
+
+Correct:
+
+```powershell
+git status --short; node scripts/agent/generate-morning-review.mjs --dry-run
+```
+
+Incorrect:
+
+```powershell
+git status --short && node scripts/agent/generate-morning-review.mjs --dry-run
+```
+
+Incorrect:
+
+```powershell
+# very long node -e commands with nested quotes
+```
+
 ### Required Cline Settings
 ```json
 {

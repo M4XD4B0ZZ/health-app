@@ -183,6 +183,14 @@ This repository does NOT handle Cline installation or global configuration. Thes
 
 ## Verification Checklist
 
+### Command Syntax
+- Use PowerShell-compatible commands.
+- Do not use `&&`.
+- Prefer separate commands.
+- Verify with `git status --short` before and after write tests.
+- If terminal output is missing or command hangs, stop and ask for human validation.
+- Do not spawn repeated PowerShell wrapper commands.
+
 ### Pre-Execution Verification
 - [ ] **Task Assignment Valid**: `runs/current-run.json` contains valid task
 - [ ] **Scope Boundaries Clear**: Allowed/forbidden files clearly defined

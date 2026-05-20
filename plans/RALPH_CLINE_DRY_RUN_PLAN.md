@@ -235,6 +235,16 @@ Execute your assigned task now.
 
 ## Validation Commands
 
+### PowerShell Command Syntax Policy (Future Dry Runs)
+- Future dry-run command examples must be PowerShell-safe.
+- Do not use Bash chaining (`&&`) in this Windows/PowerShell workspace.
+- Prefer one command per execution; if combining commands, use `;`.
+
+### Operational Note for Future Cline Dry Runs
+- Future Cline dry-run commands must be short, PowerShell-safe, and separately executed.
+- No long chained validation commands.
+- No Bash syntax.
+
 ### Pre-Execution Validation
 ```bash
 # Verify repository state

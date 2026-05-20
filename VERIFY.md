@@ -17,6 +17,8 @@ HealthApp uses deterministic verification to ensure the repository remains stabl
 
 Every change must pass verification before being considered complete.
 
+For **documentation-only / governance-only** tasks (for example edits limited to `*.md`, `docs/`, `reports/`, `handoffs/`), use task-relevant readback checks instead of full product/runtime verification.
+
 Verification must be:
 
 - deterministic
@@ -66,6 +68,16 @@ npm run typecheck
 npm run verify
 ```
 
+For documentation-only tasks, minimum required checks are:
+
+```bash
+git --no-pager status --short
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+Use full product verification (`npm run verify`) when product/runtime code changes. If edge/supabase functions change, also run edge-specific verification (`npm run verify:edge` and related edge prerequisites).
+
 Run `npm run verify:edge` only when Supabase Edge Functions were changed and `.env` is available with valid credentials.
 
 **CI:**
@@ -111,6 +123,10 @@ If any verification step fails:
 - the change must not be committed
 - the failure must be fixed first
 - verification must pass completely before marking the task as done in ROADMAP.md
+
+Handoff requirement (always):
+
+- final handoff must explicitly state which checks were run and why (including when a docs-only check set is used)
 
 ## Input Parsing Verification
 

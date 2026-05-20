@@ -120,4 +120,36 @@ describe('LogFoodFromRawInputUseCase', () => {
       expect(entries[2].parsedName).toBe('banana');
     });
   });
+
+  describe('Zero-Macro Guard', () => {
+    it('sollte Persistenz blockieren wenn Resolver keine validen Makros liefert', async () => {
+      const failureRepository = new InMemoryFoodEntryRepository();
+      const addEntrySpy = jest.spyOn(failureRepository, 'addEntry');
+      const failureResolver = MockResolverBuilder.createFailurePathResolver();
+
+      const failureUseCase = new LogFoodFromRawInputUseCase(
+        failureRepository,
+        clock,
+        idGenerator,
+        parser,
+        {
+          getById: async () => null,
+          searchByName: async () => null,
+        } as any,
+        undefined,
+        undefined,
+        undefined,
+        failureResolver,
+      );
+
+      await expect(
+        failureUseCase.execute({ rawText: '100g unknown food', rawInput: '100g unknown food' }),
+      ).rejects.toThrow(/RESOLVER_FAILED_OR_NO_MACROS/i);
+
+      expect(addEntrySpy).not.toHaveBeenCalled();
+
+      const entries = await failureRepository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(0);
+    });
+  });
 });

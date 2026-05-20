@@ -186,10 +186,61 @@ This repository does NOT handle Cline installation or global configuration. Thes
 ### Command Syntax
 - Use PowerShell-compatible commands.
 - Do not use `&&`.
-- Prefer separate commands.
+- Prefer one short isolated command per execution.
+- Do not run long compound commands unless explicitly approved.
 - Verify with `git status --short` before and after write tests.
 - If terminal output is missing or command hangs, stop and ask for human validation.
 - Do not spawn repeated PowerShell wrapper commands.
+
+### Git Pager Reliability
+- If Git output is visible but Cline remains `Running`, check whether Git opened a pager.
+- Typical signal: terminal accepts `q`; pressing `q` completes execution.
+- For read-only Git inspection, prefer:
+
+```powershell
+git --no-pager log -1 --oneline
+git --no-pager show --name-only --pretty=format:"%H%n%s" HEAD
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+- Avoid pager-prone forms without `--no-pager`:
+  - `git show`
+  - `git log`
+  - `git diff`
+
+- Recovery rule:
+  - press `q` once
+  - do not click **Proceed While Running** repeatedly
+  - do not escalate to complex shell syntax
+  - document the incident in `handoffs/latest-handoff.md`
+
+### Blocking Command Registry (approval required)
+- `npm run dev`
+- `npx expo start`
+- `expo start`
+- `tail -f`
+- `watch`
+- long-running local servers
+- interactive prompts
+- any command that waits for user input
+
+### Timeout / Stop Rules
+- If a command appears complete but Cline still shows `Running`, stop and inspect.
+- If a command continues without new output after a short wait, stop and document.
+- Never treat **Proceed While Running** as normal workflow.
+- Terminal-dependent execution is not unattended-safe until these cases are resolved.
+
+### Verification Guidance (documentation-only tasks)
+- Prefer readback checks using:
+  - `git status --short`
+  - `git --no-pager diff --stat`
+- Avoid full `npm run verify` unless product/runtime code changed.
+
+### Unattended Execution Constraint
+- Cline is currently allowed only as a scoped worker.
+- Cline is not yet trusted for unattended overnight execution.
+- Ralph/Governor remains responsible for scope, stop conditions, and human review gates.
 
 ### Pre-Execution Verification
 - [ ] **Task Assignment Valid**: `runs/current-run.json` contains valid task
@@ -247,7 +298,7 @@ This repository does NOT handle Cline installation or global configuration. Thes
 
 ### Git Rollback Procedure
 - [ ] **Check Git Status**: `git status` to see changed files
-- [ ] **Review Changes**: `git diff` to see specific changes
+- [ ] **Review Changes**: `git --no-pager diff` to see specific changes
 - [ ] **Selective Rollback**: `git checkout -- <file>` for specific files
 - [ ] **Complete Rollback**: `git reset --hard HEAD` if necessary (use with caution)
 

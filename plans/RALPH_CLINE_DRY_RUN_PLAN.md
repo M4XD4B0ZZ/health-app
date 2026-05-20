@@ -238,12 +238,63 @@ Execute your assigned task now.
 ### PowerShell Command Syntax Policy (Future Dry Runs)
 - Future dry-run command examples must be PowerShell-safe.
 - Do not use Bash chaining (`&&`) in this Windows/PowerShell workspace.
-- Prefer one command per execution; if combining commands, use `;`.
+- Prefer one short isolated command per execution.
+- Do not use long compound commands unless explicitly approved.
+- If combining is unavoidable, use `;` sparingly.
 
 ### Operational Note for Future Cline Dry Runs
 - Future Cline dry-run commands must be short, PowerShell-safe, and separately executed.
 - No long chained validation commands.
 - No Bash syntax.
+
+### Git Pager Reliability Policy
+- For read-only Git inspection, use `git --no-pager ...`.
+- Avoid pager-prone commands without `--no-pager`:
+  - `git show`
+  - `git log`
+  - `git diff`
+- Preferred forms:
+
+```powershell
+git --no-pager log -1 --oneline
+git --no-pager show --name-only --pretty=format:"%H%n%s" HEAD
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+### Pager Recovery Procedure
+- If output is visible but Cline remains `Running`, assume pager/completion artifact first.
+- Press `q` once if terminal input is accepted.
+- Do not repeatedly use **Proceed While Running**.
+- Do not escalate to complex shell syntax.
+- Document the incident in `handoffs/latest-handoff.md`.
+
+### Blocking Command Registry (approval required)
+- `npm run dev`
+- `npx expo start`
+- `expo start`
+- `tail -f`
+- `watch`
+- long-running local servers
+- interactive prompts
+- any command that waits for user input
+
+### Timeout / Stop Rules
+- If a command appears complete but Cline still shows `Running`, stop and inspect.
+- If a command runs without new output after a short wait, stop and document.
+- Never treat **Proceed While Running** as normal workflow.
+- Terminal-dependent execution is not unattended-safe until these failure modes are resolved.
+
+### Verification Guidance for Documentation-Only Tasks
+- Prefer git readback checks:
+  - `git status --short`
+  - `git --no-pager diff --stat`
+- Avoid full `npm run verify` unless product/runtime code changed.
+
+### Unattended Execution Constraint
+- Cline is allowed only as a scoped worker.
+- Cline is not yet trusted for unattended overnight execution.
+- Ralph/Governor remains responsible for scope control, stop conditions, and human review gates.
 
 ### Pre-Execution Validation
 ```bash

@@ -60,7 +60,9 @@ This document provides setup instructions and operational guidelines for using C
 - This workspace uses Windows PowerShell by default.
 - Use PowerShell-compatible commands only; never assume Bash syntax.
 - Do not use `&&` chaining.
-- Prefer one command per execution; if needed, use `;` or run commands separately.
+- Prefer one short isolated command per execution.
+- Do not run long compound commands unless explicitly approved.
+- If needed, use `;` sparingly or run commands separately.
 - For conditional execution, use: `if ($LASTEXITCODE -eq 0) { <next command> }`.
 
 ### Practical Terminal Reliability Note
@@ -68,6 +70,53 @@ This document provides setup instructions and operational guidelines for using C
 - Avoid complex inline validation commands.
 - Prefer manual terminal verification for critical checks.
 - Report command/output issues instead of improvising.
+
+### Git Pager Handling Rule
+- For read-only Git inspection commands, prefer `git --no-pager ...`.
+- Avoid running pager-prone commands without `--no-pager`, especially:
+  - `git show`
+  - `git log`
+  - `git diff`
+- Preferred examples:
+
+```powershell
+git --no-pager log -1 --oneline
+git --no-pager show --name-only --pretty=format:"%H%n%s" HEAD
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+- If output is visible but Cline appears stuck in `Running`, assume Git pager first.
+- Recovery:
+  - press `q` once
+  - do not click **Proceed While Running** repeatedly
+  - do not escalate to complex shell syntax
+  - document the incident in `handoffs/latest-handoff.md`
+
+### Blocking Command Registry (approval required)
+- `npm run dev`
+- `npx expo start`
+- `expo start`
+- `tail -f`
+- `watch`
+- long-running local servers
+- interactive prompts
+- any command that waits for user input
+
+### Timeout / Stop Rules
+- If a command appears complete but Cline still shows `Running`, stop and inspect.
+- If a command continues with no new output after a short wait, stop and document.
+- Never treat **Proceed While Running** as normal workflow.
+- Terminal-dependent workflows are not unattended-safe until these failure modes are resolved.
+
+### Verification Guidance (documentation-only tasks)
+- Prefer git readback checks (`git status --short`, `git --no-pager diff --stat`).
+- Avoid full `npm run verify` unless product/runtime code changed.
+
+### Unattended Execution Constraint
+- Cline is currently allowed only as a scoped worker.
+- Cline is not yet trusted for unattended overnight execution.
+- Ralph/Governor remains responsible for scope, stop conditions, and human review gates.
 
 ### Task Execution Protocol
 1. **Read Assignment**: Parse `runs/current-run.json` for complete task details

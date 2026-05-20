@@ -63,19 +63,18 @@ Cline MUST follow Ralph-Loop governance:
 
 ## Cline Configuration Requirements
 
-## Terminal Command Policy for Windows PowerShell
+## Terminal Safety Policy for Windows PowerShell
 
 - This workspace uses Windows/PowerShell by default.
-- Never use Bash command chaining such as `&&`.
-- Prefer one command per terminal execution.
-- Avoid long `node -e` one-liners when possible.
-- Avoid complex nested quoting.
-- If a command produces no visible output, do not keep retrying with more complex quoting.
-- Stop and report the output-capture issue.
-- For validation, prefer short explicit commands.
-- For multi-step validation, ask the user to run commands manually if Cline terminal output is unreliable.
-- Keep terminal usage minimal; summarize results in the Cline chat.
-- If multiple commands are needed, use PowerShell semicolon `;` or run commands separately.
+- Use short, isolated, PowerShell-safe commands.
+- Prefer one command per tool execution.
+- Never use Bash chaining such as `&&`.
+- No long compound commands unless explicitly approved by the human reviewer.
+- Avoid long `node -e` one-liners and complex nested quoting.
+- If a command produces no visible output, do not retry with increasingly complex syntax.
+- Stop and report output-capture or terminal-completion issues.
+- Keep terminal usage minimal and deterministic.
+- If multiple commands are unavoidable, run them separately (or use `;` only when explicitly justified).
 - For conditional execution, use PowerShell-compatible logic:
 
 ```powershell
@@ -85,6 +84,66 @@ if ($LASTEXITCODE -eq 0) { <next command> }
 - Never assume Bash syntax.
 - Prefer explicit PowerShell-safe commands.
 - Keep commands short to reduce token and terminal failure risk.
+
+### Git Pager Reliability Rule
+
+- If output from a Git read command is visible but Cline remains in `Running`, check for a Git pager session.
+- Typical symptom: terminal accepts `q`, and pressing `q` completes the command.
+- Prefer `git --no-pager ...` for read-only Git inspection commands.
+- Avoid pager-prone read commands without `--no-pager`, especially:
+  - `git show`
+  - `git log`
+  - `git diff`
+- Preferred safe forms:
+
+```powershell
+git --no-pager log -1 --oneline
+git --no-pager show --name-only --pretty=format:"%H%n%s" HEAD
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+### Pager Recovery Rule
+
+- If output is visible but Cline remains `Running`, assume Git pager or terminal-completion artifact first.
+- If terminal input is accepted, press `q` once.
+- Do not click **Proceed While Running** repeatedly.
+- Do not escalate into complex shell syntax just to recover output.
+- Document the incident in `handoffs/latest-handoff.md`.
+
+### Blocking Command Registry (approval required)
+
+Cline must not run the following unless explicitly approved for the current task:
+
+- `npm run dev`
+- `npx expo start`
+- `expo start`
+- `tail -f`
+- `watch`
+- long-running local servers
+- interactive prompts
+- any command that waits for user input
+
+### Timeout / Stop Rules
+
+- If a command appears complete but Cline still shows `Running`, stop and inspect before retrying.
+- If a command is still running with no new output after a short reasonable wait, stop and document.
+- Never treat **Proceed While Running** as normal workflow.
+- Terminal-dependent execution is not unattended-safe until these cases are resolved.
+
+### Documentation-Only Verification Guidance
+
+For documentation/governance-only Cline tasks:
+
+- Prefer git readback checks over full runtime verification.
+- Use `git status --short` and `git --no-pager diff --stat` for final validation.
+- Avoid `npm run verify` unless product/runtime code actually changed.
+
+### Unattended Execution Constraint
+
+- Cline is currently allowed only as a scoped worker.
+- Cline is not yet trusted for unattended overnight execution.
+- Ralph/Governor remains responsible for scope control, stop conditions, and human-review gates.
 
 Examples:
 

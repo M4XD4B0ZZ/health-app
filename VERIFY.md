@@ -56,6 +56,30 @@ npm run verify:edge
 
 > `npm run build` — **TODO:** No standalone build script exists yet. Expo build is handled via `expo build` / EAS. Add a `build` script to `package.json` when CI build pipeline is introduced.
 
+### Dependency Command Safety (CLINE-OPS-003)
+
+- `npm install` is allowed only when explicitly required to restore missing local dependencies.
+- `npm audit` is read-only and allowed for inspection only.
+- `npm audit fix` requires explicit approval.
+- `npm audit fix --force` is forbidden during scoped tasks unless a dedicated dependency-migration task is approved.
+- Any `package.json` / `package-lock.json` change is out of scope unless the task explicitly allows dependency changes.
+
+#### Incident rationale
+
+- `npm audit fix --force` can perform SemVer-major upgrades and large lockfile rewrites.
+- It must not be mixed into feature/test/governance tasks.
+
+#### Recovery rule for accidental dependency drift
+
+If package files drift accidentally:
+
+1. stop,
+2. restore `package.json`,
+3. restore `package-lock.json`,
+4. rerun `npm install`,
+5. rerun the narrow relevant test,
+6. document the incident.
+
 ---
 
 ## 3 Local vs. CI Verification

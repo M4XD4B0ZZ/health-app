@@ -237,6 +237,30 @@ git --no-pager diff --name-only
   - `git --no-pager diff --stat`
 - Avoid full `npm run verify` unless product/runtime code changed.
 
+### Dependency Command Safety (CLINE-OPS-003)
+
+- `npm install` is allowed only when explicitly required to restore missing local dependencies.
+- `npm audit` is read-only and allowed for inspection only.
+- `npm audit fix` requires explicit human approval for the current task.
+- `npm audit fix --force` is forbidden during scoped tasks unless a dedicated dependency-migration task is explicitly approved.
+- Any `package.json` / `package-lock.json` change is out of scope unless the task explicitly allows dependency changes.
+
+#### Incident Rationale
+
+- `npm audit fix --force` can perform SemVer-major upgrades and large lockfile rewrites.
+- It must not be mixed into feature/test/governance scoped tasks.
+
+#### Drift Recovery Rule
+
+If dependency files drift accidentally:
+
+1. stop,
+2. restore `package.json`,
+3. restore `package-lock.json`,
+4. rerun `npm install`,
+5. rerun the narrow relevant test,
+6. document the incident in `handoffs/latest-handoff.md`.
+
 ### Unattended Execution Constraint
 - Cline is currently allowed only as a scoped worker.
 - Cline is not yet trusted for unattended overnight execution.

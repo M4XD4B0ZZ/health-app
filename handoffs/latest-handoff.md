@@ -1,85 +1,86 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-REAL-007 — Zero-Macro Persistence Block Regression Test  
-**Date:** 2026-05-20T21:04:00+02:00  
+**Task:** CLINE-OPS-003 — Dependency Command Safety Hardening  
+**Date:** 2026-05-21T14:36:00+02:00  
 **Agent:** Cline worker adapter  
-**Run Type:** Controlled test-only write
+**Run Type:** Documentation/governance-only scoped edit
 
 ---
 
 ## Run Summary
 
-- Read required governance/context artifacts and target test files.
-- Added exactly one focused regression test to verify zero-macro guard blocks persistence when resolver yields no valid macro candidate.
-- Attempted narrowest relevant test execution command.
-- Documented environment blocker (missing local Jest/node_modules).
-- Produced task report: `reports/CLINE-REAL-007_ZERO_MACRO_REGRESSION_TEST_REPORT.md`.
+- Implemented explicit dependency-command safety governance in allowed documentation files.
+- Added incident rationale tied to CLINE-REAL-007.
+- Added deterministic recovery rule for accidental dependency drift.
+- Performed required docs-only final git readback checks.
+- No product/runtime code was changed.
 
 ---
 
 ## Commands Run
 
-1. `npm run test -- --runTestsByPath src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
-2. `dir node_modules\\.bin`
-3. `git --no-pager status --short`
-4. `git --no-pager diff --stat`
-5. `git --no-pager diff --name-only`
+1. `git --no-pager status --short`
+2. `git --no-pager diff --stat`
+3. `git --no-pager diff --name-only`
 
 Notes:
-- Short isolated PowerShell-safe commands used.
-- No bash chaining used.
-- No `&&` used.
-- `git --no-pager` used for all git inspection commands.
+- PowerShell-safe short commands used.
+- `git --no-pager` used for read-only git inspection.
 - No blocking commands/dev servers used.
+- No push/deploy commands used.
 
 ---
 
 ## Files Changed
 
-- `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
-- `reports/CLINE-REAL-007_ZERO_MACRO_REGRESSION_TEST_REPORT.md`
+- `.agent/adapters/cline.md`
+- `docs/CLINE_RALPH_WORKER_SETUP.md`
+- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+- `AGENTS.md`
+- `VERIFY.md`
 - `handoffs/latest-handoff.md`
 
 ---
 
-## Test Added
+## Rule Added
 
-- File: `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
-- Added one test in `describe('Zero-Macro Guard', ...)`:
-  - `sollte Persistenz blockieren wenn Resolver keine validen Makros liefert`
+Added **Dependency Command Safety (CLINE-OPS-003)** with the following controls:
 
-Assertions included:
-- use-case rejects with explicit missing/zero macro error (`RESOLVER_FAILED_OR_NO_MACROS`)
-- repository `addEntry` is not called
-- repository remains empty for target date
+- `npm install` allowed only when explicitly required to restore missing local dependencies.
+- `npm audit` allowed as read-only inspection only.
+- `npm audit fix` requires explicit approval.
+- `npm audit fix --force` forbidden in scoped tasks unless a dedicated dependency-migration task is approved.
+- Any `package.json` / `package-lock.json` change is out of scope unless explicitly allowed by the task.
 
----
+Also added:
 
-## Test Result
-
-- Targeted test command attempted.
-- Execution blocked by environment:
-  - `jest` command not found
-  - local `node_modules\\.bin` path missing
-
-Result status: **not executable in current environment due to missing local dependencies**.
+- **Incident rationale:** `npm audit fix --force` may trigger SemVer-major upgrades and large lockfile rewrites; must not be mixed into feature/test/governance tasks.
+- **Recovery rule:** stop, restore `package.json`, restore `package-lock.json`, rerun `npm install`, rerun narrow relevant test, document incident.
 
 ---
 
-## Terminal Artifact / Pager Status
+## Required Final Checks (Output Summary)
 
-- **Terminal artifacts occurred:** yes.
-  - Non-blocking trailing PowerShell spinner/path fragment appeared after command output.
-- **Pager recovery needed:** no.
-- **Git pager incident:** none; no `q` recovery required.
-- **Unresolved terminal hang:** none.
+- `git --no-pager status --short` shows only allowed documentation/governance/handoff file edits.
+- `git --no-pager diff --stat` shows:
+  - 6 files changed, 163 insertions(+), 43 deletions(-)
+- `git --no-pager diff --name-only` lists only:
+  - `.agent/adapters/cline.md`
+  - `AGENTS.md`
+  - `VERIFY.md`
+  - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+  - `docs/CLINE_RALPH_WORKER_SETUP.md`
+  - `handoffs/latest-handoff.md`
 
 ---
 
 ## Explicit Constraint Confirmation
 
-- ✅ no runtime implementation files changed
+- ✅ no `src/` changes
 - ✅ no `supabase/` changes
 - ✅ no `package.json` changes
+- ✅ no `package-lock.json` changes
 - ✅ no scripts created
+- ✅ no runtime logic changes
+- ✅ no `.env`/secret changes
 - ✅ no push performed

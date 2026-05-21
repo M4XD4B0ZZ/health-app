@@ -121,6 +121,30 @@ npm run verify:edge
 - Do not bypass or skip verification steps.
 - Do not claim a task is done if verification has not passed.
 
+### Dependency Command Safety (CLINE-OPS-003)
+
+- `npm install` is allowed only when explicitly required to restore missing local dependencies.
+- `npm audit` is read-only and allowed for inspection only.
+- `npm audit fix` requires explicit approval.
+- `npm audit fix --force` is forbidden during scoped tasks unless a dedicated dependency-migration task is approved.
+- Any `package.json` / `package-lock.json` change is out of scope unless the task explicitly allows dependency changes.
+
+#### Incident rationale
+
+- `npm audit fix --force` can perform SemVer-major upgrades and large lockfile rewrites.
+- It must not be mixed into feature/test/governance tasks.
+
+#### Recovery rule for accidental dependency drift
+
+If package files drift accidentally:
+
+1. stop,
+2. restore `package.json`,
+3. restore `package-lock.json`,
+4. rerun `npm install`,
+5. rerun the narrow relevant test,
+6. document the incident.
+
 ### Task Governance
 
 - Every task must reference a task ID from ROADMAP.md.

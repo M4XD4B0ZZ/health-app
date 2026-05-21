@@ -151,5 +151,38 @@ describe('LogFoodFromRawInputUseCase', () => {
       const entries = await failureRepository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(0);
     });
+
+    it('sollte Resolver-Exception explizit werfen und Persistenz blockieren', async () => {
+      const exceptionRepository = new InMemoryFoodEntryRepository();
+      const addEntrySpy = jest.spyOn(exceptionRepository, 'addEntry');
+      const resolverError = new Error('RESOLVER_EXCEPTION_TIMEOUT');
+      const throwingResolver = {
+        resolve: jest.fn().mockRejectedValue(resolverError),
+      };
+
+      const exceptionUseCase = new LogFoodFromRawInputUseCase(
+        exceptionRepository,
+        clock,
+        idGenerator,
+        parser,
+        {
+          getById: async () => null,
+          searchByName: async () => null,
+        } as any,
+        undefined,
+        undefined,
+        undefined,
+        throwingResolver as any,
+      );
+
+      await expect(
+        exceptionUseCase.execute({ rawText: '100g timeout food', rawInput: '100g timeout food' }),
+      ).rejects.toThrow('RESOLVER_EXCEPTION_TIMEOUT');
+
+      expect(addEntrySpy).not.toHaveBeenCalled();
+
+      const entries = await exceptionRepository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(0);
+    });
   });
 });

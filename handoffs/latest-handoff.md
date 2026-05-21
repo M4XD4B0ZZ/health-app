@@ -1,107 +1,79 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-OPS-004 — Command Isolation Enforcement  
-**Date:** 2026-05-21T16:27:00+02:00  
+**Task:** CLINE-REAL-012 — Persistence Integrity Test  
+**Date:** 2026-05-21T16:39:00+02:00  
 **Agent:** Cline worker adapter  
-**Run Type:** Documentation/Governance-only scoped edit
+**Run Type:** Controlled TEST-ONLY scoped edit
 
 ---
 
 ## Run Summary
 
-- Strengthened and consolidated **Command Isolation Enforcement** rules for Cline terminal usage.
-- Enforced strict **one command per terminal/tool execution** policy.
-- Explicitly prohibited chaining separators/operators and command-composition patterns.
-- Added required recovery protocol and incident rationale referencing **CLINE-REAL-011**.
-- Kept scope limited to allowed documentation/governance files.
+- Added exactly one focused regression test for persistence integrity in the nutrition logging pipeline.
+- Chosen scenario: **successful resolver result persists exactly one entry** (preferred path).
+- No runtime implementation files were modified.
 
 ---
 
 ## Commands Run
 
-1. `git --no-pager status --short`
-2. `git --no-pager diff --stat`
-3. `git --no-pager diff --name-only`
+1. `npm run test -- --runTestsByPath src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
+2. `git --no-pager status --short`
+3. `git --no-pager diff --stat`
+4. `git --no-pager diff --name-only`
 
-All final checks were executed as **separate command executions**.
+All final checks were executed as separate command executions.
 
 ---
 
 ## Files Changed
 
-- `.agent/adapters/cline.md`
-- `docs/CLINE_RALPH_WORKER_SETUP.md`
-- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+- `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
+- `reports/CLINE-REAL-012_PERSISTENCE_INTEGRITY_TEST_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
 
-## Rule Added/Strengthened
+## Test Added
 
-Added/strengthened **Command Isolation Enforcement (CLINE-OPS-004)** with:
-
-1. **One command per terminal/tool execution**
-   - Cline must never combine multiple commands in one terminal invocation.
-   - Applies even when individual commands are safe.
-   - Final checks must run as separate tool executions.
-
-2. **Explicitly forbidden separators/operators**
-   - `&&`
-   - `||`
-   - `;`
-   - `|`
-   - backticks for command substitution
-   - multi-line command blocks
-   - chained git/npm/node command patterns
-
-3. **Required final-check format**
-   - `git --no-pager status --short`
-   - `git --no-pager diff --stat`
-   - `git --no-pager diff --name-only`
-   - Executed as separate commands only.
-
-4. **Recovery rule**
-   - stop
-   - document parser/chaining violation
-   - rerun intended commands one-by-one
-   - do not switch to alternative separators
-   - do not escalate shell syntax
+- **File:** `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
+- **Test name:** `sollte bei erfolgreicher Resolution genau einen Entry genau einmal persistieren`
+- **Assertions:**
+  - operation succeeds (`resolves.toBeDefined()`)
+  - repository add/save method called exactly once (`addEntry` called once)
+  - repository contains exactly one entry (`toHaveLength(1)`)
+  - no duplicate persistence (single call + single stored entry)
 
 ---
 
-## Incident Rationale
+## Test Result
 
-Reference incident: **CLINE-REAL-011**
-
-- Cline attempted chained git final checks with `&&`.
-- PowerShell parser failed.
-- Recovery succeeded by rerunning the intended checks separately.
-- Rule is now strengthened to prevent recurrence.
+- **PASS**
+- `Test Suites: 1 passed, 1 total`
+- `Tests: 10 passed, 10 total`
 
 ---
 
-## Final Git Evidence
+## Terminal Artifact Status
 
-- `git --no-pager status --short`
-  - `M .agent/adapters/cline.md`
-  - `M docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-  - `M docs/CLINE_RALPH_WORKER_SETUP.md`
-- `git --no-pager diff --stat`
-  - `.agent/adapters/cline.md              | 62 +++++++++++++++++++++++++++++------`
-  - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md | 41 ++++++++++++++++++++++-`
-  - `docs/CLINE_RALPH_WORKER_SETUP.md      | 44 +++++++++++++++++++++++--`
-  - `3 files changed, 133 insertions(+), 14 deletions(-)`
-- `git --no-pager diff --name-only`
-  - `.agent/adapters/cline.md`
-  - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-  - `docs/CLINE_RALPH_WORKER_SETUP.md`
+- No unresolved terminal hang blocking task completion.
+- Test run completed and returned final Jest summary.
+
+## Pager Recovery Status
+
+- `git --no-pager` used for all final git checks.
+- No pager-related interruption occurred during final evidence collection.
 
 ---
 
 ## Explicit Constraint Confirmation
 
-- ✅ no src changes
+- ✅ no runtime implementation changes
+- ✅ no changes in `src/features/nutrition/application/`
+- ✅ no changes in `src/features/nutrition/domain/`
 - ✅ no supabase changes
 - ✅ no package/package-lock changes
 - ✅ no scripts created
+- ✅ no `npm audit fix` command run
+- ✅ no `npm audit fix --force` command run
 - ✅ no push performed

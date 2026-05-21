@@ -119,6 +119,34 @@ describe('LogFoodFromRawInputUseCase', () => {
       expect(entries[1].parsedName).toBe('rice');
       expect(entries[2].parsedName).toBe('banana');
     });
+
+    it('sollte bei erfolgreicher Resolution genau einen Entry genau einmal persistieren', async () => {
+      const successRepository = new InMemoryFoodEntryRepository();
+      const addEntrySpy = jest.spyOn(successRepository, 'addEntry');
+      const successUseCase = new LogFoodFromRawInputUseCase(
+        successRepository,
+        clock,
+        idGenerator,
+        parser,
+        {
+          getById: async () => null,
+          searchByName: async () => null,
+        } as any,
+        undefined,
+        undefined,
+        undefined,
+        MockResolverBuilder.createHappyPathResolver(),
+      );
+
+      await expect(
+        successUseCase.execute({ rawText: '120g skyr', rawInput: '120g skyr' }),
+      ).resolves.toBeDefined();
+
+      expect(addEntrySpy).toHaveBeenCalledTimes(1);
+
+      const entries = await successRepository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(1);
+    });
   });
 
   describe('Zero-Macro Guard', () => {

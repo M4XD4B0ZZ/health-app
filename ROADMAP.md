@@ -616,7 +616,7 @@ AI structured log functions and premium insights return 403 for non-Pro users.
 
 ### P2-011 Project-Scoped Codex Governance
 
-Status: `in_progress`
+Status: `done`
 
 Add repo-local Codex guidance and role contracts aligned with `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`, and `SSOK.md`.
 Keep the setup minimal, deterministic-first, and scoped to this repository.

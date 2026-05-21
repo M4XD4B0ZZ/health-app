@@ -96,7 +96,13 @@ This section formalizes authority ownership only. It does not change runtime beh
 
 ---
 
-## 1. Zweck
+## Historical Context / Legacy Workflow (Non-Authoritative)
+
+Die folgenden Abschnitte dokumentieren die frühere Roo-first Arbeitslogik als **historischen Kontext**.
+Sie sind **nicht** die aktive Top-Level-Autorität und dürfen die aktive Hierarchie in den oberen
+Abschnitten dieses Dokuments (GOV-005-Formalization) nicht überschreiben.
+
+## 1. Zweck (Historical Context)
 
 Diese SSOK definiert, wie das Projekt mit VS Code + Roo + mehreren Agenten geführt wird.
 
@@ -108,13 +114,13 @@ Ziel:
 - saubere Verify- und Git-Abschlüsse
 - keine widersprüchlichen Regeln an mehreren Stellen
 
-Diese SSOK ist bewusst **Roo-first** aufgebaut.
+Diese Beschreibung ist bewusst **Roo-first** aufgebaut (**Legacy Workflow, non-authoritative**).
 
 ---
 
-## 2. Grundsatz
+## 2. Grundsatz (Historical Context / Legacy Workflow)
 
-**Roo ist die operative SSOK.**  
+**Roo ist die frühere operative SSOK (Legacy Workflow).**  
 Das bedeutet:
 
 - `.roomodes` definiert Modus- und Agentenlogik
@@ -138,7 +144,7 @@ Sie definieren:
 
 ---
 
-## 3. SSOK-Hierarchie
+## 3. SSOK-Hierarchie (Historical Context)
 
 ### Ebene A – Strategische Projekt-SSOK
 
@@ -169,10 +175,10 @@ Diese Ebene enthält die tatsächliche Umsetzung.
 
 ---
 
-## 4. Verbindlicher Leitsatz
+## 4. Verbindlicher Leitsatz (Historical Context)
 
 **Strategische Wahrheit liegt in den Root-Dateien.**  
-**Operative Wahrheit liegt in Roo.**  
+**Operative Wahrheit lag im Legacy-Modell in Roo.**  
 **Code und Skripte setzen diese Wahrheit um.**
 
 Daraus folgt:
@@ -612,18 +618,18 @@ Regel:
 
 ---
 
-## 14. Endgültige Kurzform
+## 14. Endgültige Kurzform (Historical Context)
 
 Die verbindliche Kurzdefinition lautet:
 
 **`README.md`, `ROADMAP.md`, `AGENTS.md`, `VERIFY.md` und `package.json` definieren die strategische Projektwahrheit.**  
-**`.roomodes`, `.roo/rules/*.md` und `.roo/commands/*.md` definieren die operative Roo-Wahrheit.**  
+**Im Legacy-Kontext definierten `.roomodes`, `.roo/rules/*.md` und `.roo/commands/*.md` die operative Roo-Wahrheit.**  
 **`src/`, `scripts/`, `docs/` und `supabase/` setzen diese Wahrheit um.**
 
 Oder noch kürzer:
 
 **Projektwahrheit oben.  
-Ausführungswahrheit in Roo.  
+Legacy-Ausführungswahrheit in Roo.  
 Implementierung unten.**
 
 ---

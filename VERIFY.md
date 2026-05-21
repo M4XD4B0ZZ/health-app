@@ -15,6 +15,10 @@ Die hier definierten Verify-Regeln folgen der übergeordneten Governance-Definit
 
 Andere Governance-Dokumente sollen Verify-Verhalten referenzieren (auf `VERIFY.md` verweisen), nicht parallel neu definieren.
 
+**Gate ownership (completion):** `VERIFY.md` owns verification/completion-gate requirements and pass/fail criteria for done-claims.
+
+**Handoff schema boundary:** Verification disclosure inside handoffs is mandatory (checks run, rationale, result), but `VERIFY.md` does not own the full handoff schema. The normative full schema owner is `.governance/RULES.md`.
+
 ---
 
 ## DACH Data Strategy Verification Note

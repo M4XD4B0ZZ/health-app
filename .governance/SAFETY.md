@@ -1,5 +1,7 @@
 # Ralph-Loop Safety Policies
 
+**Gate ownership (safety):** `SAFETY.md` owns safety-gate policy and safety-triggered immediate-stop conditions. Other governance documents may reference these gates but do not redefine them.
+
 ## Protected Files
 
 ### Absolute Protection (Never Modified by Agents)

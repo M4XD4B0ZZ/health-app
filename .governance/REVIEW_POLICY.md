@@ -1,5 +1,9 @@
 # Ralph-Loop Review Policy
 
+**Canonical ownership (review gate):** `REVIEW_POLICY.md` owns review acceptance-gate policy (approval/revision/rejection handling and review-quality evaluation criteria).
+
+**Handoff schema boundary:** This document evaluates handoff quality and completeness for review decisions; it does **not** own the normative handoff schema. The normative handoff schema owner is [`RULES.md`](RULES.md).
+
 ## Human Review Purpose
 
 **Human review is a safety feature, not a failure.**

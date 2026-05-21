@@ -28,6 +28,8 @@ All operational state, decisions, and progress must be persisted in repository f
 
 ## Ralph-Loop Lifecycle
 
+**Gate ownership (lifecycle):** `SYSTEM.md` owns the lifecycle gate position/order (including stop-for-review placement and lifecycle stop-condition framework). It does not redefine safety, execution, review-acceptance, or verification-completion policy owners.
+
 The high-level loop lifecycle defines how agents should operate:
 
 ### 1. Read Governance

@@ -1,94 +1,81 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-GOV-005 — Authority Hierarchy & Runtime Contract Formalization  
-**Date:** 2026-05-21T17:23:00+02:00  
+**Task:** CLINE-GOV-009 — Handoff & Review-Gate Canonicalization  
+**Date:** 2026-05-21T21:11:00+02:00  
 **Agent:** Cline worker adapter  
-**Run Type:** Governance Documentation Formalization
+**Run Type:** Governance-only canonicalization
 
 ---
 
-## Run Summary
+## Run/Task Identity and Status
 
-- Formalized a canonical governance authority hierarchy in `SSOK.md` (and aligned binding wording in `AGENTS.md`).
-- Added deterministic conflict resolution order with explicit precedence rules.
-- Formalized runtime contract ownership (planning vs runtime vs evidence vs verification vs safety authorities).
-- Preserved behavior: no runtime logic/workflow/task-selection changes.
+- **Task ID:** CLINE-GOV-009
+- **Status:** Implemented (pending human review)
+- **Scope:** Governance docs only (no product/runtime changes)
 
 ---
 
-## Files Changed
+## What Changed
 
-- `SSOK.md`
+- Formalized handoff ownership split in canonical governance docs.
+- Formalized review-gate ownership split across lifecycle/execution/safety/review/completion owners.
+- Reduced AGENTS constitutional mirror details to high-level obligations with canonical references.
+- Added explicit non-authoritative reference-summary labels to onboarding docs.
+- Authored implementation report: `reports/CLINE-GOV-009_HANDOFF_REVIEW_CANONICALIZATION_REPORT.md`.
+
+---
+
+## Why Changed
+
+To implement canonicalization requirements from:
+
+- `reports/CLINE-GOV-008_HANDOFF_REVIEW_NORMALIZATION_ANALYSIS.md`
+
+Goal: remove schema/gate ownership ambiguity while preserving existing behavior and gate logic.
+
+---
+
+## Changed Files List
+
+- `.governance/RULES.md`
+- `.governance/SYSTEM.md`
+- `.governance/REVIEW_POLICY.md`
+- `.governance/SAFETY.md`
+- `VERIFY.md`
 - `AGENTS.md`
-- `reports/CLINE-GOV-005_AUTHORITY_RUNTIME_FORMALIZATION_REPORT.md`
+- `docs/CLINE_RALPH_WORKER_SETUP.md`
+- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+- `reports/CLINE-GOV-009_HANDOFF_REVIEW_CANONICALIZATION_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
 
-## Implemented Governance Changes
+## Validation Executed
 
-### `SSOK.md`
-
-- Added **Canonical Governance Authority Hierarchy (Active)**:
-  1. Level 1: `SSOK.md`, `AGENTS.md`
-  2. Level 2: `ROADMAP.md`, `VERIFY.md`, `.governance/*`
-  3. Level 3: `tasks/task-state.json`, `runs/current-run.json`
-  4. Level 4: `.agent/adapters/*`
-  5. Level 5: operational guides/checklists
-- Marked `.roo/` and `.roomodes` as **historical/transition context** and not active top-level authority.
-- Added deterministic **Conflict Resolution Order**:
-  - safety first,
-  - canonical domain authority second,
-  - runtime does not override planning,
-  - historical evidence does not override current authority,
-  - adapter docs do not override governance.
-- Added **Runtime Contract (Formalized, Non-Behavioral)** authority ownership statement.
-
-### `AGENTS.md`
-
-- Added binding **Canonical Authority Hierarchy** section aligned with `SSOK.md`.
-- Added binding **Conflict Resolution** section aligned with governance analyses.
-- Added **Runtime Contract (Formalized)** ownership section.
-
-### Report
-
-- Created `reports/CLINE-GOV-005_AUTHORITY_RUNTIME_FORMALIZATION_REPORT.md` with:
-  - files changed,
-  - hierarchy formalization,
-  - conflict rule insertion,
-  - runtime contract formalization,
-  - behavior-impact assessment,
-  - risks and follow-ups.
-
----
-
-## Behavior Change Assessment
-
-- ✅ No product code changes
-- ✅ No runtime logic changes
-- ✅ No scripts created/changed
-- ✅ No task selection/workflow mechanics changed
-
-This run is authority clarification only.
-
----
-
-## Constraints Compliance
-
-- ✅ No `src/` changes
-- ✅ No `supabase/` changes
-- ✅ No `package.json` / `package-lock.json` changes
-- ✅ No runtime state file changes (`tasks/task-state.json`, `runs/current-run.json`)
-- ✅ No validation rules changes (`validation/validation-rules.json`)
-- ✅ No push performed
-
----
-
-## Verification / Validation Plan
-
-Task category: **Governance-only** (per `VERIFY.md` decision table).  
-Required final checks (executed separately):
+Planned/required governance-only readback checks (per `VERIFY.md`, governance-only category):
 
 1. `git --no-pager status --short`
 2. `git --no-pager diff --stat`
 3. `git --no-pager diff --name-only`
+
+---
+
+## Validation Result
+
+- Pending execution in final readback step for this run.
+- No runtime/product checks required for this governance-only scope.
+
+---
+
+## Known Issues / Blockers / Risks
+
+- No blocking implementation issues encountered.
+- Residual governance risk remains around future wording drift in adapter/onboarding docs unless periodic audits continue.
+
+---
+
+## Human-Review Status
+
+- **Required:** Yes
+- **Reason:** Governance canonicalization touches multiple authoritative docs and must be reviewed for wording-level consistency.
+- **Next action:** Human reviewer to inspect ownership statements and confirm no unintended policy-behavior changes.

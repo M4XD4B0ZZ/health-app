@@ -48,8 +48,9 @@ This formalization clarifies authority ownership only and does not change runtim
 - **Agents must read [`.governance/`](.governance/) before Ralph-Loop migration/autonomous-loop work**
 - **Agents must work on exactly one assigned task** per run
 - **Agents must respect [`tasks/task-state.json`](tasks/task-state.json)** when operating in Ralph-Loop mode
-- **Agents must update [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md)** when explicitly allowed
-- **Agents must not claim done without validation evidence**
+- **Agents must provide required handoff documentation** in [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md); canonical handoff schema owner: [`.governance/RULES.md`](.governance/RULES.md)
+- **Agents must stop for required human review gates**; canonical review acceptance-gate owner: [`.governance/REVIEW_POLICY.md`](.governance/REVIEW_POLICY.md)
+- **Agents must not claim done without required verification evidence/check outcomes**; canonical completion-gate owner: [`VERIFY.md`](VERIFY.md)
 - **Agents must respect [`.agent/config/protected-files.json`](.agent/config/protected-files.json)** and [`.governance/SAFETY.md`](.governance/SAFETY.md)
 - **Agents must stop on human-review, protected-file, ambiguity, or validation-failure conditions**
 
@@ -67,7 +68,7 @@ When working on Ralph-Loop migration tasks (RALPH-XXX), agents must:
 3. **Respect scope boundaries:** Only modify files listed in task's `allowed_files`
 4. **Follow safety policies:** Never modify files in task's `forbidden_files`
 5. **Execute validation:** Run required validation checks per task definition
-6. **Write handoff:** Document work in [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md)
+6. **Write handoff:** Document work in [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md) following canonical handoff schema ownership in [`.governance/RULES.md`](.governance/RULES.md)
 7. **Stop for review:** Never continue to next task automatically
 
 ### Dual Governance During Transition

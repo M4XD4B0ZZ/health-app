@@ -60,14 +60,25 @@
 
 ## Agent Handoff Rules
 
+**Canonical ownership (normative):**
+- Handoff schema owner: [`RULES.md`](RULES.md)
+- Review evaluation owner: [`REVIEW_POLICY.md`](REVIEW_POLICY.md)
+- Verification disclosure owner: [`../VERIFY.md`](../VERIFY.md)
+
 ### Agents Must Write Handoffs
 
 **Every agent run must produce a clear handoff document.**
 
-- Document what was changed and why
-- List all files modified
-- Record any issues or blockers encountered
-- Provide clear status for human review
+Required handoff fields (normative):
+
+1. Run/Task identity and status
+2. What changed
+3. Why changed
+4. Changed files list
+5. Validation executed
+6. Validation result
+7. Known issues/blockers/risks
+8. Human-review status
 
 ### Agents Must Not Claim Done Without Validation
 
@@ -161,6 +172,8 @@
 ## Safety Integration
 
 **All rules must be consistent with safety policies defined in [`SAFETY.md`](SAFETY.md).**
+
+**Gate ownership (execution):** `RULES.md` owns execution-gate requirements (one-task-per-run, scoped execution discipline, and mandatory stop-for-review enforcement at rule level). Gate behavior itself remains defined across canonical owners by domain.
 
 - Protected files override all other rules
 - Safety violations immediately stop execution

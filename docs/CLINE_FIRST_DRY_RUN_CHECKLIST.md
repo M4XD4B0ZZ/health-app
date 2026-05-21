@@ -6,6 +6,18 @@ This checklist guides the first controlled dry run of Cline as a Ralph-Loop work
 
 **Critical:** This is a preparation checklist. The actual dry run execution is handled by RALPH-010A.
 
+## Reference Summary (Non-Authoritative)
+
+This checklist is an onboarding/operator reference summary and is **non-authoritative** for governance ownership.
+
+Canonical owners:
+
+- Handoff schema owner: [`.governance/RULES.md`](../.governance/RULES.md)
+- Review acceptance-gate owner: [`.governance/REVIEW_POLICY.md`](../.governance/REVIEW_POLICY.md)
+- Verification/completion-gate owner: [`VERIFY.md`](../VERIFY.md)
+- Lifecycle gate owner: [`.governance/SYSTEM.md`](../.governance/SYSTEM.md)
+- Safety gate owner: [`.governance/SAFETY.md`](../.governance/SAFETY.md)
+
 ## Preconditions
 
 ### Repository State Requirements
@@ -183,92 +195,19 @@ This repository does NOT handle Cline installation or global configuration. Thes
 
 ## Verification Checklist
 
-### Command Syntax
-- Use PowerShell-compatible commands.
-- Prefer one short isolated command per execution.
-- Enforce one command per tool execution (never combine commands).
-- Do not run long compound commands unless explicitly approved.
-- Verify with `git status --short` before and after write tests.
-- If terminal output is missing or command hangs, stop and ask for human validation.
-- Do not spawn repeated PowerShell wrapper commands.
+> **Canonical owners (normative):**
+> - Terminal safety policy: [`.agent/adapters/cline.md`](../.agent/adapters/cline.md)
+> - Safety policy: [`.governance/SAFETY.md`](../.governance/SAFETY.md)
+> - Protected-file enforcement patterns: [`.agent/config/protected-files.json`](../.agent/config/protected-files.json)
 
-### Command Isolation Enforcement (CLINE-OPS-004)
+The checklist below keeps **operator summaries** for usability and is **non-authoritative**.
 
-- Cline must never combine multiple commands in one terminal invocation.
-- This applies even when commands are individually safe.
-- Final checks must be run as separate tool executions.
-
-Forbidden separators/operators:
-
-- `&&`
-- `||`
-- `;`
-- `|`
-- backticks for command substitution
-- multi-line command blocks
-- chained `git`/`npm`/`node` commands
-
-Required final-check format (run exactly as separate executions):
-
-```powershell
-git --no-pager status --short
-git --no-pager diff --stat
-git --no-pager diff --name-only
-```
-
-Recovery rule if a chained command is attempted accidentally:
-
-1. stop,
-2. document parser/chaining violation,
-3. rerun only the intended commands one-by-one,
-4. do not simplify by using alternative separators,
-5. do not escalate shell syntax.
-
-Incident rationale (CLINE-REAL-011):
-
-- Cline attempted chained git final checks with `&&`.
-- PowerShell parser failed.
-- Recovery succeeded by rerunning checks separately.
-- Rule is strengthened to prevent recurrence.
-
-### Git Pager Reliability
-- If Git output is visible but Cline remains `Running`, check whether Git opened a pager.
-- Typical signal: terminal accepts `q`; pressing `q` completes execution.
-- For read-only Git inspection, prefer:
-
-```powershell
-git --no-pager log -1 --oneline
-git --no-pager show --name-only --pretty=format:"%H%n%s" HEAD
-git --no-pager diff --stat
-git --no-pager diff --name-only
-```
-
-- Avoid pager-prone forms without `--no-pager`:
-  - `git show`
-  - `git log`
-  - `git diff`
-
-- Recovery rule:
-  - press `q` once
-  - do not click **Proceed While Running** repeatedly
-  - do not escalate to complex shell syntax
-  - document the incident in `handoffs/latest-handoff.md`
-
-### Blocking Command Registry (approval required)
-- `npm run dev`
-- `npx expo start`
-- `expo start`
-- `tail -f`
-- `watch`
-- long-running local servers
-- interactive prompts
-- any command that waits for user input
-
-### Timeout / Stop Rules
-- If a command appears complete but Cline still shows `Running`, stop and inspect.
-- If a command continues without new output after a short wait, stop and document.
-- Never treat **Proceed While Running** as normal workflow.
-- Terminal-dependent execution is not unattended-safe until these cases are resolved.
+### Command Syntax — Operator Summary
+- Use PowerShell-safe commands.
+- Execute exactly one short command per execution.
+- Do not chain commands.
+- Run final git readback checks as separate executions.
+- For full terminal safety details (forbidden separators, pager handling, timeout rules, blocking commands), follow `.agent/adapters/cline.md`.
 
 ### Verification Guidance (documentation-only tasks)
 - Prefer readback checks using:
@@ -305,6 +244,11 @@ If dependency files drift accidentally:
 - Cline is not yet trusted for unattended overnight execution.
 - Ralph/Governor remains responsible for scope, stop conditions, and human review gates.
 
+### Protected Files — Operator Summary
+- Do not duplicate or maintain local protected-file lists in this checklist.
+- Use canonical policy in `.governance/SAFETY.md`.
+- Use canonical enforcement patterns in `.agent/config/protected-files.json`.
+
 ### Pre-Execution Verification
 - [ ] **Task Assignment Valid**: `runs/current-run.json` contains valid task
 - [ ] **Scope Boundaries Clear**: Allowed/forbidden files clearly defined
@@ -334,7 +278,7 @@ If dependency files drift accidentally:
 - [ ] **Safety Confirmation**: Verify no safety violations
 
 ### Handoff Review
-- [ ] **Handoff Completeness**: All required sections present
+- [ ] **Handoff Completeness**: Conforms to canonical handoff schema in `.governance/RULES.md`
 - [ ] **Handoff Accuracy**: Information matches actual changes made
 - [ ] **Handoff Clarity**: Clear and actionable for next steps
 - [ ] **Issue Documentation**: Any problems clearly documented

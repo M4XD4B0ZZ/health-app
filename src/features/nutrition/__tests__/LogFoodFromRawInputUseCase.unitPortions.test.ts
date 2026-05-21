@@ -39,6 +39,23 @@ describe('Unit Portion Fix - Integration Test', () => {
       expect(result.totals.fat).toBeCloseTo(11.4, 1); // 9.5 * 1.2
     });
 
+    it('regression: multiplies configured canonical egg default portion by quantity when explicit grams are absent', () => {
+      const quantity = 2;
+      const configuredEggDefaultPortion = 60;
+
+      const targetGrams = resolvePortionGrams('eggs', 0, quantity);
+      const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
+
+      expect(targetGrams).toBe(configuredEggDefaultPortion * quantity); // configured default portion × quantity
+      expect(targetGrams).not.toBe(100); // proves generic fallback path is not used
+      expect(targetGrams).not.toBe(200); // proves explicit grams path is not used
+
+      expect(result.totals.calories).toBeCloseTo(171.6, 1); // 143 * (60*2/100)
+      expect(result.totals.protein).toBeCloseTo(15.12, 1); // 12.6 * (60*2/100)
+      expect(result.totals.carbs).toBeCloseTo(0.84, 1); // 0.7 * (60*2/100)
+      expect(result.totals.fat).toBeCloseTo(11.4, 1); // 9.5 * (60*2/100)
+    });
+
     it('should calculate "3 eggs" as 180g → ~257 kcal', () => {
       const targetGrams = resolvePortionGrams('eggs', 0, 3);
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);

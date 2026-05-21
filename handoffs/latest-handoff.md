@@ -1,7 +1,7 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-REAL-009 — Default Portion Regression Test  
-**Date:** 2026-05-21T15:22:00+02:00  
+**Task:** CLINE-REAL-010 — Quantity × Configured Default Portion Regression  
+**Date:** 2026-05-21T15:56:00+02:00  
 **Agent:** Cline worker adapter  
 **Run Type:** Controlled TEST-ONLY scoped edit
 
@@ -9,11 +9,11 @@
 
 ## Run Summary
 
-- Added exactly one focused regression test for canonical default portion behavior.
-- Verified that for input-equivalent path `1 egg` without explicit grams, canonical default grams are used.
-- Verified totals align to 60g nutrition values.
+- Added exactly one focused regression test proving quantity multiplication against configured canonical default portion for unit-based eggs.
+- Verified explicit grams path was not used and 100g fallback path was not used in the added scenario.
+- Verified calories/macros scale from configured default portion × quantity.
 - Executed only the narrow requested test command.
-- Updated required report artifact for this task.
+- Created required task report artifact.
 
 ---
 
@@ -26,16 +26,15 @@
 
 Notes:
 
-- PowerShell-safe short commands used.
-- No bash chaining / no `&&`.
-- No blocking/dev-server workflow used.
+- PowerShell/cmd-safe non-interactive commands used.
+- No bash chaining and no long-running interactive session.
 
 ---
 
 ## Files Changed
 
 - `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
-- `reports/CLINE-REAL-009_DEFAULT_PORTION_REGRESSION_TEST_REPORT.md`
+- `reports/CLINE-REAL-010_QUANTITY_DEFAULT_PORTION_REGRESSION_TEST_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
@@ -43,8 +42,15 @@ Notes:
 ## Test Added
 
 - File: `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
-- Test name: `should apply canonical default portion for "1 egg" when explicit grams are absent`
-- Scenario: canonical default portion for egg is applied when explicit grams are absent; resolved grams are `60`, calories/macros match 60g values, and no 100g fallback/override path is used.
+- Test name: `regression: multiplies configured canonical egg default portion by quantity when explicit grams are absent`
+- Scenario:
+  - unit food `eggs`
+  - quantity `2`
+  - explicit grams absent
+  - assertion: `targetGrams === configuredEggDefaultPortion * quantity`
+  - assertion: explicit grams path not used (`targetGrams !== 200`)
+  - assertion: fallback 100g path not used (`targetGrams !== 100`)
+  - calories/macros assert scaled totals for configured default portion × 2
 
 ---
 
@@ -53,7 +59,7 @@ Notes:
 - Command result: **PASS**
 - Jest summary:
   - `Test Suites: 1 passed, 1 total`
-  - `Tests: 12 passed, 12 total`
+  - `Tests: 13 passed, 13 total`
 
 ---
 
@@ -73,9 +79,11 @@ Notes:
 
 ## Explicit Constraint Confirmation
 
-- ✅ exactly one focused regression test added
-- ✅ no runtime implementation changes
-- ✅ no refactors
-- ✅ used existing mocks/helpers pattern
-- ✅ only requested test command executed
+- ✅ no runtime implementation files changed
+- ✅ no `src/features/nutrition/application/` changes
+- ✅ no `src/features/nutrition/domain/` changes
+- ✅ no supabase changes
+- ✅ no `package.json` / `package-lock.json` changes
+- ✅ no scripts created
+- ✅ no `npm audit fix` / `npm audit fix --force` commands run
 - ✅ no push performed

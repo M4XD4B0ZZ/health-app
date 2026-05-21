@@ -1,86 +1,90 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-OPS-003 — Dependency Command Safety Hardening  
-**Date:** 2026-05-21T14:36:00+02:00  
+**Task:** CLINE-REAL-008 — Unit Portion Regression Test Expansion  
+**Date:** 2026-05-21T15:16:00+02:00  
 **Agent:** Cline worker adapter  
-**Run Type:** Documentation/governance-only scoped edit
+**Run Type:** Controlled TEST-ONLY scoped edit
 
 ---
 
 ## Run Summary
 
-- Implemented explicit dependency-command safety governance in allowed documentation files.
-- Added incident rationale tied to CLINE-REAL-007.
-- Added deterministic recovery rule for accidental dependency drift.
-- Performed required docs-only final git readback checks.
-- No product/runtime code was changed.
+- Added exactly one focused regression test for unit-portion precedence behavior.
+- Confirmed explicit grams are used instead of canonical default unit grams in totals calculation.
+- Executed only the narrow requested test command.
+- Updated required report artifact for this task.
 
 ---
 
 ## Commands Run
 
-1. `git --no-pager status --short`
-2. `git --no-pager diff --stat`
-3. `git --no-pager diff --name-only`
+1. `npm run test -- --runTestsByPath src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
+2. `git --no-pager status --short`
+3. `git --no-pager diff --stat`
+4. `git --no-pager diff --name-only`
 
 Notes:
+
 - PowerShell-safe short commands used.
-- `git --no-pager` used for read-only git inspection.
-- No blocking commands/dev servers used.
-- No push/deploy commands used.
+- No bash chaining / no `&&`.
+- No blocking/dev-server workflow used.
 
 ---
 
 ## Files Changed
 
-- `.agent/adapters/cline.md`
-- `docs/CLINE_RALPH_WORKER_SETUP.md`
-- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-- `AGENTS.md`
-- `VERIFY.md`
+- `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
+- `reports/CLINE-REAL-008_UNIT_PORTION_REGRESSION_TEST_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
 
-## Rule Added
+## Test Added
 
-Added **Dependency Command Safety (CLINE-OPS-003)** with the following controls:
-
-- `npm install` allowed only when explicitly required to restore missing local dependencies.
-- `npm audit` allowed as read-only inspection only.
-- `npm audit fix` requires explicit approval.
-- `npm audit fix --force` forbidden in scoped tasks unless a dedicated dependency-migration task is approved.
-- Any `package.json` / `package-lock.json` change is out of scope unless explicitly allowed by the task.
-
-Also added:
-
-- **Incident rationale:** `npm audit fix --force` may trigger SemVer-major upgrades and large lockfile rewrites; must not be mixed into feature/test/governance tasks.
-- **Recovery rule:** stop, restore `package.json`, restore `package-lock.json`, rerun `npm install`, rerun narrow relevant test, document incident.
+- File: `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
+- Test name: `should prioritize explicit grams over unit default for eggs: "150g egg" → 150g totals`
+- Scenario: explicit grams (`150g`) for canonical unit-based food (`egg`) must take precedence over canonical default portion (`60g`) and calories/macros must reflect explicit grams.
 
 ---
 
-## Required Final Checks (Output Summary)
+## Test Result
 
-- `git --no-pager status --short` shows only allowed documentation/governance/handoff file edits.
-- `git --no-pager diff --stat` shows:
-  - 6 files changed, 163 insertions(+), 43 deletions(-)
-- `git --no-pager diff --name-only` lists only:
-  - `.agent/adapters/cline.md`
-  - `AGENTS.md`
-  - `VERIFY.md`
-  - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-  - `docs/CLINE_RALPH_WORKER_SETUP.md`
-  - `handoffs/latest-handoff.md`
+- Command result: **PASS**
+- Jest summary:
+  - `Test Suites: 1 passed, 1 total`
+  - `Tests: 11 passed, 11 total`
+
+---
+
+## Terminal Artifact Status
+
+- Spinner/progress artifact output (`RUNS ...` lines and spinner glyphs) appeared during test execution.
+- Execution completed successfully with final PASS output.
+- **No unresolved terminal hang remained.**
+
+---
+
+## Pager Recovery Status
+
+- `git --no-pager` was used for all required git inspection commands.
+- **No pager opened; no recovery action required.**
 
 ---
 
 ## Explicit Constraint Confirmation
 
-- ✅ no `src/` changes
+- ✅ no runtime implementation files changed
+- ✅ no `src/features/nutrition/application/` changes
+- ✅ no `src/features/nutrition/domain/` changes
 - ✅ no `supabase/` changes
 - ✅ no `package.json` changes
 - ✅ no `package-lock.json` changes
 - ✅ no scripts created
-- ✅ no runtime logic changes
-- ✅ no `.env`/secret changes
+- ✅ no audit fix commands run
 - ✅ no push performed
+
+---
+
+## Incident Note
+
+- During handoff update, `handoffs/latest-handoff.md` was accidentally deleted once and immediately recreated with the required CLINE-REAL-008 handoff content in-scope.

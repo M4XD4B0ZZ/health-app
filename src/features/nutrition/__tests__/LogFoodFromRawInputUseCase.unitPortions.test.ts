@@ -46,6 +46,17 @@ describe('Unit Portion Fix - Integration Test', () => {
       expect(result.totals.calories).toBeCloseTo(286, 1); // 143 * 2.0 = 286
     });
 
+    it('should prioritize explicit grams over unit default for eggs: "150g egg" → 150g totals', () => {
+      const targetGrams = resolvePortionGrams('egg', 150, 1);
+      const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
+
+      expect(targetGrams).toBe(150); // explicit grams must override 60g canonical egg portion
+      expect(result.totals.calories).toBeCloseTo(214.5, 1); // 143 * 1.5
+      expect(result.totals.protein).toBeCloseTo(18.9, 1); // 12.6 * 1.5
+      expect(result.totals.carbs).toBeCloseTo(1.05, 1); // 0.7 * 1.5
+      expect(result.totals.fat).toBeCloseTo(14.25, 1); // 9.5 * 1.5
+    });
+
     it('should handle "ei" (singular) as 60g → ~85 kcal', () => {
       const targetGrams = resolvePortionGrams('ei', 0, undefined);
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);

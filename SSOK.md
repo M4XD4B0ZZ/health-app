@@ -19,6 +19,61 @@
 - **Repository governance is becoming authoritative** - tools are adapters, not sources of truth
 - **Ralph-Loop foundation established** in [`.governance/`](.governance/), [`tasks/`](tasks/), [`runs/`](runs/), [`handoffs/`](handoffs/), [`validation/`](validation/), [`reports/`](reports/), [`.agent/`](.agent/)
 
+### Canonical Governance Authority Hierarchy (Active)
+
+This hierarchy is the active authority order for governance decisions in this repository.
+
+#### Level 1 — Repository Governance Constitution
+- [`SSOK.md`](SSOK.md)
+- [`AGENTS.md`](AGENTS.md)
+
+#### Level 2 — Canonical Domain Authorities
+- [`ROADMAP.md`](ROADMAP.md) (planning authority)
+- [`VERIFY.md`](VERIFY.md) (verification authority)
+- [`.governance/*`](.governance/) (Ralph operational governance + safety policy)
+
+#### Level 3 — Runtime Execution State
+- [`tasks/task-state.json`](tasks/task-state.json)
+- [`runs/current-run.json`](runs/current-run.json)
+
+#### Level 4 — Adapter Execution Rules
+- [`.agent/adapters/*`](.agent/adapters/)
+
+#### Level 5 — Operational Guides / Checklists
+- Non-canonical operational guidance and checklists
+
+### Legacy Roo References (Historical / Transition Context)
+
+- [`.roo/`](.roo/) and [`.roomodes`](.roomodes) are retained as historical transition context and legacy adapter implementation.
+- They are **not active top-level authority** over the canonical hierarchy above.
+
+### Conflict Resolution Order (Deterministic)
+
+When sources disagree, resolve in this order:
+
+1. **Safety wins first**
+   - [`.governance/SAFETY.md`](.governance/SAFETY.md) and protected-file constraints override conflicting operational instructions.
+2. **Canonical domain authority wins second**
+   - Planning conflicts → [`ROADMAP.md`](ROADMAP.md)
+   - Verification conflicts → [`VERIFY.md`](VERIFY.md)
+   - Cross-agent governance interpretation → [`AGENTS.md`](AGENTS.md), constrained by this `SSOK.md`
+3. **Runtime state never overrides planning authority**
+   - [`tasks/task-state.json`](tasks/task-state.json) and [`runs/current-run.json`](runs/current-run.json) govern execution state only.
+4. **Historical evidence never overrides current authority**
+   - Histories are evidence/audit, not current planning or policy truth.
+5. **Adapter docs never override governance**
+   - Adapter files and operational guides are implementation guidance beneath governance policy.
+
+### Runtime Contract (Formalized, Non-Behavioral)
+
+- **Planning Authority:** [`ROADMAP.md`](ROADMAP.md)
+- **Runtime Execution Authority:** [`tasks/task-state.json`](tasks/task-state.json), [`runs/current-run.json`](runs/current-run.json)
+- **Evidence Authority:** [`tasks/task-history.jsonl`](tasks/task-history.jsonl), [`runs/run-history.jsonl`](runs/run-history.jsonl)
+- **Verification Authority:** [`VERIFY.md`](VERIFY.md)
+- **Safety Authority:** [`.governance/SAFETY.md`](.governance/SAFETY.md)
+
+This section formalizes authority ownership only. It does not change runtime behavior, task selection mechanics, or workflow.
+
 ### Future Governance Hierarchy
 1. **Root project truth:** [`README.md`](README.md), [`ROADMAP.md`](ROADMAP.md), [`AGENTS.md`](AGENTS.md), [`VERIFY.md`](VERIFY.md), [`package.json`](package.json)
 2. **Ralph-Loop governance:** [`.governance/`](.governance/)

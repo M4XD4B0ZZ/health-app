@@ -6,6 +6,38 @@
 - `SSOK.md` beschreibt die übergeordnete Governance-Struktur des Repositories.
 - Alle Agenten-Workflows und Projektregeln müssen mit dieser Definition konsistent bleiben.
 
+### Canonical Authority Hierarchy (Binding)
+
+For deterministic governance decisions, apply this authority hierarchy:
+
+1. **Level 1 — Repository Governance Constitution:** `SSOK.md`, `AGENTS.md`
+2. **Level 2 — Canonical Domain Authorities:** `ROADMAP.md`, `VERIFY.md`, `.governance/*`
+3. **Level 3 — Runtime Execution State:** `tasks/task-state.json`, `runs/current-run.json`
+4. **Level 4 — Adapter Execution Rules:** `.agent/adapters/*`
+5. **Level 5 — Operational Guides/Checklists:** non-canonical implementation guidance
+
+Legacy Roo artifacts (`.roo/`, `.roomodes`) are historical/transition context and not active top-level authority.
+
+### Conflict Resolution (Binding)
+
+When sources conflict, resolve in this order:
+
+1. **Safety wins first** (`.governance/SAFETY.md` + protected-file constraints)
+2. **Canonical domain authority wins second** (`ROADMAP.md` for planning, `VERIFY.md` for verification)
+3. **Runtime state never overrides planning authority**
+4. **Historical evidence never overrides current authority**
+5. **Adapter docs never override governance**
+
+### Runtime Contract (Formalized)
+
+- **Planning Authority:** `ROADMAP.md`
+- **Runtime Execution Authority:** `tasks/task-state.json`, `runs/current-run.json`
+- **Evidence Authority:** `tasks/task-history.jsonl`, `runs/run-history.jsonl`
+- **Verification Authority:** `VERIFY.md`
+- **Safety Authority:** `.governance/SAFETY.md`
+
+This formalization clarifies authority ownership only and does not change runtime behavior or workflow mechanics.
+
 ---
 
 ## Ralph-Loop Governance

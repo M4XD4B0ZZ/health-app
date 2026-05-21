@@ -59,11 +59,49 @@ This document provides setup instructions and operational guidelines for using C
 ### Command Syntax (Windows PowerShell)
 - This workspace uses Windows PowerShell by default.
 - Use PowerShell-compatible commands only; never assume Bash syntax.
-- Do not use `&&` chaining.
 - Prefer one short isolated command per execution.
+- Enforce one command per tool execution (no chaining/compound separators).
 - Do not run long compound commands unless explicitly approved.
-- If needed, use `;` sparingly or run commands separately.
-- For conditional execution, use: `if ($LASTEXITCODE -eq 0) { <next command> }`.
+- If multiple checks are needed, run each as a separate tool execution.
+
+### Command Isolation Enforcement (CLINE-OPS-004)
+
+- Cline must never combine multiple commands in one terminal invocation.
+- This applies even when commands are individually safe.
+- Final checks must be run as separate tool executions.
+
+Forbidden separators/operators:
+
+- `&&`
+- `||`
+- `;`
+- `|`
+- backticks for command substitution
+- multi-line command blocks
+- chained `git`/`npm`/`node` commands
+
+Required final-check format (exactly separate executions):
+
+```powershell
+git --no-pager status --short
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+Recovery rule if a chained command is attempted accidentally:
+
+1. stop,
+2. document parser/chaining violation,
+3. rerun only the intended commands one-by-one,
+4. do not simplify by using alternative separators,
+5. do not escalate shell syntax.
+
+Incident rationale (CLINE-REAL-011):
+
+- Cline attempted chained git final checks with `&&`.
+- PowerShell parser failed.
+- Recovery succeeded by rerunning checks separately.
+- Rule is strengthened to prevent recurrence.
 
 ### Practical Terminal Reliability Note
 - Use short PowerShell-safe commands.

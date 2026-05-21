@@ -68,22 +68,64 @@ Cline MUST follow Ralph-Loop governance:
 - This workspace uses Windows/PowerShell by default.
 - Use short, isolated, PowerShell-safe commands.
 - Prefer one command per tool execution.
-- Never use Bash chaining such as `&&`.
+- Never use chained or compound command separators/operators.
 - No long compound commands unless explicitly approved by the human reviewer.
 - Avoid long `node -e` one-liners and complex nested quoting.
 - If a command produces no visible output, do not retry with increasingly complex syntax.
 - Stop and report output-capture or terminal-completion issues.
 - Keep terminal usage minimal and deterministic.
-- If multiple commands are unavoidable, run them separately (or use `;` only when explicitly justified).
-- For conditional execution, use PowerShell-compatible logic:
-
-```powershell
-if ($LASTEXITCODE -eq 0) { <next command> }
-```
+- If multiple checks are needed, execute each check as a separate tool execution.
 
 - Never assume Bash syntax.
 - Prefer explicit PowerShell-safe commands.
 - Keep commands short to reduce token and terminal failure risk.
+
+### Command Isolation Enforcement (CLINE-OPS-004)
+
+- **Exactly one terminal command per tool execution.**
+- This applies even when individual commands are safe.
+- Final checks must be executed as separate commands, never combined.
+
+Forbidden in Cline terminal commands:
+
+- `&&`
+- `||`
+- `;`
+- `|`
+- backticks for command substitution
+- multi-line command blocks
+- chained `git`/`npm`/`node` commands
+
+Required final-check format:
+
+Run these as three separate executions:
+
+```powershell
+git --no-pager status --short
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+Never use combined variants such as:
+
+```powershell
+git --no-pager status --short && git --no-pager diff --stat && git --no-pager diff --name-only
+```
+
+Recovery rule for accidental chained command attempts:
+
+1. stop,
+2. document parser/chaining violation,
+3. rerun only the intended commands one-by-one,
+4. do not simplify with alternative separators,
+5. do not escalate shell syntax.
+
+Incident rationale (CLINE-REAL-011):
+
+- Cline attempted chained git final checks with `&&`.
+- PowerShell parser failed.
+- Recovery succeeded by rerunning checks separately.
+- This rule is strengthened to prevent recurrence.
 
 ### Git Pager Reliability Rule
 
@@ -189,16 +231,16 @@ Correct:
 node scripts/agent/generate-morning-review.mjs --dry-run
 ```
 
-Correct:
+Incorrect:
 
 ```powershell
-git status --short; node scripts/agent/generate-morning-review.mjs --dry-run
+git status --short && node scripts/agent/generate-morning-review.mjs --dry-run
 ```
 
 Incorrect:
 
 ```powershell
-git status --short && node scripts/agent/generate-morning-review.mjs --dry-run
+git status --short; node scripts/agent/generate-morning-review.mjs --dry-run
 ```
 
 Incorrect:

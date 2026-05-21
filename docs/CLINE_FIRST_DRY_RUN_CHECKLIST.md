@@ -185,12 +185,51 @@ This repository does NOT handle Cline installation or global configuration. Thes
 
 ### Command Syntax
 - Use PowerShell-compatible commands.
-- Do not use `&&`.
 - Prefer one short isolated command per execution.
+- Enforce one command per tool execution (never combine commands).
 - Do not run long compound commands unless explicitly approved.
 - Verify with `git status --short` before and after write tests.
 - If terminal output is missing or command hangs, stop and ask for human validation.
 - Do not spawn repeated PowerShell wrapper commands.
+
+### Command Isolation Enforcement (CLINE-OPS-004)
+
+- Cline must never combine multiple commands in one terminal invocation.
+- This applies even when commands are individually safe.
+- Final checks must be run as separate tool executions.
+
+Forbidden separators/operators:
+
+- `&&`
+- `||`
+- `;`
+- `|`
+- backticks for command substitution
+- multi-line command blocks
+- chained `git`/`npm`/`node` commands
+
+Required final-check format (run exactly as separate executions):
+
+```powershell
+git --no-pager status --short
+git --no-pager diff --stat
+git --no-pager diff --name-only
+```
+
+Recovery rule if a chained command is attempted accidentally:
+
+1. stop,
+2. document parser/chaining violation,
+3. rerun only the intended commands one-by-one,
+4. do not simplify by using alternative separators,
+5. do not escalate shell syntax.
+
+Incident rationale (CLINE-REAL-011):
+
+- Cline attempted chained git final checks with `&&`.
+- PowerShell parser failed.
+- Recovery succeeded by rerunning checks separately.
+- Rule is strengthened to prevent recurrence.
 
 ### Git Pager Reliability
 - If Git output is visible but Cline remains `Running`, check whether Git opened a pager.

@@ -5,6 +5,18 @@ describe('Unit Portion Fix - Integration Test', () => {
   describe('resolvePortionGrams + computeTotals integration', () => {
     const eggMacrosPer100g = { calories: 143, protein: 12.6, carbs: 0.7, fat: 9.5 };
 
+    it('should apply canonical default portion for "1 egg" when explicit grams are absent', () => {
+      const targetGrams = resolvePortionGrams('egg', 0, 1);
+      const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
+
+      expect(targetGrams).toBe(60); // canonical default: 1 egg = 60g
+      expect(targetGrams).not.toBe(100); // confirms no generic fallback/override behavior
+      expect(result.totals.calories).toBeCloseTo(85.8, 1); // 143 * 0.6 = 85.8
+      expect(result.totals.protein).toBeCloseTo(7.56, 1); // 12.6 * 0.6
+      expect(result.totals.carbs).toBeCloseTo(0.42, 1); // 0.7 * 0.6
+      expect(result.totals.fat).toBeCloseTo(5.7, 1); // 9.5 * 0.6
+    });
+
     it('should calculate "egg" as 60g → ~85 kcal', () => {
       const targetGrams = resolvePortionGrams('egg', 0, undefined);
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);

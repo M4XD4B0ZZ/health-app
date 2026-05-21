@@ -1,7 +1,7 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-REAL-008 — Unit Portion Regression Test Expansion  
-**Date:** 2026-05-21T15:16:00+02:00  
+**Task:** CLINE-REAL-009 — Default Portion Regression Test  
+**Date:** 2026-05-21T15:22:00+02:00  
 **Agent:** Cline worker adapter  
 **Run Type:** Controlled TEST-ONLY scoped edit
 
@@ -9,8 +9,9 @@
 
 ## Run Summary
 
-- Added exactly one focused regression test for unit-portion precedence behavior.
-- Confirmed explicit grams are used instead of canonical default unit grams in totals calculation.
+- Added exactly one focused regression test for canonical default portion behavior.
+- Verified that for input-equivalent path `1 egg` without explicit grams, canonical default grams are used.
+- Verified totals align to 60g nutrition values.
 - Executed only the narrow requested test command.
 - Updated required report artifact for this task.
 
@@ -34,7 +35,7 @@ Notes:
 ## Files Changed
 
 - `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
-- `reports/CLINE-REAL-008_UNIT_PORTION_REGRESSION_TEST_REPORT.md`
+- `reports/CLINE-REAL-009_DEFAULT_PORTION_REGRESSION_TEST_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
@@ -42,8 +43,8 @@ Notes:
 ## Test Added
 
 - File: `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
-- Test name: `should prioritize explicit grams over unit default for eggs: "150g egg" → 150g totals`
-- Scenario: explicit grams (`150g`) for canonical unit-based food (`egg`) must take precedence over canonical default portion (`60g`) and calories/macros must reflect explicit grams.
+- Test name: `should apply canonical default portion for "1 egg" when explicit grams are absent`
+- Scenario: canonical default portion for egg is applied when explicit grams are absent; resolved grams are `60`, calories/macros match 60g values, and no 100g fallback/override path is used.
 
 ---
 
@@ -52,7 +53,7 @@ Notes:
 - Command result: **PASS**
 - Jest summary:
   - `Test Suites: 1 passed, 1 total`
-  - `Tests: 11 passed, 11 total`
+  - `Tests: 12 passed, 12 total`
 
 ---
 
@@ -66,25 +67,15 @@ Notes:
 
 ## Pager Recovery Status
 
-- `git --no-pager` was used for all required git inspection commands.
-- **No pager opened; no recovery action required.**
+- `git --no-pager` used for all required git inspection commands.
 
 ---
 
 ## Explicit Constraint Confirmation
 
-- ✅ no runtime implementation files changed
-- ✅ no `src/features/nutrition/application/` changes
-- ✅ no `src/features/nutrition/domain/` changes
-- ✅ no `supabase/` changes
-- ✅ no `package.json` changes
-- ✅ no `package-lock.json` changes
-- ✅ no scripts created
-- ✅ no audit fix commands run
+- ✅ exactly one focused regression test added
+- ✅ no runtime implementation changes
+- ✅ no refactors
+- ✅ used existing mocks/helpers pattern
+- ✅ only requested test command executed
 - ✅ no push performed
-
----
-
-## Incident Note
-
-- During handoff update, `handoffs/latest-handoff.md` was accidentally deleted once and immediately recreated with the required CLINE-REAL-008 handoff content in-scope.

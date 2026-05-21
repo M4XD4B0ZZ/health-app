@@ -4,6 +4,17 @@
 
 Die hier definierten Verify-Regeln folgen der übergeordneten Governance-Definition in `SSOK.md`.
 
+## Verification Authority
+
+`VERIFY.md` ist die **kanonische Entscheidungsquelle** für:
+
+- required checks
+- optional checks
+- blocking checks
+- Definition of Done (verification-bezogen)
+
+Andere Governance-Dokumente sollen Verify-Verhalten referenzieren (auf `VERIFY.md` verweisen), nicht parallel neu definieren.
+
 ---
 
 ## DACH Data Strategy Verification Note
@@ -26,11 +37,30 @@ Verification must be:
 - runnable locally
 - CI compatible
 
+### Canonical Verification Decision Table
+
+> Ziel: **keine Verhaltensänderung**, sondern eindeutige Autorität und reproduzierbare Entscheidungslogik.
+
+| Category | Scope/Trigger | Required checks | Optional checks | Blocking checks |
+| --- | --- | --- | --- | --- |
+| 1) Documentation-only | Änderungen nur an Doku-Dateien (z. B. `*.md`, `docs/`, `reports/`, `handoffs/`) ohne Runtime-/Test-/Infra-Code | `git --no-pager status --short`<br>`git --no-pager diff --stat`<br>`git --no-pager diff --name-only` | `npm run verify` (nur wenn zusätzlicher Sicherheits-/Vertrauensbedarf besteht) | Alle required readback checks müssen erfolgreich und vollständig dokumentiert sein |
+| 2) Governance-only | Änderungen nur an Governance-/Policy-Texten (z. B. `AGENTS.md`, `SSOK.md`, `.governance/*.md`, `VERIFY.md`) ohne Runtime-/Test-/Infra-Code | `git --no-pager status --short`<br>`git --no-pager diff --stat`<br>`git --no-pager diff --name-only` | `npm run verify` (nur falls im Task explizit gefordert) | Alle required readback checks müssen erfolgreich und vollständig dokumentiert sein |
+| 3) Test-only | Änderungen nur in Testdateien/-fixtures (keine Produkt-/Infra-Logik) | Task-relevante Tests (z. B. `npm run test -- --runTestsByPath <path>`)<br>`git --no-pager status --short`<br>`git --no-pager diff --stat`<br>`git --no-pager diff --name-only` | `npm run test` (gesamte Suite)<br>`npm run verify` | Alle ausgeführten required Tests müssen pass sein; bei gefordertem `npm run verify` ist dieses ebenfalls blocking |
+| 4) Product/runtime code | Änderungen an App-/Domain-/Application-/UI-/Infra-Runtime-Code | `npm run verify` | `npm run lint`<br>`npm run typecheck`<br>`npm run test`<br>`npm run doctor` | `npm run verify` muss pass sein |
+| 5) Edge/Supabase | Änderungen an Supabase Edge Functions / edge-relevanter Integration | `npm run verify:supabase:link`<br>`npm run verify:schema`<br>`npm run verify:edge`<br>zusätzlich `npm run verify` bei Runtime-Code-Änderungen | `npm run typecheck:functions`<br>`npm run doctor` | Alle required edge checks müssen pass sein; falls Runtime-Code mitgeändert wurde, zusätzlich `npm run verify` pass |
+| 6) Dependency changes | Änderungen an `package.json` / `package-lock.json` (nur wenn Task explizit erlaubt) | `npm run verify`<br>zusätzlich task-spezifische Regressionstests in betroffenen Bereichen | `npm run doctor`<br>`npm audit` (read-only) | `npm run verify` muss pass sein; alle task-spezifisch required Regressionstests müssen pass sein |
+
+### Category Resolution Rule
+
+- Wenn mehrere Kategorien gleichzeitig zutreffen, gilt die **strengste Kombination** der required/blocking checks.
+- Bei Konflikten mit Sekundärdokumenten gilt immer dieses Dokument (`VERIFY.md`) als Entscheidungsautorität.
+- Sekundärdokumente dürfen zusätzliche Hinweise geben, aber keine widersprüchlichen Verify-Entscheidungen definieren.
+
 ---
 
 ## 2 Verification Commands
 
-Run verification commands in this order. All blocking checks must pass before marking a task done.
+Run verification commands in this order **when full runtime verification is required by the decision table above**. All blocking checks must pass before marking a task done.
 
 ```bash
 npm run lint
@@ -92,7 +122,7 @@ npm run typecheck
 npm run verify
 ```
 
-For documentation-only tasks, minimum required checks are:
+For documentation-only tasks, minimum required checks are (Category 1 in the decision table):
 
 ```bash
 git --no-pager status --short
@@ -100,7 +130,7 @@ git --no-pager diff --stat
 git --no-pager diff --name-only
 ```
 
-Use full product verification (`npm run verify`) when product/runtime code changes. If edge/supabase functions change, also run edge-specific verification (`npm run verify:edge` and related edge prerequisites).
+Use full product verification (`npm run verify`) when product/runtime code changes (Category 4). If edge/supabase functions change, run edge-specific verification per Category 5.
 
 Run `npm run verify:edge` only when Supabase Edge Functions were changed and `.env` is available with valid credentials.
 
@@ -137,7 +167,8 @@ npm run verify:edge
 
 A task is complete only when:
 
-- `npm run verify` passes (lint + typecheck + format:check + tests)
+- all **required checks** from the canonical decision table pass
+- if Category 4 applies: `npm run verify` passes (lint + typecheck + format:check + tests)
 - no type errors exist
 - no lint errors exist
 - edge verification passes if edge functions were changed

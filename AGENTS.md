@@ -103,23 +103,10 @@ Agents must read both files before starting any task.
 ### Verification
 
 - Run verification before marking any task done (see VERIFY.md).
-- Canonical verification entrypoint:
-
-```bash
-npm run verify
-```
-
-- Full verification order:
-
-```bash
-npm run lint
-npm run typecheck
-npm run verify
-npm run verify:edge
-```
-
-- Do not bypass or skip verification steps.
-- Do not claim a task is done if verification has not passed.
+- `VERIFY.md` is the sole authority for verification decisions by change category (required / optional / blocking checks).
+- Use `npm run verify` as canonical runtime entrypoint when the `VERIFY.md` decision table requires full runtime verification.
+- Do not bypass or skip verification steps required by `VERIFY.md`.
+- Do not claim a task is done if required blocking checks from `VERIFY.md` have not passed.
 
 ### Dependency Command Safety (CLINE-OPS-003)
 
@@ -157,7 +144,7 @@ If package files drift accidentally:
 
 A task is done only when:
 
-- `npm run verify` passes
+- required blocking checks from `VERIFY.md` pass
 - no type errors exist
 - no lint errors exist
 - edge verification passes if edge functions were changed

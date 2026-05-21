@@ -1,26 +1,26 @@
 # Ralph-Loop Handoff Report
 
-**Task:** CLINE-REAL-012 — Persistence Integrity Test  
-**Date:** 2026-05-21T16:39:00+02:00  
+**Task:** CLINE-GOV-003 — Verification Canonicalization  
+**Date:** 2026-05-21T17:13:00+02:00  
 **Agent:** Cline worker adapter  
-**Run Type:** Controlled TEST-ONLY scoped edit
+**Run Type:** Analysis + Governance Documentation Implementation
 
 ---
 
 ## Run Summary
 
-- Added exactly one focused regression test for persistence integrity in the nutrition logging pipeline.
-- Chosen scenario: **successful resolver result persists exactly one entry** (preferred path).
-- No runtime implementation files were modified.
+- Canonical verification authority was centralized in `VERIFY.md` through an explicit decision model.
+- A category-based verification decision table was added (required / optional / blocking checks).
+- Duplicated verification semantics in `AGENTS.md` were reduced and replaced by canonical references to `VERIFY.md`.
+- No product/runtime source code, dependency, or infrastructure files were modified.
 
 ---
 
 ## Commands Run
 
-1. `npm run test -- --runTestsByPath src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
-2. `git --no-pager status --short`
-3. `git --no-pager diff --stat`
-4. `git --no-pager diff --name-only`
+1. `git --no-pager status --short`
+2. `git --no-pager diff --stat`
+3. `git --no-pager diff --name-only`
 
 All final checks were executed as separate command executions.
 
@@ -28,52 +28,60 @@ All final checks were executed as separate command executions.
 
 ## Files Changed
 
-- `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
-- `reports/CLINE-REAL-012_PERSISTENCE_INTEGRITY_TEST_REPORT.md`
+- `VERIFY.md`
+- `AGENTS.md`
+- `reports/CLINE-GOV-003_VERIFICATION_CANONICALIZATION_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
 
-## Test Added
+## Implemented Governance Changes
 
-- **File:** `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
-- **Test name:** `sollte bei erfolgreicher Resolution genau einen Entry genau einmal persistieren`
-- **Assertions:**
-  - operation succeeds (`resolves.toBeDefined()`)
-  - repository add/save method called exactly once (`addEntry` called once)
-  - repository contains exactly one entry (`toHaveLength(1)`)
-  - no duplicate persistence (single call + single stored entry)
+### `VERIFY.md`
+
+- Added **Verification Authority** section declaring `VERIFY.md` as sole verification decision authority.
+- Added **Canonical Verification Decision Table** for categories:
+  1. Documentation-only
+  2. Governance-only
+  3. Test-only
+  4. Product/runtime code
+  5. Edge/Supabase
+  6. Dependency changes
+- Added **Category Resolution Rule** for multi-category tasks and conflict handling.
+- Clarified command-order applicability and DoD wording to map explicitly to decision-table requirements.
+
+### `AGENTS.md`
+
+- Replaced duplicated verification sequence semantics with references to `VERIFY.md`.
+- Clarified that required blocking checks are determined by `VERIFY.md` decision table.
+- Kept DoD constraints aligned without redefining verification behavior locally.
+
+### Report
+
+- Created `reports/CLINE-GOV-003_VERIFICATION_CANONICALIZATION_REPORT.md` with:
+  - analysis inventory,
+  - implementation details,
+  - behavior-preservation statement,
+  - changed file list,
+  - final-check evidence checklist.
 
 ---
 
-## Test Result
+## Verification / Validation Result
 
-- **PASS**
-- `Test Suites: 1 passed, 1 total`
-- `Tests: 10 passed, 10 total`
-
----
-
-## Terminal Artifact Status
-
-- No unresolved terminal hang blocking task completion.
-- Test run completed and returned final Jest summary.
-
-## Pager Recovery Status
-
-- `git --no-pager` used for all final git checks.
-- No pager-related interruption occurred during final evidence collection.
+- Task category: **Governance/documentation changes**.
+- Validation approach followed canonical docs/governance readback model.
+- Final git readback checks executed separately as required.
 
 ---
 
 ## Explicit Constraint Confirmation
 
-- ✅ no runtime implementation changes
-- ✅ no changes in `src/features/nutrition/application/`
-- ✅ no changes in `src/features/nutrition/domain/`
-- ✅ no supabase changes
-- ✅ no package/package-lock changes
-- ✅ no scripts created
-- ✅ no `npm audit fix` command run
-- ✅ no `npm audit fix --force` command run
+- ✅ objective completed: canonical verification decision model established in `VERIFY.md`
+- ✅ duplicate verification semantics reduced by reference-based alignment in `AGENTS.md`
+- ✅ no behavior-intent changes introduced (authority/ownership clarification only)
+- ✅ no `src/` product/runtime implementation changes
+- ✅ no `supabase/` changes
+- ✅ no `package.json` / `package-lock.json` changes
+- ✅ no dependency install/audit-fix operations
 - ✅ no push performed

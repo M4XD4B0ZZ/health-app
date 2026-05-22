@@ -1,0 +1,22 @@
+{
+  "review_id": "rev_20260522_ralph-006a_backfill",
+  "task_id": "RALPH-006A",
+  "run_id": "run_2026-05-19_ralph-006a",
+  "correlation_id": "corr_20260522_ralph-006a_backfill",
+  "reviewer": "human",
+  "review_result": "accepted",
+  "review_required": true,
+  "review_notes": "RALPH-006A successfully implemented the dry-run task selector, the first executable Ralph-Loop component. Task completed with critical bugfix (RALPH-006A-FIX) that restored CLI execution flow, fixed JSON/text output modes, and improved stale run detection. All validation checks passed for the bugfix. Note: Validation evidence is attached to RALPH-006A-FIX rather than RALPH-006A, but completion is clear and the bugfix validation demonstrates successful task completion. This validation evidence linkage issue is documented in RALPH-007A and should be addressed separately.",
+  "confidence_score": 0.85,
+  "backfill_metadata": {
+    "backfill_date": "2026-05-22T19:05:48Z",
+    "backfill_reason": "Legacy task completed before normalized review evidence model was implemented",
+    "evidence_sources": [
+      "tasks/task-history.jsonl",
+      "runs/run-history.jsonl",
+      "validation/validation-results.jsonl"
+    ],
+    "validation_linkage_issue": "Validation evidence exists for RALPH-006A-FIX, not RALPH-006A. See RALPH-007A for details.",
+    "human_approval_required": true
+  }
+}

@@ -1,0 +1,437 @@
+#!/usr/bin/env node
+
+/**
+ * Ralph V2 ROADMAP ↔ Task-State Reconciler
+ *
+ * Read-only reconciler for comparing ROADMAP planning truth with Ralph runtime
+ * task state. It reports discrepancies only and never writes ROADMAP.md,
+ * tasks/task-state.json, or any generated runtime state.
+ *
+ * Usage:
+ *   node scripts/agent/reconcile-roadmap-task-state.mjs [--json] [--help]
+ *
+ * Exit codes:
+ *   0 = no critical reconciliation findings
+ *   1 = critical reconciliation findings found
+ *   2 = reconciler execution error
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '../..');
+
+const EXIT_CODES = {
+  OK: 0,
+  CRITICAL_FINDINGS: 1,
+  EXECUTION_ERROR: 2
+};
+
+const PATHS = {
+  roadmap: 'ROADMAP.md',
+  taskState: 'tasks/task-state.json'
+};
+
+const ROADMAP_STATUSES = new Set(['todo', 'in_progress', 'blocked', 'done']);
+const TASK_STATE_STATUSES = new Set([
+  'not_started',
+  'in_progress',
+  'needs_validation',
+  'needs_review',
+  'blocked',
+  'failed',
+  'done',
+  'skipped',
+  'cancelled'
+]);
+const ACTIVE_RUNTIME_STATUSES = new Set(['in_progress', 'needs_validation', 'needs_review']);
+
+const ROADMAP_TASK_ID_PATTERN = String.raw`(?:P\d+-\d+|RESOLVER-V2-\d+|RALPH-\d+[A-Z]?)`;
+const ROADMAP_TASK_HEADER = new RegExp(String.raw`^(#{2,6})\s+(?:[-*]\s+)?(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`);
+const CHECKBOX_TASK = new RegExp(String.raw`^\s*-\s+\[[ xX]\]\s+(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`);
+const ANY_HEADING = /^(#{1,6})\s+(.+)$/;
+
+function parseArgs(argv) {
+  const options = { json: false, help: false };
+  for (const arg of argv.slice(2)) {
+    if (arg === '--json') options.json = true;
+    else if (arg === '--help' || arg === '-h') options.help = true;
+    else throw new Error(`Unknown option: ${arg}`);
+  }
+  return options;
+}
+
+function printHelp() {
+  console.log(`Ralph V2 ROADMAP <-> Task-State Reconciler
+
+USAGE:
+  node scripts/agent/reconcile-roadmap-task-state.mjs [OPTIONS]
+
+OPTIONS:
+  --json     Output machine-readable JSON
+  --help     Show this help message
+
+SAFETY:
+  - Read-only: never writes files
+  - Reports discrepancies only
+  - Does not repair ROADMAP.md or tasks/task-state.json
+
+EXIT CODES:
+  0 = no critical reconciliation findings
+  1 = critical reconciliation findings found
+  2 = reconciler execution error`);
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function resolvePath(relativePath) {
+  return path.resolve(projectRoot, relativePath);
+}
+
+function readText(relativePath) {
+  return fs.readFileSync(resolvePath(relativePath), 'utf8');
+}
+
+function readJson(relativePath) {
+  return JSON.parse(readText(relativePath));
+}
+
+function normalizeStatus(value) {
+  return typeof value === 'string' ? value.trim().replace(/^`|`$/g, '').toLowerCase() : null;
+}
+
+function cleanTitle(title) {
+  return String(title || '').trim().replace(/\s+/g, ' ');
+}
+
+function addFinding(findings, severity, code, message, file, details = {}) {
+  findings.push({ severity, code, message, file, details });
+}
+
+function sectionPathFromStack(stack) {
+  return stack.map((item) => item.title).join(' > ');
+}
+
+function collectTaskText(lines, startIndex, taskLevel) {
+  const collected = [];
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    const heading = line.match(ANY_HEADING);
+    if (heading && heading[1].length <= taskLevel) break;
+    if (/^\s*---\s*$/.test(line)) break;
+    collected.push(line);
+  }
+  return collected;
+}
+
+function extractStatus(taskLines) {
+  for (const line of taskLines) {
+    const match = line.match(/^\s*Status:\s*`?([A-Za-z_]+)`?\s*$/i);
+    if (match) return normalizeStatus(match[1]);
+  }
+  return null;
+}
+
+function extractDodVerify(taskLines) {
+  const blocks = [];
+  for (let i = 0; i < taskLines.length; i += 1) {
+    const line = taskLines[i];
+    const inline = line.match(/^\s*\*\*(DoD|Verify):\*\*\s*(.*)$/i);
+    if (inline) {
+      const label = inline[1];
+      const content = [inline[2].trim()].filter(Boolean);
+      for (let j = i + 1; j < taskLines.length; j += 1) {
+        const next = taskLines[j];
+        if (/^\s*\*\*(DoD|Verify|Description):\*\*/i.test(next)) break;
+        if (/^\s*Status:\s*/i.test(next)) break;
+        if (/^\s*#{1,6}\s+/.test(next)) break;
+        if (/^\s*---\s*$/.test(next)) break;
+        if (next.trim()) content.push(next.trim());
+      }
+      blocks.push(`${label}: ${content.join(' ')}`.trim());
+    }
+  }
+  return blocks.join('\n');
+}
+
+function parseRoadmap(content) {
+  const lines = content.split(/\r?\n/);
+  const tasks = [];
+  const sectionStack = [];
+  let order = 0;
+
+  lines.forEach((line, index) => {
+    const heading = line.match(ANY_HEADING);
+    if (heading) {
+      const level = heading[1].length;
+      const title = cleanTitle(heading[2]);
+      while (sectionStack.length && sectionStack[sectionStack.length - 1].level >= level) {
+        sectionStack.pop();
+      }
+      sectionStack.push({ level, title, line: index + 1 });
+    }
+
+    const headerMatch = line.match(ROADMAP_TASK_HEADER);
+    const checkboxMatch = headerMatch ? null : line.match(CHECKBOX_TASK);
+    if (!headerMatch && !checkboxMatch) return;
+
+    order += 1;
+    const taskLevel = headerMatch ? headerMatch[1].length : 99;
+    const id = headerMatch ? headerMatch[2] : checkboxMatch[1];
+    const title = cleanTitle(headerMatch ? headerMatch[3] : checkboxMatch[2]);
+    const taskLines = headerMatch ? collectTaskText(lines, index, taskLevel) : [];
+    const status = headerMatch ? extractStatus(taskLines) : line.includes('[x]') || line.includes('[X]') ? 'done' : null;
+
+    tasks.push({
+      id,
+      title,
+      status,
+      order,
+      line: index + 1,
+      section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id))),
+      dod_verify_text: headerMatch ? extractDodVerify(taskLines) : ''
+    });
+  });
+
+  return tasks;
+}
+
+function parseTaskState(taskState) {
+  const tasks = Array.isArray(taskState?.tasks) ? taskState.tasks : [];
+  return tasks.map((task, index) => ({
+    id: task.id,
+    title: task.title || '',
+    status: normalizeStatus(task.status),
+    priority: task.priority || null,
+    risk_level: task.risk_level || null,
+    source: task.source || null,
+    runtime_only: task.runtime_only || false,
+    order: index + 1
+  }));
+}
+
+function groupById(tasks) {
+  const grouped = new Map();
+  for (const task of tasks) {
+    if (!grouped.has(task.id)) grouped.set(task.id, []);
+    grouped.get(task.id).push(task);
+  }
+  return grouped;
+}
+
+function isStatusMappingAllowed(roadmapStatus, runtimeStatus) {
+  if (!roadmapStatus || !runtimeStatus) return false;
+  if (roadmapStatus === 'todo') return runtimeStatus === 'not_started';
+  if (roadmapStatus === 'in_progress') return ACTIVE_RUNTIME_STATUSES.has(runtimeStatus);
+  if (roadmapStatus === 'blocked') return runtimeStatus === 'blocked';
+  if (roadmapStatus === 'done') return runtimeStatus === 'done';
+  return false;
+}
+
+function severityForMissingRuntime(roadmapTask) {
+  if (roadmapTask.status === 'done') return 'info';
+  if (roadmapTask.status === 'in_progress') return 'warning';
+  return 'info';
+}
+
+function severityForRuntimeMissingRoadmap(runtimeTask) {
+  if (runtimeTask.runtime_only === true) return 'info';
+  if (runtimeTask.status === 'done') return 'warning';
+  return 'critical';
+}
+
+function compareStates(roadmapTasks, runtimeTasks) {
+  const findings = [];
+  const roadmapById = groupById(roadmapTasks);
+  const runtimeById = groupById(runtimeTasks);
+
+  for (const [taskId, entries] of roadmapById.entries()) {
+    if (entries.length > 1) {
+      addFinding(findings, 'critical', 'duplicate_roadmap_task_id', `Duplicate ROADMAP task ID: ${taskId}`, PATHS.roadmap, {
+        task_id: taskId,
+        lines: entries.map((entry) => entry.line)
+      });
+    }
+  }
+
+  for (const [taskId, entries] of runtimeById.entries()) {
+    if (entries.length > 1) {
+      addFinding(findings, 'critical', 'duplicate_task_state_id', `Duplicate task-state task ID: ${taskId}`, PATHS.taskState, {
+        task_id: taskId,
+        orders: entries.map((entry) => entry.order)
+      });
+    }
+  }
+
+  for (const task of roadmapTasks) {
+    if (!task.status || !ROADMAP_STATUSES.has(task.status)) {
+      addFinding(findings, 'warning', 'unknown_roadmap_status', `Unknown or missing ROADMAP status for ${task.id}`, PATHS.roadmap, {
+        task_id: task.id,
+        status: task.status,
+        line: task.line
+      });
+    }
+
+    if (!runtimeById.has(task.id)) {
+      addFinding(findings, severityForMissingRuntime(task), 'roadmap_task_missing_from_task_state', `ROADMAP task ${task.id} is missing from task-state`, PATHS.roadmap, {
+        task_id: task.id,
+        roadmap_status: task.status,
+        title: task.title,
+        line: task.line,
+        order: task.order,
+        section: task.section
+      });
+    }
+  }
+
+  for (const task of runtimeTasks) {
+    if (!task.status || !TASK_STATE_STATUSES.has(task.status)) {
+      addFinding(findings, 'warning', 'unknown_task_state_status', `Unknown or missing task-state status for ${task.id}`, PATHS.taskState, {
+        task_id: task.id,
+        status: task.status,
+        order: task.order
+      });
+    }
+
+    if (!roadmapById.has(task.id)) {
+      addFinding(findings, severityForRuntimeMissingRoadmap(task), 'runtime_task_missing_from_roadmap', `Runtime task ${task.id} is missing from ROADMAP`, PATHS.taskState, {
+        task_id: task.id,
+        runtime_status: task.status,
+        runtime_only: task.runtime_only,
+        source: task.source,
+        title: task.title,
+        priority: task.priority,
+        risk_level: task.risk_level
+      });
+    }
+  }
+
+  for (const [taskId, roadmapEntries] of roadmapById.entries()) {
+    const runtimeEntries = runtimeById.get(taskId);
+    if (!runtimeEntries) continue;
+    const roadmapTask = roadmapEntries[0];
+    const runtimeTask = runtimeEntries[0];
+    if (roadmapTask.status === 'done' && ACTIVE_RUNTIME_STATUSES.has(runtimeTask.status)) {
+      addFinding(findings, 'critical', 'roadmap_done_runtime_active', `ROADMAP marks ${taskId} done while runtime is ${runtimeTask.status}`, PATHS.roadmap, {
+        task_id: taskId,
+        roadmap_status: roadmapTask.status,
+        runtime_status: runtimeTask.status
+      });
+    }
+    if (runtimeTask.status === 'done' && roadmapTask.status !== 'done') {
+      addFinding(findings, 'critical', 'runtime_done_roadmap_not_done', `Runtime marks ${taskId} done while ROADMAP is ${roadmapTask.status || 'unknown'}`, PATHS.taskState, {
+        task_id: taskId,
+        roadmap_status: roadmapTask.status,
+        runtime_status: runtimeTask.status
+      });
+    }
+    if (roadmapTask.status && runtimeTask.status && !isStatusMappingAllowed(roadmapTask.status, runtimeTask.status)) {
+      addFinding(findings, 'warning', 'roadmap_status_differs_from_task_state', `ROADMAP status for ${taskId} (${roadmapTask.status}) differs from task-state (${runtimeTask.status})`, PATHS.taskState, {
+        task_id: taskId,
+        roadmap_status: roadmapTask.status,
+        runtime_status: runtimeTask.status
+      });
+    }
+  }
+
+  return findings;
+}
+
+function buildResult() {
+  const roadmapContent = readText(PATHS.roadmap);
+  const taskState = readJson(PATHS.taskState);
+  const roadmapTasks = parseRoadmap(roadmapContent);
+  const runtimeTasks = parseTaskState(taskState);
+  const findings = compareStates(roadmapTasks, runtimeTasks);
+  const criticalCount = findings.filter((finding) => finding.severity === 'critical').length;
+  const warningCount = findings.filter((finding) => finding.severity === 'warning').length;
+  const infoCount = findings.filter((finding) => finding.severity === 'info').length;
+
+  return {
+    summary: {
+      generated_at: nowIso(),
+      status: criticalCount > 0 ? 'critical_findings' : 'ok',
+      roadmap_task_count: roadmapTasks.length,
+      task_state_task_count: runtimeTasks.length,
+      finding_count: findings.length,
+      critical_count: criticalCount,
+      warning_count: warningCount,
+      info_count: infoCount,
+      files_read: [PATHS.roadmap, PATHS.taskState],
+      read_only: true,
+      exit_code: criticalCount > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK
+    },
+    roadmap_tasks: roadmapTasks,
+    task_state_tasks: runtimeTasks,
+    findings
+  };
+}
+
+function formatFinding(finding) {
+  return `- [${finding.severity}] [${finding.code}] ${finding.file}: ${finding.message}`;
+}
+
+function formatHuman(result) {
+  const lines = [];
+  lines.push('# Ralph V2 ROADMAP <-> Task-State Reconciler');
+  lines.push('');
+  lines.push(`Generated: ${result.summary.generated_at}`);
+  lines.push(`Status: ${result.summary.status}`);
+  lines.push(`ROADMAP tasks parsed: ${result.summary.roadmap_task_count}`);
+  lines.push(`Task-state tasks parsed: ${result.summary.task_state_task_count}`);
+  lines.push(`Critical findings: ${result.summary.critical_count}`);
+  lines.push(`Warnings: ${result.summary.warning_count}`);
+  lines.push(`Info findings: ${result.summary.info_count}`);
+  lines.push('');
+  lines.push('## Critical Findings');
+  const critical = result.findings.filter((finding) => finding.severity === 'critical');
+  lines.push(...(critical.length ? critical.map(formatFinding) : ['- None']));
+  lines.push('');
+  lines.push('## Warnings');
+  const warnings = result.findings.filter((finding) => finding.severity === 'warning');
+  lines.push(...(warnings.length ? warnings.map(formatFinding) : ['- None']));
+  lines.push('');
+  lines.push('## Info');
+  const info = result.findings.filter((finding) => finding.severity === 'info');
+  lines.push(...(info.length ? info.map(formatFinding) : ['- None']));
+  lines.push('');
+  lines.push('## Read-only Guarantee');
+  lines.push('- No files were written or repaired by this reconciler.');
+  lines.push('- ROADMAP.md remains planning authority.');
+  lines.push('- tasks/task-state.json remains runtime execution state.');
+  return lines.join('\n');
+}
+
+async function main() {
+  try {
+    const options = parseArgs(process.argv);
+    if (options.help) {
+      printHelp();
+      process.exit(EXIT_CODES.OK);
+    }
+
+    const result = buildResult();
+    if (options.json) console.log(JSON.stringify(result, null, 2));
+    else console.log(formatHuman(result));
+    process.exit(result.summary.exit_code);
+  } catch (error) {
+    const payload = {
+      summary: {
+        generated_at: nowIso(),
+        status: 'reconciler_execution_error',
+        exit_code: EXIT_CODES.EXECUTION_ERROR
+      },
+      error: error.message
+    };
+    if (process.argv.includes('--json')) console.error(JSON.stringify(payload, null, 2));
+    else console.error(`Reconciler execution error: ${error.message}`);
+    process.exit(EXIT_CODES.EXECUTION_ERROR);
+  }
+}
+
+main();

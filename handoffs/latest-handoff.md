@@ -1,144 +1,118 @@
-# P1-003 Multi-Item Split Handoff Report
-
-**Task:** P1-003 — Deterministic Multi-Item Split  
-**Date:** 2026-05-22T02:12:00+02:00  
-**Agent:** Cline worker adapter  
-**Run Type:** Product-code implementation
-
----
+# RALPH-005 Transactional State Transition Module Handoff
 
 ## Run/Task Identity and Status
 
-- **Task ID:** P1-003
-- **Status:** Implemented; not marked done because required `npm run verify` is blocked by repo-wide pre-existing formatting warnings.
-- **Scope:** Deterministic split-first multi-item nutrition logging with partial-success blocking behavior.
+- **Task ID:** RALPH-005
+- **Run ID:** manual_cline_ralph-005_2026-05-22
+- **Status:** Implemented; scoped verification/readback executed.
+- **Task type:** Governance / tooling
+- **Agent:** Cline worker adapter
+- **Human review status:** Required before any future runtime-state transition writer is used.
 
----
+## What Changed
 
-## Files Changed
+- Added reusable Ralph V2 transition module at `scripts/agent/ralph-state-transitions.mjs`.
+- Updated this canonical latest handoff for the RALPH-005 run.
 
-- `src/features/nutrition/application/utils/splitMultiItemInput.ts`
-- `src/features/nutrition/application/usecases/LogMealFromRawInputUseCase.ts`
-- `src/features/nutrition/__tests__/splitMultiItemInput.test.ts`
-- `src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts`
-- `src/features/nutrition/__tests__/helpers/MockResolverBuilder.ts`
-- `ROADMAP.md`
-- `reports/P1-003_MULTI_ITEM_SPLIT_IMPLEMENTATION_REPORT.md`
+## Why Changed
+
+RALPH-005 requires a centralized transition module based on `plans/RALPH-002_STATE_MODEL_UNIFICATION_PLAN.md`, `reports/RALPH-003_RUNTIME_STATE_VALIDATOR_REPORT.md`, and `reports/RALPH-004_ROADMAP_TASK_STATE_RECONCILER_REPORT.md` so future authorized writes to Ralph runtime state can use one deterministic validation/event/write surface instead of ad hoc mutations.
+
+## Changed Files
+
+- `scripts/agent/ralph-state-transitions.mjs`
 - `handoffs/latest-handoff.md`
 
----
+No product code, ROADMAP, task state, run state, validation results, package files, `.agent/state.json`, `.agent/out/*`, commits, or pushes were changed/performed by this task.
 
 ## Implementation Summary
 
-- Added deterministic splitter utility at `src/features/nutrition/application/utils/splitMultiItemInput.ts`.
-- Supported connectors:
-  - German: `und`, `mit`
-  - English: `and`, `with`
-  - comma: `,`
-- Integrated splitter at the start of `LogMealFromRawInputUseCase.execute(...)`.
-- Multiple split items are resolved through existing `LogFoodFromRawInputUseCase`.
-- Successful multi-item batches are persisted only after every item resolves.
-- Single-item flow preserves existing behavior.
-- AI meal parsing remains as fallback only for complex inputs that are not deterministically split.
+`scripts/agent/ralph-state-transitions.mjs` exports:
 
----
+- `loadRalphState()` — safely reads/parses task state, current run, task history, run history, and validation results.
+- `validateTaskTransition(fromStatus, toStatus, context)` — enforces RALPH-002 task lifecycle transitions, actor constraints, active-run conflict checks, and validation/review evidence requirements for `done`.
+- `validateRunTransition(fromStatus, toStatus, context)` — enforces RALPH-002 run lifecycle transitions and active-lock/terminal-lock rules.
+- `buildTaskTransitionEvent(...)` — creates normalized V2 task transition events with schema/version/event/correlation fields.
+- `buildRunTransitionEvent(...)` — creates normalized V2 run transition events with lock support.
+- `writeJsonAtomic(filePath, data, options)` — supports temp-file + rename writes and `dryRun: true` no-write behavior.
+- `appendJsonlEvent(filePath, event, options)` — appends one-line JSON events and supports `dryRun: true` no-write behavior.
+- `dryRunTaskTransition(...)` — validates and builds planned task state/event without writing.
+- `dryRunRunTransition(...)` — validates and builds planned run state/event without writing.
 
-## Partial-Success Behavior
-
-- If any split item fails resolution:
-  - nothing is persisted to the real repository,
-  - recognized items are surfaced,
-  - failed items are surfaced with reasons,
-  - the result explains that save was blocked.
-- Implementation is compatible with a future explicit recovery action: **"Save recognized items only"**.
-- The recovery CTA itself was not implemented.
-
----
-
-## Tests Added / Updated
-
-- Added `src/features/nutrition/__tests__/splitMultiItemInput.test.ts` for:
-  - `2 Eier und 200g Quark`
-  - `2 eggs and 200g quark`
-  - `apple, banana, skyr`
-  - `apple, banana and skyr`
-  - empty-fragment safety
-  - single-item no-split behavior
-- Updated `src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts` for deterministic split integration and partial-success blocking.
-- Updated `src/features/nutrition/__tests__/helpers/MockResolverBuilder.ts` with test foods for quark/German split cases.
-
----
-
-## Verification Executed
-
-Narrow tests:
+CLI mode is intentionally dry-run only:
 
 ```bash
-npm run test -- --runTestsByPath src/features/nutrition/__tests__/splitMultiItemInput.test.ts src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts
+node scripts/agent/ralph-state-transitions.mjs --help
+node scripts/agent/ralph-state-transitions.mjs --dry-run task --task-id RALPH-003 --from not_started --to in_progress --reason test
+node scripts/agent/ralph-state-transitions.mjs --dry-run run --task-id RALPH-003 --from planned --to active --reason test
 ```
 
-- Result: passed — 2 suites, 16 tests.
+## Validation Executed
 
-Typecheck:
+Initial combined command attempted:
 
 ```bash
-npm run typecheck
+node scripts/agent/ralph-state-transitions.mjs --help && node scripts/agent/ralph-state-transitions.mjs --dry-run task --task-id RALPH-003 --from not_started --to in_progress --reason test && node scripts/agent/ralph-state-transitions.mjs --dry-run run --task-id RALPH-003 --from planned --to active --reason test
 ```
 
-- Result: passed.
+Result:
 
-Task-local Prettier check:
+- Failed due to the known Windows PowerShell command separator issue: `&&` was not accepted in this shell context.
+- No runtime state files were mutated.
+
+Rerun as separate commands:
 
 ```bash
-npx prettier --check src/features/nutrition/application/utils/splitMultiItemInput.ts src/features/nutrition/application/usecases/LogMealFromRawInputUseCase.ts src/features/nutrition/__tests__/splitMultiItemInput.test.ts src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts src/features/nutrition/__tests__/helpers/MockResolverBuilder.ts ROADMAP.md
+node scripts/agent/ralph-state-transitions.mjs --help
+node scripts/agent/ralph-state-transitions.mjs --dry-run task --task-id RALPH-003 --from not_started --to in_progress --reason test
+node scripts/agent/ralph-state-transitions.mjs --dry-run run --task-id RALPH-003 --from planned --to active --reason test
 ```
 
-- Result: passed.
-
-Full Jest suite:
+Additional scoped verification/readback:
 
 ```bash
-npm run test
+node --check scripts/agent/ralph-state-transitions.mjs
+node scripts/agent/validate-ralph-state.mjs
+node scripts/agent/reconcile-roadmap-task-state.mjs
+git --no-pager status --short
+git --no-pager diff --stat
+git --no-pager diff --name-only
 ```
 
-- Result: passed — 81 suites, 583 tests.
+## Validation Result
 
-Required product verification:
+- `node scripts/agent/ralph-state-transitions.mjs --help`: passed; displayed dry-run-only CLI help.
+- Task dry run: passed; returned `writes_performed: false` and built a normalized `task.transition.applied` event/planned task state.
+- Run dry run: passed; returned `writes_performed: false` and built a normalized `run.started` event/planned current-run state with active lock.
+- `node --check scripts/agent/ralph-state-transitions.mjs`: passed with no syntax output.
+- `node scripts/agent/validate-ralph-state.mjs`: executed successfully and reported existing critical runtime-state findings (`Critical findings: 8`, `Warnings: 43`), consistent with RALPH-003 evidence. These are pre-existing state findings and were not repaired by this task.
+- `node scripts/agent/reconcile-roadmap-task-state.mjs`: executed successfully and reported existing reconciliation findings (`Critical findings: 1`, `Warnings: 11`, `Info findings: 27`), consistent with RALPH-004 evidence. These are pre-existing reconciliation findings and were not repaired by this task.
+- `git --no-pager status --short`: showed intended/new RALPH tooling files plus this handoff and pre-existing untracked RALPH-003/RALPH-004 files:
+  - `M handoffs/latest-handoff.md`
+  - `?? reports/RALPH-003_RUNTIME_STATE_VALIDATOR_REPORT.md`
+  - `?? reports/RALPH-004_ROADMAP_TASK_STATE_RECONCILER_REPORT.md`
+  - `?? scripts/agent/ralph-state-transitions.mjs`
+  - `?? scripts/agent/reconcile-roadmap-task-state.mjs`
+  - `?? scripts/agent/validate-ralph-state.mjs`
+- `git --no-pager diff --stat` / `git --no-pager diff --name-only`: tracked diff currently reports `handoffs/latest-handoff.md`; untracked scripts/reports are listed by status until staged.
 
-```bash
-npm run verify
-```
+## Known Issues / Blockers / Risks
 
-- Result: failed at `npm run format:check`.
-- Cause: repository-wide formatting warnings in unrelated pre-existing files.
-- After formatting only P1-003-touched files, `npm run verify` was rerun and still failed at `format:check` on 61 unrelated files.
+- The new module includes exported non-dry-run write helpers for future authorized tooling, but the CLI intentionally exposes only dry-run transition planning.
+- Current repository runtime state still has pre-existing validator findings from RALPH-003, including missing review evidence for several completed runtime tasks and one missing validation-evidence finding.
+- Current ROADMAP/task-state reconciliation still has the pre-existing RALPH-004 critical finding: duplicate ROADMAP task ID `P0-002`.
+- The RALPH-005 task explicitly forbids automatic repairs, ROADMAP edits, runtime state mutations, commits, and pushes; none were performed.
+- Human review is required before any future caller uses the exported write helpers for real state mutation.
 
----
+## Human Review Needed
 
-## Known Limitations / Blockers
+- **Required:** Yes.
+- **Reason:** Governance tooling capable of centralizing future authorized runtime writes was added; real write usage must remain human-approved and task-scoped.
+- **Next recommended action:** Review `scripts/agent/ralph-state-transitions.mjs` and this handoff, then decide whether a follow-up task should integrate the module into a V2 coordinator or validator workflow.
 
-- P1-003 cannot be marked `done` under `VERIFY.md` because `npm run verify` does not pass.
-- Remaining verification blocker is repo-wide formatting debt outside this task's scope.
-- Deterministic connector splitting can over-split semantically composed foods containing `und`, `mit`, `and`, or `with`.
-- Future **"Save recognized items only"** UI action remains unimplemented by design.
+## Risks / Assumptions
 
----
-
-## Scope Safety Confirmations
-
-- No package changes.
-- No Supabase changes.
-- No scripts created.
-- No push performed.
-- No `DeterministicFoodParser` contract changes.
-- No resolver ranking changes.
-- No `computeTotals` changes.
-- No `resolvePortionGrams` changes.
-
----
-
-## Human Review Status
-
-- **Required:** Yes
-- **Reason:** Product-code behavior changed and required verification is blocked by repo-wide formatting warnings.
-- **Next action:** Human reviewer should inspect changed files and decide whether to approve a separate repository-formatting cleanup task so `npm run verify` can pass globally.
+- Transition rules were implemented directly from `plans/RALPH-002_STATE_MODEL_UNIFICATION_PLAN.md`.
+- `done` transitions require validation and review evidence by default unless task metadata explicitly indicates human review is not required.
+- `current-run.json` terminal snapshots with no active lock are treated as non-conflicting for dry-run lock acquisition.
+- No state transition was actually applied during RALPH-005.

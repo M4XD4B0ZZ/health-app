@@ -314,6 +314,9 @@ export class MockResolverBuilder {
         // Skyr variations
         .withAcceptedFood('skyr', 'Skyr', { kcal: 57, protein: 11, carbs: 4, fat: 0.2 })
         .withAcceptedFood('200g skyr', 'Skyr', { kcal: 57, protein: 11, carbs: 4, fat: 0.2 })
+        .withAcceptedFood('quark', 'Quark', { kcal: 67, protein: 12, carbs: 4, fat: 0.2 })
+        .withAcceptedFood('200g quark', 'Quark', { kcal: 67, protein: 12, carbs: 4, fat: 0.2 })
+        .withAcceptedFood('200g Quark', 'Quark', { kcal: 67, protein: 12, carbs: 4, fat: 0.2 })
 
         // Egg variations
         .withAcceptedFood('eggs', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
@@ -328,6 +331,7 @@ export class MockResolverBuilder {
           fat: 4.2,
         })
         .withAcceptedFood('2 eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
+        .withAcceptedFood('2 Eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
         .withAcceptedFood('gekochte eier', 'Egg', { kcal: 155, protein: 13, carbs: 1.1, fat: 11 })
 
         // Oats variations

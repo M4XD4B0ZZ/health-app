@@ -493,11 +493,29 @@ portion hints, and source query adapters.
 
 ---
 
+## Roadmap Priority Tiers
+
+Strategic priorities:
+
+1. Zero-friction logging
+2. Trust-first UX
+3. Private-use-first
+4. DACH-first deterministic resolver
+5. Infrastructure
+6. Public launch
+7. Monetization
+
+---
+
+# TIER 1 — CORE PRODUCT VALUE
+
+Focus: user-visible logging value, editability, repeat-use friction reduction, and feedback loops.
+
 ## EPIC: Resolver & Normalization
 
 ### P1-003 Multi-Item Split
 
-Status: `todo`
+Status: `in_progress`
 
 Split input at "und", "mit", ",". Normalize number words. Force resolver per item.
 
@@ -505,7 +523,22 @@ Split input at "und", "mit", ",". Normalize number words. Force resolver per ite
 
 ---
 
-# PHASE 2 6 GUARDRAILS, AUTH & SUBSCRIPTION
+## Tier 1 Planning Targets — Require Later Task Decomposition
+
+The following product modules are Tier 1 planning targets. They are intentionally listed as planning placeholders only and must be decomposed into concrete, verifiable tasks before implementation.
+
+| Module      | Status | Notes                             |
+| ----------- | ------ | --------------------------------- |
+| Journal     | `todo` | Editable food log, daily view     |
+| Saved Meals | `todo` | Reusable meal templates           |
+| Dashboard   | `todo` | Summary view, progress indicators |
+| Goals       | `todo` | Macro targets, metabolism profile |
+
+---
+
+# TIER 2 — CORE ARCHITECTURE
+
+Focus: private-use stability, deterministic architecture hygiene, and DACH-first resolver correctness.
 
 ## EPIC: Supabase Foundation
 
@@ -529,116 +562,6 @@ Prevent any creation of new `createClient` instances globally.
 No manual `fetch` calls to `/functions/v1/` exist.
 
 **Verify:** `npm run lint` + global search for `fetch(` targeting Supabase URLs (must yield 0 results).
-
----
-
-### P2-003 Document Edge Functions Deploy Process
-
-Status: `todo`
-
-Ensure `supabase/config.toml` is respected in deployment.
-`verify_jwt=false` safely applied.
-README section in `/supabase` on how to run `supabase functions deploy`.
-
-**Verify:** Local `supabase start` parses `config.toml` and allows anonymous invokes.
-
----
-
-## EPIC: Edge Guardrails (Food Search)
-
-### P2-004 Query-length Guard and Sanitization
-
-Status: `done`
-
-Hard limit on food search query lengths. Sanitize input at Deno Edge function level.
-Queries > 64 chars or containing special exploits blocked with 400.
-
----
-
-### P2-005 Rate Limiting
-
-Status: `done`
-
-Basic rate limiting (IP/device based for anonymous).
-Unauthenticated users cannot exceed 30 requests per minute to `food-search`.
-
----
-
-### P2-006 Abuse Logging & Observability
-
-Status: `done`
-
-Structured logging for blocked requests (rate limit / guardrails) with `traceId` and user context.
-Visible in Supabase Log Explorer as `ABUSE_DETECTED`.
-
----
-
-### P2-007 Deploy & Verify Guardrails
-
-Status: `todo`
-
-Deploy guardrails with correct `verify_jwt=false` properties.
-App calls remote endpoints anonymously without 401s.
-
-**Verify:**
-
-1. `npm run verify:supabase:link` must pass.
-2. `npm run verify:schema` must pass.
-3. `npm run deploy:edge:verify` must pass.
-
----
-
-## EPIC: Auth & Subscription (Later)
-
-### P2-008 Apple/Google Login via Supabase Auth
-
-Status: `todo`
-
-User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
-
----
-
-### P2-009 RevenueCat Entitlements
-
-Status: `todo`
-
-Integrate RevenueCat to manage subscription states.
-`isPro` state synced from RevenueCat to Supabase `public.users` via Webhooks.
-
----
-
-### P2-010 Paid-only Gating for AI Endpoints
-
-Status: `todo`
-
-Map `isPro` tier to Edge Function authorization.
-AI structured log functions and premium insights return 403 for non-Pro users.
-
-### P2-011 Project-Scoped Codex Governance
-
-Status: `done`
-
-Add repo-local Codex guidance and role contracts aligned with `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`, and `SSOK.md`.
-Keep the setup minimal, deterministic-first, and scoped to this repository.
-
-**DoD:** Repo-local Codex config exists under `.codex/`. Analysis, implementation, and review roles are defined. Setup does not modify user-global Codex config. Verification passes and task status is updated.
-
----
-
-# PHASE 3 6 MODULES (planned)
-
-These modules are planned but not yet scoped into tasks.
-Each will be broken into concrete tasks when Phase 0 62 are stable.
-
-| Module      | Status | Notes                                 |
-| ----------- | ------ | ------------------------------------- |
-| Journal     | `todo` | Editable food log, daily view         |
-| Goals       | `todo` | Macro targets, metabolism profile     |
-| Saved Meals | `todo` | Reusable meal templates               |
-| Reminders   | `todo` | Notification-based logging reminders  |
-| Dashboard   | `todo` | Summary view, progress indicators     |
-| Health Sync | `todo` | Apple Health / Google Fit integration |
-| Insights    | `todo` | Trend analysis, weekly summaries      |
 
 ---
 
@@ -758,6 +681,43 @@ Central scoring across all sources. Introduce unified Candidate type with cross-
 
 ---
 
+# TIER 3 — INFRASTRUCTURE
+
+Focus: deployment repeatability, remote guardrail verification, long-term resolver persistence, and retention support after the core loop exists.
+
+## EPIC: Supabase Foundation
+
+### P2-003 Document Edge Functions Deploy Process
+
+Status: `todo`
+
+Ensure `supabase/config.toml` is respected in deployment.
+`verify_jwt=false` safely applied.
+README section in `/supabase` on how to run `supabase functions deploy`.
+
+**Verify:** Local `supabase start` parses `config.toml` and allows anonymous invokes.
+
+---
+
+## EPIC: Edge Guardrails (Food Search)
+
+### P2-007 Deploy & Verify Guardrails
+
+Status: `todo`
+
+Deploy guardrails with correct `verify_jwt=false` properties.
+App calls remote endpoints anonymously without 401s.
+
+**Verify:**
+
+1. `npm run verify:supabase:link` must pass.
+2. `npm run verify:schema` must pass.
+3. `npm run deploy:edge:verify` must pass.
+
+---
+
+## Resolver V2 – Multi-Source Fusion Architecture
+
 #### RESOLVER-V2-005: Introduce Supabase Knowledge Layer Tables
 
 Status: `todo`
@@ -800,6 +760,67 @@ Store query → candidates → final decision chain for learning and debugging.
 
 ---
 
+## Tier 3 Planning Targets — Require Later Task Decomposition
+
+The following modules remain planned but not yet scoped into concrete implementation tasks.
+
+| Module    | Status | Notes                                |
+| --------- | ------ | ------------------------------------ |
+| Reminders | `todo` | Notification-based logging reminders |
+| Insights  | `todo` | Trend analysis, weekly summaries     |
+
+---
+
+# TIER 4 — PUBLIC LAUNCH
+
+Focus: identity and external platform integrations needed for broader public availability.
+
+## EPIC: Auth & Subscription (Later)
+
+### P2-008 Apple/Google Login via Supabase Auth
+
+Status: `todo`
+
+User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
+
+---
+
+## Tier 4 Planning Targets — Require Later Task Decomposition
+
+The following module remains planned but not yet scoped into concrete implementation tasks.
+
+| Module      | Status | Notes                                 |
+| ----------- | ------ | ------------------------------------- |
+| Health Sync | `todo` | Apple Health / Google Fit integration |
+
+---
+
+# TIER 5 — MONETIZATION
+
+Focus: deferred monetization and paid AI gating after retention-critical product value is proven.
+
+## EPIC: Auth & Subscription (Later)
+
+### P2-009 RevenueCat Entitlements
+
+Status: `todo`
+
+Integrate RevenueCat to manage subscription states.
+`isPro` state synced from RevenueCat to Supabase `public.users` via Webhooks.
+
+---
+
+### P2-010 Paid-only Gating for AI Endpoints
+
+Status: `todo`
+
+Map `isPro` tier to Edge Function authorization.
+AI structured log functions and premium insights return 403 for non-Pro users.
+
+---
+
+## Resolver V2 – Multi-Source Fusion Architecture
+
 #### RESOLVER-V2-007: AI-Assisted Re-Ranking (Optional)
 
 Status: `todo`
@@ -814,6 +835,50 @@ AI only for low-confidence cases. Must be traceable and rate-limited.
 - Never authoritative, always assistive
 
 **Verify:** AI usage logs exist, rate limiting works, confidence thresholds respected
+
+---
+
+# COMPLETED / GOVERNANCE / LEGACY PHASE GROUPS
+
+# PHASE 2 6 GUARDRAILS, AUTH & SUBSCRIPTION
+
+## EPIC: Edge Guardrails (Food Search)
+
+### P2-004 Query-length Guard and Sanitization
+
+Status: `done`
+
+Hard limit on food search query lengths. Sanitize input at Deno Edge function level.
+Queries > 64 chars or containing special exploits blocked with 400.
+
+---
+
+### P2-005 Rate Limiting
+
+Status: `done`
+
+Basic rate limiting (IP/device based for anonymous).
+Unauthenticated users cannot exceed 30 requests per minute to `food-search`.
+
+---
+
+### P2-006 Abuse Logging & Observability
+
+Status: `done`
+
+Structured logging for blocked requests (rate limit / guardrails) with `traceId` and user context.
+Visible in Supabase Log Explorer as `ABUSE_DETECTED`.
+
+---
+
+### P2-011 Project-Scoped Codex Governance
+
+Status: `done`
+
+Add repo-local Codex guidance and role contracts aligned with `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`, and `SSOK.md`.
+Keep the setup minimal, deterministic-first, and scoped to this repository.
+
+**DoD:** Repo-local Codex config exists under `.codex/`. Analysis, implementation, and review roles are defined. Setup does not modify user-global Codex config. Verification passes and task status is updated.
 
 ---
 

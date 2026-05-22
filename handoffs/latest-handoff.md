@@ -1,128 +1,144 @@
-# Ralph-Loop Handoff Report
+# P1-003 Multi-Item Split Handoff Report
 
-**Task:** P2-011 — Project-Scoped Codex Governance  
-**Date:** 2026-05-21T23:50:00+02:00  
+**Task:** P1-003 — Deterministic Multi-Item Split  
+**Date:** 2026-05-22T02:12:00+02:00  
 **Agent:** Cline worker adapter  
-**Run Type:** Governance-only closeout
+**Run Type:** Product-code implementation
 
 ---
 
 ## Run/Task Identity and Status
 
-- **Task ID:** P2-011
-- **Status:** Done (pending human review)
-- **Scope:** Governance docs only (no product/runtime changes)
+- **Task ID:** P1-003
+- **Status:** Implemented; not marked done because required `npm run verify` is blocked by repo-wide pre-existing formatting warnings.
+- **Scope:** Deterministic split-first multi-item nutrition logging with partial-success blocking behavior.
 
 ---
 
-## What Changed
+## Files Changed
 
-- Verified repo-local Codex governance files required by P2-011.
-- Confirmed the Codex setup is project-scoped and aligned with `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`, and `SSOK.md`.
-- Updated `ROADMAP.md` P2-011 status from `in_progress` to `done`.
-- Authored closeout report: `reports/P2-011_PROJECT_SCOPED_CODEX_GOVERNANCE_CLOSEOUT_REPORT.md`.
-- Updated this handoff with required final handoff details.
-
----
-
-## Why Changed
-
-To finalize P2-011 after confirming repo-local Codex configuration is complete, governance-aligned, scoped to this repository, and requires no product code changes.
-
----
-
-## Changed Files List
-
+- `src/features/nutrition/application/utils/splitMultiItemInput.ts`
+- `src/features/nutrition/application/usecases/LogMealFromRawInputUseCase.ts`
+- `src/features/nutrition/__tests__/splitMultiItemInput.test.ts`
+- `src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts`
+- `src/features/nutrition/__tests__/helpers/MockResolverBuilder.ts`
 - `ROADMAP.md`
-- `reports/P2-011_PROJECT_SCOPED_CODEX_GOVERNANCE_CLOSEOUT_REPORT.md`
+- `reports/P1-003_MULTI_ITEM_SPLIT_IMPLEMENTATION_REPORT.md`
 - `handoffs/latest-handoff.md`
 
 ---
 
-## Files Read
+## Implementation Summary
 
-- `ROADMAP.md`
-- `AGENTS.md`
-- `VERIFY.md`
-- `SSOK.md`
-- `.codex/config.toml`
-- `.codex/roles/analysis.md`
-- `.codex/roles/implementation.md`
-- `.codex/roles/review.md`
-- `handoffs/latest-handoff.md`
-
----
-
-## Codex Files Verified
-
-- `.codex/config.toml` — exists and references repo-local governance/role contracts.
-- `.codex/roles/analysis.md` — exists and is scoped to repo analysis/planning behavior.
-- `.codex/roles/implementation.md` — exists and is scoped to minimal deterministic implementation with verification before done claims.
-- `.codex/roles/review.md` — exists and is scoped to evidence-based review and verification checks.
+- Added deterministic splitter utility at `src/features/nutrition/application/utils/splitMultiItemInput.ts`.
+- Supported connectors:
+  - German: `und`, `mit`
+  - English: `and`, `with`
+  - comma: `,`
+- Integrated splitter at the start of `LogMealFromRawInputUseCase.execute(...)`.
+- Multiple split items are resolved through existing `LogFoodFromRawInputUseCase`.
+- Successful multi-item batches are persisted only after every item resolves.
+- Single-item flow preserves existing behavior.
+- AI meal parsing remains as fallback only for complex inputs that are not deterministically split.
 
 ---
 
-## ROADMAP Status Change
+## Partial-Success Behavior
 
-- P2-011 changed from `in_progress` to `done` in `ROADMAP.md`.
-
----
-
-## Validation Executed
-
-Required governance-only readback checks (per `VERIFY.md`, governance-only category) were run separately:
-
-1. `git --no-pager status --short`
-2. `git --no-pager diff --stat`
-3. `git --no-pager diff --name-only`
+- If any split item fails resolution:
+  - nothing is persisted to the real repository,
+  - recognized items are surfaced,
+  - failed items are surfaced with reasons,
+  - the result explains that save was blocked.
+- Implementation is compatible with a future explicit recovery action: **"Save recognized items only"**.
+- The recovery CTA itself was not implemented.
 
 ---
 
-## Validation Result
+## Tests Added / Updated
 
-- `git --no-pager status --short` completed and showed only allowed changed/untracked files:
-  - `M ROADMAP.md`
-  - `M handoffs/latest-handoff.md`
-  - `?? reports/P2-011_PROJECT_SCOPED_CODEX_GOVERNANCE_CLOSEOUT_REPORT.md`
-- `git --no-pager diff --stat` completed and showed edits only to tracked allowed files at that moment:
-  - `ROADMAP.md`
-  - `handoffs/latest-handoff.md`
-- `git --no-pager diff --name-only` completed and showed tracked diffs only in:
-  - `ROADMAP.md`
-  - `handoffs/latest-handoff.md`
-- Note: Git emitted a Windows line-ending warning for `ROADMAP.md` (`LF will be replaced by CRLF the next time Git touches it`); this is not a validation blocker for the governance-only scope.
-- No runtime/product checks required for this governance-only scope.
+- Added `src/features/nutrition/__tests__/splitMultiItemInput.test.ts` for:
+  - `2 Eier und 200g Quark`
+  - `2 eggs and 200g quark`
+  - `apple, banana, skyr`
+  - `apple, banana and skyr`
+  - empty-fragment safety
+  - single-item no-split behavior
+- Updated `src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts` for deterministic split integration and partial-success blocking.
+- Updated `src/features/nutrition/__tests__/helpers/MockResolverBuilder.ts` with test foods for quark/German split cases.
+
+---
+
+## Verification Executed
+
+Narrow tests:
+
+```bash
+npm run test -- --runTestsByPath src/features/nutrition/__tests__/splitMultiItemInput.test.ts src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts
+```
+
+- Result: passed — 2 suites, 16 tests.
+
+Typecheck:
+
+```bash
+npm run typecheck
+```
+
+- Result: passed.
+
+Task-local Prettier check:
+
+```bash
+npx prettier --check src/features/nutrition/application/utils/splitMultiItemInput.ts src/features/nutrition/application/usecases/LogMealFromRawInputUseCase.ts src/features/nutrition/__tests__/splitMultiItemInput.test.ts src/features/nutrition/__tests__/LogMealFromRawInputUseCase.test.ts src/features/nutrition/__tests__/helpers/MockResolverBuilder.ts ROADMAP.md
+```
+
+- Result: passed.
+
+Full Jest suite:
+
+```bash
+npm run test
+```
+
+- Result: passed — 81 suites, 583 tests.
+
+Required product verification:
+
+```bash
+npm run verify
+```
+
+- Result: failed at `npm run format:check`.
+- Cause: repository-wide formatting warnings in unrelated pre-existing files.
+- After formatting only P1-003-touched files, `npm run verify` was rerun and still failed at `format:check` on 61 unrelated files.
+
+---
+
+## Known Limitations / Blockers
+
+- P1-003 cannot be marked `done` under `VERIFY.md` because `npm run verify` does not pass.
+- Remaining verification blocker is repo-wide formatting debt outside this task's scope.
+- Deterministic connector splitting can over-split semantically composed foods containing `und`, `mit`, `and`, or `with`.
+- Future **"Save recognized items only"** UI action remains unimplemented by design.
 
 ---
 
 ## Scope Safety Confirmations
 
-- No `src/` changes.
-- No `supabase/` changes.
-- No `package.json` changes.
-- No `package-lock.json` changes.
-- No `.codex/` changes.
-- No user-global Codex configuration changes.
-- No product code changes needed.
+- No package changes.
+- No Supabase changes.
+- No scripts created.
 - No push performed.
+- No `DeterministicFoodParser` contract changes.
+- No resolver ranking changes.
+- No `computeTotals` changes.
+- No `resolvePortionGrams` changes.
 
 ---
 
-## P2-011 Completion Status
-
-- P2-011 was marked `done` after verifying all task requirements were met.
-
----
-
-## Known Issues / Blockers / Risks
-
-- No blocking implementation issues encountered.
-- Residual risk is limited to future governance drift if `.codex/` role contracts are changed without re-checking against repository authorities.
-
----
-
-## Human-Review Status
+## Human Review Status
 
 - **Required:** Yes
-- **Reason:** Governance closeout updated roadmap status and final handoff evidence.
-- **Next action:** Human reviewer to inspect the P2-011 closeout report, final git readback checks, and confirm no unintended scope changes.
+- **Reason:** Product-code behavior changed and required verification is blocked by repo-wide formatting warnings.
+- **Next action:** Human reviewer should inspect changed files and decide whether to approve a separate repository-formatting cleanup task so `npm run verify` can pass globally.

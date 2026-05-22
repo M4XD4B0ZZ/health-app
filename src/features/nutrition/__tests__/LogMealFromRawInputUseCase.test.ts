@@ -6,6 +6,7 @@ import { FakeAiMealParser } from '../infrastructure/ai/FakeAiMealParser';
 import { Clock } from '../application/ports/Clock';
 import { FoodEntry } from '../domain/models/NutritionTypes';
 import { MockResolverBuilder } from './helpers/MockResolverBuilder';
+import { MultiItemSplitFailureResult } from '../application/usecases/LogMealFromRawInputUseCase';
 
 describe('LogMealFromRawInputUseCase', () => {
   let useCase: LogMealFromRawInputUseCase;
@@ -86,8 +87,8 @@ describe('LogMealFromRawInputUseCase', () => {
     });
   });
 
-  describe('Multi-Item AI Parsing', () => {
-    it('sollte "20er nuggets mit cola und pommes" in 3 Entries aufteilen', async () => {
+  describe('Deterministic Multi-Item Split', () => {
+    it('sollte "2 Eier und 200g Quark" deterministisch in 2 Entries aufteilen', async () => {
       useCase = new LogMealFromRawInputUseCase(
         repository,
         clock,
@@ -101,65 +102,23 @@ describe('LogMealFromRawInputUseCase', () => {
         MockResolverBuilder.createHappyPathResolver(), // resolver mit realistischen Makros
       );
 
-      const entryIds = await useCase.execute('20er nuggets mit cola und pommes');
+      const result = await useCase.execute('2 Eier und 200g Quark');
 
-      expect(entryIds).toHaveLength(3);
-
-      const entries = await repository.listEntriesForDate('2026-02-15');
-      expect(entries).toHaveLength(3);
-
-      // Nuggets: 20 pieces - Resolver liefert Makros auch ohne Gramm
-      const nuggets = entries.find((e: FoodEntry) => e.parsedName === 'nuggets');
-      expect(nuggets).toBeDefined();
-      expect(nuggets!.rawInput).toBe('20x nuggets');
-      expect(nuggets!.calories).toBeGreaterThan(0); // Resolver liefert Makros
-      expect(nuggets!.sourceType).toBe('generic'); // Resolver-Hit
-
-      // Cola: 400ml
-      const cola = entries.find((e: FoodEntry) => e.parsedName === 'cola');
-      expect(cola).toBeDefined();
-      expect(cola!.rawInput).toBe('400ml cola');
-      expect(cola!.quantityGrams).toBe(400); // ml → grams approximation
-      expect(cola!.calories).toBeGreaterThan(0); // Resolver liefert Makros
-
-      // Pommes: 1 portion - Resolver liefert Makros auch ohne Gramm
-      const pommes = entries.find((e: FoodEntry) => e.parsedName === 'pommes');
-      expect(pommes).toBeDefined();
-      expect(pommes!.rawInput).toBe('1 portion pommes');
-      expect(pommes!.calories).toBeGreaterThan(0); // Resolver liefert Makros
-      expect(pommes!.sourceType).toBe('generic'); // Resolver-Hit
-    });
-
-    it('sollte "burger mit cola" in 2 Entries aufteilen', async () => {
-      useCase = new LogMealFromRawInputUseCase(
-        repository,
-        clock,
-        idGenerator,
-        parser,
-        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
-        undefined, // aliasRepository
-        undefined, // aiFoodMapper
-        undefined, // nutritionLookup
-        aiParser, // aiMealParser
-        mockResolver, // resolver
-      );
-
-      const entryIds = await useCase.execute('burger mit cola');
-
-      expect(entryIds).toHaveLength(2);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
 
       const entries = await repository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(2);
 
-      const burger = entries.find((e: FoodEntry) => e.parsedName === 'burger');
-      expect(burger).toBeDefined();
-
-      const cola = entries.find((e: FoodEntry) => e.parsedName === 'cola');
-      expect(cola).toBeDefined();
-      expect(cola!.quantityGrams).toBe(400); // Default für Getränke
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['2 Eier', '200g Quark']);
+      expect(entries.map((entry) => entry.parsedName)).toEqual(['eier', 'quark']);
+      entries.forEach((entry: FoodEntry) => {
+        expect(entry.calories).toBeGreaterThan(0);
+        expect(entry.sourceType).toBe('generic');
+      });
     });
 
-    it('sollte AI explanation in Entries aufnehmen', async () => {
+    it('sollte "2 eggs and 200g quark" deterministisch in 2 Entries aufteilen', async () => {
       useCase = new LogMealFromRawInputUseCase(
         repository,
         clock,
@@ -173,16 +132,95 @@ describe('LogMealFromRawInputUseCase', () => {
         mockResolver, // resolver
       );
 
-      await useCase.execute('20er nuggets mit cola');
+      const result = await useCase.execute('2 eggs and 200g quark');
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
 
       const entries = await repository.listEntriesForDate('2026-02-15');
-
-      entries.forEach((entry: FoodEntry) => {
-        expect(entry.explanation).toContain('AI strukturierte Multi-Item-Mahlzeit');
-      });
+      expect(entries).toHaveLength(2);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['2 eggs', '200g quark']);
+      expect(entries.map((entry) => entry.parsedName)).toEqual(['eggs', 'quark']);
     });
 
-    it('sollte ohne AI-Parser auf Single-Item zurückfallen', async () => {
+    it('sollte "apple, banana, skyr" deterministisch in 3 Entries aufteilen', async () => {
+      useCase = new LogMealFromRawInputUseCase(
+        repository,
+        clock,
+        idGenerator,
+        parser,
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        undefined, // nutritionLookup
+        aiParser, // aiMealParser
+        mockResolver, // resolver
+      );
+
+      const result = await useCase.execute('apple, banana, skyr');
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(3);
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(3);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['apple', 'banana', 'skyr']);
+      expect(entries.map((entry) => entry.parsedName)).toEqual(['apple', 'banana', 'skyr']);
+    });
+
+    it('sollte "apple, banana and skyr" deterministisch in 3 Entries aufteilen', async () => {
+      useCase = new LogMealFromRawInputUseCase(
+        repository,
+        clock,
+        idGenerator,
+        parser,
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        undefined, // nutritionLookup
+        aiParser, // aiMealParser
+        mockResolver, // resolver
+      );
+
+      const result = await useCase.execute('apple, banana and skyr');
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(3);
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(3);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['apple', 'banana', 'skyr']);
+    });
+
+    it('sollte bei Teilfehlern nichts persistieren und erkannte sowie fehlgeschlagene Items zurückgeben', async () => {
+      useCase = new LogMealFromRawInputUseCase(
+        repository,
+        clock,
+        idGenerator,
+        parser,
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        undefined, // nutritionLookup
+        aiParser, // aiMealParser
+        mockResolver, // resolver
+      );
+
+      const result = (await useCase.execute(
+        '2 eggs and 200g quark and mysteryfood',
+      )) as MultiItemSplitFailureResult;
+
+      expect(Array.isArray(result)).toBe(false);
+      expect(result.status).toBe('blocked_partial_failure');
+      expect(result.recognizedItems.map((item) => item.rawText)).toEqual(['2 eggs', '200g quark']);
+      expect(result.failedItems.map((item) => item.rawText)).toEqual(['mysteryfood']);
+      expect(result.explanation).toContain('Nothing was saved automatically');
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(0);
+    });
+
+    it('sollte ohne AI-Parser deterministisch splitten', async () => {
       // Kein aiParser übergeben
       useCase = new LogMealFromRawInputUseCase(
         repository,
@@ -197,14 +235,14 @@ describe('LogMealFromRawInputUseCase', () => {
         mockResolver, // resolver
       );
 
-      const entryIds = await useCase.execute('burger mit cola');
+      const result = await useCase.execute('burger mit cola');
 
-      // Sollte als Single-Item behandelt werden
-      expect(entryIds).toHaveLength(1);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
 
       const entries = await repository.listEntriesForDate('2026-02-15');
-      expect(entries).toHaveLength(1);
-      expect(entries[0].rawInput).toBe('burger mit cola');
+      expect(entries).toHaveLength(2);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['burger', 'cola']);
     });
   });
 

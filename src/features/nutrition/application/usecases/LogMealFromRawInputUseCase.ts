@@ -14,6 +14,28 @@ import { LogFoodFromRawInputUseCase } from './LogFoodFromRawInputUseCase';
 import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
 import { normalizeText } from '../utils/normalizeText';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
+import { splitMultiItemInput } from '../utils/splitMultiItemInput';
+
+export interface MultiItemSplitFailureItem {
+  rawText: string;
+  index: number;
+  reason: string;
+}
+
+export interface MultiItemSplitRecognizedItem {
+  rawText: string;
+  parsedName: string;
+  calories: number;
+}
+
+export interface MultiItemSplitFailureResult {
+  status: 'blocked_partial_failure';
+  recognizedItems: MultiItemSplitRecognizedItem[];
+  failedItems: MultiItemSplitFailureItem[];
+  explanation: string;
+}
+
+export type LogMealFromRawInputResult = FoodEntry[] | MultiItemSplitFailureResult;
 
 /**
  * Use-Case: Log Meal from Raw Input (Multi-Item)
@@ -47,25 +69,76 @@ export class LogMealFromRawInputUseCase {
     private readonly resolver?: FoodCatalogResolver,
   ) {
     this.engine = new NutritionEngine();
-    this.singleItemUseCase = new LogFoodFromRawInputUseCase(
+    this.singleItemUseCase = this.createSingleItemUseCase(repository, this.aliasRepository);
+  }
+
+  private createSingleItemUseCase(
+    repository: FoodEntryRepository,
+    aliasRepository: FoodAliasRepository | undefined,
+  ): LogFoodFromRawInputUseCase {
+    return new LogFoodFromRawInputUseCase(
       repository,
-      clock,
-      idGenerator,
-      parser,
-      foodCatalog,
+      this.clock,
+      this.idGenerator,
+      this.parser,
+      this.foodCatalog,
       aliasRepository,
-      aiFoodMapper,
-      nutritionLookup,
-      resolver,
+      this.aiFoodMapper,
+      this.nutritionLookup,
+      this.resolver,
     );
   }
 
   /**
    * Führt das Logging aus.
-   * @returns Array von erstellten FoodEntry-Objekten (Sprint 5.5)
+   * @returns Array von erstellten FoodEntry-Objekten oder strukturierte Partial-Failure-Info
    */
-  async execute(rawInput: string, dateISO?: string): Promise<FoodEntry[]> {
+  async execute(rawInput: string, dateISO?: string): Promise<LogMealFromRawInputResult> {
     const createdEntries: FoodEntry[] = [];
+
+    const splitResult = splitMultiItemInput(rawInput);
+
+    if (splitResult.wasSplit) {
+      const failedItems: MultiItemSplitFailureItem[] = [];
+      const stagedRepository = new StagedFoodEntryRepository();
+      const stagedSingleItemUseCase = this.createSingleItemUseCase(stagedRepository, undefined);
+
+      for (const item of splitResult.items) {
+        try {
+          const entry = await stagedSingleItemUseCase.execute(
+            { rawText: item.rawText, rawInput: item.rawText },
+            dateISO,
+          );
+          createdEntries.push(entry);
+        } catch (error) {
+          failedItems.push({
+            rawText: item.rawText,
+            index: item.index,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (failedItems.length > 0) {
+        return {
+          status: 'blocked_partial_failure',
+          recognizedItems: createdEntries.map((entry) => ({
+            rawText: entry.rawInput,
+            parsedName: entry.parsedName,
+            calories: entry.calories,
+          })),
+          failedItems,
+          explanation:
+            'Multi-item save was blocked because one or more items could not be resolved. Nothing was saved automatically.',
+        };
+      }
+
+      for (const entry of createdEntries) {
+        await this.repository.addEntry(entry);
+      }
+
+      return createdEntries;
+    }
 
     // Prüfen ob komplex und AI verfügbar
     if (isComplexMealInput(rawInput) && this.aiMealParser) {
@@ -355,5 +428,48 @@ export class LogMealFromRawInputUseCase {
    */
   private parseDateISO(dateISO: string): Date {
     return new Date(dateISO + 'T00:00:00.000Z');
+  }
+}
+
+class StagedFoodEntryRepository implements FoodEntryRepository {
+  private readonly entries: FoodEntry[] = [];
+
+  async addEntry(entry: FoodEntry): Promise<void> {
+    this.entries.push(entry);
+  }
+
+  async listEntriesForDate(): Promise<FoodEntry[]> {
+    return [...this.entries];
+  }
+
+  async listByDateRange(): Promise<FoodEntry[]> {
+    return [...this.entries];
+  }
+
+  async updateEntry(_dateISO: string, entry: FoodEntry): Promise<void> {
+    await this.updateEntryById(entry);
+  }
+
+  async getEntryById(id: string): Promise<FoodEntry | null> {
+    return this.entries.find((entry) => entry.id === id) ?? null;
+  }
+
+  async updateEntryById(entry: FoodEntry): Promise<void> {
+    const index = this.entries.findIndex((existing) => existing.id === entry.id);
+    if (index === -1) {
+      throw new Error(`Entry with id ${entry.id} not found`);
+    }
+    this.entries[index] = entry;
+  }
+
+  async deleteEntry(id: string): Promise<void> {
+    const index = this.entries.findIndex((entry) => entry.id === id);
+    if (index !== -1) {
+      this.entries.splice(index, 1);
+    }
+  }
+
+  async clearAll(): Promise<void> {
+    this.entries.length = 0;
   }
 }

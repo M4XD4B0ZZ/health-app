@@ -38,6 +38,7 @@ const PATHS = {
   runHistory: 'runs/run-history.jsonl',
   validationRules: 'validation/validation-rules.json',
   validationResults: 'validation/validation-results.jsonl',
+  reviewResults: 'review/review-results.jsonl',
   handoff: 'handoffs/latest-handoff.md',
   agentState: '.agent/state.json',
   selectedTask: '.agent/out/selected-task.json',
@@ -200,7 +201,19 @@ function hasPassingValidation(validationRecords, taskId, runId) {
   });
 }
 
-function hasReviewEvidence(runRecords, taskId, runId) {
+function hasReviewEvidence(runRecords, reviewRecords, taskId, runId) {
+  // Check review/review-results.jsonl first (canonical V2 review evidence)
+  const hasReviewAccepted = reviewRecords.some(({ data }) => {
+    if (normalizeTaskId(data.task_id) !== normalizeTaskId(taskId)) return false;
+    if (runId && data.run_id && data.run_id !== runId) return false;
+    const eventType = String(data.event_type || '').toLowerCase();
+    const reviewResult = String(data.review_result || '').toLowerCase();
+    return eventType === 'review.accepted' || reviewResult === 'accepted';
+  });
+  
+  if (hasReviewAccepted) return true;
+  
+  // Fallback: check runs/run-history.jsonl for legacy review evidence
   return runRecords.some(({ data }) => {
     if (normalizeTaskId(data.task_id) !== normalizeTaskId(taskId)) return false;
     if (runId && data.run_id && data.run_id !== runId) return false;
@@ -241,7 +254,7 @@ function parseRoadmapTasks(content) {
   return tasks;
 }
 
-function validateTaskState(taskState, validationRecords, runRecords, findings) {
+function validateTaskState(taskState, validationRecords, runRecords, reviewRecords, findings) {
   const taskMap = new Map();
   if (!taskState?.tasks || !Array.isArray(taskState.tasks)) {
     createFinding(findings.errors, 'critical', 'invalid_task_state_shape', 'tasks/task-state.json must contain a tasks array', PATHS.taskState);
@@ -265,7 +278,7 @@ function validateTaskState(taskState, validationRecords, runRecords, findings) {
     if (!taskValidation) {
       createFinding(findings.errors, 'critical', 'done_without_validation_evidence', `Task ${task.id} is done without passing validation evidence`, PATHS.taskState, { task_id: task.id });
     }
-    if (task.requires_human_review === true && !hasReviewEvidence(runRecords, task.id, null)) {
+    if (task.requires_human_review === true && !hasReviewEvidence(runRecords, reviewRecords, task.id, null)) {
       createFinding(findings.errors, 'critical', 'done_without_review_evidence', `Task ${task.id} requires human review but no review acceptance evidence was found`, PATHS.taskState, { task_id: task.id });
     }
   }
@@ -409,7 +422,7 @@ function validateDuplicateEvidenceIds(records, field, file, findings) {
 }
 
 function runValidation() {
-  const findings = { errors: [], warnings: [] };
+  const findings = { errors: [], warnings: [], reviewEvidence: { found: [], missing: [], rejected: [], needsChanges: [] } };
   const generatedAt = nowIso();
 
   const taskState = readJson(PATHS.taskState, findings);
@@ -419,6 +432,7 @@ function runValidation() {
   const taskHistory = readJsonl(PATHS.taskHistory, findings, LEGACY_TASK_EVENT_TYPES);
   const runHistory = readJsonl(PATHS.runHistory, findings, LEGACY_RUN_EVENT_TYPES);
   const validationResults = readJsonl(PATHS.validationResults, findings, new Set());
+  const reviewResults = readJsonl(PATHS.reviewResults, findings, new Set());
   const roadmap = readText(PATHS.roadmap);
   if (!roadmap.exists) {
     createFinding(findings.errors, 'critical', 'roadmap_missing', 'ROADMAP.md is missing', PATHS.roadmap);
@@ -431,7 +445,7 @@ function runValidation() {
   const handoffTemplate = readText(PATHS.handoffTemplate);
 
   const roadmapTasks = roadmap.exists ? parseRoadmapTasks(roadmap.content) : new Map();
-  const taskMap = taskState.data ? validateTaskState(taskState.data, validationResults.records, runHistory.records, findings) : new Map();
+  const taskMap = taskState.data ? validateTaskState(taskState.data, validationResults.records, runHistory.records, reviewResults.records, findings) : new Map();
 
   validateCurrentRun(currentRun.data, taskMap, findings);
   validateRoadmapRuntime(roadmapTasks, taskMap, findings);
@@ -440,17 +454,50 @@ function runValidation() {
   validateDuplicateEvidenceIds(taskHistory.records, 'event_id', PATHS.taskHistory, findings);
   validateDuplicateEvidenceIds(runHistory.records, 'event_id', PATHS.runHistory, findings);
   validateDuplicateEvidenceIds(validationResults.records, 'validation_id', PATHS.validationResults, findings);
+  validateDuplicateEvidenceIds(reviewResults.records, 'review_id', PATHS.reviewResults, findings);
+
+  // Collect review evidence statistics
+  if (taskState.data?.tasks) {
+    for (const task of taskState.data.tasks) {
+      if (task.requires_human_review === true) {
+        const reviewEvidence = reviewResults.records.filter(({ data }) => 
+          normalizeTaskId(data.task_id) === normalizeTaskId(task.id)
+        );
+        
+        if (reviewEvidence.length > 0) {
+          const latestReview = reviewEvidence[reviewEvidence.length - 1].data;
+          const eventType = String(latestReview.event_type || '').toLowerCase();
+          const reviewResult = String(latestReview.review_result || '').toLowerCase();
+          
+          if (eventType === 'review.accepted' || reviewResult === 'accepted') {
+            findings.reviewEvidence.found.push({ task_id: task.id, review_result: 'accepted', event_type: latestReview.event_type });
+          } else if (eventType === 'review.rejected' || reviewResult === 'rejected') {
+            findings.reviewEvidence.rejected.push({ task_id: task.id, review_result: 'rejected', event_type: latestReview.event_type });
+          } else if (eventType === 'review.needs_changes' || reviewResult === 'needs_changes') {
+            findings.reviewEvidence.needsChanges.push({ task_id: task.id, review_result: 'needs_changes', event_type: latestReview.event_type });
+          }
+        } else if (task.status === 'done') {
+          // Only report missing if task is done (already reported as critical finding)
+          findings.reviewEvidence.missing.push({ task_id: task.id });
+        }
+      }
+    }
+  }
 
   const summary = {
     generated_at: generatedAt,
     status: findings.errors.length > 0 ? 'critical_findings' : 'ok',
     critical_count: findings.errors.length,
     warning_count: findings.warnings.length,
+    review_evidence_found: findings.reviewEvidence.found.length,
+    review_evidence_missing: findings.reviewEvidence.missing.length,
+    review_evidence_rejected: findings.reviewEvidence.rejected.length,
+    review_evidence_needs_changes: findings.reviewEvidence.needsChanges.length,
     files_read: Object.values(PATHS),
     exit_code: findings.errors.length > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK
   };
 
-  return { summary, errors: findings.errors, warnings: findings.warnings };
+  return { summary, errors: findings.errors, warnings: findings.warnings, reviewEvidence: findings.reviewEvidence };
 }
 
 function formatHuman(result) {
@@ -462,6 +509,33 @@ function formatHuman(result) {
   lines.push(`Critical findings: ${result.summary.critical_count}`);
   lines.push(`Warnings: ${result.summary.warning_count}`);
   lines.push('');
+  lines.push('## Review Evidence Summary');
+  lines.push(`- Review evidence found (accepted): ${result.summary.review_evidence_found}`);
+  lines.push(`- Review evidence missing: ${result.summary.review_evidence_missing}`);
+  lines.push(`- Review evidence rejected: ${result.summary.review_evidence_rejected}`);
+  lines.push(`- Review evidence needs changes: ${result.summary.review_evidence_needs_changes}`);
+  lines.push('');
+  if (result.reviewEvidence.found.length > 0) {
+    lines.push('### Tasks with Review Acceptance');
+    for (const item of result.reviewEvidence.found) {
+      lines.push(`- ${item.task_id} (${item.event_type})`);
+    }
+    lines.push('');
+  }
+  if (result.reviewEvidence.rejected.length > 0) {
+    lines.push('### Tasks with Review Rejection');
+    for (const item of result.reviewEvidence.rejected) {
+      lines.push(`- ${item.task_id} (${item.event_type})`);
+    }
+    lines.push('');
+  }
+  if (result.reviewEvidence.needsChanges.length > 0) {
+    lines.push('### Tasks Needing Changes');
+    for (const item of result.reviewEvidence.needsChanges) {
+      lines.push(`- ${item.task_id} (${item.event_type})`);
+    }
+    lines.push('');
+  }
   lines.push('## Critical Findings');
   if (result.errors.length === 0) {
     lines.push('- None');

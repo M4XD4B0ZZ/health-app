@@ -1,79 +1,237 @@
-# Task Summary
+# RALPH-018 Handoff — ROADMAP Parser Canonicalization
 
-- Handoff ID: `handoff_ralph-015_20260523T125000Z`
-- Generated: 2026-05-23T12:50:00Z
-- Task ID: RALPH-015
-- Status: done_pending_human_review
-- Category: Documentation / Governance
-- Agent: Cline
-- Objective: Define the canonical ownership model for reconciliation before any reconciler behavior changes are implemented.
+**Task ID:** RALPH-018  
+**Generated:** 2026-05-23T16:04:53Z  
+**Status:** Implementation complete, awaiting human review  
+**Agent:** Cline  
+**Category:** Ralph-Loop tooling / reconciler enhancement
 
-RALPH-015 created a governance-only report that classifies reconciliation ownership before future reconciler/parser changes. The report defines ownership classes, severity rules, status mapping, a reconciler test matrix, and implementation boundaries for RALPH-016/RALPH-017.
+---
 
-No product code, ROADMAP, runtime state, validation evidence, review evidence, `tasks/`, `runs/`, `validation/`, `review/`, scripts, `package.json`, or `package-lock.json` files were modified.
+## Task Summary
 
-# Validation Summary
+Implemented ROADMAP parser canonicalization to resolve the P0-002 false duplicate task finding by distinguishing between canonical task definitions (heading-style sections) and task references (checkbox lines).
 
-- Status: passed
-- Validation ID: None; this documentation/governance task does not append validation evidence.
-- Summary: Governance consistency was reviewed against `SSOK.md`, `AGENTS.md`, `.governance/SYSTEM.md`, `.governance/RULES.md`, `.governance/SAFETY.md`, `.governance/REVIEW_POLICY.md`, and `VERIFY.md`. Required documentation-only readback checks were executed. The first attempt used `&&` and failed under PowerShell parsing; the checks were rerun successfully with semicolon separators.
+---
 
-Required commands for this documentation/governance-only task per `VERIFY.md`:
+## What Was Done
 
-```bash
-git --no-pager status --short
-git --no-pager diff --stat
-git --no-pager diff --name-only
+### 1. Parser Implementation
+
+**File:** `scripts/agent/reconcile-roadmap-task-state.mjs`
+
+**Changes:**
+- Modified `parseRoadmap()` to return `{ tasks, taskReferences }` instead of flat array
+- Heading-style task sections (`## TASK_ID Title`) → canonical task definitions
+- Checkbox task lines (`- [x] TASK_ID: Title`) → reference-only entries (captured separately)
+- Added `task_references` array to output schema
+- Added `task_reference_count` to summary
+- Preserved backward compatibility in `buildResultFromInputs()`
+
+**Key logic change:**
+```javascript
+// Before: Both patterns created canonical tasks
+const headerMatch = line.match(ROADMAP_TASK_HEADER);
+const checkboxMatch = headerMatch ? null : line.match(CHECKBOX_TASK);
+if (!headerMatch && !checkboxMatch) return;
+
+// After: Only headings are canonical, checkboxes are references
+const headerMatch = line.match(ROADMAP_TASK_HEADER);
+if (headerMatch) {
+  tasks.push({ id, title, status, ... }); // Canonical
+  return;
+}
+const checkboxMatch = line.match(CHECKBOX_TASK);
+if (checkboxMatch) {
+  taskReferences.push({ id, title, checkbox_state, ... }); // Reference only
+}
 ```
 
-Result: passed on rerun with PowerShell-compatible separators.
+### 2. Test Coverage
 
-Observed output:
+**File:** `scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
 
-```text
-M handoffs/latest-handoff.md
-?? reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md
-handoffs/latest-handoff.md | 95 ++++++++++------------------------------------
-1 file changed, 19 insertions(+), 76 deletions(-)
-handoffs/latest-handoff.md
+**Added 7 new tests:**
+1. Checkbox reference does not create canonical task entry
+2. Checkbox reference is captured separately as task reference
+3. Checkbox-only reference creates no canonical task
+4. Heading-style tasks still parsed with full metadata
+5. Duplicate heading definitions still produce critical finding
+6. Summary includes task_reference_count
+7. Backward compatibility: parseRoadmap returns object with tasks array
+
+**Test results:** 21/21 tests passed (14 existing + 7 new)
+
+### 3. Verification
+
+**Syntax checks:**
+- ✓ `node --check scripts/agent/reconcile-roadmap-task-state.mjs`
+- ✓ `node --check scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
+
+**Test suite:**
+- ✓ `node --test scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs` (21/21 pass)
+
+**Reconciler output on current ROADMAP.md:**
+- ✓ `exit_code: 0` (no critical findings)
+- ✓ `critical_count: 0`
+- ✓ `roadmap_task_count: 27` (heading-style canonical tasks)
+- ✓ `task_reference_count: 1` (checkbox reference at line 40)
+- ✓ P0-002 duplicate finding **RESOLVED** (no `duplicate_roadmap_task_id` for P0-002)
+
+---
+
+## Changed Files
+
+```
+M scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs (+82 lines)
+M scripts/agent/reconcile-roadmap-task-state.mjs (+65 lines, -22 lines)
 ```
 
-Note: `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md` is untracked and therefore appears in `git status --short` but not in `git diff --stat` / `git diff --name-only` until staged by a human.
+**Total:** 2 files changed, 125 insertions(+), 22 deletions(-)
 
-# Review Summary
+---
 
-- Status: human_review_required
-- Review ID: None
-- Summary: Human review is required before any follow-up implementation changes reconciler behavior, parser behavior, runtime state, validation evidence, review evidence, or migration logic.
+## Unchanged Files (Verified)
 
-# Files Changed
+- ✓ ROADMAP.md (no content edits)
+- ✓ tasks/task-state.json (read-only reconciler)
+- ✓ runs/current-run.json (read-only reconciler)
+- ✓ validation/validation-rules.json (no validation changes)
+- ✓ package.json (no dependency changes)
+- ✓ package-lock.json (no dependency changes)
 
-- `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md` — Added reconciliation ownership governance model.
-- `handoffs/latest-handoff.md` — Updated this latest handoff for RALPH-015.
+---
 
-# Artifacts
+## Key Results
 
-- `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md`
-- `handoffs/latest-handoff.md`
+### P0-002 Duplicate Finding Resolution
 
-# Issues
+**Before RALPH-018:**
+- Parser found 2 P0-002 entries (line 40 checkbox + line 401 heading)
+- Reconciler reported `duplicate_roadmap_task_id` critical finding
+- Exit code: 1 (critical findings)
 
-## Critical
+**After RALPH-018:**
+- Parser finds 1 canonical P0-002 task (line 401 heading)
+- Parser finds 1 P0-002 reference (line 40 checkbox)
+- No duplicate finding
+- Exit code: 0 (ok)
 
-- None.
+### Output Schema Extension
 
-## Warnings
+**New fields:**
+- `summary.task_reference_count`: Number of checkbox references
+- `task_references[]`: Array of reference entries with `{ id, title, checkbox_state, line, section }`
 
-- This task intentionally does not modify `ROADMAP.md`, runtime state, evidence streams, scripts, package files, or reconciler behavior.
-- Follow-up implementation boundaries are candidate guidance only and require separate human approval before execution.
+**Backward compatibility:**
+- All existing fields preserved
+- Exit codes unchanged (0, 1, 2)
+- Ownership classification logic unchanged
 
-# Recommended Next Task
+---
 
-Recommended next task after human review: RALPH-016, limited to read-only reconciler/parser ownership classification implementation and tests, if approved.
+## Acceptance Criteria
 
-# Human Review Status
+### Required Checks (VERIFY.md Category 3)
 
-- Human review required: true
-- Review gate status: Required before autonomous continuation.
-- Commits: None.
-- Push: None.
+- ✓ Syntax checks pass
+- ✓ Test suite passes (21/21)
+- ✓ Git status documented
+- ✓ Git diff documented
+
+### Task-Specific Criteria
+
+1. ✓ Checkbox reference + heading definition with same ID → exactly one canonical task
+2. ✓ Checkbox-only reference → zero canonical tasks, one reference
+3. ✓ Heading-only task → unchanged parsing behavior
+4. ✓ Duplicate heading definitions → still critical finding
+5. ✓ Existing ownership classification tests → continue passing unchanged
+6. ✓ Existing exit-code behavior → unchanged
+7. ✓ P0-002 duplicate finding → no longer appears
+8. ✓ Duplicate heading definitions → still produce critical finding
+9. ✓ Checkbox references → preserved as references
+10. ✓ No ROADMAP/runtime/evidence/package files modified
+
+---
+
+## Implementation Notes
+
+### Design Decisions
+
+1. **Canonical vs. Reference Distinction:**
+   - Heading-style sections are canonical because they contain full metadata (Status, DoD, Verify)
+   - Checkbox lines are references because they only contain checkbox state and title
+   - This aligns with existing ROADMAP.md usage (27 heading-style tasks, 1 checkbox reference)
+
+2. **Reference Preservation:**
+   - Checkbox references are not discarded, but captured separately
+   - Enables future cross-reference validation (e.g., warn if checkbox references non-existent task)
+   - Current scope: reference collection only, no validation
+
+3. **Backward Compatibility:**
+   - `buildResultFromInputs()` handles both old array format and new object format
+   - Ensures existing code using the reconciler continues to work
+
+### Risks Mitigated
+
+- ✓ Parser regression: All existing tests pass
+- ✓ Ownership classification regression: All ownership tests pass
+- ✓ Exit code changes: CLI integration tests verify unchanged behavior
+- ✓ False positive removal: P0-002 duplicate resolved without losing real duplicate detection
+
+---
+
+## Next Steps
+
+### Human Review Required
+
+1. Review parser canonicalization logic
+2. Review test coverage
+3. Verify P0-002 duplicate finding resolution
+4. Approve changed files
+
+### After Approval
+
+1. Commit changes to repository
+2. Update ROADMAP.md task status to `done` (if RALPH-018 exists in ROADMAP)
+3. Consider adding ROADMAP.md documentation note about canonical task format (optional)
+
+---
+
+## Governance Compliance
+
+- ✓ **SSOK.md:** ROADMAP.md remains planning authority; heading-style sections are canonical
+- ✓ **AGENTS.md:** Read-only reconciler, no file modifications beyond allowed scope
+- ✓ **ROADMAP.md:** Aligns with existing task format usage
+- ✓ **VERIFY.md:** Category 3 (test-only) verification completed
+- ✓ **RALPH-015:** Ownership classification logic preserved
+- ✓ **RALPH-017:** Implements canonicalization plan as specified
+
+---
+
+## Evidence
+
+**Implementation report:** `reports/RALPH-018_ROADMAP_PARSER_CANONICALIZATION_REPORT.md`
+
+**Test output:**
+```
+✔ 21/21 tests passed
+Duration: 251.29ms
+```
+
+**Reconciler output:**
+```json
+{
+  "summary": {
+    "status": "ok",
+    "roadmap_task_count": 27,
+    "task_reference_count": 1,
+    "critical_count": 0,
+    "exit_code": 0
+  }
+}
+```
+
+---
+
+**End of RALPH-018 Handoff**

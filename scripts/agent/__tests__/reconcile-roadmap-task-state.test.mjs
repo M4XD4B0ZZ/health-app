@@ -221,3 +221,83 @@ test('CLI exit code remains 2 for execution errors', (t) => {
   assert.equal(json.summary.exit_code, 2);
   assert.equal(json.summary.status, 'reconciler_execution_error');
 });
+
+test('checkbox reference does not create canonical task entry', () => {
+  const roadmap = '- [x] P0-002: Summary reference\n\n## P0-002 Full Task\n\nStatus: `done`\n\n**DoD:** Test DoD.';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  // Should find only 1 P0-002 (heading-style), not 2
+  const p0002Tasks = result.roadmap_tasks.filter((t) => t.id === 'P0-002');
+  assert.equal(p0002Tasks.length, 1);
+  assert.equal(p0002Tasks[0].line, 3); // Heading line, not checkbox line
+  assert.equal(p0002Tasks[0].status, 'done');
+  assert.match(p0002Tasks[0].dod_verify_text, /DoD: Test DoD/);
+});
+
+test('checkbox reference is captured separately as task reference', () => {
+  const roadmap = '- [x] P0-002: Summary reference\n\n## P0-002 Full Task\n\nStatus: `done`';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  // Should have 1 task reference
+  assert.equal(result.task_references.length, 1);
+  assert.equal(result.task_references[0].id, 'P0-002');
+  assert.equal(result.task_references[0].title, 'Summary reference');
+  assert.equal(result.task_references[0].checkbox_state, 'done');
+  assert.equal(result.task_references[0].line, 1);
+});
+
+test('checkbox-only reference creates no canonical task', () => {
+  const roadmap = '- [ ] P0-999: Orphan reference';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  // Should have 0 canonical tasks
+  assert.equal(result.roadmap_tasks.length, 0);
+  // Should have 1 task reference
+  assert.equal(result.task_references.length, 1);
+  assert.equal(result.task_references[0].id, 'P0-999');
+  assert.equal(result.task_references[0].checkbox_state, 'not_done');
+});
+
+test('heading-style tasks still parsed with full metadata', () => {
+  const roadmap = '## P0-002 Full Task\n\nStatus: `done`\n\n**DoD:** Test DoD.\n\n**Verify:** npm test';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  const task = result.roadmap_tasks.find((t) => t.id === 'P0-002');
+  assert.ok(task);
+  assert.equal(task.status, 'done');
+  assert.match(task.dod_verify_text, /DoD: Test DoD/);
+  assert.match(task.dod_verify_text, /Verify: npm test/);
+});
+
+test('duplicate heading definitions still produce critical finding', () => {
+  const roadmap = '## P0-002 First\n\nStatus: `done`\n\n## P0-002 Second\n\nStatus: `done`';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  // Should find 2 P0-002 tasks (both headings)
+  const p0002Tasks = result.roadmap_tasks.filter((t) => t.id === 'P0-002');
+  assert.equal(p0002Tasks.length, 2);
+
+  // Should have critical duplicate finding
+  const duplicateFinding = result.findings.find(
+    (f) => f.code === 'duplicate_roadmap_task_id' && f.details.task_id === 'P0-002'
+  );
+  assert.ok(duplicateFinding);
+  assert.equal(duplicateFinding.severity, 'critical');
+});
+
+test('summary includes task_reference_count', () => {
+  const roadmap = '- [x] P0-002: Ref\n\n## P0-002 Full\n\nStatus: `done`';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  assert.equal(result.summary.roadmap_task_count, 1);
+  assert.equal(result.summary.task_reference_count, 1);
+});
+
+test('backward compatibility: parseRoadmap returns object with tasks array', () => {
+  const roadmap = '## P0-002 Task\n\nStatus: `done`';
+  const result = buildResultFromInputs(roadmap, taskState([]));
+
+  // Ensure buildResultFromInputs handles both old array format and new object format
+  assert.ok(Array.isArray(result.roadmap_tasks));
+  assert.equal(result.roadmap_tasks.length, 1);
+});

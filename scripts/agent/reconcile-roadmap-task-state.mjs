@@ -172,6 +172,7 @@ function extractDodVerify(taskLines) {
 function parseRoadmap(content) {
   const lines = content.split(/\r?\n/);
   const tasks = [];
+  const taskReferences = [];
   const sectionStack = [];
   let order = 0;
 
@@ -187,28 +188,45 @@ function parseRoadmap(content) {
     }
 
     const headerMatch = line.match(ROADMAP_TASK_HEADER);
-    const checkboxMatch = headerMatch ? null : line.match(CHECKBOX_TASK);
-    if (!headerMatch && !checkboxMatch) return;
+    if (headerMatch) {
+      // Heading-style task section: canonical task definition
+      order += 1;
+      const taskLevel = headerMatch[1].length;
+      const id = headerMatch[2];
+      const title = cleanTitle(headerMatch[3]);
+      const taskLines = collectTaskText(lines, index, taskLevel);
+      const status = extractStatus(taskLines);
 
-    order += 1;
-    const taskLevel = headerMatch ? headerMatch[1].length : 99;
-    const id = headerMatch ? headerMatch[2] : checkboxMatch[1];
-    const title = cleanTitle(headerMatch ? headerMatch[3] : checkboxMatch[2]);
-    const taskLines = headerMatch ? collectTaskText(lines, index, taskLevel) : [];
-    const status = headerMatch ? extractStatus(taskLines) : line.includes('[x]') || line.includes('[X]') ? 'done' : null;
+      tasks.push({
+        id,
+        title,
+        status,
+        order,
+        line: index + 1,
+        section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id))),
+        dod_verify_text: extractDodVerify(taskLines)
+      });
+      return;
+    }
 
-    tasks.push({
-      id,
-      title,
-      status,
-      order,
-      line: index + 1,
-      section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id))),
-      dod_verify_text: headerMatch ? extractDodVerify(taskLines) : ''
-    });
+    const checkboxMatch = line.match(CHECKBOX_TASK);
+    if (checkboxMatch) {
+      // Checkbox task line: reference-only, not a canonical definition
+      const id = checkboxMatch[1];
+      const title = cleanTitle(checkboxMatch[2]);
+      const isDone = line.includes('[x]') || line.includes('[X]');
+
+      taskReferences.push({
+        id,
+        title,
+        checkbox_state: isDone ? 'done' : 'not_done',
+        line: index + 1,
+        section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id)))
+      });
+    }
   });
 
-  return tasks;
+  return { tasks, taskReferences };
 }
 
 function parseTaskState(taskState) {
@@ -413,7 +431,9 @@ function compareStates(roadmapTasks, runtimeTasks) {
 }
 
 export function buildResultFromInputs(roadmapContent, taskState) {
-  const roadmapTasks = parseRoadmap(roadmapContent);
+  const parseResult = parseRoadmap(roadmapContent);
+  const roadmapTasks = parseResult.tasks || parseResult;
+  const taskReferences = parseResult.taskReferences || [];
   const runtimeTasks = parseTaskState(taskState);
   const annotated = annotateOwnership(roadmapTasks, runtimeTasks);
   const findings = compareStates(annotated.roadmapTasks, annotated.runtimeTasks);
@@ -426,6 +446,7 @@ export function buildResultFromInputs(roadmapContent, taskState) {
       generated_at: nowIso(),
       status: criticalCount > 0 ? 'critical_findings' : 'ok',
       roadmap_task_count: roadmapTasks.length,
+      task_reference_count: taskReferences.length,
       task_state_task_count: runtimeTasks.length,
       finding_count: findings.length,
       critical_count: criticalCount,
@@ -437,6 +458,7 @@ export function buildResultFromInputs(roadmapContent, taskState) {
     },
     ownership_summary: buildOwnershipSummary(annotated.roadmapTasks, annotated.runtimeTasks),
     roadmap_tasks: annotated.roadmapTasks,
+    task_references: taskReferences,
     task_state_tasks: annotated.runtimeTasks,
     findings
   };
@@ -459,6 +481,7 @@ export function formatHuman(result) {
   lines.push(`Generated: ${result.summary.generated_at}`);
   lines.push(`Status: ${result.summary.status}`);
   lines.push(`ROADMAP tasks parsed: ${result.summary.roadmap_task_count}`);
+  lines.push(`ROADMAP task references: ${result.summary.task_reference_count || 0}`);
   lines.push(`Task-state tasks parsed: ${result.summary.task_state_task_count}`);
   lines.push(`Critical findings: ${result.summary.critical_count}`);
   lines.push(`Warnings: ${result.summary.warning_count}`);

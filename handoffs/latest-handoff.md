@@ -1,36 +1,36 @@
 # Task Summary
 
-- Handoff ID: `handoff_ralph-009_20260523T104900Z`
-- Generated: 2026-05-23T10:49:00Z
-- Task ID: RALPH-009
+- Handoff ID: `handoff_ralph-010_20260523T111300Z`
+- Generated: 2026-05-23T11:13:00Z
+- Task ID: RALPH-010
 - Status: done
 - Category: Governance / Tooling
 - Agent: Cline
-- Objective: Implement the Ralph V2 Review Gate Engine as the single authoritative evaluator for canonical handoff review decisions.
+- Objective: Integrate the Review Gate Engine with Review Evidence Recording through a guarded workflow that preserves the human approval gate.
 
-The task created `scripts/agent/review-gate-engine.mjs`, a standalone Node.js CLI that reads canonical handoff JSON from `generate-canonical-handoff.mjs`, validates the handoff structure, evaluates acceptance/needs-changes/rejection rules, and emits a normalized review decision object.
+The task created `scripts/agent/run-review-gate-workflow.mjs`, a guarded Node.js CLI that reads canonical handoff JSON, evaluates it with review-gate-compatible logic, writes `.agent/out/review-decision.json`, and prepares `.agent/out/prepared-review-evidence.json` only for accepted decisions.
 
-No product code, ROADMAP, runtime state, validation evidence, review evidence, `tasks/`, `runs/`, `validation/`, `review/`, `src/`, or `supabase/` files were modified.
+No product code, ROADMAP, runtime state, validation evidence, review evidence, `tasks/`, `runs/`, `validation/`, `review/`, `src/`, `supabase/`, `package.json`, or `package-lock.json` files were modified.
 
 # Validation Summary
 
 - Status: passed
 - Validation ID: None; this task does not append validation evidence.
-- Summary: Required syntax check, help output, sample handoff generation, review-gate dry-run evaluation, and git readback checks passed.
+- Summary: Required syntax check, help output, sample handoff generation, workflow dry-run, and git readback checks passed. No real review append was performed.
 
 Commands executed separately:
 
 ```bash
-node --check scripts/agent/review-gate-engine.mjs
+node --check scripts/agent/run-review-gate-workflow.mjs
 ```
 
 Result: passed.
 
 ```bash
-node scripts/agent/review-gate-engine.mjs --help
+node scripts/agent/run-review-gate-workflow.mjs --help
 ```
 
-Result: passed.
+Result: passed; help output listed supported CLI flags, dry-run/default behavior, and append safety gates.
 
 ```bash
 node scripts/agent/generate-canonical-handoff.mjs --task-id RALPH-009 --status done --json --output .agent/out/handoff.json
@@ -39,10 +39,10 @@ node scripts/agent/generate-canonical-handoff.mjs --task-id RALPH-009 --status d
 Result: passed; generated `.agent/out/handoff.json` sample canonical handoff.
 
 ```bash
-node scripts/agent/review-gate-engine.mjs --input .agent/out/handoff.json --dry-run --json
+node scripts/agent/run-review-gate-workflow.mjs --handoff .agent/out/handoff.json --output-dir .agent/out --dry-run --json
 ```
 
-Result: passed; emitted normalized `needs_changes` decision for the sample handoff and wrote nothing.
+Result: passed; wrote `.agent/out/review-decision.json`, emitted JSON summary with `review_result: "needs_changes"`, did not create prepared review evidence, and did not append to `review/review-results.jsonl`.
 
 ```bash
 git --no-pager status --short
@@ -52,8 +52,8 @@ Result: passed; output showed:
 
 ```text
 M handoffs/latest-handoff.md
-?? reports/RALPH-009_REVIEW_GATE_ENGINE_REPORT.md
-?? scripts/agent/review-gate-engine.mjs
+?? reports/RALPH-010_REVIEW_GATE_WORKFLOW_REPORT.md
+?? scripts/agent/run-review-gate-workflow.mjs
 ```
 
 ```bash
@@ -63,8 +63,8 @@ git --no-pager diff --stat
 Result: passed; output showed:
 
 ```text
-handoffs/latest-handoff.md | 65 +++++++++++++++++++++++++++++++---------------
-1 file changed, 44 insertions(+), 21 deletions(-)
+handoffs/latest-handoff.md | 82 ++++++++++++++++++----------------------------
+1 file changed, 32 insertions(+), 50 deletions(-)
 ```
 
 New untracked files are visible in status until staged by a human.
@@ -85,21 +85,23 @@ New untracked files are visible in status until staged by a human.
 
 - Status: human_review_required
 - Review ID: None
-- Summary: Human review remains required because RALPH-009 adds governance tooling and updates report/handoff documentation. The task must stop after completion; no autonomous continuation, commits, or push were performed.
+- Summary: Human review remains required. The workflow preserves the approval gate and does not append to `review/review-results.jsonl` unless rerun with both `--append` and `--confirm-append` for an accepted decision. No real append was performed during this task.
 
 # Files Changed
 
-- `scripts/agent/review-gate-engine.mjs` — Added canonical review gate engine CLI.
-- `reports/RALPH-009_REVIEW_GATE_ENGINE_REPORT.md` — Added implementation report.
+- `scripts/agent/run-review-gate-workflow.mjs` — Added guarded review gate workflow CLI.
+- `reports/RALPH-010_REVIEW_GATE_WORKFLOW_REPORT.md` — Added implementation report.
 - `handoffs/latest-handoff.md` — Updated this latest handoff.
-- `.agent/out/handoff.json` — Generated sample canonical handoff for review-gate verification.
+- `.agent/out/handoff.json` — Sample canonical handoff generated during required verification.
+- `.agent/out/review-decision.json` — Review decision output generated during required workflow dry-run.
 
 # Artifacts
 
-- `scripts/agent/review-gate-engine.mjs`
-- `reports/RALPH-009_REVIEW_GATE_ENGINE_REPORT.md`
+- `scripts/agent/run-review-gate-workflow.mjs`
+- `reports/RALPH-010_REVIEW_GATE_WORKFLOW_REPORT.md`
 - `handoffs/latest-handoff.md`
 - `.agent/out/handoff.json`
+- `.agent/out/review-decision.json`
 
 # Issues
 
@@ -109,14 +111,13 @@ New untracked files are visible in status until staged by a human.
 
 ## Warnings
 
-- The engine evaluates the supplied canonical handoff only; it does not inspect runtime state directly.
-- Missing optional evidence is reported as `needs_changes`, not `rejected`, unless required schema fields are missing or malformed.
-- The engine writes a decision file only when not in `--dry-run`; the required verification uses `--dry-run` and writes nothing.
-- The sample RALPH-009 handoff evaluates to `needs_changes` because no runtime task metadata, validation evidence, or review evidence exists for `RALPH-009` in the current repository state.
+- The workflow currently mirrors review-gate evaluation logic in-process because `review-gate-engine.mjs` is a standalone CLI and does not export reusable functions.
+- The default dry-run/no-append path still writes adapter outputs under `.agent/out`, as allowed by RALPH-010.
+- The required sample handoff for `RALPH-009` may evaluate to `needs_changes` if runtime task metadata, validation evidence, or review evidence is missing; this is expected and blocks prepared append execution.
 
 # Recommended Next Task
 
-RALPH-010 (proposed): Integrate Review Gate Engine output with review evidence recording through an explicitly approved workflow.
+RALPH-011 (proposed): Extract shared review-gate library functions for CLI reuse by both the review gate engine and guarded workflow, without changing decision behavior.
 
 # Human Review Status
 

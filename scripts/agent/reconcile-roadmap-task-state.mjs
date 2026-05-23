@@ -30,6 +30,15 @@ const EXIT_CODES = {
   EXECUTION_ERROR: 2
 };
 
+const OWNERSHIP_CLASSES = {
+  ROADMAP_BACKED: 'roadmap_backed',
+  RUNTIME_ONLY: 'runtime_only',
+  ROADMAP_ONLY: 'roadmap_only',
+  HISTORICAL: 'historical',
+  LEGACY: 'legacy',
+  UNCLASSIFIED: 'unclassified'
+};
+
 const PATHS = {
   roadmap: 'ROADMAP.md',
   taskState: 'tasks/task-state.json'
@@ -109,8 +118,9 @@ function cleanTitle(title) {
   return String(title || '').trim().replace(/\s+/g, ' ');
 }
 
-function addFinding(findings, severity, code, message, file, details = {}) {
-  findings.push({ severity, code, message, file, details });
+function addFinding(findings, severity, code, message, file, details = {}, ownershipClass = null) {
+  const ownership_class = ownershipClass || details.ownership_class || OWNERSHIP_CLASSES.UNCLASSIFIED;
+  findings.push({ severity, code, ownership_class, message, file, details: { ...details, ownership_class } });
 }
 
 function sectionPathFromStack(stack) {
@@ -224,6 +234,65 @@ function groupById(tasks) {
   return grouped;
 }
 
+function classifyRoadmapTask(taskId, runtimeById) {
+  return runtimeById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.ROADMAP_ONLY;
+}
+
+function classifyRuntimeTask(taskId, roadmapById) {
+  return roadmapById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.RUNTIME_ONLY;
+}
+
+function annotateOwnership(roadmapTasks, runtimeTasks) {
+  const roadmapById = groupById(roadmapTasks);
+  const runtimeById = groupById(runtimeTasks);
+
+  const annotatedRoadmapTasks = roadmapTasks.map((task) => {
+    const hasRuntimeState = runtimeById.has(task.id);
+    return {
+      ...task,
+      ownership_class: classifyRoadmapTask(task.id, runtimeById),
+      has_runtime_state: hasRuntimeState
+    };
+  });
+
+  const annotatedRuntimeTasks = runtimeTasks.map((task) => {
+    const hasRoadmapEntry = roadmapById.has(task.id);
+    return {
+      ...task,
+      ownership_class: classifyRuntimeTask(task.id, roadmapById),
+      has_roadmap_entry: hasRoadmapEntry,
+      ownership_explicit: task.runtime_only === true
+    };
+  });
+
+  return { roadmapTasks: annotatedRoadmapTasks, runtimeTasks: annotatedRuntimeTasks };
+}
+
+function buildOwnershipSummary(roadmapTasks, runtimeTasks) {
+  const roadmapById = groupById(roadmapTasks);
+  const runtimeById = groupById(runtimeTasks);
+  const taskIds = new Set([...roadmapById.keys(), ...runtimeById.keys()]);
+  const summary = {
+    roadmap_backed_count: 0,
+    runtime_only_count: 0,
+    roadmap_only_count: 0,
+    historical_count: 0,
+    legacy_count: 0,
+    unclassified_count: 0
+  };
+
+  for (const taskId of taskIds) {
+    const hasRoadmap = roadmapById.has(taskId);
+    const hasRuntime = runtimeById.has(taskId);
+    if (hasRoadmap && hasRuntime) summary.roadmap_backed_count += 1;
+    else if (hasRuntime) summary.runtime_only_count += 1;
+    else if (hasRoadmap) summary.roadmap_only_count += 1;
+    else summary.unclassified_count += 1;
+  }
+
+  return summary;
+}
+
 function isStatusMappingAllowed(roadmapStatus, runtimeStatus) {
   if (!roadmapStatus || !runtimeStatus) return false;
   if (roadmapStatus === 'todo') return runtimeStatus === 'not_started';
@@ -255,7 +324,7 @@ function compareStates(roadmapTasks, runtimeTasks) {
       addFinding(findings, 'critical', 'duplicate_roadmap_task_id', `Duplicate ROADMAP task ID: ${taskId}`, PATHS.roadmap, {
         task_id: taskId,
         lines: entries.map((entry) => entry.line)
-      });
+      }, runtimeById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.ROADMAP_ONLY);
     }
   }
 
@@ -264,7 +333,7 @@ function compareStates(roadmapTasks, runtimeTasks) {
       addFinding(findings, 'critical', 'duplicate_task_state_id', `Duplicate task-state task ID: ${taskId}`, PATHS.taskState, {
         task_id: taskId,
         orders: entries.map((entry) => entry.order)
-      });
+      }, roadmapById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.RUNTIME_ONLY);
     }
   }
 
@@ -274,7 +343,7 @@ function compareStates(roadmapTasks, runtimeTasks) {
         task_id: task.id,
         status: task.status,
         line: task.line
-      });
+      }, task.ownership_class);
     }
 
     if (!runtimeById.has(task.id)) {
@@ -285,7 +354,7 @@ function compareStates(roadmapTasks, runtimeTasks) {
         line: task.line,
         order: task.order,
         section: task.section
-      });
+      }, OWNERSHIP_CLASSES.ROADMAP_ONLY);
     }
   }
 
@@ -295,7 +364,7 @@ function compareStates(roadmapTasks, runtimeTasks) {
         task_id: task.id,
         status: task.status,
         order: task.order
-      });
+      }, task.ownership_class);
     }
 
     if (!roadmapById.has(task.id)) {
@@ -303,11 +372,12 @@ function compareStates(roadmapTasks, runtimeTasks) {
         task_id: task.id,
         runtime_status: task.status,
         runtime_only: task.runtime_only,
+        ownership_explicit: task.ownership_explicit,
         source: task.source,
         title: task.title,
         priority: task.priority,
         risk_level: task.risk_level
-      });
+      }, OWNERSHIP_CLASSES.RUNTIME_ONLY);
     }
   }
 
@@ -321,33 +391,32 @@ function compareStates(roadmapTasks, runtimeTasks) {
         task_id: taskId,
         roadmap_status: roadmapTask.status,
         runtime_status: runtimeTask.status
-      });
+      }, OWNERSHIP_CLASSES.ROADMAP_BACKED);
     }
     if (runtimeTask.status === 'done' && roadmapTask.status !== 'done') {
       addFinding(findings, 'critical', 'runtime_done_roadmap_not_done', `Runtime marks ${taskId} done while ROADMAP is ${roadmapTask.status || 'unknown'}`, PATHS.taskState, {
         task_id: taskId,
         roadmap_status: roadmapTask.status,
         runtime_status: runtimeTask.status
-      });
+      }, OWNERSHIP_CLASSES.ROADMAP_BACKED);
     }
     if (roadmapTask.status && runtimeTask.status && !isStatusMappingAllowed(roadmapTask.status, runtimeTask.status)) {
       addFinding(findings, 'warning', 'roadmap_status_differs_from_task_state', `ROADMAP status for ${taskId} (${roadmapTask.status}) differs from task-state (${runtimeTask.status})`, PATHS.taskState, {
         task_id: taskId,
         roadmap_status: roadmapTask.status,
         runtime_status: runtimeTask.status
-      });
+      }, OWNERSHIP_CLASSES.ROADMAP_BACKED);
     }
   }
 
   return findings;
 }
 
-function buildResult() {
-  const roadmapContent = readText(PATHS.roadmap);
-  const taskState = readJson(PATHS.taskState);
+export function buildResultFromInputs(roadmapContent, taskState) {
   const roadmapTasks = parseRoadmap(roadmapContent);
   const runtimeTasks = parseTaskState(taskState);
-  const findings = compareStates(roadmapTasks, runtimeTasks);
+  const annotated = annotateOwnership(roadmapTasks, runtimeTasks);
+  const findings = compareStates(annotated.roadmapTasks, annotated.runtimeTasks);
   const criticalCount = findings.filter((finding) => finding.severity === 'critical').length;
   const warningCount = findings.filter((finding) => finding.severity === 'warning').length;
   const infoCount = findings.filter((finding) => finding.severity === 'info').length;
@@ -366,17 +435,24 @@ function buildResult() {
       read_only: true,
       exit_code: criticalCount > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK
     },
-    roadmap_tasks: roadmapTasks,
-    task_state_tasks: runtimeTasks,
+    ownership_summary: buildOwnershipSummary(annotated.roadmapTasks, annotated.runtimeTasks),
+    roadmap_tasks: annotated.roadmapTasks,
+    task_state_tasks: annotated.runtimeTasks,
     findings
   };
 }
 
-function formatFinding(finding) {
-  return `- [${finding.severity}] [${finding.code}] ${finding.file}: ${finding.message}`;
+function buildResult() {
+  const roadmapContent = readText(PATHS.roadmap);
+  const taskState = readJson(PATHS.taskState);
+  return buildResultFromInputs(roadmapContent, taskState);
 }
 
-function formatHuman(result) {
+function formatFinding(finding) {
+  return `- [${finding.severity}] [${finding.ownership_class}] [${finding.code}] ${finding.file}: ${finding.message}`;
+}
+
+export function formatHuman(result) {
   const lines = [];
   lines.push('# Ralph V2 ROADMAP <-> Task-State Reconciler');
   lines.push('');
@@ -434,4 +510,6 @@ async function main() {
   }
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  main();
+}

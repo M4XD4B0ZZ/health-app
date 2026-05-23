@@ -103,6 +103,26 @@ test('review-gate-engine returns accepted decision for accepted handoff in dry-r
   assert.deepEqual(decision.warnings, []);
 });
 
+test('review-gate-engine writes accepted decision in non-dry-run JSON mode', (t) => {
+  const root = tempRoot(t);
+  const handoffPath = writeHandoff(root, 'accepted-handoff.json', canonicalHandoff());
+  const outputPath = path.join(root, 'engine-review-decision.json');
+
+  const result = runCli(ENGINE_SCRIPT, ['--input', handoffPath, '--output', outputPath, '--json']);
+  const stdoutDecision = parseJsonStdout(result);
+  const writtenDecision = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+
+  assert.equal(fs.existsSync(outputPath), true);
+  assert.equal(stdoutDecision.schema_version, writtenDecision.schema_version);
+  assert.equal(stdoutDecision.task_id, writtenDecision.task_id);
+  assert.equal(stdoutDecision.review_result, writtenDecision.review_result);
+  assert.equal(stdoutDecision.source.engine, writtenDecision.source.engine);
+  assert.equal(writtenDecision.schema_version, SCHEMA_VERSION);
+  assert.equal(writtenDecision.task_id, 'RALPH-013');
+  assert.equal(writtenDecision.review_result, 'accepted');
+  assert.equal(writtenDecision.source.engine, 'ralph-v2-review-gate-engine');
+});
+
 test('review-gate-engine returns rejected decision with missing_task_id blocker for malformed handoff', (t) => {
   const root = tempRoot(t);
   const malformed = canonicalHandoff();

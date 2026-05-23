@@ -19,6 +19,7 @@ import {
   buildNormalizedReviewDecision,
   ENGINE_ID,
   loadCanonicalHandoffJson,
+  resolveProjectPath,
   SCHEMA_VERSION
 } from './lib/review-gate-core.mjs';
 

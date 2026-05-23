@@ -1,101 +1,59 @@
 # Task Summary
 
-- Handoff ID: `handoff_ralph-012_20260523T115500Z`
-- Generated: 2026-05-23T11:55:00Z
-- Task ID: RALPH-012
-- Status: done
-- Category: Governance / Tooling
+- Handoff ID: `handoff_ralph-015_20260523T125000Z`
+- Generated: 2026-05-23T12:50:00Z
+- Task ID: RALPH-015
+- Status: done_pending_human_review
+- Category: Documentation / Governance
 - Agent: Cline
-- Objective: Add focused fixture tests for the shared review-gate core behavior extracted in RALPH-011.
+- Objective: Define the canonical ownership model for reconciliation before any reconciler behavior changes are implemented.
 
-The task added direct Node fixture tests for `scripts/agent/lib/review-gate-core.mjs` covering accepted, needs_changes, rejected, and malformed/schema-violation handoffs. The tests do not execute adapters and do not write adapter outputs.
+RALPH-015 created a governance-only report that classifies reconciliation ownership before future reconciler/parser changes. The report defines ownership classes, severity rules, status mapping, a reconciler test matrix, and implementation boundaries for RALPH-016/RALPH-017.
 
-No product code, ROADMAP, runtime state, validation evidence, review evidence, `tasks/`, `runs/`, `validation/`, `review/`, `src/`, `supabase/`, `package.json`, or `package-lock.json` files were modified.
+No product code, ROADMAP, runtime state, validation evidence, review evidence, `tasks/`, `runs/`, `validation/`, `review/`, scripts, `package.json`, or `package-lock.json` files were modified.
 
 # Validation Summary
 
 - Status: passed
-- Validation ID: None; this task does not append validation evidence.
-- Summary: Required focused test, syntax checks, and git readback checks passed. No adapter outputs were written by tests and no real review append was performed.
+- Validation ID: None; this documentation/governance task does not append validation evidence.
+- Summary: Governance consistency was reviewed against `SSOK.md`, `AGENTS.md`, `.governance/SYSTEM.md`, `.governance/RULES.md`, `.governance/SAFETY.md`, `.governance/REVIEW_POLICY.md`, and `VERIFY.md`. Required documentation-only readback checks were executed. The first attempt used `&&` and failed under PowerShell parsing; the checks were rerun successfully with semicolon separators.
 
-Commands executed separately:
-
-```bash
-node --test scripts/agent/__tests__/review-gate-core.test.mjs
-```
-
-Result: passed. Five focused fixture tests passed:
-
-- accepted handoff returns accepted without blockers or warnings
-- needs_changes handoff returns warnings without blockers
-- rejected handoff returns blockers for validation failure
-- malformed handoff missing task_id is rejected with schema finding
-- unsupported schema_version is rejected with schema finding
-
-```bash
-node --check scripts/agent/lib/review-gate-core.mjs
-```
-
-Result: passed.
-
-```bash
-node --check scripts/agent/review-gate-engine.mjs
-```
-
-Result: passed.
-
-```bash
-node --check scripts/agent/run-review-gate-workflow.mjs
-```
-
-Result: passed.
+Required commands for this documentation/governance-only task per `VERIFY.md`:
 
 ```bash
 git --no-pager status --short
-```
-
-Result: passed; output showed:
-
-```text
-M handoffs/latest-handoff.md
-?? reports/RALPH-012_REVIEW_GATE_CORE_TESTS_REPORT.md
-?? scripts/agent/__tests__/
-```
-
-```bash
 git --no-pager diff --stat
-```
-
-Result: passed; output showed tracked-file changes for `handoffs/latest-handoff.md`. New report and test files are untracked and visible in `git status` until staged by a human.
-
-```bash
 git --no-pager diff --name-only
 ```
 
-Result: passed; output showed:
+Result: passed on rerun with PowerShell-compatible separators.
+
+Observed output:
 
 ```text
+M handoffs/latest-handoff.md
+?? reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md
+handoffs/latest-handoff.md | 95 ++++++++++------------------------------------
+1 file changed, 19 insertions(+), 76 deletions(-)
 handoffs/latest-handoff.md
 ```
 
-New untracked files are visible in status until staged by a human.
+Note: `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md` is untracked and therefore appears in `git status --short` but not in `git diff --stat` / `git diff --name-only` until staged by a human.
 
 # Review Summary
 
 - Status: human_review_required
 - Review ID: None
-- Summary: Human review remains required. The fixture tests lock shared review-gate decision behavior before future coordinator work. No real review evidence append was performed.
+- Summary: Human review is required before any follow-up implementation changes reconciler behavior, parser behavior, runtime state, validation evidence, review evidence, or migration logic.
 
 # Files Changed
 
-- `scripts/agent/__tests__/review-gate-core.test.mjs` — Added focused shared-core fixture tests.
-- `reports/RALPH-012_REVIEW_GATE_CORE_TESTS_REPORT.md` — Added test coverage report.
-- `handoffs/latest-handoff.md` — Updated this latest handoff.
+- `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md` — Added reconciliation ownership governance model.
+- `handoffs/latest-handoff.md` — Updated this latest handoff for RALPH-015.
 
 # Artifacts
 
-- `scripts/agent/__tests__/review-gate-core.test.mjs`
-- `reports/RALPH-012_REVIEW_GATE_CORE_TESTS_REPORT.md`
+- `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md`
 - `handoffs/latest-handoff.md`
 
 # Issues
@@ -106,13 +64,12 @@ New untracked files are visible in status until staged by a human.
 
 ## Warnings
 
-- The tests intentionally do not assert generated review IDs, nonces, or timestamps.
-- The malformed/schema coverage uses representative schema violations rather than every required-field branch.
-- CLI and workflow file-writing behavior remain out of scope for this direct shared-core fixture task.
+- This task intentionally does not modify `ROADMAP.md`, runtime state, evidence streams, scripts, package files, or reconciler behavior.
+- Follow-up implementation boundaries are candidate guidance only and require separate human approval before execution.
 
 # Recommended Next Task
 
-Recommended next task: add coordinator-level integration tests that consume the shared review-gate core only after human review confirms the RALPH-012 fixture coverage is sufficient.
+Recommended next task after human review: RALPH-016, limited to read-only reconciler/parser ownership classification implementation and tests, if approved.
 
 # Human Review Status
 

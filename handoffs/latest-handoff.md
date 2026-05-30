@@ -1,218 +1,137 @@
-# Agent Handoff: RALPH-022
+# Agent Handoff: RALPH-025A
 
 ## Run Identity
-- **Run ID:** run_2026-05-23_ralph-022-green-baseline-gate
-- **Task ID:** RALPH-022
-- **Task Title:** Green Baseline Gate
+
+- **Run ID:** run_2026-05-30_ralph-025a-shared-roadmap-parser
+- **Task ID:** RALPH-025A
+- **Task Title:** Shared ROADMAP Parser Extraction
 - **Agent:** Cline (ACT MODE)
-- **Started:** 2026-05-23T16:33:43Z
-- **Completed:** 2026-05-23T16:35:30Z
-- **Status:** ✅ COMPLETED
-
-## Task Summary
-
-Documented and verified the current Ralph governance baseline after RALPH-021 completion. This was a documentation and verification-only task to establish a green baseline before proceeding to the Runtime Task Creation Pipeline phase.
+- **Completed:** 2026-05-30T10:49:00Z
+- **Status:** ✅ IMPLEMENTED — awaiting human review
 
 ## What Changed
 
 ### Files Created
-1. **reports/RALPH-022_GREEN_BASELINE_GATE_REPORT.md**
-   - Comprehensive baseline verification report
-   - Reconciler and validator results
-   - Accepted warnings documentation
-   - Blocking conditions assessment
-   - Repository readiness evaluation
+
+1. `scripts/agent/lib/roadmap-parser.mjs`
+   - Extracted canonical ROADMAP parser into a shared module.
+   - Preserves heading-style tasks as canonical task definitions.
+   - Preserves checkbox lines as `taskReferences` only.
+   - Preserves task fields: `id`, `title`, `status`, `order`, `line`, `section`, `dod_verify_text`.
+   - Preserves reference fields: `id`, `title`, `checkbox_state`, `line`, `section`.
+   - Exports `parseRoadmap`, `normalizeStatus`, and `ROADMAP_TASK_ID_PATTERN`.
 
 ### Files Modified
-2. **handoffs/latest-handoff.md** (this file)
-   - Updated with RALPH-022 handoff documentation
+
+1. `scripts/agent/reconcile-roadmap-task-state.mjs`
+   - Removed local ROADMAP parser duplication.
+   - Imports `parseRoadmap` and `normalizeStatus` from `./lib/roadmap-parser.mjs`.
+   - Output schema and reconciler behavior preserved.
+
+2. `scripts/agent/create-runtime-task-from-roadmap.mjs`
+   - Removed local ROADMAP parser duplication.
+   - Imports `parseRoadmap` and `ROADMAP_TASK_ID_PATTERN` from `./lib/roadmap-parser.mjs`.
+   - RALPH-025 dry-run/write behavior preserved.
+
+3. `scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
+   - Temp CLI fixture now copies the shared parser module with the reconciler script.
+   - Existing parser behavior protections remain covered:
+     - checkbox + heading same ID => one canonical task + one reference
+     - checkbox-only => zero canonical tasks + one reference
+     - duplicate heading definitions => critical duplicate finding
+
+4. `scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs`
+   - Temp CLI fixture now copies the shared parser module with the create-runtime script.
+   - Added explicit shared-parser behavior coverage for create-runtime selection with checkbox + heading same ID.
+
+5. `handoffs/latest-handoff.md`
+   - Updated this handoff for RALPH-025A.
 
 ## Why Changed
 
-### Rationale
-- Establish a verified green baseline after RALPH-021 (Ownership-Aware Severity Alignment)
-- Document the current state of Ralph governance infrastructure
-- Verify all critical systems are operational before next phase
-- Provide clear pass/fail criteria for baseline acceptance
-- Create audit trail for baseline verification
-
-### Governance Compliance
-- Task scope: Documentation/verification only ✅
-- No product code modifications ✅
-- No protected file modifications ✅
-- No script modifications ✅
-- Read-only verification commands only ✅
+- Eliminates parser drift introduced by RALPH-025.
+- Makes reconciler and runtime task creation depend on the same canonical ROADMAP parsing behavior.
+- Keeps behavior unchanged except parser deduplication.
 
 ## Changed Files
 
-```
-reports/RALPH-022_GREEN_BASELINE_GATE_REPORT.md (created)
-handoffs/latest-handoff.md (updated)
+```text
+scripts/agent/lib/roadmap-parser.mjs
+scripts/agent/reconcile-roadmap-task-state.mjs
+scripts/agent/create-runtime-task-from-roadmap.mjs
+scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs
+scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs
+handoffs/latest-handoff.md
 ```
 
 ## Validation Executed
 
-### Baseline Verification Commands
+1. `node --check scripts/agent/lib/roadmap-parser.mjs`
+   - Result: ✅ PASS
 
-1. **Reconciler Verification**
-   ```bash
-   node scripts/agent/reconcile-roadmap-task-state.mjs --json
-   ```
-   - Exit code: 0 ✅
-   - Critical count: 0 ✅
-   - Warning count: 1 (acceptable - P1-003 in_progress without runtime state) ✅
+2. `node --check scripts/agent/reconcile-roadmap-task-state.mjs`
+   - Result: ✅ PASS
 
-2. **Validator Verification**
-   ```bash
-   node scripts/agent/validate-ralph-state.mjs --json
-   ```
-   - Exit code: 0 ✅
-   - Critical count: 0 ✅
-   - Warning count: 43 (all legacy/non-blocking) ✅
+3. `node --check scripts/agent/create-runtime-task-from-roadmap.mjs`
+   - Result: ✅ PASS
 
-3. **Working Tree Status**
-   ```bash
-   git --no-pager status --short
-   git --no-pager diff --stat
-   git --no-pager diff --name-only
-   ```
-   - Working tree: Clean ✅
-   - No unexpected modifications ✅
+4. `node --test scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
+   - Result: ✅ PASS — 21 tests passed, 0 failed
+
+5. `node --test scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs`
+   - Result: ✅ PASS — 17 tests passed, 0 failed
+
+6. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
+   - Result: ✅ PASS — exit code 0, `critical_count: 0`
+
+7. `node scripts/agent/create-runtime-task-from-roadmap.mjs --json`
+   - Result: ✅ PASS — dry-run output, selected `P2-001`, no writes
+
+8. `git --no-pager status --short`
+   - Result: ✅ PASS readback executed
+
+9. `git --no-pager diff --stat`
+   - Result: ✅ PASS readback executed
+
+10. `git --no-pager diff --name-only`
+   - Result: ✅ PASS readback executed
 
 ## Validation Result
 
-**✅ ALL BASELINE CRITERIA PASSED**
+✅ Required checks passed. Parser duplication has been removed from both scripts.
 
-### Baseline Status: GREEN
+## Repository State Confirmation
 
-| Criterion | Target | Actual | Status |
-|-----------|--------|--------|--------|
-| Reconciler exit_code | 0 | 0 | ✅ |
-| Reconciler critical_count | 0 | 0 | ✅ |
-| Reconciler warning_count | ≤ 1 | 1 | ✅ |
-| Validator exit_code | 0 | 0 | ✅ |
-| Validator critical_count | 0 | 0 | ✅ |
-| Validator warnings | Legacy only | 43 (all legacy) | ✅ |
-| Working tree | Clean | Clean | ✅ |
-| Protected files | Unchanged | Unchanged | ✅ |
-| Review evidence | Complete | 7/7 accepted | ✅ |
+- ✅ Both scripts import the shared parser module.
+- ✅ RALPH-025 dry-run/write behavior preserved.
+- ✅ No real `ROADMAP.md` modification.
+- ✅ No real `tasks/task-state.json` write; write mode remains tested only in temp fixtures.
+- ✅ No task-history writes.
+- ✅ No validation evidence writes.
+- ✅ No review evidence writes.
+- ✅ No run creation or `runs/` modification.
+- ✅ No `package.json` or `package-lock.json` modification.
+- ✅ No product code modification.
+- ✅ No commit.
+- ✅ No push.
 
-### Accepted Warnings
+## Known Issues / Notes
 
-**36 warnings:** Legacy JSONL event schema (non-blocking, backward compatibility)  
-**1 warning:** Handoff run mismatch (non-blocking, expected during gate check)  
-**6 warnings:** Legacy artifacts present (non-blocking, explicitly non-authoritative)
-
-**Total:** 43 warnings, all documented and accepted as non-blocking.
-
-## Known Issues / Blockers / Risks
-
-### Issues
-**None.** All baseline criteria passed.
-
-### Blockers
-**None.** No blocking conditions detected.
-
-### Risks
-**None.** Repository is in a stable, verified state.
+- `reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md` remains an untracked pre-existing context file and was not modified by this task.
+- A previous invalid PowerShell/Python heredoc attempt failed before any file changes; continuation used direct patch edits only.
 
 ## Human Review Status
 
 **Status:** ⏸️ AWAITING HUMAN REVIEW
 
-### Review Required For
-1. **Baseline acceptance** - Confirm green baseline is acceptable
-2. **Accepted warnings** - Verify legacy warnings are acceptable
-3. **Next phase approval** - Approve proceeding to RALPH-023 (Runtime Task Creation Pipeline)
+Review focus:
 
-### Review Questions
-1. Is the green baseline acceptable for proceeding to the next phase?
-2. Are the 43 legacy warnings acceptable as non-blocking?
-3. Should we proceed to RALPH-023 (Runtime Task Creation Pipeline)?
-
-## Next Steps
-
-### Immediate
-1. **Human review** - Review and accept this baseline gate report
-2. **Baseline approval** - Confirm green baseline is acceptable
-3. **Phase transition** - Approve proceeding to RALPH-023
-
-### Recommended Next Task
-**RALPH-023: Runtime Task Creation Pipeline**
-- Automated task creation from ROADMAP.md
-- Task state initialization
-- Dependency tracking
-- Priority-based task selection
-
-## Repository State
-
-### Before Task
-- RALPH-021 completed (Ownership-Aware Severity Alignment)
-- Reconciler and validator operational
-- Baseline status unknown
-
-### After Task
-- ✅ Green baseline verified and documented
-- ✅ All critical systems operational
-- ✅ No blocking issues detected
-- ✅ Repository ready for Runtime Task Creation Pipeline
-
-### Working Tree
-- Clean (no uncommitted changes)
-- No unexpected modifications
-- No protected file violations
-
-## Verification Evidence
-
-### Files Read
-- .governance/SYSTEM.md
-- .governance/RULES.md
-- .governance/SAFETY.md
-- ROADMAP.md (via reconciler)
-- tasks/task-state.json (via reconciler/validator)
-- tasks/task-history.jsonl (via validator)
-- runs/current-run.json (via validator)
-- runs/run-history.jsonl (via validator)
-- validation/validation-results.jsonl (via validator)
-- review/review-results.jsonl (via validator)
-- handoffs/latest-handoff.md (via validator)
-
-### Commands Executed
-1. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
-2. `node scripts/agent/validate-ralph-state.mjs --json`
-3. `git --no-pager status --short`
-4. `git --no-pager diff --stat`
-5. `git --no-pager diff --name-only`
-
-### Evidence Location
-- **Full Report:** reports/RALPH-022_GREEN_BASELINE_GATE_REPORT.md
-- **Reconciler Output:** C:\Users\Max\AppData\Local\Temp\cline\large-output-1779554048992-slmgmfw.log
-
-## Governance Compliance
-
-### Task Scope Adherence
-- ✅ Documentation/verification only
-- ✅ No product code modifications
-- ✅ No script modifications
-- ✅ No protected file modifications
-- ✅ Read-only verification commands only
-
-### Safety Policy Compliance
-- ✅ No protected file modifications
-- ✅ No forbidden actions executed
-- ✅ No external operations performed
-- ✅ Working tree remains clean
-
-### Ralph-Loop Compliance
-- ✅ One task per run (RALPH-022 only)
-- ✅ Governance files read first
-- ✅ Scoped execution maintained
-- ✅ Handoff documentation complete
-- ✅ Validation executed
-- ✅ Stop for human review
+1. Confirm shared parser extraction is acceptable.
+2. Confirm reconciler output behavior is preserved.
+3. Confirm RALPH-025 create-runtime behavior is unchanged.
 
 ---
 
-**Handoff Complete:** 2026-05-23T16:35:30Z  
+**Handoff Complete:** 2026-05-30T10:49:00Z  
 **Agent:** Cline  
-**Status:** ✅ COMPLETED - Awaiting Human Review
+**Status:** ✅ IMPLEMENTED — Awaiting Human Review

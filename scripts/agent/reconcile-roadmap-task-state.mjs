@@ -19,6 +19,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { normalizeStatus, parseRoadmap } from './lib/roadmap-parser.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,11 +58,6 @@ const TASK_STATE_STATUSES = new Set([
   'cancelled'
 ]);
 const ACTIVE_RUNTIME_STATUSES = new Set(['in_progress', 'needs_validation', 'needs_review']);
-
-const ROADMAP_TASK_ID_PATTERN = String.raw`(?:P\d+-\d+|RESOLVER-V2-\d+|RALPH-\d+[A-Z]?)`;
-const ROADMAP_TASK_HEADER = new RegExp(String.raw`^(#{2,6})\s+(?:[-*]\s+)?(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`);
-const CHECKBOX_TASK = new RegExp(String.raw`^\s*-\s+\[[ xX]\]\s+(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`);
-const ANY_HEADING = /^(#{1,6})\s+(.+)$/;
 
 function parseArgs(argv) {
   const options = { json: false, help: false };
@@ -110,123 +106,9 @@ function readJson(relativePath) {
   return JSON.parse(readText(relativePath));
 }
 
-function normalizeStatus(value) {
-  return typeof value === 'string' ? value.trim().replace(/^`|`$/g, '').toLowerCase() : null;
-}
-
-function cleanTitle(title) {
-  return String(title || '').trim().replace(/\s+/g, ' ');
-}
-
 function addFinding(findings, severity, code, message, file, details = {}, ownershipClass = null) {
   const ownership_class = ownershipClass || details.ownership_class || OWNERSHIP_CLASSES.UNCLASSIFIED;
   findings.push({ severity, code, ownership_class, message, file, details: { ...details, ownership_class } });
-}
-
-function sectionPathFromStack(stack) {
-  return stack.map((item) => item.title).join(' > ');
-}
-
-function collectTaskText(lines, startIndex, taskLevel) {
-  const collected = [];
-  for (let i = startIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i];
-    const heading = line.match(ANY_HEADING);
-    if (heading && heading[1].length <= taskLevel) break;
-    if (/^\s*---\s*$/.test(line)) break;
-    collected.push(line);
-  }
-  return collected;
-}
-
-function extractStatus(taskLines) {
-  for (const line of taskLines) {
-    const match = line.match(/^\s*Status:\s*`?([A-Za-z_]+)`?\s*$/i);
-    if (match) return normalizeStatus(match[1]);
-  }
-  return null;
-}
-
-function extractDodVerify(taskLines) {
-  const blocks = [];
-  for (let i = 0; i < taskLines.length; i += 1) {
-    const line = taskLines[i];
-    const inline = line.match(/^\s*\*\*(DoD|Verify):\*\*\s*(.*)$/i);
-    if (inline) {
-      const label = inline[1];
-      const content = [inline[2].trim()].filter(Boolean);
-      for (let j = i + 1; j < taskLines.length; j += 1) {
-        const next = taskLines[j];
-        if (/^\s*\*\*(DoD|Verify|Description):\*\*/i.test(next)) break;
-        if (/^\s*Status:\s*/i.test(next)) break;
-        if (/^\s*#{1,6}\s+/.test(next)) break;
-        if (/^\s*---\s*$/.test(next)) break;
-        if (next.trim()) content.push(next.trim());
-      }
-      blocks.push(`${label}: ${content.join(' ')}`.trim());
-    }
-  }
-  return blocks.join('\n');
-}
-
-function parseRoadmap(content) {
-  const lines = content.split(/\r?\n/);
-  const tasks = [];
-  const taskReferences = [];
-  const sectionStack = [];
-  let order = 0;
-
-  lines.forEach((line, index) => {
-    const heading = line.match(ANY_HEADING);
-    if (heading) {
-      const level = heading[1].length;
-      const title = cleanTitle(heading[2]);
-      while (sectionStack.length && sectionStack[sectionStack.length - 1].level >= level) {
-        sectionStack.pop();
-      }
-      sectionStack.push({ level, title, line: index + 1 });
-    }
-
-    const headerMatch = line.match(ROADMAP_TASK_HEADER);
-    if (headerMatch) {
-      // Heading-style task section: canonical task definition
-      order += 1;
-      const taskLevel = headerMatch[1].length;
-      const id = headerMatch[2];
-      const title = cleanTitle(headerMatch[3]);
-      const taskLines = collectTaskText(lines, index, taskLevel);
-      const status = extractStatus(taskLines);
-
-      tasks.push({
-        id,
-        title,
-        status,
-        order,
-        line: index + 1,
-        section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id))),
-        dod_verify_text: extractDodVerify(taskLines)
-      });
-      return;
-    }
-
-    const checkboxMatch = line.match(CHECKBOX_TASK);
-    if (checkboxMatch) {
-      // Checkbox task line: reference-only, not a canonical definition
-      const id = checkboxMatch[1];
-      const title = cleanTitle(checkboxMatch[2]);
-      const isDone = line.includes('[x]') || line.includes('[X]');
-
-      taskReferences.push({
-        id,
-        title,
-        checkbox_state: isDone ? 'done' : 'not_done',
-        line: index + 1,
-        section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id)))
-      });
-    }
-  });
-
-  return { tasks, taskReferences };
 }
 
 function parseTaskState(taskState) {

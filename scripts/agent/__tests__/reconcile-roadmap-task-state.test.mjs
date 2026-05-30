@@ -12,6 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../../..');
 const SCRIPT = path.join(projectRoot, 'scripts/agent/reconcile-roadmap-task-state.mjs');
+const PARSER = path.join(projectRoot, 'scripts/agent/lib/roadmap-parser.mjs');
 
 function roadmapTask(id, status, title = 'Fixture task') {
   return `## ${id} ${title}\n\nStatus: \`${status}\`\n\n**DoD:** Fixture DoD.\n`;
@@ -47,8 +48,9 @@ function findFinding(result, code, taskId) {
 function tempProject(t, { roadmap = '', state = taskState([]) } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-016-reconciler-'));
   fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
-  fs.mkdirSync(path.join(root, 'scripts/agent'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'scripts/agent/lib'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'));
+  fs.copyFileSync(PARSER, path.join(root, 'scripts/agent/lib/roadmap-parser.mjs'));
   fs.writeFileSync(path.join(root, 'ROADMAP.md'), roadmap, 'utf8');
   fs.writeFileSync(path.join(root, 'tasks/task-state.json'), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

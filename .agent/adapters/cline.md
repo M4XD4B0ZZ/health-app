@@ -127,6 +127,70 @@ Incident rationale (CLINE-REAL-011):
 - Recovery succeeded by rerunning checks separately.
 - This rule is strengthened to prevent recurrence.
 
+### PowerShell Heredoc and Interactive Session Prohibition (CLINE-OPS-005)
+
+This repository uses Windows PowerShell as the default Cline terminal. Cline must never use Bash-style heredocs, interactive interpreter sessions, or command patterns that require manual stdin during agent tasks.
+
+Forbidden heredoc patterns in PowerShell include, but are not limited to:
+
+- `python - <<'PY'`
+- `python - <<PY`
+- `cat <<EOF`
+- `node <<EOF`
+- any `<<EOF`-style heredoc with any command or delimiter
+
+Forbidden interactive sessions during agent tasks include:
+
+- `python` without a script/file argument
+- Node.js REPL sessions, including `node` without a script/file argument
+- interactive PowerShell prompts or continuation prompts
+- commands that require manual stdin or wait for typed input
+
+Required multi-line edit/script execution patterns:
+
+- Prefer normal file editing tools for repository file edits.
+- For temporary PowerShell automation, create a temporary `.ps1` file and run it directly.
+- For temporary Python automation, create a temporary `.py` file and run it with `python .\file.py`.
+- Use direct single-line PowerShell commands only when the command is simple, deterministic, and non-interactive.
+- Do not use inline Bash syntax as a substitute for file-based execution.
+
+Recovery rule for interactive or hanging terminal states:
+
+1. If the terminal shows a Python `>>>` prompt, PowerShell continuation prompt, or a hanging command waiting for stdin, stop immediately.
+2. Report the terminal state and the command that caused it.
+3. Ask for human intervention instead of attempting additional shell syntax or continuing execution.
+4. Do not press forward with `Proceed While Running` as a normal recovery path.
+
+Command style examples:
+
+Bad:
+
+```powershell
+python - <<'PY'
+powershell -Command "..."
+git --no-pager status --short && git --no-pager diff --stat
+```
+
+Good:
+
+```powershell
+python .\tmp_edit.py
+.\scripts\verify.ps1
+git --no-pager status --short
+```
+
+Good command style guidance:
+
+- Run separate PowerShell commands one at a time.
+- Use a PowerShell semicolon only for simple, non-interactive command separation when explicitly safe for the task; Cline final verification checks must still be separate executions.
+- Prefer repository file editing tools over terminal-generated multi-line edits.
+
+Incident rationale (RALPH-025B):
+
+- During RALPH-025A, Cline attempted `python - <<'PY'` in a Windows PowerShell terminal.
+- PowerShell did not interpret the heredoc as Bash would; execution dropped into an interactive Python REPL and blocked.
+- These rules prevent recurrence by forbidding heredocs and interactive sessions and requiring file-based script execution for multi-line work.
+
 ### Git Pager Reliability Rule
 
 - If output from a Git read command is visible but Cline remains in `Running`, check for a Git pager session.

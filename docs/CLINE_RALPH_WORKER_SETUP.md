@@ -79,6 +79,12 @@ The following sections are **operator summaries** for onboarding convenience and
 - Use Windows/PowerShell-safe commands only.
 - Run exactly one short command per execution.
 - Do not chain commands.
+- Never use Bash heredocs in PowerShell, including `python - <<'PY'`, `python - <<PY`, `cat <<EOF`, `node <<EOF`, or any `<<EOF`-style heredoc.
+- Never start interactive interpreter sessions during agent tasks, including `python` without a script/file, Node.js REPL, interactive PowerShell prompts, or commands requiring manual stdin.
+- For multi-line edits or automation, use normal file editing tools, a temporary `.ps1` file, or a temporary `.py` file executed as `python .\file.py`.
+- If the terminal shows a Python `>>>` prompt, a PowerShell continuation prompt, or a hanging command waiting for stdin, stop, report the issue, and ask for human intervention.
+- Bad command examples: `python - <<'PY'`, `powershell -Command "..."`, and command chains with `&&` in Windows PowerShell.
+- Good command examples: `python .\tmp_edit.py`, `.\scripts\verify.ps1`, separate PowerShell commands one at a time, and semicolon separation only for simple non-interactive commands when explicitly safe.
 - Run final git readback checks as separate executions.
 - For full rules (forbidden separators, pager handling, timeout recovery, blocking commands), use the canonical policy in `.agent/adapters/cline.md`.
 

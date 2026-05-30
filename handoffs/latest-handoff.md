@@ -1,137 +1,144 @@
-# Agent Handoff: RALPH-025A
+# Agent Handoff: RALPH-025B
 
 ## Run Identity
 
-- **Run ID:** run_2026-05-30_ralph-025a-shared-roadmap-parser
-- **Task ID:** RALPH-025A
-- **Task Title:** Shared ROADMAP Parser Extraction
+- **Run ID:** run_2026-05-30_ralph-025b-cline-powershell-command-safety
+- **Task ID:** RALPH-025B
+- **Task Title:** Cline PowerShell Command Safety Hardening
 - **Agent:** Cline (ACT MODE)
-- **Completed:** 2026-05-30T10:49:00Z
+- **Completed:** 2026-05-30T11:06:00Z
 - **Status:** ✅ IMPLEMENTED — awaiting human review
 
 ## What Changed
 
-### Files Created
-
-1. `scripts/agent/lib/roadmap-parser.mjs`
-   - Extracted canonical ROADMAP parser into a shared module.
-   - Preserves heading-style tasks as canonical task definitions.
-   - Preserves checkbox lines as `taskReferences` only.
-   - Preserves task fields: `id`, `title`, `status`, `order`, `line`, `section`, `dod_verify_text`.
-   - Preserves reference fields: `id`, `title`, `checkbox_state`, `line`, `section`.
-   - Exports `parseRoadmap`, `normalizeStatus`, and `ROADMAP_TASK_ID_PATTERN`.
-
 ### Files Modified
 
-1. `scripts/agent/reconcile-roadmap-task-state.mjs`
-   - Removed local ROADMAP parser duplication.
-   - Imports `parseRoadmap` and `normalizeStatus` from `./lib/roadmap-parser.mjs`.
-   - Output schema and reconciler behavior preserved.
+1. `.agent/adapters/cline.md`
+   - Added canonical Cline terminal safety rules for PowerShell heredoc and interactive-session prevention.
+   - Explicitly forbids Bash-style heredocs, interactive interpreters, manual-stdin commands, and unsafe command examples.
+   - Requires file-based script execution or normal file editing tools for multi-line work.
+   - Adds recovery instructions for Python `>>>`, PowerShell continuation prompts, and hanging stdin waits.
 
-2. `scripts/agent/create-runtime-task-from-roadmap.mjs`
-   - Removed local ROADMAP parser duplication.
-   - Imports `parseRoadmap` and `ROADMAP_TASK_ID_PATTERN` from `./lib/roadmap-parser.mjs`.
-   - RALPH-025 dry-run/write behavior preserved.
+2. `docs/CLINE_RALPH_WORKER_SETUP.md`
+   - Added non-authoritative operator-summary bullets mirroring the new PowerShell safety requirements.
+   - Points operators to the canonical adapter policy for full terminal safety details.
 
-3. `scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
-   - Temp CLI fixture now copies the shared parser module with the reconciler script.
-   - Existing parser behavior protections remain covered:
-     - checkbox + heading same ID => one canonical task + one reference
-     - checkbox-only => zero canonical tasks + one reference
-     - duplicate heading definitions => critical duplicate finding
+3. `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+   - Added non-authoritative dry-run checklist bullets for heredoc prohibition, interactive-session prohibition, file-based script execution, recovery, and command examples.
 
-4. `scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs`
-   - Temp CLI fixture now copies the shared parser module with the create-runtime script.
-   - Added explicit shared-parser behavior coverage for create-runtime selection with checkbox + heading same ID.
-
-5. `handoffs/latest-handoff.md`
-   - Updated this handoff for RALPH-025A.
+4. `handoffs/latest-handoff.md`
+   - Updated this handoff for RALPH-025B.
 
 ## Why Changed
 
-- Eliminates parser drift introduced by RALPH-025.
-- Makes reconciler and runtime task creation depend on the same canonical ROADMAP parsing behavior.
-- Keeps behavior unchanged except parser deduplication.
+- During RALPH-025A, Cline attempted `python - <<'PY'` in a Windows PowerShell terminal.
+- PowerShell did not support the Bash heredoc syntax, which dropped execution into an interactive Python REPL and blocked progress.
+- RALPH-025B hardens repository-level Cline rules so future tasks avoid Bash heredocs, interactive sessions, and PowerShell-incompatible command patterns.
 
 ## Changed Files
 
 ```text
-scripts/agent/lib/roadmap-parser.mjs
-scripts/agent/reconcile-roadmap-task-state.mjs
-scripts/agent/create-runtime-task-from-roadmap.mjs
-scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs
-scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs
+.agent/adapters/cline.md
+docs/CLINE_RALPH_WORKER_SETUP.md
+docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md
 handoffs/latest-handoff.md
 ```
 
+## Exact Rules Added
+
+Canonical rules added to `.agent/adapters/cline.md` under `PowerShell Heredoc and Interactive Session Prohibition (CLINE-OPS-005)`:
+
+- Windows PowerShell is the default Cline terminal; Cline must never use Bash-style heredocs, interactive interpreter sessions, or command patterns requiring manual stdin during agent tasks.
+- Forbidden heredoc patterns include:
+  - `python - <<'PY'`
+  - `python - <<PY`
+  - `cat <<EOF`
+  - `node <<EOF`
+  - any `<<EOF`-style heredoc with any command or delimiter
+- Forbidden interactive sessions include:
+  - `python` without a script/file argument
+  - Node.js REPL sessions, including `node` without a script/file argument
+  - interactive PowerShell prompts or continuation prompts
+  - commands that require manual stdin or wait for typed input
+- Required multi-line edit/script execution patterns:
+  - Prefer normal file editing tools for repository file edits.
+  - For temporary PowerShell automation, create a temporary `.ps1` file and run it directly.
+  - For temporary Python automation, create a temporary `.py` file and run it with `python .\file.py`.
+  - Use direct single-line PowerShell commands only when simple, deterministic, and non-interactive.
+  - Do not use inline Bash syntax as a substitute for file-based execution.
+- Recovery rule:
+  - If terminal shows Python `>>>`, PowerShell continuation prompt, or a hanging command waiting for stdin, stop immediately.
+  - Report the terminal state and command that caused it.
+  - Ask for human intervention instead of attempting additional shell syntax or continuing execution.
+  - Do not use `Proceed While Running` as a normal recovery path.
+- Command examples added:
+  - Bad: `python - <<'PY'`
+  - Bad: `powershell -Command "..."`
+  - Bad: `git --no-pager status --short && git --no-pager diff --stat`
+  - Good: `python .\tmp_edit.py`
+  - Good: `.\scripts\verify.ps1`
+  - Good: `git --no-pager status --short`
+  - Good guidance: separate PowerShell commands one at a time; semicolon only for simple non-interactive command separation when explicitly safe; final verification checks must still be separate executions.
+
+Operator-summary versions of these rules were also added to:
+
+- `docs/CLINE_RALPH_WORKER_SETUP.md`
+- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+
 ## Validation Executed
 
-1. `node --check scripts/agent/lib/roadmap-parser.mjs`
-   - Result: ✅ PASS
+1. `git --no-pager status --short`
+   - Result: ✅ PASS readback executed.
+   - Output showed only allowed modified files:
+     - `.agent/adapters/cline.md`
+     - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+     - `docs/CLINE_RALPH_WORKER_SETUP.md`
+     - `handoffs/latest-handoff.md`
 
-2. `node --check scripts/agent/reconcile-roadmap-task-state.mjs`
-   - Result: ✅ PASS
+2. `git --no-pager diff --stat`
+   - Result: ✅ PASS readback executed.
+   - Output: 4 files changed, 158 insertions(+), 89 deletions(-).
 
-3. `node --check scripts/agent/create-runtime-task-from-roadmap.mjs`
-   - Result: ✅ PASS
-
-4. `node --test scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
-   - Result: ✅ PASS — 21 tests passed, 0 failed
-
-5. `node --test scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs`
-   - Result: ✅ PASS — 17 tests passed, 0 failed
-
-6. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
-   - Result: ✅ PASS — exit code 0, `critical_count: 0`
-
-7. `node scripts/agent/create-runtime-task-from-roadmap.mjs --json`
-   - Result: ✅ PASS — dry-run output, selected `P2-001`, no writes
-
-8. `git --no-pager status --short`
-   - Result: ✅ PASS readback executed
-
-9. `git --no-pager diff --stat`
-   - Result: ✅ PASS readback executed
-
-10. `git --no-pager diff --name-only`
-   - Result: ✅ PASS readback executed
+3. `git --no-pager diff --name-only`
+   - Result: ✅ PASS readback executed.
+   - Output showed only allowed modified files:
+     - `.agent/adapters/cline.md`
+     - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+     - `docs/CLINE_RALPH_WORKER_SETUP.md`
+     - `handoffs/latest-handoff.md`
 
 ## Validation Result
 
-✅ Required checks passed. Parser duplication has been removed from both scripts.
+✅ Required documentation/governance readback checks passed.
 
 ## Repository State Confirmation
 
-- ✅ Both scripts import the shared parser module.
-- ✅ RALPH-025 dry-run/write behavior preserved.
-- ✅ No real `ROADMAP.md` modification.
-- ✅ No real `tasks/task-state.json` write; write mode remains tested only in temp fixtures.
-- ✅ No task-history writes.
-- ✅ No validation evidence writes.
-- ✅ No review evidence writes.
-- ✅ No run creation or `runs/` modification.
-- ✅ No `package.json` or `package-lock.json` modification.
-- ✅ No product code modification.
+- ✅ Documentation/rules-only changes.
+- ✅ No runtime scripts modified.
+- ✅ No product code modified.
+- ✅ No `package.json` or `package-lock.json` modified.
+- ✅ No `ROADMAP.md` modification.
+- ✅ No `tasks/`, `runs/`, `validation/`, or `review/` evidence/state files modified.
 - ✅ No commit.
 - ✅ No push.
 
 ## Known Issues / Notes
 
-- `reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md` remains an untracked pre-existing context file and was not modified by this task.
-- A previous invalid PowerShell/Python heredoc attempt failed before any file changes; continuation used direct patch edits only.
+- `.clinerules/` currently has no files; no `.clinerules/` changes were needed.
+- Final verification readback commands must be run separately per Cline command isolation rules.
 
 ## Human Review Status
 
-**Status:** ⏸️ AWAITING HUMAN REVIEW
+**Status:** ⏸️ AWAITING HUMAN REVIEW.
 
 Review focus:
 
-1. Confirm shared parser extraction is acceptable.
-2. Confirm reconciler output behavior is preserved.
-3. Confirm RALPH-025 create-runtime behavior is unchanged.
+1. Confirm the canonical Cline adapter rules cover the RALPH-025A PowerShell heredoc incident.
+2. Confirm operator summaries remain non-authoritative and point to `.agent/adapters/cline.md`.
+3. Confirm only allowed documentation/rules/handoff files changed.
 
 ---
 
-**Handoff Complete:** 2026-05-30T10:49:00Z  
+**Handoff Complete:** 2026-05-30T11:06:00Z  
 **Agent:** Cline  
 **Status:** ✅ IMPLEMENTED — Awaiting Human Review

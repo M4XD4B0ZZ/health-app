@@ -1,131 +1,118 @@
-# Agent Handoff: RALPH-025B
+# Agent Handoff: RALPH-027
 
-## Run Identity
+## Run/Task Identity and Status
 
-- **Run ID:** run_2026-05-30_ralph-025b-cline-powershell-command-safety
-- **Task ID:** RALPH-025B
-- **Task Title:** Cline PowerShell Command Safety Hardening
+- **Task ID:** RALPH-027
+- **Task Title:** Minimal Runtime Run Creation implementation
 - **Agent:** Cline (ACT MODE)
-- **Completed:** 2026-05-30T11:06:00Z
+- **Completed:** 2026-05-30T12:49:00Z
 - **Status:** ✅ IMPLEMENTED — awaiting human review
+- **Human Review Status:** ⏸️ REQUIRED / AWAITING HUMAN REVIEW
 
 ## What Changed
 
-### Files Modified
+Implemented the RALPH-027 runtime run creation layer according to the approved RALPH-026 design.
 
-1. `.agent/adapters/cline.md`
-   - Added canonical Cline terminal safety rules for PowerShell heredoc and interactive-session prevention.
-   - Explicitly forbids Bash-style heredocs, interactive interpreters, manual-stdin commands, and unsafe command examples.
-   - Requires file-based script execution or normal file editing tools for multi-line work.
-   - Adds recovery instructions for Python `>>>`, PowerShell continuation prompts, and hanging stdin waits.
-
-2. `docs/CLINE_RALPH_WORKER_SETUP.md`
-   - Added non-authoritative operator-summary bullets mirroring the new PowerShell safety requirements.
-   - Points operators to the canonical adapter policy for full terminal safety details.
-
-3. `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-   - Added non-authoritative dry-run checklist bullets for heredoc prohibition, interactive-session prohibition, file-based script execution, recovery, and command examples.
-
-4. `handoffs/latest-handoff.md`
-   - Updated this handoff for RALPH-025B.
-
-## Why Changed
-
-- During RALPH-025A, Cline attempted `python - <<'PY'` in a Windows PowerShell terminal.
-- PowerShell did not support the Bash heredoc syntax, which dropped execution into an interactive Python REPL and blocked progress.
-- RALPH-025B hardens repository-level Cline rules so future tasks avoid Bash heredocs, interactive sessions, and PowerShell-incompatible command patterns.
-
-## Changed Files
+### Files Changed
 
 ```text
-.agent/adapters/cline.md
-docs/CLINE_RALPH_WORKER_SETUP.md
-docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md
+scripts/agent/create-runtime-run.mjs
+scripts/agent/__tests__/create-runtime-run.test.mjs
 handoffs/latest-handoff.md
 ```
 
-## Exact Rules Added
+### Runtime Write Targets
 
-Canonical rules added to `.agent/adapters/cline.md` under `PowerShell Heredoc and Interactive Session Prohibition (CLINE-OPS-005)`:
+No real runtime write was performed in this implementation run. The new CLI supports write mode only for:
 
-- Windows PowerShell is the default Cline terminal; Cline must never use Bash-style heredocs, interactive interpreter sessions, or command patterns requiring manual stdin during agent tasks.
-- Forbidden heredoc patterns include:
-  - `python - <<'PY'`
-  - `python - <<PY`
-  - `cat <<EOF`
-  - `node <<EOF`
-  - any `<<EOF`-style heredoc with any command or delimiter
-- Forbidden interactive sessions include:
-  - `python` without a script/file argument
-  - Node.js REPL sessions, including `node` without a script/file argument
-  - interactive PowerShell prompts or continuation prompts
-  - commands that require manual stdin or wait for typed input
-- Required multi-line edit/script execution patterns:
-  - Prefer normal file editing tools for repository file edits.
-  - For temporary PowerShell automation, create a temporary `.ps1` file and run it directly.
-  - For temporary Python automation, create a temporary `.py` file and run it with `python .\file.py`.
-  - Use direct single-line PowerShell commands only when simple, deterministic, and non-interactive.
-  - Do not use inline Bash syntax as a substitute for file-based execution.
-- Recovery rule:
-  - If terminal shows Python `>>>`, PowerShell continuation prompt, or a hanging command waiting for stdin, stop immediately.
-  - Report the terminal state and command that caused it.
-  - Ask for human intervention instead of attempting additional shell syntax or continuing execution.
-  - Do not use `Proceed While Running` as a normal recovery path.
-- Command examples added:
-  - Bad: `python - <<'PY'`
-  - Bad: `powershell -Command "..."`
-  - Bad: `git --no-pager status --short && git --no-pager diff --stat`
-  - Good: `python .\tmp_edit.py`
-  - Good: `.\scripts\verify.ps1`
-  - Good: `git --no-pager status --short`
-  - Good guidance: separate PowerShell commands one at a time; semicolon only for simple non-interactive command separation when explicitly safe; final verification checks must still be separate executions.
+```text
+runs/current-run.json
+runs/run-history.jsonl
+```
 
-Operator-summary versions of these rules were also added to:
+## Why Changed
 
-- `docs/CLINE_RALPH_WORKER_SETUP.md`
-- `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
+RALPH-026 identified the missing deterministic Runtime Run Creation layer between runtime tasks and future worker execution. RALPH-027 adds the smallest safe implementation: create a planned run object and append one `run.created` history event only when explicitly invoked with write confirmation.
+
+## Implementation Summary
+
+`scripts/agent/create-runtime-run.mjs` now provides:
+
+- Dry-run default behavior.
+- `--json` machine-readable output.
+- `--task-id <id>` explicit task selection.
+- `--write` requires `--confirm-write`.
+- `--confirm-write` requires `--write`.
+- Eligibility guard: `status === "not_started"` and `(runtime_only === true OR source === "roadmap_import")`.
+- Duplicate active-run prevention for active-like statuses.
+- Planned run generation with `schema_version: "2.0.0"`.
+- Human/script ownership metadata.
+- `worker.type: "unassigned"` so no worker execution starts.
+- Pre-write safety gates: reconciler, validator, working tree, duplicate active-run check.
+- Atomic `runs/current-run.json` write via temp file.
+- Append-only `runs/run-history.jsonl` `run.created` event in write mode.
+- No task-state, ROADMAP, validation evidence, review evidence, package, or product-code mutation.
+
+`scripts/agent/__tests__/create-runtime-run.test.mjs` adds Node native `node:test` coverage for dry-run, write guards, explicit selection, eligibility, active-run blocking, generated schema, temp write behavior, and reconciler/validator green checks.
 
 ## Validation Executed
 
-1. `git --no-pager status --short`
-   - Result: ✅ PASS readback executed.
-   - Output showed only allowed modified files:
-     - `.agent/adapters/cline.md`
-     - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-     - `docs/CLINE_RALPH_WORKER_SETUP.md`
-     - `handoffs/latest-handoff.md`
+1. `node --check scripts/agent/create-runtime-run.mjs`
+   - **Result:** ✅ PASS
 
-2. `git --no-pager diff --stat`
-   - Result: ✅ PASS readback executed.
-   - Output: 4 files changed, 158 insertions(+), 89 deletions(-).
+2. `node scripts/agent/create-runtime-run.mjs --help`
+   - **Result:** ✅ PASS
 
-3. `git --no-pager diff --name-only`
-   - Result: ✅ PASS readback executed.
-   - Output showed only allowed modified files:
-     - `.agent/adapters/cline.md`
-     - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-     - `docs/CLINE_RALPH_WORKER_SETUP.md`
-     - `handoffs/latest-handoff.md`
+3. `node scripts/agent/create-runtime-run.mjs --json`
+   - **Result:** ⚠️ Expected current-state no-op / exit code 3
+   - Output was valid JSON.
+   - The real repository currently has no eligible runtime task matching `status === "not_started"` plus the ownership guard.
+   - No files were written.
+
+4. `npm run test -- --runTestsByPath scripts/agent/__tests__/create-runtime-run.test.mjs`
+   - **Result:** ⚠️ Not discovered by Jest config
+   - Jest is configured for `**/__tests__/**/*.test.ts`, so `.mjs` Node-native tests were not discovered.
+
+5. `node --test scripts/agent/__tests__/create-runtime-run.test.mjs`
+   - **Result:** ✅ PASS
+   - `16` tests passed, `0` failed.
+
+6. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
+   - **Result:** ✅ PASS / green
+   - Summary status: `ok`, exit code: `0`, critical count: `0`.
+
+7. `node scripts/agent/validate-ralph-state.mjs --json`
+   - **Result:** ✅ PASS / green
+   - Summary status: `ok`, exit code: `0`, critical count: `0`.
 
 ## Validation Result
 
-✅ Required documentation/governance readback checks passed.
+✅ Required RALPH-027 implementation validation passed using the supported Node-native test runner for `.mjs` tests.
 
-## Repository State Confirmation
+✅ Reconciler remains green.
 
-- ✅ Documentation/rules-only changes.
-- ✅ No runtime scripts modified.
-- ✅ No product code modified.
-- ✅ No `package.json` or `package-lock.json` modified.
-- ✅ No `ROADMAP.md` modification.
-- ✅ No `tasks/`, `runs/`, `validation/`, or `review/` evidence/state files modified.
+✅ Validator remains green.
+
+⚠️ Jest path-specific command did not discover the `.mjs` test file due existing Jest `testMatch` configuration; no implementation failure was indicated by that command.
+
+## Scope and Safety Confirmation
+
+- ✅ No worker execution implemented or triggered.
+- ✅ No `tasks/task-state.json` mutation.
+- ✅ No `tasks/task-history.jsonl` writes.
+- ✅ No `validation/validation-results.jsonl` writes.
+- ✅ No `review/review-results.jsonl` writes.
+- ✅ No `ROADMAP.md` modifications.
+- ✅ No `package.json` or `package-lock.json` modifications.
+- ✅ No product-code (`src/**`) modifications.
+- ✅ No Supabase/edge modifications.
 - ✅ No commit.
 - ✅ No push.
 
-## Known Issues / Notes
+## Known Issues / Risks
 
-- `.clinerules/` currently has no files; no `.clinerules/` changes were needed.
-- Final verification readback commands must be run separately per Cline command isolation rules.
+- The real repository currently has no eligible runtime task, so repository-level dry-run exits with code `3` while still producing valid JSON and making no changes. Temp-fixture tests verify successful dry-run and write behavior for eligible tasks.
+- The Jest command in VERIFY/RALPH-026 form does not discover `.mjs` Node-native tests under the current Jest config. Node’s native test runner was used and passed.
 
 ## Human Review Status
 
@@ -133,12 +120,13 @@ Operator-summary versions of these rules were also added to:
 
 Review focus:
 
-1. Confirm the canonical Cline adapter rules cover the RALPH-025A PowerShell heredoc incident.
-2. Confirm operator summaries remain non-authoritative and point to `.agent/adapters/cline.md`.
-3. Confirm only allowed documentation/rules/handoff files changed.
+1. Confirm the CLI behavior matches approved RALPH-026 design.
+2. Confirm write mode is sufficiently guarded.
+3. Confirm no forbidden state/evidence/product/package/ROADMAP mutations occurred.
+4. Confirm the `.mjs` test execution path is acceptable for this Ralph script layer.
 
 ---
 
-**Handoff Complete:** 2026-05-30T11:06:00Z  
+**Handoff Complete:** 2026-05-30T12:49:00Z  
 **Agent:** Cline  
 **Status:** ✅ IMPLEMENTED — Awaiting Human Review

@@ -46,14 +46,18 @@ function stubScript(exitCode = 0, name = 'stub') {
   return `#!/usr/bin/env node\nconsole.log(JSON.stringify({ summary: { status: '${name}', exit_code: ${exitCode} } }));\nprocess.exit(${exitCode});\n`;
 }
 
-function tempProject(t, { state = taskState([runtimeTask('RALPH-027')]), run = currentRun(), history = '', reconcilerExit = 0, validatorExit = 0 } = {}) {
+function statefulValidatorScript() {
+  return `#!/usr/bin/env node\nimport fs from 'node:fs';\nconst run = JSON.parse(fs.readFileSync('runs/current-run.json', 'utf8'));\nconst exitCode = run.status === 'planned' ? 1 : 0;\nconsole.log(JSON.stringify({ summary: { status: exitCode === 0 ? 'validator' : 'validator_failed_after_write', exit_code: exitCode } }));\nprocess.exit(exitCode);\n`;
+}
+
+function tempProject(t, { state = taskState([runtimeTask('RALPH-027')]), run = currentRun(), history = '', reconcilerExit = 0, validatorExit = 0, validatorScript = null } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-027-create-run-'));
   fs.mkdirSync(path.join(root, 'scripts/agent'), { recursive: true });
   fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
   fs.mkdirSync(path.join(root, 'runs'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(root, 'scripts/agent/create-runtime-run.mjs'));
   fs.writeFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), stubScript(reconcilerExit, 'reconciler'), 'utf8');
-  fs.writeFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), stubScript(validatorExit, 'validator'), 'utf8');
+  fs.writeFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), validatorScript || stubScript(validatorExit, 'validator'), 'utf8');
   fs.writeFileSync(path.join(root, 'tasks/task-state.json'), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(root, 'runs/current-run.json'), `${JSON.stringify(run, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(root, 'runs/run-history.jsonl'), history, 'utf8');
@@ -182,7 +186,10 @@ test('completed current run allows new planned run in write mode', (t) => {
   assert.equal(run.task_id, 'RALPH-027');
   assert.equal(run.worker.type, 'unassigned');
   assert.equal(historyLines.length, 1);
-  assert.equal(JSON.parse(historyLines[0]).event_type, 'run.created');
+  const historyEvent = JSON.parse(historyLines[0]);
+  assert.equal(historyEvent.event_type, 'run.created');
+  assert.equal(historyEvent.run_id, run.run_id);
+  assert.equal(historyEvent.task_id, run.task_id);
 });
 
 test('active current run blocks new run', (t) => {
@@ -246,6 +253,19 @@ test('validator failure blocks write before mutation', (t) => {
   assert.equal(result.status, 1);
   assert.match(json.error, /Pre-write safety checks failed/);
   assert.equal(fs.readFileSync(path.join(root, 'runs/current-run.json'), 'utf8'), beforeRun);
+  assert.equal(readHistoryLines(root).length, 0);
+});
+
+test('post-write validator failure restores current run and does not append history event', (t) => {
+  const root = tempProject(t, { validatorScript: statefulValidatorScript() });
+  const beforeRun = fs.readFileSync(path.join(root, 'runs/current-run.json'), 'utf8');
+  const beforeHistory = fs.readFileSync(path.join(root, 'runs/run-history.jsonl'), 'utf8');
+  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+
+  assert.equal(result.status, 1);
+  assert.match(json.error, /Post-write reconciler or validator failed/);
+  assert.equal(fs.readFileSync(path.join(root, 'runs/current-run.json'), 'utf8'), beforeRun);
+  assert.equal(fs.readFileSync(path.join(root, 'runs/run-history.jsonl'), 'utf8'), beforeHistory);
   assert.equal(readHistoryLines(root).length, 0);
 });
 

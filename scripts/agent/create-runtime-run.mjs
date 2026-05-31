@@ -341,14 +341,11 @@ function allChecksPassed(checks) {
   return Object.values(checks).every((check) => check.passed === true);
 }
 
-function writeRunAtomically(projectRoot, run, event, originalCurrentRunContent) {
+function writeRunAtomically(projectRoot, run, originalCurrentRunContent) {
   const targetPath = resolvePath(projectRoot, PATHS.currentRun);
   const tempPath = resolvePath(projectRoot, PATHS.currentRunTemp);
-  const historyPath = resolvePath(projectRoot, PATHS.runHistory);
-  const eventLine = `${JSON.stringify(event)}\n`;
 
   try {
-    JSON.parse(eventLine);
     fs.writeFileSync(tempPath, `${JSON.stringify(run, null, 2)}\n`, 'utf8');
     const tempRun = JSON.parse(fs.readFileSync(tempPath, 'utf8'));
     const tempValidation = validateRunSchema(tempRun);
@@ -360,12 +357,33 @@ function writeRunAtomically(projectRoot, run, event, originalCurrentRunContent) 
     const writtenValidation = validateRunSchema(writtenRun);
     if (!writtenValidation.valid) throw new Error(`Written run validation failed: ${writtenValidation.error}`);
 
+    return { success: true };
+  } catch (error) {
+    try {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      fs.writeFileSync(targetPath, originalCurrentRunContent, 'utf8');
+    } catch (rollbackError) {
+      return { success: false, error: `${error.message}; rollback failed: ${rollbackError.message}` };
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+function appendHistoryEvent(projectRoot, event, originalCurrentRunContent) {
+  const targetPath = resolvePath(projectRoot, PATHS.currentRun);
+  const historyPath = resolvePath(projectRoot, PATHS.runHistory);
+
+  try {
+    const eventLine = `${JSON.stringify(event)}\n`;
+    JSON.parse(eventLine);
+    const eventValidation = validateHistoryEventSchema(JSON.parse(eventLine));
+    if (!eventValidation.valid) throw new Error(`History event validation failed: ${eventValidation.error}`);
+
     fs.appendFileSync(historyPath, eventLine, 'utf8');
 
     return { success: true };
   } catch (error) {
     try {
-      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       fs.writeFileSync(targetPath, originalCurrentRunContent, 'utf8');
     } catch (rollbackError) {
       return { success: false, error: `${error.message}; rollback failed: ${rollbackError.message}` };
@@ -558,7 +576,7 @@ async function main() {
     result.generated_run = generatedRun;
 
     const originalCurrentRunContent = readText(options.projectRoot, PATHS.currentRun);
-    const writeResult = writeRunAtomically(options.projectRoot, generatedRun, generatedEvent, originalCurrentRunContent);
+    const writeResult = writeRunAtomically(options.projectRoot, generatedRun, originalCurrentRunContent);
     result.write_result = writeResult;
     if (!writeResult.success) {
       result.error = `Write failed: ${writeResult.error}`;
@@ -578,6 +596,15 @@ async function main() {
       result.exit_code = EXIT_CODES.VALIDATION_FAILURE;
       outputResult(result, options.json);
       process.exit(EXIT_CODES.VALIDATION_FAILURE);
+    }
+
+    const historyAppendResult = appendHistoryEvent(options.projectRoot, generatedEvent, originalCurrentRunContent);
+    result.history_append_result = historyAppendResult;
+    if (!historyAppendResult.success) {
+      result.error = `History append failed: ${historyAppendResult.error}`;
+      result.exit_code = EXIT_CODES.CREATION_FAILURE;
+      outputResult(result, options.json);
+      process.exit(EXIT_CODES.CREATION_FAILURE);
     }
 
     result.action = 'run_created';

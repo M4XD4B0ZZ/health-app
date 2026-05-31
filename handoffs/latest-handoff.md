@@ -1,17 +1,17 @@
-# Agent Handoff: RALPH-027
+# Agent Handoff: RALPH-027 Patch
 
 ## Run/Task Identity and Status
 
 - **Task ID:** RALPH-027
-- **Task Title:** Minimal Runtime Run Creation implementation
+- **Patch:** Prevent orphan `run.created` run-history event on post-write failure
 - **Agent:** Cline (ACT MODE)
-- **Completed:** 2026-05-30T12:49:00Z
-- **Status:** ✅ IMPLEMENTED — awaiting human review
+- **Completed:** 2026-05-31T11:39:00Z
+- **Status:** ✅ PATCH IMPLEMENTED — awaiting human review
 - **Human Review Status:** ⏸️ REQUIRED / AWAITING HUMAN REVIEW
 
 ## What Changed
 
-Implemented the RALPH-027 runtime run creation layer according to the approved RALPH-026 design.
+Patched runtime run creation write ordering so `runs/run-history.jsonl` is appended only after `runs/current-run.json` is written and post-write reconciler/validator checks pass.
 
 ### Files Changed
 
@@ -21,98 +21,99 @@ scripts/agent/__tests__/create-runtime-run.test.mjs
 handoffs/latest-handoff.md
 ```
 
-### Runtime Write Targets
-
-No real runtime write was performed in this implementation run. The new CLI supports write mode only for:
-
-```text
-runs/current-run.json
-runs/run-history.jsonl
-```
-
 ## Why Changed
 
-RALPH-026 identified the missing deterministic Runtime Run Creation layer between runtime tasks and future worker execution. RALPH-027 adds the smallest safe implementation: create a planned run object and append one `run.created` history event only when explicitly invoked with write confirmation.
+The previous ordering appended `run.created` before post-write checks completed. If a post-write reconciler/validator check failed, `runs/current-run.json` was restored, but the appended JSONL event could remain orphaned. This patch makes the current-run write and history append coherent under failure.
 
 ## Implementation Summary
 
-`scripts/agent/create-runtime-run.mjs` now provides:
+`scripts/agent/create-runtime-run.mjs` now:
 
-- Dry-run default behavior.
-- `--json` machine-readable output.
-- `--task-id <id>` explicit task selection.
-- `--write` requires `--confirm-write`.
-- `--confirm-write` requires `--write`.
-- Eligibility guard: `status === "not_started"` and `(runtime_only === true OR source === "roadmap_import")`.
-- Duplicate active-run prevention for active-like statuses.
-- Planned run generation with `schema_version: "2.0.0"`.
-- Human/script ownership metadata.
-- `worker.type: "unassigned"` so no worker execution starts.
-- Pre-write safety gates: reconciler, validator, working tree, duplicate active-run check.
-- Atomic `runs/current-run.json` write via temp file.
-- Append-only `runs/run-history.jsonl` `run.created` event in write mode.
-- No task-state, ROADMAP, validation evidence, review evidence, package, or product-code mutation.
+- Validates generated run and generated history event before write mode mutation.
+- Writes `runs/current-run.json` atomically via temp file without appending history.
+- Runs post-write reconciler/validator checks after current-run write.
+- Appends exactly one `run.created` event only after post-write checks pass.
+- Restores original `runs/current-run.json` content if current-run write fails.
+- Restores original `runs/current-run.json` content if post-write checks fail and does **not** append history.
+- Restores original `runs/current-run.json` content if history append fails and returns creation failure.
+- Keeps dry-run behavior and existing guards unchanged.
 
-`scripts/agent/__tests__/create-runtime-run.test.mjs` adds Node native `node:test` coverage for dry-run, write guards, explicit selection, eligibility, active-run blocking, generated schema, temp write behavior, and reconciler/validator green checks.
+`scripts/agent/__tests__/create-runtime-run.test.mjs` now includes regression coverage proving:
+
+- A post-write validator failure after current-run write restores the original `current-run.json` and leaves `run-history.jsonl` unchanged with no new line.
+- Successful write still creates a planned `current-run.json` and appends exactly one matching `run.created` event.
 
 ## Validation Executed
 
 1. `node --check scripts/agent/create-runtime-run.mjs`
    - **Result:** ✅ PASS
 
-2. `node scripts/agent/create-runtime-run.mjs --help`
+2. `node --check scripts/agent/__tests__/create-runtime-run.test.mjs`
    - **Result:** ✅ PASS
 
-3. `node scripts/agent/create-runtime-run.mjs --json`
-   - **Result:** ⚠️ Expected current-state no-op / exit code 3
+3. `node --test scripts/agent/__tests__/create-runtime-run.test.mjs`
+   - **Result:** ✅ PASS
+   - `17` tests passed, `0` failed.
+
+4. `node scripts/agent/create-runtime-run.mjs --json`
+   - **Result:** ⚠️ Expected current-state no-op / exit code `3`
    - Output was valid JSON.
-   - The real repository currently has no eligible runtime task matching `status === "not_started"` plus the ownership guard.
+   - Reason: real repository currently has `eligible_task_count: 0`.
    - No files were written.
 
-4. `npm run test -- --runTestsByPath scripts/agent/__tests__/create-runtime-run.test.mjs`
-   - **Result:** ⚠️ Not discovered by Jest config
-   - Jest is configured for `**/__tests__/**/*.test.ts`, so `.mjs` Node-native tests were not discovered.
-
-5. `node --test scripts/agent/__tests__/create-runtime-run.test.mjs`
-   - **Result:** ✅ PASS
-   - `16` tests passed, `0` failed.
-
-6. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
+5. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
    - **Result:** ✅ PASS / green
    - Summary status: `ok`, exit code: `0`, critical count: `0`.
 
-7. `node scripts/agent/validate-ralph-state.mjs --json`
+6. `node scripts/agent/validate-ralph-state.mjs --json`
    - **Result:** ✅ PASS / green
    - Summary status: `ok`, exit code: `0`, critical count: `0`.
+
+7. `git --no-pager status --short`
+   - **Result:** ✅ PASS / readback
+   - Modified files only:
+     - `scripts/agent/__tests__/create-runtime-run.test.mjs`
+     - `scripts/agent/create-runtime-run.mjs`
+
+8. `git --no-pager diff --stat`
+   - **Result:** ✅ PASS / readback
+   - `2 files changed, 56 insertions(+), 9 deletions(-)` before this handoff update.
+
+9. `git --no-pager diff --name-only`
+   - **Result:** ✅ PASS / readback
+   - Modified files only:
+     - `scripts/agent/__tests__/create-runtime-run.test.mjs`
+     - `scripts/agent/create-runtime-run.mjs`
 
 ## Validation Result
 
-✅ Required RALPH-027 implementation validation passed using the supported Node-native test runner for `.mjs` tests.
+✅ Required RALPH-027 patch validation passed.
+
+✅ Regression test covers post-write validator failure without orphan `run.created` event.
+
+✅ Successful write path still appends exactly one `run.created` event in temp fixtures.
 
 ✅ Reconciler remains green.
 
 ✅ Validator remains green.
 
-⚠️ Jest path-specific command did not discover the `.mjs` test file due existing Jest `testMatch` configuration; no implementation failure was indicated by that command.
-
 ## Scope and Safety Confirmation
 
-- ✅ No worker execution implemented or triggered.
-- ✅ No `tasks/task-state.json` mutation.
-- ✅ No `tasks/task-history.jsonl` writes.
-- ✅ No `validation/validation-results.jsonl` writes.
-- ✅ No `review/review-results.jsonl` writes.
+- ✅ Only scoped files were modified.
 - ✅ No `ROADMAP.md` modifications.
-- ✅ No `package.json` or `package-lock.json` modifications.
+- ✅ No `tasks/` modifications.
+- ✅ No real `runs/` modifications.
+- ✅ No `validation/` modifications.
+- ✅ No `review/` modifications.
+- ✅ No package file modifications.
 - ✅ No product-code (`src/**`) modifications.
-- ✅ No Supabase/edge modifications.
 - ✅ No commit.
 - ✅ No push.
 
 ## Known Issues / Risks
 
-- The real repository currently has no eligible runtime task, so repository-level dry-run exits with code `3` while still producing valid JSON and making no changes. Temp-fixture tests verify successful dry-run and write behavior for eligible tasks.
-- The Jest command in VERIFY/RALPH-026 form does not discover `.mjs` Node-native tests under the current Jest config. Node’s native test runner was used and passed.
+- `node scripts/agent/create-runtime-run.mjs --json` exits with code `3` in the real repository because there are currently no eligible runtime tasks. This is expected no-op behavior and produced valid JSON without writes.
+- The IDE surfaced an unrelated pre-existing `tsconfig.json` TypeScript deprecation warning for `baseUrl`; it was not modified because it is outside this task scope.
 
 ## Human Review Status
 
@@ -120,13 +121,13 @@ RALPH-026 identified the missing deterministic Runtime Run Creation layer betwee
 
 Review focus:
 
-1. Confirm the CLI behavior matches approved RALPH-026 design.
-2. Confirm write mode is sufficiently guarded.
-3. Confirm no forbidden state/evidence/product/package/ROADMAP mutations occurred.
-4. Confirm the `.mjs` test execution path is acceptable for this Ralph script layer.
+1. Confirm write ordering: generated run/event validation → atomic current-run write → post-write checks → history append.
+2. Confirm rollback behavior prevents orphan `run.created` events on post-write failure.
+3. Confirm history append failure returns creation failure and restores original current-run content.
+4. Confirm scope stayed limited to the approved files.
 
 ---
 
-**Handoff Complete:** 2026-05-30T12:49:00Z  
+**Handoff Complete:** 2026-05-31T11:39:00Z  
 **Agent:** Cline  
-**Status:** ✅ IMPLEMENTED — Awaiting Human Review
+**Status:** ✅ PATCH IMPLEMENTED — Awaiting Human Review

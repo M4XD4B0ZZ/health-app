@@ -208,10 +208,15 @@ The checklist below keeps **operator summaries** for usability and is **non-auth
 - Do not chain commands.
 - Never use Bash heredocs in PowerShell, including `python - <<'PY'`, `python - <<PY`, `cat <<EOF`, `node <<EOF`, or any `<<EOF`-style heredoc.
 - Never start interactive interpreter sessions during agent tasks, including `python` without a script/file, Node.js REPL, interactive PowerShell prompts, or commands requiring manual stdin.
+- Never use long inline interpreter commands for file writing or multiline content, including `python -c "...large script..."`, `node -e "...large script..."`, `powershell -Command "...large script..."`, or any shell argument embedding markdown/documents/JSON state content.
+- Never use inline shell commands to write handoffs, reports, JSON state, JSONL history, or markdown documents.
+- Allow only very short read-only one-liners for checks such as JSON parsing or `console.log` assertions; they must not write files, include multiline strings, or embed documents.
 - Use normal file editing tools, a temporary `.ps1` file, or a temporary `.py` file executed as `python .\file.py` for multi-line edits or automation.
+- For bounded script work, create a temporary script file such as `tmp_edit.py`, run `python .\tmp_edit.py`, then delete the temporary script.
 - If the terminal shows a Python `>>>` prompt, a PowerShell continuation prompt, or a hanging command waiting for stdin, stop, report the issue, and ask for human intervention.
-- Bad command examples: `python - <<'PY'`, `powershell -Command "..."`, and command chains with `&&` in Windows PowerShell.
-- Good command examples: `python .\tmp_edit.py`, `.\scripts\verify.ps1`, separate PowerShell commands one at a time, and semicolon separation only for simple non-interactive commands when explicitly safe.
+- If a long inline command fails, hangs, or enters a continuation/interpreter state, stop immediately, do not retry with more escaping, inspect git status/diff, repair only with file editing tools, and ask for human review if partial corruption is possible.
+- Bad command examples: `python - <<'PY'`, `python -c "Path('handoffs/latest-handoff.md').write_text('''...''')"`, `node -e "fs.writeFileSync('file.md', '<large markdown>')"`, `powershell -Command "...large script..."`, and command chains with `&&` in Windows PowerShell.
+- Good command examples: normal edit tools, `python .\tmp_edit.py` for bounded script work followed by deleting `tmp_edit.py`, `node -e "JSON.parse(require('fs').readFileSync('tasks/task-state.json','utf8')); console.log('JSON OK')"` for short read-only JSON checks, `.\scripts\verify.ps1`, separate PowerShell commands one at a time, and semicolon separation only for simple non-interactive commands when explicitly safe.
 - Run final git readback checks as separate executions.
 - For full terminal safety details (forbidden separators, pager handling, timeout rules, blocking commands), follow `.agent/adapters/cline.md`.
 

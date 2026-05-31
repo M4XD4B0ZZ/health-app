@@ -191,6 +191,75 @@ Incident rationale (RALPH-025B):
 - PowerShell did not interpret the heredoc as Bash would; execution dropped into an interactive Python REPL and blocked.
 - These rules prevent recurrence by forbidding heredocs and interactive sessions and requiring file-based script execution for multi-line work.
 
+### Inline Interpreter Command Safety (CLINE-OPS-006)
+
+Cline must not use long inline interpreter commands for repository file edits, file writing, or multiline content. This is especially important in Windows PowerShell, where nested quotes, continuation prompts, and embedded document payloads can fail or hang unpredictably.
+
+Forbidden inline command patterns include, but are not limited to:
+
+- `python -c "...large script..."` when the command writes files or embeds document content
+- `node -e "...large script..."` when the command writes files or embeds document content
+- `powershell -Command "...large script..."` when the command writes files or embeds document content
+- any shell command that embeds multiline markdown, reports, JSON/JSONL payloads, or other document bodies in command arguments
+
+Inline shell commands must never be used to write:
+
+- handoffs
+- reports
+- JSON state
+- JSONL history
+- markdown documents
+
+Only very short read-only one-liners are allowed, and only when all of these conditions are true:
+
+- the command performs a read-only check or assertion,
+- the command does not write files,
+- the command does not contain multiline strings,
+- the command does not embed markdown, reports, JSON state payloads, or document bodies,
+- the command is simple enough to be reviewed as a single isolated operation.
+
+Allowed short read-only examples include JSON parse checks and console output assertions such as:
+
+```powershell
+node -e "JSON.parse(require('fs').readFileSync('tasks/task-state.json','utf8')); console.log('JSON OK')"
+```
+
+Required multiline edit patterns:
+
+- Use normal file editing tools for repository file edits whenever possible.
+- For bounded temporary script work, create a temporary script file, run it directly, and delete the temporary script after use, for example `python .\tmp_edit.py`.
+- Use direct editor/tool-based file modification for markdown, handoffs, reports, JSON state, and JSONL history.
+
+Bad examples:
+
+```powershell
+python -c "from pathlib import Path; Path('handoffs/latest-handoff.md').write_text('''...''')"
+node -e "fs.writeFileSync('file.md', `...large markdown...`)"
+powershell -Command "...large script..."
+```
+
+Good examples:
+
+```powershell
+# Use normal edit tools for documentation and handoff changes.
+python .\tmp_edit.py
+node -e "JSON.parse(require('fs').readFileSync('tasks/task-state.json','utf8')); console.log('JSON OK')"
+```
+
+Recovery rule for failed or hanging long inline commands:
+
+1. Stop immediately.
+2. Do not retry with more escaping, quote changes, larger inline strings, or alternative shell wrapping.
+3. Inspect repository state with `git --no-pager status --short` and a targeted diff/readback check.
+4. Repair only with normal file editing tools or bounded temporary script files.
+5. Ask for human review if partial file corruption is possible.
+
+Incident rationale (RALPH-032):
+
+- During RALPH-032, Cline attempted to write a long markdown handoff with `python -c "...write_text('''...huge multiline content...''')"`.
+- The command produced a Python `SyntaxError` and left the workflow hanging.
+- These rules prevent recurrence by forbidding long inline interpreter write commands and requiring file-editing tools or bounded temporary scripts for multiline work.
+
 ### Git Pager Reliability Rule
 
 - If output from a Git read command is visible but Cline remains in `Running`, check for a Git pager session.

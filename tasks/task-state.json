@@ -558,6 +558,130 @@
         "State management functional"
       ],
       "notes": "First controlled Cline dry run completed; closeout recorded with PowerShell command policy follow-up and no product-code changes"
+    },
+    {
+      "id": "RALPH-025",
+      "title": "Runtime task creation implementation",
+      "status": "done",
+      "runtime_only": true,
+      "source": {
+        "type": "reconstructed_from_git",
+        "commit_hash": "c1ba756d7e1270e9063793acbe623003df4351b0",
+        "changed_files": [
+          "handoffs/latest-handoff.md",
+          "reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md",
+          "scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs",
+          "scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs",
+          "scripts/agent/create-runtime-task-from-roadmap.mjs",
+          "scripts/agent/lib/roadmap-parser.mjs",
+          "scripts/agent/reconcile-roadmap-task-state.mjs"
+        ],
+        "report_or_handoff_refs": [
+          "reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md"
+        ]
+      },
+      "created_at": "2026-05-31T13:50:00.000Z",
+      "updated_at": "2026-05-31T13:50:00.000Z",
+      "attempt_count": 1,
+      "max_attempts": 1,
+      "requires_human_review": true,
+      "validation_required": true,
+      "risk_level": "review_required",
+      "priority": "medium",
+      "allowed_files": [
+        "scripts/agent/create-runtime-task-from-roadmap.mjs",
+        "scripts/agent/__tests__/create-runtime-task-from-roadmap.test.mjs",
+        "scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs",
+        "scripts/agent/lib/roadmap-parser.mjs",
+        "scripts/agent/reconcile-roadmap-task-state.mjs",
+        "reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md",
+        "handoffs/latest-handoff.md"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "supabase/**/*",
+        "package.json",
+        "package-lock.json",
+        ".env*",
+        ".git/**/*",
+        "node_modules/**/*"
+      ]
+    },
+    {
+      "id": "RALPH-027",
+      "title": "Runtime run creation implementation",
+      "status": "done",
+      "runtime_only": true,
+      "source": {
+        "type": "reconstructed_from_git",
+        "commit_hash": "c0d6c9c7c3496abce39db57bc0cac02df308ea1a",
+        "changed_files": [
+          "handoffs/latest-handoff.md",
+          "scripts/agent/__tests__/create-runtime-run.test.mjs",
+          "scripts/agent/create-runtime-run.mjs"
+        ],
+        "report_or_handoff_refs": [
+          "handoffs/latest-handoff.md"
+        ]
+      },
+      "created_at": "2026-05-31T13:50:00.000Z",
+      "updated_at": "2026-05-31T13:50:00.000Z",
+      "attempt_count": 1,
+      "max_attempts": 1,
+      "requires_human_review": true,
+      "validation_required": true,
+      "risk_level": "review_required",
+      "priority": "medium",
+      "allowed_files": [
+        "scripts/agent/create-runtime-run.mjs",
+        "scripts/agent/__tests__/create-runtime-run.test.mjs",
+        "handoffs/latest-handoff.md"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "supabase/**/*",
+        "package.json",
+        "package-lock.json",
+        ".env*",
+        ".git/**/*",
+        "node_modules/**/*"
+      ]
+    },
+    {
+      "id": "RALPH-030",
+      "title": "Guarded runtime run start implementation",
+      "status": "done",
+      "runtime_only": true,
+      "source": {
+        "type": "reconstructed_from_git",
+        "commit_hash": "a55b75da65905b2533ba748522ccf109a3f3e44a",
+        "changed_files": [
+          "scripts/agent/__tests__/start-runtime-run.test.mjs",
+          "scripts/agent/start-runtime-run.mjs"
+        ],
+        "report_or_handoff_refs": []
+      },
+      "created_at": "2026-05-31T13:50:00.000Z",
+      "updated_at": "2026-05-31T13:50:00.000Z",
+      "attempt_count": 1,
+      "max_attempts": 1,
+      "requires_human_review": true,
+      "validation_required": true,
+      "risk_level": "review_required",
+      "priority": "medium",
+      "allowed_files": [
+        "scripts/agent/start-runtime-run.mjs",
+        "scripts/agent/__tests__/start-runtime-run.test.mjs"
+      ],
+      "forbidden_files": [
+        "src/**/*",
+        "supabase/**/*",
+        "package.json",
+        "package-lock.json",
+        ".env*",
+        ".git/**/*",
+        "node_modules/**/*"
+      ]
     }
   ]
 }

@@ -1,133 +1,126 @@
-# Agent Handoff: RALPH-027 Patch
+# Agent Handoff: RALPH-032 Targeted Runtime Lineage Backfill
 
 ## Run/Task Identity and Status
 
-- **Task ID:** RALPH-027
-- **Patch:** Prevent orphan `run.created` run-history event on post-write failure
-- **Agent:** Cline (ACT MODE)
-- **Completed:** 2026-05-31T11:39:00Z
-- **Status:** ✅ PATCH IMPLEMENTED — awaiting human review
-- **Human Review Status:** ⏸️ REQUIRED / AWAITING HUMAN REVIEW
+- **Task ID:** RALPH-032
+- **Task Name:** Targeted Runtime Lineage Backfill
+- **Agent:** Cline
+- **Status:** Partial evidence repaired / awaiting human review and commit decision
+- **Human Review Status:** Required
+- **Scope:** Runtime lineage backfill for `RALPH-025`, `RALPH-027`, and `RALPH-030` only
 
 ## What Changed
 
-Patched runtime run creation write ordering so `runs/run-history.jsonl` is appended only after `runs/current-run.json` is written and post-write reconciler/validator checks pass.
+RALPH-032 performed a targeted runtime lineage backfill based on the RALPH-031 authority boundary decision.
 
-### Files Changed
-
-```text
-scripts/agent/create-runtime-run.mjs
-scripts/agent/__tests__/create-runtime-run.test.mjs
-handoffs/latest-handoff.md
-```
+- `tasks/task-state.json` contains reconstructed runtime-only records for:
+  - `RALPH-025`
+  - `RALPH-027`
+  - `RALPH-030`
+- `tasks/task-history.jsonl` contains exactly three `task.reconstructed` events mapped to those tasks.
+- `runs/run-history.jsonl` contains one `runtime_lineage.backfilled` event for `RALPH-032`.
+- `runs/current-run.json` has no current or staged diff based on audit checks.
+- `handoffs/latest-handoff.md` was repaired because the previous content was stale and still described the `RALPH-027` patch.
 
 ## Why Changed
 
-The previous ordering appended `run.created` before post-write checks completed. If a post-write reconciler/validator check failed, `runs/current-run.json` was restored, but the appended JSONL event could remain orphaned. This patch makes the current-run write and history append coherent under failure.
+RALPH-031 established that runtime state is not an automatic mirror of Git history. Report, design, and review tasks remain git/report-only, while runtime tooling implementations should be deliberately runtime-tracked.
 
-## Implementation Summary
+This backfill deliberately reconstructs only selected runtime lineage evidence for the targeted runtime tooling implementation tasks authorized by RALPH-031:
 
-`scripts/agent/create-runtime-run.mjs` now:
+- `RALPH-025`
+- `RALPH-027`
+- `RALPH-030`
 
-- Validates generated run and generated history event before write mode mutation.
-- Writes `runs/current-run.json` atomically via temp file without appending history.
-- Runs post-write reconciler/validator checks after current-run write.
-- Appends exactly one `run.created` event only after post-write checks pass.
-- Restores original `runs/current-run.json` content if current-run write fails.
-- Restores original `runs/current-run.json` content if post-write checks fail and does **not** append history.
-- Restores original `runs/current-run.json` content if history append fails and returns creation failure.
-- Keeps dry-run behavior and existing guards unchanged.
+No live task lifecycle or live run lifecycle events were fabricated.
 
-`scripts/agent/__tests__/create-runtime-run.test.mjs` now includes regression coverage proving:
+## Incident Disclosure
 
-- A post-write validator failure after current-run write restores the original `current-run.json` and leaves `run-history.jsonl` unchanged with no new line.
-- Successful write still creates a planned `current-run.json` and appends exactly one matching `run.created` event.
+During RALPH-032, a huge inline Python write command was attempted:
+
+```text
+python -c "Path(...).write_text('''...huge markdown...''')"
+```
+
+It failed with:
+
+```text
+SyntaxError: unterminated triple-quoted string literal
+```
+
+Cline then hung. RALPH-032A was implemented and committed afterwards to forbid long inline interpreter commands and shell-based multiline/file write patterns.
+
+This handoff repair used normal edit tooling only. It did not use shell-based file writes, long inline interpreter commands, heredocs, `Set-Content`, `Add-Content`, `Out-File`, or echo redirection.
+
+## Files Changed
+
+```text
+tasks/task-state.json
+tasks/task-history.jsonl
+runs/run-history.jsonl
+handoffs/latest-handoff.md
+```
 
 ## Validation Executed
 
-1. `node --check scripts/agent/create-runtime-run.mjs`
-   - **Result:** ✅ PASS
+1. `Get-Content tasks\task-state.json -Raw | ConvertFrom-Json | Out-Null; "OK tasks/task-state.json"`
+   - **Result:** Pass
 
-2. `node --check scripts/agent/__tests__/create-runtime-run.test.mjs`
-   - **Result:** ✅ PASS
+2. `$i=0; Get-Content tasks\task-history.jsonl | ForEach-Object { $i++; if ($_.Trim()) { $_ | ConvertFrom-Json | Out-Null } }; "OK tasks/task-history.jsonl lines=$i"`
+   - **Result:** Pass, `lines=23`
 
-3. `node --test scripts/agent/__tests__/create-runtime-run.test.mjs`
-   - **Result:** ✅ PASS
-   - `17` tests passed, `0` failed.
+3. `$i=0; Get-Content runs\run-history.jsonl | ForEach-Object { $i++; if ($_.Trim()) { $_ | ConvertFrom-Json | Out-Null } }; "OK runs/run-history.jsonl lines=$i"`
+   - **Result:** Pass, `lines=17`
 
-4. `node scripts/agent/create-runtime-run.mjs --json`
-   - **Result:** ⚠️ Expected current-state no-op / exit code `3`
-   - Output was valid JSON.
-   - Reason: real repository currently has `eligible_task_count: 0`.
-   - No files were written.
+4. `runs/current-run.json` current and staged diff checks
+   - **Result:** No current or staged diff
 
-5. `node scripts/agent/reconcile-roadmap-task-state.mjs --json`
-   - **Result:** ✅ PASS / green
-   - Summary status: `ok`, exit code: `0`, critical count: `0`.
+5. `runtime_lineage.backfilled` expected location check
+   - **Result:** Present in `runs/run-history.jsonl`
 
-6. `node scripts/agent/validate-ralph-state.mjs --json`
-   - **Result:** ✅ PASS / green
-   - Summary status: `ok`, exit code: `0`, critical count: `0`.
-
-7. `git --no-pager status --short`
-   - **Result:** ✅ PASS / readback
-   - Modified files only:
-     - `scripts/agent/__tests__/create-runtime-run.test.mjs`
-     - `scripts/agent/create-runtime-run.mjs`
-
-8. `git --no-pager diff --stat`
-   - **Result:** ✅ PASS / readback
-   - `2 files changed, 56 insertions(+), 9 deletions(-)` before this handoff update.
-
-9. `git --no-pager diff --name-only`
-   - **Result:** ✅ PASS / readback
-   - Modified files only:
-     - `scripts/agent/__tests__/create-runtime-run.test.mjs`
-     - `scripts/agent/create-runtime-run.mjs`
+6. `runtime_lineage.backfilled` misplaced location check
+   - **Result:** Not found in `tasks/task-history.jsonl`
 
 ## Validation Result
 
-✅ Required RALPH-027 patch validation passed.
+The runtime lineage backfill evidence is parse-valid and narrowly scoped. The stale handoff was the remaining repair item identified by the RALPH-032 audit.
 
-✅ Regression test covers post-write validator failure without orphan `run.created` event.
-
-✅ Successful write path still appends exactly one `run.created` event in temp fixtures.
-
-✅ Reconciler remains green.
-
-✅ Validator remains green.
+This handoff does not claim final completion. RALPH-032 remains awaiting human review and commit decision.
 
 ## Scope and Safety Confirmation
 
-- ✅ Only scoped files were modified.
-- ✅ No `ROADMAP.md` modifications.
-- ✅ No `tasks/` modifications.
-- ✅ No real `runs/` modifications.
-- ✅ No `validation/` modifications.
-- ✅ No `review/` modifications.
-- ✅ No package file modifications.
-- ✅ No product-code (`src/**`) modifications.
-- ✅ No commit.
-- ✅ No push.
+- Only `handoffs/latest-handoff.md` was edited during this handoff repair.
+- No changes were made to `tasks/task-state.json` during this repair.
+- No changes were made to `tasks/task-history.jsonl` during this repair.
+- No changes were made to `runs/run-history.jsonl` during this repair.
+- No changes were made to `runs/current-run.json` during this repair.
+- No `ROADMAP.md` modifications were made.
+- No package file modifications were made.
+- No `.env` file modifications were made.
+- No staging was performed.
+- No commit was performed.
+- No push was performed.
 
 ## Known Issues / Risks
 
-- `node scripts/agent/create-runtime-run.mjs --json` exits with code `3` in the real repository because there are currently no eligible runtime tasks. This is expected no-op behavior and produced valid JSON without writes.
-- The IDE surfaced an unrelated pre-existing `tsconfig.json` TypeScript deprecation warning for `baseUrl`; it was not modified because it is outside this task scope.
+- The audit did not establish a full pre-RALPH-032 baseline for `runs/current-run.json`; it only established that `runs/current-run.json` currently has no current or staged diff.
+- Human review should confirm that the reconstructed records are acceptable before commit.
+- No rollback appears necessary unless human review rejects the reconstructed runtime evidence.
 
 ## Human Review Status
 
-**Status:** ⏸️ AWAITING HUMAN REVIEW.
+**Status:** Required / awaiting human review and commit decision.
 
 Review focus:
 
-1. Confirm write ordering: generated run/event validation → atomic current-run write → post-write checks → history append.
-2. Confirm rollback behavior prevents orphan `run.created` events on post-write failure.
-3. Confirm history append failure returns creation failure and restores original current-run content.
-4. Confirm scope stayed limited to the approved files.
+1. Confirm that targeted reconstructed runtime-only records for `RALPH-025`, `RALPH-027`, and `RALPH-030` are acceptable.
+2. Confirm that exactly three `task.reconstructed` events are appropriate and not duplicative.
+3. Confirm that the `runtime_lineage.backfilled` event belongs in `runs/run-history.jsonl` and accurately summarizes RALPH-032.
+4. Confirm that `runs/current-run.json` remaining unchanged is acceptable based on available evidence.
+5. Confirm that this repaired handoff accurately discloses the inline Python incident and the RALPH-032A safety follow-up.
 
 ---
 
-**Handoff Complete:** 2026-05-31T11:39:00Z  
+**Handoff Repaired:** 2026-05-31T16:55:00Z  
 **Agent:** Cline  
-**Status:** ✅ PATCH IMPLEMENTED — Awaiting Human Review
+**Status:** Awaiting Human Review / Commit Decision

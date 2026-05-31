@@ -254,7 +254,59 @@ function parseRoadmapTasks(content) {
   return tasks;
 }
 
-function validateTaskState(taskState, validationRecords, runRecords, reviewRecords, findings) {
+function isReconstructedFromGit(task) {
+  return task?.source?.type === 'reconstructed_from_git';
+}
+
+function hasNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function validateReconstructedTask(task, taskHistoryRecords, runRecords, findings) {
+  if (task.status !== 'done') {
+    createFinding(findings.errors, 'critical', 'reconstructed_task_not_done', `Reconstructed task ${task.id} must remain done`, PATHS.taskState, { task_id: task.id, status: task.status });
+  }
+  if (task.runtime_only !== true) {
+    createFinding(findings.errors, 'critical', 'reconstructed_task_not_runtime_only', `Reconstructed task ${task.id} must be runtime_only`, PATHS.taskState, { task_id: task.id });
+  }
+  if (!hasNonEmptyString(task.source?.commit_hash)) {
+    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_commit_hash', `Reconstructed task ${task.id} is missing source.commit_hash`, PATHS.taskState, { task_id: task.id });
+  }
+  if (!Array.isArray(task.source?.changed_files) || task.source.changed_files.length === 0) {
+    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_changed_files', `Reconstructed task ${task.id} is missing source.changed_files`, PATHS.taskState, { task_id: task.id });
+  }
+  if (!Array.isArray(task.source?.report_or_handoff_refs) || task.source.report_or_handoff_refs.length === 0) {
+    createFinding(findings.warnings, 'warning', 'reconstructed_task_missing_report_or_handoff_refs', `Reconstructed task ${task.id} has no report_or_handoff_refs; commit and lineage evidence are authoritative`, PATHS.taskState, { task_id: task.id });
+  }
+
+  const reconstructedEvent = taskHistoryRecords.find(({ data }) => (
+    data?.event_type === 'task.reconstructed'
+    && normalizeTaskId(data.task_id) === normalizeTaskId(task.id)
+    && data?.source?.type === 'reconstructed_from_git'
+    && data?.source?.commit_hash === task.source?.commit_hash
+  ));
+
+  if (!reconstructedEvent) {
+    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_task_reconstructed_event', `Reconstructed task ${task.id} is missing matching task.reconstructed history evidence`, PATHS.taskHistory, { task_id: task.id });
+  }
+
+  const misplacedBackfill = taskHistoryRecords.find(({ data }) => data?.event_type === 'runtime_lineage.backfilled');
+  if (misplacedBackfill) {
+    createFinding(findings.errors, 'critical', 'runtime_lineage_backfilled_misplaced', `runtime_lineage.backfilled must be recorded in ${PATHS.runHistory}, not ${PATHS.taskHistory}`, PATHS.taskHistory, { task_id: task.id, line: misplacedBackfill.line });
+  }
+
+  const lineageBackfill = runRecords.find(({ data }) => (
+    data?.event_type === 'runtime_lineage.backfilled'
+    && Array.isArray(data?.source?.included_tasks)
+    && data.source.included_tasks.map(normalizeTaskId).includes(normalizeTaskId(task.id))
+  ));
+
+  if (!lineageBackfill) {
+    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_runtime_lineage_backfill', `Reconstructed task ${task.id} is not included in runtime_lineage.backfilled run history evidence`, PATHS.runHistory, { task_id: task.id });
+  }
+}
+
+function validateTaskState(taskState, validationRecords, taskHistoryRecords, runRecords, reviewRecords, findings) {
   const taskMap = new Map();
   if (!taskState?.tasks || !Array.isArray(taskState.tasks)) {
     createFinding(findings.errors, 'critical', 'invalid_task_state_shape', 'tasks/task-state.json must contain a tasks array', PATHS.taskState);
@@ -273,6 +325,10 @@ function validateTaskState(taskState, validationRecords, runRecords, reviewRecor
   }
 
   for (const task of taskState.tasks) {
+    if (isReconstructedFromGit(task)) {
+      validateReconstructedTask(task, taskHistoryRecords, runRecords, findings);
+      continue;
+    }
     if (task?.status !== 'done') continue;
     const taskValidation = hasPassingValidation(validationRecords, task.id, null);
     if (!taskValidation) {
@@ -445,7 +501,7 @@ function runValidation() {
   const handoffTemplate = readText(PATHS.handoffTemplate);
 
   const roadmapTasks = roadmap.exists ? parseRoadmapTasks(roadmap.content) : new Map();
-  const taskMap = taskState.data ? validateTaskState(taskState.data, validationResults.records, runHistory.records, reviewResults.records, findings) : new Map();
+  const taskMap = taskState.data ? validateTaskState(taskState.data, validationResults.records, taskHistory.records, runHistory.records, reviewResults.records, findings) : new Map();
 
   validateCurrentRun(currentRun.data, taskMap, findings);
   validateRoadmapRuntime(roadmapTasks, taskMap, findings);
@@ -476,7 +532,7 @@ function runValidation() {
           } else if (eventType === 'review.needs_changes' || reviewResult === 'needs_changes') {
             findings.reviewEvidence.needsChanges.push({ task_id: task.id, review_result: 'needs_changes', event_type: latestReview.event_type });
           }
-        } else if (task.status === 'done') {
+        } else if (task.status === 'done' && !isReconstructedFromGit(task)) {
           // Only report missing if task is done (already reported as critical finding)
           findings.reviewEvidence.missing.push({ task_id: task.id });
         }

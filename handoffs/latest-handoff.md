@@ -1,126 +1,108 @@
-# Agent Handoff: RALPH-032 Targeted Runtime Lineage Backfill
+# Agent Handoff: RALPH-032B Validator Semantics for Reconstructed Runtime Lineage
 
 ## Run/Task Identity and Status
 
-- **Task ID:** RALPH-032
-- **Task Name:** Targeted Runtime Lineage Backfill
+- **Task ID:** RALPH-032B
+- **Task Name:** Validator Semantics for Reconstructed Runtime Lineage
 - **Agent:** Cline
-- **Status:** Partial evidence repaired / awaiting human review and commit decision
-- **Human Review Status:** Required
-- **Scope:** Runtime lineage backfill for `RALPH-025`, `RALPH-027`, and `RALPH-030` only
+- **Status:** Implementation complete / awaiting verification and human review
+- **Human Review Status:** Required before commit
+- **Scope:** Validator semantics and focused tests only; no runtime state mutation
 
 ## What Changed
 
-RALPH-032 performed a targeted runtime lineage backfill based on the RALPH-031 authority boundary decision.
+The Ralph runtime validator now distinguishes reconstructed Git lineage from live runtime task lifecycle evidence.
 
-- `tasks/task-state.json` contains reconstructed runtime-only records for:
-  - `RALPH-025`
-  - `RALPH-027`
-  - `RALPH-030`
-- `tasks/task-history.jsonl` contains exactly three `task.reconstructed` events mapped to those tasks.
-- `runs/run-history.jsonl` contains one `runtime_lineage.backfilled` event for `RALPH-032`.
-- `runs/current-run.json` has no current or staged diff based on audit checks.
-- `handoffs/latest-handoff.md` was repaired because the previous content was stale and still described the `RALPH-027` patch.
+- `scripts/agent/validate-ralph-state.mjs` now treats `task.source.type === "reconstructed_from_git"` as a reconstruction-specific evidence path.
+- Reconstructed records no longer require fabricated live validation evidence or fabricated review acceptance evidence.
+- Reconstructed records instead require strong lineage evidence:
+  - `status === "done"`
+  - `runtime_only === true`
+  - non-empty `source.commit_hash`
+  - non-empty `source.changed_files`
+  - matching `task.reconstructed` evidence in `tasks/task-history.jsonl`
+  - matching `runtime_lineage.backfilled` inclusion in `runs/run-history.jsonl`
+  - no misplaced `runtime_lineage.backfilled` event in `tasks/task-history.jsonl`
+- Missing or empty `source.report_or_handoff_refs` is warning-only, not critical.
+- Normal live `done` tasks still require validation evidence, and review-required live `done` tasks still require review acceptance evidence.
+- `scripts/agent/__tests__/validate-ralph-state.test.mjs` adds focused regression coverage for live and reconstructed semantics.
 
 ## Why Changed
 
-RALPH-031 established that runtime state is not an automatic mirror of Git history. Report, design, and review tasks remain git/report-only, while runtime tooling implementations should be deliberately runtime-tracked.
+RALPH-032 intentionally reconstructed targeted runtime lineage for `RALPH-025`, `RALPH-027`, and `RALPH-030` from Git history. Those records are historical lineage records, not original live-executed Ralph lifecycle runs.
 
-This backfill deliberately reconstructs only selected runtime lineage evidence for the targeted runtime tooling implementation tasks authorized by RALPH-031:
+The previous validator treated every `done` task identically and therefore required live validation and review acceptance evidence for reconstructed records. Creating such evidence after the fact would be inaccurate and would fabricate live lifecycle claims.
 
-- `RALPH-025`
-- `RALPH-027`
-- `RALPH-030`
-
-No live task lifecycle or live run lifecycle events were fabricated.
-
-## Incident Disclosure
-
-During RALPH-032, a huge inline Python write command was attempted:
-
-```text
-python -c "Path(...).write_text('''...huge markdown...''')"
-```
-
-It failed with:
-
-```text
-SyntaxError: unterminated triple-quoted string literal
-```
-
-Cline then hung. RALPH-032A was implemented and committed afterwards to forbid long inline interpreter commands and shell-based multiline/file write patterns.
-
-This handoff repair used normal edit tooling only. It did not use shell-based file writes, long inline interpreter commands, heredocs, `Set-Content`, `Add-Content`, `Out-File`, or echo redirection.
+This repair keeps reconstructed tasks as `done`, preserves audit integrity, and validates reconstruction-specific evidence instead of requiring fabricated live evidence.
 
 ## Files Changed
 
 ```text
-tasks/task-state.json
-tasks/task-history.jsonl
-runs/run-history.jsonl
+scripts/agent/validate-ralph-state.mjs
+scripts/agent/__tests__/validate-ralph-state.test.mjs
 handoffs/latest-handoff.md
 ```
 
 ## Validation Executed
 
-1. `Get-Content tasks\task-state.json -Raw | ConvertFrom-Json | Out-Null; "OK tasks/task-state.json"`
-   - **Result:** Pass
+Pending final execution in this run:
 
-2. `$i=0; Get-Content tasks\task-history.jsonl | ForEach-Object { $i++; if ($_.Trim()) { $_ | ConvertFrom-Json | Out-Null } }; "OK tasks/task-history.jsonl lines=$i"`
-   - **Result:** Pass, `lines=23`
-
-3. `$i=0; Get-Content runs\run-history.jsonl | ForEach-Object { $i++; if ($_.Trim()) { $_ | ConvertFrom-Json | Out-Null } }; "OK runs/run-history.jsonl lines=$i"`
-   - **Result:** Pass, `lines=17`
-
-4. `runs/current-run.json` current and staged diff checks
-   - **Result:** No current or staged diff
-
-5. `runtime_lineage.backfilled` expected location check
-   - **Result:** Present in `runs/run-history.jsonl`
-
-6. `runtime_lineage.backfilled` misplaced location check
-   - **Result:** Not found in `tasks/task-history.jsonl`
+1. `node --test scripts/agent/__tests__/validate-ralph-state.test.mjs`
+2. `node scripts/agent/validate-ralph-state.mjs`
+3. `node scripts/agent/reconcile-roadmap-task-state.mjs`
+4. Runtime JSON/JSONL parse readbacks for:
+   - `tasks/task-state.json`
+   - `tasks/task-history.jsonl`
+   - `runs/run-history.jsonl`
+   - `runs/current-run.json`
+5. Git readbacks:
+   - `git --no-pager status --short`
+   - `git --no-pager diff --stat`
+   - `git --no-pager diff --name-only`
 
 ## Validation Result
 
-The runtime lineage backfill evidence is parse-valid and narrowly scoped. The stale handoff was the remaining repair item identified by the RALPH-032 audit.
+Pending final command results. Expected result after verification:
 
-This handoff does not claim final completion. RALPH-032 remains awaiting human review and commit decision.
+- Focused validator tests pass.
+- Validator reports `ok` or warning-only.
+- Reconciler remains `Status: ok`.
+- Runtime state files parse successfully and remain unmodified.
+
+## Known Issues / Risks
+
+- Existing non-blocking validator warnings may remain for legacy JSONL schemas, stale adapter artifacts, or handoff/current-run mismatch.
+- The repair intentionally does not mutate `tasks/`, `runs/`, `validation/`, or `review/` runtime evidence files.
+- Human review should confirm that warning-only handling for missing `report_or_handoff_refs` is acceptable for reconstructed records such as `RALPH-030`.
 
 ## Scope and Safety Confirmation
 
-- Only `handoffs/latest-handoff.md` was edited during this handoff repair.
-- No changes were made to `tasks/task-state.json` during this repair.
-- No changes were made to `tasks/task-history.jsonl` during this repair.
-- No changes were made to `runs/run-history.jsonl` during this repair.
-- No changes were made to `runs/current-run.json` during this repair.
+- No runtime state files were intentionally modified.
+- No validation or review evidence was fabricated.
+- No live run/task lifecycle events were fabricated.
 - No `ROADMAP.md` modifications were made.
 - No package file modifications were made.
 - No `.env` file modifications were made.
+- No shell-based file writes were used.
+- No long inline interpreter commands were used.
+- No `Set-Content`, `Add-Content`, `Out-File`, echo redirection, or heredocs were used.
 - No staging was performed.
 - No commit was performed.
 - No push was performed.
 
-## Known Issues / Risks
-
-- The audit did not establish a full pre-RALPH-032 baseline for `runs/current-run.json`; it only established that `runs/current-run.json` currently has no current or staged diff.
-- Human review should confirm that the reconstructed records are acceptable before commit.
-- No rollback appears necessary unless human review rejects the reconstructed runtime evidence.
-
 ## Human Review Status
 
-**Status:** Required / awaiting human review and commit decision.
+**Status:** Required / awaiting human review and commit decision after verification.
 
 Review focus:
 
-1. Confirm that targeted reconstructed runtime-only records for `RALPH-025`, `RALPH-027`, and `RALPH-030` are acceptable.
-2. Confirm that exactly three `task.reconstructed` events are appropriate and not duplicative.
-3. Confirm that the `runtime_lineage.backfilled` event belongs in `runs/run-history.jsonl` and accurately summarizes RALPH-032.
-4. Confirm that `runs/current-run.json` remaining unchanged is acceptable based on available evidence.
-5. Confirm that this repaired handoff accurately discloses the inline Python incident and the RALPH-032A safety follow-up.
+1. Confirm reconstructed lineage semantics preserve strict live-task validation/review gates.
+2. Confirm reconstruction-specific critical evidence checks are sufficient.
+3. Confirm missing `report_or_handoff_refs` should remain warning-only.
+4. Confirm `RALPH-033` can proceed only after this repair is reviewed and committed.
 
 ---
 
-**Handoff Repaired:** 2026-05-31T16:55:00Z  
+**Handoff Updated:** 2026-05-31T18:01:00Z  
 **Agent:** Cline  
-**Status:** Awaiting Human Review / Commit Decision
+**Status:** Awaiting Verification / Human Review

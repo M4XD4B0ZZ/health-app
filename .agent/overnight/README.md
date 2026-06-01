@@ -6,6 +6,8 @@ This directory defines the first safe foundation for the RALPH Autonomous Overni
 
 The current phase is **dry-run only**. It validates a human-authored queue and produces a dry-run plan. It does not execute queued tasks.
 
+RALPH-034B adds a separate **command capture smoke harness**. It can run only built-in allowlisted low-risk command IDs and capture their stdout, stderr, exit code, signal, duration, timeout state, and truncation flags as structured JSON. It is not queue execution and does not make queued tasks executable.
+
 ## Hard v1 Limits
 
 - No queued task execution.
@@ -18,6 +20,9 @@ The current phase is **dry-run only**. It validates a human-authored queue and p
 - No push.
 - No deploys or external side effects.
 - No destructive commands.
+- No free-form shell command execution.
+- No command execution through `cmd`, PowerShell, `sh`, or `bash` wrappers.
+- No command logs or reports written by default by the command capture harness.
 
 Normal HealthApp product feature work remains paused for Overnight Worker v1 until this system is proven safe.
 
@@ -33,6 +38,53 @@ Example dry-run commands:
 node scripts/agent/overnight-dry-run-plan.mjs .agent/overnight/queue.json
 node scripts/agent/overnight-dry-run-plan.mjs .agent/overnight/queue.json --pretty
 ```
+
+## Command Capture Harness
+
+The command capture harness is implemented in:
+
+- `scripts/agent/lib/overnight-command-runner.mjs`
+- `scripts/agent/overnight-command-smoke.mjs`
+
+It exists because unattended overnight-capable execution must not depend on Cline terminal capture, VS Code terminal UI state, or manual confirmation of terminal output.
+
+The harness uses structured command specs internally:
+
+```json
+{
+  "id": "validate_ralph_state",
+  "cmd": "node",
+  "args": ["scripts/agent/validate-ralph-state.mjs"],
+  "cwd": ".",
+  "timeout_ms": 30000,
+  "allow_nonzero": false
+}
+```
+
+Execution rules:
+
+- Commands are selected by allowlist ID only.
+- Raw shell command strings are not accepted for execution.
+- Node `spawn` is used with `shell: false`.
+- Stdin is ignored.
+- Stdout and stderr are captured from pipes.
+- Timeout is required for every command.
+- Output capture is size-limited and records truncation flags.
+- Unknown or unsafe commands return `status: "blocked"`.
+- No queue files are read as execution sources.
+- No queued task commands are executed.
+- No Cline/OpenCode/Codex/Roo worker or model scripts are invoked.
+- No runtime, validation, or review evidence is mutated.
+- No files are written by default.
+
+Example smoke commands:
+
+```powershell
+node scripts/agent/overnight-command-smoke.mjs git_status_short
+node scripts/agent/overnight-command-smoke.mjs validate_ralph_state --pretty
+```
+
+Current built-in command IDs are limited to low-risk checks such as Node syntax checks, focused Node tests, validator/reconciler readbacks, and read-only git status.
 
 ## Task Classes
 
@@ -90,3 +142,5 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 ## Morning Report Concept
 
 Future Overnight Worker phases should produce a morning review report under `.agent/overnight/reports/`. The report should summarize queue identity, task-by-task outcomes, skipped/aborted items, verification status, safety findings, commands considered, and exact next human decisions.
+
+Future integration should happen in a separate task. The next safe step is to connect the dry-run queue planner and command capture harness in validation-only mode, without executing queued task work or invoking workers.

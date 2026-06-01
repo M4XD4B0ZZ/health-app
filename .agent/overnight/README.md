@@ -8,6 +8,8 @@ The current phase is **dry-run only**. It validates a human-authored queue and p
 
 RALPH-034B adds a separate **command capture smoke harness**. It can run only built-in allowlisted low-risk command IDs and capture their stdout, stderr, exit code, signal, duration, timeout state, and truncation flags as structured JSON. It is not queue execution and does not make queued tasks executable.
 
+RALPH-034C adds **validation-only queue/harness integration planning**. It reads a human-authored queue, validates it using RALPH-034A logic, and maps queue `required_checks` to RALPH-034B command allowlist IDs. It executes no commands, no queued tasks, and invokes no workers. Mapped checks are deferred for future validation execution. Unknown checks fail closed and require human review.
+
 ## Hard v1 Limits
 
 - No queued task execution.
@@ -38,6 +40,63 @@ Example dry-run commands:
 node scripts/agent/overnight-dry-run-plan.mjs .agent/overnight/queue.json
 node scripts/agent/overnight-dry-run-plan.mjs .agent/overnight/queue.json --pretty
 ```
+
+## Validation-Only Queue/Harness Integration
+
+RALPH-034C implements the smallest safe integration between the RALPH-034A queue planner and RALPH-034B command harness:
+
+- `scripts/agent/lib/overnight-validation-plan.mjs`
+- `scripts/agent/overnight-validation-plan.mjs`
+
+This integration is **plan-only** and does not execute commands. It:
+
+- Reads a human-authored overnight queue JSON file
+- Validates the queue using RALPH-034A queue validation logic
+- Maps queue `required_checks` strings to known RALPH-034B command allowlist IDs
+- Reports mapped, unmapped, and blocked checks
+- Produces a structured validation plan with execution readiness assessment
+- Executes no commands (validation or otherwise)
+- Executes no queued tasks
+- Invokes no workers
+- Mutates no runtime/evidence state
+- Writes no files by default
+
+Example validation plan commands:
+
+```powershell
+node scripts/agent/overnight-validation-plan.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-validation-plan.mjs .agent/overnight/queue.json --pretty
+```
+
+### Check Mapping Model
+
+The validation planner maps known `required_checks` patterns to command IDs:
+
+- Direct ID references: `"validate_ralph_state"` → `validate_ralph_state`
+- Raw command strings: `"node scripts/agent/validate-ralph-state.mjs"` → `validate_ralph_state`
+- Unknown checks: reported as `unmapped`, fail closed, require human review
+- Blocked checks: mapped ID not in allowlist, require allowlist update
+
+The queue schema remains unchanged. Mapping is implemented in library code only.
+
+### Execution Readiness
+
+The validation planner assesses whether a queue is ready for future validation execution:
+
+- `ready_for_validation_execution: true` — queue valid, all checks mapped, no blocked checks
+- `ready_for_validation_execution: false` — queue invalid, unmapped checks, or blocked checks present
+
+Even when ready, RALPH-034C does not execute commands. All mapped checks have `executable: false` and `execution_deferred: true`.
+
+### Future Validation Executor
+
+Validation command execution must remain a separate scoped task, likely RALPH-034D. It should only be implemented after:
+
+- Human review of RALPH-034C validation plan integration
+- Confirmation that check mapping is safe and complete
+- Explicit approval for validation-only command execution
+
+RALPH-034D would execute only mapped validation command IDs through the RALPH-034B harness. It would still forbid task execution, worker invocation, and runtime state mutation.
 
 ## Command Capture Harness
 
@@ -143,4 +202,4 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 
 Future Overnight Worker phases should produce a morning review report under `.agent/overnight/reports/`. The report should summarize queue identity, task-by-task outcomes, skipped/aborted items, verification status, safety findings, commands considered, and exact next human decisions.
 
-Future integration should happen in a separate task. The next safe step is to connect the dry-run queue planner and command capture harness in validation-only mode, without executing queued task work or invoking workers.
+RALPH-034C completes the validation-only queue/harness integration planning. The next safe step is RALPH-034D: a validation-only executor that runs mapped validation command IDs through the RALPH-034B harness, but only after human review and explicit approval.

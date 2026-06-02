@@ -4,13 +4,15 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034I — Worker Prompt / Execution Envelope Planner
+**Current phase:** RALPH-034J — Worker Invocation Contract Simulator
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
 
 RALPH-034H adds a separate **queue acceptance simulator** (`scripts/agent/overnight-queue-simulator.mjs`). It is planning-only and classifies each human-authored queued task according to what a hypothetical future overnight worker would do at intake. It executes no queued tasks, no queue objectives, no queue `allowed_commands`, no raw queue command strings, no validation commands, and no workers/models. It mutates no runtime/evidence state and writes no files.
 
 RALPH-034I adds a separate **worker prompt / execution envelope planner** (`scripts/agent/overnight-worker-envelope-planner.mjs`). It consumes the RALPH-034H simulator result and produces deterministic, reviewable worker envelope proposals only for tasks classified `would_accept`. It does not invoke workers, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, or write files. Every created envelope explicitly states that it is not execution authorization.
+
+RALPH-034J adds a separate **worker invocation contract simulator** (`scripts/agent/overnight-worker-invocation-contract-simulator.mjs`). It consumes the RALPH-034I envelope planner result and produces deterministic, reviewable future-worker invocation contract payload previews only for entries with `envelope_created: true`. It does not invoke workers, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, write reports/run logs, or write files. Every created contract explicitly states that it is not invocation authorization.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -30,8 +32,10 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No Cline, OpenCode, Codex, Roo, model, or worker invocation.
 - No worker intake simulation result authorizes execution.
 - No worker envelope or prompt proposal authorizes execution.
+- No worker invocation contract preview authorizes execution, prompt execution, or worker invocation.
 - No validation command execution by the queue acceptance simulator.
 - No validation command execution by the worker envelope planner.
+- No validation command execution by the worker invocation contract simulator.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -423,5 +427,74 @@ Every envelope planner output preserves zero/false safety counters:
 ```
 
 Envelope and prompt proposals are review artifacts only. They do not authorize worker invocation, task execution, validation execution, runtime/evidence mutation, product work, commits, pushes, report writing, or run-log writing.
+
+## Worker Invocation Contract Simulation
+
+RALPH-034J implements a planning-only worker invocation contract simulator:
+
+- `scripts/agent/lib/overnight-worker-invocation-contract-simulator.mjs`
+- `scripts/agent/overnight-worker-invocation-contract-simulator.mjs`
+
+The simulator answers this question without executing anything:
+
+> If this envelope were ever separately approved for a future worker, what exact structured payload would be passed to the worker adapter?
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-worker-invocation-contract-simulator.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-worker-invocation-contract-simulator.mjs .agent/overnight/queue.json --pretty
+```
+
+The simulator reuses RALPH-034I worker envelope planning. It creates invocation contract previews only for entries with `envelope_created: true`. For all other tasks, it returns `contract_created: false`.
+
+Each created contract includes:
+
+- `contract_id`
+- source task, queue, and synthesized envelope IDs
+- accepted disposition source from RALPH-034H
+- worker type placeholder
+- model/provider/model-name placeholders
+- adapter binding with no command, endpoint, or callable invocation function
+- prompt payload preview with prompt execution unauthorized
+- `allowed_files`
+- `forbidden_files`
+- `allowed_commands`
+- `forbidden_commands`
+- `required_checks`
+- `max_files_changed`
+- `max_diff_lines`
+- timeout policy
+- abort conditions
+- expected outputs
+- `commit_policy: "never"`
+- `push_policy: "never"`
+- final and post-worker human review requirements
+- explicit non-authorization statement
+- `execution_authorized: false`
+- `worker_invocation_authorized: false`
+- `prompt_execution_authorized: false`
+
+### Invocation Contract Safety Output
+
+Every invocation contract simulator output preserves zero/false safety counters:
+
+```json
+{
+  "execution_plan": {
+    "queued_tasks_executed": 0,
+    "worker_invocations": 0,
+    "runtime_state_mutations": 0,
+    "validation_commands_executed": 0,
+    "task_commands_executed": 0,
+    "prompt_executions": 0,
+    "product_work": 0,
+    "commits": false,
+    "push": false
+  }
+}
+```
+
+Invocation contract previews are review artifacts only. They do not authorize worker invocation, prompt execution, task execution, validation execution, runtime/evidence mutation, product work, commits, pushes, report writing, run-log writing, dependency changes, external side effects, or adapter execution.
 
 Real worker execution remains future work and requires a separate approved planning and implementation task.

@@ -10,6 +10,8 @@ RALPH-034B adds a separate **command capture smoke harness**. It can run only bu
 
 RALPH-034C adds **validation-only queue/harness integration planning**. It reads a human-authored queue, validates it using RALPH-034A logic, and maps queue `required_checks` to RALPH-034B command allowlist IDs. It executes no commands, no queued tasks, and invokes no workers. Mapped checks are deferred for future validation execution. Unknown checks fail closed and require human review.
 
+RALPH-034D adds a bounded **validation-only command executor**. It reads a human-authored queue, validates it, builds the RALPH-034C validation plan, and only if all hard preconditions pass executes mapped validation/check command IDs through the RALPH-034B harness. It still does not execute queued task work, queue `allowed_commands`, raw queue command strings, workers, product work, commits, pushes, runtime mutations, or evidence/log/report writes by default.
+
 ## Hard v1 Limits
 
 - No queued task execution.
@@ -88,15 +90,37 @@ The validation planner assesses whether a queue is ready for future validation e
 
 Even when ready, RALPH-034C does not execute commands. All mapped checks have `executable: false` and `execution_deferred: true`.
 
-### Future Validation Executor
+### Validation-Only Command Executor
 
-Validation command execution must remain a separate scoped task, likely RALPH-034D. It should only be implemented after:
+RALPH-034D implements the next bounded step:
 
-- Human review of RALPH-034C validation plan integration
-- Confirmation that check mapping is safe and complete
-- Explicit approval for validation-only command execution
+- `scripts/agent/lib/overnight-validation-executor.mjs`
+- `scripts/agent/overnight-validation-executor.mjs`
 
-RALPH-034D would execute only mapped validation command IDs through the RALPH-034B harness. It would still forbid task execution, worker invocation, and runtime state mutation.
+The executor:
+
+- Reads a human-authored queue JSON file supplied explicitly by path
+- Validates the queue using RALPH-034A logic
+- Builds the RALPH-034C validation plan
+- Requires all checks to be mapped and unblocked before execution
+- Uses `git_status_short` as preflight/final cleanliness safety checks
+- Executes only mapped validation/check command IDs in the validation-only allowlist
+- Deduplicates repeated validation command IDs for execution
+- Stops on the first failed, timed-out, or blocked validation command
+- Aggregates structured command-runner results
+- Emits JSON by default or a compact `--pretty` summary
+- Writes no files by default
+
+Example validation-only executor commands:
+
+```powershell
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --pretty
+```
+
+RALPH-034D remains **validation-only**. It still forbids queued task execution, queue objective execution, queue `allowed_commands` execution, raw queue command execution, worker invocation, runtime/evidence mutation, product work, commits, pushes, and persistent report/log writes by default.
+
+Persistent morning reports and any real autonomous queued-task executor remain future separately planned tasks.
 
 ## Command Capture Harness
 
@@ -202,4 +226,4 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 
 Future Overnight Worker phases should produce a morning review report under `.agent/overnight/reports/`. The report should summarize queue identity, task-by-task outcomes, skipped/aborted items, verification status, safety findings, commands considered, and exact next human decisions.
 
-RALPH-034C completes the validation-only queue/harness integration planning. The next safe step is RALPH-034D: a validation-only executor that runs mapped validation command IDs through the RALPH-034B harness, but only after human review and explicit approval.
+RALPH-034D completes the first validation-only execution layer for mapped check command IDs. The next safe step after human review is persistent reporting/log policy planning, not queued task execution.

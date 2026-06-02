@@ -1,0 +1,322 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
+import {
+  VALIDATION_ONLY_COMMAND_IDS,
+  aggregateValidationCommandResults,
+  buildValidationOnlyExecutorPreflight,
+  executeOvernightValidationQueue
+} from '../lib/overnight-validation-executor.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '../../..');
+const CLI = path.join(projectRoot, 'scripts/agent/overnight-validation-executor.mjs');
+
+function validTask(overrides = {}) {
+  return {
+    task_id: 'RALPH-034D-FIXTURE',
+    title: 'Fixture validation executor task',
+    class: 'SAFE_AUTONOMOUS',
+    objective: 'Fixture objective must never be executed.',
+    allowed_files: ['.agent/overnight/README.md'],
+    forbidden_files: [...BASELINE_FORBIDDEN_FILES],
+    max_files_changed: 0,
+    max_diff_lines: 0,
+    allowed_commands: ['node scripts/agent/validate-ralph-state.mjs'],
+    forbidden_commands: ['dependency changes are forbidden'],
+    required_checks: ['validate_ralph_state'],
+    timeout_minutes: 5,
+    max_attempts: 0,
+    commit_policy: 'never',
+    push_policy: 'never',
+    stop_conditions: ['any critical finding'],
+    expected_outputs: [],
+    handoff_required: true,
+    review_required: true,
+    notes: 'Fixture only.',
+    ...overrides
+  };
+}
+
+function validQueue(overrides = {}) {
+  return {
+    schema_version: '1.0.0',
+    queue_id: 'queue_ralph_034d_fixture',
+    created_at: '2026-06-02T06:00:00.000Z',
+    created_by: 'human-operator',
+    mode: 'dry_run',
+    tasks: [validTask()],
+    ...overrides
+  };
+}
+
+function result(commandId, status = 'passed', overrides = {}) {
+  return {
+    command_id: commandId,
+    label: commandId,
+    cmd: 'fixture',
+    args: [],
+    cwd: '.',
+    started_at: '2026-06-02T06:00:00.000Z',
+    ended_at: '2026-06-02T06:00:00.001Z',
+    duration_ms: 1,
+    timeout_ms: 1000,
+    exit_code: status === 'passed' ? 0 : 1,
+    signal: null,
+    timed_out: status === 'timed_out',
+    stdout: '',
+    stderr: '',
+    stdout_truncated: false,
+    stderr_truncated: false,
+    combined_output_preview: '',
+    status,
+    safety_findings: [],
+    log_files: [],
+    queue_execution: 'not_performed',
+    worker_invocation: 'not_invoked',
+    runtime_state_mutation: 'not_performed',
+    writes_performed: false,
+    runner: 'test-fixture',
+    ...overrides
+  };
+}
+
+function fakeRunner(overrides = {}) {
+  const calls = [];
+  const runner = async (commandId) => {
+    calls.push(commandId);
+    if (commandId === 'git_status_short') return result(commandId, 'passed', { stdout: overrides.gitDirty ? ' M file.txt\n' : '' });
+    return overrides[commandId] || result(commandId, 'passed');
+  };
+  runner.calls = calls;
+  return runner;
+}
+
+function tempDir(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-034d-validation-executor-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  return root;
+}
+
+function writeQueue(root, queue) {
+  const queuePath = path.join(root, 'queue.json');
+  fs.writeFileSync(queuePath, `${JSON.stringify(queue, null, 2)}\n`, 'utf8');
+  return queuePath;
+}
+
+function snapshot(root) {
+  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+}
+
+test('validation-only allowlist contains only focused check IDs', () => {
+  assert.deepEqual(VALIDATION_ONLY_COMMAND_IDS, [
+    'validate_ralph_state',
+    'reconcile_roadmap_task_state',
+    'node_check_overnight_queue_schema',
+    'node_check_overnight_dry_run_plan',
+    'test_overnight_dry_run_plan'
+  ]);
+});
+
+test('valid queue executes only mapped validation commands through injected runner', async () => {
+  const runner = fakeRunner();
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });
+
+  assert.equal(output.valid, true);
+  assert.deepEqual(runner.calls, ['git_status_short', 'validate_ralph_state', 'git_status_short']);
+  assert.equal(output.command_execution.total, 1);
+  assert.equal(output.execution_plan.validation_commands_executed, 1);
+});
+
+test('duplicate required checks are deduplicated for execution', async () => {
+  const runner = fakeRunner();
+  const queue = validQueue({ tasks: [validTask({ required_checks: ['validate_ralph_state', 'validate_ralph_state'] })] });
+  const output = await executeOvernightValidationQueue(queue, { commandRunner: runner });
+
+  assert.equal(output.validation_plan_summary.total_checks, 2);
+  assert.deepEqual(runner.calls, ['git_status_short', 'validate_ralph_state', 'git_status_short']);
+});
+
+test('unmapped checks prevent all execution', async () => {
+  const runner = fakeRunner();
+  const queue = validQueue({ tasks: [validTask({ required_checks: ['unknown_check'] })] });
+  const output = await executeOvernightValidationQueue(queue, { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.deepEqual(runner.calls, []);
+  assert.ok(output.preflight.critical_findings.some((finding) => finding.code === 'validation_plan_not_ready'));
+});
+
+test('blocked checks prevent all execution', async () => {
+  const runner = fakeRunner();
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner, allowlist: {} });
+
+  assert.equal(output.valid, false);
+  assert.deepEqual(runner.calls, []);
+  assert.ok(output.preflight.critical_findings.some((finding) => finding.code === 'blocked_checks_block_execution'));
+});
+
+test('invalid queue prevents all execution', async () => {
+  const runner = fakeRunner();
+  const output = await executeOvernightValidationQueue(validQueue({ mode: 'execute' }), { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.deepEqual(runner.calls, []);
+  assert.ok(output.preflight.critical_findings.some((finding) => finding.code === 'queue_validation_failed'));
+});
+
+test('dirty preflight working tree prevents validation command execution', async () => {
+  const runner = fakeRunner({ gitDirty: true });
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.deepEqual(runner.calls, ['git_status_short']);
+  assert.ok(output.preflight.critical_findings.some((finding) => finding.code === 'working_tree_dirty_before_execution'));
+});
+
+test('command failure is aggregated and stops subsequent commands', async () => {
+  const runner = fakeRunner({ validate_ralph_state: result('validate_ralph_state', 'failed') });
+  const queue = validQueue({ tasks: [validTask({ required_checks: ['validate_ralph_state', 'reconcile_roadmap_task_state'] })] });
+  const output = await executeOvernightValidationQueue(queue, { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.equal(output.command_execution.failed, 1);
+  assert.deepEqual(runner.calls, ['git_status_short', 'validate_ralph_state', 'git_status_short']);
+});
+
+test('timeout is aggregated and exits invalid behavior', async () => {
+  const runner = fakeRunner({ validate_ralph_state: result('validate_ralph_state', 'timed_out') });
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.equal(output.command_execution.timed_out, 1);
+});
+
+test('blocked command result is aggregated and exits invalid behavior', async () => {
+  const runner = fakeRunner({ validate_ralph_state: result('validate_ralph_state', 'blocked') });
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.equal(output.command_execution.blocked, 1);
+});
+
+test('final dirty working tree is reported as failure', async () => {
+  const calls = [];
+  const runner = async (commandId) => {
+    calls.push(commandId);
+    if (commandId === 'git_status_short') return result(commandId, 'passed', { stdout: calls.length === 1 ? '' : ' M file.txt\n' });
+    return result(commandId, 'passed');
+  };
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });
+
+  assert.equal(output.valid, false);
+  assert.ok(output.preflight.critical_findings.some((finding) => finding.code === 'working_tree_dirty_after_execution'));
+});
+
+test('git status checks from queue are treated as preflight/final only', async () => {
+  const runner = fakeRunner();
+  const queue = validQueue({ tasks: [validTask({ required_checks: ['git_status_short', 'validate_ralph_state'] })] });
+  const output = await executeOvernightValidationQueue(queue, { commandRunner: runner });
+
+  assert.equal(output.valid, true);
+  assert.deepEqual(runner.calls, ['git_status_short', 'validate_ralph_state', 'git_status_short']);
+});
+
+test('execution plan and safety invariants remain zero/true', async () => {
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+
+  assert.equal(output.execution_plan.queued_tasks_executed, 0);
+  assert.equal(output.execution_plan.worker_invocations, 0);
+  assert.equal(output.execution_plan.runtime_state_mutations, 0);
+  assert.equal(output.execution_plan.task_commands_executed, 0);
+  assert.equal(output.execution_plan.product_work, 0);
+  assert.equal(output.execution_plan.commits, false);
+  assert.equal(output.execution_plan.push, false);
+  assert.equal(output.safety_summary.no_task_execution, true);
+  assert.equal(output.safety_summary.no_worker_invocation, true);
+  assert.equal(output.safety_summary.no_runtime_state_mutation, true);
+});
+
+test('queue objective, allowed_files, and allowed_commands are never executed', async () => {
+  const runner = fakeRunner();
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });
+
+  assert.equal(output.valid, true);
+  assert.ok(!runner.calls.includes('Fixture objective must never be executed.'));
+  assert.ok(!runner.calls.includes('.agent/overnight/README.md'));
+  assert.ok(!runner.calls.includes('node scripts/agent/validate-ralph-state.mjs'));
+  assert.deepEqual(runner.calls, ['git_status_short', 'validate_ralph_state', 'git_status_short']);
+});
+
+test('aggregateValidationCommandResults counts statuses', () => {
+  const aggregate = aggregateValidationCommandResults([
+    result('a', 'passed'),
+    result('b', 'failed'),
+    result('c', 'timed_out'),
+    result('d', 'blocked')
+  ]);
+
+  assert.equal(aggregate.total, 4);
+  assert.equal(aggregate.passed, 1);
+  assert.equal(aggregate.failed, 1);
+  assert.equal(aggregate.timed_out, 1);
+  assert.equal(aggregate.blocked, 1);
+});
+
+test('preflight exposes command IDs without executing validation commands', async () => {
+  const runner = fakeRunner();
+  const preflight = await buildValidationOnlyExecutorPreflight(validQueue(), { commandRunner: runner });
+
+  assert.equal(preflight.ready, true);
+  assert.deepEqual(preflight.command_ids, ['validate_ralph_state']);
+  assert.deepEqual(runner.calls, ['git_status_short']);
+});
+
+test('library execution writes no files by default', async (t) => {
+  const root = tempDir(t);
+  writeQueue(root, validQueue());
+  const before = snapshot(root);
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+  const after = snapshot(root);
+
+  assert.equal(output.valid, true);
+  assert.deepEqual(after, before);
+});
+
+test('CLI JSON output is parseable for invalid input and preserves safety counters', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const result = spawnSync(process.execPath, [CLI, queuePath], { cwd: projectRoot, encoding: 'utf8' });
+  const json = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 2);
+  assert.equal(json.valid, false);
+  assert.equal(json.execution_plan.queued_tasks_executed, 0);
+  assert.equal(json.execution_plan.worker_invocations, 0);
+});
+
+test('CLI exits non-zero for unreadable queue', () => {
+  const result = spawnSync(process.execPath, [CLI, 'missing-queue.json'], { cwd: projectRoot, encoding: 'utf8' });
+  const json = JSON.parse(result.stderr);
+
+  assert.equal(result.status, 1);
+  assert.equal(json.valid, false);
+  assert.equal(json.execution_plan.validation_commands_executed, 0);
+});
+
+test('pretty output contains safety invariants', async () => {
+  const { formatPretty } = await import('../overnight-validation-executor.mjs');
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+  const pretty = formatPretty(output);
+
+  assert.match(pretty, /no queued task execution/);
+  assert.match(pretty, /no worker invocation/);
+  assert.match(pretty, /no runtime mutation/);
+});

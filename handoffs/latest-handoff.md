@@ -1,39 +1,37 @@
-# Agent Handoff: RALPH-034C Overnight Validation-Only Queue/Harness Integration
+# Agent Handoff: RALPH-034D Overnight Validation-Only Command Executor
 
 ## Run/Task Identity and Status
 
-- **Task ID:** RALPH-034C
-- **Task Name:** Overnight Validation-Only Queue/Harness Integration
+- **Task ID:** RALPH-034D
+- **Task Name:** Overnight Validation-Only Command Executor
 - **Agent:** Cline
 - **Status:** Implementation complete / verification pending / awaiting human review
 - **Human Review Status:** Required before commit
-- **Scope:** RALPH Overnight Worker v1 validation plan only; no command execution; no queue execution; no executor; no worker invocation
+- **Scope:** RALPH Overnight Worker v1 validation-only command execution; no queued task execution; no worker invocation; no runtime/evidence mutation
 
 ## What Changed
 
-Implemented the smallest safe integration between RALPH-034A queue planner and RALPH-034B command harness:
+Implemented the first bounded validation-only execution layer on top of RALPH-034A/B/C:
 
-- Added `scripts/agent/lib/overnight-validation-plan.mjs` with queue validation, check mapping logic, and validation plan builder.
-- Added `scripts/agent/overnight-validation-plan.mjs` CLI for reading queue files and producing validation plans.
-- Added `scripts/agent/__tests__/overnight-validation-plan.test.mjs` with 22 focused `node:test` test cases covering mapping, readiness, safety, and CLI behavior.
-- Updated `.agent/overnight/README.md` to document RALPH-034C validation planner, check mapping model, execution readiness assessment, and future RALPH-034D direction.
-- Updated this handoff for RALPH-034C.
+- Added `scripts/agent/lib/overnight-validation-executor.mjs` with preflight checks, validation-only command allowlist policy, sequential command execution, result aggregation, and safety counters.
+- Added `scripts/agent/overnight-validation-executor.mjs` CLI for queue-path input, JSON output, optional `--pretty`, and scoped exit codes.
+- Added `scripts/agent/__tests__/overnight-validation-executor.test.mjs` focused tests for preconditions, command aggregation, safety invariants, no-write behavior, and CLI behavior.
+- Updated `.agent/overnight/README.md` to document RALPH-034D validation-only executor boundaries and examples.
+- Updated this handoff for RALPH-034D.
 
 ## Why Changed
 
-RALPH-034A established the dry-run queue planner. RALPH-034B established the command capture harness. RALPH-034C integrates them by mapping queue `required_checks` to command allowlist IDs without executing anything.
+RALPH-034A validates human-authored queues and produces dry-run plans. RALPH-034B provides the safe command capture harness. RALPH-034C maps queue `required_checks` to known command IDs but executes nothing.
 
-This intentionally remains plan-only. It does not execute validation commands, does not execute queued tasks, does not invoke workers, and does not mutate runtime state.
-
-Validation command execution is explicitly deferred to a future RALPH-034D task, which must only be implemented after human review and explicit approval.
+RALPH-034D adds the next conservative layer: execute only mapped validation/check command IDs through the existing RALPH-034B harness after hard preconditions pass. This is still not queued task execution and not an autonomous worker.
 
 ## Files Changed
 
 ```text
 .agent/overnight/README.md
-scripts/agent/lib/overnight-validation-plan.mjs
-scripts/agent/overnight-validation-plan.mjs
-scripts/agent/__tests__/overnight-validation-plan.test.mjs
+scripts/agent/lib/overnight-validation-executor.mjs
+scripts/agent/overnight-validation-executor.mjs
+scripts/agent/__tests__/overnight-validation-executor.test.mjs
 handoffs/latest-handoff.md
 ```
 
@@ -41,38 +39,41 @@ handoffs/latest-handoff.md
 
 - No queued task execution was implemented.
 - No queued task was executed.
-- No validation commands were executed.
-- No commands were executed.
+- No queue objective execution was implemented.
+- No queue `allowed_commands` execution was implemented.
+- No raw queue command execution was implemented.
+- Only mapped validation/check command IDs can execute after preconditions pass.
+- `git_status_short` is used as preflight/final cleanliness checking, not as queue task work.
 - No Cline/OpenCode/Codex/Roo worker was invoked.
 - No worker/model invocation script was allowlisted.
 - No runtime state files were intentionally modified.
 - No validation or review evidence files were intentionally modified.
 - No HealthApp product work was performed.
 - No queue schema was changed.
-- No RALPH-034A or RALPH-034B files were modified.
+- No RALPH-034A/B/C safety model files were modified.
 - No automatic ROADMAP task selection was added.
 - No package/dependency files were modified.
 - No `.env`, secret, or credential files were modified.
-- No log files are written by default by the validation planner.
+- No log/report files are written by default.
 - No staging was performed.
 - No commit was performed.
 - No push was performed.
 
-The branch remained ahead of remote by 2 local commits before implementation (RALPH-034A: `e6bad04`, RALPH-034B: `96e9608`). That lack of push does not block local RALPH-034C implementation, but should be considered during human review.
+Branch status observed at start: `chore/clean-arch-structure...origin/chore/clean-arch-structure` with latest commit `0248001 feat(agent): add overnight validation plan mapper` also shown on origin. No push was performed.
 
 ## Validation Executed
 
 Executed in this run:
 
-1. `node --check scripts/agent/lib/overnight-validation-plan.mjs` — passed
-2. `node --check scripts/agent/overnight-validation-plan.mjs` — passed
-3. `node --test scripts/agent/__tests__/overnight-validation-plan.test.mjs` — passed, 22/22 tests
+1. `node --check scripts/agent/lib/overnight-validation-executor.mjs` — passed
+2. `node --check scripts/agent/overnight-validation-executor.mjs` — passed
+3. `node --test scripts/agent/__tests__/overnight-validation-executor.test.mjs` — passed, 20/20 tests
 4. `node scripts/agent/validate-ralph-state.mjs` — `Status: ok`, `Critical findings: 0`, warnings only
 5. `node scripts/agent/reconcile-roadmap-task-state.mjs` — `Status: ok`, `Critical findings: 0`, one warning for product backlog task `P1-003`
 6. Runtime JSON/JSONL parse readbacks:
    - `tasks/task-state.json` — passed
-   - `tasks/task-history.jsonl` — passed, 23 lines
-   - `runs/run-history.jsonl` — passed, 17 lines
+   - `tasks/task-history.jsonl` — passed
+   - `runs/run-history.jsonl` — passed
    - `runs/current-run.json` — passed
 7. Git readbacks:
    - `git --no-pager status --short`
@@ -81,37 +82,37 @@ Executed in this run:
 
 ## Validation Result
 
-Verification passed for the RALPH-034C focused scope.
+Verification passed for the RALPH-034D focused scope.
 
-- Node syntax checks passed for the validation plan library and CLI.
-- Focused overnight validation plan tests passed: 22 tests, 22 pass, 0 fail.
+- Node syntax checks passed for the validation executor library and CLI.
+- Focused overnight validation executor tests passed: 20 tests, 20 pass, 0 fail.
 - Validator remained `Status: ok` with `Critical findings: 0`.
 - Reconciler remained `Status: ok` with `Critical findings: 0`.
 - Runtime state files parsed successfully.
-- Git status showed only approved RALPH-034C files changed:
+- Git status showed only approved RALPH-034D files changed/created:
   - `.agent/overnight/README.md`
   - `handoffs/latest-handoff.md`
-  - `scripts/agent/lib/overnight-validation-plan.mjs`
-  - `scripts/agent/overnight-validation-plan.mjs`
-  - `scripts/agent/__tests__/overnight-validation-plan.test.mjs`
+  - `scripts/agent/lib/overnight-validation-executor.mjs`
+  - `scripts/agent/overnight-validation-executor.mjs`
+  - `scripts/agent/__tests__/overnight-validation-executor.test.mjs`
 
 Pre-implementation baseline checks passed:
 
 - `git --no-pager status --short` showed a clean working tree.
-- `git --no-pager status -sb` showed branch ahead of remote by 2.
-- `git --no-pager log -8 --oneline` showed `96e9608 feat(agent): add overnight command capture harness` and `e6bad04 feat(agent): add overnight dry-run queue planner` as latest local commits.
+- `git --no-pager status -sb` showed `chore/clean-arch-structure...origin/chore/clean-arch-structure` with no ahead/behind marker.
+- `git --no-pager log -10 --oneline` showed `0248001 feat(agent): add overnight validation plan mapper`, `96e9608 feat(agent): add overnight command capture harness`, and `e6bad04 feat(agent): add overnight dry-run queue planner` as latest local commits.
 - Validator baseline: `Status: ok`, `Critical findings: 0`, warnings only.
 - Reconciler baseline: `Status: ok`, `Critical findings: 0`, one warning for product backlog task `P1-003`.
 - Follow-up git status checks remained clean before implementation edits.
 
 ## Known Issues / Risks
 
-- This is not a validation executor. Validation command execution must be planned separately as RALPH-034D.
-- The validation planner maps checks to command IDs but does not execute them. All mapped checks have `executable: false` and `execution_deferred: true`.
-- Unknown checks are reported as `unmapped` and block execution readiness. Queue authors must update queues to use known check IDs or patterns.
-- The queue schema remains unchanged. Mapping is implemented in library code only.
-- Existing repository-level validator warnings may remain unrelated to RALPH-034C, such as legacy JSONL schema warnings or handoff/current-run mismatch warnings.
-- Human review should confirm the check mapping model is sufficiently conservative before any future validation executor implementation.
+- RALPH-034D is validation-only. It does not execute queued task work.
+- Persistent log/report writing is intentionally deferred to a future task.
+- Real autonomous queued task execution remains out of scope and must be separately planned.
+- The executor relies on the existing RALPH-034B command harness and does not expand `DEFAULT_ALLOWED_COMMANDS`.
+- Existing repository-level validator warnings may remain unrelated to RALPH-034D, such as legacy JSONL schema warnings or handoff/current-run mismatch warnings.
+- Human review should confirm the validation-only execution model is sufficiently conservative before any future reporting or executor expansion.
 
 ## Human Review Status
 
@@ -119,14 +120,14 @@ Pre-implementation baseline checks passed:
 
 Review focus:
 
-1. Confirm RALPH-034C is plan-only and does not execute commands.
-2. Confirm check mapping is conservative and fails closed on unknown checks.
-3. Confirm mapped checks are deferred (`executable: false`, `execution_deferred: true`).
-4. Confirm the next step should be RALPH-034D validation executor, but only after human review and explicit approval.
-5. Confirm branch ahead-by-2 status is acceptable or requires push before RALPH-034C commit.
+1. Confirm only validation/check command IDs execute.
+2. Confirm queue objectives, queue `allowed_commands`, and raw queue command strings are never executed.
+3. Confirm preflight/final git status checks are safety checks only.
+4. Confirm no runtime/evidence mutation or product work was introduced.
+5. Confirm persistent reporting/logs and real autonomous execution remain future scoped tasks.
 
 ---
 
-**Handoff Updated:** 2026-06-01T19:31:00Z  
+**Handoff Updated:** 2026-06-02T06:45:00Z  
 **Agent:** Cline  
 **Status:** Verification Passed / Awaiting Human Review

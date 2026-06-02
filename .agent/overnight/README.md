@@ -4,7 +4,7 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034J — Worker Invocation Contract Simulator
+**Current phase:** RALPH-034K — Worker Adapter Simulator
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
 
@@ -13,6 +13,8 @@ RALPH-034H adds a separate **queue acceptance simulator** (`scripts/agent/overni
 RALPH-034I adds a separate **worker prompt / execution envelope planner** (`scripts/agent/overnight-worker-envelope-planner.mjs`). It consumes the RALPH-034H simulator result and produces deterministic, reviewable worker envelope proposals only for tasks classified `would_accept`. It does not invoke workers, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, or write files. Every created envelope explicitly states that it is not execution authorization.
 
 RALPH-034J adds a separate **worker invocation contract simulator** (`scripts/agent/overnight-worker-invocation-contract-simulator.mjs`). It consumes the RALPH-034I envelope planner result and produces deterministic, reviewable future-worker invocation contract payload previews only for entries with `envelope_created: true`. It does not invoke workers, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, write reports/run logs, or write files. Every created contract explicitly states that it is not invocation authorization.
+
+RALPH-034K adds a separate **worker adapter simulator** (`scripts/agent/overnight-worker-adapter-simulator.mjs`). It consumes the RALPH-034J invocation contract simulator result and produces deterministic, reviewable adapter routing simulations only for entries with `contract_created: true`. Current contracts remain blocked by authorization, so no route is executable. It does not invoke workers, adapters, providers, models, prompts, queued tasks, validation commands, network endpoints, or runtime/evidence mutations, and it writes no files. Every adapter route simulation explicitly states that it is not adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -33,9 +35,11 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No worker intake simulation result authorizes execution.
 - No worker envelope or prompt proposal authorizes execution.
 - No worker invocation contract preview authorizes execution, prompt execution, or worker invocation.
+- No worker adapter route simulation authorizes adapter invocation, worker invocation, provider/model invocation, prompt execution, network activity, task execution, validation execution, or mutation.
 - No validation command execution by the queue acceptance simulator.
 - No validation command execution by the worker envelope planner.
 - No validation command execution by the worker invocation contract simulator.
+- No validation command execution by the worker adapter simulator.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -498,3 +502,71 @@ Every invocation contract simulator output preserves zero/false safety counters:
 Invocation contract previews are review artifacts only. They do not authorize worker invocation, prompt execution, task execution, validation execution, runtime/evidence mutation, product work, commits, pushes, report writing, run-log writing, dependency changes, external side effects, or adapter execution.
 
 Real worker execution remains future work and requires a separate approved planning and implementation task.
+
+## Worker Adapter Simulation
+
+RALPH-034K implements a planning-only worker adapter simulator:
+
+- `scripts/agent/lib/overnight-worker-adapter-simulator.mjs`
+- `scripts/agent/overnight-worker-adapter-simulator.mjs`
+
+The simulator answers this question without executing anything:
+
+> Given a RALPH-034J invocation contract preview, how would a future adapter routing layer classify it without selecting or invoking a real adapter?
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-worker-adapter-simulator.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-worker-adapter-simulator.mjs .agent/overnight/queue.json --pretty
+```
+
+The simulator reuses RALPH-034J worker invocation contract simulation. It creates adapter route simulations only for entries with `contract_created: true`. For all other tasks, it returns `adapter_simulation_created: false` and `adapter_route_disposition: "not_eligible_no_contract"`.
+
+Current RALPH-034J contracts are explicitly non-authorizing, so current RALPH-034K adapter route simulations use `adapter_route_disposition: "blocked_by_authorization"` and never produce executable routes.
+
+Each created adapter route simulation includes:
+
+- `route_id`
+- source contract and task IDs
+- worker type placeholder
+- adapter family/name placeholders
+- provider/model placeholders
+- placeholder-only routing strategy
+- inert routing decision with no selected adapter/provider/model
+- inert adapter binding with no command, endpoint, URL, or callable invocation function
+- authorization enforcement details
+- explicit non-authorization statement
+- `execution_authorized: false`
+- `worker_invocation_authorized: false`
+- `adapter_invocation_authorized: false`
+- `prompt_execution_authorized: false`
+
+### Adapter Simulator Safety Output
+
+Every adapter simulator output preserves zero/false safety counters:
+
+```json
+{
+  "execution_plan": {
+    "queued_tasks_executed": 0,
+    "worker_invocations": 0,
+    "adapter_invocations": 0,
+    "provider_invocations": 0,
+    "model_invocations": 0,
+    "prompt_executions": 0,
+    "network_requests": 0,
+    "runtime_state_mutations": 0,
+    "validation_commands_executed": 0,
+    "task_commands_executed": 0,
+    "product_work": 0,
+    "files_written": 0,
+    "commits": false,
+    "push": false
+  }
+}
+```
+
+Adapter route simulations are review artifacts only. They do not authorize adapter invocation, worker invocation, provider/model invocation, prompt execution, task execution, validation execution, runtime/evidence mutation, network activity, product work, commits, pushes, report writing, run-log writing, dependency changes, external side effects, or file writes.
+
+Real worker adapter implementation remains future work and requires a separate approved planning and implementation task.

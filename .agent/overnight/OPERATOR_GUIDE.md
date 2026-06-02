@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034J — Worker Invocation Contract Simulator
+**Current phase:** RALPH-034K — Worker Adapter Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -14,6 +14,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Simulates future worker intake decisions without executing or authorizing work
 - Proposes bounded future-worker envelopes for `would_accept` tasks without executing or authorizing work
 - Produces future-worker invocation contract payload previews for created envelopes without executing or authorizing work
+- Simulates future worker adapter routing for created invocation contracts without selecting, invoking, or authorizing adapters, providers, models, prompts, tasks, validation commands, or network activity
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -27,6 +28,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat `would_accept` as execution authorization
 - Treat a worker envelope or prompt proposal as execution authorization
 - Treat an invocation contract preview as worker, prompt, task, validation, commit, or push authorization
+- Treat an adapter route simulation as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
 
 ---
 
@@ -183,6 +185,57 @@ node scripts/agent/overnight-worker-invocation-contract-simulator.mjs <queue.jso
 
 ---
 
+### Mode 0.875: Worker Adapter Simulation (Planning-Only)
+
+**Use case:** Review how a future adapter routing layer would classify created RALPH-034J invocation contracts without selecting or invoking any real adapter, provider, model, prompt, task, validation command, or network endpoint.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json> --pretty
+```
+
+**Behavior:**
+- Reads the supplied human-authored queue JSON file
+- Reuses RALPH-034J worker invocation contract simulation
+- Creates adapter route simulations only for entries with `contract_created: true`
+- Marks all other tasks with `adapter_simulation_created: false` and `adapter_route_disposition: "not_eligible_no_contract"`
+- Current created contracts route to `adapter_route_disposition: "blocked_by_authorization"`
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Runs no validation commands**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/adapters/providers/models**
+- **Performs no network activity**
+- **Writes no files**
+
+**Created adapter route fields include:**
+- `route_id`
+- `source_contract_id`
+- `source_task_id`
+- `worker_type_placeholder`
+- `adapter_family_placeholder`
+- `adapter_name_placeholder`
+- `provider_placeholder`
+- `model_placeholder`
+- `routing_strategy: "placeholder_only_no_selection"`
+- `routing_decision` with no selected adapter/provider/model
+- inert `adapter_binding` with no command, endpoint, URL, or callable function
+- `authorization_enforcement`
+- `non_authorization_statement`
+- `execution_authorized: false`
+- `worker_invocation_authorized: false`
+- `adapter_invocation_authorized: false`
+- `prompt_execution_authorized: false`
+
+**Important:** A worker adapter route simulation is a planning artifact only. It is not an adapter invocation request, not a worker invocation request, not a provider/model invocation request, not a prompt execution request, not queued task execution, not validation execution, not network activity, and not authorization for file changes, commits, pushes, runtime mutation, evidence mutation, product work, report writing, run-log writing, dependency changes, external side effects, or adapter execution.
+
+---
+
 ### Mode 1: Stdout-Only Dry-Run (Safest)
 
 **Use case:** Manual verification, debugging, testing
@@ -336,6 +389,7 @@ The orchestrator **never** performs:
 - Treating queue simulator `would_accept` as execution authorization
 - Treating worker envelope or prompt proposals as execution authorization
 - Treating worker invocation contract previews as worker, prompt, task, validation, commit, or push authorization
+- Treating worker adapter route simulations as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)
@@ -380,6 +434,12 @@ The orchestrator **rejects** these flags:
 The worker invocation contract simulator additionally rejects provider/model/adapter/prompt/diff flags such as:
 - `--execute-prompt`, `--prompt-execute`, `--invoke-model`
 - `--provider`, `--model`, `--adapter`, `--adapter-command`
+- `--apply-diff`, `--write-changes`
+
+The worker adapter simulator additionally rejects adapter/provider/model/prompt/diff flags such as:
+- `--invoke-adapter`, `--adapter`, `--adapter-command`, `--adapter-endpoint`
+- `--provider`, `--model`, `--invoke-model`
+- `--execute-prompt`, `--prompt-execute`
 - `--apply-diff`, `--write-changes`
 
 ---
@@ -615,6 +675,9 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 - Worker/model invocation
 - Prompt execution
 - Worker adapter implementation
+- Worker adapter invocation or adapter route execution
+- Provider/model invocation
+- Network activity from adapter simulation
 - Diff/change monitoring
 - Post-worker review gate implementation
 - Runtime state mutation
@@ -628,6 +691,8 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 - Autonomous queued-task executor (requires separate planning task)
 - Worker invocation (requires separate planning task)
 - Worker adapter implementation (requires separate planning task)
+- Worker adapter invocation (requires separate planning task)
+- Provider/model invocation (requires separate planning task)
 - Diff/change monitoring (requires separate planning task)
 - Post-worker review gate implementation (requires separate planning task)
 - Runtime/evidence mutation (requires separate planning task)
@@ -799,7 +864,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034J — Worker Invocation Contract Simulator
+- **Current Phase:** RALPH-034K — Worker Adapter Simulator
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034J
+- **Foundation Phase:** RALPH-034A through RALPH-034K
 - **Last Updated:** 2026-06-02

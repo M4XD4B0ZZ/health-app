@@ -320,3 +320,35 @@ test('pretty output contains safety invariants', async () => {
   assert.match(pretty, /no worker invocation/);
   assert.match(pretty, /no runtime mutation/);
 });
+
+test('CLI without --write-report writes no real overnight report directory', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const reportsDir = path.join(projectRoot, '.agent/overnight/reports');
+  const before = fs.existsSync(reportsDir) ? fs.readdirSync(reportsDir).sort() : [];
+  const result = spawnSync(process.execPath, [CLI, queuePath], { cwd: projectRoot, encoding: 'utf8' });
+  const after = fs.existsSync(reportsDir) ? fs.readdirSync(reportsDir).sort() : [];
+
+  assert.equal(result.status, 2);
+  assert.deepEqual(after, before);
+});
+
+test('CLI rejects unsupported report format', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const result = spawnSync(process.execPath, [CLI, queuePath, '--write-report', '--report-format', 'txt'], { cwd: projectRoot, encoding: 'utf8' });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unsupported report format: txt/);
+});
+
+test('CLI does not accept arbitrary output path flags', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+
+  for (const flag of ['--output', '--report-dir']) {
+    const result = spawnSync(process.execPath, [CLI, queuePath, flag, root], { cwd: projectRoot, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, new RegExp(`Unknown argument: ${flag}`));
+  }
+});

@@ -12,6 +12,8 @@ RALPH-034C adds **validation-only queue/harness integration planning**. It reads
 
 RALPH-034D adds a bounded **validation-only command executor**. It reads a human-authored queue, validates it, builds the RALPH-034C validation plan, and only if all hard preconditions pass executes mapped validation/check command IDs through the RALPH-034B harness. It still does not execute queued task work, queue `allowed_commands`, raw queue command strings, workers, product work, commits, pushes, runtime mutations, or evidence/log/report writes by default.
 
+RALPH-034E adds an explicit bounded **persistent operational report writer** for RALPH-034D validation-only executor results. It writes JSON and Markdown reports only when `--write-report` is passed, only under `.agent/overnight/reports/`, with no arbitrary output paths and no overwrite behavior by default. Reports are non-authoritative operational output, not runtime or evidence state.
+
 ## Hard v1 Limits
 
 - No queued task execution.
@@ -27,6 +29,9 @@ RALPH-034D adds a bounded **validation-only command executor**. It reads a human
 - No free-form shell command execution.
 - No command execution through `cmd`, PowerShell, `sh`, or `bash` wrappers.
 - No command logs or reports written by default by the command capture harness.
+- No persistent overnight reports written unless an explicit report-writing flag is used.
+- No arbitrary output paths for overnight reports.
+- No overwrite behavior for overnight reports by default.
 
 Normal HealthApp product feature work remains paused for Overnight Worker v1 until this system is proven safe.
 
@@ -120,7 +125,45 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 
 RALPH-034D remains **validation-only**. It still forbids queued task execution, queue objective execution, queue `allowed_commands` execution, raw queue command execution, worker invocation, runtime/evidence mutation, product work, commits, pushes, and persistent report/log writes by default.
 
-Persistent morning reports and any real autonomous queued-task executor remain future separately planned tasks.
+### Persistent Operational Report Writer
+
+RALPH-034E implements the next bounded reporting step:
+
+- `scripts/agent/lib/overnight-report-writer.mjs`
+
+The report writer:
+
+- Builds bounded JSON and Markdown report bundles from validation-only executor results
+- Writes reports only when the executor CLI is run with `--write-report`
+- Writes only under the fixed directory `.agent/overnight/reports/`
+- Does not accept arbitrary output paths such as `--output` or `--report-dir`
+- Sanitizes queue IDs before using them in filenames
+- Refuses path traversal by verifying resolved paths remain inside the fixed report directory
+- Refuses overwrite by default
+- Stores bounded stdout/stderr previews and preserves truncation metadata
+- Records command results, safety counters, preflight/final status, and recommended human actions
+- Documents reports as non-authoritative operational output
+- Does not mutate runtime state, validation evidence, or review evidence
+- Does not execute queued tasks, queue objectives, queue `allowed_commands`, or raw queue commands
+- Does not invoke workers, perform product work, commit, or push
+
+Example explicit report-writing commands:
+
+```powershell
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report --report-format json,md
+```
+
+Default executor behavior remains stdout-only:
+
+```powershell
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --pretty
+```
+
+RALPH-034E reports are **not authoritative runtime evidence**. They must not be treated as canonical validation/review evidence unless a later task explicitly defines that authority boundary.
+
+Any real autonomous queued-task executor remains a future separately planned task.
 
 ## Command Capture Harness
 
@@ -224,6 +267,6 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 
 ## Morning Report Concept
 
-Future Overnight Worker phases should produce a morning review report under `.agent/overnight/reports/`. The report should summarize queue identity, task-by-task outcomes, skipped/aborted items, verification status, safety findings, commands considered, and exact next human decisions.
+RALPH-034E persistent operational reports are written under `.agent/overnight/reports/` only with explicit `--write-report`. The report summarizes queue identity, validation readiness, validation-only command outcomes, failed/aborted checks, safety findings, files written, and exact next human decisions.
 
-RALPH-034D completes the first validation-only execution layer for mapped check command IDs. The next safe step after human review is persistent reporting/log policy planning, not queued task execution.
+RALPH-034D completed the first validation-only execution layer for mapped check command IDs. RALPH-034E adds bounded non-authoritative operational reporting for that layer. The next safe step after human review remains further reporting/review workflow hardening, not queued task execution.

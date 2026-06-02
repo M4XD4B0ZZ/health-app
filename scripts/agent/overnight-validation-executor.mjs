@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { executeOvernightValidationQueue } from './lib/overnight-validation-executor.mjs';
+import { writeOvernightReportBundle } from './lib/overnight-report-writer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,26 +15,46 @@ const EXIT_CODES = Object.freeze({
   OK: 0,
   INVALID_INPUT: 1,
   NOT_READY: 2,
-  COMMAND_FAILED: 3
+  COMMAND_FAILED: 3,
+  REPORT_WRITE_FAILED: 4
 });
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const options = { queuePath: null, pretty: false, help: false };
-  for (const arg of args) {
+  const options = { queuePath: null, pretty: false, help: false, writeReport: false, reportFormat: 'json,md' };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
     if (arg === '--pretty') options.pretty = true;
+    else if (arg === '--write-report') options.writeReport = true;
+    else if (arg === '--report-format') {
+      if (index + 1 >= args.length) throw new Error('--report-format requires a value');
+      options.reportFormat = args[index + 1];
+      index += 1;
+    }
+    else if (arg.startsWith('--report-format=')) options.reportFormat = arg.slice('--report-format='.length);
     else if (arg === '--help' || arg === '-h') options.help = true;
+    else if (arg.startsWith('--')) throw new Error(`Unknown argument: ${arg}`);
     else if (!options.queuePath) options.queuePath = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
+  validateReportFormatOption(options.reportFormat);
   return options;
+}
+
+function validateReportFormatOption(value) {
+  const allowed = new Set(['json', 'md']);
+  const formats = String(value || '').split(',').map((format) => format.trim().toLowerCase()).filter(Boolean);
+  if (formats.length === 0) throw new Error('At least one report format is required');
+  for (const format of formats) {
+    if (!allowed.has(format)) throw new Error(`Unsupported report format: ${format}`);
+  }
 }
 
 function usage() {
   return `RALPH Overnight Validation-Only Command Executor
 
 USAGE:
-  node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty]
+  node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--write-report] [--report-format json|md|json,md]
 
 SAFETY:
   - Reads only the supplied queue JSON file
@@ -41,7 +62,9 @@ SAFETY:
   - Executes only mapped validation/check command IDs through the RALPH-034B harness
   - Executes no queued task objectives, no queue allowed_commands, and no raw queue commands
   - Invokes no workers and mutates no runtime/evidence state
-  - Writes no files by default`;
+  - Writes no files by default
+  - With --write-report, writes bounded non-authoritative reports only under .agent/overnight/reports/
+  - Does not accept arbitrary output paths`;
 }
 
 function resolveQueuePath(queuePath) {
@@ -67,6 +90,11 @@ function formatPretty(output) {
   lines.push(`Blocked: ${output.command_execution.blocked}`);
   lines.push('');
   lines.push('Safety: no queued task execution; no queue allowed_commands execution; no worker invocation; no runtime mutation; no product work; no commit; no push; no log write by default.');
+  if (output.report_bundle?.files_written?.length > 0) {
+    lines.push('');
+    lines.push('Report files written:');
+    for (const file of output.report_bundle.files_written) lines.push(`- ${file}`);
+  }
   if (output.preflight.critical_findings.length > 0) {
     lines.push('');
     lines.push('Critical Findings:');
@@ -120,6 +148,39 @@ async function main() {
   }
 
   const output = await executeOvernightValidationQueue(queue);
+  if (options.writeReport) {
+    try {
+      const bundle = writeOvernightReportBundle(output, { projectRoot, formats: options.reportFormat });
+      output.report_bundle = {
+        report_authority: bundle.report.report_authority,
+        files_written: bundle.files_written.map((file) => file.relative_path),
+        write_performed: true,
+        arbitrary_output_paths_allowed: false,
+        overwrite_allowed: false
+      };
+    } catch (error) {
+      const failure = {
+        schema_version: '1.0.0',
+        runner: 'overnight-validation-executor.mjs',
+        mode: 'validation_only',
+        valid: false,
+        report_write_failed: true,
+        report_write_error: error.message,
+        safety_summary: {
+          no_task_execution: true,
+          no_worker_invocation: true,
+          no_runtime_state_mutation: true,
+          no_product_work: true,
+          no_commit: true,
+          no_push: true,
+          no_arbitrary_output_paths: true,
+          no_overwrite_by_default: true
+        }
+      };
+      console.error(JSON.stringify(failure, null, 2));
+      process.exit(EXIT_CODES.REPORT_WRITE_FAILED);
+    }
+  }
   if (options.pretty) console.log(formatPretty(output));
   else console.log(JSON.stringify(output, null, 2));
 

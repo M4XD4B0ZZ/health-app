@@ -4,7 +4,11 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-The current phase is **dry-run only**. It validates a human-authored queue and produces a dry-run plan. It does not execute queued tasks.
+**Current phase:** RALPH-034G — End-to-End Dry-Run Orchestrator
+
+The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
+
+**For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
 RALPH-034B adds a separate **command capture smoke harness**. It can run only built-in allowlisted low-risk command IDs and capture their stdout, stderr, exit code, signal, duration, timeout state, and truncation flags as structured JSON. It is not queue execution and does not make queued tasks executable.
 
@@ -175,6 +179,8 @@ RALPH-034E reports and RALPH-034F run logs are **not authoritative runtime evide
 
 RALPH-034F persistent operational run logs are appended under `.agent/overnight/run-log.jsonl` only with explicit `--write-run-log`. The run log records lifecycle events for each overnight validation run with non-authoritative `ovr_` prefixed run IDs. Each event includes state, previous_state, timestamp, queue_id, run_id, safety counters, and validation command summaries. The run log is append-only and never overwrites or truncates existing records. It is non-authoritative operational output and must not be treated as canonical runtime/evidence state.
 
+RALPH-034G positions the existing validation executor as the canonical overnight dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one operator-facing command with explicit orchestration metadata. The orchestrator preserves all safety invariants: no queued task execution, no worker invocation, no runtime mutation, no product work, no commits, no pushes. Operator documentation in `OPERATOR_GUIDE.md` explains safe usage patterns for stdout-only dry-runs, report writing, run-log writing, and complete overnight validation runs with morning review.
+
 Any real autonomous queued-task executor remains a future separately planned task.
 
 ## Command Capture Harness
@@ -277,8 +283,23 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 
 `FORBIDDEN`, `HUMAN_ONLY`, and `REVIEW_REQUIRED` items are never executable in this phase. They are reported as skipped/review-required items.
 
-## Morning Report Concept
+## Orchestrator Usage
 
-RALPH-034E persistent operational reports are written under `.agent/overnight/reports/` only with explicit `--write-report`. The report summarizes queue identity, validation readiness, validation-only command outcomes, failed/aborted checks, safety findings, files written, and exact next human decisions.
+RALPH-034G establishes the validation executor as the canonical overnight dry-run orchestrator.
 
-RALPH-034D completed the first validation-only execution layer for mapped check command IDs. RALPH-034E adds bounded non-authoritative operational reporting for that layer. RALPH-034F adds bounded non-authoritative operational run-log lifecycle tracking for that layer. The next safe step after human review remains further reporting/review workflow hardening, not queued task execution.
+**Operator command:**
+```powershell
+node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--write-report] [--write-run-log]
+```
+
+**Orchestrator behavior:**
+- Validates queue (RALPH-034A)
+- Maps checks (RALPH-034C)
+- Executes validation commands (RALPH-034D)
+- Optionally writes reports (RALPH-034E with `--write-report`)
+- Optionally writes run logs (RALPH-034F with `--write-run-log`)
+- Outputs orchestration metadata with safety counters
+
+**For complete operator instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
+
+RALPH-034D completed the first validation-only execution layer for mapped check command IDs. RALPH-034E adds bounded non-authoritative operational reporting for that layer. RALPH-034F adds bounded non-authoritative operational run-log lifecycle tracking for that layer. RALPH-034G positions these components as a complete end-to-end orchestrator with operator-facing documentation. The next safe step after human review remains further reporting/review workflow hardening, not queued task execution.

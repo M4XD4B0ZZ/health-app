@@ -130,6 +130,18 @@ export function buildValidationExecutorOutput(context = {}) {
   return {
     schema_version: '1.0.0',
     runner: 'overnight-validation-executor.mjs',
+    phase: 'RALPH-034G',
+    orchestration: {
+      mode: 'overnight_dry_run',
+      components_used: [
+        'RALPH-034A: queue validation',
+        'RALPH-034C: validation plan mapping',
+        'RALPH-034D: validation command execution',
+        'RALPH-034E: optional report writing',
+        'RALPH-034F: optional run-log writing'
+      ],
+      orchestrator_role: 'end_to_end_validation_dry_run'
+    },
     queue_id: plan?.queue_id || context.queue_id || null,
     mode: 'validation_only',
     valid,

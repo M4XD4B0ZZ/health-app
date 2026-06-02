@@ -267,6 +267,44 @@ test('execution plan and safety invariants remain zero/true', async () => {
   assert.equal(output.safety_summary.no_runtime_state_mutation, true);
 });
 
+test('orchestration metadata is present in output', async () => {
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+
+  assert.equal(output.phase, 'RALPH-034G');
+  assert.equal(output.orchestration.mode, 'overnight_dry_run');
+  assert.equal(output.orchestration.orchestrator_role, 'end_to_end_validation_dry_run');
+  assert.ok(Array.isArray(output.orchestration.components_used));
+  assert.ok(output.orchestration.components_used.includes('RALPH-034A: queue validation'));
+  assert.ok(output.orchestration.components_used.includes('RALPH-034C: validation plan mapping'));
+  assert.ok(output.orchestration.components_used.includes('RALPH-034D: validation command execution'));
+  assert.ok(output.orchestration.components_used.includes('RALPH-034E: optional report writing'));
+  assert.ok(output.orchestration.components_used.includes('RALPH-034F: optional run-log writing'));
+});
+
+test('orchestration metadata preserves safety counters', async () => {
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+
+  assert.equal(output.orchestration.mode, 'overnight_dry_run');
+  assert.equal(output.execution_plan.queued_tasks_executed, 0);
+  assert.equal(output.execution_plan.worker_invocations, 0);
+  assert.equal(output.execution_plan.runtime_state_mutations, 0);
+  assert.equal(output.execution_plan.task_commands_executed, 0);
+  assert.equal(output.execution_plan.product_work, 0);
+  assert.equal(output.execution_plan.commits, false);
+  assert.equal(output.execution_plan.push, false);
+});
+
+test('orchestration metadata present even for invalid queue', async () => {
+  const output = await executeOvernightValidationQueue(validQueue({ mode: 'execute' }), { commandRunner: fakeRunner() });
+
+  assert.equal(output.valid, false);
+  assert.equal(output.phase, 'RALPH-034G');
+  assert.equal(output.orchestration.mode, 'overnight_dry_run');
+  assert.equal(output.orchestration.orchestrator_role, 'end_to_end_validation_dry_run');
+  assert.equal(output.execution_plan.queued_tasks_executed, 0);
+  assert.equal(output.execution_plan.worker_invocations, 0);
+});
+
 test('queue objective, allowed_files, and allowed_commands are never executed', async () => {
   const runner = fakeRunner();
   const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: runner });

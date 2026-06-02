@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034H — Queue Acceptance Simulator
+**Current phase:** RALPH-034I — Worker Prompt / Execution Envelope Planner
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -12,6 +12,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Produces non-authoritative operational reports and run logs
 - Preserves all safety invariants (no queued task execution, no worker invocation, no runtime mutation)
 - Simulates future worker intake decisions without executing or authorizing work
+- Proposes bounded future-worker envelopes for `would_accept` tasks without executing or authorizing work
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -23,6 +24,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Commit or push changes
 - Accept arbitrary output paths
 - Treat `would_accept` as execution authorization
+- Treat a worker envelope or prompt proposal as execution authorization
 
 ---
 
@@ -70,6 +72,56 @@ node scripts/agent/overnight-queue-simulator.mjs <queue.json> --pretty
 - `human_only` — must remain human-only and must not be autonomously executed
 - `would_reject` — invalid, unsafe, incomplete, unmapped/blocked, or policy-conflicting
 - `forbidden` — explicitly unsafe or forbidden and must never be executable
+
+---
+
+### Mode 0.5: Worker Envelope Planning (Planning-Only)
+
+**Use case:** Review the exact bounded envelope that would constrain a future worker if a `would_accept` task were ever separately authorized for supervised invocation.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-worker-envelope-planner.mjs <queue.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-worker-envelope-planner.mjs <queue.json> --pretty
+```
+
+**Behavior:**
+- Reads the supplied human-authored queue JSON file
+- Reuses RALPH-034H queue acceptance simulation
+- Creates worker envelope proposals only for `would_accept` tasks
+- Marks all other dispositions with `envelope_created: false`
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Runs no validation commands**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/models**
+- **Writes no files**
+
+**Created envelope fields include:**
+- `task_id`
+- accepted disposition source
+- `allowed_files`
+- `forbidden_files`
+- `forbidden_commands`
+- `required_checks`
+- `max_files_changed`
+- `max_diff_lines`
+- `stop_conditions`
+- verification expectations
+- abort conditions
+- `commit_policy: "never"`
+- `push_policy: "never"`
+- `execution_authorized: false`
+- `worker_invocation_authorized: false`
+- `human_review_required: true`
+- `final_human_review_required: true`
+- explicit non-authorization statement
+
+**Important:** A worker envelope is a planning artifact only. It is not a worker invocation request, not a prompt execution request, not queued task execution, and not authorization for commits, pushes, runtime mutation, evidence mutation, validation execution, product work, report writing, or run-log writing.
 
 ---
 
@@ -224,6 +276,7 @@ The orchestrator **never** performs:
 - Raw queue command execution
 - Worker/model invocation
 - Treating queue simulator `would_accept` as execution authorization
+- Treating worker envelope or prompt proposals as execution authorization
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)
@@ -505,7 +558,6 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 
 ### Future Work
 - Autonomous queued-task executor (requires separate planning task)
-- Future worker prompt/envelope planning (requires separate planning task)
 - Worker invocation (requires separate planning task)
 - Runtime/evidence mutation (requires separate planning task)
 - Product work (requires separate planning task)
@@ -676,7 +728,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034H — Queue Acceptance Simulator
+- **Current Phase:** RALPH-034I — Worker Prompt / Execution Envelope Planner
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034H
+- **Foundation Phase:** RALPH-034A through RALPH-034I
 - **Last Updated:** 2026-06-02

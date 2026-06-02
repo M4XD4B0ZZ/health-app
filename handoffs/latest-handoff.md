@@ -1,49 +1,60 @@
-# RALPH-034H Handoff: Queue Acceptance Simulator
+# RALPH-034I Handoff: Worker Prompt / Execution Envelope Planner
 
 ## Run / Task Identity and Status
 
-**Task ID:** RALPH-034H
-**Title:** Queue Acceptance Simulator
+**Task ID:** RALPH-034I
+**Title:** Worker Prompt / Execution Envelope Planner
 **Status:** implemented, pending human review
 **Mode:** ACT MODE
 
 ## What Changed
 
-Implemented a planning-only queue acceptance simulator that classifies each human-authored overnight queue task according to a hypothetical future worker intake decision.
+Implemented a planning-only worker envelope planner that produces deterministic, reviewable future-worker envelope proposals only for tasks classified `would_accept` by the RALPH-034H queue acceptance simulator.
 
-New task dispositions:
+For all other dispositions, the planner returns `envelope_created: false`:
 
-- `would_accept`
 - `would_require_review`
 - `human_only`
 - `would_reject`
 - `forbidden`
 
-`human_only` is separate from `would_require_review`. `would_accept` is intake-only and does not authorize execution.
+Each created envelope includes bounded constraints, verification expectations, abort conditions, no-commit/no-push policy, final human review requirements, and explicit non-authorization fields.
 
 ## Why Changed
 
-RALPH-034A through RALPH-034G provided validation, validation-plan mapping, validation-only command execution, report writing, lifecycle logging, and end-to-end dry-run orchestration. The missing safe next step toward a future overnight worker was a deterministic intake decision model, not readiness/risk scoring or task execution.
+RALPH-034H could classify which queued tasks would theoretically pass future worker intake, but there was no deterministic answer to:
+
+> If this accepted task were ever handed to a future worker, what exact bounded envelope would constrain it?
+
+RALPH-034I adds that next safe planning layer without invoking workers, executing prompts, executing queued tasks, running validation commands, writing reports/logs, or mutating runtime/evidence state.
 
 ## Changed Files
 
-1. `scripts/agent/lib/overnight-queue-simulator.mjs`
-   - Added pure simulator library.
-   - Reuses `validateOvernightQueue`, `validateQueueTask`, and `buildOvernightValidationPlan`.
-   - Does not call validation executor, command runner, spawn, or file writes.
+1. `scripts/agent/lib/overnight-worker-envelope-planner.mjs`
+   - Added pure planner library.
+   - Imports and reuses `simulateOvernightQueueAcceptance`.
+   - Builds worker envelopes only for `would_accept` tasks.
+   - Adds prompt proposals as deterministic review text, not executable prompts.
+   - Preserves zero/false execution counters and explicit non-authorization fields.
 
-2. `scripts/agent/overnight-queue-simulator.mjs`
+2. `scripts/agent/overnight-worker-envelope-planner.mjs`
    - Added CLI with JSON output by default and `--pretty` support.
-   - Rejects execution-like flags such as `--execute`, `--worker`, `--run-queue`, `--commit`, `--push`, `--output`, `--overwrite`, `--write-report`, and `--write-run-log`.
+   - Reads only an explicitly supplied queue JSON file.
+   - Rejects execution-like and write-like flags including `--execute`, `--worker`, `--run-queue`, `--run-worker`, `--invoke-worker`, `--commit`, `--push`, `--output`, `--overwrite`, `--write-report`, `--write-run-log`, `--report-dir`, and `--run-log-path`.
 
-3. `scripts/agent/__tests__/overnight-queue-simulator.test.mjs`
-   - Added focused tests for all five dispositions, safety counters, no writes, CLI flag rejection, parseable output, and no execution authorization.
+3. `scripts/agent/__tests__/overnight-worker-envelope-planner.test.mjs`
+   - Added focused tests for envelope creation, non-accepted disposition handling, mandatory safety fields, non-authorization, no writes, CLI flag rejection, prompt boundedness, and zero execution counters.
 
 4. `.agent/overnight/README.md`
-   - Documented RALPH-034H Queue Acceptance Simulation and strict safety boundaries.
+   - Updated current phase to RALPH-034I.
+   - Documented worker prompt / execution envelope planning and envelope safety output.
+   - Added hard-limit statements that envelope/prompt proposals do not authorize execution.
 
 5. `.agent/overnight/OPERATOR_GUIDE.md`
-   - Added planning-only queue acceptance simulation usage and disposition semantics.
+   - Updated current phase to RALPH-034I.
+   - Added Mode 0.5: Worker Envelope Planning.
+   - Documented envelope fields and non-authorization semantics.
+   - Updated future-work and version sections.
 
 6. `handoffs/latest-handoff.md`
    - Updated this handoff.
@@ -56,11 +67,13 @@ Preserved boundaries:
 - No queue objectives executed.
 - No queue `allowed_commands` executed.
 - No raw queue command strings executed.
-- No validation commands executed by the simulator.
+- No validation commands executed.
+- No prompt text executed.
 - No workers/models invoked.
 - No Cline/OpenCode/Codex/Roo invocation.
 - No runtime/evidence state mutation.
 - No `tasks/**`, `runs/**`, `validation/**`, or `review/**` mutation.
+- No report or run-log artifacts created.
 - No `src/**` changes.
 - No `supabase/**` changes.
 - No `package.json` or `package-lock.json` changes.
@@ -71,12 +84,12 @@ Preserved boundaries:
 
 Validation commands were run one command at a time:
 
-- `node --check scripts/agent/lib/overnight-queue-simulator.mjs` — pass
-- `node --check scripts/agent/overnight-queue-simulator.mjs` — pass
-- `node --test scripts/agent/__tests__/overnight-queue-simulator.test.mjs` — pass, 19/19 tests
+- `node --check scripts/agent/lib/overnight-worker-envelope-planner.mjs` — pass
+- `node --check scripts/agent/overnight-worker-envelope-planner.mjs` — pass
+- `node --test scripts/agent/__tests__/overnight-worker-envelope-planner.test.mjs` — pass, 10/10 tests
 - `node scripts/agent/validate-ralph-state.mjs` — pass, status ok, 0 critical findings, 38 warnings
 - `node scripts/agent/reconcile-roadmap-task-state.mjs` — pass, status ok, 0 critical findings, 1 warning
-- `git --no-pager status --short` — pass, only approved files modified/untracked
+- `git --no-pager status --short` — pass, only approved RALPH-034I files modified/untracked
 - `git --no-pager diff --stat` — pass, tracked documentation/handoff diff shown
 - `git --no-pager diff --name-only` — pass, tracked modified files listed
 
@@ -84,21 +97,21 @@ Validation commands were run one command at a time:
 
 Passed. Validator/reconciler warnings are pre-existing governance/state alignment warnings or non-blocking handoff/run mismatch warnings; both commands reported status `ok` and 0 critical findings.
 
-`git --no-pager status --short` showed only approved RALPH-034H files:
+`git --no-pager status --short` showed only approved RALPH-034I files:
 
 - `.agent/overnight/OPERATOR_GUIDE.md`
 - `.agent/overnight/README.md`
 - `handoffs/latest-handoff.md`
-- `scripts/agent/__tests__/overnight-queue-simulator.test.mjs`
-- `scripts/agent/lib/overnight-queue-simulator.mjs`
-- `scripts/agent/overnight-queue-simulator.mjs`
+- `scripts/agent/__tests__/overnight-worker-envelope-planner.test.mjs`
+- `scripts/agent/lib/overnight-worker-envelope-planner.mjs`
+- `scripts/agent/overnight-worker-envelope-planner.mjs`
 
-No runtime/evidence files changed. No product files changed. No report/run-log artifacts were created by the simulator tests or CLI checks.
+No runtime/evidence files changed. No product files changed. No report/run-log artifacts were created by the planner tests or CLI checks.
 
 ## Known Issues / Risks
 
-No known implementation risks at this stage. The simulator is intentionally planning-only and non-mutating. Future worker prompt/envelope planning remains the next boundary; real execution is still out of scope.
+No known implementation risks. The planner is intentionally non-authorizing and planning-only. Real worker invocation remains out of scope and requires a separate approved task.
 
 ## Human Review Status
 
-Human review required before any follow-up task. Do not proceed to worker invocation or queued task execution from RALPH-034H.
+Human review required before any follow-up task. Do not proceed to worker invocation, prompt execution, validation execution, queued task execution, runtime mutation, evidence mutation, commits, or pushes from RALPH-034I.

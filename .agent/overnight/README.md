@@ -4,11 +4,13 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034H — Queue Acceptance Simulator
+**Current phase:** RALPH-034I — Worker Prompt / Execution Envelope Planner
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
 
 RALPH-034H adds a separate **queue acceptance simulator** (`scripts/agent/overnight-queue-simulator.mjs`). It is planning-only and classifies each human-authored queued task according to what a hypothetical future overnight worker would do at intake. It executes no queued tasks, no queue objectives, no queue `allowed_commands`, no raw queue command strings, no validation commands, and no workers/models. It mutates no runtime/evidence state and writes no files.
+
+RALPH-034I adds a separate **worker prompt / execution envelope planner** (`scripts/agent/overnight-worker-envelope-planner.mjs`). It consumes the RALPH-034H simulator result and produces deterministic, reviewable worker envelope proposals only for tasks classified `would_accept`. It does not invoke workers, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, or write files. Every created envelope explicitly states that it is not execution authorization.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -27,7 +29,9 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No queued task execution.
 - No Cline, OpenCode, Codex, Roo, model, or worker invocation.
 - No worker intake simulation result authorizes execution.
+- No worker envelope or prompt proposal authorizes execution.
 - No validation command execution by the queue acceptance simulator.
+- No validation command execution by the worker envelope planner.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -358,5 +362,66 @@ Every simulator output preserves zero/false safety counters:
   }
 }
 ```
+
+## Worker Prompt / Execution Envelope Planning
+
+RALPH-034I implements a planning-only worker envelope planner:
+
+- `scripts/agent/lib/overnight-worker-envelope-planner.mjs`
+- `scripts/agent/overnight-worker-envelope-planner.mjs`
+
+The planner answers this question without executing anything:
+
+> If this accepted task were ever handed to a future worker, what exact bounded envelope would constrain it?
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-worker-envelope-planner.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-worker-envelope-planner.mjs .agent/overnight/queue.json --pretty
+```
+
+The planner reuses RALPH-034H queue acceptance simulation. It creates envelopes only for tasks classified `would_accept`. For `would_require_review`, `human_only`, `would_reject`, and `forbidden`, it returns `envelope_created: false`.
+
+Each created envelope includes:
+
+- `task_id`
+- accepted disposition source from RALPH-034H
+- `allowed_files`
+- `forbidden_files`
+- `forbidden_commands`
+- `required_checks`
+- `max_files_changed`
+- `max_diff_lines`
+- `stop_conditions`
+- verification expectations
+- abort conditions
+- `commit_policy: "never"`
+- `push_policy: "never"`
+- `execution_authorized: false`
+- `worker_invocation_authorized: false`
+- final human review requirements
+- explicit non-authorization statement
+
+### Envelope Safety Output
+
+Every envelope planner output preserves zero/false safety counters:
+
+```json
+{
+  "execution_plan": {
+    "queued_tasks_executed": 0,
+    "worker_invocations": 0,
+    "runtime_state_mutations": 0,
+    "validation_commands_executed": 0,
+    "task_commands_executed": 0,
+    "product_work": 0,
+    "commits": false,
+    "push": false
+  }
+}
+```
+
+Envelope and prompt proposals are review artifacts only. They do not authorize worker invocation, task execution, validation execution, runtime/evidence mutation, product work, commits, pushes, report writing, or run-log writing.
 
 Real worker execution remains future work and requires a separate approved planning and implementation task.

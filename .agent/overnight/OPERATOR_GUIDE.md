@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034K — Worker Adapter Simulator
+**Current phase:** RALPH-034L — Change / Diff Monitoring Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -15,6 +15,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Proposes bounded future-worker envelopes for `would_accept` tasks without executing or authorizing work
 - Produces future-worker invocation contract payload previews for created envelopes without executing or authorizing work
 - Simulates future worker adapter routing for created invocation contracts without selecting, invoking, or authorizing adapters, providers, models, prompts, tasks, validation commands, or network activity
+- Simulates hypothetical change/diff monitoring without reading git diff/status, applying changes, or authorizing review acceptance
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -29,6 +30,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat a worker envelope or prompt proposal as execution authorization
 - Treat an invocation contract preview as worker, prompt, task, validation, commit, or push authorization
 - Treat an adapter route simulation as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
+- Treat a change/diff monitoring simulation as file-change, validation, review-acceptance, runtime/evidence mutation, commit, or push authorization
 
 ---
 
@@ -233,6 +235,55 @@ node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json> --pretty
 - `prompt_execution_authorized: false`
 
 **Important:** A worker adapter route simulation is a planning artifact only. It is not an adapter invocation request, not a worker invocation request, not a provider/model invocation request, not a prompt execution request, not queued task execution, not validation execution, not network activity, and not authorization for file changes, commits, pushes, runtime mutation, evidence mutation, product work, report writing, run-log writing, dependency changes, external side effects, or adapter execution.
+
+---
+
+### Mode 0.9375: Change / Diff Monitoring Simulation (Planning-Only)
+
+**Use case:** Review how RALPH would classify a hypothetical future worker change-set against allowed files, forbidden files, protected files, file-count thresholds, diff-line thresholds, review triggers, and validation-category implications without executing a worker or reading a real git diff.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json> --pretty
+```
+
+**Behavior:**
+- Reads only the supplied hypothetical change-set JSON file
+- Evaluates allowed-file compliance
+- Evaluates forbidden/protected-file violations
+- Evaluates `max_files_changed` and `max_diff_lines`
+- Simulates review triggers and validation-category implications
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Does not read git diff or git status**
+- **Does not ingest worker output as authority**
+- **Does not apply or write changes**
+- **Runs no validation commands**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/adapters/providers/models**
+- **Performs no network activity**
+- **Writes no files**
+
+**Top-level dispositions:**
+- `would_pass` — hypothetical change-set stays within monitoring constraints; still does not authorize execution or review acceptance
+- `would_require_review` — no blocking violation detected, but review triggers or category escalation require manual review
+- `would_block` — invalid input, scope violation, forbidden/protected file, or threshold violation blocks the hypothetical change-set
+
+**Reason codes include:**
+- `scope_violation`
+- `forbidden_file`
+- `protected_file`
+- `threshold_exceeded`
+- `invalid_input`
+- `review_policy_trigger`
+- `category_escalation`
+
+**Important:** A change/diff monitoring simulation is a planning artifact only. It is not file-change authorization, not worker execution, not adapter execution, not validation execution, not review acceptance, not runtime/evidence mutation, not product work, not staging, not commit, and not push authorization.
 
 ---
 
@@ -441,6 +492,13 @@ The worker adapter simulator additionally rejects adapter/provider/model/prompt/
 - `--provider`, `--model`, `--invoke-model`
 - `--execute-prompt`, `--prompt-execute`
 - `--apply-diff`, `--write-changes`
+
+The change/diff monitoring simulator rejects execution/write/validation/git-action flags such as:
+- `--execute`, `--worker`, `--run-worker`, `--invoke-worker`
+- `--adapter`, `--invoke-adapter`, `--provider`, `--model`
+- `--execute-prompt`, `--apply-diff`, `--write-changes`
+- `--validate`, `--run-validation`, `--write-report`, `--write-run-log`
+- `--output`, `--commit`, `--push`, `--stage`
 
 ---
 
@@ -678,7 +736,8 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 - Worker adapter invocation or adapter route execution
 - Provider/model invocation
 - Network activity from adapter simulation
-- Diff/change monitoring
+- Real git diff/change monitoring
+- Applying hypothetical change sets
 - Post-worker review gate implementation
 - Runtime state mutation
 - Product feature work
@@ -693,7 +752,7 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 - Worker adapter implementation (requires separate planning task)
 - Worker adapter invocation (requires separate planning task)
 - Provider/model invocation (requires separate planning task)
-- Diff/change monitoring (requires separate planning task)
+- Real diff/change monitoring from actual worker output (requires separate planning task)
 - Post-worker review gate implementation (requires separate planning task)
 - Runtime/evidence mutation (requires separate planning task)
 - Product work (requires separate planning task)
@@ -864,7 +923,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034K — Worker Adapter Simulator
+- **Current Phase:** RALPH-034L — Change / Diff Monitoring Simulator
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034K
+- **Foundation Phase:** RALPH-034A through RALPH-034L
 - **Last Updated:** 2026-06-02

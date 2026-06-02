@@ -4,7 +4,7 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034K — Worker Adapter Simulator
+**Current phase:** RALPH-034L — Change / Diff Monitoring Simulator
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
 
@@ -15,6 +15,8 @@ RALPH-034I adds a separate **worker prompt / execution envelope planner** (`scri
 RALPH-034J adds a separate **worker invocation contract simulator** (`scripts/agent/overnight-worker-invocation-contract-simulator.mjs`). It consumes the RALPH-034I envelope planner result and produces deterministic, reviewable future-worker invocation contract payload previews only for entries with `envelope_created: true`. It does not invoke workers, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, write reports/run logs, or write files. Every created contract explicitly states that it is not invocation authorization.
 
 RALPH-034K adds a separate **worker adapter simulator** (`scripts/agent/overnight-worker-adapter-simulator.mjs`). It consumes the RALPH-034J invocation contract simulator result and produces deterministic, reviewable adapter routing simulations only for entries with `contract_created: true`. Current contracts remain blocked by authorization, so no route is executable. It does not invoke workers, adapters, providers, models, prompts, queued tasks, validation commands, network endpoints, or runtime/evidence mutations, and it writes no files. Every adapter route simulation explicitly states that it is not adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization.
+
+RALPH-034L adds a separate **change / diff monitoring simulator** (`scripts/agent/overnight-change-diff-simulator.mjs`). It consumes only an explicitly supplied hypothetical change-set JSON file and classifies the described changes against allowed files, forbidden files, protected files, file-count thresholds, diff-line thresholds, review triggers, and validation-category implications. It does not read git diff, read git status, ingest worker output as authority, invoke workers/adapters/providers/models/prompts, execute queued tasks, execute validation commands, apply changes, mutate runtime/evidence state, write reports/run logs, commit, or push. Every change/diff simulation explicitly states that it is planning-only, non-authoritative, non-mutating, and non-authorizing.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -36,10 +38,12 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No worker envelope or prompt proposal authorizes execution.
 - No worker invocation contract preview authorizes execution, prompt execution, or worker invocation.
 - No worker adapter route simulation authorizes adapter invocation, worker invocation, provider/model invocation, prompt execution, network activity, task execution, validation execution, or mutation.
+- No change/diff monitoring simulation authorizes file changes, worker invocation, adapter invocation, validation execution, review acceptance, runtime/evidence mutation, commits, or pushes.
 - No validation command execution by the queue acceptance simulator.
 - No validation command execution by the worker envelope planner.
 - No validation command execution by the worker invocation contract simulator.
 - No validation command execution by the worker adapter simulator.
+- No validation command execution by the change/diff monitoring simulator.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -196,6 +200,33 @@ RALPH-034E reports and RALPH-034F run logs are **not authoritative runtime evide
 RALPH-034F persistent operational run logs are appended under `.agent/overnight/run-log.jsonl` only with explicit `--write-run-log`. The run log records lifecycle events for each overnight validation run with non-authoritative `ovr_` prefixed run IDs. Each event includes state, previous_state, timestamp, queue_id, run_id, safety counters, and validation command summaries. The run log is append-only and never overwrites or truncates existing records. It is non-authoritative operational output and must not be treated as canonical runtime/evidence state.
 
 RALPH-034G positions the existing validation executor as the canonical overnight dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one operator-facing command with explicit orchestration metadata. The orchestrator preserves all safety invariants: no queued task execution, no worker invocation, no runtime mutation, no product work, no commits, no pushes. Operator documentation in `OPERATOR_GUIDE.md` explains safe usage patterns for stdout-only dry-runs, report writing, run-log writing, and complete overnight validation runs with morning review.
+
+### Change / Diff Monitoring Simulation
+
+RALPH-034L implements a planning-only change/diff monitoring simulator:
+
+- `scripts/agent/lib/overnight-change-diff-simulator.mjs`
+- `scripts/agent/overnight-change-diff-simulator.mjs`
+
+The simulator reads only an explicitly supplied hypothetical change-set JSON file. It evaluates:
+
+- allowed file compliance
+- forbidden file violations
+- protected file violations
+- file count thresholds
+- diff line thresholds
+- review triggers
+- validation-category implications
+- zero/false safety invariants
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-change-diff-simulator.mjs .agent/overnight/change-set.json
+node scripts/agent/overnight-change-diff-simulator.mjs .agent/overnight/change-set.json --pretty
+```
+
+RALPH-034L remains **planning-only**. It does not read git diff, read git status, execute workers, execute adapters, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, write reports/run logs, apply changes, stage, commit, or push.
 
 Any real autonomous queued-task executor remains a future separately planned task.
 

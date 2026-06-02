@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
+import { RUN_LOG_RELATIVE_PATH } from '../lib/overnight-run-log.mjs';
 import {
   VALIDATION_ONLY_COMMAND_IDS,
   aggregateValidationCommandResults,
@@ -113,6 +114,28 @@ function writeQueue(root, queue) {
 
 function snapshot(root) {
   return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+}
+
+function runCli(root, args = [], env = {}) {
+  return spawnSync(process.execPath, [CLI, ...args], {
+    cwd: projectRoot,
+    env: { ...process.env, ...env },
+    encoding: 'utf8'
+  });
+}
+
+function listRecursive(root) {
+  if (!fs.existsSync(root)) return [];
+  const entries = [];
+  const visit = (dir) => {
+    for (const entry of fs.readdirSync(dir).sort()) {
+      const fullPath = path.join(dir, entry);
+      if (fs.statSync(fullPath).isDirectory()) visit(fullPath);
+      else entries.push(path.relative(root, fullPath).replace(/\\/g, '/'));
+    }
+  };
+  visit(root);
+  return entries;
 }
 
 test('validation-only allowlist contains only focused check IDs', () => {
@@ -346,9 +369,79 @@ test('CLI does not accept arbitrary output path flags', (t) => {
   const root = tempDir(t);
   const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
 
-  for (const flag of ['--output', '--report-dir']) {
+  for (const flag of ['--output', '--report-dir', '--run-log-path', '--log-dir', '--overwrite']) {
     const result = spawnSync(process.execPath, [CLI, queuePath, flag, root], { cwd: projectRoot, encoding: 'utf8' });
     assert.equal(result.status, 1);
     assert.match(result.stderr, new RegExp(`Unknown argument: ${flag}`));
   }
+});
+
+test('CLI without --write-run-log writes no real overnight run log', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const runLogPath = path.join(projectRoot, RUN_LOG_RELATIVE_PATH);
+  const beforeExists = fs.existsSync(runLogPath);
+  const beforeContent = beforeExists ? fs.readFileSync(runLogPath, 'utf8') : null;
+
+  const result = spawnSync(process.execPath, [CLI, queuePath], { cwd: projectRoot, encoding: 'utf8' });
+
+  assert.equal(result.status, 2);
+  assert.equal(fs.existsSync(runLogPath), beforeExists);
+  if (beforeExists) assert.equal(fs.readFileSync(runLogPath, 'utf8'), beforeContent);
+});
+
+test('CLI with --write-report alone does not imply run-log writing', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const result = runCli(root, [queuePath, '--write-report'], { RALPH_OVERNIGHT_PROJECT_ROOT: root });
+  const json = JSON.parse(result.stdout || result.stderr);
+
+  assert.equal(result.status, 2);
+  assert.equal(json.report_bundle.write_performed, true);
+  assert.equal(json.run_log.write_performed, false);
+  assert.ok(!listRecursive(root).includes(RUN_LOG_RELATIVE_PATH));
+});
+
+test('CLI with --write-run-log writes lifecycle events only under temp project root', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const result = runCli(root, [queuePath, '--write-run-log'], { RALPH_OVERNIGHT_PROJECT_ROOT: root });
+  const json = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 2);
+  assert.equal(json.run_log.write_performed, true);
+  assert.deepEqual(json.run_log.files_written, [RUN_LOG_RELATIVE_PATH]);
+  const lines = fs.readFileSync(path.join(root, RUN_LOG_RELATIVE_PATH), 'utf8').trim().split(/\r?\n/).map(JSON.parse);
+  assert.deepEqual(lines.map((line) => line.state), ['planned', 'validation_started', 'validation_failed', 'aborted']);
+  assert.ok(lines.every((line) => line.authority === 'non_authoritative_overnight_operational_lifecycle_log'));
+});
+
+test('CLI with --write-report and --write-run-log reports both write outputs in temp root', (t) => {
+  const root = tempDir(t);
+  const queuePath = writeQueue(root, validQueue({ mode: 'execute' }));
+  const result = runCli(root, [queuePath, '--write-report', '--write-run-log'], { RALPH_OVERNIGHT_PROJECT_ROOT: root });
+  const json = JSON.parse(result.stdout);
+
+  assert.equal(result.status, 2);
+  assert.equal(json.report_bundle.write_performed, true);
+  assert.equal(json.run_log.write_performed, true);
+  assert.ok(json.report_bundle.files_written.every((file) => file.startsWith('.agent/overnight/reports/')));
+  assert.deepEqual(json.run_log.files_written, [RUN_LOG_RELATIVE_PATH]);
+});
+
+test('run-log preview shows completed lifecycle for passing library result', async () => {
+  const { buildLifecycleEventsForExecutorResult } = await import('../lib/overnight-run-log.mjs');
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+  const events = buildLifecycleEventsForExecutorResult(output, { timestamp: '2026-06-02T08:30:00.000Z', randomSuffix: 'abc123' });
+
+  assert.deepEqual(events.map((event) => event.state), ['planned', 'validation_started', 'validation_passed', 'completed']);
+});
+
+test('run-log preview includes report_written before completed when report metadata exists', async () => {
+  const { buildLifecycleEventsForExecutorResult } = await import('../lib/overnight-run-log.mjs');
+  const output = await executeOvernightValidationQueue(validQueue(), { commandRunner: fakeRunner() });
+  output.report_bundle = { files_written: ['.agent/overnight/reports/report.json'] };
+  const events = buildLifecycleEventsForExecutorResult(output, { timestamp: '2026-06-02T08:30:00.000Z', randomSuffix: 'abc123' });
+
+  assert.deepEqual(events.map((event) => event.state), ['planned', 'validation_started', 'validation_passed', 'report_written', 'completed']);
 });

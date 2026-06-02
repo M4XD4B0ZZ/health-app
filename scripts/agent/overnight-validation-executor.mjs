@@ -6,26 +6,29 @@ import { fileURLToPath } from 'node:url';
 
 import { executeOvernightValidationQueue } from './lib/overnight-validation-executor.mjs';
 import { writeOvernightReportBundle } from './lib/overnight-report-writer.mjs';
+import { appendOvernightRunLogEvent, buildLifecycleEventsForExecutorResult } from './lib/overnight-run-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = process.env.RALPH_OVERNIGHT_PROJECT_ROOT || path.resolve(__dirname, '../..');
 
 const EXIT_CODES = Object.freeze({
   OK: 0,
   INVALID_INPUT: 1,
   NOT_READY: 2,
   COMMAND_FAILED: 3,
-  REPORT_WRITE_FAILED: 4
+  REPORT_WRITE_FAILED: 4,
+  RUN_LOG_WRITE_FAILED: 5
 });
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const options = { queuePath: null, pretty: false, help: false, writeReport: false, reportFormat: 'json,md' };
+  const options = { queuePath: null, pretty: false, help: false, writeReport: false, reportFormat: 'json,md', writeRunLog: false };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--pretty') options.pretty = true;
     else if (arg === '--write-report') options.writeReport = true;
+    else if (arg === '--write-run-log') options.writeRunLog = true;
     else if (arg === '--report-format') {
       if (index + 1 >= args.length) throw new Error('--report-format requires a value');
       options.reportFormat = args[index + 1];
@@ -54,7 +57,7 @@ function usage() {
   return `RALPH Overnight Validation-Only Command Executor
 
 USAGE:
-  node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--write-report] [--report-format json|md|json,md]
+  node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--write-report] [--report-format json|md|json,md] [--write-run-log]
 
 SAFETY:
   - Reads only the supplied queue JSON file
@@ -64,6 +67,7 @@ SAFETY:
   - Invokes no workers and mutates no runtime/evidence state
   - Writes no files by default
   - With --write-report, writes bounded non-authoritative reports only under .agent/overnight/reports/
+  - With --write-run-log, appends non-authoritative lifecycle events only to .agent/overnight/run-log.jsonl
   - Does not accept arbitrary output paths`;
 }
 
@@ -94,6 +98,11 @@ function formatPretty(output) {
     lines.push('');
     lines.push('Report files written:');
     for (const file of output.report_bundle.files_written) lines.push(`- ${file}`);
+  }
+  if (output.run_log?.events_written?.length > 0) {
+    lines.push('');
+    lines.push('Run-log lifecycle events written:');
+    for (const state of output.run_log.events_written) lines.push(`- ${state}`);
   }
   if (output.preflight.critical_findings.length > 0) {
     lines.push('');
@@ -179,6 +188,52 @@ async function main() {
       };
       console.error(JSON.stringify(failure, null, 2));
       process.exit(EXIT_CODES.REPORT_WRITE_FAILED);
+    }
+  }
+  const lifecycleEvents = buildLifecycleEventsForExecutorResult(output);
+  output.run_log = {
+    authority: 'non_authoritative_overnight_operational_lifecycle_log',
+    write_performed: false,
+    default_no_write: true,
+    fixed_path: '.agent/overnight/run-log.jsonl',
+    arbitrary_output_paths_allowed: false,
+    overwrite_or_truncate_allowed: false,
+    event_states_preview: lifecycleEvents.map((event) => event.state),
+    run_id: lifecycleEvents[0]?.run_id || null
+  };
+
+  if (options.writeRunLog) {
+    try {
+      const writes = lifecycleEvents.map((event) => appendOvernightRunLogEvent(event, { projectRoot }));
+      output.run_log = {
+        ...output.run_log,
+        write_performed: true,
+        default_no_write: false,
+        files_written: [...new Set(writes.map((write) => write.relativePath))],
+        events_written: lifecycleEvents.map((event) => event.state)
+      };
+    } catch (error) {
+      const failure = {
+        schema_version: '1.0.0',
+        runner: 'overnight-validation-executor.mjs',
+        mode: 'validation_only',
+        valid: false,
+        run_log_write_failed: true,
+        run_log_write_error: error.message,
+        safety_summary: {
+          no_task_execution: true,
+          no_worker_invocation: true,
+          no_runtime_state_mutation: true,
+          no_product_work: true,
+          no_commit: true,
+          no_push: true,
+          no_arbitrary_output_paths: true,
+          no_overwrite_or_truncate: true,
+          run_log_is_non_authoritative: true
+        }
+      };
+      console.error(JSON.stringify(failure, null, 2));
+      process.exit(EXIT_CODES.RUN_LOG_WRITE_FAILED);
     }
   }
   if (options.pretty) console.log(formatPretty(output));

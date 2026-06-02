@@ -14,6 +14,8 @@ RALPH-034D adds a bounded **validation-only command executor**. It reads a human
 
 RALPH-034E adds an explicit bounded **persistent operational report writer** for RALPH-034D validation-only executor results. It writes JSON and Markdown reports only when `--write-report` is passed, only under `.agent/overnight/reports/`, with no arbitrary output paths and no overwrite behavior by default. Reports are non-authoritative operational output, not runtime or evidence state.
 
+RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for RALPH-034D validation-only executor results. It appends non-authoritative lifecycle events only when `--write-run-log` is passed, only to `.agent/overnight/run-log.jsonl`, with no arbitrary output paths and no overwrite or truncate behavior. The run log uses `ovr_` prefixed run IDs to distinguish overnight validation runs from canonical `run_` runtime authority. Lifecycle states include `planned`, `validation_started`, `validation_passed`, `validation_failed`, `report_written`, `completed`, and `aborted`. The run log is append-only JSONL and is non-authoritative operational output, not runtime or evidence state.
+
 ## Hard v1 Limits
 
 - No queued task execution.
@@ -30,8 +32,9 @@ RALPH-034E adds an explicit bounded **persistent operational report writer** for
 - No command execution through `cmd`, PowerShell, `sh`, or `bash` wrappers.
 - No command logs or reports written by default by the command capture harness.
 - No persistent overnight reports written unless an explicit report-writing flag is used.
-- No arbitrary output paths for overnight reports.
-- No overwrite behavior for overnight reports by default.
+- No persistent overnight run logs written unless an explicit run-log-writing flag is used.
+- No arbitrary output paths for overnight reports or run logs.
+- No overwrite or truncate behavior for overnight reports or run logs by default.
 
 Normal HealthApp product feature work remains paused for Overnight Worker v1 until this system is proven safe.
 
@@ -161,7 +164,16 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --pretty
 ```
 
-RALPH-034E reports are **not authoritative runtime evidence**. They must not be treated as canonical validation/review evidence unless a later task explicitly defines that authority boundary.
+Example explicit run-log-writing commands:
+
+```powershell
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-run-log
+node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report --write-run-log
+```
+
+RALPH-034E reports and RALPH-034F run logs are **not authoritative runtime evidence**. They must not be treated as canonical validation/review evidence unless a later task explicitly defines that authority boundary.
+
+RALPH-034F persistent operational run logs are appended under `.agent/overnight/run-log.jsonl` only with explicit `--write-run-log`. The run log records lifecycle events for each overnight validation run with non-authoritative `ovr_` prefixed run IDs. Each event includes state, previous_state, timestamp, queue_id, run_id, safety counters, and validation command summaries. The run log is append-only and never overwrites or truncates existing records. It is non-authoritative operational output and must not be treated as canonical runtime/evidence state.
 
 Any real autonomous queued-task executor remains a future separately planned task.
 
@@ -269,4 +281,4 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 
 RALPH-034E persistent operational reports are written under `.agent/overnight/reports/` only with explicit `--write-report`. The report summarizes queue identity, validation readiness, validation-only command outcomes, failed/aborted checks, safety findings, files written, and exact next human decisions.
 
-RALPH-034D completed the first validation-only execution layer for mapped check command IDs. RALPH-034E adds bounded non-authoritative operational reporting for that layer. The next safe step after human review remains further reporting/review workflow hardening, not queued task execution.
+RALPH-034D completed the first validation-only execution layer for mapped check command IDs. RALPH-034E adds bounded non-authoritative operational reporting for that layer. RALPH-034F adds bounded non-authoritative operational run-log lifecycle tracking for that layer. The next safe step after human review remains further reporting/review workflow hardening, not queued task execution.

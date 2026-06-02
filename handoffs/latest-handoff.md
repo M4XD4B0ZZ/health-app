@@ -1,241 +1,104 @@
-# RALPH-034G Handoff: Overnight End-to-End Dry-Run Orchestrator
+# RALPH-034H Handoff: Queue Acceptance Simulator
 
-**Task ID:** RALPH-034G  
-**Phase:** RALPH Autonomous Overnight Worker v1  
-**Completed:** 2026-06-02  
-**Worker:** Cline (Act Mode)
+## Run / Task Identity and Status
 
----
+**Task ID:** RALPH-034H
+**Title:** Queue Acceptance Simulator
+**Status:** implemented, pending human review
+**Mode:** ACT MODE
 
-## Objective
+## What Changed
 
-Position the existing overnight validation executor as the canonical end-to-end dry-run orchestrator for RALPH Autonomous Overnight Worker v1.
+Implemented a planning-only queue acceptance simulator that classifies each human-authored overnight queue task according to a hypothetical future worker intake decision.
 
----
+New task dispositions:
 
-## What Was Implemented
+- `would_accept`
+- `would_require_review`
+- `human_only`
+- `would_reject`
+- `forbidden`
 
-### 1. Operator-Facing Documentation
+`human_only` is separate from `would_require_review`. `would_accept` is intake-only and does not authorize execution.
 
-**Created:** `.agent/overnight/OPERATOR_GUIDE.md`
+## Why Changed
 
-Comprehensive operator guide covering:
-- Purpose and capabilities of the orchestrator
-- Five usage modes (stdout-only, pretty, report, run-log, complete)
-- Safety boundaries and hard invariants
-- Queue requirements and validation
-- Output interpretation (orchestration metadata, safety counters, exit codes)
-- Operational workflows (manual verification, overnight runs, debugging)
-- Non-authoritative output authority
-- Troubleshooting guide
-- Safety checklist
+RALPH-034A through RALPH-034G provided validation, validation-plan mapping, validation-only command execution, report writing, lifecycle logging, and end-to-end dry-run orchestration. The missing safe next step toward a future overnight worker was a deterministic intake decision model, not readiness/risk scoring or task execution.
 
-**Updated:** `.agent/overnight/README.md`
+## Changed Files
 
-- Positioned validation executor as canonical orchestrator
-- Added RALPH-034G phase description
-- Added orchestrator usage section with operator command examples
-- Linked to OPERATOR_GUIDE.md for complete instructions
+1. `scripts/agent/lib/overnight-queue-simulator.mjs`
+   - Added pure simulator library.
+   - Reuses `validateOvernightQueue`, `validateQueueTask`, and `buildOvernightValidationPlan`.
+   - Does not call validation executor, command runner, spawn, or file writes.
 
-### 2. Orchestration Metadata
+2. `scripts/agent/overnight-queue-simulator.mjs`
+   - Added CLI with JSON output by default and `--pretty` support.
+   - Rejects execution-like flags such as `--execute`, `--worker`, `--run-queue`, `--commit`, `--push`, `--output`, `--overwrite`, `--write-report`, and `--write-run-log`.
 
-**Modified:** `scripts/agent/lib/overnight-validation-executor.mjs`
+3. `scripts/agent/__tests__/overnight-queue-simulator.test.mjs`
+   - Added focused tests for all five dispositions, safety counters, no writes, CLI flag rejection, parseable output, and no execution authorization.
 
-Added explicit orchestration metadata to `buildValidationExecutorOutput()`:
+4. `.agent/overnight/README.md`
+   - Documented RALPH-034H Queue Acceptance Simulation and strict safety boundaries.
 
-```javascript
-{
-  phase: 'RALPH-034G',
-  orchestration: {
-    mode: 'overnight_dry_run',
-    components_used: [
-      'RALPH-034A: queue validation',
-      'RALPH-034C: validation plan mapping',
-      'RALPH-034D: validation command execution',
-      'RALPH-034E: optional report writing',
-      'RALPH-034F: optional run-log writing'
-    ],
-    orchestrator_role: 'end_to_end_validation_dry_run'
-  },
-  // ... existing fields
-}
-```
+5. `.agent/overnight/OPERATOR_GUIDE.md`
+   - Added planning-only queue acceptance simulation usage and disposition semantics.
 
-This metadata makes the orchestrator role explicit in every output.
+6. `handoffs/latest-handoff.md`
+   - Updated this handoff.
 
-### 3. Orchestration-Focused Tests
+## Safety Boundaries
 
-**Modified:** `scripts/agent/__tests__/overnight-validation-executor.test.mjs`
+Preserved boundaries:
 
-Added three new tests:
+- No queued tasks executed.
+- No queue objectives executed.
+- No queue `allowed_commands` executed.
+- No raw queue command strings executed.
+- No validation commands executed by the simulator.
+- No workers/models invoked.
+- No Cline/OpenCode/Codex/Roo invocation.
+- No runtime/evidence state mutation.
+- No `tasks/**`, `runs/**`, `validation/**`, or `review/**` mutation.
+- No `src/**` changes.
+- No `supabase/**` changes.
+- No `package.json` or `package-lock.json` changes.
+- No `ROADMAP.md` changes.
+- No staging, commit, or push performed.
 
-1. **`orchestration metadata is present in output`**
-   - Verifies `phase`, `orchestration.mode`, `orchestration.orchestrator_role`
-   - Verifies all five components are listed in `orchestration.components_used`
+## Validation Executed
 
-2. **`orchestration metadata preserves safety counters`**
-   - Verifies orchestration mode is `overnight_dry_run`
-   - Verifies all safety counters remain zero/false
+Validation commands were run one command at a time:
 
-3. **`orchestration metadata present even for invalid queue`**
-   - Verifies orchestration metadata is present even when validation fails
-   - Verifies safety counters remain zero/false for invalid queues
+- `node --check scripts/agent/lib/overnight-queue-simulator.mjs` — pass
+- `node --check scripts/agent/overnight-queue-simulator.mjs` — pass
+- `node --test scripts/agent/__tests__/overnight-queue-simulator.test.mjs` — pass, 19/19 tests
+- `node scripts/agent/validate-ralph-state.mjs` — pass, status ok, 0 critical findings, 38 warnings
+- `node scripts/agent/reconcile-roadmap-task-state.mjs` — pass, status ok, 0 critical findings, 1 warning
+- `git --no-pager status --short` — pass, only approved files modified/untracked
+- `git --no-pager diff --stat` — pass, tracked documentation/handoff diff shown
+- `git --no-pager diff --name-only` — pass, tracked modified files listed
 
----
+## Validation Result
 
-## Files Modified
+Passed. Validator/reconciler warnings are pre-existing governance/state alignment warnings or non-blocking handoff/run mismatch warnings; both commands reported status `ok` and 0 critical findings.
 
-1. `.agent/overnight/OPERATOR_GUIDE.md` (created, 685 lines)
-2. `.agent/overnight/README.md` (updated, orchestrator positioning)
-3. `scripts/agent/lib/overnight-validation-executor.mjs` (updated, orchestration metadata)
-4. `scripts/agent/__tests__/overnight-validation-executor.test.mjs` (updated, 3 new tests)
-5. `handoffs/latest-handoff.md` (this file)
+`git --no-pager status --short` showed only approved RALPH-034H files:
 
----
+- `.agent/overnight/OPERATOR_GUIDE.md`
+- `.agent/overnight/README.md`
+- `handoffs/latest-handoff.md`
+- `scripts/agent/__tests__/overnight-queue-simulator.test.mjs`
+- `scripts/agent/lib/overnight-queue-simulator.mjs`
+- `scripts/agent/overnight-queue-simulator.mjs`
 
-## Safety Invariants Preserved
+No runtime/evidence files changed. No product files changed. No report/run-log artifacts were created by the simulator tests or CLI checks.
 
-All existing safety invariants remain enforced:
+## Known Issues / Risks
 
-- **No queued task execution:** Queue objectives, allowed_commands, and raw commands are never executed
-- **No worker invocation:** No Cline, OpenCode, Codex, Roo, model, or worker scripts invoked
-- **No runtime mutation:** No changes to `tasks/**`, `runs/**`, `validation/**`, `review/**`
-- **No product work:** No changes to `src/**`
-- **No dependency changes:** No changes to `package.json`, `package-lock.json`
-- **No commits:** No git commits performed
-- **No pushes:** No git pushes performed
-- **No arbitrary output paths:** Reports/logs only under fixed directories
-- **No overwrite by default:** Reports refuse overwrite, logs are append-only
+No known implementation risks at this stage. The simulator is intentionally planning-only and non-mutating. Future worker prompt/envelope planning remains the next boundary; real execution is still out of scope.
 
-Safety counters in output:
-```javascript
-{
-  queued_tasks_executed: 0,
-  worker_invocations: 0,
-  runtime_state_mutations: 0,
-  task_commands_executed: 0,
-  product_work: 0,
-  commits: false,
-  push: false
-}
-```
+## Human Review Status
 
----
-
-## Canonical Orchestrator Command
-
-The overnight validation executor is now explicitly documented as the canonical orchestrator:
-
-```powershell
-node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--write-report] [--write-run-log]
-```
-
-**Default behavior:** Stdout-only, no writes  
-**With `--write-report`:** Writes non-authoritative operational reports under `.agent/overnight/reports/`  
-**With `--write-run-log`:** Appends non-authoritative lifecycle events to `.agent/overnight/run-log.jsonl`  
-**With both flags:** Complete overnight dry-run with persistent artifacts
-
----
-
-## Verification Performed
-
-All verification commands passed:
-
-```powershell
-node --check scripts/agent/lib/overnight-validation-executor.mjs  # ✓ Syntax valid
-node --check scripts/agent/overnight-validation-executor.mjs      # ✓ Syntax valid
-node --test scripts/agent/__tests__/overnight-validation-executor.test.mjs  # ✓ All 32 tests pass (including 3 new orchestration tests)
-node scripts/agent/validate-ralph-state.mjs                       # ✓ ok (2 handoff format findings, non-blocking)
-node scripts/agent/reconcile-roadmap-task-state.mjs               # ✓ ok, 0 critical
-git --no-pager status --short                                     # ✓ Clean (only expected files modified)
-git --no-pager diff --stat                                        # ✓ Only allowed files changed
-```
-
-**Validation executed:**
-- Syntax checks: ✓ Pass
-- Focused tests: ✓ 32/32 pass (including new orchestration metadata tests)
-- Runtime validators: ✓ Pass (handoff format findings are non-blocking for RALPH-034G)
-- Git status: ✓ Clean
-
-**No real artifacts created:**
-- No `.agent/overnight/run-log.jsonl` created during verification
-- No `.agent/overnight/reports/` artifacts created during verification
-- Working tree remains clean except for expected documentation/code changes
-
-## Known Issues & Risks
-
-**None identified for RALPH-034G.**
-
-The validator reports 2 handoff format findings (`validation_executed` and `known_issues_risks` sections missing). These sections are now present in this handoff and are non-blocking for RALPH-034G implementation.
-
-All safety invariants are preserved. No queued task execution, no worker invocation, no runtime mutation, no product work, no commits, no pushes.
-
----
-
-## What This Enables
-
-### For Operators
-
-1. **Clear entrypoint:** Single canonical command for overnight validation dry-runs
-2. **Explicit orchestration:** Output clearly identifies orchestrator role and components
-3. **Safe usage patterns:** Documented workflows for verification, overnight runs, debugging
-4. **Non-authoritative outputs:** Clear authority boundaries for reports and run logs
-
-### For Future Work
-
-1. **Foundation complete:** RALPH-034A through RALPH-034G form complete validation-only orchestrator
-2. **Next boundary clear:** Real queued task execution remains explicitly out of scope
-3. **Operator confidence:** Comprehensive documentation and safety guarantees
-4. **Test coverage:** Orchestration behavior is explicitly tested
-
----
-
-## What Remains Out of Scope
-
-The following are **explicitly not implemented** and require separate planning tasks:
-
-- Real queued task execution
-- Queue objective execution
-- Queue `allowed_commands` execution
-- Worker/model invocation
-- Runtime state mutation
-- Product feature work
-- Dependency changes
-- Commits
-- Pushes
-- Deploys
-
----
-
-## Recommended Next Steps
-
-1. **Human review:** Review OPERATOR_GUIDE.md and verify operator workflows
-2. **Manual verification:** Run orchestrator with test queue to verify behavior
-3. **Commit RALPH-034G:** Commit implementation with message: `feat(agent): add overnight end-to-end dry-run orchestrator`
-4. **Update ROADMAP.md:** Mark RALPH-034G as `done`
-5. **Plan next phase:** Decide whether to harden reporting/review workflows or plan real queued-task execution
-
----
-
-## Acceptance Criteria Met
-
-- [x] Operator-facing documentation created (OPERATOR_GUIDE.md)
-- [x] README.md updated to position validation executor as orchestrator
-- [x] Orchestration metadata added to validation executor output
-- [x] Orchestration-focused tests added and passing
-- [x] All verification commands pass
-- [x] No real artifacts created during verification
-- [x] Safety invariants preserved
-- [x] Handoff documentation complete
-
----
-
-## Notes
-
-- **No new CLI created:** Existing validation executor serves as orchestrator
-- **No new library modules:** Orchestration is metadata enhancement only
-- **Minimal code changes:** Only added orchestration metadata to output
-- **Documentation-heavy:** Most work was operator-facing documentation
-- **Conservative approach:** Leverages existing tested components without duplication
-
-This completes the RALPH Autonomous Overnight Worker v1 foundation (RALPH-034A through RALPH-034G). The system is now ready for operator use with clear documentation, explicit orchestration metadata, and comprehensive safety guarantees.
+Human review required before any follow-up task. Do not proceed to worker invocation or queued task execution from RALPH-034H.

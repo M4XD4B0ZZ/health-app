@@ -4,9 +4,11 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034G — End-to-End Dry-Run Orchestrator
+**Current phase:** RALPH-034H — Queue Acceptance Simulator
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
+
+RALPH-034H adds a separate **queue acceptance simulator** (`scripts/agent/overnight-queue-simulator.mjs`). It is planning-only and classifies each human-authored queued task according to what a hypothetical future overnight worker would do at intake. It executes no queued tasks, no queue objectives, no queue `allowed_commands`, no raw queue command strings, no validation commands, and no workers/models. It mutates no runtime/evidence state and writes no files.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -24,6 +26,8 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 
 - No queued task execution.
 - No Cline, OpenCode, Codex, Roo, model, or worker invocation.
+- No worker intake simulation result authorizes execution.
+- No validation command execution by the queue acceptance simulator.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -303,3 +307,56 @@ node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--
 **For complete operator instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
 RALPH-034D completed the first validation-only execution layer for mapped check command IDs. RALPH-034E adds bounded non-authoritative operational reporting for that layer. RALPH-034F adds bounded non-authoritative operational run-log lifecycle tracking for that layer. RALPH-034G positions these components as a complete end-to-end orchestrator with operator-facing documentation. The next safe step after human review remains further reporting/review workflow hardening, not queued task execution.
+
+## Queue Acceptance Simulation
+
+RALPH-034H implements a planning-only queue acceptance simulator:
+
+- `scripts/agent/lib/overnight-queue-simulator.mjs`
+- `scripts/agent/overnight-queue-simulator.mjs`
+
+The simulator answers this question without executing anything:
+
+> If an overnight worker existed today, which queued tasks would it theoretically accept, reject, escalate, keep human-only, or forbid at intake?
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-queue-simulator.mjs .agent/overnight/queue.json
+node scripts/agent/overnight-queue-simulator.mjs .agent/overnight/queue.json --pretty
+```
+
+The simulator reuses existing queue validation and validation-plan/check mapping. It never calls the validation executor, never calls the command runner, never runs validation commands, never executes queued task work, never invokes workers/models, never mutates runtime/evidence state, and writes no files.
+
+### Acceptance Dispositions
+
+Each queued task receives exactly one computed disposition:
+
+- `would_accept` — the task would pass future worker intake simulation only. This does **not** authorize execution.
+- `would_require_review` — the task may be theoretically executable later but requires human review/approval first.
+- `human_only` — the task must remain human-only and must not be autonomously executed.
+- `would_reject` — the task is not acceptable due to invalid shape, unsafe scope, missing fields, unmapped/blocked checks, or policy conflict.
+- `forbidden` — the task is explicitly unsafe or forbidden and must never be executable.
+
+`human_only` is intentionally separate from `would_require_review`. A `human_only` task is not a future worker candidate unless a later human decision changes the queue/task definition.
+
+### Simulator Safety Output
+
+Every simulator output preserves zero/false safety counters:
+
+```json
+{
+  "execution_plan": {
+    "queued_tasks_executed": 0,
+    "worker_invocations": 0,
+    "runtime_state_mutations": 0,
+    "validation_commands_executed": 0,
+    "task_commands_executed": 0,
+    "product_work": 0,
+    "commits": false,
+    "push": false
+  }
+}
+```
+
+Real worker execution remains future work and requires a separate approved planning and implementation task.

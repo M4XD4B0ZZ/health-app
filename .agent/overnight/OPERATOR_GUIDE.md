@@ -4,22 +4,25 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034G — End-to-End Dry-Run Orchestrator
+**Current phase:** RALPH-034H — Queue Acceptance Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
 - Executes only mapped validation/check commands
 - Produces non-authoritative operational reports and run logs
 - Preserves all safety invariants (no queued task execution, no worker invocation, no runtime mutation)
+- Simulates future worker intake decisions without executing or authorizing work
 
 **What this system does NOT do:**
 - Execute queued task objectives
 - Execute queue `allowed_commands`
+- Execute validation commands during queue acceptance simulation
 - Invoke workers or models
 - Mutate runtime/evidence state
 - Perform product work
 - Commit or push changes
 - Accept arbitrary output paths
+- Treat `would_accept` as execution authorization
 
 ---
 
@@ -36,6 +39,39 @@ This CLI combines all RALPH-034A through RALPH-034F components into one safe ope
 ---
 
 ## Usage Modes
+
+### Mode 0: Queue Acceptance Simulation (Planning-Only)
+
+**Use case:** Decide which queued tasks a hypothetical future worker would accept, require review for, keep human-only, reject, or forbid at intake.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-queue-simulator.mjs <queue.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-queue-simulator.mjs <queue.json> --pretty
+```
+
+**Behavior:**
+- Reads the supplied human-authored queue JSON file
+- Reuses queue validation and validation-plan/check mapping
+- Classifies each queued task into one of five dispositions
+- Outputs JSON by default or a human-readable summary with `--pretty`
+- **Runs no validation commands**
+- **Executes no queued task objectives**
+- **Invokes no workers/models**
+- **Writes no files**
+
+**Dispositions:**
+- `would_accept` — passes future worker intake simulation only; does not authorize execution
+- `would_require_review` — may be theoretically executable later but requires human review/approval first
+- `human_only` — must remain human-only and must not be autonomously executed
+- `would_reject` — invalid, unsafe, incomplete, unmapped/blocked, or policy-conflicting
+- `forbidden` — explicitly unsafe or forbidden and must never be executable
+
+---
 
 ### Mode 1: Stdout-Only Dry-Run (Safest)
 
@@ -187,6 +223,7 @@ The orchestrator **never** performs:
 - Queue `allowed_commands` execution
 - Raw queue command execution
 - Worker/model invocation
+- Treating queue simulator `would_accept` as execution authorization
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)
@@ -468,6 +505,7 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 
 ### Future Work
 - Autonomous queued-task executor (requires separate planning task)
+- Future worker prompt/envelope planning (requires separate planning task)
 - Worker invocation (requires separate planning task)
 - Runtime/evidence mutation (requires separate planning task)
 - Product work (requires separate planning task)
@@ -638,6 +676,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034F
+- **Current Phase:** RALPH-034H — Queue Acceptance Simulator
+- **Validation Orchestrator Phase:** RALPH-034G
+- **Foundation Phase:** RALPH-034A through RALPH-034H
 - **Last Updated:** 2026-06-02

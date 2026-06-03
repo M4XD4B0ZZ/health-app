@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034O — Runtime Evidence Transition Simulator
+**Current phase:** RALPH-034Q — Approval Readiness Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -19,6 +19,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Simulates post-change review-gate outcomes from RALPH-034L change/diff simulations without accepting review, recording evidence, executing validation, or authorizing mutation
 - Simulates validation approval-gate requirements from RALPH-034M output without running validation, recording evidence, accepting review, authorizing approval, or mutating state
 - Simulates runtime/evidence transition requirements from RALPH-034N output without writing runtime state, writing evidence, accepting review, executing validation, or authorizing mutation
+- Simulates approval readiness from hypothetical RALPH-034P human approval checkpoint simulations without making approval decisions, recording approvals, writing evidence, mutating runtime state, executing validation, accepting review, invoking workers/adapters/providers/models/prompts, performing network activity, or authorizing git actions
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -37,6 +38,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat a post-change review-gate simulation as review acceptance, review evidence, validation evidence, validation execution, runtime/evidence mutation, commit, or push authorization
 - Treat a validation approval-gate simulation as approval, review acceptance, review evidence, validation evidence, validation execution, runtime/evidence mutation, stage, commit, or push authorization
 - Treat a runtime/evidence transition simulation as approval, runtime transition, evidence transition, validation execution, review acceptance, validation evidence, review evidence, task-history, run-history, stage, commit, or push authorization
+- Treat an approval readiness simulation as approval, approval readiness authorization, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker/adapter/provider/model/prompt invocation, network activity, stage, commit, or push authorization
 
 ---
 
@@ -442,6 +444,58 @@ node scripts/agent/overnight-runtime-evidence-transition-simulator.mjs <ralph-03
 
 ---
 
+### Mode 0.99609375: Approval Readiness Simulation (Planning-Only)
+
+**Use case:** Review whether a future supervised workflow could even be considered approval-ready and identify missing approval prerequisites, based only on a hypothetical RALPH-034P human approval checkpoint simulator output.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simulation.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simulation.json> --pretty
+```
+
+**Behavior:**
+- Reads only the supplied RALPH-034P human approval checkpoint simulation JSON file
+- Evaluates source simulation validity, source safety invariants, checkpoint authority claims, and source non-authorization claims
+- Determines hypothetical approval readiness consideration only
+- Identifies missing approval prerequisites without satisfying them
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Does not make approval decisions**
+- **Does not request, grant, or record approval**
+- **Does not create approval, review, or validation evidence**
+- **Does not write runtime state, task history, or run history**
+- **Does not run validation commands**
+- **Does not accept review**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/adapters/providers/models**
+- **Performs no network activity**
+- **Writes no files**
+- **Does not stage, commit, or push**
+
+**Top-level dispositions:**
+- `invalid_input` — supplied JSON is not a valid RALPH-034P human approval checkpoint simulation object
+- `blocked_before_readiness_assessment` — upstream approval-checkpoint findings prevent readiness assessment
+- `no_future_approval_readiness_consideration` — source safety, authorization, approval, or evidence claims fail closed before readiness consideration
+- `not_approval_ready_missing_prerequisites` — source is structurally valid, but one or more approval prerequisites are missing
+- `hypothetically_approval_ready_for_human_consideration` — all required prerequisites are represented as present in the hypothetical input; this still grants no approval and records no approval
+
+**Missing prerequisite entries always include:**
+- `required_before_approval_readiness: true`
+- `present_in_source_simulation: false`
+- `satisfied_by_this_simulation: false`
+- `evidence_created: false`
+- `approval_granted: false`
+- `blocking: true`
+
+**Important:** An approval readiness simulation is a planning artifact only. It is not approval, not an approval decision, not approval evidence, not approval recording, not review acceptance, not validation execution, not validation evidence, not review evidence, not runtime state, not runtime mutation, not task-history writing, not run-history writing, not file-change authorization, not worker execution, not adapter execution, not provider/model invocation, not prompt execution, not network activity, not product work, not report/run-log writing, not staging, not commit, and not push authorization.
+
+---
+
 ### Mode 1: Stdout-Only Dry-Run (Safest)
 
 **Use case:** Manual verification, debugging, testing
@@ -597,6 +651,7 @@ The orchestrator **never** performs:
 - Treating worker invocation contract previews as worker, prompt, task, validation, commit, or push authorization
 - Treating worker adapter route simulations as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
 - Treating validation approval-gate simulations as approval, review acceptance, validation execution, evidence, stage, commit, or push authorization
+- Treating approval readiness simulations as approval, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker/adapter/provider/model/prompt invocation, network activity, stage, commit, or push authorization
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)
@@ -1079,7 +1134,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034O — Runtime Evidence Transition Simulator
+- **Current Phase:** RALPH-034Q — Approval Readiness Simulator
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034O
+- **Foundation Phase:** RALPH-034A through RALPH-034Q
 - **Last Updated:** 2026-06-03

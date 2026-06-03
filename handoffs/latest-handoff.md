@@ -1,47 +1,47 @@
-# RALPH-034M Handoff: Post-Change Review Gate Simulator
+# RALPH-034N Handoff: Validation Approval Gate Simulator
 
 ## Run / Task Identity and Status
 
-**Task ID:** RALPH-034M
-**Title:** Post-Change Review Gate Simulator
+**Task ID:** RALPH-034N
+**Title:** Validation Approval Gate Simulator
 **Status:** implemented and verified, pending human review
 **Mode:** ACT MODE
 
 ## What Changed
 
-Implemented a planning-only, non-authoritative, non-mutating post-change review-gate simulator that consumes an explicitly supplied RALPH-034L change/diff simulation JSON file and classifies the hypothetical post-change review outcome as `would_reject_before_review`, `would_require_human_review`, `would_be_reviewable`, or `invalid_input`.
+Implemented a planning-only, non-authoritative, non-mutating validation approval-gate simulator that consumes an explicitly supplied RALPH-034M post-change review-gate simulation JSON file and identifies hypothetical validation requirements that would need to be satisfied before any future approval could be considered.
 
-The simulator propagates RALPH-034L blocking/review signals, enforces zero/false execution counters, enforces planning-only safety flags, and always emits non-authorization fields for review acceptance, evidence recording, validation execution, runtime mutation, commits, and pushes.
+The simulator maps validation categories to hypothetical VERIFY.md requirements only. It never executes validation, marks checks passed, creates validation/review evidence, accepts review, or authorizes approval.
 
 ## Why Changed
 
-RALPH-034L could classify hypothetical change/diff output, but there was no deterministic planning-only answer to:
+RALPH-034M could classify hypothetical post-change review-gate outcomes, but there was no deterministic planning-only answer to:
 
-> Given a hypothetical post-worker change/diff simulation result, what would the post-change review gate decide before any acceptance, evidence recording, validation execution, runtime mutation, commit, or push could occur?
+> What validation requirements would hypothetically need to be satisfied before any future approval could be considered?
 
-RALPH-034M adds that safe planning layer without accepting review, writing review evidence, writing validation evidence, executing validation, invoking workers/adapters/providers/models/prompts, executing queued tasks, mutating runtime/evidence state, writing reports/run logs, staging, committing, or pushing.
+RALPH-034N adds that safe planning layer without running validation commands, creating validation evidence, creating review evidence, accepting review, authorizing approval, invoking workers/adapters/providers/models/prompts, executing queued tasks, mutating runtime/evidence state, writing reports/run logs, staging, committing, or pushing.
 
 ## Changed Files
 
-1. `scripts/agent/lib/overnight-post-change-review-gate-simulator.mjs`
-   - Added pure planning-only post-change review-gate simulator library.
-   - Exports `buildPostChangeReviewGateSimulation`, `validateChangeDiffSimulationInput`, `evaluatePostChangeReviewDisposition`, `evaluateSafetyInvariants`, and `formatPostChangeReviewGateSimulationPretty`.
+1. `scripts/agent/lib/overnight-validation-approval-gate-simulator.mjs`
+   - Added pure planning-only validation approval-gate simulator library.
+   - Exports `buildValidationApprovalGateSimulation`, `buildHypotheticalValidationRequirements`, `validatePostChangeReviewGateInput`, `evaluateSourceSafetyInvariants`, and `formatValidationApprovalGateSimulationPretty`.
 
-2. `scripts/agent/overnight-post-change-review-gate-simulator.mjs`
+2. `scripts/agent/overnight-validation-approval-gate-simulator.mjs`
    - Added CLI with JSON output by default and `--pretty` support.
-   - Reads only an explicitly supplied RALPH-034L simulation JSON file.
-   - Rejects execution, worker, adapter, provider, model, prompt, diff/apply, validation, review, evidence, write, commit, stage, and push flags.
+   - Reads only an explicitly supplied RALPH-034M simulation JSON file.
+   - Rejects execution, validation, review, approval, evidence, write, stage, commit, push, worker, adapter, provider, model, and prompt flags.
 
-3. `scripts/agent/__tests__/overnight-post-change-review-gate-simulator.test.mjs`
-   - Added focused tests for all dispositions, propagated blockers/review triggers, safety invariants, CLI flag rejection, deterministic helpers, and pretty output safety language.
+3. `scripts/agent/__tests__/overnight-validation-approval-gate-simulator.test.mjs`
+   - Added focused tests for dispositions, category-to-requirement mapping, safety invariants, CLI flag rejection, and pretty output safety language.
 
 4. `.agent/overnight/README.md`
-   - Updated current phase to RALPH-034M.
-   - Documented post-change review-gate simulation and safety output.
+   - Updated current phase to RALPH-034N.
+   - Documented validation approval-gate simulation and hard safety limits.
 
 5. `.agent/overnight/OPERATOR_GUIDE.md`
-   - Updated current phase to RALPH-034M.
-   - Added Mode 0.96875: Post-Change Review Gate Simulation.
+   - Updated current phase to RALPH-034N.
+   - Added Mode 0.984375: Validation Approval Gate Simulation.
 
 6. `handoffs/latest-handoff.md`
    - Updated this handoff.
@@ -54,10 +54,11 @@ Preserved boundaries:
 - No queue objectives executed.
 - No queue `allowed_commands` executed.
 - No raw queue command strings executed.
-- No validation commands executed by RALPH-034M.
+- No validation commands executed by RALPH-034N.
+- No validation evidence created.
+- No review evidence created.
 - No review acceptance performed.
-- No review evidence written.
-- No validation evidence written.
+- No approval authorized.
 - No prompt text executed.
 - No workers invoked.
 - No adapters invoked.
@@ -78,14 +79,14 @@ Preserved boundaries:
 
 ## Validation Executed
 
-Validation commands were run one command at a time:
+Validation commands were run as required by the task:
 
-- `node --check scripts/agent/lib/overnight-post-change-review-gate-simulator.mjs` — pass
-- `node --check scripts/agent/overnight-post-change-review-gate-simulator.mjs` — pass
-- `node --test scripts/agent/__tests__/overnight-post-change-review-gate-simulator.test.mjs` — pass, 10/10 tests
-- `node scripts/agent/validate-ralph-state.mjs` — pass, status ok, 0 critical findings, 44 warnings
+- `node --check scripts/agent/lib/overnight-validation-approval-gate-simulator.mjs` — pass
+- `node --check scripts/agent/overnight-validation-approval-gate-simulator.mjs` — pass
+- `node --test scripts/agent/__tests__/overnight-validation-approval-gate-simulator.test.mjs` — pass, 12/12 tests
+- `node scripts/agent/validate-ralph-state.mjs` — pass, status ok, 0 critical findings, 38 warnings
 - `node scripts/agent/reconcile-roadmap-task-state.mjs` — pass, status ok, 0 critical findings, 1 warning
-- `git --no-pager status --short` — pass, only approved RALPH-034M files modified/untracked
+- `git --no-pager status --short` — pass, only approved RALPH-034N files modified/untracked
 - `git --no-pager diff --stat` — pass, tracked documentation/handoff diff shown
 - `git --no-pager diff --name-only` — pass, tracked modified files listed
 
@@ -93,21 +94,21 @@ Validation commands were run one command at a time:
 
 Passed. Validator/reconciler warnings are pre-existing governance/state alignment warnings or expected non-blocking handoff/runtime-state mismatch warnings; both commands reported status `ok` and 0 critical findings.
 
-`git --no-pager status --short` showed only approved RALPH-034M files:
+`git --no-pager status --short` showed only approved RALPH-034N files:
 
 - `.agent/overnight/OPERATOR_GUIDE.md`
 - `.agent/overnight/README.md`
 - `handoffs/latest-handoff.md`
-- `scripts/agent/__tests__/overnight-post-change-review-gate-simulator.test.mjs`
-- `scripts/agent/lib/overnight-post-change-review-gate-simulator.mjs`
-- `scripts/agent/overnight-post-change-review-gate-simulator.mjs`
+- `scripts/agent/__tests__/overnight-validation-approval-gate-simulator.test.mjs`
+- `scripts/agent/lib/overnight-validation-approval-gate-simulator.mjs`
+- `scripts/agent/overnight-validation-approval-gate-simulator.mjs`
 
 No runtime/evidence files changed. No product files changed. No report/run-log artifacts were created by the simulator tests or CLI checks.
 
 ## Known Issues / Risks
 
-Real worker invocation, worker adapter implementation, adapter invocation, provider/model invocation, prompt execution, queued task execution, real git diff monitoring, applying change sets, actual review acceptance, review evidence recording, validation evidence recording, runtime/evidence mutation, commits, and pushes remain out of scope and require separate approved tasks.
+Real validation execution, validation evidence recording, review evidence recording, review acceptance, approval, worker invocation, worker adapter implementation, adapter invocation, provider/model invocation, prompt execution, queued task execution, real git diff monitoring, applying change sets, runtime/evidence mutation, commits, and pushes remain out of scope and require separate approved tasks.
 
 ## Human Review Status
 
-Human review required before any follow-up task. Do not proceed to worker invocation, adapter invocation, provider/model invocation, prompt execution, validation execution, queued task execution, real diff monitoring, applying changes, review acceptance, runtime mutation, evidence mutation, commits, or pushes from RALPH-034M.
+Human review required before any follow-up task. Do not proceed to approval, review acceptance, validation execution, evidence recording, worker invocation, adapter invocation, provider/model invocation, prompt execution, queued task execution, real diff monitoring, applying changes, runtime mutation, evidence mutation, staging, commits, or pushes from RALPH-034N.

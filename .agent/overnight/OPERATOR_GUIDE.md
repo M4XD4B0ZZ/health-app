@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034M — Post-Change Review Gate Simulator
+**Current phase:** RALPH-034N — Validation Approval Gate Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -17,6 +17,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Simulates future worker adapter routing for created invocation contracts without selecting, invoking, or authorizing adapters, providers, models, prompts, tasks, validation commands, or network activity
 - Simulates hypothetical change/diff monitoring without reading git diff/status, applying changes, or authorizing review acceptance
 - Simulates post-change review-gate outcomes from RALPH-034L change/diff simulations without accepting review, recording evidence, executing validation, or authorizing mutation
+- Simulates validation approval-gate requirements from RALPH-034M output without running validation, recording evidence, accepting review, authorizing approval, or mutating state
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -33,6 +34,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat an adapter route simulation as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
 - Treat a change/diff monitoring simulation as file-change, validation, review-acceptance, runtime/evidence mutation, commit, or push authorization
 - Treat a post-change review-gate simulation as review acceptance, review evidence, validation evidence, validation execution, runtime/evidence mutation, commit, or push authorization
+- Treat a validation approval-gate simulation as approval, review acceptance, review evidence, validation evidence, validation execution, runtime/evidence mutation, stage, commit, or push authorization
 
 ---
 
@@ -340,6 +342,54 @@ node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-s
 
 ---
 
+### Mode 0.984375: Validation Approval Gate Simulation (Planning-Only)
+
+**Use case:** Review what hypothetical validation requirements would need to be satisfied before any future approval could be considered, based only on RALPH-034M post-change review-gate simulator output.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-validation-approval-gate-simulator.mjs <ralph-034m-simulation.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-validation-approval-gate-simulator.mjs <ralph-034m-simulation.json> --pretty
+```
+
+**Behavior:**
+- Reads only the supplied RALPH-034M post-change review-gate simulation JSON file
+- Evaluates source simulation validity, source safety invariants, and source non-authorization claims
+- Maps propagated validation categories to hypothetical VERIFY.md validation requirements
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Does not run validation commands**
+- **Does not create validation evidence**
+- **Does not create review evidence**
+- **Does not accept review**
+- **Does not authorize approval**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/adapters/providers/models**
+- **Performs no network activity**
+- **Writes no files**
+- **Does not stage, commit, or push**
+
+**Top-level dispositions:**
+- `invalid_input` — supplied JSON is not a valid RALPH-034M post-change review-gate simulation object
+- `blocked_before_validation` — upstream review-gate or validation category findings block before validation consideration
+- `validation_requirements_identified` — hypothetical validation requirements were identified; none were executed or satisfied here
+- `no_future_approval_consideration` — source safety/authorization claims fail closed before approval consideration
+
+**Requirement entries always include:**
+- `execution_authorized: false`
+- `executed: false`
+- `passed: null`
+- `evidence_created: false`
+- `not_validation_evidence: true`
+
+**Important:** A validation approval-gate simulation is a planning artifact only. It is not approval, not review acceptance, not review evidence, not validation evidence, not validation execution, not file-change authorization, not worker execution, not adapter execution, not runtime/evidence mutation, not product work, not report/run-log writing, not staging, not commit, and not push authorization.
+
+---
+
 ### Mode 1: Stdout-Only Dry-Run (Safest)
 
 **Use case:** Manual verification, debugging, testing
@@ -494,6 +544,7 @@ The orchestrator **never** performs:
 - Treating worker envelope or prompt proposals as execution authorization
 - Treating worker invocation contract previews as worker, prompt, task, validation, commit, or push authorization
 - Treating worker adapter route simulations as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
+- Treating validation approval-gate simulations as approval, review acceptance, validation execution, evidence, stage, commit, or push authorization
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)
@@ -976,7 +1027,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034M — Post-Change Review Gate Simulator
+- **Current Phase:** RALPH-034N — Validation Approval Gate Simulator
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034M
-- **Last Updated:** 2026-06-02
+- **Foundation Phase:** RALPH-034A through RALPH-034N
+- **Last Updated:** 2026-06-03

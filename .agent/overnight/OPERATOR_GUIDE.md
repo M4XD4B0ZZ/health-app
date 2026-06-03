@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034L — Change / Diff Monitoring Simulator
+**Current phase:** RALPH-034M — Post-Change Review Gate Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -16,6 +16,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Produces future-worker invocation contract payload previews for created envelopes without executing or authorizing work
 - Simulates future worker adapter routing for created invocation contracts without selecting, invoking, or authorizing adapters, providers, models, prompts, tasks, validation commands, or network activity
 - Simulates hypothetical change/diff monitoring without reading git diff/status, applying changes, or authorizing review acceptance
+- Simulates post-change review-gate outcomes from RALPH-034L change/diff simulations without accepting review, recording evidence, executing validation, or authorizing mutation
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -31,6 +32,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat an invocation contract preview as worker, prompt, task, validation, commit, or push authorization
 - Treat an adapter route simulation as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
 - Treat a change/diff monitoring simulation as file-change, validation, review-acceptance, runtime/evidence mutation, commit, or push authorization
+- Treat a post-change review-gate simulation as review acceptance, review evidence, validation evidence, validation execution, runtime/evidence mutation, commit, or push authorization
 
 ---
 
@@ -284,6 +286,57 @@ node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json> --prett
 - `category_escalation`
 
 **Important:** A change/diff monitoring simulation is a planning artifact only. It is not file-change authorization, not worker execution, not adapter execution, not validation execution, not review acceptance, not runtime/evidence mutation, not product work, not staging, not commit, and not push authorization.
+
+---
+
+### Mode 0.96875: Post-Change Review Gate Simulation (Planning-Only)
+
+**Use case:** Review how RALPH would classify a hypothetical RALPH-034L change/diff simulation at the post-change review gate without accepting review, recording evidence, running validation, invoking workers/adapters/providers/models/prompts, applying changes, or reading a real git diff.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-simulation.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-simulation.json> --pretty
+```
+
+**Behavior:**
+- Reads only the supplied RALPH-034L change/diff simulation JSON file
+- Evaluates source simulation validity and RALPH-034L disposition
+- Propagates blocking and review reason codes
+- Enforces zero/false execution counters and planning-only safety flags
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Does not accept review**
+- **Does not write review evidence**
+- **Does not write validation evidence**
+- **Runs no validation commands**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/adapters/providers/models**
+- **Performs no network activity**
+- **Writes no files**
+
+**Top-level dispositions:**
+- `would_reject_before_review` — hard blocker detected before any future review could proceed
+- `would_require_human_review` — no hard blocker detected, but manual human review would be required
+- `would_be_reviewable` — low-risk hypothetical result could proceed to human review only; it is not accepted
+- `invalid_input` — supplied JSON is not a valid RALPH-034L change/diff simulation object
+
+**Always false / non-authorizing fields include:**
+- `review_acceptance_authorized: false`
+- `review_evidence_authorized: false`
+- `validation_execution_authorized: false`
+- `runtime_mutation_authorized: false`
+- `commit_authorized: false`
+- `push_authorized: false`
+- `human_review_required: true`
+- `not_review_evidence: true`
+- `not_validation_evidence: true`
+
+**Important:** A post-change review-gate simulation is a planning artifact only. It is not review acceptance, not review evidence, not validation evidence, not validation execution, not file-change authorization, not worker execution, not adapter execution, not runtime/evidence mutation, not product work, not report/run-log writing, not staging, not commit, and not push authorization.
 
 ---
 
@@ -923,7 +976,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034L — Change / Diff Monitoring Simulator
+- **Current Phase:** RALPH-034M — Post-Change Review Gate Simulator
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034L
+- **Foundation Phase:** RALPH-034A through RALPH-034M
 - **Last Updated:** 2026-06-02

@@ -4,7 +4,7 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034L — Change / Diff Monitoring Simulator
+**Current phase:** RALPH-034M — Post-Change Review Gate Simulator
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
 
@@ -17,6 +17,8 @@ RALPH-034J adds a separate **worker invocation contract simulator** (`scripts/ag
 RALPH-034K adds a separate **worker adapter simulator** (`scripts/agent/overnight-worker-adapter-simulator.mjs`). It consumes the RALPH-034J invocation contract simulator result and produces deterministic, reviewable adapter routing simulations only for entries with `contract_created: true`. Current contracts remain blocked by authorization, so no route is executable. It does not invoke workers, adapters, providers, models, prompts, queued tasks, validation commands, network endpoints, or runtime/evidence mutations, and it writes no files. Every adapter route simulation explicitly states that it is not adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization.
 
 RALPH-034L adds a separate **change / diff monitoring simulator** (`scripts/agent/overnight-change-diff-simulator.mjs`). It consumes only an explicitly supplied hypothetical change-set JSON file and classifies the described changes against allowed files, forbidden files, protected files, file-count thresholds, diff-line thresholds, review triggers, and validation-category implications. It does not read git diff, read git status, ingest worker output as authority, invoke workers/adapters/providers/models/prompts, execute queued tasks, execute validation commands, apply changes, mutate runtime/evidence state, write reports/run logs, commit, or push. Every change/diff simulation explicitly states that it is planning-only, non-authoritative, non-mutating, and non-authorizing.
+
+RALPH-034M adds a separate **post-change review gate simulator** (`scripts/agent/overnight-post-change-review-gate-simulator.mjs`). It consumes only an explicitly supplied RALPH-034L change/diff simulation JSON file and classifies the hypothetical post-change result as `would_reject_before_review`, `would_require_human_review`, `would_be_reviewable`, or `invalid_input`. It does not accept review, write review evidence, write validation evidence, run validation commands, invoke workers/adapters/providers/models/prompts, execute queued tasks, apply changes, mutate runtime/evidence state, write reports/run logs, stage, commit, or push. Every post-change review-gate simulation explicitly states that it is planning-only, non-authoritative, non-mutating, non-evidence, and non-authorizing.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -39,11 +41,13 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No worker invocation contract preview authorizes execution, prompt execution, or worker invocation.
 - No worker adapter route simulation authorizes adapter invocation, worker invocation, provider/model invocation, prompt execution, network activity, task execution, validation execution, or mutation.
 - No change/diff monitoring simulation authorizes file changes, worker invocation, adapter invocation, validation execution, review acceptance, runtime/evidence mutation, commits, or pushes.
+- No post-change review-gate simulation authorizes review acceptance, review evidence recording, validation evidence recording, validation execution, file changes, worker invocation, adapter invocation, runtime/evidence mutation, commits, or pushes.
 - No validation command execution by the queue acceptance simulator.
 - No validation command execution by the worker envelope planner.
 - No validation command execution by the worker invocation contract simulator.
 - No validation command execution by the worker adapter simulator.
 - No validation command execution by the change/diff monitoring simulator.
+- No validation command execution by the post-change review-gate simulator.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -227,6 +231,32 @@ node scripts/agent/overnight-change-diff-simulator.mjs .agent/overnight/change-s
 ```
 
 RALPH-034L remains **planning-only**. It does not read git diff, read git status, execute workers, execute adapters, execute prompts, execute queued tasks, run validation commands, mutate runtime/evidence state, write reports/run logs, apply changes, stage, commit, or push.
+
+### Post-Change Review Gate Simulation
+
+RALPH-034M implements a planning-only post-change review-gate simulator:
+
+- `scripts/agent/lib/overnight-post-change-review-gate-simulator.mjs`
+- `scripts/agent/overnight-post-change-review-gate-simulator.mjs`
+
+The simulator reads only an explicitly supplied RALPH-034L change/diff simulation JSON file. It evaluates:
+
+- source simulation validity
+- source `would_pass`, `would_require_review`, and `would_block` dispositions
+- propagated blocking and review reason codes
+- scope, forbidden-file, protected-file, and threshold findings
+- validation-category and review-policy triggers
+- zero/false execution counters
+- planning-only/non-authorizing safety invariants
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-post-change-review-gate-simulator.mjs .agent/overnight/change-diff-simulation.json
+node scripts/agent/overnight-post-change-review-gate-simulator.mjs .agent/overnight/change-diff-simulation.json --pretty
+```
+
+RALPH-034M remains **planning-only**. It does not accept review, write review evidence, write validation evidence, run validation commands, read real git diff/status, execute workers, execute adapters, execute prompts, execute queued tasks, mutate runtime/evidence state, write reports/run logs, apply changes, stage, commit, or push.
 
 Any real autonomous queued-task executor remains a future separately planned task.
 

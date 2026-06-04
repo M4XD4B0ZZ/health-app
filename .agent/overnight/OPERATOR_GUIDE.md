@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034R — Execution Capability Gate Simulator
+**Current phase:** RALPH-034T — Supervised Docs-Only Executor
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -21,6 +21,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Simulates runtime/evidence transition requirements from RALPH-034N output without writing runtime state, writing evidence, accepting review, executing validation, or authorizing mutation
 - Simulates approval readiness from hypothetical RALPH-034P human approval checkpoint simulations without making approval decisions, recording approvals, writing evidence, mutating runtime state, executing validation, accepting review, invoking workers/adapters/providers/models/prompts, performing network activity, or authorizing git actions
 - Simulates first supervised docs-only execution capability eligibility from RALPH-034Q approval readiness output without granting execution, writing files, invoking workers/adapters/providers/models/prompts, running validation, accepting review, mutating runtime/evidence state, staging, committing, or pushing
+- Executes the first supervised docs-only create capability only when an explicit RALPH-034T input is supplied and `--write-docs-only` is passed; dry-run remains the default
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -41,6 +42,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat a runtime/evidence transition simulation as approval, runtime transition, evidence transition, validation execution, review acceptance, validation evidence, review evidence, task-history, run-history, stage, commit, or push authorization
 - Treat an approval readiness simulation as approval, approval readiness authorization, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker/adapter/provider/model/prompt invocation, network activity, stage, commit, or push authorization
 - Treat an execution capability gate simulation as execution authorization, docs-only execution authorization, file-change authorization, validation execution, review acceptance, runtime/evidence mutation, worker/adapter/provider/model/prompt invocation, stage, commit, or push authorization
+- Use the docs-only executor for anything other than one explicit `create_markdown_file` operation targeting a direct `docs/<file>.md`, `plans/<file>.md`, or `reports/<file>.md` path
 
 ---
 
@@ -538,6 +540,42 @@ node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q
 
 ---
 
+### Mode 0.9990234375: Supervised Docs-Only Executor
+
+**Use case:** Create exactly one direct low-authority Markdown file after a human has supplied an explicit operation JSON and a RALPH-034R source object with `eligible_for_docs_only_execution`.
+
+**Dry-run command:**
+```powershell
+node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json>
+```
+
+**Explicit write command:**
+```powershell
+node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json> --write-docs-only
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json> --pretty
+```
+
+**Behavior:**
+- Reads one explicitly supplied JSON input file
+- Requires embedded or supplied RALPH-034R source with phase `RALPH-034R`, mode `execution_capability_gate_simulation_only`, `valid: true`, and disposition `eligible_for_docs_only_execution`
+- Requires clean RALPH-034R safety/non-authorization invariants
+- Supports exactly one operation: `create_markdown_file`
+- Dry-run is default and writes no files
+- Write mode requires exact `--write-docs-only`
+- Write mode may create exactly one direct Markdown file under `docs/<file>.md`, `plans/<file>.md`, or `reports/<file>.md`
+- Refuses overwrite, nested paths, root Markdown, high-authority Markdown, protected scopes, runtime/evidence paths, product paths, package files, `.env*`, `.git/**`, staging, commits, and pushes
+- Runs no validation commands and accepts no review
+- Invokes no workers/adapters/providers/models/prompts
+- Mutates no runtime/evidence state
+
+**Important:** RALPH-034T is supervised and bounded. It is not a queued-task executor, not worker execution, not adapter execution, not validation execution, not review acceptance, not runtime/evidence mutation, not product work, not staging, not commit, and not push automation.
+
+---
+
 ### Mode 1: Stdout-Only Dry-Run (Safest)
 
 **Use case:** Manual verification, debugging, testing
@@ -695,6 +733,7 @@ The orchestrator **never** performs:
 - Treating validation approval-gate simulations as approval, review acceptance, validation execution, evidence, stage, commit, or push authorization
 - Treating approval readiness simulations as approval, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker/adapter/provider/model/prompt invocation, network activity, stage, commit, or push authorization
 - Treating execution capability gate simulations as execution authorization, docs-only execution authorization, file-change authorization, validation execution, review acceptance, runtime/evidence mutation, worker/adapter/provider/model/prompt invocation, stage, commit, or push authorization
+- Using the docs-only executor without an explicit human-authored input and `--write-docs-only` for write mode
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)
@@ -753,6 +792,12 @@ The change/diff monitoring simulator rejects execution/write/validation/git-acti
 - `--execute-prompt`, `--apply-diff`, `--write-changes`
 - `--validate`, `--run-validation`, `--write-report`, `--write-run-log`
 - `--output`, `--commit`, `--push`, `--stage`
+
+The docs-only executor rejects unsafe flags such as:
+- `--worker`, `--adapter`, `--provider`, `--model`, `--prompt`
+- `--validate`, `--review`, `--approve`
+- `--stage`, `--commit`, `--push`, `--output`
+- `--write-runtime`, `--write-evidence`, `--write-report`, `--write-run-log`
 
 ---
 
@@ -1177,7 +1222,7 @@ For questions or issues:
 ## Version
 
 - **Operator Guide Version:** 1.0.0
-- **Current Phase:** RALPH-034Q — Approval Readiness Simulator
+- **Current Phase:** RALPH-034T — Supervised Docs-Only Executor
 - **Validation Orchestrator Phase:** RALPH-034G
-- **Foundation Phase:** RALPH-034A through RALPH-034Q
-- **Last Updated:** 2026-06-03
+- **Foundation Phase:** RALPH-034A through RALPH-034T
+- **Last Updated:** 2026-06-04

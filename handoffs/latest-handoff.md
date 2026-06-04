@@ -1,47 +1,47 @@
-# RALPH-034R Handoff: Execution Capability Gate Simulator
+# RALPH-034T Handoff: Supervised Docs-Only Executor
 
 ## Run / Task Identity and Status
 
-**Task ID:** RALPH-034R
-**Title:** Execution Capability Gate Simulator
+**Task ID:** RALPH-034T
+**Title:** Supervised Docs-Only Executor
 **Status:** implemented and verified, pending human review
 **Mode:** ACT MODE
 
 ## What Changed
 
-Implemented the planning-only RALPH-034R execution capability gate simulator. It consumes explicit RALPH-034Q Approval Readiness output and classifies whether a hypothetically approval-ready task scope is eligible for the first future supervised docs-only execution capability.
+Implemented the first supervised, bounded docs-only mutation capability with dry-run default and explicit write mode.
 
-The simulator grants no execution capability and performs no file writes, runtime/evidence mutation, worker/adapter/provider/model invocation, prompt execution, validation execution, review acceptance, staging, commit, or push.
+The executor consumes an explicit JSON input file containing an embedded or supplied RALPH-034R execution capability gate simulation. It requires phase `RALPH-034R`, mode `execution_capability_gate_simulation_only`, `valid: true`, disposition `eligible_for_docs_only_execution`, clean safety counters, and clean non-authorization invariants.
+
+Write mode is available only with `--write-docs-only`, supports exactly one operation (`create_markdown_file`), creates at most one direct Markdown file under `docs/<file>.md`, `plans/<file>.md`, or `reports/<file>.md`, and refuses overwrite.
+
+No real repository docs/plans/reports smoke artifact was intentionally created during implementation; write-mode behavior is tested only with temp/test roots.
 
 ## Changed Files
 
-1. `scripts/agent/lib/overnight-execution-capability-gate-simulator.mjs`
-   - Added deterministic source validation, safety invariant checks, intended changed-file extraction, path classification, disposition selection, JSON output builder, and pretty formatter.
+1. `scripts/agent/lib/overnight-docs-only-executor.mjs`
+   - Added source validation, path validation, operation validation, dry-run planning, explicit write-mode create behavior, safety counters, JSON output, and pretty formatter.
 
-2. `scripts/agent/overnight-execution-capability-gate-simulator.mjs`
-   - Added read-only CLI for explicit RALPH-034Q JSON input.
-   - Outputs JSON by default and supports `--pretty`.
-   - Rejects execution, worker, adapter, provider, model, prompt, validation, review, approval, write, output, stage, commit, and push flags.
+2. `scripts/agent/overnight-docs-only-executor.mjs`
+   - Added CLI for explicit docs-only operation JSON input.
+   - Supports JSON output by default, `--pretty`, and explicit `--write-docs-only`.
+   - Rejects worker/adapter/provider/model/prompt/validation/review/approval/runtime/evidence/report/run-log/output/stage/commit/push flags.
 
-3. `scripts/agent/__tests__/overnight-execution-capability-gate-simulator.test.mjs`
-   - Added required focused tests for invalid input, source contract errors, approval-readiness blocking, unsafe source claims, zero-counter enforcement, eligible docs/plans/reports Markdown, high-authority Markdown, forbidden scopes, traversal paths, mixed scopes, rejected CLI flags, and pretty non-authorization language.
+3. `scripts/agent/__tests__/overnight-docs-only-executor.test.mjs`
+   - Added focused tests for dry-run no-write behavior, explicit write mode in temp roots, overwrite refusal, source contract rejection, source authorization rejection, source counter rejection, path mismatch rejection, forbidden path/scope rejection, CLI flag rejection, and pretty non-authorization language.
 
 4. `.agent/overnight/README.md`
-   - Documented RALPH-034R purpose, safety boundaries, commands, dispositions, and hard limits.
+   - Documented RALPH-034T purpose, commands, constraints, supported operation, and hard limits.
 
 5. `.agent/overnight/OPERATOR_GUIDE.md`
-   - Added operator guidance for RALPH-034R usage and non-authorization semantics.
+   - Added operator guidance for RALPH-034T and updated current phase/version footer.
 
 6. `handoffs/latest-handoff.md`
-   - Updated this handoff for RALPH-034R.
+   - Updated this handoff for RALPH-034T.
 
 ## Why Changed
 
-RALPH-034R adds the smallest safe planning-only gate after RALPH-034Q and before any future real mutation capability. It separates:
-
-- low-authority direct Markdown under `docs/`, `plans/`, and `reports/`,
-- high-authority Markdown requiring higher capability,
-- forbidden product/runtime/evidence/package/git scopes that block execution consideration.
+RALPH-034T is the smallest safe step after RALPH-034R: it introduces one explicit, supervised create-only Markdown write capability while keeping all non-docs execution, runtime/evidence mutation, validation execution, review acceptance, worker invocation, staging, commit, and push behavior forbidden.
 
 ## Safety Boundaries
 
@@ -49,38 +49,44 @@ RALPH-034R adds the smallest safe planning-only gate after RALPH-034Q and before
 - No product/runtime HealthApp code changed.
 - No `tasks/**`, `runs/**`, `validation/**`, or `review/**` files changed.
 - No dependency files changed.
+- No ROADMAP/VERIFY/AGENTS/SSOK/root README changes.
 - No runtime/evidence mutation performed.
 - No worker/adapter/provider/model invocation performed.
 - No prompt execution performed.
-- No validation execution by the simulator.
+- No validation execution by the executor.
 - No review acceptance performed.
 - No staging performed.
 - No commit performed.
 - No push performed.
+- No real repository `docs/**`, `plans/**`, or `reports/**` smoke artifact intentionally created.
 
 ## Validation Executed
 
 Required checks were run one at a time:
 
-- `node --check scripts/agent/lib/overnight-execution-capability-gate-simulator.mjs`
-- `node --check scripts/agent/overnight-execution-capability-gate-simulator.mjs`
-- `node --test scripts/agent/__tests__/overnight-execution-capability-gate-simulator.test.mjs`
+- `node --check scripts/agent/lib/overnight-docs-only-executor.mjs`
+- `node --check scripts/agent/overnight-docs-only-executor.mjs`
+- `node --test scripts/agent/__tests__/overnight-docs-only-executor.test.mjs`
 - `node scripts/agent/validate-ralph-state.mjs`
 - `node scripts/agent/reconcile-roadmap-task-state.mjs`
 - `git --no-pager status --short`
 - `git --no-pager diff --stat`
 - `git --no-pager diff --name-only`
+- `git --no-pager status --short docs plans reports`
 
 ## Validation Result
 
-Passed. Syntax checks completed without reported syntax errors, focused Node test suite passed 17/17 tests, Ralph validator reported status `ok` with 0 critical findings, roadmap/task-state reconciler reported status `ok` with 0 critical findings, and read-only git readbacks completed.
+Passed. Syntax checks completed without reported syntax errors, focused Node test suite passed 10/10 tests, Ralph validator reported status `ok` with 0 critical findings, roadmap/task-state reconciler reported status `ok` with 0 critical findings, and read-only git readbacks completed.
+
+`git --no-pager status --short docs plans reports` produced no entries, confirming no real repository `docs/**`, `plans/**`, or `reports/**` smoke artifact was created.
 
 ## Known Issues / Blockers / Risks
 
 - `ROADMAP.md` and runtime state files were not modified because they were explicitly forbidden for this task.
-- The simulator is intentionally non-authorizing. A future separately approved task is required before any real docs-only mutation capability can exist.
-- Existing unrelated workspace changes may appear in git status/diff readbacks; RALPH-034R only modified the approved files listed above.
+- RALPH-034T is intentionally not a queued-task executor and does not invoke workers or run validation.
+- Write mode is intentionally create-only and refuses overwrite.
+- Automated write-mode coverage uses temp/test roots only.
 
 ## Human Review Status
 
-Human review required before relying on RALPH-034R operationally.
+Human review required before relying on RALPH-034T operationally.

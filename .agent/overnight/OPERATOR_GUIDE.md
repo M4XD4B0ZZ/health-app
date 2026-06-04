@@ -4,7 +4,7 @@
 
 This guide explains how to safely operate the RALPH Autonomous Overnight Worker v1 validation-only dry-run orchestrator.
 
-**Current phase:** RALPH-034Q — Approval Readiness Simulator
+**Current phase:** RALPH-034R — Execution Capability Gate Simulator
 
 **What this system does:**
 - Validates human-authored overnight queues
@@ -20,6 +20,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Simulates validation approval-gate requirements from RALPH-034M output without running validation, recording evidence, accepting review, authorizing approval, or mutating state
 - Simulates runtime/evidence transition requirements from RALPH-034N output without writing runtime state, writing evidence, accepting review, executing validation, or authorizing mutation
 - Simulates approval readiness from hypothetical RALPH-034P human approval checkpoint simulations without making approval decisions, recording approvals, writing evidence, mutating runtime state, executing validation, accepting review, invoking workers/adapters/providers/models/prompts, performing network activity, or authorizing git actions
+- Simulates first supervised docs-only execution capability eligibility from RALPH-034Q approval readiness output without granting execution, writing files, invoking workers/adapters/providers/models/prompts, running validation, accepting review, mutating runtime/evidence state, staging, committing, or pushing
 
 **What this system does NOT do:**
 - Execute queued task objectives
@@ -39,6 +40,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Treat a validation approval-gate simulation as approval, review acceptance, review evidence, validation evidence, validation execution, runtime/evidence mutation, stage, commit, or push authorization
 - Treat a runtime/evidence transition simulation as approval, runtime transition, evidence transition, validation execution, review acceptance, validation evidence, review evidence, task-history, run-history, stage, commit, or push authorization
 - Treat an approval readiness simulation as approval, approval readiness authorization, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker/adapter/provider/model/prompt invocation, network activity, stage, commit, or push authorization
+- Treat an execution capability gate simulation as execution authorization, docs-only execution authorization, file-change authorization, validation execution, review acceptance, runtime/evidence mutation, worker/adapter/provider/model/prompt invocation, stage, commit, or push authorization
 
 ---
 
@@ -496,6 +498,46 @@ node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simula
 
 ---
 
+### Mode 0.998046875: Execution Capability Gate Simulation (Planning-Only)
+
+**Use case:** Review whether a hypothetically approval-ready task is eligible for the first future supervised docs-only execution capability, based only on RALPH-034Q approval readiness output.
+
+**Command:**
+```powershell
+node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q-simulation.json>
+```
+
+**Pretty output:**
+```powershell
+node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q-simulation.json> --pretty
+```
+
+**Behavior:**
+- Reads only the supplied RALPH-034Q approval readiness simulation JSON file
+- Requires source phase `RALPH-034Q`, mode `approval_readiness_simulation_only`, and disposition `hypothetically_approval_ready_for_human_consideration`
+- Requires clean source safety/non-authorization invariants
+- Classifies intended changed files into direct low-authority docs/plans/reports Markdown, high-authority Markdown, forbidden execution scope, or invalid input
+- Emits JSON by default or a human-readable summary with `--pretty`
+- **Does not grant execution capability**
+- **Does not write files**
+- **Does not run validation commands**
+- **Does not accept review**
+- **Executes no queued task objectives**
+- **Executes no prompt text**
+- **Invokes no workers/adapters/providers/models**
+- **Mutates no runtime/evidence state**
+- **Does not stage, commit, or push**
+
+**Top-level dispositions:**
+- `invalid_input` — supplied JSON or intended changed-file scope is invalid
+- `blocked_for_execution` — source readiness/safety or forbidden scope blocks future execution capability consideration
+- `requires_higher_capability` — high-authority Markdown or non-first-capability Markdown scope requires a later higher capability
+- `eligible_for_docs_only_execution` — direct `docs/<file>.md`, `plans/<file>.md`, or `reports/<file>.md` only; this still grants no execution authorization
+
+**Important:** An execution capability gate simulation is a planning artifact only. It is not execution, not docs-only execution authorization, not file-change authorization, not validation execution, not review acceptance, not runtime state, not evidence, not worker execution, not adapter execution, not provider/model invocation, not prompt execution, not network activity, not product work, not report/run-log writing, not staging, not commit, and not push authorization.
+
+---
+
 ### Mode 1: Stdout-Only Dry-Run (Safest)
 
 **Use case:** Manual verification, debugging, testing
@@ -652,6 +694,7 @@ The orchestrator **never** performs:
 - Treating worker adapter route simulations as adapter, worker, provider/model, prompt, task, validation, network, commit, or push authorization
 - Treating validation approval-gate simulations as approval, review acceptance, validation execution, evidence, stage, commit, or push authorization
 - Treating approval readiness simulations as approval, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker/adapter/provider/model/prompt invocation, network activity, stage, commit, or push authorization
+- Treating execution capability gate simulations as execution authorization, docs-only execution authorization, file-change authorization, validation execution, review acceptance, runtime/evidence mutation, worker/adapter/provider/model/prompt invocation, stage, commit, or push authorization
 - Runtime state mutation (`tasks/**`, `runs/**`)
 - Validation evidence mutation (`validation/**`)
 - Review evidence mutation (`review/**`)

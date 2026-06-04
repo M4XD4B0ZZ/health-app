@@ -4,7 +4,7 @@
 
 This directory defines the first safe foundation for the RALPH Autonomous Overnight Worker v1.
 
-**Current phase:** RALPH-034Q — Approval Readiness Simulator
+**Current phase:** RALPH-034R — Execution Capability Gate Simulator
 
 The **overnight validation executor** (`scripts/agent/overnight-validation-executor.mjs`) is the canonical end-to-end dry-run orchestrator. It combines all RALPH-034A through RALPH-034F components into one safe operator-facing command.
 
@@ -25,6 +25,8 @@ RALPH-034N adds a separate **validation approval gate simulator** (`scripts/agen
 RALPH-034O adds a separate **runtime/evidence transition simulator** (`scripts/agent/overnight-runtime-evidence-transition-simulator.mjs`). It consumes only an explicitly supplied RALPH-034N validation approval-gate simulation JSON file and identifies the hypothetical runtime state transitions and evidence state transitions that would be required before any future approved workflow could proceed. It does not write runtime state, write evidence, append validation evidence, append review evidence, append task history, append run history, run validation commands, accept review, authorize approval, invoke workers/adapters/providers/models/prompts, execute queued tasks, mutate runtime/evidence state, write reports/run logs, write files, stage, commit, or push. Every runtime/evidence transition simulation explicitly states that it is planning-only, non-authoritative, non-mutating, non-evidence, non-runtime-state, and non-authorizing.
 
 RALPH-034Q adds a separate **approval readiness simulator** (`scripts/agent/overnight-approval-readiness-simulator.mjs`). It consumes only an explicitly supplied hypothetical RALPH-034P human approval checkpoint simulation JSON file and determines whether a future supervised workflow could even be considered approval-ready while identifying missing approval prerequisites. It does not make approval decisions, request approval, grant approval, record approval, create approval evidence, create review evidence, create validation evidence, write runtime state, append task history, append run history, run validation commands, accept review, authorize approval, invoke workers/adapters/providers/models/prompts, execute queued tasks, perform network activity, mutate runtime/evidence state, write reports/run logs, write files, stage, commit, or push. Every approval readiness simulation explicitly states that it is planning-only, non-authoritative, non-mutating, non-evidence, non-runtime-state, and non-approving/non-authorizing.
+
+RALPH-034R adds a separate **execution capability gate simulator** (`scripts/agent/overnight-execution-capability-gate-simulator.mjs`). It consumes only an explicitly supplied RALPH-034Q approval readiness simulation JSON file and determines whether a hypothetically approval-ready task scope is eligible for the first future supervised docs-only execution capability. It grants no execution capability, writes no files, invokes no workers/adapters/providers/models/prompts, runs no validation, accepts no review, mutates no runtime/evidence state, stages nothing, commits nothing, and pushes nothing. It distinguishes low-authority direct `docs/`, `plans/`, and `reports/` Markdown files from high-authority Markdown and forbidden product/runtime/evidence/package/git scopes.
 
 **For operator usage instructions, see:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 
@@ -51,6 +53,7 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No validation approval-gate simulation authorizes approval, review acceptance, review evidence recording, validation evidence recording, validation execution, file changes, worker invocation, adapter invocation, runtime/evidence mutation, staging, commits, or pushes.
 - No runtime/evidence transition simulation authorizes approval, runtime state transition, evidence transition, validation execution, review acceptance, validation evidence recording, review evidence recording, task-history writing, run-history writing, file changes, worker invocation, adapter invocation, runtime/evidence mutation, staging, commits, or pushes.
 - No approval readiness simulation authorizes approval, approval readiness as an operational state, approval recording, approval evidence, review acceptance, validation execution, evidence recording, runtime mutation, worker invocation, adapter invocation, provider/model invocation, prompt execution, network activity, staging, commits, or pushes.
+- No execution capability gate simulation authorizes execution, docs-only execution, file changes, worker invocation, adapter invocation, provider/model invocation, prompt execution, validation execution, review acceptance, runtime/evidence mutation, staging, commits, or pushes.
 - No validation command execution by the queue acceptance simulator.
 - No validation command execution by the worker envelope planner.
 - No validation command execution by the worker invocation contract simulator.
@@ -60,6 +63,7 @@ RALPH-034F adds a minimal **persistent overnight run-log lifecycle tracker** for
 - No validation command execution by the validation approval-gate simulator.
 - No validation command execution by the runtime/evidence transition simulator.
 - No validation command execution by the approval readiness simulator.
+- No validation command execution by the execution capability gate simulator.
 - No runtime state mutation.
 - No validation or review evidence mutation.
 - No HealthApp product feature work.
@@ -323,6 +327,31 @@ node scripts/agent/overnight-approval-readiness-simulator.mjs .agent/overnight/h
 ```
 
 RALPH-034Q remains **planning-only**. It does not make approval decisions, request approval, grant approval, record approval, create approval evidence, create review evidence, create validation evidence, write runtime state, append task history, append run history, run validation commands, accept review, authorize approval, read real git diff/status, execute workers, execute adapters, execute prompts, execute queued tasks, perform network activity, mutate runtime/evidence state, write reports/run logs, write files, apply changes, stage, commit, or push.
+
+### Execution Capability Gate Simulation
+
+RALPH-034R implements a planning-only execution capability gate simulator:
+
+- `scripts/agent/lib/overnight-execution-capability-gate-simulator.mjs`
+- `scripts/agent/overnight-execution-capability-gate-simulator.mjs`
+
+The simulator reads only an explicitly supplied RALPH-034Q approval readiness simulation JSON file. It evaluates source validity, source readiness disposition, source safety/non-authorization invariants, and intended changed-file scope.
+
+Example commands:
+
+```powershell
+node scripts/agent/overnight-execution-capability-gate-simulator.mjs .agent/overnight/approval-readiness-simulation.json
+node scripts/agent/overnight-execution-capability-gate-simulator.mjs .agent/overnight/approval-readiness-simulation.json --pretty
+```
+
+Top-level dispositions:
+
+- `invalid_input` — supplied JSON is not a valid RALPH-034Q approval readiness simulation object or intended changed files cannot be safely classified.
+- `blocked_for_execution` — upstream readiness, safety, authorization, forbidden product/runtime/evidence/package/git scope, or other hard blocker prevents future execution capability consideration.
+- `requires_higher_capability` — the task may be Markdown/documentation-adjacent but touches high-authority or non-first-capability scope.
+- `eligible_for_docs_only_execution` — every intended file is a direct Markdown file under `docs/`, `plans/`, or `reports/`; this still grants no execution authorization.
+
+RALPH-034R remains **planning-only**. It does not grant execution capability, write files, run validation commands, accept review, read real git diff/status, execute workers, execute adapters, execute prompts, execute queued tasks, mutate runtime/evidence state, write reports/run logs, apply changes, stage, commit, or push.
 
 Any real autonomous queued-task executor remains a future separately planned task.
 

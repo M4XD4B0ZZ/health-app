@@ -197,7 +197,7 @@ Plan the next safe step for runtime state writes in the Ralph-Loop / Overnight W
 
 ### RALPH-035B Sandbox Runtime-State Write Probe
 
-Status: `todo`
+Status: `done`
 
 Implement the smallest possible supervised sandbox runtime-state write proving that Ralph tooling can create exactly one non-authoritative runtime-state probe file without touching canonical runtime, evidence, governance, product, package, or handoff state.
 

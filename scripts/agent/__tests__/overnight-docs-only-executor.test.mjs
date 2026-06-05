@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { executeDocsOnlyOperation, formatDocsOnlyExecutorPretty, validateDocsOnlyPath } from '../lib/overnight-docs-only-executor.mjs';
-import { parseArgs } from '../overnight-docs-only-executor.mjs';
+import { parseArgs, readDocsOnlyInput } from '../overnight-docs-only-executor.mjs';
 
 function source(overrides = {}) {
   return {
@@ -23,8 +23,8 @@ function source(overrides = {}) {
   };
 }
 
-function input(pathValue = 'reports/example.md', sourceOverrides = {}) {
-  return { ralph_034r_source: source(sourceOverrides), operation: { type: 'create_markdown_file', path: pathValue, content: '# Example\n\nTemp-root only.\n' } };
+function input(pathValue = 'reports/example.md', sourceOverrides = {}, operationOverrides = {}) {
+  return { ralph_034r_source: source(sourceOverrides), operation: { type: 'create_markdown_file', path: pathValue, content: '# Example\n\nTemp-root only.\n', ...operationOverrides } };
 }
 
 function tempRoot() { return fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-034t-')); }
@@ -56,6 +56,34 @@ test('write mode creates exactly one direct Markdown file in temp root', () => {
   assert.equal(result.execution_plan.evidence_mutations, 0);
   assert.equal(result.execution_plan.commits, false);
   assert.equal(result.execution_plan.push, false);
+});
+
+test('BOM-prefixed JSON operation input parses successfully', () => {
+  const root = tempRoot();
+  const inputPath = path.join(root, 'operation.json');
+  fs.writeFileSync(inputPath, `\uFEFF${JSON.stringify(input())}`, 'utf8');
+  const parsed = readDocsOnlyInput(inputPath);
+  const result = executeDocsOnlyOperation(parsed, { executionRoot: root });
+  assert.equal(result.valid, true);
+  assert.equal(result.operation_status, 'dry_run_planned');
+  assert.deepEqual(result.planned_files, ['reports/example.md']);
+  assert.equal(fs.existsSync(path.join(root, 'reports/example.md')), false);
+});
+
+test('write mode refuses BOM-prefixed Markdown content and writes no file', () => {
+  const root = tempRoot();
+  const result = executeDocsOnlyOperation(input('reports/example.md', {}, { content: '\uFEFF# Example\n\nTemp-root only.\n' }), { executionRoot: root, writeDocsOnly: true });
+  assert.equal(result.valid, false);
+  assert.equal(result.operation_status, 'refused');
+  assert.equal(result.files_written, 0);
+  assert.deepEqual(result.created_files, []);
+  assert.equal(fs.existsSync(path.join(root, 'reports/example.md')), false);
+  assert.ok(result.reason_codes.includes('content_has_bom'));
+  const finding = result.blocking_findings.find((entry) => entry.code === 'content_has_bom');
+  assert.ok(finding);
+  assert.match(finding.message, /Markdown content must not start with a BOM/);
+  assert.match(finding.message, /remove the leading BOM before docs-only write/);
+  assert.deepEqual(finding.details, {});
 });
 
 test('write mode refuses overwrite', () => {

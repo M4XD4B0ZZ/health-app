@@ -79,6 +79,7 @@ export function validateOperation(operation, source) {
   if (!pathCheck.valid) blocking.push(finding('blocking', pathCheck.code, pathCheck.message, { path: pathCheck.path }));
   const content = operation.content;
   if (typeof content !== 'string' || content.length === 0) blocking.push(finding('blocking', 'invalid_content', 'Markdown content must be a non-empty string.'));
+  if (typeof content === 'string' && content.startsWith('\uFEFF')) blocking.push(finding('blocking', 'content_has_bom', 'Markdown content must not start with a BOM; remove the leading BOM before docs-only write.'));
   if (typeof content === 'string' && content.length > 100000) blocking.push(finding('blocking', 'content_too_large', 'Markdown content is too large for first docs-only capability.'));
   if (typeof content === 'string' && /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(content)) blocking.push(finding('blocking', 'content_has_control_characters', 'Markdown content contains forbidden control characters.'));
   const requestedPath = pathCheck.valid ? pathCheck.path : normalizePath(operation.path);

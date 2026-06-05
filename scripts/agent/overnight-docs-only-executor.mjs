@@ -43,7 +43,8 @@ export function parseArgs(argv) {
 }
 
 function resolveInputPath(inputPath) { return path.isAbsolute(inputPath) ? inputPath : path.resolve(projectRoot, inputPath); }
-export function readDocsOnlyInput(inputPath) { return JSON.parse(fs.readFileSync(resolveInputPath(inputPath), 'utf8')); }
+function stripOneLeadingBom(inputText) { return inputText.startsWith('\uFEFF') ? inputText.slice(1) : inputText; }
+export function readDocsOnlyInput(inputPath) { return JSON.parse(stripOneLeadingBom(fs.readFileSync(resolveInputPath(inputPath), 'utf8'))); }
 
 async function main() {
   let options;

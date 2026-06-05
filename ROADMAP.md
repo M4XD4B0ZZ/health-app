@@ -151,7 +151,7 @@ Wenn:
 
 ### RALPH-034V Docs-Only Verification Hardening
 
-Status: `todo`
+Status: `done`
 
 Harden the supervised docs-only executor after the first real docs-only smoke write so BOM-related input/content ambiguity and validation diagnostics are handled deterministically.
 

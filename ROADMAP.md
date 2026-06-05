@@ -175,7 +175,7 @@ Harden the supervised docs-only executor after the first real docs-only smoke wr
 
 ### RALPH-035A Runtime State Write Planning
 
-Status: `todo`
+Status: `done`
 
 Plan the next safe step for runtime state writes in the Ralph-Loop / Overnight Worker workflow before any implementation mutates runtime state.
 
@@ -192,6 +192,40 @@ Plan the next safe step for runtime state writes in the Ralph-Loop / Overnight W
 - Planning authority remains `ROADMAP.md`; runtime state files do not override roadmap task authority.
 - Future implementation boundaries, validation requirements, and review gates are defined.
 - No runtime state write implementation is performed.
+
+---
+
+### RALPH-035B Sandbox Runtime-State Write Probe
+
+Status: `todo`
+
+Implement the smallest possible supervised sandbox runtime-state write proving that Ralph tooling can create exactly one non-authoritative runtime-state probe file without touching canonical runtime, evidence, governance, product, package, or handoff state.
+
+**Scope:**
+
+- Add a sandbox-only runtime write capability under `.agent/runtime/sandbox/`.
+- Use exactly one fixed create-only target:
+  `.agent/runtime/sandbox/ralph-035b-simulated-state.json`
+- Write exactly:
+  `{ "simulated": true }`
+- Require explicit write authorization; dry-run must remain the default behavior.
+- Refuse overwrite, append, truncate, arbitrary output paths, path traversal, absolute paths, drive-qualified paths, and symlink/scope escapes where applicable.
+- Keep canonical state and evidence read-only for this task:
+  `tasks/**`, `runs/**`, `validation/**`, `review/**`, `handoffs/**`.
+- Do not modify planning/governance authority except for task status updates:
+  `ROADMAP.md`, `SSOK.md`, `AGENTS.md`, `VERIFY.md`, `.governance/**`.
+- Do not modify product, package, dependency, Supabase, env, git, or legacy adapter files.
+
+**DoD:**
+
+- Dry-run mode produces a deterministic plan and writes no files.
+- Explicit write mode creates exactly one sandbox JSON file at the fixed allowed path.
+- The sandbox JSON parses and matches exactly `{ "simulated": true }`.
+- Existing canonical runtime/evidence/governance/product/package/handoff scopes remain unchanged.
+- Overwrite/path-escape/arbitrary-output attempts are refused.
+- Focused syntax/test checks pass.
+- Git readbacks show only approved RALPH-035B files changed.
+- No staging, commit, push, dependency install, formatter, fixer, deploy, or external mutation is performed by the implementation task.
 
 ---
 

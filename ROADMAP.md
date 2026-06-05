@@ -147,6 +147,54 @@ Wenn:
 
 ---
 
+## Ralph-Loop Governance / Overnight Worker
+
+### RALPH-034V Docs-Only Verification Hardening
+
+Status: `todo`
+
+Harden the supervised docs-only executor after the first real docs-only smoke write so BOM-related input/content ambiguity and validation diagnostics are handled deterministically.
+
+**Scope:**
+
+- Add explicit BOM-safe JSON operation input handling.
+- Add explicit Markdown content BOM policy.
+- Improve deterministic validation reason codes and operator-facing error messages for BOM/content failures.
+- Add focused smoke/regression tests for docs-only executor behavior discovered during RALPH-034U.
+- Preserve dry-run default, explicit `--write-docs-only`, exactly-one-file behavior, no overwrite behavior, and direct Markdown-only writes under `docs/`, `plans/`, or `reports/`.
+
+**DoD:**
+
+- BOM-prefixed JSON operation input is handled deterministically.
+- Markdown content starting with a BOM is refused with a clear reason code/message.
+- Focused regression tests cover the RALPH-034U docs-only smoke scenario.
+- Existing docs-only executor safety boundaries remain unchanged.
+- Required focused syntax/test checks pass and git readbacks show only approved files changed.
+
+---
+
+### RALPH-035A Runtime State Write Planning
+
+Status: `todo`
+
+Plan the next safe step for runtime state writes in the Ralph-Loop / Overnight Worker workflow before any implementation mutates runtime state.
+
+**Scope:**
+
+- Identify which runtime paths may ever be writable by RALPH.
+- Distinguish planning authority, runtime execution state, evidence, review state, and sandbox-only state.
+- Define allowed files, forbidden files, validation requirements, and stop conditions for future runtime-state mutation.
+- Produce a plan only; do not implement runtime state writes in this task.
+
+**DoD:**
+
+- Runtime state write boundaries are explicitly documented.
+- Planning authority remains `ROADMAP.md`; runtime state files do not override roadmap task authority.
+- Future implementation boundaries, validation requirements, and review gates are defined.
+- No runtime state write implementation is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

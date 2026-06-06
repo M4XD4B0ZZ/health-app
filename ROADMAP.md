@@ -260,6 +260,37 @@ Perform the first supervised real sandbox runtime-state write using the RALPH-03
 
 ---
 
+
+### RALPH-036A Controlled Command Capability Planning
+
+Status: `todo`
+
+Plan the first safe command-execution capability for the Ralph-Loop / Overnight Worker workflow before any command runner is implemented.
+
+**Scope:**
+
+- Define which commands may ever be allowed in an initial read-only command sandbox.
+- Separate read-only inspection commands from mutation-capable commands.
+- Propose an allowlist for future command execution, such as:
+  `git --no-pager status --short`
+  `git --no-pager diff --stat`
+  `git --no-pager diff --name-only`
+  `node --check <allowlisted file>`
+  `node --test <allowlisted test file>`
+- Define explicitly forbidden commands, including:
+  `git push`, `git reset`, `git clean`, `npm install`, formatters, fixers, deploy commands, destructive shell commands, package mutation, env mutation, and arbitrary shell execution.
+- Define validation requirements, output capture limits, timeout behavior, and stop conditions for a later implementation task.
+- Produce a plan only; do not implement command execution in this task.
+
+**DoD:**
+
+- Allowed command categories are documented.
+- Forbidden command categories are documented.
+- Output/readback limits and timeout expectations are documented.
+- Future implementation boundaries and stop conditions are defined.
+- No command runner is implemented.
+
+---
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

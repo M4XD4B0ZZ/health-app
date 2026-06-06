@@ -391,8 +391,7 @@ Plan a standardized review-evidence bundle for future Ralph-Loop / Overnight Wor
 ---
 
 ### RALPH-037B Minimal Review Evidence Bundle Generator
-
-Status: `todo`
+Status: `done`
 
 Implement the smallest safe review-evidence bundle generator so future Ralph-Loop tasks can produce consistent, bounded evidence for human review without relying on agent summaries.
 

@@ -263,7 +263,7 @@ Perform the first supervised real sandbox runtime-state write using the RALPH-03
 
 ### RALPH-036A Controlled Command Capability Planning
 
-Status: `todo`
+Status: `done`
 
 Plan the first safe command-execution capability for the Ralph-Loop / Overnight Worker workflow before any command runner is implemented.
 
@@ -289,6 +289,43 @@ Plan the first safe command-execution capability for the Ralph-Loop / Overnight 
 - Output/readback limits and timeout expectations are documented.
 - Future implementation boundaries and stop conditions are defined.
 - No command runner is implemented.
+
+---
+
+### RALPH-036B Minimal Read-Only Command Sandbox
+
+Status: `todo`
+
+Implement the first tightly bounded read-only command sandbox for the Ralph-Loop / Overnight Worker workflow without enabling arbitrary shell execution or mutation-capable commands.
+
+**Scope:**
+
+- Implement a distinct RALPH command sandbox CLI/lib/tests, separate from broader existing overnight command-runner behavior.
+- Default behavior must be plan-only/no-spawn.
+- Require explicit `--execute-readonly-command` before any command is spawned.
+- Commands must be selected by stable command IDs, not arbitrary shell strings.
+- Use `spawn` with `shell: false` and ignored stdin.
+- Allow only the initial minimal command set:
+  - `git --no-pager status --short`
+  - `git --no-pager diff --stat`
+  - `git --no-pager diff --name-only`
+  - `node --check <fixed allowlisted RALPH-036B file>`
+  - `node --test <fixed allowlisted RALPH-036B test file>`
+- Use fixed allowlisted files for node checks/tests; no arbitrary paths, globs, regexes, package scripts, `npx`, npm, formatters, fixers, deploys, or network commands.
+- Enforce timeout limits, stdout/stderr byte limits, structured result schema, exit-code handling, and output-truncation/blocking behavior.
+- Reject shell wrappers, shell-control operators, interpolation, redirects, pipes, unknown flags, user-supplied executable paths, env-printing commands, network commands, package managers, and git mutation commands.
+- Do not stage, commit, push, deploy, install dependencies, run formatters/fixers, or mutate runtime/evidence/governance/product/package/handoff state.
+
+**DoD:**
+
+- Dry-run/plan-only mode returns a deterministic command execution plan and spawns no process.
+- Explicit execute mode runs only allowlisted read-only/deterministic commands.
+- Unknown/mutation-capable/shell/network/package/git-write commands are refused before spawn.
+- Output capture limits, timeout handling, nonzero-exit handling, and structured result schema are covered by focused tests.
+- Tests use harmless temp/fixture commands only where possible and do not mutate repository state.
+- Focused `node --check` and `node --test` verification passes.
+- Git readbacks show only approved RALPH-036B files changed.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the implementation task.
 
 ---
 ## Principles

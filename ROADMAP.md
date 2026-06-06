@@ -327,6 +327,39 @@ Implement the first tightly bounded read-only command sandbox for the Ralph-Loop
 - No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the implementation task.
 
 ---
+
+### RALPH-036C Read-Only Command Smoke Execution
+Status: `todo`
+
+Perform the first supervised real execution of the RALPH-036B read-only command sandbox using only the existing approved allowlist.
+
+**Scope:**
+
+- Execute each currently approved RALPH-036B command ID:
+  - git_status_short
+  - git_diff_stat
+  - git_diff_name_only
+  - node_check_self
+  - node_check_cli
+  - node_test_self
+- Verify all commands execute through the sandbox and return structured results.
+- Verify no file writes occur.
+- Verify no runtime/evidence/governance/product/package/handoff mutation occurs.
+- Verify no staging, commit, push, deploy, install, formatter, fixer, or network activity occurs.
+- Produce readback evidence only.
+- Do not expand the allowlist.
+- Do not modify sandbox behavior.
+
+**DoD:**
+
+- Pre-smoke working tree is clean.
+- All approved command IDs execute successfully through the sandbox.
+- Structured results are captured for each command.
+- No repository files are modified except ROADMAP status updates.
+- No protected scopes are modified.
+- No staging, commit, push, deploy, install, formatter, fixer, or network activity occurs.
+
+---
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

@@ -329,7 +329,7 @@ Implement the first tightly bounded read-only command sandbox for the Ralph-Loop
 ---
 
 ### RALPH-036C Read-Only Command Smoke Execution
-Status: `todo`
+Status: `done`
 
 Perform the first supervised real execution of the RALPH-036B read-only command sandbox using only the existing approved allowlist.
 

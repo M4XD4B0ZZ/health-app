@@ -229,6 +229,38 @@ Implement the smallest possible supervised sandbox runtime-state write proving t
 
 ---
 
+### RALPH-035C Sandbox Runtime-State Smoke Execution
+
+Status: `todo`
+
+Perform the first supervised real sandbox runtime-state write using the RALPH-035B writer, creating exactly one non-authoritative sandbox JSON artifact in the repository for human review.
+
+**Scope:**
+
+- Execute the RALPH-035B sandbox writer in explicit write mode.
+- Create exactly one fixed sandbox artifact:
+  `.agent/runtime/sandbox/ralph-035b-simulated-state.json`
+- The artifact content must parse and match exactly:
+  `{ "simulated": true }`
+- Confirm no canonical runtime, evidence, governance, product, package, validation, review, handoff, git, or deployment state was mutated.
+- Do not modify scripts or tests.
+- Do not modify product/package/Supabase/governance files except `ROADMAP.md` task status updates.
+- Do not stage, commit, push, deploy, install dependencies, run formatters, or run fix commands.
+
+**DoD:**
+
+- Pre-smoke working tree is clean.
+- Dry-run output confirms planned sandbox write and writes no files.
+- Explicit write mode creates exactly one sandbox artifact at the fixed allowed path.
+- JSON readback confirms exact payload `{ "simulated": true }`.
+- Git readbacks show only approved files changed:
+  `ROADMAP.md`
+  `.agent/runtime/sandbox/ralph-035b-simulated-state.json`
+- Canonical runtime/evidence/governance/product/package/handoff scopes remain unchanged.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the smoke task.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

@@ -230,8 +230,7 @@ Implement the smallest possible supervised sandbox runtime-state write proving t
 ---
 
 ### RALPH-035C Sandbox Runtime-State Smoke Execution
-
-Status: `todo`
+Status: `done`
 
 Perform the first supervised real sandbox runtime-state write using the RALPH-035B writer, creating exactly one non-authoritative sandbox JSON artifact in the repository for human review.
 

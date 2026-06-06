@@ -359,6 +359,81 @@ Perform the first supervised real execution of the RALPH-036B read-only command 
 - No protected scopes are modified.
 - No staging, commit, push, deploy, install, formatter, fixer, or network activity occurs.
 
+### RALPH-037A Review Evidence Bundle Planning
+
+Status: `done`
+
+Plan a standardized review-evidence bundle for future Ralph-Loop / Overnight Worker tasks so human review can rely on consistent evidence instead of agent summaries.
+
+**Scope:**
+
+- Define the minimum evidence required before task completion.
+- Define mandatory git readbacks.
+- Define required verification evidence.
+- Define protected-scope status evidence.
+- Define evidence retention and report structure.
+- Define what constitutes commit readiness.
+- Define bundle size limits and summarization rules.
+- Define stop conditions for missing or inconsistent evidence.
+- Produce a plan only.
+- Do not implement bundle generation.
+
+**DoD:**
+
+- Required evidence categories are documented.
+- Required git readbacks are documented.
+- Verification evidence requirements are documented.
+- Protected-scope evidence requirements are documented.
+- Commit-readiness requirements are documented.
+- Stop conditions are documented.
+- No implementation is performed.
+
+---
+
+### RALPH-037B Minimal Review Evidence Bundle Generator
+
+Status: `todo`
+
+Implement the smallest safe review-evidence bundle generator so future Ralph-Loop tasks can produce consistent, bounded evidence for human review without relying on agent summaries.
+
+**Scope:**
+
+- Add a testable library for review evidence bundle generation.
+- Add a thin CLI wrapper.
+- Dry-run/read-only behavior must be the default.
+- Generate structured JSON and human-readable Markdown output to stdout by default.
+- Include mandatory git readbacks:
+  - `git --no-pager status --short`
+  - `git --no-pager log -1 --oneline`
+  - `git --no-pager diff --stat`
+  - `git --no-pager diff --name-only`
+  - `git --no-pager diff --cached --name-only`
+  - `git --no-pager diff --cached --stat`
+- Include changed-file classification.
+- Include protected/approval-required scope classification from `.agent/config/protected-files.json`.
+- Include verification evidence placeholders and missing-required-check reporting.
+- Include claim-vs-actual changed-file reconciliation.
+- Include commit-readiness evaluation.
+- Enforce bounded output and explicit truncation metadata.
+- Use fixed read-only git command IDs only; no arbitrary shell strings.
+- Use `spawn` with `shell: false`, ignored stdin, timeout, stdout/stderr limits.
+- Do not run broad verification commands.
+- Do not stage, commit, push, deploy, install dependencies, run formatters/fixers, mutate runtime/evidence/governance/product/package/handoff state, or write review JSONL.
+
+**DoD:**
+
+- Dry-run JSON bundle is schema-valid and deterministic.
+- Dry-run Markdown bundle is deterministic and human-readable.
+- Git readbacks are included with exit codes and bounded output.
+- Staged file list is included.
+- Changed files are categorized.
+- Protected/approval-required matches are reported.
+- Claim-vs-actual mismatches are reported.
+- Commit-readiness blocks on missing required evidence, failed command evidence, protected changes, staged files when disallowed, or claim/file mismatch.
+- Focused `node --check` and `node --test` checks pass.
+- Git readbacks show only approved RALPH-037B files changed.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the implementation task.
+
 ---
 ## Principles
 

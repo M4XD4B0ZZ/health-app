@@ -293,8 +293,7 @@ Plan the first safe command-execution capability for the Ralph-Loop / Overnight 
 ---
 
 ### RALPH-036B Minimal Read-Only Command Sandbox
-
-Status: `todo`
+Status: `done`
 
 Implement the first tightly bounded read-only command sandbox for the Ralph-Loop / Overnight Worker workflow without enabling arbitrary shell execution or mutation-capable commands.
 

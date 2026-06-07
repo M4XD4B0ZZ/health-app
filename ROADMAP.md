@@ -523,6 +523,36 @@ Implement the first controlled Ralph mutation capability as a tightly bounded, h
 
 ---
 
+### RALPH-038C Controlled Mutation Evidence Integration
+
+Status: `todo`
+
+Validate that controlled mutations and review-evidence generation work together correctly and that mutation evidence can be independently reviewed without relying on agent summaries.
+
+**Scope:**
+
+- Use the existing review-evidence bundle system.
+- Generate evidence for the completed RALPH-038B mutation.
+- Verify claim-vs-actual changed-file reconciliation.
+- Verify protected-scope classification.
+- Verify approval-required classification.
+- Verify commit-readiness evaluation.
+- Verify bundle output remains bounded and deterministic.
+- Verify mutation evidence can be reviewed without relying on agent claims.
+- Produce evidence only.
+- Do not introduce new mutation capabilities.
+
+**DoD:**
+
+- Review-evidence bundle successfully evaluates the RALPH-038B mutation.
+- Claim-vs-actual reconciliation behaves correctly.
+- Protected-scope classification behaves correctly.
+- Commit-readiness output is produced.
+- No product/runtime/governance/package mutation occurs.
+- No new mutation capabilities are added.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

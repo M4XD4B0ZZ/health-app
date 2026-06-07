@@ -473,8 +473,7 @@ Plan the first controlled mutation capability for the Ralph-Loop / Overnight Wor
 ---
 
 ### RALPH-038B Minimal Controlled Report Mutation Smoke
-
-Status: `todo`
+Status: `done`
 
 Implement the first controlled Ralph mutation capability as a tightly bounded, human-reviewable, create-only report artifact mutation. This task proves Ralph can perform one explicit, non-authoritative, single-file write under `reports/` without authorizing product, runtime, governance, evidence, package, Git, deployment, or arbitrary file mutation.
 

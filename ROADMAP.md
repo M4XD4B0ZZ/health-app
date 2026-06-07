@@ -665,8 +665,7 @@ Implement a read-only deterministic task-admission classifier that evaluates tas
 ---
 
 ### RALPH-039C Task Admission Smoke Evaluation
-
-Status: `todo`
+Status: `done`
 
 Validate the RALPH-039B task-admission classifier against representative task metadata fixtures before integrating admission decisions into any queue or worker flow.
 

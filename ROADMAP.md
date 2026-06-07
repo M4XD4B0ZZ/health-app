@@ -600,7 +600,7 @@ Plan the task-admission model that determines which future tasks may enter the R
 
 ### RALPH-039B Minimal Task Admission Classifier
 
-Status: `todo`
+Status: `done`
 
 Implement a read-only deterministic task-admission classifier that evaluates task metadata and decides whether a future task may enter the Ralph Overnight queue.
 

@@ -525,7 +525,7 @@ Implement the first controlled Ralph mutation capability as a tightly bounded, h
 
 ### RALPH-038C Controlled Mutation Evidence Integration
 
-Status: `todo`
+Status: `done`
 
 Validate that controlled mutations and review-evidence generation work together correctly and that mutation evidence can be independently reviewed without relying on agent summaries.
 

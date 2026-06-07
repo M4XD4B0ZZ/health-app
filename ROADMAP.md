@@ -664,6 +664,41 @@ Implement a read-only deterministic task-admission classifier that evaluates tas
 
 ---
 
+### RALPH-039C Task Admission Smoke Evaluation
+
+Status: `todo`
+
+Validate the RALPH-039B task-admission classifier against representative task metadata fixtures before integrating admission decisions into any queue or worker flow.
+
+**Scope:**
+
+- Use the existing RALPH-039B task-admission classifier.
+- Evaluate representative metadata fixtures for:
+  - docs/report-only task expected as `SAFE_AUTONOMOUS`
+  - agent tooling task expected as `REVIEW_REQUIRED`
+  - product-code task expected as `HUMAN_ONLY`
+  - `.env` or secret-touching task expected as `FORBIDDEN`
+  - package/dependency task expected as not `SAFE_AUTONOMOUS`
+- Capture expected vs actual classification.
+- Capture reason codes and admission flags.
+- Produce a concise smoke report:
+  `reports/RALPH-039C_TASK_ADMISSION_SMOKE_REPORT.md`
+- Do not modify classifier behavior.
+- Do not add queue integration.
+- Do not mutate runtime, evidence, review, handoff, governance, product, package, or Git state except the allowed report artifact and later ROADMAP status update.
+
+**DoD:**
+
+- All representative fixtures are evaluated through the classifier.
+- Expected vs actual classifications are documented.
+- All expected classifications pass.
+- Reason codes are captured where relevant.
+- Smoke report is created under `reports/`.
+- No classifier logic changes are made.
+- No queue, runtime-state, worker, review JSONL, validation JSONL, handoff, product, package, governance, deploy, push, or external mutation is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

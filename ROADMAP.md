@@ -553,6 +553,117 @@ Validate that controlled mutations and review-evidence generation work together 
 
 ---
 
+### RALPH-039A Task Admission Planning
+
+Status: `done`
+
+Plan the task-admission model that determines which future tasks may enter the Ralph Overnight queue and under which review requirements.
+
+**Scope:**
+
+- Define deterministic task classes:
+  - `SAFE_AUTONOMOUS`
+  - `REVIEW_REQUIRED`
+  - `HUMAN_ONLY`
+  - `FORBIDDEN`
+- Define allowed actions, forbidden actions, required evidence, verification requirements, commit/push policy, review requirements, and stop conditions for each class.
+- Define path-based, task-type, verification-category, diff-size, and protected-file classification signals.
+- Define automatic rejection rules.
+- Define minimum metadata required before overnight queue admission.
+- Define the follow-up implementation task RALPH-039B.
+- Planning only; no classifier implementation, queue mutation, runtime state mutation, staging, commits, or pushes.
+
+**DoD:**
+
+- Required read-only evidence commands were run and documented:
+  - `git --no-pager status --short`
+  - `git --no-pager log -5 --oneline`
+- Canonical authority and safety files were reviewed:
+  - `ROADMAP.md`
+  - `VERIFY.md`
+  - `AGENTS.md`
+  - `SSOK.md`
+  - `.governance/SAFETY.md`
+  - `.governance/REVIEW_POLICY.md`
+  - `.agent/config/protected-files.json`
+- Relevant prior Ralph tasks were inspected:
+  - RALPH-034*
+  - RALPH-035*
+  - RALPH-036*
+  - RALPH-037*
+  - RALPH-038*
+- Admission classes, criteria, escalation rules, rejection rules, evidence requirements, and minimum metadata were defined.
+- RALPH-039B implementation boundaries are defined.
+- No implementation or file modification was performed.
+
+---
+
+### RALPH-039B Minimal Task Admission Classifier
+
+Status: `todo`
+
+Implement a read-only deterministic task-admission classifier that evaluates task metadata and decides whether a future task may enter the Ralph Overnight queue.
+
+**Scope:**
+
+- Add a distinct classifier CLI/lib/tests.
+- Classify tasks into:
+  - `SAFE_AUTONOMOUS`
+  - `REVIEW_REQUIRED`
+  - `HUMAN_ONLY`
+  - `FORBIDDEN`
+- Input should be bounded task metadata JSON.
+- Output structured JSON and human-readable summary to stdout.
+- Default behavior must be read-only and must not mutate queue, runtime, evidence, review, handoff, governance, product, package, or Git state.
+- Evaluate:
+  - task ID and ROADMAP-backed identity
+  - task type
+  - allowed files
+  - forbidden files
+  - expected changed files
+  - protected-file matches
+  - approval-required matches
+  - verification category from `VERIFY.md`
+  - required checks
+  - forbidden actions
+  - review requirement
+  - commit policy
+  - push policy
+  - diff/file-count thresholds
+  - missing metadata
+- Fail closed: ambiguous or incomplete metadata must not be classified as `SAFE_AUTONOMOUS`.
+- Produce reason codes, matched signals, escalation/rejection rationale, required evidence, required verification, stop conditions, and admission allowed/blocked output.
+
+**Explicitly excluded:**
+
+- No task execution.
+- No queue mutation.
+- No runtime state writes.
+- No validation/review/handoff JSONL writes.
+- No staging, commits, pushes, deploys, dependency installs, formatters, fixers, or network operations.
+- No product code changes.
+- No package/config/Supabase changes.
+- No mutation capability expansion.
+- No automatic ROADMAP edits by the classifier.
+
+**DoD:**
+
+- Docs-only safe task classifies as `SAFE_AUTONOMOUS`.
+- Agent tooling task classifies as `REVIEW_REQUIRED`.
+- Product-code task classifies as `HUMAN_ONLY`.
+- `.env` or secret mutation classifies as `FORBIDDEN`.
+- Push/deploy/network/destructive shell action classifies as `FORBIDDEN`.
+- Package/dependency changes without explicit approval do not classify as `SAFE_AUTONOMOUS`.
+- Protected and approval-required file matching works.
+- Missing/ambiguous metadata fails closed.
+- Multiple verification categories choose the strictest classification.
+- Diff/file-count thresholds escalate classification.
+- Focused `node --check` and `node --test` checks pass.
+- Git readbacks show only approved RALPH-039B files changed.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, queue/runtime/evidence/review/handoff/governance/product/package mutation, or external side effect is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

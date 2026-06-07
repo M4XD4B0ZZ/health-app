@@ -434,6 +434,96 @@ Implement the smallest safe review-evidence bundle generator so future Ralph-Loo
 - No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the implementation task.
 
 ---
+
+### RALPH-038A Controlled Mutation Planning
+
+Status: `done`
+
+Plan the first controlled mutation capability for the Ralph-Loop / Overnight Worker workflow without implementing mutation behavior.
+
+**Scope:**
+
+- Define the smallest safe mutation Ralph may perform.
+- Define eligible and permanently forbidden file scopes.
+- Define explicit approval, dry-run, execute, evidence, rollback, protected-file, validation, command-sandbox, and review-bundle interaction requirements.
+- Define immediate stop conditions for mutation attempts.
+- Define the follow-up implementation task RALPH-038B.
+- Planning only; no scripts, tests, runtime state, governance files, staging, commits, or pushes.
+
+**DoD:**
+
+- Required git evidence commands were run and documented:
+  - `git --no-pager status --short`
+  - `git --no-pager log -5 --oneline`
+  - `git --no-pager diff --stat`
+  - `git --no-pager diff --name-only`
+- Canonical governance and verification files were reviewed:
+  - `ROADMAP.md`
+  - `VERIFY.md`
+  - `AGENTS.md`
+  - `SSOK.md`
+  - `.governance/SAFETY.md`
+  - `.governance/REVIEW_POLICY.md`
+  - `.agent/config/protected-files.json`
+- Prior mutation-adjacent Ralph work was inspected, including RALPH-035A, RALPH-035B, RALPH-035C, RALPH-036B, and RALPH-037B.
+- The recommended first mutation is a single fixed create-only non-authoritative report artifact under `reports/`.
+- RALPH-038B implementation boundaries and exclusions are defined.
+- No implementation or file modification was performed.
+
+---
+
+### RALPH-038B Minimal Controlled Report Mutation Smoke
+
+Status: `todo`
+
+Implement the first controlled Ralph mutation capability as a tightly bounded, human-reviewable, create-only report artifact mutation. This task proves Ralph can perform one explicit, non-authoritative, single-file write under `reports/` without authorizing product, runtime, governance, evidence, package, Git, deployment, or arbitrary file mutation.
+
+**Scope:**
+
+- Add a distinct controlled report mutation CLI/lib/tests.
+- Dry-run must be the default and must write no files.
+- Require explicit `--execute-controlled-mutation` before any write.
+- Allow exactly one fixed mutation target:
+  `reports/RALPH-038B_CONTROLLED_MUTATION_SMOKE_REPORT.md`
+- Write only deterministic Markdown content defined by the implementation.
+- Operation must be create-only; refuse overwrite, append, truncate, delete, rename, move, arbitrary paths, path traversal, absolute paths, drive-qualified paths, and symlink/scope escapes.
+- Validate target path against protected-file policy before writing.
+- Capture pre-mutation evidence and post-mutation evidence using fixed read-only git readbacks.
+- Read back the created file and verify exact content/hash match.
+- Reconcile expected changed files against actual changed files; expected actual change is exactly the fixed report path.
+- Return structured JSON and human-readable output to stdout.
+- Stop for human review after mutation evidence is produced.
+
+**Explicitly excluded:**
+
+- No autonomous commits, staging, pushes, deploys, dependency installs, formatters, fixers, or network operations.
+- No product code mutation target.
+- No runtime state mutation under `tasks/**` or `runs/**`.
+- No validation/review/handoff evidence writes under `validation/**`, `review/**`, or `handoffs/**`.
+- No governance mutation under `ROADMAP.md`, `SSOK.md`, `AGENTS.md`, `VERIFY.md`, or `.governance/**` except normal task status updates if explicitly performed by a human/agent task workflow.
+- No package/config/Supabase mutation.
+- No arbitrary output paths or arbitrary content input.
+- No multi-file mutation.
+- No overwrite/edit-existing-file capability.
+- No rollback automation beyond documenting rollback evidence requirements.
+- Do not expand the RALPH-036B read-only command sandbox into a write-capable sandbox.
+
+**DoD:**
+
+- Dry-run mode produces a deterministic mutation plan and writes no files.
+- Explicit execute mode creates exactly one report file at:
+  `reports/RALPH-038B_CONTROLLED_MUTATION_SMOKE_REPORT.md`
+- Created report content matches the exact expected Markdown payload/hash.
+- Overwrite/path-escape/arbitrary-path/protected-target attempts are refused before write.
+- Pre- and post-mutation git readbacks are captured and bounded.
+- Changed-file reconciliation reports exactly the fixed report path and no other mutation target.
+- Protected-file classification reports no protected or approval-required changes.
+- Focused `node --check` and `node --test` checks pass for the new controlled mutation tool.
+- Git readbacks show only approved RALPH-038B files changed.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, runtime/evidence/governance/product/package/handoff mutation, or external side effect is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

@@ -740,7 +740,7 @@ Plan how classified Ralph tasks may be admitted into a future Overnight queue wi
 
 ### RALPH-040B Queue Admission Validator
 
-Status: `todo`
+Status: `done`
 
 Implement the first read-only queue-admission validator for classified Ralph tasks. The validator determines whether a candidate task would be admissible to a future Overnight queue, but must not write queue entries or mutate runtime/evidence/review/handoff state.
 

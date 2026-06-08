@@ -846,7 +846,7 @@ Validate the RALPH-040B queue-admission validator against representative admissi
 
 ### RALPH-041A Controlled Queue Entry Write Planning
 
-Status: `todo`
+Status: `done`
 
 Plan the first controlled queue-entry write capability for the Ralph-Loop / Overnight Worker workflow without implementing or performing any queue/runtime mutation.
 
@@ -890,6 +890,71 @@ Plan the first controlled queue-entry write capability for the Ralph-Loop / Over
 - Follow-up implementation task is defined.
 - No queue/runtime/evidence/review/handoff mutation is performed.
 - No implementation is performed.
+
+---
+
+### RALPH-041B Minimal Sandbox Queue Entry Write Probe
+
+Status: `todo`
+
+Implement the first controlled sandbox queue-entry write probe for the Ralph-Loop / Overnight Worker workflow. This task proves Ralph can create exactly one non-authoritative queue-entry JSON artifact under a sandbox-only path without mutating canonical runtime, evidence, review, handoff, governance, product, package, or Git state.
+
+**Scope:**
+
+- Add a distinct sandbox queue-entry writer CLI/lib/tests.
+- Dry-run must be the default and must write no files.
+- Require explicit write authorization before any file is created.
+- Allow exactly one fixed sandbox target:
+  `.agent/runtime/sandbox/queue-admission/ralph-041b-queue-entry-probe.json`
+- Write deterministic JSON content only.
+- The queue entry must be explicitly non-authoritative and sandbox-only.
+- Minimum payload must include:
+  - `schema_version`
+  - `queue_entry_id`
+  - `task_id`
+  - `sandbox`
+  - `non_authoritative`
+  - `classification`
+  - `admission_decision`
+  - `created_by`
+  - `non_authoritative_statement`
+- Operation must be create-only.
+- Refuse overwrite, append, truncate, delete, rename, move, arbitrary paths, path traversal, absolute paths, drive-qualified paths, and symlink/scope escapes.
+- Validate target path against protected-file policy before writing.
+- Validate expected JSON schema before writing.
+- Read back the created file and verify exact content/hash match.
+- Capture pre-write and post-write git evidence.
+- Reconcile expected changed files against actual changed files.
+- Stop for human review after write evidence is produced.
+
+**Explicitly excluded:**
+
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No writes under `.agent/overnight/**`.
+- No canonical runtime/evidence/review/handoff mutation.
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No ROADMAP/governance/product/package/Supabase mutation except a later authorized ROADMAP status update.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell command execution.
+- No approval, review acceptance, validation pass, task done, committed, pushed, deployed, or runtime-authority claims.
+
+**DoD:**
+
+- Dry-run mode produces a deterministic write plan and writes no files.
+- Explicit write mode creates exactly one JSON file at:
+  `.agent/runtime/sandbox/queue-admission/ralph-041b-queue-entry-probe.json`
+- Created JSON parses and matches the expected schema.
+- Created JSON declares `sandbox: true` and `non_authoritative: true`.
+- Created JSON includes no authority/evidence/approval claims.
+- Target path containment is enforced.
+- Overwrite/path-escape/arbitrary-path/protected-target attempts are refused before write.
+- Readback/hash verification passes.
+- Git readbacks show only approved RALPH-041B files changed.
+- Focused `node --check` and `node --test` checks pass for the new writer.
+- No queue/runtime/evidence/review/handoff/canonical mutation, staging, commit, push, deploy, dependency install, formatter, fixer, network operation, worker execution, task execution, or external side effect is performed.
 
 ---
 

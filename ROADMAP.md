@@ -844,6 +844,55 @@ Validate the RALPH-040B queue-admission validator against representative admissi
 
 ---
 
+### RALPH-041A Controlled Queue Entry Write Planning
+
+Status: `todo`
+
+Plan the first controlled queue-entry write capability for the Ralph-Loop / Overnight Worker workflow without implementing or performing any queue/runtime mutation.
+
+**Scope:**
+
+- Define the smallest safe queue-entry write Ralph may eventually perform.
+- Define why canonical runtime paths such as `tasks/**`, `runs/**`, `validation/**`, `review/**`, and `handoffs/**` must remain read-only for the first queue-entry write.
+- Define the safest initial queue-entry storage boundary, likely under a sandbox-only non-authoritative path such as:
+  `.agent/runtime/sandbox/queue-admission/`
+- Define whether the first write should use a fixed path or a task-scoped deterministic path.
+- Define minimum queue-entry JSON schema requirements.
+- Define required dry-run behavior.
+- Define explicit execute/write authorization requirements.
+- Define create-only/no-overwrite semantics.
+- Define path containment and protected-file checks.
+- Define pre-write evidence requirements.
+- Define post-write evidence requirements.
+- Define rollback/readback evidence requirements.
+- Define how queue-entry writes must interact with:
+  - task-admission classifier
+  - queue-admission validator
+  - review evidence bundle
+  - command sandbox
+  - controlled mutation tool patterns
+  - protected-file policy
+  - `ROADMAP.md` planning authority
+- Define stop conditions that block queue-entry writes.
+- Define the safest follow-up implementation task.
+- Planning only; do not implement a queue writer and do not write queue entries.
+
+**DoD:**
+
+- Safe queue-entry write boundary is documented.
+- Canonical runtime/evidence/handoff paths that must remain read-only are documented.
+- Initial storage path recommendation is documented.
+- Queue-entry schema requirements are documented.
+- Dry-run, explicit write flag, create-only, no-overwrite, path containment, and protected-file requirements are documented.
+- Pre-write, post-write, rollback, and review evidence requirements are documented.
+- Interactions with classifier, validator, evidence bundle, command sandbox, mutation tool patterns, protected-file policy, and ROADMAP authority are documented.
+- Stop conditions are documented.
+- Follow-up implementation task is defined.
+- No queue/runtime/evidence/review/handoff mutation is performed.
+- No implementation is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

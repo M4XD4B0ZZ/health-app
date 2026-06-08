@@ -804,6 +804,46 @@ Implement the first read-only queue-admission validator for classified Ralph tas
 
 ---
 
+### RALPH-040C Queue Admission Validator Smoke Evaluation
+
+Status: `todo`
+
+Validate the RALPH-040B queue-admission validator against representative admission fixtures before any queue-entry write capability is planned or implemented.
+
+**Scope:**
+
+- Use the existing RALPH-040B queue-admission validator.
+- Evaluate representative metadata/admission fixtures for:
+  - `SAFE_AUTONOMOUS` expected as `admissible`
+  - `REVIEW_REQUIRED` expected as `requires_review_before_queue`
+  - `HUMAN_ONLY` expected as `human_only`
+  - `FORBIDDEN` expected as `rejected`
+  - dirty-tree signal expected as blocked/rejected
+  - staged-files signal expected as blocked/rejected
+  - protected-file match expected as blocked/rejected
+  - queue-entry collision expected as blocked/rejected
+- Capture expected vs actual admission decisions.
+- Capture admission flags, reason codes, and queue-entry preview IDs.
+- Produce a concise smoke report:
+  `reports/RALPH-040C_QUEUE_ADMISSION_VALIDATOR_SMOKE_REPORT.md`
+- Do not modify validator behavior.
+- Do not add queue integration.
+- Do not write queue entries.
+- Do not mutate runtime, evidence, review, handoff, governance, product, package, or Git state except the allowed report artifact and later ROADMAP status update.
+
+**DoD:**
+
+- All representative fixtures are evaluated through the validator.
+- Expected vs actual admission decisions are documented.
+- All expected decisions pass.
+- Reason codes and preview IDs are captured where relevant.
+- Smoke report is created under `reports/`.
+- No validator logic changes are made.
+- No queue-entry write capability is added.
+- No queue, runtime-state, worker, review JSONL, validation JSONL, handoff, product, package, governance, deploy, push, or external mutation is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

@@ -700,7 +700,7 @@ Validate the RALPH-039B task-admission classifier against representative task me
 
 ### RALPH-040A Queue Admission Planning
 
-Status: `todo`
+Status: `done`
 
 Plan how classified Ralph tasks may be admitted into a future Overnight queue without yet mutating queue/runtime state.
 
@@ -735,6 +735,72 @@ Plan how classified Ralph tasks may be admitted into a future Overnight queue wi
 - Follow-up implementation task is defined.
 - No queue/runtime/evidence/review/handoff mutation is performed.
 - No implementation is performed.
+
+---
+
+### RALPH-040B Queue Admission Validator
+
+Status: `todo`
+
+Implement the first read-only queue-admission validator for classified Ralph tasks. The validator determines whether a candidate task would be admissible to a future Overnight queue, but must not write queue entries or mutate runtime/evidence/review/handoff state.
+
+**Scope:**
+
+- Add a distinct queue-admission validator CLI/lib/tests.
+- Default behavior must be read-only and stdout-only.
+- Accept bounded task/admission metadata JSON from an explicit input path or argument.
+- Consume existing RALPH-039B task-admission classifier output or invoke classifier logic in-process without mutation.
+- Map classifications to admission decisions:
+  - `SAFE_AUTONOMOUS` → `admissible`
+  - `REVIEW_REQUIRED` → `requires_review_before_queue`
+  - `HUMAN_ONLY` → `human_only`
+  - `FORBIDDEN` → `rejected`
+- Validate minimum queue-entry metadata:
+  - `queue_entry_id`
+  - `task_id`
+  - `classification`
+  - `admission_decision`
+  - `allowed_files`
+  - `expected_changed_files`
+  - `required_checks`
+  - `evidence_requirements`
+  - `review_requirement`
+  - `commit_policy`
+  - `push_policy`
+  - `stop_conditions`
+  - deterministic `created_at` placeholder or injected timestamp
+  - non-authoritative statement
+- Produce a deterministic queue-entry preview only; do not write it.
+- Validate protected-file and approval-required matches using `.agent/config/protected-files.json`.
+- Require clean pre-admission git evidence and no staged files.
+- Validate metadata completeness, expected-file completeness, required-check declarations, and stop-condition declarations.
+- Return structured JSON and human-readable summary to stdout.
+- Include reason codes, blocking findings, evidence requirements, and admission decision.
+
+**Explicitly excluded:**
+
+- No queue entry writes.
+- No mutation under `.agent/overnight/**` or `.agent/runtime/sandbox/**` in this task.
+- No mutation under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No ROADMAP/governance/product/package/Supabase mutation except a later authorized ROADMAP status update.
+- No task execution, worker invocation, adapter invocation, model invocation, prompt execution, validation execution, network access, deploy, dependency install, formatter, fixer, staging, commit, or push.
+- No arbitrary shell command execution.
+
+**DoD:**
+
+- `SAFE_AUTONOMOUS` fixture with complete metadata and clean protected scope returns `admissible`.
+- `REVIEW_REQUIRED` fixture returns `requires_review_before_queue` and is not executable.
+- `HUMAN_ONLY` fixture returns `human_only` and is not queued for autonomous execution.
+- `FORBIDDEN` fixture returns `rejected`.
+- Missing metadata fails closed as `rejected` or non-admissible with clear reason codes.
+- Protected-file match blocks admission.
+- Approval-required unresolved match blocks direct `admissible` admission.
+- Dirty tree and staged files block admission.
+- Existing queue-entry collision blocks create-only future admission.
+- Queue-entry preview is deterministic and includes a non-authoritative statement.
+- Focused `node --check` and `node --test` checks pass for the new validator.
+- Git readbacks show only approved RALPH-040B implementation/test files changed.
+- No queue/runtime/evidence/review/handoff mutation, staging, commit, push, deploy, dependency install, formatter, fixer, or external side effect is performed.
 
 ---
 

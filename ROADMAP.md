@@ -806,7 +806,7 @@ Implement the first read-only queue-admission validator for classified Ralph tas
 
 ### RALPH-040C Queue Admission Validator Smoke Evaluation
 
-Status: `todo`
+Status: `done`
 
 Validate the RALPH-040B queue-admission validator against representative admission fixtures before any queue-entry write capability is planned or implemented.
 

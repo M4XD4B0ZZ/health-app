@@ -895,7 +895,7 @@ Plan the first controlled queue-entry write capability for the Ralph-Loop / Over
 
 ### RALPH-041B Minimal Sandbox Queue Entry Write Probe
 
-Status: `todo`
+Status: `done`
 
 Implement the first controlled sandbox queue-entry write probe for the Ralph-Loop / Overnight Worker workflow. This task proves Ralph can create exactly one non-authoritative queue-entry JSON artifact under a sandbox-only path without mutating canonical runtime, evidence, review, handoff, governance, product, package, or Git state.
 

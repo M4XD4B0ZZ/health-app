@@ -698,6 +698,46 @@ Validate the RALPH-039B task-admission classifier against representative task me
 
 ---
 
+### RALPH-040A Queue Admission Planning
+
+Status: `todo`
+
+Plan how classified Ralph tasks may be admitted into a future Overnight queue without yet mutating queue/runtime state.
+
+**Scope:**
+
+- Define how `SAFE_AUTONOMOUS`, `REVIEW_REQUIRED`, `HUMAN_ONLY`, and `FORBIDDEN` classifications map to queue admission decisions.
+- Define required task metadata before a task can be considered for queue admission.
+- Define queue-entry schema requirements for a future implementation.
+- Define which files may eventually hold queue entries.
+- Define which files must remain read-only or forbidden.
+- Define how queue admission must interact with:
+  - task-admission classifier
+  - review evidence bundles
+  - command sandbox
+  - controlled mutation tools
+  - protected-file policy
+  - `ROADMAP.md` planning authority
+- Define evidence required before queue admission.
+- Define stop conditions that block queue admission.
+- Define the safest follow-up implementation task.
+- Planning only; do not implement queue admission or write queue entries.
+
+**DoD:**
+
+- Queue admission rules are documented.
+- Classification-to-admission mapping is documented.
+- Required queue-entry metadata is documented.
+- Queue-entry storage boundaries are documented.
+- Runtime/state authority boundaries are documented.
+- Evidence requirements are documented.
+- Stop conditions are documented.
+- Follow-up implementation task is defined.
+- No queue/runtime/evidence/review/handoff mutation is performed.
+- No implementation is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

@@ -1028,7 +1028,7 @@ Validate that the RALPH-041B sandbox queue-entry write can be independently revi
 
 ### RALPH-042A Sandbox Queue Entry Lifecycle Planning
 
-Status: `todo`
+Status: `done`
 
 Plan the first sandbox queue-entry lifecycle model for the Ralph-Loop / Overnight Worker workflow without implementing lifecycle transitions or mutating queue/runtime/evidence/review/handoff state.
 
@@ -1077,6 +1077,77 @@ Plan the first sandbox queue-entry lifecycle model for the Ralph-Loop / Overnigh
 - Follow-up implementation task is defined.
 - No lifecycle transition implementation is performed.
 - No queue/runtime/evidence/review/handoff mutation is performed.
+
+---
+
+### RALPH-042B Sandbox Queue Entry Lifecycle Schema Probe
+
+Status: `todo`
+
+Implement a minimal sandbox lifecycle schema and validation probe for sandbox queue-entry artifacts without enabling lifecycle execution, canonical queue admission, worker execution, task execution, or canonical runtime/evidence/review/handoff mutation.
+
+**Scope:**
+
+- Add lifecycle state constants for sandbox queue entries.
+- Add forbidden lifecycle state constants.
+- Add an allowed transition table for sandbox-only lifecycle states.
+- Add a lifecycle validation helper.
+- Validate that lifecycle metadata remains sandbox-only and non-authoritative.
+- Validate that forbidden states and forbidden authority claims are rejected.
+- Validate that allowed transitions are monotonic and evidence-gated.
+- Integrate lifecycle metadata only into sandbox queue-entry writer dry-run output or deterministic sandbox payload if explicitly required by the implementation.
+- Keep dry-run as the default.
+- Keep create-only behavior for any explicit sandbox artifact write.
+- Require explicit write authorization before any artifact is created.
+- Preserve the existing non-authoritative statement requirement.
+- Produce bounded structured output and human-readable output.
+- Add focused tests for:
+  - allowed lifecycle states
+  - forbidden lifecycle states
+  - allowed transitions
+  - invalid transitions
+  - forbidden authority claims
+  - non-authoritative guarantees
+  - dry-run writes=false
+  - create-only protection
+  - refusal of canonical authority claims
+- Produce a report artifact:
+  `reports/RALPH-042B_SANDBOX_QUEUE_ENTRY_LIFECYCLE_SCHEMA_PROBE_REPORT.md`
+
+**Allowed sandbox boundary:**
+
+- `.agent/runtime/sandbox/queue-admission/**`
+
+**Explicitly excluded:**
+
+- No canonical `.agent/overnight/**` queue entries.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution engine.
+- No automatic lifecycle transitions.
+- No validation/review JSONL writes.
+- No review acceptance.
+- No validation pass authority.
+- No task completion authority.
+- No staging, commit, push, deploy, network, dependency install, formatter, fixer, or product-code mutation.
+- No canonical runtime/evidence/review/handoff mutation.
+
+**DoD:**
+
+- Sandbox lifecycle states are defined.
+- Forbidden lifecycle states are defined.
+- Allowed transition table is defined.
+- Lifecycle validation helper rejects invalid/forbidden states.
+- Lifecycle validation helper rejects forbidden authority claims.
+- Lifecycle metadata remains sandbox-only and non-authoritative.
+- Dry-run output remains write-free.
+- Any explicit artifact write remains create-only and sandbox-only.
+- Focused `node --check` and `node --test` checks pass.
+- Report artifact documents lifecycle states, transitions, rejected states, evidence, and no-authority guarantees.
+- Git readbacks show only approved RALPH-042B files changed.
+- No canonical queue/runtime/evidence/review/handoff mutation, queue execution, worker execution, task execution, staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or product mutation is performed.
 
 ---
 

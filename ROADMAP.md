@@ -1026,6 +1026,60 @@ Validate that the RALPH-041B sandbox queue-entry write can be independently revi
 
 ---
 
+### RALPH-042A Sandbox Queue Entry Lifecycle Planning
+
+Status: `todo`
+
+Plan the first sandbox queue-entry lifecycle model for the Ralph-Loop / Overnight Worker workflow without implementing lifecycle transitions or mutating queue/runtime/evidence/review/handoff state.
+
+**Scope:**
+
+- Define allowed sandbox queue-entry lifecycle states.
+- Define explicitly forbidden lifecycle states and claims.
+- Define allowed state transitions for sandbox-only entries.
+- Define which transitions require human review.
+- Define which transitions must remain impossible until later phases.
+- Define how lifecycle state must remain non-authoritative and sandbox-only.
+- Define where lifecycle state may eventually be represented.
+- Define why canonical runtime/evidence/review/handoff paths must remain read-only:
+  - `tasks/**`
+  - `runs/**`
+  - `validation/**`
+  - `review/**`
+  - `handoffs/**`
+  - `.agent/overnight/**`
+- Define evidence required before and after any lifecycle transition.
+- Define rollback/readback requirements for transition artifacts.
+- Define interaction with:
+  - task-admission classifier
+  - queue-admission validator
+  - sandbox queue-entry writer
+  - review evidence bundle
+  - protected-file policy
+  - `ROADMAP.md` planning authority
+- Define stop conditions that block lifecycle transitions.
+- Define the safest follow-up implementation task.
+- Planning only; do not implement lifecycle transitions and do not write lifecycle artifacts.
+
+**DoD:**
+
+- Sandbox lifecycle states are documented.
+- Forbidden states and authority claims are documented.
+- Allowed transitions are documented.
+- Human-review requirements are documented.
+- Non-authoritative sandbox boundary is documented.
+- Future storage boundary recommendation is documented.
+- Canonical runtime/evidence/review/handoff paths that must remain read-only are documented.
+- Pre-transition and post-transition evidence requirements are documented.
+- Rollback/readback requirements are documented.
+- Interactions with classifier, validator, writer, evidence bundle, protected-file policy, and ROADMAP authority are documented.
+- Stop conditions are documented.
+- Follow-up implementation task is defined.
+- No lifecycle transition implementation is performed.
+- No queue/runtime/evidence/review/handoff mutation is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

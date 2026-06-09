@@ -1082,7 +1082,7 @@ Plan the first sandbox queue-entry lifecycle model for the Ralph-Loop / Overnigh
 
 ### RALPH-042B Sandbox Queue Entry Lifecycle Schema Probe
 
-Status: `todo`
+Status: `done`
 
 Implement a minimal sandbox lifecycle schema and validation probe for sandbox queue-entry artifacts without enabling lifecycle execution, canonical queue admission, worker execution, task execution, or canonical runtime/evidence/review/handoff mutation.
 

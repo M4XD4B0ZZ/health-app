@@ -1151,6 +1151,48 @@ Implement a minimal sandbox lifecycle schema and validation probe for sandbox qu
 
 ---
 
+### RALPH-042C Sandbox Lifecycle Evidence Integration
+
+Status: `done`
+
+Demonstrate that the sandbox lifecycle schema can be evaluated through the existing review-evidence bundle workflow without introducing execution authority, lifecycle execution, queue execution, worker execution, runtime authority, review acceptance, validation authority, or canonical state mutation.
+
+**Scope:**
+
+- Evaluate lifecycle-schema evidence through the existing review-evidence bundle flow.
+- Produce a report artifact:
+  `reports/RALPH-042C_SANDBOX_LIFECYCLE_EVIDENCE_INTEGRATION_REPORT.md`
+- Capture git readbacks, changed-file classification, protected/approval-required classification, claim-vs-actual reconciliation, verification evidence status, and commit-readiness status.
+- Confirm lifecycle outputs remain sandbox-only, non-authoritative, non-executing, and non-runtime-authoritative.
+- Do not modify lifecycle, queue, worker, runtime, validation, review, handoff, product, package, Supabase, or governance behavior.
+
+**Explicitly excluded:**
+
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution engine.
+- No lifecycle execution.
+- No runtime authority.
+- No review acceptance.
+- No validation authority.
+- No canonical state mutation.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, `handoffs/**`, or `.agent/overnight/**`.
+- No staging, commit, push, deploy, network operation, dependency install, formatter, fixer, or product-code mutation.
+
+**DoD:**
+
+- Required read-only git evidence is captured.
+- Existing lifecycle schema and review-evidence bundle files are inspected.
+- Existing review-evidence bundle flow evaluates the lifecycle evidence path as dry-run/read-only/stdout-only evidence.
+- Report artifact documents evidence summary, verification results, changed files, ROADMAP diff summary, protected scope status, and no-authority confirmations.
+- Required focused `node --check` and `node --test` checks pass.
+- Git readbacks show only approved RALPH-042C files changed.
+- No files are staged.
+- No commit or push is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

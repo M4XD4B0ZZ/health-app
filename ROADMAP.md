@@ -958,6 +958,74 @@ Implement the first controlled sandbox queue-entry write probe for the Ralph-Loo
 
 ---
 
+### RALPH-041C Sandbox Queue Entry Write Evidence Integration
+
+Status: `todo`
+
+Validate that the RALPH-041B sandbox queue-entry write can be independently reviewed through bounded evidence without relying on agent summaries or introducing new queue/runtime authority.
+
+**Scope:**
+
+- Use the existing RALPH-041B sandbox queue-entry artifact:
+  `.agent/runtime/sandbox/queue-admission/ralph-041b-queue-entry-probe.json`
+- Use the existing review-evidence bundle system in read-only/stdout mode.
+- Read back and validate the sandbox queue-entry artifact.
+- Confirm the artifact is sandbox-only and non-authoritative.
+- Confirm the artifact does not authorize queue execution, worker execution, runtime authority, evidence mutation, review acceptance, validation pass, task completion, staging, commit, push, deploy, dependency install, network access, or product work.
+- Capture git readback evidence.
+- Capture artifact readback/hash/JSON validation evidence.
+- Capture review-evidence bundle behavior:
+  - git readbacks
+  - changed-file classification
+  - protected/approval-required classification
+  - claim-vs-actual reconciliation
+  - verification evidence status
+  - commit-readiness status
+  - bounded output/truncation status
+- Produce one report artifact:
+  `reports/RALPH-041C_QUEUE_ENTRY_WRITE_EVIDENCE_INTEGRATION_REPORT.md`
+- Do not modify queue writer, classifier, validator, or evidence-bundle behavior.
+- Do not add queue integration.
+- Do not write queue entries.
+- Do not mutate canonical runtime, evidence, review, handoff, governance, product, package, or Git state except the allowed report artifact and later ROADMAP status update.
+
+**Explicitly excluded:**
+
+- No queue execution capability.
+- No worker execution capability.
+- No task execution.
+- No runtime authority creation.
+- No canonical queue creation under `.agent/overnight/**`.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No product code mutation under `src/**`.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No staging, commit, push, deploy, network, dependency install, formatter, fixer, or arbitrary shell execution.
+- No claim that the sandbox queue entry authorizes execution, review acceptance, validation pass, task completion, commit readiness, push readiness, or runtime state mutation.
+
+**DoD:**
+
+- Required git evidence is collected and documented.
+- The RALPH-041B sandbox queue-entry artifact exists and parses as JSON.
+- The artifact is confirmed sandbox-only and non-authoritative.
+- The artifact contains no queue execution, worker execution, runtime authority, evidence mutation, review acceptance, validation pass, task completion, staging, commit, push, deploy, dependency install, network, or product-work authorization claims.
+- The review-evidence bundle system evaluates the current working tree/evidence context in read-only/stdout mode.
+- Bundle output includes git readbacks, changed-file classification, protected/approval-required classification, claim-vs-actual reconciliation, verification evidence status, and commit-readiness status.
+- Focused syntax/test checks pass.
+- Report artifact is created under `reports/`.
+- Post-run git evidence shows only approved RALPH-041C files changed, expected to be:
+  `reports/RALPH-041C_QUEUE_ENTRY_WRITE_EVIDENCE_INTEGRATION_REPORT.md`
+  plus `ROADMAP.md` only if the status update is explicitly authorized.
+- No files are staged.
+- No commit or push is performed during implementation.
+- No canonical runtime/evidence/review/handoff/product/package/Supabase mutation occurs.
+- No queue execution, worker execution, runtime authority, or canonical state mutation is introduced or claimed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

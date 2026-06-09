@@ -960,7 +960,7 @@ Implement the first controlled sandbox queue-entry write probe for the Ralph-Loo
 
 ### RALPH-041C Sandbox Queue Entry Write Evidence Integration
 
-Status: `todo`
+Status: `done`
 
 Validate that the RALPH-041B sandbox queue-entry write can be independently reviewed through bounded evidence without relying on agent summaries or introducing new queue/runtime authority.
 

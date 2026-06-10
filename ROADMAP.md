@@ -1347,7 +1347,7 @@ Implement a read-only, stdout-only sandbox lifecycle eligibility evaluator that 
 
 ### RALPH-043C Sandbox Lifecycle Eligibility Evidence Integration
 
-Status: `todo`
+Status: `done`
 
 Demonstrate that the RALPH-043B sandbox lifecycle eligibility evaluator can be invoked as a read-only, stdout-only evidence collection tool without introducing runtime behavior, lifecycle execution, queue execution, worker execution, task execution, review authority, validation authority, canonical queue admission, or canonical state mutation.
 

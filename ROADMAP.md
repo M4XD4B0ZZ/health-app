@@ -1345,6 +1345,74 @@ Implement a read-only, stdout-only sandbox lifecycle eligibility evaluator that 
 
 ---
 
+### RALPH-043C Sandbox Lifecycle Eligibility Evidence Integration
+
+Status: `todo`
+
+Demonstrate that the RALPH-043B sandbox lifecycle eligibility evaluator can be invoked as a read-only, stdout-only evidence collection tool without introducing runtime behavior, lifecycle execution, queue execution, worker execution, task execution, review authority, validation authority, canonical queue admission, or canonical state mutation.
+
+**Scope:**
+
+- Execute the existing eligibility evaluator CLI with representative fixtures.
+- Use `--input-json` with inline JSON fixtures.
+- Use `--input-file` with a safe relative JSON fixture if feasible without creating persistent non-report artifacts.
+- Capture JSON output format.
+- Capture Markdown output format.
+- Demonstrate all five decision outcomes:
+  - `eligible_for_human_consideration`
+  - `blocked_canonical_scope`
+  - `blocked_forbidden_claim`
+  - `blocked_invalid_lifecycle`
+  - `blocked_missing_evidence`
+- Verify authority flags remain `false` in all results.
+- Verify `writes_performed: false` in all results.
+- Verify `stdout_only: true` in all results.
+- Document changed-file reconciliation.
+- Produce a report artifact:
+  `reports/RALPH-043C_SANDBOX_LIFECYCLE_ELIGIBILITY_EVIDENCE_INTEGRATION_REPORT.md`
+- Update ROADMAP status only after successful evidence integration.
+
+**Explicitly excluded:**
+
+- No runtime execution.
+- No lifecycle execution.
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No review authority.
+- No validation authority.
+- No canonical queue admission.
+- No canonical state mutation.
+- No evidence bundle wrapper.
+- No new scripts or libraries.
+- No new tests.
+- No automatic execution based on eligibility decisions.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, `handoffs/**`, or `.agent/overnight/**`.
+- No product, Supabase, package, environment, secret, governance, or protected-file mutation.
+- No staging, commit, push, deploy, network, dependency install, formatter, fixer, or arbitrary shell execution.
+
+**DoD:**
+
+- Git evidence commands are executed and documented.
+- Eligibility evaluator is invoked with representative fixtures.
+- JSON output format is captured.
+- Markdown output format is captured.
+- All five decision outcomes are captured.
+- Authority flags are verified as `false`.
+- `writes_performed: false` is verified.
+- `stdout_only: true` is verified.
+- Changed files are reconciled.
+- Report artifact is created.
+- ROADMAP.md status is updated from `todo` to `done` only after successful verification.
+- Changed files are limited to:
+  - `ROADMAP.md`
+  - `reports/RALPH-043C_SANDBOX_LIFECYCLE_ELIGIBILITY_EVIDENCE_INTEGRATION_REPORT.md`
+- No canonical path writes occur.
+- No authority claims are introduced.
+- No runtime, lifecycle, queue, worker, or task execution is added or performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

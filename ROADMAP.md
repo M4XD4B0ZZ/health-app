@@ -1270,7 +1270,7 @@ Plan the first runtime-adjacent Ralph capability after sandbox lifecycle evidenc
 
 ### RALPH-043B Sandbox Lifecycle Eligibility Evaluator
 
-Status: `todo`
+Status: `done`
 
 Implement a read-only, stdout-only sandbox lifecycle eligibility evaluator that determines whether an existing sandbox lifecycle or sandbox queue-entry artifact is eligible for further human consideration without authorizing runtime behavior, lifecycle execution, queue execution, worker execution, task execution, review acceptance, validation authority, canonical queue admission, or canonical state mutation.
 

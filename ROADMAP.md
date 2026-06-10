@@ -1195,7 +1195,7 @@ Demonstrate that the sandbox lifecycle schema can be evaluated through the exist
 
 ### RALPH-043A Runtime-Adjacent Sandbox Lifecycle Eligibility Planning
 
-Status: `todo`
+Status: `done`
 
 Plan the first runtime-adjacent Ralph capability after sandbox lifecycle evidence integration without implementing runtime behavior, lifecycle execution, queue execution, worker execution, task execution, or canonical runtime/evidence/review/handoff mutation.
 
@@ -1265,6 +1265,83 @@ Plan the first runtime-adjacent Ralph capability after sandbox lifecycle evidenc
 - RALPH-043B implementation scope is defined.
 - Stop conditions are documented.
 - No implementation or file modification is performed during RALPH-043A.
+
+---
+
+### RALPH-043B Sandbox Lifecycle Eligibility Evaluator
+
+Status: `todo`
+
+Implement a read-only, stdout-only sandbox lifecycle eligibility evaluator that determines whether an existing sandbox lifecycle or sandbox queue-entry artifact is eligible for further human consideration without authorizing runtime behavior, lifecycle execution, queue execution, worker execution, task execution, review acceptance, validation authority, canonical queue admission, or canonical state mutation.
+
+**Scope:**
+
+- Add a deterministic eligibility evaluator library.
+- Add a thin stdout-only CLI wrapper.
+- Reuse the existing sandbox lifecycle validation helper from:
+  `scripts/agent/lib/sandbox-queue-entry-lifecycle.mjs`
+- Evaluate only explicit bounded input artifacts or fixtures.
+- Accept only safe relative JSON input paths or explicit JSON metadata input.
+- Produce exactly one of these decisions:
+  - `eligible_for_human_consideration`
+  - `blocked_missing_evidence`
+  - `blocked_forbidden_claim`
+  - `blocked_invalid_lifecycle`
+  - `blocked_canonical_scope`
+- Validate sandbox and non-authoritative markers.
+- Validate lifecycle metadata through the existing lifecycle helper.
+- Reject forbidden lifecycle states.
+- Reject forbidden authority claims.
+- Reject canonical/protected runtime, evidence, review, handoff, queue, product, package, environment, secret, and deployment scopes.
+- Read `.agent/config/protected-files.json` only for protected-path classification.
+- Emit deterministic JSON and optional markdown to stdout.
+- Keep all authority and execution flags false.
+- Add focused tests for all five decisions, protected/canonical scope blocking, file-input path safety, no-authority flags, and read-only/no-write behavior.
+- Produce a report artifact:
+  `reports/RALPH-043B_SANDBOX_LIFECYCLE_ELIGIBILITY_EVALUATOR_REPORT.md`
+
+**Explicitly excluded:**
+
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution engine.
+- No automatic lifecycle transitions.
+- No runtime authority.
+- No review acceptance authority.
+- No validation pass authority.
+- No task completion authority.
+- No commit-readiness authority.
+- No canonical queue admission.
+- No canonical queue entries.
+- No writes under `.agent/overnight/**`.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No product code mutation.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No environment or secret mutation.
+- No staging, commit, push, deploy, network, dependency install, formatter, fixer, or arbitrary shell execution.
+- No modification to existing lifecycle, writer, classifier, validator, or evidence-bundle behavior unless a blocking issue is explicitly identified and separately reviewed.
+
+**DoD:**
+
+- Eligibility evaluator library is implemented.
+- CLI emits stdout-only JSON by default and optional markdown.
+- Evaluator produces exactly the five defined decisions.
+- `eligible_for_human_consideration` is returned only for sandbox, non-authoritative, lifecycle-valid, evidence-sufficient, protected-scope-clean inputs.
+- Missing evidence returns `blocked_missing_evidence`.
+- Forbidden authority claims return `blocked_forbidden_claim`.
+- Invalid or forbidden lifecycle states/transitions return `blocked_invalid_lifecycle`.
+- Canonical/protected scope references return `blocked_canonical_scope`.
+- All result authority/execution flags remain false.
+- File input path safety is enforced.
+- No file writes are performed by evaluator or CLI.
+- Focused `node --check` and `node --test` checks pass.
+- Report artifact documents architecture, decisions, tests, safety boundaries, and no-authority guarantees.
+- Git readbacks show only approved RALPH-043B files changed.
+- No canonical runtime/evidence/review/handoff mutation, queue execution, worker execution, task execution, staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or product/package/Supabase mutation is performed.
 
 ---
 

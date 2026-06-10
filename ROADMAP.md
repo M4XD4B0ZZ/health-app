@@ -1193,6 +1193,81 @@ Demonstrate that the sandbox lifecycle schema can be evaluated through the exist
 
 ---
 
+### RALPH-043A Runtime-Adjacent Sandbox Lifecycle Eligibility Planning
+
+Status: `todo`
+
+Plan the first runtime-adjacent Ralph capability after sandbox lifecycle evidence integration without implementing runtime behavior, lifecycle execution, queue execution, worker execution, task execution, or canonical runtime/evidence/review/handoff mutation.
+
+**Scope:**
+
+- Define the safest first runtime-adjacent capability as a read-only sandbox lifecycle eligibility evaluation.
+- Define what makes an existing sandbox lifecycle or queue-entry artifact eligible for further human consideration.
+- Define required evidence gates before any runtime-adjacent action may be considered.
+- Define authority boundaries that must remain intact:
+  - `ROADMAP.md` as planning authority
+  - `VERIFY.md` as verification authority
+  - `.governance/SAFETY.md` as safety authority
+  - runtime state files as execution state only, never planning authority
+  - reports and sandbox artifacts as non-authoritative evidence only
+- Define canonical paths that must remain read-only:
+  - `tasks/**`
+  - `runs/**`
+  - `validation/**`
+  - `review/**`
+  - `handoffs/**`
+  - `.agent/overnight/**`
+- Define forbidden lifecycle states, authority claims, and actions that must remain impossible.
+- Define the safest follow-up implementation task RALPH-043B as a read-only/stdout-only sandbox lifecycle eligibility evaluator.
+- Planning only; do not implement an evaluator and do not mutate runtime, evidence, review, handoff, queue, worker, task, product, package, Supabase, or Git state.
+
+**Explicitly excluded:**
+
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution engine.
+- No automatic lifecycle transitions.
+- No runtime authority.
+- No canonical queue admission.
+- No writes under `.agent/overnight/**`.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No review acceptance, validation pass, task completion, commit-readiness, staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or product-code mutation.
+- No package, Supabase, environment, secret, or protected-file mutation.
+- No implementation files changed in this planning task.
+
+**DoD:**
+
+- Required read-only git evidence is collected and documented:
+  - `git --no-pager status --short`
+  - `git --no-pager log -10 --oneline`
+- Relevant canonical files are reviewed:
+  - `ROADMAP.md`
+  - `VERIFY.md`
+  - `SSOK.md`
+  - `AGENTS.md`
+  - `.governance/SYSTEM.md`
+  - `.governance/RULES.md`
+  - `.governance/SAFETY.md`
+  - `.agent/config/protected-files.json`
+- Relevant prior evidence reports are reviewed:
+  - `reports/RALPH-041C_QUEUE_ENTRY_WRITE_EVIDENCE_INTEGRATION_REPORT.md`
+  - `reports/RALPH-042B_SANDBOX_QUEUE_ENTRY_LIFECYCLE_SCHEMA_PROBE_REPORT.md`
+  - `reports/RALPH-042C_SANDBOX_LIFECYCLE_EVIDENCE_INTEGRATION_REPORT.md`
+- The first safe runtime-adjacent capability is defined without enabling runtime behavior.
+- Authority boundaries and read-only canonical paths are documented.
+- Required evidence gates are documented.
+- Eligibility criteria for sandbox lifecycle artifacts are documented.
+- Forbidden states, claims, actions, and impossible behaviors are documented.
+- RALPH-043B implementation scope is defined.
+- Stop conditions are documented.
+- No implementation or file modification is performed during RALPH-043A.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

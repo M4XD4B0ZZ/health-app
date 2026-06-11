@@ -1415,7 +1415,7 @@ Demonstrate that the RALPH-043B sandbox lifecycle eligibility evaluator can be i
 
 ### RALPH-044A Read-Only Sandbox Promotion Proposal Generator
 
-Status: `todo`
+Status: `done`
 
 Implement the smallest read-only/stdout-only proposal generator that converts an existing RALPH-043B sandbox lifecycle eligibility result, or an explicitly provided eligible sandbox artifact, into a deterministic, non-authoritative promotion proposal for human consideration.
 

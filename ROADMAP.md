@@ -1413,6 +1413,120 @@ Demonstrate that the RALPH-043B sandbox lifecycle eligibility evaluator can be i
 
 ---
 
+### RALPH-044A Read-Only Sandbox Promotion Proposal Generator
+
+Status: `todo`
+
+Implement the smallest read-only/stdout-only proposal generator that converts an existing RALPH-043B sandbox lifecycle eligibility result, or an explicitly provided eligible sandbox artifact, into a deterministic, non-authoritative promotion proposal for human consideration.
+
+This task creates the missing advisory bridge between `eligible_for_human_consideration` and a future separately authorized canonical promotion task. It must not perform canonical promotion, queue admission, runtime mutation, evidence mutation, handoff mutation, lifecycle execution, worker execution, or task execution.
+
+**Scope:**
+
+- Add a deterministic proposal library.
+- Add a thin stdout-only CLI wrapper.
+- Add focused tests.
+- Accept explicit eligibility JSON or a safe relative eligibility JSON file.
+- Optionally accept explicit sandbox artifact JSON or a safe relative sandbox artifact JSON file only if the implementation can reuse the existing RALPH-043B eligibility evaluator safely.
+- Reuse or consume the existing RALPH-043B sandbox lifecycle eligibility evaluator.
+- Require the source eligibility decision to be exactly `eligible_for_human_consideration`.
+- Validate source shape:
+  - `sandbox: true`
+  - `non_authoritative: true`
+  - task or queue identity is present
+  - upstream `writes_performed: false`
+  - upstream `stdout_only: true`
+  - all upstream authority flags are false
+- Refuse proposal generation for:
+  - missing or malformed eligibility input
+  - blocked eligibility decisions
+  - canonical or protected source/target references
+  - forbidden authority claims
+  - missing sandbox/non-authoritative markers
+  - upstream write or authority claims
+- Emit deterministic JSON by default.
+- Optionally emit deterministic Markdown to stdout.
+- Proposal output should include:
+  - schema version
+  - generator name
+  - proposal id
+  - proposal mode
+  - proposal created flag
+  - source artifact or eligibility summary
+  - source eligibility decision
+  - promotion proposal type
+  - future task recommendation
+  - required human approvals
+  - required governance references
+  - future allowed-scope recommendation
+  - future forbidden-scope recommendation
+  - required verification category
+  - required review gate
+  - stop conditions
+  - authority flags, all false
+  - `writes_performed: false`
+  - `stdout_only: true`
+  - non-authorization statement
+- Produce an implementation report:
+  `reports/RALPH-044A_SANDBOX_PROMOTION_PROPOSAL_GENERATOR_REPORT.md`
+- Update ROADMAP status only after successful verification.
+
+**Explicitly excluded:**
+
+- No canonical promotion writer.
+- No canonical queue admission.
+- No canonical queue entries.
+- No writes under `.agent/overnight/**`.
+- No writes under `.agent/runtime/sandbox/**`.
+- No writes under `tasks/**`.
+- No writes under `runs/**`.
+- No writes under `validation/**`.
+- No writes under `review/**`.
+- No writes under `handoffs/**`.
+- No mutation of existing sandbox artifacts.
+- No governance mutation.
+- No `.governance/EXECUTION.md`.
+- No `ROADMAP.md` update except the RALPH-044A status update after successful verification.
+- No review acceptance.
+- No validation authority.
+- No task completion authority.
+- No worker execution.
+- No queue execution.
+- No task execution.
+- No lifecycle execution.
+- No automatic lifecycle transition.
+- No product, Supabase, package, environment, secret, or protected-file mutation.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+
+**DoD:**
+
+- Proposal library is implemented.
+- CLI wrapper is implemented.
+- Focused tests are implemented.
+- Existing RALPH-043B eligibility evaluator is reused or safely consumed.
+- Proposal generation succeeds only for `eligible_for_human_consideration`.
+- Blocked or malformed inputs fail closed.
+- Canonical/protected scope references fail closed.
+- Forbidden authority claims fail closed.
+- Upstream write/authority claims fail closed.
+- JSON output is deterministic.
+- Markdown output is deterministic if implemented.
+- All proposal authority flags remain false.
+- `writes_performed: false` is present in proposal output.
+- `stdout_only: true` is present in proposal output.
+- Focused syntax checks pass.
+- Focused tests pass.
+- Implementation report is created.
+- No canonical, runtime, evidence, review, handoff, governance, product, package, Supabase, environment, secret, or protected-file mutation occurs.
+- Changed files are limited to:
+  - `scripts/agent/lib/sandbox-promotion-proposal-generator.mjs`
+  - `scripts/agent/generate-sandbox-promotion-proposal.mjs`
+  - `scripts/agent/__tests__/sandbox-promotion-proposal-generator.test.mjs`
+  - `reports/RALPH-044A_SANDBOX_PROMOTION_PROPOSAL_GENERATOR_REPORT.md`
+  - `ROADMAP.md` status update after successful verification.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

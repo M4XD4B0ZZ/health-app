@@ -1527,6 +1527,105 @@ This task creates the missing advisory bridge between `eligible_for_human_consid
 
 ---
 
+### RALPH-044B Minimal Canonical Promotion Proposal Writer Probe
+
+Status: `done`
+
+Implement the smallest controlled canonical-boundary promotion proposal writer probe for the Ralph-Loop / Overnight Worker workflow. This task proves Ralph can create exactly one deterministic, non-authoritative promotion-proposal artifact at a fixed `.agent/overnight/**` boundary path after human authorization, without performing canonical promotion, queue admission, runtime mutation, evidence mutation, review mutation, handoff mutation, worker execution, task execution, lifecycle execution, staging, commit, push, deploy, dependency install, formatter/fixer execution, network operation, or product/package/Supabase mutation.
+
+**Scope:**
+
+- Add a distinct promotion proposal writer probe CLI/lib/tests.
+- Dry-run must be the default and must write no files.
+- Require explicit write authorization before any file is created.
+- Allow exactly one fixed target path:
+  `.agent/overnight/promotion-proposals/ralph-044b-canonical-promotion-probe.json`
+- Write deterministic JSON content only.
+- Input may consume an explicit RALPH-044A promotion proposal JSON or deterministic fixture, but must fail closed unless:
+  - `proposal_created: true`
+  - `writes_performed: false`
+  - `stdout_only: true`
+  - all source/proposal authority flags are false
+  - source summary is sandbox-only and non-authoritative
+- The created artifact must explicitly declare:
+  - `non_authoritative: true`
+  - `canonical_promotion_authorized: false`
+  - `canonical_queue_admission: false`
+  - `queue_execution: false`
+  - `worker_execution: false`
+  - `task_execution: false`
+  - `lifecycle_execution: false`
+  - `runtime_authority: false`
+  - `evidence_mutation: false`
+  - `review_mutation: false`
+  - `validation_mutation: false`
+  - `task_completion: false`
+  - `commit_readiness: false`
+- Operation must be create-only.
+- Refuse overwrite, append, truncate, delete, rename, move, arbitrary paths, arbitrary content input, path traversal, absolute paths, drive-qualified paths, and symlink/scope escapes.
+- Validate target path against protected-file policy before writing and require this task's explicit authorization for the fixed `.agent/overnight/promotion-proposals/**` probe path.
+- Validate expected JSON schema before writing.
+- Capture pre-write and post-write git evidence using fixed read-only git commands.
+- Read back the created file and verify exact content/hash match.
+- Reconcile expected changed files against actual changed files.
+- Stop for human review after write evidence is produced.
+- Produce an implementation report:
+  `reports/RALPH-044B_CANONICAL_PROMOTION_PROPOSAL_WRITER_PROBE_REPORT.md`
+- Update ROADMAP status only after successful verification.
+
+**Explicitly excluded:**
+
+- No true canonical promotion writer.
+- No canonical queue admission.
+- No canonical queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution.
+- No automatic lifecycle transition.
+- No runtime authority creation.
+- No writes under `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No writes under `.agent/runtime/sandbox/**`.
+- No mutation of existing sandbox artifacts.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No review acceptance.
+- No validation pass authority.
+- No task completion authority.
+- No commit-readiness authority.
+- No product code mutation under `src/**`.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No environment or secret mutation.
+- No governance mutation except the authorized `ROADMAP.md` status update for this task.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+- No arbitrary output paths or arbitrary content input.
+- No overwrite/edit/delete/rename/move/append/truncate capability.
+
+**DoD:**
+
+- Promotion proposal writer probe library is implemented.
+- CLI wrapper is implemented.
+- Dry-run mode produces a deterministic write plan and writes no files.
+- Explicit write mode creates exactly one JSON file at:
+  `.agent/overnight/promotion-proposals/ralph-044b-canonical-promotion-probe.json`
+- Created JSON parses and matches the expected schema.
+- Created JSON is deterministic and hash/readback verified.
+- Created JSON explicitly declares all authority, execution, mutation, review, validation, task-completion, commit, push, deploy, dependency, network, and product-work flags false.
+- Writer fails closed for malformed, blocked, non-sandbox, authoritative, write-claiming, or protected-scope input proposals.
+- Target path containment is enforced.
+- Overwrite/path-escape/arbitrary-path/protected-target attempts are refused before write.
+- Pre-write and post-write git evidence is captured and bounded.
+- Changed-file reconciliation reports only approved RALPH-044B files changed.
+- Focused syntax checks pass.
+- Focused tests pass.
+- Implementation report is created.
+- No files are staged.
+- No commit or push is performed.
+- No canonical runtime/evidence/review/handoff mutation, queue execution, worker execution, task execution, lifecycle execution, staging, commit, push, deploy, dependency install, formatter, fixer, network operation, product/package/Supabase/environment/secret mutation, or external side effect is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

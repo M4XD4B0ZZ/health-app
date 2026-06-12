@@ -1739,6 +1739,77 @@ Implement the smallest controlled canonical-boundary queue-entry writer probe fo
 
 ---
 
+### RALPH-045B Canonical Queue Entry Evidence Integration
+
+Status: `done`
+
+Demonstrate that the RALPH-045A canonical-boundary queue-entry probe artifact can be independently reviewed through bounded evidence without introducing canonical queue admission, queue execution, worker execution, task execution, lifecycle execution, runtime authority, runtime writes, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, network operation, or product/package/Supabase mutation.
+
+**Scope:**
+
+- Inspect the existing RALPH-045A canonical-boundary queue-entry probe artifact:
+  `.agent/overnight/queue-entries/ralph-045a-canonical-queue-entry-probe.json`
+- Validate that the artifact exists, parses as JSON, and matches the deterministic RALPH-045A schema/hash expectations.
+- Confirm the artifact is explicitly non-authoritative and does not represent canonical queue admission or executable queue state.
+- Confirm all authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags remain false.
+- Use the existing review-evidence bundle system in read-only/stdout-only mode to evaluate the RALPH-045A evidence context.
+- Capture required git readbacks, changed-file classification, protected/approval-required classification, claim-vs-actual reconciliation, verification evidence status, bounded output/truncation status, and commit-readiness/readiness-blocking behavior.
+- Produce one report artifact:
+  `reports/RALPH-045B_CANONICAL_QUEUE_ENTRY_EVIDENCE_INTEGRATION_REPORT.md`
+- Update ROADMAP status only after successful verification if explicitly authorized by the task workflow.
+
+**Explicitly excluded:**
+
+- No canonical queue admission.
+- No executable queue entry creation.
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution.
+- No automatic lifecycle transition.
+- No queue consumer implementation.
+- No non-executing queue consumer probe yet.
+- No runtime authority creation.
+- No runtime writes under `tasks/**` or `runs/**`.
+- No writes under `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No review acceptance.
+- No validation pass authority.
+- No task completion authority.
+- No commit-readiness authority.
+- No product code mutation under `src/**`.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No environment or secret mutation.
+- No governance mutation except the authorized `ROADMAP.md` status update for this task.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+- No modification to the RALPH-045A queue-entry writer probe unless a blocking defect is explicitly identified and separately reviewed.
+- No modification to `.agent/overnight/queue.schema.json` unless a blocking schema conflict is explicitly identified and separately reviewed.
+
+**DoD:**
+
+- Required read-only git evidence is collected and documented.
+- The RALPH-045A canonical-boundary queue-entry probe artifact exists at:
+  `.agent/overnight/queue-entries/ralph-045a-canonical-queue-entry-probe.json`
+- The artifact parses as JSON and matches the expected deterministic RALPH-045A schema/hash.
+- The artifact is confirmed non-authoritative, not canonical queue admission, and not executable queue state.
+- All authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags are verified as false.
+- The review-evidence bundle system evaluates the current evidence context in read-only/stdout-only mode.
+- Bundle output includes git readbacks, changed-file classification, protected/approval-required classification, claim-vs-actual reconciliation, verification evidence status, commit-readiness/readiness-blocking status, and bounded output/truncation metadata.
+- Required focused syntax/test checks pass for the relevant existing evidence and RALPH-045A queue-entry probe tooling.
+- Report artifact is created under `reports/`.
+- Post-run git evidence shows changed files are limited to:
+  - `reports/RALPH-045B_CANONICAL_QUEUE_ENTRY_EVIDENCE_INTEGRATION_REPORT.md`
+  - `ROADMAP.md` only if the status update is explicitly authorized.
+- No files are staged.
+- No commit or push is performed.
+- No canonical runtime/evidence/review/handoff mutation occurs.
+- No queue consumer, queue execution, worker execution, task execution, lifecycle execution, runtime authority, or executable queue state is introduced or claimed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

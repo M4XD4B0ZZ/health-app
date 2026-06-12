@@ -1810,6 +1810,60 @@ Demonstrate that the RALPH-045A canonical-boundary queue-entry probe artifact ca
 
 ---
 
+### RALPH-046A Read-Only Canonical Queue Consumer Probe
+
+Status: `todo`
+
+Implement the smallest read-only/stdout-only canonical queue consumer probe for the Ralph Overnight Worker workflow. This task proves Ralph tooling can inspect an existing canonical-boundary queue-entry probe artifact under `.agent/overnight/queue-entries/**` and return a deterministic advisory consumer decision without performing canonical queue admission, queue consumption, dequeue/acknowledge behavior, lifecycle transition, execution-plan preview, worker execution, task execution, runtime mutation, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, formatter/fixer execution, network operation, or product/package/Supabase mutation.
+
+**Scope:**
+
+- Add a read-only queue consumer probe library under `scripts/agent/lib/`.
+- Add a CLI wrapper under `scripts/agent/` that outputs only to stdout.
+- Accept only an explicit safe relative JSON path under `.agent/overnight/queue-entries/` or explicit JSON input if implemented safely.
+- Validate the existing RALPH-045A queue-entry probe artifact schema.
+- Confirm the artifact is non-authoritative, not canonical queue admission, and not executable queue state.
+- Confirm all authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags remain false.
+- Return deterministic advisory decisions only, for example:
+  - `inspectable_non_executable_probe`
+  - `blocked_missing_or_invalid_artifact`
+  - `blocked_authority_claim`
+  - `blocked_not_queue_entry_probe`
+  - `blocked_unsafe_path`
+- Add focused tests for valid probe inspection, invalid JSON, unsafe paths, authority claims, wrong artifact type, and no-write/stdout-only behavior.
+- Produce an implementation report:
+  `reports/RALPH-046A_READ_ONLY_CANONICAL_QUEUE_CONSUMER_PROBE_REPORT.md`
+- Update ROADMAP status only after successful verification if explicitly authorized by the task workflow.
+
+**Explicit exclusions:**
+
+- No canonical queue admission.
+- No executable queue state.
+- No queue execution.
+- No queue consumption, dequeue, acknowledge, reserve, lock, retry, scheduling, or mark-done behavior.
+- No execution-plan preview.
+- No worker execution.
+- No task execution.
+- No lifecycle execution or lifecycle transition.
+- No mutation under `.agent/overnight/**`, `.agent/runtime/**`, `tasks/**`, `runs/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No product, package, Supabase, environment, secret, dependency, governance-policy, or Git metadata mutation.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+- No treating RALPH-045A probe artifacts as admitted, executable, authoritative, or ready for execution.
+
+**DoD:**
+
+- Consumer probe is read-only/stdout-only and performs no writes.
+- Valid RALPH-045A probe artifact inspection returns a deterministic advisory non-executable decision.
+- Invalid JSON, unsafe paths, wrong artifact type, missing required fields, and authority/execution/mutation claims fail closed.
+- Output includes explicit `writes_performed: false`, `stdout_only: true`, `non_authoritative: true`, and all authority flags set to `false`.
+- Focused syntax checks pass for the new library and CLI.
+- Focused tests pass for all required success and fail-closed paths.
+- Implementation report is created under `reports/`.
+- Git readbacks show changed files are limited to the approved RALPH-046A files and `ROADMAP.md` only if the status update is explicitly authorized.
+- No files are staged, committed, pushed, deployed, formatted, fixed, or dependency-installed by the task.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

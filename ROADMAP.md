@@ -1626,6 +1626,119 @@ Implement the smallest controlled canonical-boundary promotion proposal writer p
 
 ---
 
+### RALPH-045A Minimal Canonical Queue Entry Probe
+
+Status: `todo`
+
+Implement the smallest controlled canonical-boundary queue-entry writer probe for the Ralph-Loop / Overnight Worker workflow. This task proves Ralph can create exactly one deterministic, non-authoritative queue-entry probe artifact at a fixed `.agent/overnight/**` boundary path after explicit human authorization, without performing canonical queue admission, queue execution, worker execution, task execution, lifecycle execution, runtime authority creation, runtime writes, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, formatter/fixer execution, network operation, or product/package/Supabase mutation.
+
+**Scope:**
+
+- Add a distinct canonical-boundary queue-entry writer probe CLI/lib/tests.
+- Dry-run must be the default and must write no files.
+- Require an explicit execute flag before any file is created.
+- Allow exactly one fixed target path:
+  `.agent/overnight/queue-entries/ralph-045a-canonical-queue-entry-probe.json`
+- Write deterministic JSON content only.
+- The created artifact must be explicitly non-authoritative and must not be treated as an admitted or executable queue entry.
+- The deterministic artifact schema must include at minimum:
+  - `schema_version`
+  - `task_id`
+  - `writer`
+  - `artifact_type`
+  - `target_path`
+  - `queue_entry_id`
+  - `queue_entry_created`
+  - `non_authoritative: true`
+  - `canonical_queue_admission: false`
+  - `queue_execution: false`
+  - `worker_execution: false`
+  - `task_execution: false`
+  - `lifecycle_execution: false`
+  - `runtime_authority: false`
+  - `runtime_write: false`
+  - `evidence_mutation: false`
+  - `review_mutation: false`
+  - `validation_mutation: false`
+  - `handoff_mutation: false`
+  - `review_acceptance: false`
+  - `validation_authority: false`
+  - `validation_pass: false`
+  - `task_completion: false`
+  - `commit_readiness: false`
+  - `staging: false`
+  - `commit: false`
+  - `push: false`
+  - `deploy: false`
+  - `dependency_install: false`
+  - `network: false`
+  - `product_work: false`
+  - `non_authorization_statement`
+- Operation must be create-only.
+- Refuse overwrite, append, truncate, delete, rename, move, arbitrary paths, arbitrary content input, path traversal, absolute paths, drive-qualified paths, and symlink/scope escapes.
+- Validate target path against protected-file policy before writing and require this task's explicit authorization for the fixed `.agent/overnight/queue-entries/**` probe path.
+- Validate expected JSON schema before writing.
+- Capture pre-write and post-write git evidence using fixed read-only git commands.
+- Read back the created file and verify exact content/hash match.
+- Reconcile expected changed files against actual changed files.
+- Stop for human review after write evidence is produced.
+- Produce an implementation report:
+  `reports/RALPH-045A_CANONICAL_QUEUE_ENTRY_PROBE_REPORT.md`
+- Update ROADMAP status only after successful verification.
+
+**Explicitly excluded:**
+
+- No true canonical queue admission.
+- No executable queue entry creation.
+- No queue execution.
+- No worker execution.
+- No task execution.
+- No lifecycle execution.
+- No automatic lifecycle transition.
+- No runtime authority creation.
+- No runtime writes under `tasks/**` or `runs/**`.
+- No writes under `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No review acceptance.
+- No validation pass authority.
+- No task completion authority.
+- No commit-readiness authority.
+- No product code mutation under `src/**`.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No environment or secret mutation.
+- No governance mutation except the authorized `ROADMAP.md` status update for this task.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+- No arbitrary output paths or arbitrary content input.
+- No overwrite/edit/delete/rename/move/append/truncate capability.
+- No modification to `.agent/overnight/queue.schema.json` unless a blocking schema conflict is explicitly identified and separately reviewed.
+
+**DoD:**
+
+- Canonical-boundary queue-entry writer probe library is implemented.
+- CLI wrapper is implemented.
+- Dry-run mode produces a deterministic write plan and writes no files.
+- Explicit execute mode creates exactly one JSON file at:
+  `.agent/overnight/queue-entries/ralph-045a-canonical-queue-entry-probe.json`
+- Created JSON parses and matches the expected deterministic schema.
+- Created JSON is deterministic and hash/readback verified.
+- Created JSON explicitly declares all authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags false.
+- Created JSON is explicitly non-authoritative and does not represent queue admission or executable runtime state.
+- Target path containment is enforced.
+- Overwrite/path-escape/arbitrary-path/protected-target attempts are refused before write.
+- Pre-write and post-write git evidence is captured and bounded.
+- Changed-file reconciliation reports only approved RALPH-045A files changed.
+- Focused syntax checks pass.
+- Focused tests pass.
+- Implementation report is created.
+- No files are staged.
+- No commit or push is performed.
+- No canonical runtime/evidence/review/handoff mutation, queue execution, worker execution, task execution, lifecycle execution, staging, commit, push, deploy, dependency install, formatter, fixer, network operation, product/package/Supabase/environment/secret mutation, or external side effect is performed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

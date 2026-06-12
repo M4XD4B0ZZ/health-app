@@ -1628,7 +1628,7 @@ Implement the smallest controlled canonical-boundary promotion proposal writer p
 
 ### RALPH-045A Minimal Canonical Queue Entry Probe
 
-Status: `todo`
+Status: `done`
 
 Implement the smallest controlled canonical-boundary queue-entry writer probe for the Ralph-Loop / Overnight Worker workflow. This task proves Ralph can create exactly one deterministic, non-authoritative queue-entry probe artifact at a fixed `.agent/overnight/**` boundary path after explicit human authorization, without performing canonical queue admission, queue execution, worker execution, task execution, lifecycle execution, runtime authority creation, runtime writes, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, formatter/fixer execution, network operation, or product/package/Supabase mutation.
 

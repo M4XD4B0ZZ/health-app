@@ -1812,7 +1812,7 @@ Demonstrate that the RALPH-045A canonical-boundary queue-entry probe artifact ca
 
 ### RALPH-046A Read-Only Canonical Queue Consumer Probe
 
-Status: `todo`
+Status: `done`
 
 Implement the smallest read-only/stdout-only canonical queue consumer probe for the Ralph Overnight Worker workflow. This task proves Ralph tooling can inspect an existing canonical-boundary queue-entry probe artifact under `.agent/overnight/queue-entries/**` and return a deterministic advisory consumer decision without performing canonical queue admission, queue consumption, dequeue/acknowledge behavior, lifecycle transition, execution-plan preview, worker execution, task execution, runtime mutation, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, formatter/fixer execution, network operation, or product/package/Supabase mutation.
 

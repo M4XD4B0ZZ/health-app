@@ -1938,6 +1938,72 @@ Demonstrate that the RALPH-046A read-only canonical queue consumer probe can be 
 
 ---
 
+### RALPH-047A Read-Only Execution Plan Preview
+
+Status: `done`
+
+Define and implement the smallest read-only/stdout-only execution-plan preview for the Ralph Overnight Worker workflow. This task converts an existing non-executable canonical-boundary queue consumer advisory decision into a deterministic preview of what an eventual execution envelope would need, without creating runtime authority, executable queue state, task execution, worker execution, lifecycle execution, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, network operation, or product/package/Supabase mutation.
+
+**Scope:**
+
+- Add a read-only execution-plan preview library under `scripts/agent/lib/`.
+- Add a CLI wrapper under `scripts/agent/` that outputs only to stdout.
+- Accept only explicit safe relative input paths or explicit JSON input, implemented fail-closed.
+- Inspect the existing RALPH-045A canonical-boundary queue-entry probe artifact and the existing RALPH-046A read-only queue consumer probe output shape.
+- Require the queue consumer decision to be advisory, non-executable, non-authoritative, and read-only/stdout-only before generating any preview.
+- Return a deterministic preview object that describes required future execution-envelope inputs, blockers, non-authority status, and next-review requirements.
+- Confirm all authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags remain false.
+- Add focused tests for valid preview generation, invalid JSON, unsafe paths, missing consumer decision, authority claims, execution claims, mutation claims, wrong artifact type, and no-write/stdout-only behavior.
+- Produce an implementation report:
+  `reports/RALPH-047A_READ_ONLY_EXECUTION_PLAN_PREVIEW_REPORT.md`
+- Update ROADMAP status only after successful verification if explicitly authorized by the task workflow.
+
+**Explicit exclusions:**
+
+- No canonical queue admission.
+- No executable queue state.
+- No queue execution.
+- No queue consumption, dequeue, acknowledge, reserve, lock, retry, scheduling, mark-done behavior, or lifecycle transition.
+- No worker execution.
+- No task execution.
+- No runtime authority creation.
+- No runtime writes under `tasks/**` or `runs/**`.
+- No writes under `.agent/overnight/**`, `.agent/runtime/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No review acceptance.
+- No validation pass authority.
+- No task completion authority.
+- No commit-readiness authority.
+- No product code mutation under `src/**`.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No environment or secret mutation.
+- No governance mutation except the authorized `ROADMAP.md` status update for this task.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+- No modification to the RALPH-045A queue-entry writer probe unless a blocking defect is explicitly identified and separately reviewed.
+- No modification to the RALPH-046A queue consumer probe unless a blocking defect is explicitly identified and separately reviewed.
+- No modification to `.agent/overnight/queue.schema.json` unless a blocking schema conflict is explicitly identified and separately reviewed.
+- No treating the execution-plan preview as executable, authoritative, approved, admitted, or ready for execution.
+
+**DoD:**
+
+- Execution-plan preview is read-only/stdout-only and performs no writes.
+- Valid advisory RALPH-046A consumer output produces a deterministic non-executable execution-plan preview.
+- Invalid JSON, unsafe paths, missing consumer decision, wrong artifact type, authority claims, execution claims, and mutation claims fail closed.
+- Output includes explicit `writes_performed: false`, `stdout_only: true`, `non_authoritative: true`, `executable: false`, and all authority flags set to `false`.
+- Preview output lists required future execution-envelope inputs and blockers without executing or mutating anything.
+- Focused syntax checks pass for the new library and CLI.
+- Focused tests pass for all required success and fail-closed paths.
+- Implementation report is created under `reports/`.
+- Git readbacks show changed files are limited to the approved RALPH-047A files and `ROADMAP.md` only if the status update is explicitly authorized.
+- No files are staged, committed, pushed, deployed, formatted, fixed, dependency-installed, or networked by the task.
+- No canonical runtime/evidence/review/handoff mutation occurs.
+- No queue execution, worker execution, task execution, lifecycle execution, runtime authority, executable queue state, or executable execution plan is introduced or claimed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

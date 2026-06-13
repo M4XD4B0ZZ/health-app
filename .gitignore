@@ -74,3 +74,10 @@ test-results/
 .agent/out/fix-prompt.md
 .agent/config.json
 .agent/models.json
+
+# MCP Settings
+.vscode/mcp.json
+mcp.json
+
+# VSCode settings
+.vscode/

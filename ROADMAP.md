@@ -2004,6 +2004,83 @@ Define and implement the smallest read-only/stdout-only execution-plan preview f
 
 ---
 
+### RALPH-047B Execution Plan Preview Evidence Integration
+
+Status: `todo`
+
+Demonstrate that the RALPH-047A read-only execution-plan preview can be independently reviewed through bounded evidence without introducing canonical queue admission, executable queue state, queue execution, queue consumption, worker execution, task execution, lifecycle execution, runtime authority, runtime writes, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, network operation, or product/package/Supabase mutation.
+
+**Scope:**
+
+- Run the existing RALPH-047A read-only execution-plan preview against the existing RALPH-045A canonical-boundary queue-entry probe artifact and/or existing RALPH-046A advisory consumer decision path.
+- Confirm the preview returns a deterministic, non-executable, non-authoritative, read-only/stdout-only decision.
+- Confirm preview output includes `preview_only: true`, `stdout_only: true`, `writes_performed: false`, `non_authoritative: true`, and `executable: false`.
+- Confirm all authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags remain false.
+- Confirm preview blockers explicitly prevent execution authority, queue admission, queue consumption, lifecycle transition, and runtime/evidence mutation.
+- Confirm required future execution-envelope inputs are listed as review/planning inputs only and do not authorize execution.
+- Use the existing review-evidence bundle system in read-only/stdout-only mode to evaluate the RALPH-047A preview evidence context.
+- Capture required git readbacks, changed-file classification, protected/approval-required classification, claim-vs-actual reconciliation, verification evidence status, commit-readiness/readiness-blocking status, and bounded output/truncation metadata.
+- Produce one report artifact:
+  `reports/RALPH-047B_EXECUTION_PLAN_PREVIEW_EVIDENCE_INTEGRATION_REPORT.md`
+- Update ROADMAP status only after successful verification if explicitly authorized by the task workflow.
+
+**Explicit exclusions:**
+
+- No canonical queue admission.
+- No executable queue state.
+- No queue execution.
+- No queue consumption, dequeue, acknowledge, reserve, lock, retry, scheduling, mark-done behavior, or lifecycle transition.
+- No worker execution.
+- No task execution.
+- No runtime authority creation.
+- No runtime writes under `tasks/**` or `runs/**`.
+- No writes under `.agent/overnight/**`, `.agent/runtime/**`, `validation/**`, `review/**`, or `handoffs/**`.
+- No validation JSONL writes.
+- No review JSONL writes.
+- No handoff mutation.
+- No review acceptance.
+- No validation pass authority.
+- No task completion authority.
+- No commit-readiness authority.
+- No product code mutation under `src/**`.
+- No Supabase mutation.
+- No package/dependency mutation.
+- No environment or secret mutation.
+- No governance mutation except the authorized `ROADMAP.md` status update for this task.
+- No staging, commit, push, deploy, dependency install, formatter, fixer, network operation, or arbitrary shell execution.
+- No modification to the RALPH-045A queue-entry writer probe unless a blocking defect is explicitly identified and separately reviewed.
+- No modification to the RALPH-046A queue consumer probe unless a blocking defect is explicitly identified and separately reviewed.
+- No modification to the RALPH-047A execution-plan preview implementation unless a blocking defect is explicitly identified and separately reviewed.
+- No modification to `.agent/overnight/queue.schema.json` unless a blocking schema conflict is explicitly identified and separately reviewed.
+- No treating the execution-plan preview as executable, authoritative, approved, admitted, validated, complete, commit-ready, or ready for execution.
+
+**DoD:**
+
+- Required read-only git evidence is collected and documented:
+  - `git --no-pager status --short`
+  - `git --no-pager log -10 --oneline`
+  - `git --no-pager diff --stat`
+  - `git --no-pager diff --name-only`
+  - `git --no-pager diff --cached --name-only`
+- The RALPH-047A execution-plan preview evaluates the existing advisory queue-consumer/probe context in read-only/stdout-only mode.
+- The preview returns a deterministic non-executable decision.
+- Preview output confirms `preview_only: true`, `stdout_only: true`, `writes_performed: false`, `non_authoritative: true`, and `executable: false`.
+- All authority, execution, mutation, review, validation, handoff, task-completion, commit, push, deploy, dependency, network, and product-work flags are verified as false.
+- Preview blockers and required future execution-envelope inputs are documented as non-authorizing review/planning information only.
+- The review-evidence bundle system evaluates the current RALPH-047A preview evidence context in read-only/stdout-only mode.
+- Bundle output includes git readbacks, changed-file classification, protected/approval-required classification, claim-vs-actual reconciliation, verification evidence status, commit-readiness/readiness-blocking status, and bounded output/truncation metadata.
+- Required focused syntax/test checks pass for the relevant existing RALPH-047A preview tooling and evidence-bundle tooling.
+- Report artifact is created under `reports/`.
+- Post-run git evidence shows changed files are limited to:
+  - `reports/RALPH-047B_EXECUTION_PLAN_PREVIEW_EVIDENCE_INTEGRATION_REPORT.md`
+  - `ROADMAP.md` only if the status update is explicitly authorized.
+- No files are staged.
+- No commit or push is performed by the task.
+- No canonical runtime/evidence/review/handoff mutation occurs.
+- No queue execution, worker execution, task execution, lifecycle execution, runtime authority, executable queue state, executable execution plan, review acceptance, validation pass, task-completion authority, or commit-readiness authority is introduced or claimed.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

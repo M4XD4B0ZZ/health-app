@@ -2006,7 +2006,7 @@ Define and implement the smallest read-only/stdout-only execution-plan preview f
 
 ### RALPH-047B Execution Plan Preview Evidence Integration
 
-Status: `todo`
+Status: `done`
 
 Demonstrate that the RALPH-047A read-only execution-plan preview can be independently reviewed through bounded evidence without introducing canonical queue admission, executable queue state, queue execution, queue consumption, worker execution, task execution, lifecycle execution, runtime authority, runtime writes, evidence mutation, review mutation, validation mutation, handoff mutation, staging, commit, push, deploy, dependency install, network operation, or product/package/Supabase mutation.
 

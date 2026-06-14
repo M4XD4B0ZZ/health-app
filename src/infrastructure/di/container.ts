@@ -23,6 +23,7 @@ import {
   LogMealFromRawInputUseCase,
   GetDailySummaryUseCase,
   ApplyNaturalLanguageEditUseCase,
+  EditFoodEntryFromNaturalLanguageUseCase,
   DeleteFoodEntryUseCase,
   EnrichFoodEntryMacrosUseCase,
   PersistedGoalsRepository,
@@ -130,6 +131,7 @@ class Container {
   private _logMealFromRawInputUseCase: LogMealFromRawInputUseCase;
   private _getDailySummaryUseCase: GetDailySummaryUseCase;
   private _applyNaturalLanguageEditUseCase: ApplyNaturalLanguageEditUseCase;
+  private _editFoodEntryFromNaturalLanguageUseCase: EditFoodEntryFromNaturalLanguageUseCase;
   private _deleteFoodEntryUseCase: DeleteFoodEntryUseCase;
   private _enrichFoodEntryMacrosUseCase: EnrichFoodEntryMacrosUseCase;
   private _getGoalsUseCase: GetGoalsUseCase;
@@ -266,6 +268,12 @@ class Container {
       this._nutritionClock,
     );
 
+    this._editFoodEntryFromNaturalLanguageUseCase = new EditFoodEntryFromNaturalLanguageUseCase(
+      this._foodEntryRepository,
+      this._nutritionLookup,
+      this._nutritionClock,
+    );
+
     this._deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(this._foodEntryRepository);
 
     this._enrichFoodEntryMacrosUseCase = new EnrichFoodEntryMacrosUseCase(
@@ -391,6 +399,10 @@ class Container {
 
   get applyNaturalLanguageEditUseCase(): ApplyNaturalLanguageEditUseCase {
     return this._applyNaturalLanguageEditUseCase;
+  }
+
+  get editFoodEntryFromNaturalLanguageUseCase(): EditFoodEntryFromNaturalLanguageUseCase {
+    return this._editFoodEntryFromNaturalLanguageUseCase;
   }
 
   get deleteFoodEntryUseCase(): DeleteFoodEntryUseCase {

@@ -67,8 +67,7 @@ const JournalScreen: React.FC = () => {
   const [, setProgress] = useState<DailyProgressSnapshot | null>(null);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [editingEntry, _setEditingEntry] = useState<FoodEntry | null>(null);
+  const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
@@ -198,16 +197,27 @@ const JournalScreen: React.FC = () => {
     }
   };
 
+  const handleOpenEdit = (entry: FoodEntry) => {
+    setEditingEntry(entry);
+    setEditInstruction('');
+    setEditModalVisible(true);
+  };
+
+  const handleCloseEdit = () => {
+    setEditModalVisible(false);
+    setEditingEntry(null);
+    setEditInstruction('');
+  };
+
   const handleApplyEdit = async () => {
     if (!editingEntry || !editInstruction.trim()) return;
 
     try {
-      await container.applyNaturalLanguageEditUseCase.execute(
-        today,
+      await container.editFoodEntryFromNaturalLanguageUseCase.execute(
         editingEntry.id,
         editInstruction,
       );
-      setEditModalVisible(false);
+      handleCloseEdit();
       await loadJournalData();
     } catch (err) {
       console.error('Failed to apply edit:', err);
@@ -283,6 +293,7 @@ const JournalScreen: React.FC = () => {
                   title={item.rawInput || item.parsedName}
                   subtitle={buildEntrySubtitle(item)}
                   kcal={item.calories}
+                  onPress={() => handleOpenEdit(item)}
                   actionLabel="Löschen"
                   onActionPress={() => handleDeleteEntry(item.id)}
                 />
@@ -323,7 +334,7 @@ const JournalScreen: React.FC = () => {
               style={styles.inputArea}
             />
             <PrimaryButton label="Anwenden" onPress={handleApplyEdit} />
-            <IconButton icon="close" onPress={() => setEditModalVisible(false)} />
+            <IconButton icon="close" onPress={handleCloseEdit} />
           </View>
         </View>
       </Modal>

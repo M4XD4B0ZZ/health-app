@@ -189,8 +189,6 @@ const JournalScreen: React.FC = () => {
     setProcessingState('idle');
   };
 
-  // Entry deletion handler (kept for completeness). Currently unused by UI.
-  /* eslint-disable @typescript-eslint/no-unused-vars */
   const handleDeleteEntry = async (entryId: string) => {
     try {
       await container.deleteFoodEntryUseCase.execute(entryId);
@@ -199,7 +197,6 @@ const JournalScreen: React.FC = () => {
       console.error('Failed to delete entry:', err);
     }
   };
-  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   const handleApplyEdit = async () => {
     if (!editingEntry || !editInstruction.trim()) return;
@@ -286,6 +283,8 @@ const JournalScreen: React.FC = () => {
                   title={item.rawInput || item.parsedName}
                   subtitle={buildEntrySubtitle(item)}
                   kcal={item.calories}
+                  actionLabel="Löschen"
+                  onActionPress={() => handleDeleteEntry(item.id)}
                 />
               )}
             />

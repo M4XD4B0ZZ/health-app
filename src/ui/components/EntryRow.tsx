@@ -8,10 +8,20 @@ interface EntryRowProps {
   subtitle?: string;
   kcal: number | null;
   onPress?: () => void;
+  actionLabel?: string;
+  onActionPress?: () => void;
   style?: ViewStyle;
 }
 
-export const EntryRow: React.FC<EntryRowProps> = ({ title, subtitle, kcal, onPress, style }) => {
+export const EntryRow: React.FC<EntryRowProps> = ({
+  title,
+  subtitle,
+  kcal,
+  onPress,
+  actionLabel,
+  onActionPress,
+  style,
+}) => {
   const Container = onPress ? TouchableOpacity : View;
 
   return (
@@ -32,6 +42,13 @@ export const EntryRow: React.FC<EntryRowProps> = ({ title, subtitle, kcal, onPre
             nicht erkannt
           </AppText>
         )}
+        {actionLabel && onActionPress ? (
+          <TouchableOpacity onPress={onActionPress} style={styles.actionButton} activeOpacity={0.7}>
+            <AppText variant="meta" style={styles.actionLabel}>
+              {actionLabel}
+            </AppText>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </Container>
   );
@@ -54,6 +71,13 @@ const styles = StyleSheet.create({
   right: {
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  actionButton: {
+    marginTop: tokens.spacing.xs,
+    paddingVertical: 2,
+  },
+  actionLabel: {
+    color: tokens.colors.danger,
   },
   subtitle: {
     marginTop: 2,

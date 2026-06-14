@@ -15,8 +15,21 @@ import { InputArea } from '../../../ui/components/InputArea';
 import { IconButton } from '../../../ui/components/IconButton';
 import { PrimaryButton } from '../../../ui/components/PrimaryButton';
 import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineStatus';
-import { SummaryBar } from '../../../ui/components/SummaryBar';
+import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
+
+const formatCalories = (value: number) => Math.round(value).toString();
+const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
+
+const buildEntrySubtitle = (entry: FoodEntry) => {
+  const grams = entry.grams ?? entry.quantityGrams;
+
+  if (!grams || grams <= 0) {
+    return undefined;
+  }
+
+  return `${Math.round(grams)} g`;
+};
 
 function buildTrustMessage(
   confidenceReason: string,
@@ -49,8 +62,8 @@ const JournalScreen: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
   const [trustMessage, setTrustMessage] = useState('');
 
-  const [, setEntries] = useState<FoodEntry[]>([]);
-  const [, setSummary] = useState<DailyNutritionSummary | null>(null);
+  const [entries, setEntries] = useState<FoodEntry[]>([]);
+  const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
   const [, setProgress] = useState<DailyProgressSnapshot | null>(null);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -204,6 +217,8 @@ const JournalScreen: React.FC = () => {
     }
   };
 
+  const persistedDailyEntries = entries.filter((entry) => entry.calories > 0);
+
   return (
     <ScreenContainer>
       <View style={styles.container}>
@@ -260,7 +275,40 @@ const JournalScreen: React.FC = () => {
           </View>
         )}
 
-        <SummaryBar>{/* TODO: Render summary and progress details here if needed */}</SummaryBar>
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>Heutige Einträge</AppText>
+          {persistedDailyEntries.length > 0 ? (
+            <FlatList
+              data={persistedDailyEntries}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <EntryRow
+                  title={item.rawInput || item.parsedName}
+                  subtitle={buildEntrySubtitle(item)}
+                  kcal={item.calories}
+                />
+              )}
+            />
+          ) : (
+            <AppText tone="muted">Noch keine gespeicherten Einträge für heute.</AppText>
+          )}
+        </View>
+
+        <SummaryBar style={styles.summaryBar}>
+          <View style={styles.summaryLeft}>
+            <AppText variant="meta">Heute gesamt</AppText>
+            <View style={styles.calorieTotalGroup}>
+              <AppText variant="numeric">{formatCalories(summary?.totalCalories ?? 0)}</AppText>
+              <AppText variant="meta">kcal</AppText>
+            </View>
+          </View>
+
+          <View style={styles.macrosGroup}>
+            <MacroStack label="PRO" value={formatMacroGrams(summary?.totalProtein ?? 0)} />
+            <MacroStack label="CARB" value={formatMacroGrams(summary?.totalCarbs ?? 0)} />
+            <MacroStack label="FAT" value={formatMacroGrams(summary?.totalFat ?? 0)} />
+          </View>
+        </SummaryBar>
       </View>
 
       <Modal visible={editModalVisible} animationType="slide" transparent>
@@ -312,6 +360,21 @@ const styles = StyleSheet.create({
   },
   correctionButton: {
     marginTop: 8,
+  },
+  summaryBar: {
+    marginTop: 16,
+  },
+  summaryLeft: {
+    flex: 1,
+  },
+  calorieTotalGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: tokens.spacing.xs,
+  },
+  macrosGroup: {
+    flexDirection: 'row',
+    gap: tokens.spacing.m,
   },
   modalBackground: {
     flex: 1,

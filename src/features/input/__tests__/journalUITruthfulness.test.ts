@@ -40,6 +40,41 @@ describe('Journal UI Truthfulness', () => {
     expect(result.dispatch.unresolvedRequests[0].rawName).toBe('mysteryfood');
   });
 
+  it('keeps P1-004 partial-success unresolved items actionable and unestimated', async () => {
+    const result = await logResolvedNutritionInput('Eier und mysteryfood');
+
+    expect(result.persistedEntries).toHaveLength(1);
+    expect(result.blockedEntries).toBe(0);
+    expect(result.dispatch.confidence.reason).toBe('partial_match');
+    expect(result.dispatch.unresolvedRequests).toEqual([
+      expect.objectContaining({
+        rawName: 'mysteryfood',
+        status: 'unresolved',
+        canonicalName: null,
+      }),
+    ]);
+    expect(result.dispatch.unresolvedRequests.map((item) => item.rawName).join(' und ')).toBe(
+      'mysteryfood',
+    );
+  });
+
+  it('keeps P1-004 fully unresolved input available without persistence or estimates', async () => {
+    const result = await logResolvedNutritionInput('mysteryfood');
+
+    expect(result.persistedEntries).toHaveLength(0);
+    expect(result.resolvedResults).toHaveLength(0);
+    expect(result.blockedEntries).toBe(0);
+    expect(result.dispatch.readyRequests).toHaveLength(0);
+    expect(result.dispatch.confidence.reason).toBe('no_items_matched');
+    expect(result.dispatch.unresolvedRequests).toEqual([
+      expect.objectContaining({
+        rawName: 'mysteryfood',
+        status: 'unresolved',
+        canonicalName: null,
+      }),
+    ]);
+  });
+
   it('keeps P1-003 connector input "ei mit quark" as separate persisted entries', async () => {
     const result = await logResolvedNutritionInput('ei mit quark');
 

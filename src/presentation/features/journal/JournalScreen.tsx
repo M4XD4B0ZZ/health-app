@@ -18,11 +18,36 @@ import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineSt
 import { SummaryBar } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 
+function buildTrustMessage(
+  confidenceReason: string,
+  persistedCount: number,
+  unresolvedCount: number,
+) {
+  if (persistedCount > 0 && unresolvedCount > 0) {
+    return 'Teilweise erkannt: Gespeicherte Einträge wurden übernommen; nicht erkannte Einträge wurden nicht geschätzt.';
+  }
+
+  if (unresolvedCount > 0) {
+    return 'Es wurde nichts gespeichert und es wurden keine Nährwerte geschätzt.';
+  }
+
+  if (confidenceReason === 'all_items_matched' && persistedCount > 0) {
+    return 'Alle erkannten Einträge wurden gespeichert.';
+  }
+
+  if (confidenceReason === 'no_items' || confidenceReason === 'no_items_matched') {
+    return 'Zu ungenau — bitte Lebensmittel oder Menge genauer angeben.';
+  }
+
+  return '';
+}
+
 const JournalScreen: React.FC = () => {
   // const navigation = useNavigation();
   const [rawInput, setRawInput] = useState('');
   const [processingState, setProcessingState] = useState<InlineStatusState>('idle');
   const [statusMessage, setStatusMessage] = useState('');
+  const [trustMessage, setTrustMessage] = useState('');
 
   const [, setEntries] = useState<FoodEntry[]>([]);
   const [, setSummary] = useState<DailyNutritionSummary | null>(null);
@@ -72,6 +97,7 @@ const JournalScreen: React.FC = () => {
 
     setProcessingState('processing');
     setStatusMessage('Logging meal...');
+    setTrustMessage('');
     setUnresolvedItems([]);
     setRecognizedItems([]);
 
@@ -80,10 +106,16 @@ const JournalScreen: React.FC = () => {
       const persistedCount = result.persistedEntries.length;
       const unresolvedCount = result.dispatch.unresolvedRequests.length;
       const blockedCount = result.blockedEntries;
+      const nextTrustMessage = buildTrustMessage(
+        result.dispatch.confidence.reason,
+        persistedCount,
+        unresolvedCount,
+      );
 
       setUnresolvedItems(
         result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
       );
+      setTrustMessage(nextTrustMessage);
 
       const remainingPersistedEntries = [...result.persistedEntries];
 
@@ -124,7 +156,7 @@ const JournalScreen: React.FC = () => {
         setProcessingState('done'); // Partial success is still success, not error
         setRawInput('');
       } else {
-        setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+        setStatusMessage('Nicht erkannt — bitte genauer eingeben');
         setProcessingState('error');
         return;
       }
@@ -133,7 +165,15 @@ const JournalScreen: React.FC = () => {
     } catch {
       setProcessingState('error');
       setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+      setTrustMessage('Es wurde nichts gespeichert und es wurden keine Nährwerte geschätzt.');
     }
+  };
+
+  const handleReinsertUnresolvedItems = () => {
+    if (unresolvedItems.length === 0) return;
+
+    setRawInput(unresolvedItems.join(' und '));
+    setProcessingState('idle');
   };
 
   // Entry deletion handler (kept for completeness). Currently unused by UI.
@@ -180,6 +220,8 @@ const JournalScreen: React.FC = () => {
 
         <InlineStatus state={processingState} message={statusMessage} />
 
+        {!!trustMessage && <AppText style={styles.trustMessage}>{trustMessage}</AppText>}
+
         {recognizedItems.length > 0 && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Erkannte Einträge</AppText>
@@ -208,6 +250,12 @@ const JournalScreen: React.FC = () => {
               data={unresolvedItems}
               keyExtractor={(item) => item}
               renderItem={({ item }) => <EntryRow title={item} kcal={null} />}
+            />
+            <PrimaryButton
+              label="Nicht erkannte bearbeiten"
+              onPress={handleReinsertUnresolvedItems}
+              disabled={processingState === 'processing'}
+              style={styles.correctionButton}
             />
           </View>
         )}
@@ -257,6 +305,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 8,
+  },
+  trustMessage: {
+    marginTop: 8,
+    color: tokens.colors.textMuted,
+  },
+  correctionButton: {
+    marginTop: 8,
   },
   modalBackground: {
     flex: 1,

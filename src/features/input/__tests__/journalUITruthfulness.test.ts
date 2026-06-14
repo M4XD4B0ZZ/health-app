@@ -40,6 +40,42 @@ describe('Journal UI Truthfulness', () => {
     expect(result.dispatch.unresolvedRequests[0].rawName).toBe('mysteryfood');
   });
 
+  it('keeps P1-003 connector input "ei mit quark" as separate persisted entries', async () => {
+    const result = await logResolvedNutritionInput('ei mit quark');
+
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.persistedEntries).toHaveLength(2);
+    expect(result.persistedEntries.every((entry) => entry.calories > 0)).toBe(true);
+  });
+
+  it('keeps P1-003 connector input "ei, quark" as separate persisted entries', async () => {
+    const result = await logResolvedNutritionInput('ei, quark');
+
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.persistedEntries).toHaveLength(2);
+    expect(result.persistedEntries.every((entry) => entry.calories > 0)).toBe(true);
+  });
+
+  it('keeps P1-003 connector input "egg and quark" as separate persisted entries', async () => {
+    const result = await logResolvedNutritionInput('egg and quark');
+
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.persistedEntries).toHaveLength(2);
+    expect(result.persistedEntries.every((entry) => entry.calories > 0)).toBe(true);
+  });
+
+  it('keeps P1-003 connector input "egg with quark" as separate persisted entries', async () => {
+    const result = await logResolvedNutritionInput('egg with quark');
+
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.persistedEntries).toHaveLength(2);
+    expect(result.persistedEntries.every((entry) => entry.calories > 0)).toBe(true);
+  });
+
   it('does not aggregate the runtime persistence path when 1:1 mapping is required', async () => {
     const dispatch = prepareNutritionResolverDispatch('2 Eier und Egg');
     const aggregated = aggregateCanonicalItems(dispatch.readyRequests);

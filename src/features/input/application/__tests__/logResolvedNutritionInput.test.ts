@@ -1,6 +1,17 @@
 import { logResolvedNutritionInput } from '../logResolvedNutritionInput';
 
 describe('logResolvedNutritionInput', () => {
+  it('satisfies P1-003 DoD: "ei und quark" produces two separate resolved entries', async () => {
+    const result = await logResolvedNutritionInput('ei und quark');
+
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.resolvedResults).toHaveLength(2);
+    expect(result.persistedEntries).toHaveLength(2);
+    expect(result.persistedEntries.map((entry) => entry.rawInput)).toEqual(['ei', 'quark']);
+    expect(result.persistedEntries.every((entry) => entry.calories > 0)).toBe(true);
+  });
+
   it('should log matched multi-item input', async () => {
     const input = '2 Eier und Toast';
     const result = await logResolvedNutritionInput(input);

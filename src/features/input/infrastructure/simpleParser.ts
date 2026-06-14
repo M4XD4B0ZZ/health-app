@@ -33,6 +33,8 @@ const REMOVABLE_MODIFIERS = [
   'frisches',
 ];
 
+const MULTI_ITEM_CONNECTOR_PATTERN = /\s*(?:,|&|\b(?:und|mit|and|with)\b)\s*/gi;
+
 function normalizeItemName(name: string): string {
   let normalized = name.toLowerCase().trim();
 
@@ -105,25 +107,25 @@ function parseQuantityAndUnit(part: string): {
 }
 
 export function simpleParse(input: string) {
-  // Split input by " und " without normalizing to preserve raw text
+  // Split input by supported P1-003 connectors while preserving per-item raw text.
   const rawParts = input
-    .replace(/[.,!?;:]/g, '') // Remove punctuation
-    .replace(/,\s*/g, ' und ')
-    .replace(/&\s*/g, ' und ')
-    .split(/\s+und\s+/g)
+    .replace(MULTI_ITEM_CONNECTOR_PATTERN, '|')
+    .replace(/[.!?;:]/g, '') // Remove punctuation that is not a connector
+    .split('|')
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
 
   // Normalize input for parsing quantities and units
   const normalized = input
     .toLowerCase()
-    .replace(/[.,!?;:]/g, '')
-    .replace(/,\s*/g, ' und ')
-    .replace(/&\s*/g, ' und ')
-    .replace(/\s+und\s+/g, ' und ')
+    .replace(MULTI_ITEM_CONNECTOR_PATTERN, '|')
+    .replace(/[.!?;:]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  const normalizedParts = normalized.split(' und ');
+  const normalizedParts = normalized
+    .split('|')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
 
   // Map raw and normalized parts together
   const items = normalizedParts.map((normPart, index) => {

@@ -85,9 +85,17 @@ const JournalScreen: React.FC = () => {
         result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
       );
 
-      // Keep the runtime UI on the same per-item list as persistence.
+      const remainingPersistedEntries = [...result.persistedEntries];
+
+      // Keep the runtime UI on the same per-item list as persistence without relying only on array index.
       const recognizedWithKcal = result.dispatch.readyRequests.map((item, index) => {
-        const persistedEntry = result.persistedEntries[index];
+        const persistedEntryIndex = remainingPersistedEntries.findIndex(
+          (entry) => entry.rawInput.toLowerCase() === item.rawName.toLowerCase(),
+        );
+        const persistedEntry =
+          persistedEntryIndex >= 0
+            ? remainingPersistedEntries.splice(persistedEntryIndex, 1)[0]
+            : result.persistedEntries[index];
 
         return {
           name: item.rawName,

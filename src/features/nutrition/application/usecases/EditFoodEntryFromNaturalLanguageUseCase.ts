@@ -49,12 +49,17 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     if (parseResult.grams !== undefined) {
       nextEntry.grams = parseResult.grams;
       nextEntry.quantityGrams = parseResult.grams;
+      nextEntry.servingMultiplier = 1;
       reasonCodes.push('GRAMS_SET');
       decisionStatus = 'applied';
     }
 
     if (parseResult.multiplier !== undefined) {
-      nextEntry.servingMultiplier = parseResult.multiplier;
+      const baseGrams = nextEntry.grams ?? nextEntry.quantityGrams;
+      const effectiveGrams = baseGrams * parseResult.multiplier;
+      nextEntry.grams = effectiveGrams;
+      nextEntry.quantityGrams = effectiveGrams;
+      nextEntry.servingMultiplier = 1;
       reasonCodes.push('MULTIPLIER_SET');
       decisionStatus = 'applied';
     }
@@ -76,7 +81,9 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     const currentMultiplier = nextEntry.servingMultiplier ?? 1;
 
     if (currentGrams > 0) {
-      const per100g = await this.nutritionLookup.getPer100gByName(nextEntry.parsedName);
+      const per100g =
+        nextEntry.calcBreakdown?.per100g ??
+        (await this.nutritionLookup.getPer100gByName(nextEntry.parsedName));
       if (per100g) {
         const breakdown = computeTotals(per100g, currentGrams, currentMultiplier);
         nextEntry.calories = breakdown.totals.calories;

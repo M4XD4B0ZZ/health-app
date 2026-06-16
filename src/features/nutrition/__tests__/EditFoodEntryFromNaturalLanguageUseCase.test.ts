@@ -151,6 +151,7 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.editDecision.status).toBe('applied');
     expect(result.updatedEntry.grams).toBe(300);
     expect(result.updatedEntry.quantityGrams).toBe(300);
+    expect(result.updatedEntry.rawInput).toBe('300g quark');
     expect(result.updatedEntry.servingMultiplier).toBe(1);
     expect(result.updatedEntry.calories).toBe(198);
     expect(result.updatedEntry.protein).toBe(35.55);
@@ -171,6 +172,7 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.editDecision.status).toBe('applied');
     expect(result.updatedEntry.grams).toBe(400);
     expect(result.updatedEntry.quantityGrams).toBe(400);
+    expect(result.updatedEntry.rawInput).toBe('400g quark');
     expect(result.updatedEntry.servingMultiplier).toBe(1);
     expect(result.updatedEntry.calories).toBe(264);
     expect(result.updatedEntry.protein).toBe(47.4);
@@ -187,6 +189,7 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.editDecision.status).toBe('applied');
     expect(result.updatedEntry.grams).toBe(100);
     expect(result.updatedEntry.quantityGrams).toBe(100);
+    expect(result.updatedEntry.rawInput).toBe('100g quark');
     expect(result.updatedEntry.servingMultiplier).toBe(1);
     expect(result.updatedEntry.calories).toBe(66);
     expect(result.updatedEntry.protein).toBe(11.85);
@@ -194,6 +197,22 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.updatedEntry.fat).toBe(0.18);
     expect(result.updatedEntry.calcBreakdown?.gramsUsed).toBe(100);
   });
+
+  it.each(['halb', 'halbe', 'hälfte'])(
+    'converts %s edits to visible effective grams and truthful rawInput',
+    async (editText) => {
+      await repository.addEntry(createQuarkEntry());
+
+      const result = await useCase.execute('quark-entry', editText);
+
+      expect(result.editDecision.status).toBe('applied');
+      expect(result.updatedEntry.grams).toBe(100);
+      expect(result.updatedEntry.quantityGrams).toBe(100);
+      expect(result.updatedEntry.rawInput).toBe('100g quark');
+      expect(result.updatedEntry.servingMultiplier).toBe(1);
+      expect(result.updatedEntry.calories).toBe(66);
+    },
+  );
 
   it('resets prior doppelt multiplier state on absolute gram edits without compounding', async () => {
     await repository.addEntry(

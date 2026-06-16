@@ -61,7 +61,9 @@ export class PortionParser {
 
     if (
       text.includes('halbe portion') ||
+      text === 'halbe' ||
       text === 'halb' ||
+      text === 'haelfte' ||
       text.includes('half portion') ||
       text === 'half'
     ) {

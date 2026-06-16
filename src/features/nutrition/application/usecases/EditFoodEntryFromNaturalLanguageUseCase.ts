@@ -40,7 +40,10 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     const hasBaseGrams = (entry.grams ?? entry.quantityGrams) > 0;
     const parseResult = this.parser.parse(editText, { hasBaseGrams });
 
-    let nextEntry: FoodEntry = { ...entry, servingMultiplier: entry.servingMultiplier ?? 1 };
+    let nextEntry: FoodEntry = {
+      ...entry,
+      servingMultiplier: entry.servingMultiplier ?? 1,
+    };
     const reasonCodes = [...parseResult.notes];
     const notes = [...parseResult.notes];
     let decisionStatus: EditDecision['status'] = 'rejected';
@@ -50,6 +53,7 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
       nextEntry.grams = parseResult.grams;
       nextEntry.quantityGrams = parseResult.grams;
       nextEntry.servingMultiplier = 1;
+      nextEntry.rawInput = this.buildDisplayRawInput(parseResult.grams, nextEntry.parsedName);
       reasonCodes.push('GRAMS_SET');
       decisionStatus = 'applied';
     }
@@ -60,6 +64,7 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
       nextEntry.grams = effectiveGrams;
       nextEntry.quantityGrams = effectiveGrams;
       nextEntry.servingMultiplier = 1;
+      nextEntry.rawInput = this.buildDisplayRawInput(effectiveGrams, nextEntry.parsedName);
       reasonCodes.push('MULTIPLIER_SET');
       decisionStatus = 'applied';
     }
@@ -162,5 +167,17 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
         notes: Array.from(new Set(notes)),
       },
     };
+  }
+
+  private buildDisplayRawInput(grams: number, parsedName: string): string {
+    const roundedGrams = Math.round(grams * 100) / 100;
+    const formattedGrams = Number.isInteger(roundedGrams)
+      ? roundedGrams.toString()
+      : roundedGrams
+          .toFixed(2)
+          .replace(/\.0+$/, '')
+          .replace(/(\.\d*[1-9])0+$/, '$1');
+
+    return `${formattedGrams}g ${parsedName}`;
   }
 }

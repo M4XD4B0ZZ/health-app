@@ -27,6 +27,12 @@ describe('PortionParser', () => {
     expect(result.multiplier).toBe(0.5);
   });
 
+  it.each(['halb', 'halbe', 'hälfte'])('parses half synonym: "%s"', (input) => {
+    const result = parser.parse(input, { hasBaseGrams: true });
+    expect(result.status).toBe('resolved');
+    expect(result.multiplier).toBe(0.5);
+  });
+
   it('parses counts: "2x" as multiplier only with base grams', () => {
     const withBase = parser.parse('2x', { hasBaseGrams: true });
     expect(withBase.status).toBe('resolved');

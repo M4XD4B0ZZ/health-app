@@ -12,6 +12,7 @@ export function buildResolverFoodRequests(
 
     return {
       rawName: item.name.toLowerCase(), // normalized for dispatch
+      rawText: item.rawText,
       query: canonicalName || item.name,
       canonicalName,
       quantity: item.quantity,

@@ -28,6 +28,27 @@ describe('Journal UI Truthfulness', () => {
     );
   });
 
+  it('keeps explicit gram recognition truthful with persisted quantity and calories', async () => {
+    const singleQuark = await logResolvedNutritionInput('quark');
+    const doubleQuark = await logResolvedNutritionInput('200g quark');
+
+    expect(doubleQuark.dispatch.readyRequests).toHaveLength(1);
+    expect(doubleQuark.dispatch.readyRequests[0]).toEqual(
+      expect.objectContaining({
+        rawName: 'quark',
+        rawText: '200g quark',
+        quantity: 200,
+        unit: 'g',
+      }),
+    );
+    expect(doubleQuark.persistedEntries).toHaveLength(1);
+    expect(doubleQuark.persistedEntries[0].rawInput).toBe('200g quark');
+    expect(doubleQuark.persistedEntries[0].grams).toBe(200);
+    expect(doubleQuark.persistedEntries[0].calories).toBeGreaterThan(
+      singleQuark.persistedEntries[0].calories,
+    );
+  });
+
   it('keeps recognized and unresolved items aligned without aggregation break', async () => {
     const result = await logResolvedNutritionInput('Eier und mysteryfood');
 

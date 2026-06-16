@@ -1,6 +1,56 @@
 import { logResolvedNutritionInput } from '../logResolvedNutritionInput';
 
 describe('logResolvedNutritionInput', () => {
+  it('preserves explicit gram quantities through persistence', async () => {
+    const result = await logResolvedNutritionInput('200g quark');
+
+    expect(result.dispatch.readyRequests).toHaveLength(1);
+    expect(result.dispatch.readyRequests[0]).toEqual(
+      expect.objectContaining({
+        rawName: 'quark',
+        rawText: '200g quark',
+        quantity: 200,
+        unit: 'g',
+      }),
+    );
+    expect(result.persistedEntries).toHaveLength(1);
+    expect(result.persistedEntries[0].rawInput).toBe('200g quark');
+    expect(result.persistedEntries[0].grams).toBe(200);
+    expect(result.persistedEntries[0].calcBreakdown?.gramsUsed).toBe(200);
+    expect(result.persistedEntries[0].calories).toBeGreaterThan(100);
+  });
+
+  it('keeps no-explicit-grams quark on the current fallback portion behavior', async () => {
+    const result = await logResolvedNutritionInput('quark');
+
+    expect(result.persistedEntries).toHaveLength(1);
+    expect(result.persistedEntries[0].rawInput).toBe('quark');
+    expect(result.persistedEntries[0].grams).toBe(100);
+    expect(result.persistedEntries[0].calcBreakdown?.gramsUsed).toBe(100);
+    expect(result.persistedEntries[0].calories).toBeGreaterThan(0);
+  });
+
+  it('preserves explicit grams for one connector item while keeping default behavior for another', async () => {
+    const result = await logResolvedNutritionInput('200g quark und ei');
+
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.persistedEntries).toHaveLength(2);
+
+    const quarkEntry = result.persistedEntries.find((entry) => entry.parsedName === 'quark');
+    const eggEntry = result.persistedEntries.find((entry) => entry.parsedName === 'ei');
+
+    expect(quarkEntry).toBeDefined();
+    expect(quarkEntry?.rawInput).toBe('200g quark');
+    expect(quarkEntry?.grams).toBe(200);
+    expect(quarkEntry?.calories).toBeGreaterThan(100);
+
+    expect(eggEntry).toBeDefined();
+    expect(eggEntry?.rawInput).toBe('ei');
+    expect(eggEntry?.grams).toBeGreaterThan(0);
+    expect(eggEntry?.grams).not.toBe(200);
+  });
+
   it('satisfies P1-003 DoD: "ei und quark" produces two separate resolved entries', async () => {
     const result = await logResolvedNutritionInput('ei und quark');
 

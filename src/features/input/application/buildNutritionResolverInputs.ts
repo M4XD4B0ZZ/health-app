@@ -16,10 +16,15 @@ export function buildNutritionResolverInputs(
   // Only include items with status = "ready"
   const readyRequests = resolverRequests.filter((request) => request.status === 'ready');
 
-  return readyRequests.map((request) => ({
-    raw: request.rawName, // Use rawName since rawText is no longer available
-    normalized: request.query, // Use the query (canonical name if available, otherwise raw name)
-    locale,
-    traceId,
-  }));
+  return readyRequests.map((request) => {
+    const hasExplicitGramQuantity =
+      request.quantity !== null && request.unit !== null && request.unit.toLowerCase() === 'g';
+
+    return {
+      raw: hasExplicitGramQuantity ? (request.rawText ?? request.rawName) : request.rawName,
+      normalized: request.query, // Use the query (canonical name if available, otherwise raw name)
+      locale,
+      traceId,
+    };
+  });
 }

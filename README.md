@@ -46,6 +46,38 @@ Press `a` for Android, `i` for iOS, `w` for web.
 
 ---
 
+## Android Development Build
+
+Android development uses an Expo Dev Client build instead of Expo Go.
+
+First-time native install/build:
+
+```bash
+npx expo run:android
+```
+
+Daily dev-client Metro:
+
+```bash
+npx expo start --dev-client
+```
+
+Clear dev app data:
+
+```bash
+adb shell pm clear com.nutritiondev.local
+```
+
+Clear Metro cache:
+
+```bash
+npx expo start --dev-client --clear
+```
+
+Once the dev client is installed, Expo Go is no longer the recommended Android test path.
+
+---
+
 ## Key Commands
 
 | Command               | Purpose                                        |

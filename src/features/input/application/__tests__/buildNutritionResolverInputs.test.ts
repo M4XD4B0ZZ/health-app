@@ -94,4 +94,33 @@ describe('buildNutritionResolverInputs', () => {
     expect(result[0].locale).toBe('de');
     expect(result[0].traceId).toBeUndefined();
   });
+
+  it.each([
+    ['300 gramm toast', 300, 'g'],
+    ['1 scheibe toast', 1, 'slice'],
+    ['2 pieces toast', 2, 'piece'],
+  ])('should preserve raw text for explicit portion unit input %s', (rawText, quantity, unit) => {
+    const resolverRequests: ResolverFoodRequest[] = [
+      {
+        rawName: 'toast',
+        rawText,
+        query: 'toast',
+        canonicalName: 'toast',
+        quantity,
+        unit,
+        status: 'ready',
+      },
+    ];
+
+    const result = buildNutritionResolverInputs(resolverRequests, 'de');
+
+    expect(result).toEqual([
+      {
+        raw: rawText,
+        normalized: 'toast',
+        locale: 'de',
+        traceId: undefined,
+      },
+    ]);
+  });
 });

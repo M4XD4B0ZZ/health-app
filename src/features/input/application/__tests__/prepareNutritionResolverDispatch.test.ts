@@ -123,6 +123,7 @@ describe('prepareNutritionResolverDispatch', () => {
     expect(result.unresolvedRequests).toHaveLength(1);
     expect(result.unresolvedRequests[0]).toEqual({
       rawName: 'mysteryfood',
+      rawText: '500ml mysteryfood',
       query: 'mysteryfood',
       canonicalName: null,
       quantity: 500,
@@ -132,6 +133,43 @@ describe('prepareNutritionResolverDispatch', () => {
     expect(result.nutritionResolverInputs).toHaveLength(0);
   });
 
+  it.each([
+    ['1 scheibe toast', 1],
+    ['eine scheibe toast', 1],
+    ['2 scheiben toast', 2],
+    ['zwei scheiben toast', 2],
+  ])('should dispatch toast slice unit input %s with raw text preserved', (input, quantity) => {
+    const result = prepareNutritionResolverDispatch(input, 'de', 'slice-trace');
+
+    expect(result.parsed.items).toEqual([
+      {
+        name: 'toast',
+        quantity,
+        unit: 'slice',
+        rawText: input,
+      },
+    ]);
+    expect(result.readyRequests).toEqual([
+      {
+        rawName: 'toast',
+        rawText: input,
+        query: 'toast',
+        canonicalName: 'toast',
+        quantity,
+        unit: 'slice',
+        status: 'ready',
+      },
+    ]);
+    expect(result.nutritionResolverInputs).toEqual([
+      {
+        raw: input,
+        normalized: 'toast',
+        locale: 'de',
+        traceId: 'slice-trace',
+      },
+    ]);
+  });
+
   it('should strip cooked and fried modifiers before dispatching egg queries', () => {
     const cooked = prepareNutritionResolverDispatch('gekochte Eier', 'de');
     const fried = prepareNutritionResolverDispatch('vier gebratene Eier', 'de');
@@ -139,6 +177,7 @@ describe('prepareNutritionResolverDispatch', () => {
     expect(cooked.readyRequests).toHaveLength(1);
     expect(cooked.readyRequests[0]).toEqual({
       rawName: 'eier',
+      rawText: 'gekochte Eier',
       query: 'egg',
       canonicalName: 'egg',
       quantity: null,
@@ -149,6 +188,7 @@ describe('prepareNutritionResolverDispatch', () => {
     expect(fried.readyRequests).toHaveLength(1);
     expect(fried.readyRequests[0]).toEqual({
       rawName: 'eier',
+      rawText: 'vier gebratene Eier',
       query: 'egg',
       canonicalName: 'egg',
       quantity: 4,

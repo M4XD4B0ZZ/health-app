@@ -38,11 +38,28 @@ export class DeterministicFoodParser {
     zehn: 10,
   };
 
+  private readonly portionUnitAliases: Record<string, 'g' | 'piece' | 'slice'> = {
+    g: 'g',
+    gramm: 'g',
+    stück: 'piece',
+    stueck: 'piece',
+    piece: 'piece',
+    pieces: 'piece',
+    scheibe: 'slice',
+    scheiben: 'slice',
+    slice: 'slice',
+    slices: 'slice',
+  };
+
   parse(rawInput: string): DeterministicParseResult {
     const normalized = rawInput.trim().toLowerCase();
 
-    // Pattern für Gramm: "250g", "250 g", "250.5g"
-    const gramsMatch = normalized.match(/(\d+(?:[.,]\d+)?)\s*g\b/);
+    // Pattern für Gramm: "250g", "250 g", "250.5g", "250 gramm"
+    const gramsMatch = normalized.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gramm)\b/);
+
+    const numericPortionUnitMatch = normalized.match(
+      /^(\d+)\s*(stück|stueck|piece|pieces|scheibe|scheiben|slice|slices)\s+(.+)$/i,
+    );
 
     // Pattern für deutsche "Xer" Counts: "20er nuggets", "6er nuggets"
     // Wichtig: "20er nuggets" bedeutet 20 Stück, NICHT ein Menü/Combo
@@ -54,6 +71,8 @@ export class DeterministicFoodParser {
     // Pattern für deutsche Zahlwörter: "zwei äpfel", "drei eier"
     const germanNumberWordMatch = this.matchGermanNumberWord(normalized);
 
+    const germanNumberWordWithUnitMatch = this.matchGermanNumberWordWithUnit(normalized);
+
     let name = normalized;
     let quantityGrams: number | undefined;
     let quantityCount: number | undefined;
@@ -64,7 +83,13 @@ export class DeterministicFoodParser {
       quantityGrams = Number.parseFloat(gramsMatch[1].replace(',', '.'));
       unit = 'g';
       // Entferne Gramm-Angabe aus dem Namen
-      name = normalized.replace(/(\d+(?:[.,]\d+)?)\s*g\b/g, '').trim();
+      name = normalized.replace(/(\d+(?:[.,]\d+)?)\s*(?:g|gramm)\b/g, '').trim();
+    }
+    // Explizite Stück-/Scheiben-Einheit mit Zahl: "2 scheiben toast"
+    else if (numericPortionUnitMatch) {
+      quantityCount = Number.parseInt(numericPortionUnitMatch[1], 10);
+      unit = this.portionUnitAliases[numericPortionUnitMatch[2].toLowerCase()];
+      name = numericPortionUnitMatch[3].trim();
     }
     // Deutsche "Xer" Count-Pattern gefunden
     else if (germanCountMatch) {
@@ -72,6 +97,12 @@ export class DeterministicFoodParser {
       unit = 'count';
       // Name ist der Teil nach "Xer"
       name = germanCountMatch[2].trim();
+    }
+    // Deutsche Zahlwort-Pattern mit Einheit: "zwei scheiben toast"
+    else if (germanNumberWordWithUnitMatch) {
+      quantityCount = germanNumberWordWithUnitMatch.count;
+      unit = germanNumberWordWithUnitMatch.unit;
+      name = germanNumberWordWithUnitMatch.remainingName;
     }
     // Deutsche Zahlwort-Pattern gefunden
     else if (germanNumberWordMatch) {
@@ -128,6 +159,29 @@ export class DeterministicFoodParser {
       // Zahlwort gefunden, Rest ist der Name
       const remainingName = words.slice(1).join(' ');
       return { count, remainingName };
+    }
+
+    return null;
+  }
+
+  private matchGermanNumberWordWithUnit(
+    normalized: string,
+  ): { count: number; unit: 'g' | 'piece' | 'slice'; remainingName: string } | null {
+    const words = normalized.split(/\s+/);
+
+    if (words.length < 3) {
+      return null;
+    }
+
+    const count = this.germanNumberWords[words[0]];
+    const unit = this.portionUnitAliases[words[1]];
+
+    if (count !== undefined && unit !== undefined) {
+      return {
+        count,
+        unit,
+        remainingName: words.slice(2).join(' '),
+      };
     }
 
     return null;

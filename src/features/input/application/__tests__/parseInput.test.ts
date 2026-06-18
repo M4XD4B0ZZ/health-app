@@ -11,6 +11,27 @@ describe('parseInput', () => {
   });
 
   it.each([
+    ['300g toast', 300, 'g'],
+    ['300 gramm toast', 300, 'g'],
+    ['1 scheibe toast', 1, 'slice'],
+    ['eine scheibe toast', 1, 'slice'],
+    ['2 scheiben toast', 2, 'slice'],
+    ['zwei scheiben toast', 2, 'slice'],
+    ['1 stück toast', 1, 'piece'],
+    ['2 pieces toast', 2, 'piece'],
+  ])('should parse portion unit input %s', (input, quantity, unit) => {
+    const result = parseInput(input);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual({
+      name: 'toast',
+      quantity,
+      unit,
+      rawText: input,
+    });
+  });
+
+  it.each([
     ['ei und quark'],
     ['ei mit quark'],
     ['ei, quark'],

@@ -242,4 +242,48 @@ describe('DeterministicFoodParser', () => {
       expect(result.unit).toBe('count');
     });
   });
+
+  describe('Portion unit parsing', () => {
+    it.each([
+      ['300g toast', 300],
+      ['300 gramm toast', 300],
+    ])('parses explicit gram input %s', (input, grams) => {
+      expect(parser.parse(input)).toEqual({
+        name: 'toast',
+        quantityGrams: grams,
+        quantityCount: undefined,
+        unit: 'g',
+      });
+    });
+
+    it.each([
+      ['1 scheibe toast', 1],
+      ['eine scheibe toast', 1],
+      ['2 scheiben toast', 2],
+      ['zwei scheiben toast', 2],
+      ['1 slice toast', 1],
+      ['2 slices toast', 2],
+    ])('parses slice portion input %s', (input, count) => {
+      expect(parser.parse(input)).toEqual({
+        name: 'toast',
+        quantityGrams: undefined,
+        quantityCount: count,
+        unit: 'slice',
+      });
+    });
+
+    it.each([
+      ['1 stück toast', 1],
+      ['2 stueck toast', 2],
+      ['1 piece toast', 1],
+      ['2 pieces toast', 2],
+    ])('parses piece portion input %s', (input, count) => {
+      expect(parser.parse(input)).toEqual({
+        name: 'toast',
+        quantityGrams: undefined,
+        quantityCount: count,
+        unit: 'piece',
+      });
+    });
+  });
 });

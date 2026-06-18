@@ -1,5 +1,27 @@
-const NUMBER_REGEX = /^(\d+)\s*([a-zA-Z]*)\s+(.*)$/i;
-const UNIT_REGEX = /^(\d+)\s*(g|kg|ml|l|gramm|kilogramm|milliliter|liter)\s+(.*)$/i;
+const NUMBER_REGEX = /^(\d+)\s*([a-zA-ZäöüÄÖÜß]*)\s+(.*)$/i;
+const UNIT_REGEX =
+  /^(\d+)\s*(g|kg|ml|l|gramm|kilogramm|milliliter|liter|stück|stueck|piece|pieces|scheibe|scheiben|slice|slices)\s+(.*)$/i;
+const NUMBER_WORD_WITH_UNIT_REGEX =
+  /^(ein|eine|einen|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn)\s+(g|kg|ml|l|gramm|kilogramm|milliliter|liter|stück|stueck|piece|pieces|scheibe|scheiben|slice|slices)\s+(.+)$/i;
+
+const UNIT_ALIASES: Record<string, string> = {
+  g: 'g',
+  gramm: 'g',
+  kg: 'kg',
+  kilogramm: 'kg',
+  ml: 'ml',
+  milliliter: 'ml',
+  l: 'l',
+  liter: 'l',
+  stück: 'piece',
+  stueck: 'piece',
+  piece: 'piece',
+  pieces: 'piece',
+  scheibe: 'slice',
+  scheiben: 'slice',
+  slice: 'slice',
+  slices: 'slice',
+};
 
 // Deutsche Zahlwörter
 const GERMAN_NUMBER_WORDS: Record<string, number> = {
@@ -35,6 +57,12 @@ const REMOVABLE_MODIFIERS = [
 
 const MULTI_ITEM_CONNECTOR_PATTERN = /\s*(?:,|&|\b(?:und|mit|and|with)\b)\s*/gi;
 
+function normalizeUnit(unit: string | null | undefined): string | null {
+  if (!unit) return null;
+  const normalized = unit.toLowerCase().trim();
+  return UNIT_ALIASES[normalized] ?? normalized;
+}
+
 function normalizeItemName(name: string): string {
   let normalized = name.toLowerCase().trim();
 
@@ -67,6 +95,15 @@ function parseQuantityAndUnit(part: string): {
   const words = trimmed.split(/\s+/);
   const firstWord = words[0]?.toLowerCase();
 
+  const numberWordWithUnitMatch = trimmed.match(NUMBER_WORD_WITH_UNIT_REGEX);
+  if (numberWordWithUnitMatch) {
+    return {
+      quantity: GERMAN_NUMBER_WORDS[numberWordWithUnitMatch[1].toLowerCase()],
+      unit: normalizeUnit(numberWordWithUnitMatch[2]),
+      foodName: normalizeItemName(numberWordWithUnitMatch[3]),
+    };
+  }
+
   if (GERMAN_NUMBER_WORDS[firstWord]) {
     const quantity = GERMAN_NUMBER_WORDS[firstWord];
     const remainingWords = words.slice(1).join(' ');
@@ -82,7 +119,7 @@ function parseQuantityAndUnit(part: string): {
   if (unitMatch) {
     return {
       quantity: parseInt(unitMatch[1], 10),
-      unit: unitMatch[2],
+      unit: normalizeUnit(unitMatch[2]),
       foodName: normalizeItemName(unitMatch[3]),
     };
   }
@@ -93,7 +130,7 @@ function parseQuantityAndUnit(part: string): {
     const unit = numberMatch[2] || null;
     return {
       quantity: parseInt(numberMatch[1], 10),
-      unit: unit || null,
+      unit: normalizeUnit(unit),
       foodName: normalizeItemName(numberMatch[3]),
     };
   }

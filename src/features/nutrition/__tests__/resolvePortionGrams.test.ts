@@ -38,6 +38,16 @@ describe('resolvePortionGrams', () => {
       const result = resolvePortionGrams('eier', 0, 3);
       expect(result).toBe(180);
     });
+
+    it('should resolve "toast" to 35g (1 slice/piece)', () => {
+      const result = resolvePortionGrams('toast', 0, undefined);
+      expect(result).toBe(35);
+    });
+
+    it('should resolve "2 scheiben toast" to 70g using toast default portion', () => {
+      const result = resolvePortionGrams('toast', 0, 2);
+      expect(result).toBe(70);
+    });
   });
 
   describe('other canonical foods', () => {

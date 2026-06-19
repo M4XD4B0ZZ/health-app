@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
-import { View, FlatList, StyleSheet, Modal } from 'react-native';
+import { View, StyleSheet, Modal } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useNavigation } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
@@ -104,6 +104,20 @@ const JournalScreen: React.FC = () => {
     { name: string; quantity: number | null; unit: string | null; kcal: number | null }[]
   >([]);
 
+  const clearFeedback = () => {
+    setProcessingState('idle');
+    setStatusMessage('');
+    setTrustMessage('');
+  };
+
+  const handleRawInputChange = (text: string) => {
+    setRawInput(text);
+
+    if (processingState === 'done' || processingState === 'error') {
+      clearFeedback();
+    }
+  };
+
   const handleQuickAdd = async () => {
     if (!rawInput.trim()) return;
 
@@ -127,7 +141,6 @@ const JournalScreen: React.FC = () => {
       setUnresolvedItems(
         result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
       );
-      setTrustMessage(nextTrustMessage);
 
       const remainingPersistedEntries = [...result.persistedEntries];
 
@@ -153,22 +166,26 @@ const JournalScreen: React.FC = () => {
 
       if (blockedCount > 0) {
         setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+        setTrustMessage(nextTrustMessage);
         setProcessingState('error');
         return;
       }
 
       if (persistedCount > 0 && unresolvedCount === 0) {
         setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
+        setTrustMessage('');
         setProcessingState('done');
         setRawInput('');
       } else if (persistedCount > 0 && unresolvedCount > 0) {
         setStatusMessage(
           `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`,
         );
+        setTrustMessage(nextTrustMessage);
         setProcessingState('done'); // Partial success is still success, not error
         setRawInput('');
       } else {
         setStatusMessage('Nicht erkannt — bitte genauer eingeben');
+        setTrustMessage(nextTrustMessage);
         setProcessingState('error');
         return;
       }
@@ -185,7 +202,7 @@ const JournalScreen: React.FC = () => {
     if (unresolvedItems.length === 0) return;
 
     setRawInput(unresolvedItems.join(' und '));
-    setProcessingState('idle');
+    clearFeedback();
   };
 
   const handleDeleteEntry = async (entryId: string) => {
@@ -227,12 +244,12 @@ const JournalScreen: React.FC = () => {
   const persistedDailyEntries = entries.filter((entry) => entry.calories > 0);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll>
       <View style={styles.container}>
         <InputArea
           placeholder="Was hast du gegessen?"
           value={rawInput}
-          onChangeText={setRawInput}
+          onChangeText={handleRawInputChange}
           onSubmitEditing={handleQuickAdd}
           multiline
           blurOnSubmit
@@ -247,32 +264,25 @@ const JournalScreen: React.FC = () => {
         {recognizedItems.length > 0 && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Erkannte Einträge</AppText>
-            <FlatList
-              data={recognizedItems}
-              keyExtractor={(item) => item.name}
-              renderItem={({ item }) => (
-                <EntryRow
-                  title={item.name}
-                  subtitle={
-                    item.quantity !== null && item.unit
-                      ? `${item.quantity} ${item.unit}`
-                      : undefined
-                  }
-                  kcal={item.kcal}
-                />
-              )}
-            />
+            {recognizedItems.map((item) => (
+              <EntryRow
+                key={item.name}
+                title={item.name}
+                subtitle={
+                  item.quantity !== null && item.unit ? `${item.quantity} ${item.unit}` : undefined
+                }
+                kcal={item.kcal}
+              />
+            ))}
           </View>
         )}
 
         {unresolvedItems.length > 0 && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Nicht erkannte Einträge</AppText>
-            <FlatList
-              data={unresolvedItems}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => <EntryRow title={item} kcal={null} />}
-            />
+            {unresolvedItems.map((item) => (
+              <EntryRow key={item} title={item} kcal={null} />
+            ))}
             <PrimaryButton
               label="Nicht erkannte bearbeiten"
               onPress={handleReinsertUnresolvedItems}
@@ -285,20 +295,17 @@ const JournalScreen: React.FC = () => {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Heutige Einträge</AppText>
           {persistedDailyEntries.length > 0 ? (
-            <FlatList
-              data={persistedDailyEntries}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <EntryRow
-                  title={item.rawInput || item.parsedName}
-                  subtitle={buildEntrySubtitle(item)}
-                  kcal={item.calories}
-                  onPress={() => handleOpenEdit(item)}
-                  actionLabel="Löschen"
-                  onActionPress={() => handleDeleteEntry(item.id)}
-                />
-              )}
-            />
+            persistedDailyEntries.map((item) => (
+              <EntryRow
+                key={item.id}
+                title={item.rawInput || item.parsedName}
+                subtitle={buildEntrySubtitle(item)}
+                kcal={item.calories}
+                onPress={() => handleOpenEdit(item)}
+                actionLabel="Löschen"
+                onActionPress={() => handleDeleteEntry(item.id)}
+              />
+            ))
           ) : (
             <AppText tone="muted">Noch keine gespeicherten Einträge für heute.</AppText>
           )}

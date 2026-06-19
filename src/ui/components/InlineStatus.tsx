@@ -23,7 +23,7 @@ export const InlineStatus: React.FC<InlineStatusProps> = ({ state, message }) =>
       }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [state]);
+  }, [state, message]);
 
   if (visibleState === 'idle') {
     // Return empty view that holds the height to prevent layout jumps

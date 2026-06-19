@@ -37,15 +37,15 @@ const mockParser = {
       return { name: 'quark', quantityGrams: 200 };
     }
 
+    // "zwei scheiben schinken" -> name: "schinken", quantityCount: 2
+    if (normalized.includes('zwei scheiben')) {
+      return { name: 'schinken', quantityCount: 2 };
+    }
+
     // "zwei eier" -> name: "eier", quantityCount: 2
     if (normalized.startsWith('zwei ')) {
       const remainingName = normalized.replace(/^zwei\s+/, '');
       return { name: remainingName, quantityCount: 2 };
-    }
-
-    // "zwei scheiben schinken" -> name: "schinken", quantityCount: 2
-    if (normalized.includes('zwei scheiben')) {
-      return { name: 'schinken', quantityCount: 2 };
     }
 
     // "buttertoast" -> name: "buttertoast"

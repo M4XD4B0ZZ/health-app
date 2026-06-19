@@ -70,6 +70,52 @@ describe('buildNutritionResolverInputs', () => {
     expect(result[0].normalized).toBe('egg');
   });
 
+  it('should convert alias-miss ready requests using raw name as normalized query', () => {
+    const resolverRequests: ResolverFoodRequest[] = [
+      {
+        rawName: 'karotten',
+        rawText: '300g karotten',
+        query: 'karotten',
+        canonicalName: null,
+        quantity: 300,
+        unit: 'g',
+        status: 'ready',
+      },
+    ];
+
+    expect(buildNutritionResolverInputs(resolverRequests, 'de', 'carrot-trace')).toEqual([
+      {
+        raw: '300g karotten',
+        normalized: 'karotten',
+        locale: 'de',
+        traceId: 'carrot-trace',
+      },
+    ]);
+  });
+
+  it('should preserve raw text for explicit count input without a unit', () => {
+    const resolverRequests: ResolverFoodRequest[] = [
+      {
+        rawName: 'karotten',
+        rawText: '8 karotten',
+        query: 'karotten',
+        canonicalName: null,
+        quantity: 8,
+        unit: null,
+        status: 'ready',
+      },
+    ];
+
+    expect(buildNutritionResolverInputs(resolverRequests, 'de', 'count-trace')).toEqual([
+      {
+        raw: '8 karotten',
+        normalized: 'karotten',
+        locale: 'de',
+        traceId: 'count-trace',
+      },
+    ]);
+  });
+
   it('should handle empty input', () => {
     const result = buildNutritionResolverInputs([], 'en');
 

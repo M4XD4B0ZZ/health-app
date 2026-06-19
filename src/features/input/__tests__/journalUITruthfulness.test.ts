@@ -19,7 +19,7 @@ describe('Journal UI Truthfulness', () => {
 
     expect(twoEggs.dispatch.readyRequests).toHaveLength(1);
     expect(twoEggs.persistedEntries).toHaveLength(1);
-    expect(twoEggs.persistedEntries[0].rawInput).toBe('eier');
+    expect(twoEggs.persistedEntries[0].rawInput).toBe('zwei eier');
     expect(twoEggs.persistedEntries[0].grams).toBeGreaterThanOrEqual(
       singleEgg.persistedEntries[0].grams ?? 0,
     );
@@ -52,45 +52,49 @@ describe('Journal UI Truthfulness', () => {
   it('keeps recognized and unresolved items aligned without aggregation break', async () => {
     const result = await logResolvedNutritionInput('Eier und mysteryfood');
 
-    expect(result.dispatch.readyRequests).toHaveLength(1);
-    expect(result.dispatch.unresolvedRequests).toHaveLength(1);
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
     expect(result.persistedEntries).toHaveLength(1);
     expect(result.dispatch.readyRequests[0].rawName).toBe('eier');
+    expect(result.dispatch.readyRequests[1].rawName).toBe('mysteryfood');
     expect(result.persistedEntries[0].rawInput).toBe('eier');
     expect(result.persistedEntries[0].calories).toBeGreaterThan(0);
-    expect(result.dispatch.unresolvedRequests[0].rawName).toBe('mysteryfood');
   });
 
-  it('keeps P1-004 partial-success unresolved items actionable and unestimated', async () => {
+  it('keeps P1-004 partial-success alias-miss items actionable and unestimated', async () => {
     const result = await logResolvedNutritionInput('Eier und mysteryfood');
 
     expect(result.persistedEntries).toHaveLength(1);
-    expect(result.blockedEntries).toBe(0);
+    expect(result.blockedEntries).toBe(1);
     expect(result.dispatch.confidence.reason).toBe('partial_match');
-    expect(result.dispatch.unresolvedRequests).toEqual([
+    expect(result.dispatch.readyRequests).toContainEqual(
       expect.objectContaining({
         rawName: 'mysteryfood',
-        status: 'unresolved',
+        status: 'ready',
         canonicalName: null,
       }),
-    ]);
-    expect(result.dispatch.unresolvedRequests.map((item) => item.rawName).join(' und ')).toBe(
-      'mysteryfood',
     );
+    expect(
+      result.dispatch.readyRequests
+        .filter((item) => item.canonicalName === null)
+        .map((item) => item.rawName)
+        .join(' und '),
+    ).toBe('mysteryfood');
   });
 
-  it('keeps P1-004 fully unresolved input available without persistence or estimates', async () => {
+  it('routes P1-004 fully unknown input to resolver without persistence or estimates', async () => {
     const result = await logResolvedNutritionInput('mysteryfood');
 
     expect(result.persistedEntries).toHaveLength(0);
     expect(result.resolvedResults).toHaveLength(0);
-    expect(result.blockedEntries).toBe(0);
-    expect(result.dispatch.readyRequests).toHaveLength(0);
+    expect(result.blockedEntries).toBe(1);
+    expect(result.dispatch.readyRequests).toHaveLength(1);
     expect(result.dispatch.confidence.reason).toBe('no_items_matched');
-    expect(result.dispatch.unresolvedRequests).toEqual([
+    expect(result.dispatch.unresolvedRequests).toHaveLength(0);
+    expect(result.dispatch.readyRequests).toEqual([
       expect.objectContaining({
         rawName: 'mysteryfood',
-        status: 'unresolved',
+        status: 'ready',
         canonicalName: null,
       }),
     ]);
@@ -140,6 +144,6 @@ describe('Journal UI Truthfulness', () => {
     expect(dispatch.readyRequests).toHaveLength(2);
     expect(aggregated).toHaveLength(1);
     expect(result.persistedEntries).toHaveLength(dispatch.readyRequests.length);
-    expect(result.persistedEntries.map((entry) => entry.rawInput)).toEqual(['eier', 'egg']);
+    expect(result.persistedEntries.map((entry) => entry.rawInput)).toEqual(['2 Eier', 'egg']);
   });
 });

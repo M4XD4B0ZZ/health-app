@@ -281,7 +281,7 @@ describe('Enhanced Normalization', () => {
       expect(aggregated[1].canonicalName).toBe('egg');
     });
 
-    it('should preserve unresolved items during aggregation', () => {
+    it('should preserve alias-miss resolver-ready items during aggregation', () => {
       const parsed = parseInput('2 Eier und mysteryfood und Egg');
       const matches = matchFood(parsed);
       const resolverRequests = buildResolverFoodRequests(parsed, matches);
@@ -295,10 +295,10 @@ describe('Enhanced Normalization', () => {
       expect(eggItem!.quantity).toBe(3); // 2 + 1
       expect(eggItem!.rawName).toBe('eier + egg');
 
-      // Should preserve mysteryfood as unresolved
+      // Should preserve mysteryfood as resolver-ready alias miss
       const mysteryItem = aggregated.find((item) => item.rawName === 'mysteryfood');
       expect(mysteryItem).toBeDefined();
-      expect(mysteryItem!.status).toBe('unresolved');
+      expect(mysteryItem!.status).toBe('ready');
     });
   });
 });

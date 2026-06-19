@@ -17,9 +17,9 @@ describe('resolvePreparedNutritionInputs', () => {
     const dispatch = prepareNutritionResolverDispatch(input, 'de');
     const result = await resolvePreparedNutritionInputs(dispatch);
 
-    expect(result.dispatch.readyRequests.length).toBe(1);
+    expect(result.dispatch.readyRequests.length).toBe(2);
     expect(result.resolvedResults.length).toBe(1);
-    expect(result.dispatch.unresolvedRequests.length).toBe(1);
+    expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 
   it('should handle fully unresolved input', async () => {
@@ -27,8 +27,8 @@ describe('resolvePreparedNutritionInputs', () => {
     const dispatch = prepareNutritionResolverDispatch(input, 'de');
     const result = await resolvePreparedNutritionInputs(dispatch);
 
-    expect(result.dispatch.readyRequests.length).toBe(0);
+    expect(result.dispatch.readyRequests.length).toBe(1);
     expect(result.resolvedResults.length).toBe(0);
-    expect(result.dispatch.unresolvedRequests.length).toBe(1);
+    expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 });

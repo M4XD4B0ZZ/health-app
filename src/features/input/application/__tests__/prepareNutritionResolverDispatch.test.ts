@@ -31,7 +31,7 @@ describe('prepareNutritionResolverDispatch', () => {
     // Check nutrition resolver inputs
     expect(result.nutritionResolverInputs).toHaveLength(2);
     expect(result.nutritionResolverInputs[0]).toEqual({
-      raw: 'eier',
+      raw: '2 Eier',
       normalized: 'egg',
       locale: 'de',
       traceId: 'test-trace',
@@ -48,16 +48,18 @@ describe('prepareNutritionResolverDispatch', () => {
     const result = prepareNutritionResolverDispatch('Eier und mysteryfood', 'de');
 
     expect(result.resolverRequests).toHaveLength(2);
-    expect(result.readyRequests).toHaveLength(1);
-    expect(result.unresolvedRequests).toHaveLength(1);
+    expect(result.readyRequests).toHaveLength(2);
+    expect(result.unresolvedRequests).toHaveLength(0);
 
     expect(result.readyRequests[0].rawName).toBe('eier');
-    expect(result.unresolvedRequests[0].rawName).toBe('mysteryfood');
+    expect(result.readyRequests[1].rawName).toBe('mysteryfood');
 
-    // Only ready requests should be converted to nutrition resolver inputs
-    expect(result.nutritionResolverInputs).toHaveLength(1);
+    // Alias misses still route to the nutrition resolver.
+    expect(result.nutritionResolverInputs).toHaveLength(2);
     expect(result.nutritionResolverInputs[0].raw).toBe('eier');
     expect(result.nutritionResolverInputs[0].normalized).toBe('egg');
+    expect(result.nutritionResolverInputs[1].raw).toBe('mysteryfood');
+    expect(result.nutritionResolverInputs[1].normalized).toBe('mysteryfood');
 
     expect(result.confidence.level).toBe('medium');
     expect(result.confidence.score).toBe(0.5);
@@ -67,16 +69,49 @@ describe('prepareNutritionResolverDispatch', () => {
     const result = prepareNutritionResolverDispatch('mysteryfood', 'en');
 
     expect(result.resolverRequests).toHaveLength(1);
-    expect(result.readyRequests).toHaveLength(0);
-    expect(result.unresolvedRequests).toHaveLength(1);
+    expect(result.readyRequests).toHaveLength(1);
+    expect(result.unresolvedRequests).toHaveLength(0);
 
-    // No nutrition resolver inputs should be created
-    expect(result.nutritionResolverInputs).toHaveLength(0);
+    // Alias misses still route to the nutrition resolver.
+    expect(result.nutritionResolverInputs).toHaveLength(1);
+    expect(result.nutritionResolverInputs[0].normalized).toBe('mysteryfood');
 
     expect(result.confidence.level).toBe('low');
     expect(result.confidence.score).toBe(0);
     expect(result.interpretation.type).toBe('single_item');
   });
+
+  it.each([
+    ['300g karotten', 'karotten', 300, 'g'],
+    ['8 karotten', 'karotten', 8, null],
+    ['4 bananen', 'bananen', 4, null],
+  ])(
+    'should route alias-miss input %s to resolver with raw text preserved',
+    (input, name, quantity, unit) => {
+      const result = prepareNutritionResolverDispatch(input, 'de', 'alias-miss-trace');
+
+      expect(result.readyRequests).toEqual([
+        {
+          rawName: name,
+          rawText: input,
+          query: name,
+          canonicalName: null,
+          quantity,
+          unit,
+          status: 'ready',
+        },
+      ]);
+      expect(result.unresolvedRequests).toHaveLength(0);
+      expect(result.nutritionResolverInputs).toEqual([
+        {
+          raw: input,
+          normalized: name,
+          locale: 'de',
+          traceId: 'alias-miss-trace',
+        },
+      ]);
+    },
+  );
 
   it('should use default locale when not specified', () => {
     const result = prepareNutritionResolverDispatch('Toast');

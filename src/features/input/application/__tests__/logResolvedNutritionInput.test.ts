@@ -77,21 +77,21 @@ describe('logResolvedNutritionInput', () => {
     const input = 'Eier und mysteryfood';
     const result = await logResolvedNutritionInput(input);
 
-    expect(result.dispatch.readyRequests.length).toBe(1);
+    expect(result.dispatch.readyRequests.length).toBe(2);
     expect(result.resolvedResults.length).toBe(1);
     expect(result.persistedEntries.length).toBe(1);
-    expect(result.blockedEntries).toBe(0);
-    expect(result.dispatch.unresolvedRequests.length).toBe(1);
+    expect(result.blockedEntries).toBe(1);
+    expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 
-  it('should handle fully unresolved input', async () => {
+  it('should route fully unknown input to resolver and block persistence if unresolved by nutrition sources', async () => {
     const input = 'mysteryfood';
     const result = await logResolvedNutritionInput(input);
 
-    expect(result.dispatch.readyRequests.length).toBe(0);
+    expect(result.dispatch.readyRequests.length).toBe(1);
     expect(result.resolvedResults.length).toBe(0);
     expect(result.persistedEntries.length).toBe(0);
-    expect(result.blockedEntries).toBe(0);
-    expect(result.dispatch.unresolvedRequests.length).toBe(1);
+    expect(result.blockedEntries).toBe(1);
+    expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 });

@@ -17,13 +17,12 @@ export function buildNutritionResolverInputs(
   const readyRequests = resolverRequests.filter((request) => request.status === 'ready');
 
   return readyRequests.map((request) => {
-    const hasExplicitQuantityUnit =
+    const hasSupportedExplicitQuantity =
       request.quantity !== null &&
-      request.unit !== null &&
-      ['g', 'piece', 'slice'].includes(request.unit.toLowerCase());
+      (request.unit === null || ['g', 'piece', 'slice'].includes(request.unit.toLowerCase()));
 
     return {
-      raw: hasExplicitQuantityUnit ? (request.rawText ?? request.rawName) : request.rawName,
+      raw: hasSupportedExplicitQuantity ? (request.rawText ?? request.rawName) : request.rawName,
       normalized: request.query, // Use the query (canonical name if available, otherwise raw name)
       locale,
       traceId,

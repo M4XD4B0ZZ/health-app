@@ -153,7 +153,17 @@ export class LogFoodFromRawInputUseCase {
 
         if (result.canonicalFood) {
           // Use portion-aware logic for unit-based foods like "egg"
-          const targetGrams = resolvePortionGrams(parsed.name, quantityGrams, parsed.quantityCount);
+          const portionResolution = resolvePortionGrams(
+            parsed.name,
+            quantityGrams,
+            parsed.quantityCount,
+          );
+          if (portionResolution.status === 'needs_edit') {
+            throw new Error(
+              `PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT reason=${portionResolution.reasonCode} input: ${rawInput}`,
+            );
+          }
+          const targetGrams = portionResolution.grams;
           const computed = computeTotals(result.canonicalFood.per100g, targetGrams, 1);
           calcBreakdown = computed;
 

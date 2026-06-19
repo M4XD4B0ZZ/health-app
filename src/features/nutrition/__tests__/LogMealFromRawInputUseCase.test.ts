@@ -60,7 +60,7 @@ describe('LogMealFromRawInputUseCase', () => {
       expect(entries[0].quantityGrams).toBe(250);
     });
 
-    it('sollte "20er nuggets" über Single-Item Flow mit Makros behandeln', async () => {
+    it('sollte "20er nuggets" ohne Portion-Hint deterministisch blockieren', async () => {
       useCase = new LogMealFromRawInputUseCase(
         repository,
         clock,
@@ -74,16 +74,12 @@ describe('LogMealFromRawInputUseCase', () => {
         mockResolver, // resolver
       );
 
-      const entryIds = await useCase.execute('20er nuggets');
-
-      expect(entryIds).toHaveLength(1);
+      await expect(useCase.execute('20er nuggets')).rejects.toThrow(
+        'PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT reason=COUNT_WITHOUT_PORTION_HINT',
+      );
 
       const entries = await repository.listEntriesForDate('2026-02-15');
-      expect(entries).toHaveLength(1);
-      expect(entries[0].parsedName).toBe('nuggets'); // AI-Parser normalisiert zu "nuggets"
-      expect(entries[0].rawInput).toBe('20er nuggets');
-      expect(entries[0].calories).toBeGreaterThan(0); // Resolver liefert Makros
-      expect(entries[0].sourceType).toBe('generic'); // Resolver-Hit
+      expect(entries).toHaveLength(0);
     });
   });
 

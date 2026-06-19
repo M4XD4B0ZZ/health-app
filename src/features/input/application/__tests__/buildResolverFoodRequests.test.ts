@@ -25,7 +25,7 @@ describe('buildResolverFoodRequests', () => {
     expect(result[1].status).toBe('ready');
   });
 
-  it('should handle unmatched single item', () => {
+  it('should route unmatched single item to resolver as an alias miss', () => {
     const parsed = parseInput('mysteryfood');
     const matches = matchFood(parsed);
     const result = buildResolverFoodRequests(parsed, matches);
@@ -36,7 +36,7 @@ describe('buildResolverFoodRequests', () => {
     expect(result[0].canonicalName).toBe(null);
     expect(result[0].quantity).toBe(null);
     expect(result[0].unit).toBe(null);
-    expect(result[0].status).toBe('unresolved');
+    expect(result[0].status).toBe('ready');
   });
 
   it('should handle mixed known/unknown items', () => {
@@ -52,6 +52,6 @@ describe('buildResolverFoodRequests', () => {
 
     expect(result[1].rawName).toBe('mysteryfood');
     expect(result[1].canonicalName).toBe(null);
-    expect(result[1].status).toBe('unresolved');
+    expect(result[1].status).toBe('ready');
   });
 });

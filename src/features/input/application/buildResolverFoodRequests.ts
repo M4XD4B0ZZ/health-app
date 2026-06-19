@@ -9,6 +9,9 @@ export function buildResolverFoodRequests(
   return parsed.items.map((item, index) => {
     const match = matches[index];
     const canonicalName = match?.canonicalName || null;
+    const normalizedUnit = item.unit?.toLowerCase() ?? null;
+    const canDispatchToResolver =
+      normalizedUnit === null || ['g', 'piece', 'slice'].includes(normalizedUnit);
 
     return {
       rawName: item.name.toLowerCase(), // normalized for dispatch
@@ -17,7 +20,7 @@ export function buildResolverFoodRequests(
       canonicalName,
       quantity: item.quantity,
       unit: item.unit,
-      status: canonicalName ? 'ready' : 'unresolved',
+      status: canDispatchToResolver ? 'ready' : 'unresolved',
     };
   });
 }

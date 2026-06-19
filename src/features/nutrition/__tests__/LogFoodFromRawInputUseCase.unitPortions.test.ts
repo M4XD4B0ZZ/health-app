@@ -1,12 +1,20 @@
 import { resolvePortionGrams } from '../domain/portion/resolvePortionGrams';
 import { computeTotals } from '../domain/portion/computeTotals';
 
+function resolvedGrams(result: ReturnType<typeof resolvePortionGrams>): number {
+  expect(result.status).toBe('resolved');
+  if (result.status !== 'resolved') {
+    throw new Error(`Expected resolved portion, got ${result.reasonCode}`);
+  }
+  return result.grams;
+}
+
 describe('Unit Portion Fix - Integration Test', () => {
   describe('resolvePortionGrams + computeTotals integration', () => {
     const eggMacrosPer100g = { calories: 143, protein: 12.6, carbs: 0.7, fat: 9.5 };
 
     it('should apply canonical default portion for "1 egg" when explicit grams are absent', () => {
-      const targetGrams = resolvePortionGrams('egg', 0, 1);
+      const targetGrams = resolvedGrams(resolvePortionGrams('egg', 0, 1));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(60); // canonical default: 1 egg = 60g
@@ -18,7 +26,7 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('should calculate "egg" as 60g → ~85 kcal', () => {
-      const targetGrams = resolvePortionGrams('egg', 0, undefined);
+      const targetGrams = resolvedGrams(resolvePortionGrams('egg', 0, undefined));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(60); // 1 egg = 60g
@@ -29,7 +37,7 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('should calculate "2 eier" as 120g → ~171 kcal', () => {
-      const targetGrams = resolvePortionGrams('eier', 0, 2);
+      const targetGrams = resolvedGrams(resolvePortionGrams('eier', 0, 2));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(120); // 2 eggs = 120g
@@ -43,7 +51,7 @@ describe('Unit Portion Fix - Integration Test', () => {
       const quantity = 2;
       const configuredEggDefaultPortion = 60;
 
-      const targetGrams = resolvePortionGrams('eggs', 0, quantity);
+      const targetGrams = resolvedGrams(resolvePortionGrams('eggs', 0, quantity));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(configuredEggDefaultPortion * quantity); // configured default portion × quantity
@@ -57,7 +65,7 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('should calculate "3 eggs" as 180g → ~257 kcal', () => {
-      const targetGrams = resolvePortionGrams('eggs', 0, 3);
+      const targetGrams = resolvedGrams(resolvePortionGrams('eggs', 0, 3));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(180); // 3 eggs = 180g
@@ -68,7 +76,7 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('should NOT override explicit grams: "200g ei" → 200g', () => {
-      const targetGrams = resolvePortionGrams('ei', 200, undefined);
+      const targetGrams = resolvedGrams(resolvePortionGrams('ei', 200, undefined));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(200); // explicit grams preserved
@@ -76,7 +84,7 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('should prioritize explicit grams over unit default for eggs: "150g egg" → 150g totals', () => {
-      const targetGrams = resolvePortionGrams('egg', 150, 1);
+      const targetGrams = resolvedGrams(resolvePortionGrams('egg', 150, 1));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(150); // explicit grams must override 60g canonical egg portion
@@ -87,7 +95,7 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('should handle "ei" (singular) as 60g → ~85 kcal', () => {
-      const targetGrams = resolvePortionGrams('ei', 0, undefined);
+      const targetGrams = resolvedGrams(resolvePortionGrams('ei', 0, undefined));
       const result = computeTotals(eggMacrosPer100g, targetGrams, 1);
 
       expect(targetGrams).toBe(60); // 1 egg = 60g
@@ -100,7 +108,7 @@ describe('Unit Portion Fix - Integration Test', () => {
 
     it('demonstrates the fix: "egg" now gives 85 kcal instead of 143 kcal', () => {
       // New logic with resolvePortionGrams
-      const newTargetGrams = resolvePortionGrams('egg', 0, undefined);
+      const newTargetGrams = resolvedGrams(resolvePortionGrams('egg', 0, undefined));
       const newResult = computeTotals(eggMacrosPer100g, newTargetGrams, 1);
 
       // Old logic (100g fallback)
@@ -113,10 +121,10 @@ describe('Unit Portion Fix - Integration Test', () => {
     });
 
     it('demonstrates proportional scaling: "2 eier" gives 2x the calories', () => {
-      const singleEggGrams = resolvePortionGrams('egg', 0, undefined);
+      const singleEggGrams = resolvedGrams(resolvePortionGrams('egg', 0, undefined));
       const singleEggResult = computeTotals(eggMacrosPer100g, singleEggGrams, 1);
 
-      const doubleEggGrams = resolvePortionGrams('eier', 0, 2);
+      const doubleEggGrams = resolvedGrams(resolvePortionGrams('eier', 0, 2));
       const doubleEggResult = computeTotals(eggMacrosPer100g, doubleEggGrams, 1);
 
       expect(doubleEggResult.totals.calories).toBeCloseTo(singleEggResult.totals.calories * 2, 1);
@@ -128,18 +136,18 @@ describe('Unit Portion Fix - Integration Test', () => {
 
   describe('other canonical foods', () => {
     it('should work for apple (150g default)', () => {
-      const targetGrams = resolvePortionGrams('apple', 0, undefined);
+      const targetGrams = resolvedGrams(resolvePortionGrams('apple', 0, undefined));
       expect(targetGrams).toBe(150);
     });
 
     it('should work for "2 bananas" (240g total)', () => {
-      const targetGrams = resolvePortionGrams('bananas', 0, 2);
+      const targetGrams = resolvedGrams(resolvePortionGrams('bananas', 0, 2));
       expect(targetGrams).toBe(240); // 2 * 120g
     });
 
-    it('should fallback to 100g for unknown foods', () => {
-      const targetGrams = resolvePortionGrams('pizza', 0, 2);
-      expect(targetGrams).toBe(100); // fallback
+    it('should require edit for explicit unknown count foods instead of falling back to 100g', () => {
+      const result = resolvePortionGrams('pizza', 0, 2);
+      expect(result).toEqual({ status: 'needs_edit', reasonCode: 'COUNT_WITHOUT_PORTION_HINT' });
     });
   });
 });

@@ -46,21 +46,20 @@ describe('logResolvedNutritionInput - Bugfix Tests', () => {
       const input = 'Eier und mysteryfood';
       const result = await logResolvedNutritionInput(input);
 
-      // Should have some ready requests and some unresolved
+      // Resolver-first dispatch routes alias misses as ready resolver requests.
       expect(
         result.dispatch.readyRequests.length + result.dispatch.unresolvedRequests.length,
       ).toBeGreaterThan(0);
 
-      // Should have unresolved requests for unknown items
-      expect(result.dispatch.unresolvedRequests.length).toBeGreaterThan(0);
+      expect(result.dispatch.readyRequests.length).toBeGreaterThan(0);
 
       // Any persisted entries should have proper calories
       result.persistedEntries.forEach((entry) => {
         expect(entry.calories).toBeGreaterThan(0);
       });
 
-      // Verify mysteryfood is in unresolved
-      const hasMysteryfood = result.dispatch.unresolvedRequests.some((req) =>
+      // Verify mysteryfood was dispatched to resolver rather than blocked by alias map
+      const hasMysteryfood = result.dispatch.readyRequests.some((req) =>
         req.rawName.toLowerCase().includes('mysteryfood'),
       );
       expect(hasMysteryfood).toBe(true);
@@ -75,8 +74,9 @@ describe('logResolvedNutritionInput - Bugfix Tests', () => {
       // Should have no persisted entries for unknown food
       expect(result.persistedEntries).toHaveLength(0);
 
-      // But should have unresolved requests
-      expect(result.dispatch.unresolvedRequests.length).toBeGreaterThan(0);
+      // But it should have attempted resolver-first dispatch and then blocked persistence
+      expect(result.dispatch.readyRequests.length).toBeGreaterThan(0);
+      expect(result.blockedEntries).toBeGreaterThan(0);
     });
   });
 });

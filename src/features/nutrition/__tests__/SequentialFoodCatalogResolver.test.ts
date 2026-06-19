@@ -113,6 +113,77 @@ describe('SequentialFoodCatalogResolver', () => {
     expect(usdaSource.search).not.toHaveBeenCalled();
   });
 
+  it('does not early-return processed OFF products for German generic carrot inputs', async () => {
+    const config: FoodCatalogConfig = {
+      offEarlyReturnMinConfidence: 0.7,
+      enableDebugLogs: false,
+      enableTracing: false,
+      resolverBudgetMs: 1500,
+      sourceBudgets: { off: 700, usda: 700 },
+      negativeCacheTtlMs: 1200000,
+      circuitBreaker: {
+        failureThreshold: 3,
+        cooldownMs: 120000,
+        enabled: true,
+      },
+    };
+
+    const offSource = createMockOffSource([
+      {
+        food: {
+          id: 'off-carrot-bread',
+          name: 'Das Pure - Bio-Haferbrot Karotten & Walnüsse',
+          normalizedName: 'das pure bio haferbrot karotten walnuesse',
+          macrosPer100g: { kcal: 293, protein: 9, carbs: 40, fat: 10 },
+          source: 'off',
+        },
+        match: {
+          exact: false,
+          similarity: 0.8,
+        },
+        confidence: 0,
+        reasons: [],
+      },
+    ]);
+    const usdaSource = createMockUsdaSource([
+      {
+        food: {
+          id: 'usda-carrots',
+          name: 'Möhren',
+          normalizedName: 'karotten',
+          macrosPer100g: { kcal: 41, protein: 0.9, carbs: 9.6, fat: 0.2 },
+          source: 'usda',
+        },
+        match: {
+          exact: true,
+          similarity: 1,
+        },
+        confidence: 0,
+        reasons: [],
+      },
+    ]);
+
+    const resolver = new SequentialFoodCatalogResolver(
+      [offSource, usdaSource],
+      confidenceEngine,
+      config,
+    );
+
+    const query: FoodSearchQuery = {
+      raw: '300g karotten',
+      normalized: 'karotten',
+      locale: 'de',
+      inputType: 'generic',
+    };
+    const result = await resolver.resolve(query);
+
+    expect(offSource.search).toHaveBeenCalled();
+    expect(usdaSource.search).toHaveBeenCalled();
+    expect(result.best?.food.id).toBe('usda-carrots');
+    expect(result.best?.food.name).toBe('Möhren');
+    expect(result.best?.food.name).not.toContain('Haferbrot');
+  });
+
   it('continues to USDA when OFF confidence is low', async () => {
     const config: FoodCatalogConfig = {
       offEarlyReturnMinConfidence: 0.7,

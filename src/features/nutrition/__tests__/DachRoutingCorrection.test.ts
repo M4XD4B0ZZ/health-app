@@ -13,6 +13,14 @@ describe('DACH Routing Correction', () => {
       expect(inputType).toBe('generic');
     });
 
+    test.each(['300g karotten', 'karotte', 'möhre', 'möhren', 'moehre', 'moehren'])(
+      '%s should be classified as generic',
+      (input: string) => {
+        const inputType = detectInputType(input);
+        expect(inputType).toBe('generic');
+      },
+    );
+
     test('nutella should be classified as branded', () => {
       const inputType = detectInputType('nutella');
       expect(inputType).toBe('branded');

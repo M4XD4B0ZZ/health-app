@@ -97,6 +97,11 @@ export const CANONICAL_FOODS: CanonicalFoodEntity[] = [
     enAliases: ['cucumber', 'cucumbers'],
   },
   {
+    canonicalId: 'carrot',
+    deAliases: ['karotte', 'karotten', 'moehre', 'moehren', 'möhre', 'möhren'],
+    enAliases: ['carrot', 'carrots'],
+  },
+  {
     canonicalId: 'cheese',
     deAliases: ['kaese', 'schnittkäse'],
     enAliases: ['cheese'],

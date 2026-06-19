@@ -350,7 +350,14 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
           // DACH Data Strategy: Apply routing strategy to early return decision
           const routingDisablesEarlyReturn = routingStrategy.offEarlyReturnDisabled;
-          const earlyReturn = confidenceCheck && !isGenericCanonical && !routingDisablesEarlyReturn;
+          const requiresExactOffEarlyReturn =
+            query.locale === 'de' && query.inputType !== 'branded';
+          const isExactOffMatch = best.food.normalizedName === normalizedQuery;
+          const earlyReturn =
+            confidenceCheck &&
+            !isGenericCanonical &&
+            !routingDisablesEarlyReturn &&
+            (!requiresExactOffEarlyReturn || isExactOffMatch);
 
           if (this.config.enableDebugLogs) {
             console.debug('[SequentialFoodCatalogResolver] OFF evaluation', {
@@ -362,6 +369,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
               canonicalId: canonicalResult.canonicalId,
               routingDisablesEarlyReturn,
               routingStrategy: routingStrategy.name,
+              requiresExactOffEarlyReturn,
+              isExactOffMatch,
               earlyReturn,
               foodName: best.food.name,
             });

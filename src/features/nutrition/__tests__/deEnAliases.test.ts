@@ -36,6 +36,14 @@ describe('Canonical Food Entity Detection + Source Query Adapter', () => {
       expect(result.canonicalId).toBe('chicken breast');
     });
 
+    it.each(['karotte', 'karotten', 'möhre', 'möhren', 'moehre', 'moehren'])(
+      'maps German carrot alias "%s" to canonicalId "carrot"',
+      (alias: string) => {
+        const result = detectCanonicalEntity(alias, 'de');
+        expect(result.canonicalId).toBe('carrot');
+      },
+    );
+
     it('returns null for unknown query', () => {
       const result = detectCanonicalEntity('hackbraten', 'de');
       expect(result.canonicalId).toBeNull();

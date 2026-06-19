@@ -18,6 +18,22 @@ class TestClock implements Clock {
   }
 }
 
+class MutableTestClock implements Clock {
+  constructor(private fixedDate: Date) {}
+
+  now(): Date {
+    return this.fixedDate;
+  }
+
+  todayISO(): string {
+    return this.fixedDate.toISOString().slice(0, 10);
+  }
+
+  setNow(nextDate: Date): void {
+    this.fixedDate = nextDate;
+  }
+}
+
 describe('LogFoodFromRawInputUseCase', () => {
   let useCase: LogFoodFromRawInputUseCase;
   let repository: InMemoryFoodEntryRepository;
@@ -146,6 +162,114 @@ describe('LogFoodFromRawInputUseCase', () => {
 
       const entries = await successRepository.listEntriesForDate('2026-02-15');
       expect(entries).toHaveLength(1);
+    });
+  });
+
+  describe('Recent default portion correction', () => {
+    function createToastUseCase(testClock: Clock): LogFoodFromRawInputUseCase {
+      const toastResolver = new MockResolverBuilder()
+        .withAcceptedFood('toast', 'Toast', { kcal: 265, protein: 9, carbs: 49, fat: 3.2 })
+        .withAcceptedFood('300g toast', 'Toast', { kcal: 265, protein: 9, carbs: 49, fat: 3.2 })
+        .withAcceptedFood('100g toast', 'Toast', { kcal: 265, protein: 9, carbs: 49, fat: 3.2 })
+        .withAcceptedFood('300g quark', 'Quark', { kcal: 67, protein: 12, carbs: 4, fat: 0.2 })
+        .build();
+
+      return new LogFoodFromRawInputUseCase(
+        repository,
+        testClock,
+        idGenerator,
+        parser,
+        {
+          getById: async () => null,
+          searchByName: async () => null,
+        } as any,
+        undefined,
+        undefined,
+        undefined,
+        toastResolver,
+      );
+    }
+
+    it('updates a recent same-food default portion when explicit grams are logged', async () => {
+      const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
+      useCase = createToastUseCase(mutableClock);
+
+      const defaultEntry = await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
+      mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
+      const correctedEntry = await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+
+      expect(entries).toHaveLength(1);
+      expect(correctedEntry.id).toBe(defaultEntry.id);
+      expect(entries[0].id).toBe(defaultEntry.id);
+      expect(entries[0].createdAt).toEqual(defaultEntry.createdAt);
+      expect(entries[0].lastModifiedAt).toEqual(new Date('2026-02-15T12:10:00Z'));
+      expect(entries[0].rawInput).toBe('300g toast');
+      expect(entries[0].parsedName).toBe('toast');
+      expect(entries[0].quantityGrams).toBe(300);
+      expect(entries[0].grams).toBe(300);
+      expect(entries[0].calcBreakdown?.gramsUsed).toBe(300);
+      expect(entries[0].calories).toBeCloseTo(795, 1);
+    });
+
+    it('appends when both same-food entries have explicit grams', async () => {
+      const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
+      useCase = createToastUseCase(mutableClock);
+
+      await useCase.execute({ rawText: '100g toast', rawInput: '100g toast' });
+      mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
+      await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+
+      expect(entries).toHaveLength(2);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['100g toast', '300g toast']);
+    });
+
+    it('appends when the same food is logged outside the correction window', async () => {
+      const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
+      useCase = createToastUseCase(mutableClock);
+
+      await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
+      mutableClock.setNow(new Date('2026-02-15T12:31:00Z'));
+      await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+
+      expect(entries).toHaveLength(2);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['toast', '300g toast']);
+    });
+
+    it('appends different foods on the same day', async () => {
+      const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
+      useCase = createToastUseCase(mutableClock);
+
+      await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
+      mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
+      await useCase.execute({ rawText: '300g quark', rawInput: '300g quark' });
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+
+      expect(entries).toHaveLength(2);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['toast', '300g quark']);
+    });
+
+    it('appends same-food entries into separate date buckets for different dates', async () => {
+      const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
+      useCase = createToastUseCase(mutableClock);
+
+      await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
+      mutableClock.setNow(new Date('2026-02-16T12:10:00Z'));
+      await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
+
+      const firstDayEntries = await repository.listEntriesForDate('2026-02-15');
+      const secondDayEntries = await repository.listEntriesForDate('2026-02-16');
+
+      expect(firstDayEntries).toHaveLength(1);
+      expect(secondDayEntries).toHaveLength(1);
+      expect(firstDayEntries[0].rawInput).toBe('toast');
+      expect(secondDayEntries[0].rawInput).toBe('300g toast');
     });
   });
 

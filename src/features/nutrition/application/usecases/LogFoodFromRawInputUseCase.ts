@@ -40,6 +40,7 @@ import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv'
 export class LogFoodFromRawInputUseCase {
   private readonly engine: NutritionEngine;
   private readonly portionParser: PortionParser;
+  private static readonly CORRECTION_WINDOW_MS = 30 * 60 * 1000;
 
   constructor(
     private readonly repository: FoodEntryRepository,
@@ -364,7 +365,31 @@ export class LogFoodFromRawInputUseCase {
         throw new Error(`RESOLVER_FAILED_OR_NO_MACROS for input: ${rawInput}`);
       }
 
-      // Persist
+      // Persist, with narrow correction/upsert behavior for recent default portions.
+      const correctionCandidate = parsed.quantityGrams
+        ? await this.findCorrectionCandidate(entry)
+        : undefined;
+
+      if (correctionCandidate) {
+        const updatedEntry: FoodEntry = {
+          ...entry,
+          id: correctionCandidate.id,
+          createdAt: correctionCandidate.createdAt,
+          lastModifiedAt: entryDate,
+        };
+
+        await this.repository.updateEntryById(updatedEntry);
+
+        console.log(`[${traceId}] PROOF_PERSIST_SUCCESS entryId="${updatedEntry.id}"`);
+
+        if (isDebugLoggingEnabled()) {
+          const durationMs = Date.now() - startTimeMs;
+          console.log(`[${traceId}] PERSISTED entryId="${updatedEntry.id}" durationMs=${durationMs}`);
+        }
+
+        return updatedEntry;
+      }
+
       await this.repository.addEntry(entry);
 
       console.log(`[${traceId}] PROOF_PERSIST_SUCCESS entryId="${entry.id}"`);
@@ -542,5 +567,61 @@ export class LogFoodFromRawInputUseCase {
    */
   private parseDateISO(dateISO: string): Date {
     return new Date(dateISO + 'T00:00:00.000Z');
+  }
+
+  private async findCorrectionCandidate(newEntry: FoodEntry): Promise<FoodEntry | undefined> {
+    if (typeof this.repository.listEntriesForDate !== 'function') {
+      return undefined;
+    }
+
+    const newFoodKey = this.sameFoodKey(newEntry);
+    if (!newFoodKey) {
+      return undefined;
+    }
+
+    const dateISO = newEntry.createdAt.toISOString().slice(0, 10);
+    const sameDayEntries = await this.repository.listEntriesForDate(dateISO);
+
+    return sameDayEntries
+      .filter((entry) => this.isCorrectionCandidate(entry, newEntry, newFoodKey))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  }
+
+  private isCorrectionCandidate(
+    existingEntry: FoodEntry,
+    newEntry: FoodEntry,
+    newFoodKey: string,
+  ): boolean {
+    const existingFoodKey = this.sameFoodKey(existingEntry);
+    if (!existingFoodKey || existingFoodKey !== newFoodKey) {
+      return false;
+    }
+
+    if (!this.usedDefaultOrAssumedPortion(existingEntry)) {
+      return false;
+    }
+
+    const ageMs = newEntry.createdAt.getTime() - existingEntry.createdAt.getTime();
+    return ageMs >= 0 && ageMs <= LogFoodFromRawInputUseCase.CORRECTION_WINDOW_MS;
+  }
+
+  private usedDefaultOrAssumedPortion(entry: FoodEntry): boolean {
+    const explicitQuantityGrams = entry.quantityGrams > 0;
+    const effectiveGrams = entry.grams ?? entry.calcBreakdown?.gramsUsed ?? 0;
+
+    return !explicitQuantityGrams && effectiveGrams > 0;
+  }
+
+  private sameFoodKey(entry: FoodEntry): string | undefined {
+    const summary = entry.resolverDecisionSummary;
+    if (summary?.status === 'accepted' && summary.chosenName.trim()) {
+      return [summary.source, summary.chosenName, summary.chosenBrand]
+        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+        .map((part) => normalizeText(part))
+        .join(':');
+    }
+
+    const parsedName = normalizeText(entry.parsedName);
+    return parsedName.length > 0 ? parsedName : undefined;
   }
 }

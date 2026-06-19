@@ -112,6 +112,13 @@ const JournalScreen: React.FC = () => {
     setTrustMessage('');
   };
 
+  const clearSubmitFeedback = () => {
+    setStatusMessage('');
+    setTrustMessage('');
+    setUnresolvedItems([]);
+    setRecognizedItems([]);
+  };
+
   const handleRawInputChange = (text: string) => {
     setRawInput(text);
 
@@ -125,11 +132,9 @@ const JournalScreen: React.FC = () => {
 
     if (!inputToSubmit || !claimJournalSubmitSlot(submitInFlightRef)) return;
 
+    clearSubmitFeedback();
     setProcessingState('processing');
     setStatusMessage('Logging meal...');
-    setTrustMessage('');
-    setUnresolvedItems([]);
-    setRecognizedItems([]);
 
     try {
       const result = await logResolvedNutritionInput(inputToSubmit);

@@ -184,6 +184,137 @@ describe('SequentialFoodCatalogResolver', () => {
     expect(result.best?.food.name).not.toContain('Haferbrot');
   });
 
+  it('prefers USDA raw carrots over carrot composites for generic carrot input', async () => {
+    const config: FoodCatalogConfig = {
+      offEarlyReturnMinConfidence: 0.7,
+      enableDebugLogs: false,
+      enableTracing: false,
+      resolverBudgetMs: 1500,
+      sourceBudgets: { off: 700, usda: 700 },
+      negativeCacheTtlMs: 1200000,
+      circuitBreaker: {
+        failureThreshold: 3,
+        cooldownMs: 120000,
+        enabled: true,
+      },
+    };
+
+    const usdaSource = createMockUsdaSource([
+      {
+        food: {
+          id: 'usda-carrot-cake',
+          name: 'Cake or cupcake, carrot',
+          normalizedName: 'cake or cupcake carrot',
+          macrosPer100g: { kcal: 374, protein: 4, carbs: 55, fat: 16 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 1 },
+        confidence: 0,
+        reasons: [],
+      },
+      {
+        food: {
+          id: 'usda-carrot-muffin',
+          name: 'Muffin, carrot',
+          normalizedName: 'muffin carrot',
+          macrosPer100g: { kcal: 340, protein: 5, carbs: 50, fat: 13 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 1 },
+        confidence: 0,
+        reasons: [],
+      },
+      {
+        food: {
+          id: 'usda-carrot-dehydrated',
+          name: 'Carrot, dehydrated',
+          normalizedName: 'carrot dehydrated',
+          macrosPer100g: { kcal: 341, protein: 8, carbs: 79, fat: 1.5 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 1 },
+        confidence: 0,
+        reasons: [],
+      },
+      {
+        food: {
+          id: 'usda-carrot-bread',
+          name: 'Carrot bread',
+          normalizedName: 'carrot bread',
+          macrosPer100g: { kcal: 293, protein: 9, carbs: 40, fat: 10 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 1 },
+        confidence: 0,
+        reasons: [],
+      },
+      {
+        food: {
+          id: 'usda-carrots-raw',
+          name: 'Carrots, raw',
+          normalizedName: 'carrots raw',
+          macrosPer100g: { kcal: 44, protein: 0.9, carbs: 10, fat: 0.2 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 1 },
+        confidence: 0,
+        reasons: [],
+      },
+    ]);
+
+    const resolver = new SequentialFoodCatalogResolver([usdaSource], confidenceEngine, config);
+
+    const result = await resolver.resolve({
+      raw: '8 karotten',
+      normalized: 'karotten',
+      locale: 'de',
+      inputType: 'generic',
+    });
+
+    expect(result.best?.food.id).toBe('usda-carrots-raw');
+    expect(result.best?.food.name).toBe('Carrots, raw');
+  });
+
+  it('allows carrot product queries to choose matching carrot composites', async () => {
+    const usdaSource = createMockUsdaSource([
+      {
+        food: {
+          id: 'usda-carrots-raw',
+          name: 'Carrots, raw',
+          normalizedName: 'carrots raw',
+          macrosPer100g: { kcal: 44, protein: 0.9, carbs: 10, fat: 0.2 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 0.5 },
+        confidence: 0,
+        reasons: [],
+      },
+      {
+        food: {
+          id: 'usda-carrot-cake',
+          name: 'Cake or cupcake, carrot',
+          normalizedName: 'cake or cupcake carrot',
+          macrosPer100g: { kcal: 374, protein: 4, carbs: 55, fat: 16 },
+          source: 'usda',
+        },
+        match: { exact: false, similarity: 1 },
+        confidence: 0,
+        reasons: [],
+      },
+    ]);
+
+    const resolver = new SequentialFoodCatalogResolver([usdaSource], confidenceEngine);
+
+    const result = await resolver.resolve({
+      raw: 'carrot cake',
+      normalized: 'carrot cake',
+      locale: 'en',
+      inputType: 'generic',
+    });
+
+    expect(result.best?.food.id).toBe('usda-carrot-cake');
+  });
+
   it('continues to USDA when OFF confidence is low', async () => {
     const config: FoodCatalogConfig = {
       offEarlyReturnMinConfidence: 0.7,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import { View, StyleSheet, Modal } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -17,6 +17,7 @@ import { PrimaryButton } from '../../../ui/components/PrimaryButton';
 import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineStatus';
 import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
+import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
 
 const formatCalories = (value: number) => Math.round(value).toString();
 const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
@@ -58,6 +59,7 @@ function buildTrustMessage(
 const JournalScreen: React.FC = () => {
   // const navigation = useNavigation();
   const [rawInput, setRawInput] = useState('');
+  const submitInFlightRef = useRef(false);
   const [processingState, setProcessingState] = useState<InlineStatusState>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [trustMessage, setTrustMessage] = useState('');
@@ -119,7 +121,9 @@ const JournalScreen: React.FC = () => {
   };
 
   const handleQuickAdd = async () => {
-    if (!rawInput.trim()) return;
+    const inputToSubmit = rawInput.trim();
+
+    if (!inputToSubmit || !claimJournalSubmitSlot(submitInFlightRef)) return;
 
     setProcessingState('processing');
     setStatusMessage('Logging meal...');
@@ -128,7 +132,7 @@ const JournalScreen: React.FC = () => {
     setRecognizedItems([]);
 
     try {
-      const result = await logResolvedNutritionInput(rawInput);
+      const result = await logResolvedNutritionInput(inputToSubmit);
       const persistedCount = result.persistedEntries.length;
       const unresolvedCount = result.dispatch.unresolvedRequests.length;
       const blockedCount = result.blockedEntries;
@@ -195,6 +199,8 @@ const JournalScreen: React.FC = () => {
       setProcessingState('error');
       setStatusMessage('Eintrag konnte nicht verarbeitet werden');
       setTrustMessage('Es wurde nichts gespeichert und es wurden keine Nährwerte geschätzt.');
+    } finally {
+      submitInFlightRef.current = false;
     }
   };
 

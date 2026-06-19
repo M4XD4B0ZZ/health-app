@@ -17,6 +17,39 @@ const SOURCE_TRUST: Record<string, number> = {
   [RESOLVER_SOURCE_LABELS.MOCK_OFF]: 0.7,
 };
 
+const GENERIC_CARROT_QUERIES = new Set([
+  'carrot',
+  'carrots',
+  'karotte',
+  'karotten',
+  'moehre',
+  'moehren',
+  'möhre',
+  'möhren',
+]);
+
+const GENERIC_CARROT_PLAIN_NAMES = new Set([
+  'carrots raw',
+  'carrot raw',
+  'moehren',
+  'möhren',
+  'karotten',
+]);
+
+const GENERIC_CARROT_PRODUCT_TOKENS = [
+  'cake',
+  'cupcake',
+  'muffin',
+  'bread',
+  'brot',
+  'juice',
+  'saft',
+  'glazed',
+  'dehydrated',
+  'snack',
+  'babyfood',
+] as const;
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -46,6 +79,35 @@ function tokenOverlap(query: string, candidate: string): number {
   return unionSize > 0 ? intersection / unionSize : 0;
 }
 
+function hasToken(value: string, token: string): boolean {
+  return new RegExp(`(^|\\s)${token}($|\\s)`).test(value);
+}
+
+function getGenericCarrotNameAdjustment(
+  normalizedQuery: string,
+  normalizedCandidate: string,
+): {
+  multiplier: number;
+  note?: string;
+} {
+  if (!GENERIC_CARROT_QUERIES.has(normalizedQuery)) {
+    return { multiplier: 1 };
+  }
+
+  if (GENERIC_CARROT_PLAIN_NAMES.has(normalizedCandidate)) {
+    return { multiplier: 1.12, note: 'generic_carrot_plain_boost' };
+  }
+
+  const productToken = GENERIC_CARROT_PRODUCT_TOKENS.find((token) =>
+    hasToken(normalizedCandidate, token),
+  );
+  if (productToken && !hasToken(normalizedQuery, productToken)) {
+    return { multiplier: 0.45, note: `generic_carrot_product_penalty_${productToken}` };
+  }
+
+  return { multiplier: 1 };
+}
+
 // Plausible kcal ranges for common generic foods (per 100g)
 const GENERIC_FOOD_KCAL_RANGES: Record<string, { min: number; max: number }> = {
   egg: { min: 120, max: 180 },
@@ -59,6 +121,14 @@ const GENERIC_FOOD_KCAL_RANGES: Record<string, { min: number; max: number }> = {
   rice: { min: 300, max: 400 }, // Adjusted for cooked vs raw rice
   reis: { min: 300, max: 400 },
   toast: { min: 250, max: 350 },
+  carrot: { min: 25, max: 60 },
+  carrots: { min: 25, max: 60 },
+  karotte: { min: 25, max: 60 },
+  karotten: { min: 25, max: 60 },
+  moehre: { min: 25, max: 60 },
+  moehren: { min: 25, max: 60 },
+  möhre: { min: 25, max: 60 },
+  möhren: { min: 25, max: 60 },
 };
 
 function getGenericFoodPlausibilityScore(normalizedQuery: string, kcal: number): number {
@@ -172,6 +242,15 @@ export class ScoreCalculator {
 
     // Apply plausibility penalty
     finalScore = clamp01(finalScore * plausibilityScore);
+
+    const carrotNameAdjustment = getGenericCarrotNameAdjustment(
+      input.normalizedQuery.toLowerCase(),
+      input.candidateFood.normalizedName.toLowerCase(),
+    );
+    if (carrotNameAdjustment.note) {
+      notes.push(carrotNameAdjustment.note);
+    }
+    finalScore = clamp01(finalScore * carrotNameAdjustment.multiplier);
 
     return {
       matchScore,

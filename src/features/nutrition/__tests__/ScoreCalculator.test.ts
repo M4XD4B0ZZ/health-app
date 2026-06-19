@@ -69,4 +69,75 @@ describe('ScoreCalculator', () => {
 
     expect(consistent.kcalConsistencyScore).toBeGreaterThan(inconsistent.kcalConsistencyScore);
   });
+
+  it('ranks generic carrot plain raw candidates above composite carrot products', () => {
+    const rawCarrots = calculator.calculate({
+      normalizedQuery: 'carrot',
+      candidateFood: food({
+        name: 'Carrots, raw',
+        normalizedName: 'carrots raw',
+        macrosPer100g: { kcal: 44, protein: 0.9, carbs: 10, fat: 0.2 },
+      }),
+      candidateSource: 'USDA',
+      metadata: { similarity: 1, exact: false },
+    });
+
+    const compositeCandidates = [
+      food({
+        name: 'Cake or cupcake, carrot',
+        normalizedName: 'cake or cupcake carrot',
+        macrosPer100g: { kcal: 374, protein: 4, carbs: 55, fat: 16 },
+      }),
+      food({
+        name: 'Muffin, carrot',
+        normalizedName: 'muffin carrot',
+        macrosPer100g: { kcal: 340, protein: 5, carbs: 50, fat: 13 },
+      }),
+      food({
+        name: 'Carrot, dehydrated',
+        normalizedName: 'carrot dehydrated',
+        macrosPer100g: { kcal: 341, protein: 8, carbs: 79, fat: 1.5 },
+      }),
+      food({
+        name: 'Carrot bread',
+        normalizedName: 'carrot bread',
+        macrosPer100g: { kcal: 293, protein: 9, carbs: 40, fat: 10 },
+      }),
+    ];
+
+    const compositeScores = compositeCandidates.map((candidateFood) =>
+      calculator.calculate({
+        normalizedQuery: 'carrot',
+        candidateFood,
+        candidateSource: 'USDA',
+        metadata: { similarity: 1, exact: false },
+      }),
+    );
+
+    expect(rawCarrots.notes).toContain('generic_carrot_plain_boost');
+    for (const composite of compositeScores) {
+      expect(rawCarrots.finalScore).toBeGreaterThan(composite.finalScore);
+      expect(
+        composite.notes.some((note) => note.startsWith('generic_carrot_product_penalty_')),
+      ).toBe(true);
+    }
+  });
+
+  it('does not penalize carrot product candidates when the query contains the product term', () => {
+    const carrotCake = calculator.calculate({
+      normalizedQuery: 'carrot cake',
+      candidateFood: food({
+        name: 'Cake or cupcake, carrot',
+        normalizedName: 'cake or cupcake carrot',
+        macrosPer100g: { kcal: 374, protein: 4, carbs: 55, fat: 16 },
+      }),
+      candidateSource: 'USDA',
+      metadata: { similarity: 1, exact: false },
+    });
+
+    expect(
+      carrotCake.notes.some((note) => note.startsWith('generic_carrot_product_penalty_')),
+    ).toBe(false);
+    expect(carrotCake.finalScore).toBeGreaterThan(0.7);
+  });
 });

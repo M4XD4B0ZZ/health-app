@@ -135,9 +135,9 @@ describe('Unit Portion Fix - Integration Test', () => {
   });
 
   describe('other canonical foods', () => {
-    it('should work for apple (150g default)', () => {
+    it('should work for apple (180g seed portion hint)', () => {
       const targetGrams = resolvedGrams(resolvePortionGrams('apple', 0, undefined));
-      expect(targetGrams).toBe(150);
+      expect(targetGrams).toBe(180);
     });
 
     it('should work for "2 bananas" (240g total)', () => {

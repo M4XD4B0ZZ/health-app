@@ -95,13 +95,8 @@ export class LogFoodFromRawInputUseCase {
         // Gramm-Angabe vorhanden
         quantityGrams = parsed.quantityGrams;
         confidenceScore = 0.5; // Medium confidence (wir kennen die Menge, aber nicht die Nutrition)
-      } else if (parsed.quantityCount !== undefined && canonicalEntity?.defaultPortion?.grams) {
-        // Support both 'piece' and 'gram' units for quantityCount
-        quantityGrams = parsed.quantityCount * canonicalEntity.defaultPortion.grams;
-        confidenceScore = 0.5;
       } else if (parsed.quantityCount !== undefined) {
-        // Nur Count, keine Gramm-Angabe
-        // Wir raten NICHT die Gramm-Anzahl, lassen es bei 0
+        // Count without explicit grams is resolved later via identity-based portion knowledge.
         quantityGrams = 0;
         confidenceScore = 0.35; // Low confidence
       } else {
@@ -158,6 +153,7 @@ export class LogFoodFromRawInputUseCase {
             parsed.name,
             quantityGrams,
             parsed.quantityCount,
+            { unit: parsed.unit },
           );
           if (portionResolution.status === 'needs_edit') {
             throw new Error(
@@ -384,7 +380,9 @@ export class LogFoodFromRawInputUseCase {
 
         if (isDebugLoggingEnabled()) {
           const durationMs = Date.now() - startTimeMs;
-          console.log(`[${traceId}] PERSISTED entryId="${updatedEntry.id}" durationMs=${durationMs}`);
+          console.log(
+            `[${traceId}] PERSISTED entryId="${updatedEntry.id}" durationMs=${durationMs}`,
+          );
         }
 
         return updatedEntry;

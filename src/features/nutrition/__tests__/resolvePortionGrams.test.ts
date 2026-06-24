@@ -1,4 +1,9 @@
 import { resolvePortionGrams } from '../domain/portion/resolvePortionGrams';
+import {
+  InMemoryPortionHintRepository,
+  PortionKnowledgeService,
+} from '../domain/portion/PortionKnowledgeService';
+import { SEED_PORTION_HINTS } from '../domain/portion/seedPortionHints';
 
 describe('resolvePortionGrams', () => {
   describe('explicit grams (should not be overridden)', () => {
@@ -11,6 +16,113 @@ describe('resolvePortionGrams', () => {
       const result = resolvePortionGrams('egg', 150, 2);
       expect(result).toEqual({ status: 'resolved', grams: 150, reasonCode: 'EXPLICIT_GRAMS' });
     });
+
+    it('should use explicit grams even when a portion knowledge hint exists', () => {
+      const result = resolvePortionGrams('karotten', 200, 8);
+      expect(result).toEqual({ status: 'resolved', grams: 200, reasonCode: 'EXPLICIT_GRAMS' });
+    });
+  });
+
+  describe('portion knowledge hints', () => {
+    it.each(['karotte', 'karotten', 'möhre', 'möhren'])(
+      'should resolve "%s" through the shared carrot identity piece hint',
+      (alias) => {
+        const result = resolvePortionGrams(alias, 0, 1);
+        expect(result).toMatchObject({
+          status: 'resolved',
+          grams: 60,
+          reasonCode: 'PORTION_KNOWLEDGE_HINT',
+          gramsPerUnit: 60,
+          foodIdentityKey: 'canonical:carrot',
+        });
+      },
+    );
+
+    it('should resolve "8 karotten" to 480g through portion knowledge', () => {
+      const result = resolvePortionGrams('karotten', 0, 8);
+      expect(result).toMatchObject({
+        status: 'resolved',
+        grams: 480,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 60,
+        foodIdentityKey: 'canonical:carrot',
+      });
+    });
+
+    it('should resolve "8 möhren" to 480g through the same carrot hint', () => {
+      const result = resolvePortionGrams('möhren', 0, 8);
+      expect(result).toMatchObject({
+        status: 'resolved',
+        grams: 480,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 60,
+        foodIdentityKey: 'canonical:carrot',
+      });
+    });
+
+    it('should resolve "2 eier" to 120g through portion knowledge', () => {
+      const result = resolvePortionGrams('eier', 0, 2);
+      expect(result).toMatchObject({
+        status: 'resolved',
+        grams: 120,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 60,
+        foodIdentityKey: 'canonical:egg',
+      });
+    });
+
+    it('should resolve "2 bananen" to 240g through portion knowledge', () => {
+      const result = resolvePortionGrams('bananen', 0, 2);
+      expect(result).toMatchObject({
+        status: 'resolved',
+        grams: 240,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 120,
+        foodIdentityKey: 'canonical:banana',
+      });
+    });
+
+    it('should resolve "2 scheiben toast" to 70g through slice hint', () => {
+      const result = resolvePortionGrams('toast', 0, 2, { unit: 'slice' });
+      expect(result).toMatchObject({
+        status: 'resolved',
+        grams: 70,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 35,
+        foodIdentityKey: 'canonical:toast',
+      });
+    });
+
+    it('should let a user-private carrot hint override the seed hint', () => {
+      const service = new PortionKnowledgeService(
+        new InMemoryPortionHintRepository(SEED_PORTION_HINTS),
+      );
+      const privateHint = service.confirmUserPrivateHint({
+        foodIdentityKey: 'canonical:carrot',
+        unit: 'piece',
+        gramsPerUnit: 80,
+        userId: 'user-1',
+        reviewStatus: 'none',
+      });
+
+      const result = resolvePortionGrams('karotten', 0, 8, {
+        userId: 'user-1',
+        portionKnowledgeService: service,
+      });
+
+      expect(result).toMatchObject({
+        status: 'resolved',
+        grams: 640,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 80,
+        foodIdentityKey: 'canonical:carrot',
+      });
+      expect(privateHint).toMatchObject({
+        visibility: 'user_private',
+        reviewStatus: 'none',
+      });
+      expect(privateHint.visibility).not.toBe('global_verified');
+    });
   });
 
   describe('unit-based canonical foods', () => {
@@ -19,7 +131,7 @@ describe('resolvePortionGrams', () => {
       expect(result).toMatchObject({
         status: 'resolved',
         grams: 60,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
         gramsPerUnit: 60,
       });
     });
@@ -29,7 +141,7 @@ describe('resolvePortionGrams', () => {
       expect(result).toMatchObject({
         status: 'resolved',
         grams: 60,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
         gramsPerUnit: 60,
       });
     });
@@ -39,7 +151,7 @@ describe('resolvePortionGrams', () => {
       expect(result).toMatchObject({
         status: 'resolved',
         grams: 60,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
         gramsPerUnit: 60,
       });
     });
@@ -49,7 +161,7 @@ describe('resolvePortionGrams', () => {
       expect(result).toMatchObject({
         status: 'resolved',
         grams: 120,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
         gramsPerUnit: 60,
       });
     });
@@ -59,7 +171,7 @@ describe('resolvePortionGrams', () => {
       expect(result).toMatchObject({
         status: 'resolved',
         grams: 180,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
         gramsPerUnit: 60,
       });
     });
@@ -86,22 +198,22 @@ describe('resolvePortionGrams', () => {
   });
 
   describe('other canonical foods', () => {
-    it('should resolve "apple" to 150g (1 piece)', () => {
+    it('should resolve "apple" to 180g from the seed portion hint', () => {
       const result = resolvePortionGrams('apple', 0, undefined);
       expect(result).toMatchObject({
         status: 'resolved',
-        grams: 150,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
-        gramsPerUnit: 150,
+        grams: 180,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: 180,
       });
     });
 
-    it('should resolve "2 bananas" to 240g (2 pieces)', () => {
+    it('should resolve "2 bananas" to 240g from the seed portion hint', () => {
       const result = resolvePortionGrams('bananas', 0, 2);
       expect(result).toMatchObject({
         status: 'resolved',
         grams: 240,
-        reasonCode: 'KNOWN_DEFAULT_PORTION',
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
         gramsPerUnit: 120,
       });
     });

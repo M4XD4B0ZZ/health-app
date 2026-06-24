@@ -94,7 +94,8 @@ describe('LogFoodFromRawInputUseCase', () => {
       const entry = await useCase.execute({ rawText: '2 eggs', rawInput: '2 eggs' });
 
       expect(entry.parsedName).toBe('eggs');
-      expect(entry.quantityGrams).toBe(120); // 2 eggs * 60g each
+      expect(entry.quantityGrams).toBe(0); // no explicit grams in input
+      expect(entry.grams).toBe(120); // 2 eggs * 60g each via portion knowledge
     });
 
     it('sollte nur Name ohne Menge parsen', async () => {
@@ -196,7 +197,10 @@ describe('LogFoodFromRawInputUseCase', () => {
 
       const defaultEntry = await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
       mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
-      const correctedEntry = await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
+      const correctedEntry = await useCase.execute({
+        rawText: '300g toast',
+        rawInput: '300g toast',
+      });
 
       const entries = await repository.listEntriesForDate('2026-02-15');
 

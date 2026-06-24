@@ -1,7 +1,12 @@
 import { detectCanonicalEntity } from '../detectCanonicalEntity';
+import { PortionHintUnit } from './PortionHint';
+import { InMemoryPortionHintRepository, PortionKnowledgeService } from './PortionKnowledgeService';
+import { resolveFoodIdentityKey } from './foodIdentity';
+import { SEED_PORTION_HINTS } from './seedPortionHints';
 
 export type PortionGramsReasonCode =
   | 'EXPLICIT_GRAMS'
+  | 'PORTION_KNOWLEDGE_HINT'
   | 'KNOWN_DEFAULT_PORTION'
   | 'COUNT_WITHOUT_PORTION_HINT'
   | 'NO_QUANTITY_LEGACY_100G_FALLBACK';
@@ -12,11 +17,22 @@ export type ResolvePortionGramsResult =
       grams: number;
       reasonCode: PortionGramsReasonCode;
       gramsPerUnit?: number;
+      foodIdentityKey?: string;
     }
   | {
       status: 'needs_edit';
       reasonCode: PortionGramsReasonCode;
     };
+
+export interface ResolvePortionGramsOptions {
+  unit?: string;
+  userId?: string;
+  portionKnowledgeService?: PortionKnowledgeService;
+}
+
+const defaultPortionKnowledgeService = new PortionKnowledgeService(
+  new InMemoryPortionHintRepository(SEED_PORTION_HINTS),
+);
 
 /**
  * Resolves the target grams for a food item, considering unit-based portions.
@@ -33,6 +49,7 @@ export function resolvePortionGrams(
   parsedName: string,
   quantityGrams: number,
   quantityCount?: number,
+  options: ResolvePortionGramsOptions = {},
 ): ResolvePortionGramsResult {
   // If explicit grams are provided, use them (e.g., "200g ei")
   if (quantityGrams > 0) {
@@ -41,6 +58,29 @@ export function resolvePortionGrams(
       grams: quantityGrams,
       reasonCode: 'EXPLICIT_GRAMS',
     };
+  }
+
+  const portionUnit = normalizePortionUnit(options.unit);
+  const foodIdentityKey = resolveFoodIdentityKey(parsedName);
+  if (foodIdentityKey && portionUnit) {
+    const portionKnowledgeService =
+      options.portionKnowledgeService ?? defaultPortionKnowledgeService;
+    const hint = portionKnowledgeService.lookup({
+      foodIdentityKey,
+      unit: portionUnit,
+      userId: options.userId,
+    });
+
+    if (hint) {
+      const count = quantityCount ?? 1;
+      return {
+        status: 'resolved',
+        grams: count * hint.gramsPerUnit,
+        reasonCode: 'PORTION_KNOWLEDGE_HINT',
+        gramsPerUnit: hint.gramsPerUnit,
+        foodIdentityKey,
+      };
+    }
   }
 
   // Check if this is a canonical food with a default portion
@@ -68,4 +108,16 @@ export function resolvePortionGrams(
     grams: 100,
     reasonCode: 'NO_QUANTITY_LEGACY_100G_FALLBACK',
   };
+}
+
+function normalizePortionUnit(unit?: string): PortionHintUnit | null {
+  if (unit === 'slice') {
+    return 'slice';
+  }
+
+  if (unit === undefined || unit === 'count' || unit === 'piece') {
+    return 'piece';
+  }
+
+  return null;
 }

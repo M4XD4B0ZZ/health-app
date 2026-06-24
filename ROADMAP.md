@@ -2457,6 +2457,17 @@ Split input at "und", "mit", ",". Normalize number words. Force resolver per ite
 
 ---
 
+### P1-004B Domain + Local Portion Knowledge MVP
+
+Status: `in_progress`
+
+Implement local/testable portion knowledge for identity-based count/piece/slice resolution.
+Portion hints attach to `foodIdentityKey + unit`, not aliases. User-private confirmed hints are immediately usable for that user and never automatically become global truth.
+
+**DoD:** Seed hints exist for the small MVP set. Carrot aliases share the same canonical identity hint. User-private hints outrank seed/global/source hints for that user. Explicit grams remain authoritative. Unknown count foods still require edit instead of falling back to 100g. Required focused tests and runtime verification pass.
+
+---
+
 ## Tier 1 Planning Targets — Require Later Task Decomposition
 
 The following product modules are Tier 1 planning targets. They are intentionally listed as planning placeholders only and must be decomposed into concrete, verifiable tasks before implementation.

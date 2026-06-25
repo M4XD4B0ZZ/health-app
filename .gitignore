@@ -81,3 +81,5 @@ mcp.json
 
 # VSCode settings
 .vscode/
+
+.idea/

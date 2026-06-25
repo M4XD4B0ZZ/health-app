@@ -3,11 +3,14 @@ import {
   PreparedNutritionResolverDispatch,
 } from './prepareNutritionResolverDispatch';
 import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
+import { PortionNeedsEditError } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
+import { PortionNeedsEditItem } from '../../nutrition/domain/portion/PortionNeedsEdit';
 import container from '../../../infrastructure/di/container';
 
 export interface ResolvePreparedNutritionInputsResult {
   dispatch: PreparedNutritionResolverDispatch;
   resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
+  needsEditItems: PortionNeedsEditItem[];
 }
 
 const CONTROLLED_INPUT_FAILURE_MARKERS = [
@@ -16,6 +19,10 @@ const CONTROLLED_INPUT_FAILURE_MARKERS = [
 ];
 
 export function isControlledInputResolutionFailure(error: unknown): boolean {
+  if (error instanceof PortionNeedsEditError) {
+    return true;
+  }
+
   const message = error instanceof Error ? error.message : String(error);
 
   return CONTROLLED_INPUT_FAILURE_MARKERS.some((marker) => message.includes(marker));
@@ -48,6 +55,11 @@ export async function resolvePreparedNutritionInputs(
         // Pass rawText explicitly to preserve truthfulness
         return await useCase.execute({ rawText: input.raw, rawInput: input.raw });
       } catch (error) {
+        if (error instanceof PortionNeedsEditError) {
+          console.log('Controlled input resolution block:', input.raw);
+          return { needsEdit: error.needsEdit };
+        }
+
         if (isControlledInputResolutionFailure(error)) {
           console.log('Controlled input resolution block:', input.raw);
           return null;
@@ -62,8 +74,13 @@ export async function resolvePreparedNutritionInputs(
 
   return {
     dispatch,
-    resolvedResults: resolvedResults.filter(
-      (r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => r !== null,
-    ),
+    resolvedResults: resolvedResults
+      .filter((r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => r !== null)
+      .filter(
+        (r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => !('needsEdit' in r),
+      ),
+    needsEditItems: resolvedResults
+      .filter((r): r is { needsEdit: PortionNeedsEditItem } => r !== null && 'needsEdit' in r)
+      .map((r) => r.needsEdit),
   };
 }

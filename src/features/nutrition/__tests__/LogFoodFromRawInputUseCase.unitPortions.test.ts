@@ -147,7 +147,11 @@ describe('Unit Portion Fix - Integration Test', () => {
 
     it('should require edit for explicit unknown count foods instead of falling back to 100g', () => {
       const result = resolvePortionGrams('pizza', 0, 2);
-      expect(result).toEqual({ status: 'needs_edit', reasonCode: 'COUNT_WITHOUT_PORTION_HINT' });
+      expect(result).toMatchObject({
+        status: 'needs_edit',
+        reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+        needsEdit: { type: 'portion_needs_edit', rawFoodName: 'pizza', quantity: 2 },
+      });
     });
   });
 });

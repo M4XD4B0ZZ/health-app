@@ -241,7 +241,49 @@ describe('resolvePortionGrams', () => {
 
     it('should require edit instead of silently using 100g for explicit unknown count foods', () => {
       const result = resolvePortionGrams('pizza', 0, 2);
-      expect(result).toEqual({ status: 'needs_edit', reasonCode: 'COUNT_WITHOUT_PORTION_HINT' });
+      expect(result).toMatchObject({
+        status: 'needs_edit',
+        reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+        needsEdit: {
+          type: 'portion_needs_edit',
+          rawInput: 'pizza',
+          rawFoodName: 'pizza',
+          displayName: 'pizza',
+          foodIdentityKey: null,
+          unit: 'piece',
+          quantity: 2,
+          suggestedGramsPerUnit: 60,
+          suggestionSource: 'generic_fallback',
+          message: 'Ich kenne das Stückgewicht für pizza noch nicht. Schätzen?',
+        },
+      });
+    });
+  });
+
+  describe('structured needs-edit context', () => {
+    it('returns full context for known identity count foods without a piece hint', () => {
+      const result = resolvePortionGrams('schinken', 0, 2, {
+        rawInput: 'zwei scheiben schinken',
+        unit: 'slice',
+      });
+
+      expect(result).toMatchObject({
+        status: 'needs_edit',
+        reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+        needsEdit: {
+          type: 'portion_needs_edit',
+          reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+          rawInput: 'zwei scheiben schinken',
+          rawFoodName: 'schinken',
+          displayName: 'schinken',
+          foodIdentityKey: 'canonical:ham',
+          unit: 'slice',
+          quantity: 2,
+          suggestedGramsPerUnit: 35,
+          suggestionSource: 'generic_fallback',
+          message: 'Ich kenne das Stückgewicht für schinken noch nicht. Schätzen?',
+        },
+      });
     });
   });
 

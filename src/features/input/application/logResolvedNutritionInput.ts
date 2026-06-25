@@ -4,12 +4,14 @@ import {
 } from './prepareNutritionResolverDispatch';
 import { resolvePreparedNutritionInputs } from './resolvePreparedNutritionInputs';
 import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
+import { PortionNeedsEditItem } from '../../nutrition/domain/portion/PortionNeedsEdit';
 
 export interface LogResolvedNutritionInputResult {
   dispatch: PreparedNutritionResolverDispatch;
   resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
   persistedEntries: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
   blockedEntries: number;
+  needsEditItems: PortionNeedsEditItem[];
 }
 
 /**
@@ -21,7 +23,7 @@ export async function logResolvedNutritionInput(
   rawInputOrDispatch: string | PreparedNutritionResolverDispatch,
 ): Promise<LogResolvedNutritionInputResult> {
   // Resolve prepared inputs first
-  const { dispatch, resolvedResults } =
+  const { dispatch, resolvedResults, needsEditItems } =
     typeof rawInputOrDispatch === 'string'
       ? await resolvePreparedNutritionInputs(prepareNutritionResolverDispatch(rawInputOrDispatch))
       : await resolvePreparedNutritionInputs(rawInputOrDispatch);
@@ -34,5 +36,6 @@ export async function logResolvedNutritionInput(
     resolvedResults,
     persistedEntries,
     blockedEntries,
+    needsEditItems,
   };
 }

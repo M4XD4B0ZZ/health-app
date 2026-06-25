@@ -1,6 +1,7 @@
 import { FoodEntry } from '../../domain/models/NutritionTypes';
 import { detectCanonicalEntity } from '../../domain/detectCanonicalEntity';
 import { resolvePortionGrams } from '../../domain/portion/resolvePortionGrams';
+import { PortionNeedsEditItem } from '../../domain/portion/PortionNeedsEdit';
 import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 import { Clock } from '../ports/Clock';
 import { IdGenerator } from '../ports/IdGenerator';
@@ -153,12 +154,10 @@ export class LogFoodFromRawInputUseCase {
             parsed.name,
             quantityGrams,
             parsed.quantityCount,
-            { unit: parsed.unit },
+            { unit: parsed.unit, rawInput },
           );
           if (portionResolution.status === 'needs_edit') {
-            throw new Error(
-              `PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT reason=${portionResolution.reasonCode} input: ${rawInput}`,
-            );
+            throw new PortionNeedsEditError(portionResolution.needsEdit);
           }
           const targetGrams = portionResolution.grams;
           const computed = computeTotals(result.canonicalFood.per100g, targetGrams, 1);
@@ -621,5 +620,16 @@ export class LogFoodFromRawInputUseCase {
 
     const parsedName = normalizeText(entry.parsedName);
     return parsedName.length > 0 ? parsedName : undefined;
+  }
+}
+
+export class PortionNeedsEditError extends Error {
+  readonly code = 'PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT';
+
+  constructor(readonly needsEdit: PortionNeedsEditItem) {
+    super(
+      `PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT reason=${needsEdit.reasonCode} input: ${needsEdit.rawInput}`,
+    );
+    this.name = 'PortionNeedsEditError';
   }
 }

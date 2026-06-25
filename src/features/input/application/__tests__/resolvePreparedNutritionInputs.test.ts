@@ -60,14 +60,32 @@ describe('resolvePreparedNutritionInputs', () => {
     expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 
-  it('does not use console.error for expected missing portion input blocks', async () => {
-    const input = '8 karotten';
+  it('preserves structured needs-edit context for expected missing portion input blocks', async () => {
+    const input = 'zwei scheiben schinken';
     const dispatch = prepareNutritionResolverDispatch(input, 'de');
     const result = await resolvePreparedNutritionInputs(dispatch);
 
     expect(result.dispatch.readyRequests).toHaveLength(1);
     expect(result.resolvedResults).toHaveLength(0);
+    expect(result.needsEditItems).toEqual([
+      expect.objectContaining({
+        type: 'portion_needs_edit',
+        reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+        rawInput: 'zwei scheiben schinken',
+        rawFoodName: 'schinken',
+        displayName: 'schinken',
+        foodIdentityKey: 'canonical:ham',
+        unit: 'slice',
+        quantity: 2,
+        suggestedGramsPerUnit: 35,
+        suggestionSource: 'generic_fallback',
+        message: 'Ich kenne das Stückgewicht für schinken noch nicht. Schätzen?',
+      }),
+    ]);
     expect(consoleErrorSpy).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith('Controlled input resolution block:', '8 karotten');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      'Controlled input resolution block:',
+      'zwei scheiben schinken',
+    );
   });
 });

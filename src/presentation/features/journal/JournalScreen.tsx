@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
+import type { PortionNeedsEditItem } from '../../../features/nutrition/domain/portion/PortionNeedsEdit';
 import { View, StyleSheet, Modal } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useNavigation } from '@react-navigation/native';
@@ -102,6 +103,9 @@ const JournalScreen: React.FC = () => {
   };
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
+  const [portionNeedsEditItems, setPortionNeedsEditItems] = React.useState<PortionNeedsEditItem[]>(
+    [],
+  );
   const [recognizedItems, setRecognizedItems] = React.useState<
     { name: string; quantity: number | null; unit: string | null; kcal: number | null }[]
   >([]);
@@ -116,6 +120,7 @@ const JournalScreen: React.FC = () => {
     setStatusMessage('');
     setTrustMessage('');
     setUnresolvedItems([]);
+    setPortionNeedsEditItems([]);
     setRecognizedItems([]);
   };
 
@@ -150,6 +155,7 @@ const JournalScreen: React.FC = () => {
       setUnresolvedItems(
         result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
       );
+      setPortionNeedsEditItems(result.needsEditItems);
 
       const remainingPersistedEntries = [...result.persistedEntries];
 
@@ -174,7 +180,11 @@ const JournalScreen: React.FC = () => {
       setRecognizedItems(recognizedWithKcal);
 
       if (blockedCount > 0) {
-        setStatusMessage('Eintrag konnte nicht verarbeitet werden');
+        setStatusMessage(
+          result.needsEditItems.length > 0
+            ? 'Portionsgewicht fehlt'
+            : 'Eintrag konnte nicht verarbeitet werden',
+        );
         setTrustMessage(nextTrustMessage);
         setProcessingState('error');
         return;
@@ -283,6 +293,20 @@ const JournalScreen: React.FC = () => {
                   item.quantity !== null && item.unit ? `${item.quantity} ${item.unit}` : undefined
                 }
                 kcal={item.kcal}
+              />
+            ))}
+          </View>
+        )}
+
+        {portionNeedsEditItems.length > 0 && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Portionsgewicht fehlt</AppText>
+            {portionNeedsEditItems.map((item) => (
+              <EntryRow
+                key={`${item.rawInput}:${item.unit}:${item.quantity}`}
+                title={item.displayName}
+                subtitle={`${item.quantity} ${item.unit} · ${item.message}`}
+                kcal={null}
               />
             ))}
           </View>

@@ -94,4 +94,22 @@ describe('logResolvedNutritionInput', () => {
     expect(result.blockedEntries).toBe(1);
     expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
+
+  it('exposes structured needs-edit items while preserving blockedEntries count', async () => {
+    const result = await logResolvedNutritionInput('zwei scheiben schinken');
+
+    expect(result.resolvedResults).toHaveLength(0);
+    expect(result.persistedEntries).toHaveLength(0);
+    expect(result.blockedEntries).toBe(1);
+    expect(result.needsEditItems).toEqual([
+      expect.objectContaining({
+        type: 'portion_needs_edit',
+        rawInput: 'zwei scheiben schinken',
+        rawFoodName: 'schinken',
+        foodIdentityKey: 'canonical:ham',
+        unit: 'slice',
+        quantity: 2,
+      }),
+    ]);
+  });
 });

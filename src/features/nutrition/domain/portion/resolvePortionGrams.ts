@@ -1,6 +1,7 @@
 import { detectCanonicalEntity } from '../detectCanonicalEntity';
 import { PortionHintUnit } from './PortionHint';
 import { InMemoryPortionHintRepository, PortionKnowledgeService } from './PortionKnowledgeService';
+import { PortionNeedsEditItem, buildPortionNeedsEditItem } from './PortionNeedsEdit';
 import { resolveFoodIdentityKey } from './foodIdentity';
 import { SEED_PORTION_HINTS } from './seedPortionHints';
 
@@ -22,11 +23,13 @@ export type ResolvePortionGramsResult =
   | {
       status: 'needs_edit';
       reasonCode: PortionGramsReasonCode;
+      needsEdit: PortionNeedsEditItem;
     };
 
 export interface ResolvePortionGramsOptions {
   unit?: string;
   userId?: string;
+  rawInput?: string;
   portionKnowledgeService?: PortionKnowledgeService;
 }
 
@@ -81,6 +84,16 @@ export function resolvePortionGrams(
         foodIdentityKey,
       };
     }
+
+    if (quantityCount !== undefined && options.unit !== undefined) {
+      return buildNeedsEditResult({
+        parsedName,
+        quantityCount,
+        foodIdentityKey,
+        portionUnit,
+        rawInput: options.rawInput,
+      });
+    }
   }
 
   // Check if this is a canonical food with a default portion
@@ -96,10 +109,13 @@ export function resolvePortionGrams(
   }
 
   if (quantityCount !== undefined) {
-    return {
-      status: 'needs_edit',
-      reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
-    };
+    return buildNeedsEditResult({
+      parsedName,
+      quantityCount,
+      foodIdentityKey,
+      portionUnit: portionUnit ?? 'piece',
+      rawInput: options.rawInput,
+    });
   }
 
   // Preserve existing no-quantity legacy behavior for now; explicit count/slice/piece is blocked above.
@@ -107,6 +123,29 @@ export function resolvePortionGrams(
     status: 'resolved',
     grams: 100,
     reasonCode: 'NO_QUANTITY_LEGACY_100G_FALLBACK',
+  };
+}
+
+function buildNeedsEditResult(args: {
+  parsedName: string;
+  quantityCount: number;
+  foodIdentityKey: string | null;
+  portionUnit: PortionHintUnit;
+  rawInput?: string;
+}): ResolvePortionGramsResult {
+  return {
+    status: 'needs_edit',
+    reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+    needsEdit: buildPortionNeedsEditItem({
+      reasonCode: 'COUNT_WITHOUT_PORTION_HINT',
+      rawInput: args.rawInput ?? args.parsedName,
+      rawFoodName: args.parsedName,
+      foodIdentityKey: args.foodIdentityKey,
+      unit: args.portionUnit,
+      quantity: args.quantityCount,
+      suggestedGramsPerUnit: args.portionUnit === 'piece' ? 60 : 35,
+      suggestionSource: 'generic_fallback',
+    }),
   };
 }
 

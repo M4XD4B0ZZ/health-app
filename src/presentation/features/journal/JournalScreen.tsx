@@ -19,20 +19,11 @@ import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineSt
 import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
+import { buildFoodEntryDisplay } from './journalEntryDisplay';
 
 const formatCalories = (value: number) => Math.round(value).toString();
 const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
 const LOCAL_PORTION_HINT_USER_ID = 'local-user';
-
-const buildEntrySubtitle = (entry: FoodEntry) => {
-  const grams = entry.grams ?? entry.quantityGrams;
-
-  if (!grams || grams <= 0) {
-    return undefined;
-  }
-
-  return `${Math.round(grams)} g`;
-};
 
 function buildTrustMessage(
   confidenceReason: string,
@@ -384,7 +375,10 @@ const JournalScreen: React.FC = () => {
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Portionsgewicht fehlt</AppText>
             {portionNeedsEditItems.map((item) => (
-              <View key={`${item.rawInput}:${item.unit}:${item.quantity}`} style={styles.portionPrompt}>
+              <View
+                key={`${item.rawInput}:${item.unit}:${item.quantity}`}
+                style={styles.portionPrompt}
+              >
                 <EntryRow
                   title={item.displayName}
                   subtitle={`${item.quantity} ${item.unit} · ${item.message}`}
@@ -427,17 +421,21 @@ const JournalScreen: React.FC = () => {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Heutige Einträge</AppText>
           {persistedDailyEntries.length > 0 ? (
-            persistedDailyEntries.map((item) => (
-              <EntryRow
-                key={item.id}
-                title={item.rawInput || item.parsedName}
-                subtitle={buildEntrySubtitle(item)}
-                kcal={item.calories}
-                onPress={() => handleOpenEdit(item)}
-                actionLabel="Löschen"
-                onActionPress={() => handleDeleteEntry(item.id)}
-              />
-            ))
+            persistedDailyEntries.map((item) => {
+              const display = buildFoodEntryDisplay(item);
+
+              return (
+                <EntryRow
+                  key={item.id}
+                  title={display.title}
+                  subtitle={display.subtitle}
+                  kcal={item.calories}
+                  onPress={() => handleOpenEdit(item)}
+                  actionLabel="Löschen"
+                  onActionPress={() => handleDeleteEntry(item.id)}
+                />
+              );
+            })
           ) : (
             <AppText tone="muted">Noch keine gespeicherten Einträge für heute.</AppText>
           )}

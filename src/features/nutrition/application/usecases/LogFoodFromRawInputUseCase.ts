@@ -17,6 +17,7 @@ import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
 import { ResolverDecision, ResolverDecisionSummary } from '../../domain/models';
 import { PortionParser } from '../../domain/portion/PortionParser';
 import { computeTotals, NutritionTotalsBreakdown } from '../../domain/portion/computeTotals';
+import { PortionKnowledgeService } from '../../domain/portion/PortionKnowledgeService';
 import { buildLogDecisionMeta } from '../services/explainability/buildLogDecisionMeta';
 import { summarizeResolverDecision } from '../services/explainability/summarizeResolverDecision';
 import { AssumptionTag } from '../../domain/models/AssumptionTag';
@@ -42,6 +43,7 @@ export class LogFoodFromRawInputUseCase {
   private readonly engine: NutritionEngine;
   private readonly portionParser: PortionParser;
   private static readonly CORRECTION_WINDOW_MS = 30 * 60 * 1000;
+  static readonly LOCAL_PORTION_HINT_USER_ID = 'local-user';
 
   constructor(
     private readonly repository: FoodEntryRepository,
@@ -53,6 +55,7 @@ export class LogFoodFromRawInputUseCase {
     private readonly aiFoodMapper?: AiFoodMapper,
     private readonly nutritionLookup?: NutritionLookup, // Fallback für Kompatibilität
     private readonly resolver?: FoodCatalogResolver,
+    private readonly portionKnowledgeService?: PortionKnowledgeService,
   ) {
     if (!resolver) throw new Error('DI_MISSING_RESOLVER');
     this.engine = new NutritionEngine();
@@ -150,11 +153,16 @@ export class LogFoodFromRawInputUseCase {
 
         if (result.canonicalFood) {
           // Use portion-aware logic for unit-based foods like "egg"
-          const portionResolution = resolvePortionGrams(
+          const portionResolution = await resolvePortionGrams(
             parsed.name,
             quantityGrams,
             parsed.quantityCount,
-            { unit: parsed.unit, rawInput },
+            {
+              unit: parsed.unit,
+              rawInput,
+              userId: LogFoodFromRawInputUseCase.LOCAL_PORTION_HINT_USER_ID,
+              portionKnowledgeService: this.portionKnowledgeService,
+            },
           );
           if (portionResolution.status === 'needs_edit') {
             throw new PortionNeedsEditError(portionResolution.needsEdit);

@@ -12,6 +12,7 @@ import { NutritionEngine } from '../../domain/engine/NutritionEngine';
 import { isComplexMealInput } from '../utils/InputComplexity';
 import { LogFoodFromRawInputUseCase } from './LogFoodFromRawInputUseCase';
 import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
+import { PortionKnowledgeService } from '../../domain/portion/PortionKnowledgeService';
 import { normalizeText } from '../utils/normalizeText';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { splitMultiItemInput } from '../utils/splitMultiItemInput';
@@ -67,6 +68,7 @@ export class LogMealFromRawInputUseCase {
     private readonly nutritionLookup?: NutritionLookup,
     private readonly aiMealParser?: AiMealParser,
     private readonly resolver?: FoodCatalogResolver,
+    private readonly portionKnowledgeService?: PortionKnowledgeService,
   ) {
     this.engine = new NutritionEngine();
     this.singleItemUseCase = this.createSingleItemUseCase(repository, this.aliasRepository);
@@ -86,6 +88,7 @@ export class LogMealFromRawInputUseCase {
       this.aiFoodMapper,
       this.nutritionLookup,
       this.resolver,
+      this.portionKnowledgeService,
     );
   }
 

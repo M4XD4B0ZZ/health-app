@@ -31,11 +31,14 @@ import {
   SetManualGoalsUseCase,
   CalculateGoalsFromMetabolismInputsUseCase,
   PersistedReminderSettingsRepository,
+  PersistedPortionHintRepository,
   GetReminderSettingsUseCase,
   SetReminderSettingsUseCase,
   GetReminderDecisionUseCase,
   GetCalendarMonthSummaryUseCase,
 } from '../../features/nutrition';
+import { PortionKnowledgeService } from '../../features/nutrition/domain/portion/PortionKnowledgeService';
+import { SEED_PORTION_HINTS } from '../../features/nutrition/domain/portion/seedPortionHints';
 
 import { SequentialFoodCatalogResolver } from '../../features/nutrition/application/services/SequentialFoodCatalogResolver';
 import { DefaultConfidenceEngine } from '../../features/nutrition/domain/confidence/DefaultConfidenceEngine';
@@ -116,6 +119,7 @@ class Container {
   private _authRepository: AuthRepository;
   private _nutritionGoalsRepository: GoalsRepository;
   private _reminderSettingsRepository: ReminderSettingsRepository;
+  private _portionKnowledgeService: PortionKnowledgeService;
 
   // Goals Feature - Infrastructure
   private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
@@ -172,6 +176,9 @@ class Container {
     this._authRepository = new SupabaseAuthRepository();
     this._nutritionGoalsRepository = new PersistedGoalsRepository(this._keyValueStore);
     this._reminderSettingsRepository = new PersistedReminderSettingsRepository(this._keyValueStore);
+    this._portionKnowledgeService = new PortionKnowledgeService(
+      new PersistedPortionHintRepository(this._keyValueStore, SEED_PORTION_HINTS),
+    );
 
     // Goals infrastructure
     this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
@@ -242,6 +249,7 @@ class Container {
       this._aiFoodMapper,
       this._nutritionLookup,
       foodCatalogResolver,
+      this._portionKnowledgeService,
     );
 
     this._logMealFromRawInputUseCase = new LogMealFromRawInputUseCase(
@@ -255,6 +263,7 @@ class Container {
       this._nutritionLookup,
       this._aiMealParser,
       foodCatalogResolver,
+      this._portionKnowledgeService,
     );
 
     this._getDailySummaryUseCase = new GetDailySummaryUseCase(
@@ -373,6 +382,10 @@ class Container {
 
   get authRepository(): AuthRepository {
     return this._authRepository;
+  }
+
+  get portionKnowledgeService(): PortionKnowledgeService {
+    return this._portionKnowledgeService;
   }
 
   // Goals Infrastructure

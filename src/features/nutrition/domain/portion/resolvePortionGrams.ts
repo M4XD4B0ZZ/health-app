@@ -48,12 +48,12 @@ const defaultPortionKnowledgeService = new PortionKnowledgeService(
  * @param quantityCount - Count from parser (e.g., 2 for "2 eggs")
  * @returns Safe portion resolution result for calculation or needs-edit handling
  */
-export function resolvePortionGrams(
+export async function resolvePortionGrams(
   parsedName: string,
   quantityGrams: number,
   quantityCount?: number,
   options: ResolvePortionGramsOptions = {},
-): ResolvePortionGramsResult {
+): Promise<ResolvePortionGramsResult> {
   // If explicit grams are provided, use them (e.g., "200g ei")
   if (quantityGrams > 0) {
     return {
@@ -68,7 +68,7 @@ export function resolvePortionGrams(
   if (foodIdentityKey && portionUnit) {
     const portionKnowledgeService =
       options.portionKnowledgeService ?? defaultPortionKnowledgeService;
-    const hint = portionKnowledgeService.lookup({
+    const hint = await portionKnowledgeService.lookup({
       foodIdentityKey,
       unit: portionUnit,
       userId: options.userId,

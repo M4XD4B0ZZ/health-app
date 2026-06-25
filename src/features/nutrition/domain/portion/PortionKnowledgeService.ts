@@ -1,8 +1,8 @@
 import { PortionHint, PortionHintLookup, PortionHintUnit } from './PortionHint';
 
 export interface PortionHintRepository {
-  findByFoodIdentityAndUnit(lookup: PortionHintLookup): PortionHint[];
-  saveUserPrivateHint(hint: PortionHint): PortionHint;
+  findByFoodIdentityAndUnit(lookup: PortionHintLookup): Promise<PortionHint[]>;
+  saveUserPrivateHint(hint: PortionHint): Promise<PortionHint>;
 }
 
 export class InMemoryPortionHintRepository implements PortionHintRepository {
@@ -12,13 +12,13 @@ export class InMemoryPortionHintRepository implements PortionHintRepository {
     this.hints = [...seedHints];
   }
 
-  findByFoodIdentityAndUnit(lookup: PortionHintLookup): PortionHint[] {
+  async findByFoodIdentityAndUnit(lookup: PortionHintLookup): Promise<PortionHint[]> {
     return this.hints.filter(
       (hint) => hint.foodIdentityKey === lookup.foodIdentityKey && hint.unit === lookup.unit,
     );
   }
 
-  saveUserPrivateHint(hint: PortionHint): PortionHint {
+  async saveUserPrivateHint(hint: PortionHint): Promise<PortionHint> {
     const privateHint: PortionHint = {
       ...hint,
       source: 'user_confirmed',
@@ -46,8 +46,8 @@ export class InMemoryPortionHintRepository implements PortionHintRepository {
 export class PortionKnowledgeService {
   constructor(private readonly repository: PortionHintRepository) {}
 
-  lookup(lookup: PortionHintLookup): PortionHint | null {
-    const hints = this.repository.findByFoodIdentityAndUnit(lookup);
+  async lookup(lookup: PortionHintLookup): Promise<PortionHint | null> {
+    const hints = await this.repository.findByFoodIdentityAndUnit(lookup);
 
     return (
       this.findUserPrivateHint(hints, lookup.userId) ??
@@ -66,7 +66,7 @@ export class PortionKnowledgeService {
     confidence?: number;
     reviewStatus?: PortionHint['reviewStatus'];
     now?: string;
-  }): PortionHint {
+  }): Promise<PortionHint> {
     return this.repository.saveUserPrivateHint({
       foodIdentityKey: args.foodIdentityKey,
       unit: args.unit,
@@ -74,7 +74,7 @@ export class PortionKnowledgeService {
       source: 'user_confirmed',
       visibility: 'user_private',
       reviewStatus: args.reviewStatus ?? 'pending',
-      confidence: args.confidence ?? 1,
+      confidence: args.confidence ?? 0.6,
       evidenceCount: 1,
       userId: args.userId,
       createdAt: args.now,

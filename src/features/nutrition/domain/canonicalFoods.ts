@@ -256,6 +256,17 @@ export const CANONICAL_FOODS: CanonicalFood[] = [
     },
   },
   {
+    id: 'radish',
+    aliases: {
+      de: ['radieschen'],
+      en: ['radish', 'radishes'],
+    },
+    sourceQueries: {
+      usda: 'radish',
+      off: 'radieschen',
+    },
+  },
+  {
     id: 'onion',
     aliases: {
       de: ['zwiebel', 'zwiebeln'],

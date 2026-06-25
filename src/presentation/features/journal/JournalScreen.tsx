@@ -22,6 +22,7 @@ import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
 
 const formatCalories = (value: number) => Math.round(value).toString();
 const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
+const LOCAL_PORTION_HINT_USER_ID = 'local-user';
 
 const buildEntrySubtitle = (entry: FoodEntry) => {
   const grams = entry.grams ?? entry.quantityGrams;
@@ -57,6 +58,16 @@ function buildTrustMessage(
   return '';
 }
 
+function formatPortionUnitLabel(unit: PortionNeedsEditItem['unit']) {
+  return unit === 'slice' ? 'Scheibe' : 'Stück';
+}
+
+function parsePositiveNumber(value: string): number | null {
+  const normalized = value.replace(',', '.').trim();
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 const JournalScreen: React.FC = () => {
   // const navigation = useNavigation();
   const [rawInput, setRawInput] = useState('');
@@ -72,6 +83,9 @@ const JournalScreen: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
+  const [manualPortionItem, setManualPortionItem] = useState<PortionNeedsEditItem | null>(null);
+  const [manualTotalGrams, setManualTotalGrams] = useState('');
+  const [portionActionInFlight, setPortionActionInFlight] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -132,84 +146,95 @@ const JournalScreen: React.FC = () => {
     }
   };
 
+  const submitRawInput = async (
+    inputToSubmit: string,
+    options: { clearRawInputOnSuccess?: boolean } = { clearRawInputOnSuccess: true },
+  ) => {
+    clearSubmitFeedback();
+    setProcessingState('processing');
+    setStatusMessage('Logging meal...');
+
+    const result = await logResolvedNutritionInput(inputToSubmit);
+    const persistedCount = result.persistedEntries.length;
+    const unresolvedCount = result.dispatch.unresolvedRequests.length;
+    const blockedCount = result.blockedEntries;
+    const nextTrustMessage = buildTrustMessage(
+      result.dispatch.confidence.reason,
+      persistedCount,
+      unresolvedCount,
+    );
+
+    setUnresolvedItems(
+      result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
+    );
+    setPortionNeedsEditItems(result.needsEditItems);
+
+    const remainingPersistedEntries = [...result.persistedEntries];
+
+    // Keep the runtime UI on the same per-item list as persistence without relying only on array index.
+    const recognizedWithKcal = result.dispatch.readyRequests.map((item, index) => {
+      const persistedEntryIndex = remainingPersistedEntries.findIndex(
+        (entry) => entry.rawInput.toLowerCase() === item.rawName.toLowerCase(),
+      );
+      const persistedEntry =
+        persistedEntryIndex >= 0
+          ? remainingPersistedEntries.splice(persistedEntryIndex, 1)[0]
+          : result.persistedEntries[index];
+
+      return {
+        name: item.rawName,
+        quantity: item.quantity ?? null,
+        unit: item.unit ?? null,
+        kcal: persistedEntry?.calories ?? null, // Use null instead of 0 when no data available
+      };
+    });
+
+    setRecognizedItems(recognizedWithKcal);
+
+    if (blockedCount > 0) {
+      setStatusMessage(
+        result.needsEditItems.length > 0
+          ? 'Portionsgewicht fehlt'
+          : 'Eintrag konnte nicht verarbeitet werden',
+      );
+      setTrustMessage(nextTrustMessage);
+      setProcessingState('error');
+      return;
+    }
+
+    if (persistedCount > 0 && unresolvedCount === 0) {
+      setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
+      setTrustMessage('');
+      setProcessingState('done');
+      if (options.clearRawInputOnSuccess) {
+        setRawInput('');
+      }
+    } else if (persistedCount > 0 && unresolvedCount > 0) {
+      setStatusMessage(
+        `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`,
+      );
+      setTrustMessage(nextTrustMessage);
+      setProcessingState('done'); // Partial success is still success, not error
+      if (options.clearRawInputOnSuccess) {
+        setRawInput('');
+      }
+    } else {
+      setStatusMessage('Nicht erkannt — bitte genauer eingeben');
+      setTrustMessage(nextTrustMessage);
+      setProcessingState('error');
+      return;
+    }
+
+    await loadJournalData();
+  };
+
   const handleQuickAdd = async () => {
     const inputToSubmit = rawInput.trim();
 
     if (!inputToSubmit || !claimJournalSubmitSlot(submitInFlightRef)) return;
 
-    clearSubmitFeedback();
-    setProcessingState('processing');
-    setStatusMessage('Logging meal...');
-
     try {
-      const result = await logResolvedNutritionInput(inputToSubmit);
-      const persistedCount = result.persistedEntries.length;
-      const unresolvedCount = result.dispatch.unresolvedRequests.length;
-      const blockedCount = result.blockedEntries;
-      const nextTrustMessage = buildTrustMessage(
-        result.dispatch.confidence.reason,
-        persistedCount,
-        unresolvedCount,
-      );
-
-      setUnresolvedItems(
-        result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
-      );
-      setPortionNeedsEditItems(result.needsEditItems);
-
-      const remainingPersistedEntries = [...result.persistedEntries];
-
-      // Keep the runtime UI on the same per-item list as persistence without relying only on array index.
-      const recognizedWithKcal = result.dispatch.readyRequests.map((item, index) => {
-        const persistedEntryIndex = remainingPersistedEntries.findIndex(
-          (entry) => entry.rawInput.toLowerCase() === item.rawName.toLowerCase(),
-        );
-        const persistedEntry =
-          persistedEntryIndex >= 0
-            ? remainingPersistedEntries.splice(persistedEntryIndex, 1)[0]
-            : result.persistedEntries[index];
-
-        return {
-          name: item.rawName,
-          quantity: item.quantity ?? null,
-          unit: item.unit ?? null,
-          kcal: persistedEntry?.calories ?? null, // Use null instead of 0 when no data available
-        };
-      });
-
-      setRecognizedItems(recognizedWithKcal);
-
-      if (blockedCount > 0) {
-        setStatusMessage(
-          result.needsEditItems.length > 0
-            ? 'Portionsgewicht fehlt'
-            : 'Eintrag konnte nicht verarbeitet werden',
-        );
-        setTrustMessage(nextTrustMessage);
-        setProcessingState('error');
-        return;
-      }
-
-      if (persistedCount > 0 && unresolvedCount === 0) {
-        setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
-        setTrustMessage('');
-        setProcessingState('done');
-        setRawInput('');
-      } else if (persistedCount > 0 && unresolvedCount > 0) {
-        setStatusMessage(
-          `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`,
-        );
-        setTrustMessage(nextTrustMessage);
-        setProcessingState('done'); // Partial success is still success, not error
-        setRawInput('');
-      } else {
-        setStatusMessage('Nicht erkannt — bitte genauer eingeben');
-        setTrustMessage(nextTrustMessage);
-        setProcessingState('error');
-        return;
-      }
-
-      await loadJournalData();
+      await submitRawInput(inputToSubmit, { clearRawInputOnSuccess: true });
     } catch {
       setProcessingState('error');
       setStatusMessage('Eintrag konnte nicht verarbeitet werden');
@@ -217,6 +242,63 @@ const JournalScreen: React.FC = () => {
     } finally {
       submitInFlightRef.current = false;
     }
+  };
+
+  const savePortionHintAndRetry = async (item: PortionNeedsEditItem, gramsPerUnit: number) => {
+    if (!item.foodIdentityKey || portionActionInFlight) return;
+
+    setPortionActionInFlight(true);
+    try {
+      const now = new Date().toISOString();
+      await container.portionKnowledgeService.confirmUserPrivateHint({
+        foodIdentityKey: item.foodIdentityKey,
+        unit: item.unit,
+        gramsPerUnit,
+        userId: LOCAL_PORTION_HINT_USER_ID,
+        confidence: 0.6,
+        reviewStatus: 'pending',
+        now,
+      });
+
+      await submitRawInput(item.rawInput, { clearRawInputOnSuccess: false });
+      setManualPortionItem(null);
+      setManualTotalGrams('');
+    } catch (err) {
+      console.error('Failed to save portion hint and retry input:', err);
+      setProcessingState('error');
+      setStatusMessage('Portionsgewicht konnte nicht gespeichert werden');
+      setTrustMessage('Es wurde nichts gespeichert. Bitte Grammangabe erneut prüfen.');
+    } finally {
+      setPortionActionInFlight(false);
+    }
+  };
+
+  const handleUseEstimatedPortion = async (item: PortionNeedsEditItem) => {
+    if (!item.suggestedGramsPerUnit) return;
+    await savePortionHintAndRetry(item, item.suggestedGramsPerUnit);
+  };
+
+  const handleOpenManualPortion = (item: PortionNeedsEditItem) => {
+    setManualPortionItem(item);
+    setManualTotalGrams('');
+  };
+
+  const handleCloseManualPortion = () => {
+    setManualPortionItem(null);
+    setManualTotalGrams('');
+  };
+
+  const handleConfirmManualPortion = async () => {
+    if (!manualPortionItem || manualPortionItem.quantity <= 0) return;
+
+    const totalGrams = parsePositiveNumber(manualTotalGrams);
+    if (!totalGrams) {
+      setStatusMessage('Bitte gültige Grammzahl eingeben');
+      setProcessingState('error');
+      return;
+    }
+
+    await savePortionHintAndRetry(manualPortionItem, totalGrams / manualPortionItem.quantity);
   };
 
   const handleReinsertUnresolvedItems = () => {
@@ -302,12 +384,27 @@ const JournalScreen: React.FC = () => {
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Portionsgewicht fehlt</AppText>
             {portionNeedsEditItems.map((item) => (
-              <EntryRow
-                key={`${item.rawInput}:${item.unit}:${item.quantity}`}
-                title={item.displayName}
-                subtitle={`${item.quantity} ${item.unit} · ${item.message}`}
-                kcal={null}
-              />
+              <View key={`${item.rawInput}:${item.unit}:${item.quantity}`} style={styles.portionPrompt}>
+                <EntryRow
+                  title={item.displayName}
+                  subtitle={`${item.quantity} ${item.unit} · ${item.message}`}
+                  kcal={null}
+                />
+                <View style={styles.portionActions}>
+                  <PrimaryButton
+                    label={`${item.suggestedGramsPerUnit ?? 60}g pro ${formatPortionUnitLabel(item.unit)} verwenden`}
+                    onPress={() => handleUseEstimatedPortion(item)}
+                    disabled={portionActionInFlight || !item.foodIdentityKey}
+                    style={styles.portionActionButton}
+                  />
+                  <PrimaryButton
+                    label="Gramm eingeben"
+                    onPress={() => handleOpenManualPortion(item)}
+                    disabled={portionActionInFlight || !item.foodIdentityKey}
+                    style={styles.portionActionButton}
+                  />
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -380,6 +477,32 @@ const JournalScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={manualPortionItem !== null} animationType="slide" transparent>
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContent}>
+            <AppText style={styles.modalTitle}>Gramm eingeben</AppText>
+            <AppText style={styles.trustMessage}>
+              {manualPortionItem
+                ? `Wie viel wiegen ${manualPortionItem.quantity} ${manualPortionItem.displayName} insgesamt?`
+                : ''}
+            </AppText>
+            <InputArea
+              placeholder="Gesamtgewicht in g"
+              value={manualTotalGrams}
+              onChangeText={setManualTotalGrams}
+              blurOnSubmit
+              style={styles.inputArea}
+            />
+            <PrimaryButton
+              label="Speichern und Eintrag übernehmen"
+              onPress={handleConfirmManualPortion}
+              disabled={portionActionInFlight}
+            />
+            <IconButton icon="close" onPress={handleCloseManualPortion} />
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 };
@@ -412,6 +535,16 @@ const styles = StyleSheet.create({
   },
   correctionButton: {
     marginTop: 8,
+  },
+  portionPrompt: {
+    marginBottom: tokens.spacing.s,
+  },
+  portionActions: {
+    gap: tokens.spacing.xs,
+    marginTop: tokens.spacing.xs,
+  },
+  portionActionButton: {
+    alignSelf: 'stretch',
   },
   summaryBar: {
     marginTop: 16,

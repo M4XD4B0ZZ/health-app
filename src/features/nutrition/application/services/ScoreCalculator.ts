@@ -17,37 +17,86 @@ const SOURCE_TRUST: Record<string, number> = {
   [RESOLVER_SOURCE_LABELS.MOCK_OFF]: 0.7,
 };
 
-const GENERIC_CARROT_QUERIES = new Set([
-  'carrot',
-  'carrots',
-  'karotte',
-  'karotten',
-  'moehre',
-  'moehren',
-  'möhre',
-  'möhren',
-]);
+// ---------------------------------------------------------------------------
+// Semantic Candidate Classification (Generic, Scalable)
+// ---------------------------------------------------------------------------
 
-const GENERIC_CARROT_PLAIN_NAMES = new Set([
-  'carrots raw',
-  'carrot raw',
-  'moehren',
-  'möhren',
-  'karotten',
-]);
+type CandidateSemanticClass =
+  | 'plain_raw'
+  | 'simple_generic'
+  | 'prepared_simple'
+  | 'prepared_complex'
+  | 'composite_dish'
+  | 'branded_product'
+  | 'unknown';
 
-const GENERIC_CARROT_PRODUCT_TOKENS = [
+type QueryIntent = 'generic_short' | 'product_specific' | 'ambiguous';
+
+// Plain/raw indicators
+const PLAIN_RAW_TOKENS = [
+  'raw',
+  'roh',
+  'fresh',
+  'frisch',
+  'uncooked',
+  'ungekocht',
+] as const;
+
+// Simple preparation indicators
+const SIMPLE_PREP_TOKENS = [
+  'cooked',
+  'gekocht',
+  'boiled',
+  'steamed',
+  'gedaempft',
+  'gedämpft',
+  'baked',
+  'gebacken',
+] as const;
+
+// Complex preparation indicators
+const COMPLEX_PREP_TOKENS = [
+  'scalloped',
+  'fried',
+  'frittiert',
+  'glazed',
+  'glasiert',
+  'dehydrated',
+  'dried',
+  'getrocknet',
+  'powder',
+  'pulver',
+  'chips',
+  'canned',
+  'konserviert',
+  'pickled',
+  'eingelegt',
+] as const;
+
+// Composite/product dish indicators
+const COMPOSITE_TOKENS = [
   'cake',
-  'cupcake',
+  'kuchen',
+  'pie',
+  'torte',
   'muffin',
   'bread',
   'brot',
+  'soup',
+  'suppe',
+  'salad',
+  'salat',
   'juice',
   'saft',
-  'glazed',
-  'dehydrated',
-  'snack',
-  'babyfood',
+  'sauce',
+  'sosse',
+  'soße',
+  'dish',
+  'gericht',
+  'casserole',
+  'auflauf',
+  'stew',
+  'eintopf',
 ] as const;
 
 function clamp01(value: number): number {
@@ -80,32 +129,118 @@ function tokenOverlap(query: string, candidate: string): number {
 }
 
 function hasToken(value: string, token: string): boolean {
-  return new RegExp(`(^|\\s)${token}($|\\s)`).test(value);
+  return new RegExp(`(^|\\s)${token}($|\\s)`, 'i').test(value);
 }
 
-function getGenericCarrotNameAdjustment(
-  normalizedQuery: string,
-  normalizedCandidate: string,
-): {
-  multiplier: number;
-  note?: string;
-} {
-  if (!GENERIC_CARROT_QUERIES.has(normalizedQuery)) {
-    return { multiplier: 1 };
+function hasAnyToken(value: string, tokens: readonly string[]): string | null {
+  for (const token of tokens) {
+    if (hasToken(value, token)) {
+      return token;
+    }
+  }
+  return null;
+}
+
+/**
+ * Classifies a candidate food based on its normalized name and source.
+ * Uses generic token-based semantic analysis (no per-food hardcoding).
+ */
+function classifyCandidate(
+  normalizedName: string,
+  source: ResolverSourceLabel,
+): CandidateSemanticClass {
+  const lower = normalizedName.toLowerCase();
+
+  // Check for composite/product dishes first (most specific)
+  if (hasAnyToken(lower, COMPOSITE_TOKENS)) {
+    return 'composite_dish';
   }
 
-  if (GENERIC_CARROT_PLAIN_NAMES.has(normalizedCandidate)) {
-    return { multiplier: 1.12, note: 'generic_carrot_plain_boost' };
+  // Check for complex preparation
+  if (hasAnyToken(lower, COMPLEX_PREP_TOKENS)) {
+    return 'prepared_complex';
   }
 
-  const productToken = GENERIC_CARROT_PRODUCT_TOKENS.find((token) =>
-    hasToken(normalizedCandidate, token),
-  );
-  if (productToken && !hasToken(normalizedQuery, productToken)) {
-    return { multiplier: 0.45, note: `generic_carrot_product_penalty_${productToken}` };
+  // Check for plain/raw indicators
+  if (hasAnyToken(lower, PLAIN_RAW_TOKENS)) {
+    return 'plain_raw';
   }
 
-  return { multiplier: 1 };
+  // Check for simple preparation
+  if (hasAnyToken(lower, SIMPLE_PREP_TOKENS)) {
+    return 'prepared_simple';
+  }
+
+  // Branded products from OFF without other markers
+  if (source === RESOLVER_SOURCE_LABELS.OFF) {
+    return 'branded_product';
+  }
+
+  // Default: simple generic food
+  return 'simple_generic';
+}
+
+/**
+ * Detects query intent based on query structure and content.
+ */
+function detectQueryIntent(normalizedQuery: string): QueryIntent {
+  const tokens = normalizedQuery.trim().split(/\s+/).filter(Boolean);
+
+  // Short query (1-2 tokens) without composite markers → generic_short
+  if (tokens.length <= 2 && !hasAnyToken(normalizedQuery, COMPOSITE_TOKENS)) {
+    return 'generic_short';
+  }
+
+  // Query contains composite/product tokens → product_specific
+  if (hasAnyToken(normalizedQuery, COMPOSITE_TOKENS)) {
+    return 'product_specific';
+  }
+
+  // Fallback
+  return 'ambiguous';
+}
+
+/**
+ * Returns semantic ranking multiplier based on query intent and candidate class.
+ * Generic short queries prefer plain/raw/simple candidates.
+ * Product-specific queries allow matching composite/product candidates.
+ */
+function getSemanticRankingMultiplier(
+  queryIntent: QueryIntent,
+  candidateClass: CandidateSemanticClass,
+): { multiplier: number; note?: string } {
+  // Generic short query (e.g., "tomaten", "karotten", "8 bananen")
+  if (queryIntent === 'generic_short') {
+    switch (candidateClass) {
+      case 'plain_raw':
+        return { multiplier: 1.15, note: 'semantic_plain_raw_boost' };
+      case 'simple_generic':
+        return { multiplier: 1.08, note: 'semantic_simple_generic_boost' };
+      case 'prepared_simple':
+        return { multiplier: 0.95, note: 'semantic_prepared_simple_penalty' };
+      case 'prepared_complex':
+        return { multiplier: 0.50, note: 'semantic_prepared_complex_penalty' };
+      case 'composite_dish':
+        return { multiplier: 0.40, note: 'semantic_composite_dish_penalty' };
+      case 'branded_product':
+        return { multiplier: 0.85, note: 'semantic_branded_product_penalty' };
+      default:
+        return { multiplier: 1.0 };
+    }
+  }
+
+  // Product-specific query (e.g., "tomato soup", "carrot cake")
+  // Allow matching composite/product candidates without penalty
+  if (queryIntent === 'product_specific') {
+    return { multiplier: 1.0, note: 'semantic_product_intent_no_penalty' };
+  }
+
+  // Ambiguous - mild preference for plain/raw
+  if (candidateClass === 'plain_raw') {
+    return { multiplier: 1.05, note: 'semantic_plain_raw_mild_boost' };
+  }
+
+  return { multiplier: 1.0 };
 }
 
 // Plausible kcal ranges for common generic foods (per 100g)
@@ -210,7 +345,18 @@ export class ScoreCalculator {
         notes.push(`missing_${field}`);
       }
     }
-    const dataQualityScore = completeCount / fields.length;
+
+    // Severe penalty for all-zero macro records (unusable data)
+    let dataQualityScore = completeCount / fields.length;
+    if (
+      macros.kcal === 0 &&
+      macros.protein === 0 &&
+      macros.carbs === 0 &&
+      macros.fat === 0
+    ) {
+      notes.push('zero_macro_record');
+      dataQualityScore = 0.1; // Severe penalty
+    }
 
     const estimatedKcal = 4 * macros.protein + 4 * macros.carbs + 9 * macros.fat;
     let kcalConsistencyScore = 0.5;
@@ -243,14 +389,19 @@ export class ScoreCalculator {
     // Apply plausibility penalty
     finalScore = clamp01(finalScore * plausibilityScore);
 
-    const carrotNameAdjustment = getGenericCarrotNameAdjustment(
-      input.normalizedQuery.toLowerCase(),
-      input.candidateFood.normalizedName.toLowerCase(),
+    // Apply semantic ranking multiplier (generic, scalable)
+    const queryIntent = detectQueryIntent(input.normalizedQuery);
+    const candidateClass = classifyCandidate(
+      input.candidateFood.normalizedName,
+      input.candidateSource,
     );
-    if (carrotNameAdjustment.note) {
-      notes.push(carrotNameAdjustment.note);
+    notes.push(`semantic_class_${candidateClass}`);
+
+    const semanticAdjustment = getSemanticRankingMultiplier(queryIntent, candidateClass);
+    if (semanticAdjustment.note) {
+      notes.push(semanticAdjustment.note);
     }
-    finalScore = clamp01(finalScore * carrotNameAdjustment.multiplier);
+    finalScore = clamp01(finalScore * semanticAdjustment.multiplier);
 
     return {
       matchScore,

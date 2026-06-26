@@ -17,37 +17,71 @@ const SOURCE_TRUST: Record<string, number> = {
   [RESOLVER_SOURCE_LABELS.MOCK_OFF]: 0.7,
 };
 
-const GENERIC_CARROT_QUERIES = new Set([
-  'carrot',
-  'carrots',
-  'karotte',
-  'karotten',
-  'moehre',
-  'moehren',
-  'möhre',
-  'möhren',
-]);
+export type CandidateSemanticClass =
+  | 'plain_raw'
+  | 'simple_generic'
+  | 'prepared_simple'
+  | 'prepared_complex'
+  | 'composite_dish'
+  | 'branded_product'
+  | 'unknown';
 
-const GENERIC_CARROT_PLAIN_NAMES = new Set([
-  'carrots raw',
-  'carrot raw',
-  'moehren',
-  'möhren',
-  'karotten',
-]);
+type QueryIntent = 'generic_short' | 'product_specific' | 'ambiguous';
 
-const GENERIC_CARROT_PRODUCT_TOKENS = [
+const PLAIN_RAW_INDICATORS = ['raw', 'roh', 'fresh', 'frisch', 'uncooked', 'ungekocht'] as const;
+
+const SIMPLE_PREP_INDICATORS = [
+  'cooked',
+  'gekocht',
+  'boiled',
+  'steamed',
+  'gedämpft',
+  'gedaempft',
+  'baked',
+  'gebacken',
+] as const;
+
+const COMPLEX_PREP_INDICATORS = [
+  'scalloped',
+  'fried',
+  'frittiert',
+  'glazed',
+  'glasiert',
+  'dehydrated',
+  'dried',
+  'getrocknet',
+  'powder',
+  'pulver',
+  'chips',
+  'canned',
+  'konserviert',
+  'pickled',
+  'eingelegt',
+] as const;
+
+const COMPOSITE_DISH_INDICATORS = [
   'cake',
-  'cupcake',
+  'kuchen',
+  'pie',
+  'torte',
   'muffin',
   'bread',
   'brot',
+  'soup',
+  'suppe',
+  'salad',
+  'salat',
   'juice',
   'saft',
-  'glazed',
-  'dehydrated',
-  'snack',
-  'babyfood',
+  'sauce',
+  'sosse',
+  'soße',
+  'dish',
+  'gericht',
+  'casserole',
+  'auflauf',
+  'stew',
+  'eintopf',
 ] as const;
 
 function clamp01(value: number): number {
@@ -55,7 +89,11 @@ function clamp01(value: number): number {
 }
 
 function tokenize(value: string): string[] {
-  return value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return value
+    .toLowerCase()
+    .trim()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
 }
 
 function tokenOverlap(query: string, candidate: string): number {
@@ -79,33 +117,106 @@ function tokenOverlap(query: string, candidate: string): number {
   return unionSize > 0 ? intersection / unionSize : 0;
 }
 
-function hasToken(value: string, token: string): boolean {
-  return new RegExp(`(^|\\s)${token}($|\\s)`).test(value);
+function hasAnyToken(tokens: Set<string>, indicators: readonly string[]): boolean {
+  return indicators.some((indicator) => tokens.has(indicator));
 }
 
-function getGenericCarrotNameAdjustment(
-  normalizedQuery: string,
-  normalizedCandidate: string,
+export function classifyCandidateSemanticClass(value: string): CandidateSemanticClass {
+  const tokens = new Set(tokenize(value));
+
+  if (tokens.size === 0) {
+    return 'unknown';
+  }
+
+  if (hasAnyToken(tokens, COMPOSITE_DISH_INDICATORS)) {
+    return 'composite_dish';
+  }
+
+  if (hasAnyToken(tokens, COMPLEX_PREP_INDICATORS)) {
+    return 'prepared_complex';
+  }
+
+  if (hasAnyToken(tokens, PLAIN_RAW_INDICATORS)) {
+    return 'plain_raw';
+  }
+
+  if (hasAnyToken(tokens, SIMPLE_PREP_INDICATORS)) {
+    return 'prepared_simple';
+  }
+
+  if (tokens.size >= 3) {
+    return 'branded_product';
+  }
+
+  return 'simple_generic';
+}
+
+function detectQueryIntent(normalizedQuery: string): QueryIntent {
+  const queryTokens = tokenize(normalizedQuery);
+  const queryTokenSet = new Set(queryTokens);
+
+  if (
+    hasAnyToken(queryTokenSet, COMPOSITE_DISH_INDICATORS) ||
+    hasAnyToken(queryTokenSet, COMPLEX_PREP_INDICATORS)
+  ) {
+    return 'product_specific';
+  }
+
+  if (queryTokens.length > 0 && queryTokens.length <= 2) {
+    return 'generic_short';
+  }
+
+  return 'ambiguous';
+}
+
+function getSemanticRankingAdjustment(
+  queryIntent: QueryIntent,
+  semanticClass: CandidateSemanticClass,
 ): {
   multiplier: number;
-  note?: string;
+  notes: string[];
 } {
-  if (!GENERIC_CARROT_QUERIES.has(normalizedQuery)) {
-    return { multiplier: 1 };
+  const notes = [`semantic_class_${semanticClass}`];
+
+  if (queryIntent === 'product_specific') {
+    if (semanticClass === 'composite_dish' || semanticClass === 'prepared_complex') {
+      notes.push('semantic_product_intent_no_penalty');
+    }
+
+    return { multiplier: 1, notes };
   }
 
-  if (GENERIC_CARROT_PLAIN_NAMES.has(normalizedCandidate)) {
-    return { multiplier: 1.12, note: 'generic_carrot_plain_boost' };
+  if (queryIntent === 'ambiguous') {
+    if (semanticClass === 'plain_raw') {
+      notes.push('semantic_plain_raw_boost');
+      return { multiplier: 1.06, notes };
+    }
+
+    return { multiplier: 1, notes };
   }
 
-  const productToken = GENERIC_CARROT_PRODUCT_TOKENS.find((token) =>
-    hasToken(normalizedCandidate, token),
-  );
-  if (productToken && !hasToken(normalizedQuery, productToken)) {
-    return { multiplier: 0.45, note: `generic_carrot_product_penalty_${productToken}` };
+  switch (semanticClass) {
+    case 'plain_raw':
+      notes.push('semantic_plain_raw_boost');
+      return { multiplier: 1.18, notes };
+    case 'simple_generic':
+      notes.push('semantic_simple_generic_boost');
+      return { multiplier: 1.08, notes };
+    case 'prepared_simple':
+      notes.push('semantic_prepared_simple_penalty');
+      return { multiplier: 0.92, notes };
+    case 'prepared_complex':
+      notes.push('semantic_prepared_complex_penalty');
+      return { multiplier: 0.5, notes };
+    case 'composite_dish':
+      notes.push('semantic_composite_dish_penalty');
+      return { multiplier: 0.5, notes };
+    case 'branded_product':
+      notes.push('semantic_branded_product_penalty');
+      return { multiplier: 0.85, notes };
+    case 'unknown':
+      return { multiplier: 1, notes };
   }
-
-  return { multiplier: 1 };
 }
 
 // Plausible kcal ranges for common generic foods (per 100g)
@@ -174,6 +285,8 @@ export class ScoreCalculator {
   calculate(input: ScoreCalculatorInput): ResolvedFoodCandidateBreakdown {
     const notes: string[] = [];
     const macros = input.candidateFood.macrosPer100g;
+    const semanticClass = classifyCandidateSemanticClass(input.candidateFood.normalizedName);
+    const queryIntent = detectQueryIntent(input.normalizedQuery);
 
     const overlap = tokenOverlap(input.normalizedQuery, input.candidateFood.normalizedName);
     const prefixBonus =
@@ -211,6 +324,10 @@ export class ScoreCalculator {
       }
     }
     const dataQualityScore = completeCount / fields.length;
+    const hasZeroMacroRecord = fields.every((field) => macros[field] === 0);
+    if (hasZeroMacroRecord) {
+      notes.push('zero_macro_record');
+    }
 
     const estimatedKcal = 4 * macros.protein + 4 * macros.carbs + 9 * macros.fat;
     let kcalConsistencyScore = 0.5;
@@ -243,14 +360,13 @@ export class ScoreCalculator {
     // Apply plausibility penalty
     finalScore = clamp01(finalScore * plausibilityScore);
 
-    const carrotNameAdjustment = getGenericCarrotNameAdjustment(
-      input.normalizedQuery.toLowerCase(),
-      input.candidateFood.normalizedName.toLowerCase(),
-    );
-    if (carrotNameAdjustment.note) {
-      notes.push(carrotNameAdjustment.note);
+    const semanticAdjustment = getSemanticRankingAdjustment(queryIntent, semanticClass);
+    notes.push(...semanticAdjustment.notes);
+    finalScore = clamp01(finalScore * semanticAdjustment.multiplier);
+
+    if (hasZeroMacroRecord) {
+      finalScore = clamp01(finalScore * 0.15);
     }
-    finalScore = clamp01(finalScore * carrotNameAdjustment.multiplier);
 
     return {
       matchScore,

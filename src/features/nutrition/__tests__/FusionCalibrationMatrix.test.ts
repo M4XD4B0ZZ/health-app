@@ -876,7 +876,10 @@ describe('Fusion Scoring Calibration Matrix', () => {
       console.log(logLines.join('\n'));
 
       // Write to file - overwrite on first test, append on subsequent tests
-      const logFilePath = path.resolve(__dirname, '../../../../logs/fusion_calibration.log');
+      const logDir = path.resolve(__dirname, '../../../../logs');
+      const logFilePath = path.join(logDir, 'fusion_calibration.log');
+
+      fs.mkdirSync(logDir, { recursive: true });
 
       if (isFirstTest) {
         fs.writeFileSync(logFilePath, logLines.join('\n') + '\n\n');

@@ -21,7 +21,7 @@ const SOURCE_TRUST: Record<string, number> = {
 // Semantic Candidate Classification (Generic, Scalable)
 // ---------------------------------------------------------------------------
 
-type CandidateSemanticClass =
+export type CandidateSemanticClass =
   | 'plain_raw'
   | 'simple_generic'
   | 'prepared_simple'
@@ -33,7 +33,7 @@ type CandidateSemanticClass =
 type QueryIntent = 'generic_short' | 'product_specific' | 'ambiguous';
 
 // Plain/raw indicators
-const PLAIN_RAW_TOKENS = [
+const PLAIN_RAW_INDICATORS = [
   'raw',
   'roh',
   'fresh',
@@ -43,19 +43,19 @@ const PLAIN_RAW_TOKENS = [
 ] as const;
 
 // Simple preparation indicators
-const SIMPLE_PREP_TOKENS = [
+const SIMPLE_PREP_INDICATORS = [
   'cooked',
   'gekocht',
   'boiled',
   'steamed',
-  'gedaempft',
   'gedämpft',
+  'gedaempft',
   'baked',
   'gebacken',
 ] as const;
 
 // Complex preparation indicators
-const COMPLEX_PREP_TOKENS = [
+const COMPLEX_PREP_INDICATORS = [
   'scalloped',
   'fried',
   'frittiert',
@@ -74,7 +74,7 @@ const COMPLEX_PREP_TOKENS = [
 ] as const;
 
 // Composite/product dish indicators
-const COMPOSITE_TOKENS = [
+const COMPOSITE_DISH_INDICATORS = [
   'cake',
   'kuchen',
   'pie',
@@ -104,7 +104,11 @@ function clamp01(value: number): number {
 }
 
 function tokenize(value: string): string[] {
-  return value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return value
+    .toLowerCase()
+    .trim()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
 }
 
 function tokenOverlap(query: string, candidate: string): number {
@@ -128,46 +132,38 @@ function tokenOverlap(query: string, candidate: string): number {
   return unionSize > 0 ? intersection / unionSize : 0;
 }
 
-function hasToken(value: string, token: string): boolean {
-  return new RegExp(`(^|\\s)${token}($|\\s)`, 'i').test(value);
-}
-
-function hasAnyToken(value: string, tokens: readonly string[]): string | null {
-  for (const token of tokens) {
-    if (hasToken(value, token)) {
-      return token;
-    }
-  }
-  return null;
+function hasAnyToken(tokens: Set<string>, indicators: readonly string[]): boolean {
+  return indicators.some((indicator) => tokens.has(indicator));
 }
 
 /**
- * Classifies a candidate food based on its normalized name and source.
+ * Classifies a candidate food based on its normalized name.
  * Uses generic token-based semantic analysis (no per-food hardcoding).
+ * Exported for test access.
  */
-function classifyCandidate(
-  normalizedName: string,
+export function classifyCandidateSemanticClass(
+  value: string,
   source: ResolverSourceLabel,
 ): CandidateSemanticClass {
-  const lower = normalizedName.toLowerCase();
+  const tokens = new Set(tokenize(value));
 
-  // Check for composite/product dishes first (most specific)
-  if (hasAnyToken(lower, COMPOSITE_TOKENS)) {
+  if (tokens.size === 0) {
+    return 'unknown';
+  }
+
+  if (hasAnyToken(tokens, COMPOSITE_DISH_INDICATORS)) {
     return 'composite_dish';
   }
 
-  // Check for complex preparation
-  if (hasAnyToken(lower, COMPLEX_PREP_TOKENS)) {
+  if (hasAnyToken(tokens, COMPLEX_PREP_INDICATORS)) {
     return 'prepared_complex';
   }
 
-  // Check for plain/raw indicators
-  if (hasAnyToken(lower, PLAIN_RAW_TOKENS)) {
+  if (hasAnyToken(tokens, PLAIN_RAW_INDICATORS)) {
     return 'plain_raw';
   }
 
-  // Check for simple preparation
-  if (hasAnyToken(lower, SIMPLE_PREP_TOKENS)) {
+  if (hasAnyToken(tokens, SIMPLE_PREP_INDICATORS)) {
     return 'prepared_simple';
   }
 
@@ -176,7 +172,6 @@ function classifyCandidate(
     return 'branded_product';
   }
 
-  // Default: simple generic food
   return 'simple_generic';
 }
 
@@ -184,63 +179,77 @@ function classifyCandidate(
  * Detects query intent based on query structure and content.
  */
 function detectQueryIntent(normalizedQuery: string): QueryIntent {
-  const tokens = normalizedQuery.trim().split(/\s+/).filter(Boolean);
+  const queryTokens = tokenize(normalizedQuery);
+  const queryTokenSet = new Set(queryTokens);
 
-  // Short query (1-2 tokens) without composite markers → generic_short
-  if (tokens.length <= 2 && !hasAnyToken(normalizedQuery, COMPOSITE_TOKENS)) {
-    return 'generic_short';
-  }
-
-  // Query contains composite/product tokens → product_specific
-  if (hasAnyToken(normalizedQuery, COMPOSITE_TOKENS)) {
+  if (
+    hasAnyToken(queryTokenSet, COMPOSITE_DISH_INDICATORS) ||
+    hasAnyToken(queryTokenSet, COMPLEX_PREP_INDICATORS)
+  ) {
     return 'product_specific';
   }
 
-  // Fallback
+  if (queryTokens.length > 0 && queryTokens.length <= 2) {
+    return 'generic_short';
+  }
+
   return 'ambiguous';
 }
 
 /**
- * Returns semantic ranking multiplier based on query intent and candidate class.
+ * Returns semantic ranking adjustment based on query intent and candidate class.
  * Generic short queries prefer plain/raw/simple candidates.
  * Product-specific queries allow matching composite/product candidates.
  */
-function getSemanticRankingMultiplier(
+function getSemanticRankingAdjustment(
   queryIntent: QueryIntent,
-  candidateClass: CandidateSemanticClass,
-): { multiplier: number; note?: string } {
-  // Generic short query (e.g., "tomaten", "karotten", "8 bananen")
-  if (queryIntent === 'generic_short') {
-    switch (candidateClass) {
-      case 'plain_raw':
-        return { multiplier: 1.15, note: 'semantic_plain_raw_boost' };
-      case 'simple_generic':
-        return { multiplier: 1.08, note: 'semantic_simple_generic_boost' };
-      case 'prepared_simple':
-        return { multiplier: 0.95, note: 'semantic_prepared_simple_penalty' };
-      case 'prepared_complex':
-        return { multiplier: 0.50, note: 'semantic_prepared_complex_penalty' };
-      case 'composite_dish':
-        return { multiplier: 0.40, note: 'semantic_composite_dish_penalty' };
-      case 'branded_product':
-        return { multiplier: 0.85, note: 'semantic_branded_product_penalty' };
-      default:
-        return { multiplier: 1.0 };
-    }
-  }
+  semanticClass: CandidateSemanticClass,
+): {
+  multiplier: number;
+  notes: string[];
+} {
+  const notes = [`semantic_class_${semanticClass}`];
 
-  // Product-specific query (e.g., "tomato soup", "carrot cake")
-  // Allow matching composite/product candidates without penalty
   if (queryIntent === 'product_specific') {
-    return { multiplier: 1.0, note: 'semantic_product_intent_no_penalty' };
+    if (semanticClass === 'composite_dish' || semanticClass === 'prepared_complex') {
+      notes.push('semantic_product_intent_no_penalty');
+    }
+
+    return { multiplier: 1, notes };
   }
 
-  // Ambiguous - mild preference for plain/raw
-  if (candidateClass === 'plain_raw') {
-    return { multiplier: 1.05, note: 'semantic_plain_raw_mild_boost' };
+  if (queryIntent === 'ambiguous') {
+    if (semanticClass === 'plain_raw') {
+      notes.push('semantic_plain_raw_boost');
+      return { multiplier: 1.06, notes };
+    }
+
+    return { multiplier: 1, notes };
   }
 
-  return { multiplier: 1.0 };
+  // Generic short query (e.g., "tomaten", "karotten", "8 bananen")
+  switch (semanticClass) {
+    case 'plain_raw':
+      notes.push('semantic_plain_raw_boost');
+      return { multiplier: 1.18, notes };
+    case 'simple_generic':
+      notes.push('semantic_simple_generic_boost');
+      return { multiplier: 1.08, notes };
+    case 'prepared_simple':
+      notes.push('semantic_prepared_simple_penalty');
+      return { multiplier: 0.92, notes };
+    case 'prepared_complex':
+      notes.push('semantic_prepared_complex_penalty');
+      return { multiplier: 0.5, notes };
+    case 'composite_dish':
+      notes.push('semantic_composite_dish_penalty');
+      return { multiplier: 0.5, notes };
+    case 'branded_product':
+      notes.push('semantic_branded_product_penalty');
+      return { multiplier: 0.85, notes };
+    case 'unknown':
+      return { multiplier: 1, notes };
+  }
 }
 
 // Plausible kcal ranges for common generic foods (per 100g)
@@ -309,6 +318,11 @@ export class ScoreCalculator {
   calculate(input: ScoreCalculatorInput): ResolvedFoodCandidateBreakdown {
     const notes: string[] = [];
     const macros = input.candidateFood.macrosPer100g;
+    const semanticClass = classifyCandidateSemanticClass(
+      input.candidateFood.normalizedName,
+      input.candidateSource,
+    );
+    const queryIntent = detectQueryIntent(input.normalizedQuery);
 
     const overlap = tokenOverlap(input.normalizedQuery, input.candidateFood.normalizedName);
     const prefixBonus =
@@ -346,16 +360,10 @@ export class ScoreCalculator {
       }
     }
 
-    // Severe penalty for all-zero macro records (unusable data)
-    let dataQualityScore = completeCount / fields.length;
-    if (
-      macros.kcal === 0 &&
-      macros.protein === 0 &&
-      macros.carbs === 0 &&
-      macros.fat === 0
-    ) {
+    const dataQualityScore = completeCount / fields.length;
+    const hasZeroMacroRecord = fields.every((field) => macros[field] === 0);
+    if (hasZeroMacroRecord) {
       notes.push('zero_macro_record');
-      dataQualityScore = 0.1; // Severe penalty
     }
 
     const estimatedKcal = 4 * macros.protein + 4 * macros.carbs + 9 * macros.fat;
@@ -389,19 +397,15 @@ export class ScoreCalculator {
     // Apply plausibility penalty
     finalScore = clamp01(finalScore * plausibilityScore);
 
-    // Apply semantic ranking multiplier (generic, scalable)
-    const queryIntent = detectQueryIntent(input.normalizedQuery);
-    const candidateClass = classifyCandidate(
-      input.candidateFood.normalizedName,
-      input.candidateSource,
-    );
-    notes.push(`semantic_class_${candidateClass}`);
-
-    const semanticAdjustment = getSemanticRankingMultiplier(queryIntent, candidateClass);
-    if (semanticAdjustment.note) {
-      notes.push(semanticAdjustment.note);
-    }
+    // Apply semantic ranking adjustment
+    const semanticAdjustment = getSemanticRankingAdjustment(queryIntent, semanticClass);
+    notes.push(...semanticAdjustment.notes);
     finalScore = clamp01(finalScore * semanticAdjustment.multiplier);
+
+    // Apply severe penalty for all-zero macro records (after semantic adjustment)
+    if (hasZeroMacroRecord) {
+      finalScore = clamp01(finalScore * 0.15);
+    }
 
     return {
       matchScore,

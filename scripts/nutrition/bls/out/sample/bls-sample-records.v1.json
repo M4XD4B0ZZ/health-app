@@ -1,0 +1,4545 @@
+{
+  "schemaVersion": "bls-runtime-catalog.v1",
+  "manifest": {
+    "artifact": {
+      "kind": "sample",
+      "purpose": "review-and-determinism-probe",
+      "path": "scripts/nutrition/bls/out/sample/bls-sample-records.v1.json",
+      "recordCount": 20,
+      "contentSha256": "14cd6f1a6ab4b1b29392569f3e18880e122e5f40f2622ad5379eab5a1866ea79"
+    },
+    "generator": {
+      "toolId": "P1-006C3B_BLS_ARTIFACT_WRITER",
+      "version": 1,
+      "deterministic": true,
+      "writesFiles": true,
+      "modifiesRuntimeBlsSourceBehavior": false,
+      "packageFilesModified": false
+    },
+    "selection": {
+      "mode": "sample",
+      "limit": 20,
+      "ordering": "source-workbook-row-order-first-valid-records",
+      "filtering": "requires BLS code, German name, and Tier 1 macro values"
+    },
+    "source": {
+      "sourceId": "BLS_4_0_2025_DE",
+      "dataWorkbook": {
+        "path": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "file": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sheetSelection": {
+          "selector": 1,
+          "limitation": "The first worksheet is read explicitly to avoid loading all workbook sheets."
+        }
+      }
+    },
+    "tiers": {
+      "tier1Required": [
+        {
+          "field": "kcal",
+          "componentCode": "ENERCC",
+          "required": true
+        },
+        {
+          "field": "protein",
+          "componentCode": "PROT625",
+          "required": true
+        },
+        {
+          "field": "fat",
+          "componentCode": "FAT",
+          "required": true
+        },
+        {
+          "field": "carbs",
+          "componentCode": "CHO",
+          "required": true
+        }
+      ],
+      "tier2Optional": [
+        {
+          "field": "energyKj",
+          "componentCode": "ENERCJ"
+        },
+        {
+          "field": "waterG",
+          "componentCode": "WATER"
+        },
+        {
+          "field": "fiberG",
+          "componentCode": "FIBT"
+        },
+        {
+          "field": "sugarG",
+          "componentCode": "SUGAR"
+        },
+        {
+          "field": "starchG",
+          "componentCode": "STARCH"
+        },
+        {
+          "field": "alcoholG",
+          "componentCode": "ALC"
+        },
+        {
+          "field": "saltG",
+          "componentCode": "NACL"
+        },
+        {
+          "field": "sodiumMg",
+          "componentCode": "NA"
+        },
+        {
+          "field": "saturatedFatG",
+          "componentCode": "FASAT"
+        },
+        {
+          "field": "monounsaturatedFatG",
+          "componentCode": "FAMS"
+        },
+        {
+          "field": "polyunsaturatedFatG",
+          "componentCode": "FAPU"
+        },
+        {
+          "field": "omega3G",
+          "componentCode": "FAPUN3"
+        },
+        {
+          "field": "omega6G",
+          "componentCode": "FAPUN6"
+        },
+        {
+          "field": "cholesterolMg",
+          "componentCode": "CHORL"
+        }
+      ]
+    },
+    "mapping": {
+      "headerRowIndex": 0,
+      "headerRowNumber": 1,
+      "dataRowsVisited": 20,
+      "validRecordsSelected": 20,
+      "excludedBeforeLimit": 0,
+      "exclusionCounts": {
+        "missingBlsCode": 0,
+        "missingGermanName": 0,
+        "missingRequiredMacros": 0,
+        "invalidRequiredMacros": 0
+      },
+      "componentTiers": {
+        "tier1Required": [
+          {
+            "field": "kcal",
+            "componentCode": "ENERCC",
+            "required": true
+          },
+          {
+            "field": "protein",
+            "componentCode": "PROT625",
+            "required": true
+          },
+          {
+            "field": "fat",
+            "componentCode": "FAT",
+            "required": true
+          },
+          {
+            "field": "carbs",
+            "componentCode": "CHO",
+            "required": true
+          }
+        ],
+        "tier2Optional": [
+          {
+            "field": "energyKj",
+            "componentCode": "ENERCJ"
+          },
+          {
+            "field": "waterG",
+            "componentCode": "WATER"
+          },
+          {
+            "field": "fiberG",
+            "componentCode": "FIBT"
+          },
+          {
+            "field": "sugarG",
+            "componentCode": "SUGAR"
+          },
+          {
+            "field": "starchG",
+            "componentCode": "STARCH"
+          },
+          {
+            "field": "alcoholG",
+            "componentCode": "ALC"
+          },
+          {
+            "field": "saltG",
+            "componentCode": "NACL"
+          },
+          {
+            "field": "sodiumMg",
+            "componentCode": "NA"
+          },
+          {
+            "field": "saturatedFatG",
+            "componentCode": "FASAT"
+          },
+          {
+            "field": "monounsaturatedFatG",
+            "componentCode": "FAMS"
+          },
+          {
+            "field": "polyunsaturatedFatG",
+            "componentCode": "FAPU"
+          },
+          {
+            "field": "omega3G",
+            "componentCode": "FAPUN3"
+          },
+          {
+            "field": "omega6G",
+            "componentCode": "FAPUN6"
+          },
+          {
+            "field": "cholesterolMg",
+            "componentCode": "CHORL"
+          }
+        ]
+      },
+      "detectedTier1Columns": [
+        {
+          "macro": "kcal",
+          "componentCode": "ENERCC",
+          "found": true,
+          "columnIndex": 6,
+          "columnNumber": 7,
+          "detectedHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]"
+        },
+        {
+          "macro": "protein",
+          "componentCode": "PROT625",
+          "found": true,
+          "columnIndex": 12,
+          "columnNumber": 13,
+          "detectedHeader": "PROT625 Protein (Nx6,25) [g/100g]"
+        },
+        {
+          "macro": "fat",
+          "componentCode": "FAT",
+          "found": true,
+          "columnIndex": 15,
+          "columnNumber": 16,
+          "detectedHeader": "FAT Fett [g/100g]"
+        },
+        {
+          "macro": "carbs",
+          "componentCode": "CHO",
+          "found": true,
+          "columnIndex": 18,
+          "columnNumber": 19,
+          "detectedHeader": "CHO Kohlenhydrate, verfügbar [g/100g]"
+        }
+      ],
+      "detectedTier2Columns": [
+        {
+          "field": "energyKj",
+          "componentCode": "ENERCJ",
+          "found": true,
+          "columnIndex": 3,
+          "columnNumber": 4,
+          "detectedHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]"
+        },
+        {
+          "field": "waterG",
+          "componentCode": "WATER",
+          "found": true,
+          "columnIndex": 9,
+          "columnNumber": 10,
+          "detectedHeader": "WATER Wasser [g/100g]"
+        },
+        {
+          "field": "fiberG",
+          "componentCode": "FIBT",
+          "found": true,
+          "columnIndex": 21,
+          "columnNumber": 22,
+          "detectedHeader": "FIBT Ballaststoffe, gesamt [g/100g]"
+        },
+        {
+          "field": "sugarG",
+          "componentCode": "SUGAR",
+          "found": true,
+          "columnIndex": 219,
+          "columnNumber": 220,
+          "detectedHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]"
+        },
+        {
+          "field": "starchG",
+          "componentCode": "STARCH",
+          "found": true,
+          "columnIndex": 225,
+          "columnNumber": 226,
+          "detectedHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]"
+        },
+        {
+          "field": "alcoholG",
+          "componentCode": "ALC",
+          "found": true,
+          "columnIndex": 24,
+          "columnNumber": 25,
+          "detectedHeader": "ALC Alkohol (Ethanol) [g/100g]"
+        },
+        {
+          "field": "saltG",
+          "componentCode": "NACL",
+          "found": true,
+          "columnIndex": 120,
+          "columnNumber": 121,
+          "detectedHeader": "NACL Salz (Natriumchlorid) [g/100g]"
+        },
+        {
+          "field": "sodiumMg",
+          "componentCode": "NA",
+          "found": true,
+          "columnIndex": 123,
+          "columnNumber": 124,
+          "detectedHeader": "NA Natrium [mg/100g]"
+        },
+        {
+          "field": "saturatedFatG",
+          "componentCode": "FASAT",
+          "found": true,
+          "columnIndex": 246,
+          "columnNumber": 247,
+          "detectedHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]"
+        },
+        {
+          "field": "monounsaturatedFatG",
+          "componentCode": "FAMS",
+          "found": true,
+          "columnIndex": 288,
+          "columnNumber": 289,
+          "detectedHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]"
+        },
+        {
+          "field": "polyunsaturatedFatG",
+          "componentCode": "FAPU",
+          "found": true,
+          "columnIndex": 309,
+          "columnNumber": 310,
+          "detectedHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]"
+        },
+        {
+          "field": "omega3G",
+          "componentCode": "FAPUN3",
+          "found": true,
+          "columnIndex": 312,
+          "columnNumber": 313,
+          "detectedHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]"
+        },
+        {
+          "field": "omega6G",
+          "componentCode": "FAPUN6",
+          "found": true,
+          "columnIndex": 330,
+          "columnNumber": 331,
+          "detectedHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]"
+        },
+        {
+          "field": "cholesterolMg",
+          "componentCode": "CHORL",
+          "found": true,
+          "columnIndex": 354,
+          "columnNumber": 355,
+          "detectedHeader": "CHORL Cholesterin [mg/100g]"
+        }
+      ],
+      "missingTier2Columns": [],
+      "tier2Coverage": {
+        "energyKj": {
+          "componentCode": "ENERCJ",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "waterG": {
+          "componentCode": "WATER",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "fiberG": {
+          "componentCode": "FIBT",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "sugarG": {
+          "componentCode": "SUGAR",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "starchG": {
+          "componentCode": "STARCH",
+          "valuesPresent": 16,
+          "missingOrInvalid": 4
+        },
+        "alcoholG": {
+          "componentCode": "ALC",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "saltG": {
+          "componentCode": "NACL",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "sodiumMg": {
+          "componentCode": "NA",
+          "valuesPresent": 19,
+          "missingOrInvalid": 1
+        },
+        "saturatedFatG": {
+          "componentCode": "FASAT",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "monounsaturatedFatG": {
+          "componentCode": "FAMS",
+          "valuesPresent": 17,
+          "missingOrInvalid": 3
+        },
+        "polyunsaturatedFatG": {
+          "componentCode": "FAPU",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "omega3G": {
+          "componentCode": "FAPUN3",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        },
+        "omega6G": {
+          "componentCode": "FAPUN6",
+          "valuesPresent": 17,
+          "missingOrInvalid": 3
+        },
+        "cholesterolMg": {
+          "componentCode": "CHORL",
+          "valuesPresent": 20,
+          "missingOrInvalid": 0
+        }
+      },
+      "requiredMacroColumns": [
+        {
+          "macro": "kcal",
+          "componentCode": "ENERCC",
+          "found": true,
+          "columnIndex": 6,
+          "columnNumber": 7,
+          "detectedHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]"
+        },
+        {
+          "macro": "protein",
+          "componentCode": "PROT625",
+          "found": true,
+          "columnIndex": 12,
+          "columnNumber": 13,
+          "detectedHeader": "PROT625 Protein (Nx6,25) [g/100g]"
+        },
+        {
+          "macro": "fat",
+          "componentCode": "FAT",
+          "found": true,
+          "columnIndex": 15,
+          "columnNumber": 16,
+          "detectedHeader": "FAT Fett [g/100g]"
+        },
+        {
+          "macro": "carbs",
+          "componentCode": "CHO",
+          "found": true,
+          "columnIndex": 18,
+          "columnNumber": 19,
+          "detectedHeader": "CHO Kohlenhydrate, verfügbar [g/100g]"
+        }
+      ]
+    }
+  },
+  "records": [
+    {
+      "id": "bls-c131000",
+      "blsCode": "C131000",
+      "names": {
+        "de": "Hafer ganzes Korn, roh",
+        "en": "Oat whole grain, raw"
+      },
+      "normalizedName": "hafer ganzes korn roh",
+      "aliases": [
+        "hafer ganzes korn roh",
+        "oat whole grain raw"
+      ],
+      "tokens": [
+        "hafer",
+        "ganzes",
+        "korn",
+        "roh",
+        "oat",
+        "whole",
+        "grain",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 343,
+        "protein": 11.375,
+        "carbs": 53.7,
+        "fat": 7.09
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 1,
+        "sourceRowNumber": 2,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 343,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 11.375,
+            "provenance": "Literatur",
+            "reference": "Converted value from: Koivistoinen P; Mineral element composition of Finnish foods. N, K, Ca, Mg, P, S, Fe, Cu, Mn, Zn, Mo, Co, Ni, Cr, F, Se, Si, Rb, Al, B, Br, Hg, As, Cd, Pb and Ash; Almqvist & Wiksell; 1980",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 53.7,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 7.09,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1443,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 11.45,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 9.3,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 1.08,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 52.6,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.02,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 8,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 1.43,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 2.514,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 2.86,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.12,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 2.74,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1443,
+        "waterG": 11.45,
+        "fiberG": 9.3,
+        "sugarG": 1.08,
+        "starchG": 52.6,
+        "alcoholG": 0,
+        "saltG": 0.02,
+        "sodiumMg": 8,
+        "saturatedFatG": 1.43,
+        "monounsaturatedFatG": 2.514,
+        "polyunsaturatedFatG": 2.86,
+        "omega3G": 0.12,
+        "omega6G": 2.74,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C131000",
+      "displayName": "Hafer ganzes Korn, roh"
+    },
+    {
+      "id": "bls-c133000",
+      "blsCode": "C133000",
+      "names": {
+        "de": "Hafer Flocken",
+        "en": "Oat flakes"
+      },
+      "normalizedName": "hafer flocken",
+      "aliases": [
+        "hafer flocken",
+        "oat flakes"
+      ],
+      "tokens": [
+        "hafer",
+        "flocken",
+        "oat",
+        "flakes"
+      ],
+      "macrosPer100g": {
+        "kcal": 348,
+        "protein": 13.22,
+        "carbs": 53.3,
+        "fat": 6.65
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 2,
+        "sourceRowNumber": 3,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 348,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 13.22,
+            "provenance": "Analyse",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 53.3,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 6.65,
+            "provenance": "Analyse",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1465,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 10.07,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 10.983,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 0.74,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 52.6,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.00495,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 1.98,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 1.34,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 2.359,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 2.682,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.112,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 2.57,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1465,
+        "waterG": 10.07,
+        "fiberG": 10.983,
+        "sugarG": 0.74,
+        "starchG": 52.6,
+        "alcoholG": 0,
+        "saltG": 0.005,
+        "sodiumMg": 1.98,
+        "saturatedFatG": 1.34,
+        "monounsaturatedFatG": 2.359,
+        "polyunsaturatedFatG": 2.682,
+        "omega3G": 0.112,
+        "omega6G": 2.57,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C133000",
+      "displayName": "Hafer Flocken"
+    },
+    {
+      "id": "bls-c141000",
+      "blsCode": "C141000",
+      "names": {
+        "de": "Gerste ganzes Korn, roh",
+        "en": "Barley whole grain, raw"
+      },
+      "normalizedName": "gerste ganzes korn roh",
+      "aliases": [
+        "gerste ganzes korn roh",
+        "barley whole grain raw"
+      ],
+      "tokens": [
+        "gerste",
+        "ganzes",
+        "korn",
+        "roh",
+        "barley",
+        "whole",
+        "grain",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 332,
+        "protein": 11.244,
+        "carbs": 62.6,
+        "fat": 2.1
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 3,
+        "sourceRowNumber": 4,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 332,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 11.244,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 62.6,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 2.1,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1403,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 12.7,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 8.7,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 1.71,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 60.9,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.045,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 18,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.53,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.25,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 1.26,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.11,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 1.15,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1403,
+        "waterG": 12.7,
+        "fiberG": 8.7,
+        "sugarG": 1.71,
+        "starchG": 60.9,
+        "alcoholG": 0,
+        "saltG": 0.045,
+        "sodiumMg": 18,
+        "saturatedFatG": 0.53,
+        "monounsaturatedFatG": 0.25,
+        "polyunsaturatedFatG": 1.26,
+        "omega3G": 0.11,
+        "omega6G": 1.15,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C141000",
+      "displayName": "Gerste ganzes Korn, roh"
+    },
+    {
+      "id": "bls-c243000",
+      "blsCode": "C243000",
+      "names": {
+        "de": "Gerste Mehl",
+        "en": "Barley flour"
+      },
+      "normalizedName": "gerste mehl",
+      "aliases": [
+        "gerste mehl",
+        "barley flour"
+      ],
+      "tokens": [
+        "gerste",
+        "mehl",
+        "barley",
+        "flour"
+      ],
+      "macrosPer100g": {
+        "kcal": 340,
+        "protein": 11.3,
+        "carbs": 62.6,
+        "fat": 2
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 4,
+        "sourceRowNumber": 5,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 340,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 11.3,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 62.6,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 2,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Norwegian Food Safety Authority; Norwegian Food Composition Database; 2021",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1434,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 6.06,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 13,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 1.71,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 60.9,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.02,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 8,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.35,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.91,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1434,
+        "waterG": 6.06,
+        "fiberG": 13,
+        "sugarG": 1.71,
+        "starchG": 60.9,
+        "alcoholG": 0,
+        "saltG": 0.02,
+        "sodiumMg": 8,
+        "saturatedFatG": 0.35,
+        "polyunsaturatedFatG": 1,
+        "omega3G": 0.1,
+        "omega6G": 0.91,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C243000",
+      "displayName": "Gerste Mehl"
+    },
+    {
+      "id": "bls-c341000",
+      "blsCode": "C341000",
+      "names": {
+        "de": "Mais roh",
+        "en": "Maize raw"
+      },
+      "normalizedName": "mais roh",
+      "aliases": [
+        "mais roh",
+        "maize raw"
+      ],
+      "tokens": [
+        "mais",
+        "roh",
+        "maize",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 336,
+        "protein": 8.656,
+        "carbs": 62.84,
+        "fat": 3.8
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 5,
+        "sourceRowNumber": 6,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 336,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 8.656,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 62.84,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 3.8,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1418,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 11.192,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 7.7,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 1.39,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 61.45,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.015,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 6,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.633,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 1.136,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 1.67,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.04,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 1.63,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1418,
+        "waterG": 11.192,
+        "fiberG": 7.7,
+        "sugarG": 1.39,
+        "starchG": 61.45,
+        "alcoholG": 0,
+        "saltG": 0.015,
+        "sodiumMg": 6,
+        "saturatedFatG": 0.633,
+        "monounsaturatedFatG": 1.136,
+        "polyunsaturatedFatG": 1.67,
+        "omega3G": 0.04,
+        "omega6G": 1.63,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C341000",
+      "displayName": "Mais roh"
+    },
+    {
+      "id": "bls-c443000",
+      "blsCode": "C443000",
+      "names": {
+        "de": "Mais Mehl",
+        "en": "Maize flour"
+      },
+      "normalizedName": "mais mehl",
+      "aliases": [
+        "mais mehl",
+        "maize flour"
+      ],
+      "tokens": [
+        "mais",
+        "mehl",
+        "maize",
+        "flour"
+      ],
+      "macrosPer100g": {
+        "kcal": 330,
+        "protein": 8.663,
+        "carbs": 62.84,
+        "fat": 2.82
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 6,
+        "sourceRowNumber": 7,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 330,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 8.663,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 62.84,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 2.82,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1395,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 12,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 9.42,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 1.39,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 61.45,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.002,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.36,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.88,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 1.435,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.025,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 1.41,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1395,
+        "waterG": 12,
+        "fiberG": 9.42,
+        "sugarG": 1.39,
+        "starchG": 61.45,
+        "alcoholG": 0,
+        "saltG": 0.002,
+        "sodiumMg": 1,
+        "saturatedFatG": 0.36,
+        "monounsaturatedFatG": 0.88,
+        "polyunsaturatedFatG": 1.435,
+        "omega3G": 0.025,
+        "omega6G": 1.41,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C443000",
+      "displayName": "Mais Mehl"
+    },
+    {
+      "id": "bls-c352000",
+      "blsCode": "C352000",
+      "names": {
+        "de": "Reis poliert, roh",
+        "en": "White rice raw"
+      },
+      "normalizedName": "reis poliert roh",
+      "aliases": [
+        "reis poliert roh",
+        "white rice raw"
+      ],
+      "tokens": [
+        "reis",
+        "poliert",
+        "roh",
+        "white",
+        "rice",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 351,
+        "protein": 7.931,
+        "carbs": 77.1,
+        "fat": 0.62
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 7,
+        "sourceRowNumber": 8,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 351,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 7.931,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 77.1,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.62,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1488,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 11.88,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 2.5,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 0.28,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 76.8,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.03942,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 15.77,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.13,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.225,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.232,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.012,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.22,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1488,
+        "waterG": 11.88,
+        "fiberG": 2.5,
+        "sugarG": 0.28,
+        "starchG": 76.8,
+        "alcoholG": 0,
+        "saltG": 0.039,
+        "sodiumMg": 15.77,
+        "saturatedFatG": 0.13,
+        "monounsaturatedFatG": 0.225,
+        "polyunsaturatedFatG": 0.232,
+        "omega3G": 0.012,
+        "omega6G": 0.22,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C352000",
+      "displayName": "Reis poliert, roh"
+    },
+    {
+      "id": "bls-c359000",
+      "blsCode": "C359000",
+      "names": {
+        "de": "Reis parboiled, poliert, roh",
+        "en": "Rice parboiled, raw"
+      },
+      "normalizedName": "reis parboiled poliert roh",
+      "aliases": [
+        "reis parboiled poliert roh",
+        "rice parboiled raw"
+      ],
+      "tokens": [
+        "reis",
+        "parboiled",
+        "poliert",
+        "roh",
+        "rice",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 333,
+        "protein": 8.125,
+        "carbs": 72.1,
+        "fat": 1.03
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 8,
+        "sourceRowNumber": 9,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 333,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 8.125,
+            "provenance": "Literatur",
+            "reference": "Converted value from: Koivistoinen P; Mineral element composition of Finnish foods. N, K, Ca, Mg, P, S, Fe, Cu, Mn, Zn, Mo, Co, Ni, Cr, F, Se, Si, Rb, Al, B, Br, Hg, As, Cd, Pb and Ash; Almqvist & Wiksell; 1980",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 72.1,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 1.03,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1413,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 10.6,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 1.4,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 0.34,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 71.8,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.005,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.294,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1413,
+        "waterG": 10.6,
+        "fiberG": 1.4,
+        "sugarG": 0.34,
+        "starchG": 71.8,
+        "alcoholG": 0,
+        "saltG": 0.005,
+        "sodiumMg": 2,
+        "saturatedFatG": 0.294,
+        "polyunsaturatedFatG": 0,
+        "omega3G": 0,
+        "cholesterolMg": 0
+      },
+      "sourceId": "C359000",
+      "displayName": "Reis parboiled, poliert, roh"
+    },
+    {
+      "id": "bls-e401000",
+      "blsCode": "E401000",
+      "names": {
+        "de": "Teigwaren eifrei, roh",
+        "en": "Pasta egg-free, raw"
+      },
+      "normalizedName": "teigwaren eifrei roh",
+      "aliases": [
+        "teigwaren eifrei roh",
+        "pasta egg free raw"
+      ],
+      "tokens": [
+        "teigwaren",
+        "eifrei",
+        "roh",
+        "pasta",
+        "egg",
+        "free",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 346,
+        "protein": 12.4,
+        "carbs": 68.833,
+        "fat": 1.6
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 9,
+        "sourceRowNumber": 10,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 346,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 12.4,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: McCance and Widdowson`s; The Composition of Foods, Seventh Summary Edition; 2015",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 68.833,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 1.6,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "McCance and Widdowson`s; The Composition of Foods, Seventh Summary Edition; 2015",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1467,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 10.37,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 3.406,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 2.015,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 66.818,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.0078,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 3.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.233,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.618,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.038,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.58,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1467,
+        "waterG": 10.37,
+        "fiberG": 3.406,
+        "sugarG": 2.015,
+        "starchG": 66.818,
+        "alcoholG": 0,
+        "saltG": 0.008,
+        "sodiumMg": 3.1,
+        "saturatedFatG": 0.233,
+        "polyunsaturatedFatG": 0.618,
+        "omega3G": 0.038,
+        "omega6G": 0.58,
+        "cholesterolMg": 0
+      },
+      "sourceId": "E401000",
+      "displayName": "Teigwaren eifrei, roh"
+    },
+    {
+      "id": "bls-e510000",
+      "blsCode": "E510000",
+      "names": {
+        "de": "Vollkornteigwaren eifrei, roh",
+        "en": "Wholemeal pasta egg-free, raw"
+      },
+      "normalizedName": "vollkornteigwaren eifrei roh",
+      "aliases": [
+        "vollkornteigwaren eifrei roh",
+        "wholemeal pasta egg free raw"
+      ],
+      "tokens": [
+        "vollkornteigwaren",
+        "eifrei",
+        "roh",
+        "wholemeal",
+        "pasta",
+        "egg",
+        "free",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 356,
+        "protein": 14.3,
+        "carbs": 62.9,
+        "fat": 2.93
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 10,
+        "sourceRowNumber": 11,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 356,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 14.3,
+            "provenance": "Aggregation",
+            "reference": "Converted value from: Public Health England; McCance and Widdowson's The Composition of Foods Integrated Dataset; 2021#Converted value from: National Food Institute; Food data (frida.fooddata.dk), version 4.2; 2022#Converted value from: US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 62.9,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 2.93,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 1502,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 9,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 10.2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 2.8,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 60.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.01,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 4,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.429,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.268,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 1.13,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.07,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 1.06,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 1502,
+        "waterG": 9,
+        "fiberG": 10.2,
+        "sugarG": 2.8,
+        "starchG": 60.1,
+        "alcoholG": 0,
+        "saltG": 0.01,
+        "sodiumMg": 4,
+        "saturatedFatG": 0.429,
+        "monounsaturatedFatG": 0.268,
+        "polyunsaturatedFatG": 1.13,
+        "omega3G": 0.07,
+        "omega6G": 1.06,
+        "cholesterolMg": 0
+      },
+      "sourceId": "E510000",
+      "displayName": "Vollkornteigwaren eifrei, roh"
+    },
+    {
+      "id": "bls-f301100",
+      "blsCode": "F301100",
+      "names": {
+        "de": "Erdbeere roh",
+        "en": "Strawberry raw"
+      },
+      "normalizedName": "erdbeere roh",
+      "aliases": [
+        "erdbeere roh",
+        "strawberry raw"
+      ],
+      "tokens": [
+        "erdbeere",
+        "roh",
+        "strawberry",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 38,
+        "protein": 0.82,
+        "carbs": 5.917,
+        "fat": 0.4
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 11,
+        "sourceRowNumber": 12,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 38,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 0.82,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 5.917,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.4,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 158,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 90.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 5.857,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.002,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.0313,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.0628,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.238,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.1045,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.133,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 158,
+        "waterG": 90.1,
+        "fiberG": 2,
+        "sugarG": 5.857,
+        "alcoholG": 0,
+        "saltG": 0.002,
+        "sodiumMg": 1,
+        "saturatedFatG": 0.031,
+        "monounsaturatedFatG": 0.063,
+        "polyunsaturatedFatG": 0.238,
+        "omega3G": 0.104,
+        "omega6G": 0.133,
+        "cholesterolMg": 0
+      },
+      "sourceId": "F301100",
+      "displayName": "Erdbeere roh"
+    },
+    {
+      "id": "bls-f302100",
+      "blsCode": "F302100",
+      "names": {
+        "de": "Himbeere roh",
+        "en": "Raspberry raw"
+      },
+      "normalizedName": "himbeere roh",
+      "aliases": [
+        "himbeere roh",
+        "raspberry raw"
+      ],
+      "tokens": [
+        "himbeere",
+        "roh",
+        "raspberry",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 43,
+        "protein": 1,
+        "carbs": 5.2,
+        "fat": 0.3
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 12,
+        "sourceRowNumber": 13,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 43,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "National Food Institute, Food data (frida.fooddata.dk), version 5.2, May 2024",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 5.2,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.3,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 182,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 86.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 4.7,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 5.2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.0012,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.0101,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.03,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.195,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.065,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.13,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 182,
+        "waterG": 86.1,
+        "fiberG": 4.7,
+        "sugarG": 5.2,
+        "starchG": 0,
+        "alcoholG": 0,
+        "saltG": 0.001,
+        "saturatedFatG": 0.01,
+        "monounsaturatedFatG": 0.03,
+        "polyunsaturatedFatG": 0.195,
+        "omega3G": 0.065,
+        "omega6G": 0.13,
+        "cholesterolMg": 0
+      },
+      "sourceId": "F302100",
+      "displayName": "Himbeere roh"
+    },
+    {
+      "id": "bls-f331100",
+      "blsCode": "F331100",
+      "names": {
+        "de": "Maulbeere roh",
+        "en": "Mulberry raw"
+      },
+      "normalizedName": "maulbeere roh",
+      "aliases": [
+        "maulbeere roh",
+        "mulberry raw"
+      ],
+      "tokens": [
+        "maulbeere",
+        "roh",
+        "mulberry",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 51,
+        "protein": 1.37,
+        "carbs": 8.1,
+        "fat": 0.39
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 13,
+        "sourceRowNumber": 14,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 51,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1.37,
+            "provenance": "Aggregation",
+            "reference": "Converted value from: US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019#Converted value from: Public Health England; McCance and Widdowson's The Composition of Foods Integrated Dataset; 2021",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 8.1,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.39,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 217,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 86.4,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 1.7,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 8.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.015,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 6,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.03,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 217,
+        "waterG": 86.4,
+        "fiberG": 1.7,
+        "sugarG": 8.1,
+        "starchG": 0,
+        "alcoholG": 0,
+        "saltG": 0.015,
+        "sodiumMg": 6,
+        "saturatedFatG": 0.03,
+        "monounsaturatedFatG": 0,
+        "polyunsaturatedFatG": 0,
+        "omega3G": 0,
+        "cholesterolMg": 0
+      },
+      "sourceId": "F331100",
+      "displayName": "Maulbeere roh"
+    },
+    {
+      "id": "bls-g130100",
+      "blsCode": "G130100",
+      "names": {
+        "de": "Rucola roh",
+        "en": "Rocket raw"
+      },
+      "normalizedName": "rucola roh",
+      "aliases": [
+        "rucola roh",
+        "rocket raw"
+      ],
+      "tokens": [
+        "rucola",
+        "roh",
+        "rocket",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 21,
+        "protein": 3.6,
+        "carbs": 0,
+        "fat": 0.4
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 14,
+        "sourceRowNumber": 15,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 21,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 3.6,
+            "provenance": "Literatur",
+            "reference": "Converted value from: Health, D. o; Nutrient analysis of fruit and vegetables; 2013",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 0,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.4,
+            "provenance": "Literatur",
+            "reference": "Health, D. o; Nutrient analysis of fruit and vegetables; 2013",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 90,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 92.5,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 1.7,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.075,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 30,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.066,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.01,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.166,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.136,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.0297,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 90,
+        "waterG": 92.5,
+        "fiberG": 1.7,
+        "sugarG": 0,
+        "alcoholG": 0,
+        "saltG": 0.075,
+        "sodiumMg": 30,
+        "saturatedFatG": 0.066,
+        "monounsaturatedFatG": 0.01,
+        "polyunsaturatedFatG": 0.166,
+        "omega3G": 0.136,
+        "omega6G": 0.03,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G130100",
+      "displayName": "Rucola roh"
+    },
+    {
+      "id": "bls-g420100",
+      "blsCode": "G420100",
+      "names": {
+        "de": "Stielmus/Rübstiel, roh",
+        "en": "Turnip tops/greens, raw"
+      },
+      "normalizedName": "stielmus ruebstiel roh",
+      "aliases": [
+        "stielmus ruebstiel roh",
+        "turnip tops greens raw"
+      ],
+      "tokens": [
+        "stielmus",
+        "ruebstiel",
+        "roh",
+        "turnip",
+        "tops",
+        "greens",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 18,
+        "protein": 1.5,
+        "carbs": 0.81,
+        "fat": 0.3
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 15,
+        "sourceRowNumber": 16,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 18,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1.5,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 0.81,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.3,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "US Department of Agriculture, Agricultural Research Service; USDA National Nutrient Database for Standard Reference, Legacy Release; 2019",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 76,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 92.5,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 3.2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 0.81,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 40,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.07,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 76,
+        "waterG": 92.5,
+        "fiberG": 3.2,
+        "sugarG": 0.81,
+        "alcoholG": 0,
+        "saltG": 0.1,
+        "sodiumMg": 40,
+        "saturatedFatG": 0.07,
+        "monounsaturatedFatG": 0,
+        "polyunsaturatedFatG": 0,
+        "omega3G": 0,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G420100",
+      "displayName": "Stielmus/Rübstiel, roh"
+    },
+    {
+      "id": "bls-g541100",
+      "blsCode": "G541100",
+      "names": {
+        "de": "Gemüsepaprika grün, roh",
+        "en": "Sweet pepper green, raw"
+      },
+      "normalizedName": "gemuesepaprika gruen roh",
+      "aliases": [
+        "gemuesepaprika gruen roh",
+        "sweet pepper green raw"
+      ],
+      "tokens": [
+        "gemuesepaprika",
+        "gruen",
+        "roh",
+        "sweet",
+        "pepper",
+        "green",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 38,
+        "protein": 1.08,
+        "carbs": 6.88,
+        "fat": 0.24
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 16,
+        "sourceRowNumber": 17,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 38,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1.08,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: SFK; SFK Online Version; 2007",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 6.88,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.24,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "SFK; SFK Online Version; 2007",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 162,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 94.467,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 6.51,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.012,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 5,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.061,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.004,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.102,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.038,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.064,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 162,
+        "waterG": 94.467,
+        "fiberG": 2,
+        "sugarG": 6.51,
+        "starchG": 0,
+        "alcoholG": 0,
+        "saltG": 0.012,
+        "sodiumMg": 5,
+        "saturatedFatG": 0.061,
+        "monounsaturatedFatG": 0.004,
+        "polyunsaturatedFatG": 0.102,
+        "omega3G": 0.038,
+        "omega6G": 0.064,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G541100",
+      "displayName": "Gemüsepaprika grün, roh"
+    },
+    {
+      "id": "bls-g543100",
+      "blsCode": "G543100",
+      "names": {
+        "de": "Gemüsepaprika rot, roh",
+        "en": "Sweet pepper red, raw"
+      },
+      "normalizedName": "gemuesepaprika rot roh",
+      "aliases": [
+        "gemuesepaprika rot roh",
+        "sweet pepper red raw"
+      ],
+      "tokens": [
+        "gemuesepaprika",
+        "rot",
+        "roh",
+        "sweet",
+        "pepper",
+        "red",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 36,
+        "protein": 1.025,
+        "carbs": 6.19,
+        "fat": 0.2
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 17,
+        "sourceRowNumber": 18,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 36,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1.025,
+            "provenance": "Aggregation",
+            "reference": "Converted value from: Koivistoinen P; Mineral element composition of Finnish foods. N, K, Ca, Mg, P, S, Fe, Cu, Mn, Zn, Mo, Co, Ni, Cr, F, Se, Si, Rb, Al, B, Br, Hg, As, Cd, Pb and Ash; Almqvist & Wiksell; 1980#Converted value from: Health, D. o; Nutrient analysis of fruit and vegetables; 2013",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 6.19,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.2,
+            "provenance": "Literatur",
+            "reference": "Health, D. o; Nutrient analysis of fruit and vegetables; 2013",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 152,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 92.1,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 2.2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 6.19,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.00312,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 1.25,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.0323,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.0025,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.1065,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.0244,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.0821,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 152,
+        "waterG": 92.1,
+        "fiberG": 2.2,
+        "sugarG": 6.19,
+        "alcoholG": 0,
+        "saltG": 0.003,
+        "sodiumMg": 1.25,
+        "saturatedFatG": 0.032,
+        "monounsaturatedFatG": 0.003,
+        "polyunsaturatedFatG": 0.106,
+        "omega3G": 0.024,
+        "omega6G": 0.082,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G543100",
+      "displayName": "Gemüsepaprika rot, roh"
+    },
+    {
+      "id": "bls-g611100",
+      "blsCode": "G611100",
+      "names": {
+        "de": "Kohlrübe/Steckrübe, roh",
+        "en": "Swede raw"
+      },
+      "normalizedName": "kohlruebe steckruebe roh",
+      "aliases": [
+        "kohlruebe steckruebe roh",
+        "swede raw"
+      ],
+      "tokens": [
+        "kohlruebe",
+        "steckruebe",
+        "roh",
+        "swede",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 22,
+        "protein": 1.25,
+        "carbs": 2.3,
+        "fat": 0.16
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 18,
+        "sourceRowNumber": 19,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 22,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1.25,
+            "provenance": "Literatur",
+            "reference": "Converted value from: Koivistoinen P; Mineral element composition of Finnish foods. N, K, Ca, Mg, P, S, Fe, Cu, Mn, Zn, Mo, Co, Ni, Cr, F, Se, Si, Rb, Al, B, Br, Hg, As, Cd, Pb and Ash; Almqvist & Wiksell; 1980",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 2.3,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.16,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 94,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 89.4,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 2.9,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 1.39,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 0.69,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.025,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 10,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.022,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.0042,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.097,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.069,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.028,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 94,
+        "waterG": 89.4,
+        "fiberG": 2.9,
+        "sugarG": 1.39,
+        "starchG": 0.69,
+        "alcoholG": 0,
+        "saltG": 0.025,
+        "sodiumMg": 10,
+        "saturatedFatG": 0.022,
+        "monounsaturatedFatG": 0.004,
+        "polyunsaturatedFatG": 0.097,
+        "omega3G": 0.069,
+        "omega6G": 0.028,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G611100",
+      "displayName": "Kohlrübe/Steckrübe, roh"
+    },
+    {
+      "id": "bls-g660100",
+      "blsCode": "G660100",
+      "names": {
+        "de": "Knollensellerie roh",
+        "en": "Celeriac raw"
+      },
+      "normalizedName": "knollensellerie roh",
+      "aliases": [
+        "knollensellerie roh",
+        "celeriac raw"
+      ],
+      "tokens": [
+        "knollensellerie",
+        "roh",
+        "celeriac",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 30,
+        "protein": 1.55,
+        "carbs": 2.77,
+        "fat": 0.33
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 19,
+        "sourceRowNumber": 20,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 30,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 1.55,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 2.77,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.33,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 123,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 90.433,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 4.2,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 2.11,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 0.44,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.192,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 77,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.066,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.013,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.173,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.017,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.156,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 123,
+        "waterG": 90.433,
+        "fiberG": 4.2,
+        "sugarG": 2.11,
+        "starchG": 0.44,
+        "alcoholG": 0,
+        "saltG": 0.192,
+        "sodiumMg": 77,
+        "saturatedFatG": 0.066,
+        "monounsaturatedFatG": 0.013,
+        "polyunsaturatedFatG": 0.173,
+        "omega3G": 0.017,
+        "omega6G": 0.156,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G660100",
+      "displayName": "Knollensellerie roh"
+    },
+    {
+      "id": "bls-g614100",
+      "blsCode": "G614100",
+      "names": {
+        "de": "Weiße Rübe/Wasserrübe/Herbstrübe, roh",
+        "en": "Turnip raw"
+      },
+      "normalizedName": "weisse ruebe wasserruebe herbstruebe roh",
+      "aliases": [
+        "weisse ruebe wasserruebe herbstruebe roh",
+        "turnip raw"
+      ],
+      "tokens": [
+        "weisse",
+        "ruebe",
+        "wasserruebe",
+        "herbstruebe",
+        "roh",
+        "turnip",
+        "raw"
+      ],
+      "macrosPer100g": {
+        "kcal": 40,
+        "protein": 0.99,
+        "carbs": 6.58,
+        "fat": 0.22
+      },
+      "provenance": {
+        "source": "BLS_4_0_2025_DE",
+        "sourceWorkbook": "BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookPath": "BLS_4_0_2025_DE/BLS_4_0_Daten_2025_DE.xlsx",
+        "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60",
+        "sourceRowIndex": 20,
+        "sourceRowNumber": 21,
+        "componentColumns": {
+          "kcal": {
+            "componentCode": "ENERCC",
+            "valueColumnHeader": "ENERCC Energie (Kilokalorien) [kcal/100g]",
+            "valueColumnNumber": 7,
+            "valueColumnIndex": 6,
+            "rawValue": 40,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "protein": {
+            "componentCode": "PROT625",
+            "valueColumnHeader": "PROT625 Protein (Nx6,25) [g/100g]",
+            "valueColumnNumber": 13,
+            "valueColumnIndex": 12,
+            "rawValue": 0.99,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Converted value from: Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "carbs": {
+            "componentCode": "CHO",
+            "valueColumnHeader": "CHO Kohlenhydrate, verfügbar [g/100g]",
+            "valueColumnNumber": 19,
+            "valueColumnIndex": 18,
+            "rawValue": 6.58,
+            "provenance": "Formelberechnung",
+            "reference": "-",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fat": {
+            "componentCode": "FAT",
+            "valueColumnHeader": "FAT Fett [g/100g]",
+            "valueColumnNumber": 16,
+            "valueColumnIndex": 15,
+            "rawValue": 0.22,
+            "provenance": "Nährstoffdatenbank",
+            "reference": "Kirchhoff, E; Souci - Fachmann - Kraut - Die Zusammensetzung der Lebensmittel - Nährwert-Tabellen; 2008; 7",
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        },
+        "tier2ComponentColumns": {
+          "energyKj": {
+            "componentCode": "ENERCJ",
+            "valueColumnHeader": "ENERCJ Energie (Kilojoule) [kJ/100g]",
+            "valueColumnNumber": 4,
+            "valueColumnIndex": 3,
+            "rawValue": 169,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "waterG": {
+            "componentCode": "WATER",
+            "valueColumnHeader": "WATER Wasser [g/100g]",
+            "valueColumnNumber": 10,
+            "valueColumnIndex": 9,
+            "rawValue": 89.91,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "fiberG": {
+            "componentCode": "FIBT",
+            "valueColumnHeader": "FIBT Ballaststoffe, gesamt [g/100g]",
+            "valueColumnNumber": 22,
+            "valueColumnIndex": 21,
+            "rawValue": 3.49,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sugarG": {
+            "componentCode": "SUGAR",
+            "valueColumnHeader": "SUGAR Zucker (Mono- und Disaccharide), gesamt [g/100g]",
+            "valueColumnNumber": 220,
+            "valueColumnIndex": 219,
+            "rawValue": 5.67,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "starchG": {
+            "componentCode": "STARCH",
+            "valueColumnHeader": "STARCH Stärke (Stärke, Glykogen, Dextrine) [g/100g]",
+            "valueColumnNumber": 226,
+            "valueColumnIndex": 225,
+            "rawValue": 0.69,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "alcoholG": {
+            "componentCode": "ALC",
+            "valueColumnHeader": "ALC Alkohol (Ethanol) [g/100g]",
+            "valueColumnNumber": 25,
+            "valueColumnIndex": 24,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saltG": {
+            "componentCode": "NACL",
+            "valueColumnHeader": "NACL Salz (Natriumchlorid) [g/100g]",
+            "valueColumnNumber": 121,
+            "valueColumnIndex": 120,
+            "rawValue": 0.145,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "sodiumMg": {
+            "componentCode": "NA",
+            "valueColumnHeader": "NA Natrium [mg/100g]",
+            "valueColumnNumber": 124,
+            "valueColumnIndex": 123,
+            "rawValue": 58,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "saturatedFatG": {
+            "componentCode": "FASAT",
+            "valueColumnHeader": "FASAT Fettsäuren, gesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 247,
+            "valueColumnIndex": 246,
+            "rawValue": 0.03,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "monounsaturatedFatG": {
+            "componentCode": "FAMS",
+            "valueColumnHeader": "FAMS Fettsäure, einfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 289,
+            "valueColumnIndex": 288,
+            "rawValue": 0.005,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "polyunsaturatedFatG": {
+            "componentCode": "FAPU",
+            "valueColumnHeader": "FAPU Fettsäuren, mehrfach ungesättigt, gesamt [g/100g]",
+            "valueColumnNumber": 310,
+            "valueColumnIndex": 309,
+            "rawValue": 0.133,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega3G": {
+            "componentCode": "FAPUN3",
+            "valueColumnHeader": "FAPUN3 Fettsäuren, mehrfach ungesättigt n-3 (Omega-3), gesamt [g/100g]",
+            "valueColumnNumber": 313,
+            "valueColumnIndex": 312,
+            "rawValue": 0.095,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "omega6G": {
+            "componentCode": "FAPUN6",
+            "valueColumnHeader": "FAPUN6 Fettsäuren, mehrfach ungesättigt n-6 (Omega-6), gesamt [g/100g]",
+            "valueColumnNumber": 331,
+            "valueColumnIndex": 330,
+            "rawValue": 0.038,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          },
+          "cholesterolMg": {
+            "componentCode": "CHORL",
+            "valueColumnHeader": "CHORL Cholesterin [mg/100g]",
+            "valueColumnNumber": 355,
+            "valueColumnIndex": 354,
+            "rawValue": 0,
+            "sourceWorkbookSha256": "524bbefe25b691f5cb3de7a9f3e27fa2967aebfeabf217d99414ba7806e78c60"
+          }
+        }
+      },
+      "nutrientsPer100g": {
+        "energyKj": 169,
+        "waterG": 89.91,
+        "fiberG": 3.49,
+        "sugarG": 5.67,
+        "starchG": 0.69,
+        "alcoholG": 0,
+        "saltG": 0.145,
+        "sodiumMg": 58,
+        "saturatedFatG": 0.03,
+        "monounsaturatedFatG": 0.005,
+        "polyunsaturatedFatG": 0.133,
+        "omega3G": 0.095,
+        "omega6G": 0.038,
+        "cholesterolMg": 0
+      },
+      "sourceId": "G614100",
+      "displayName": "Weiße Rübe/Wasserrübe/Herbstrübe, roh"
+    }
+  ]
+}

@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 
 import { parseArgs } from '../generate-bls-sample-records.mjs';
 import {
+  COMPONENT_TIERS,
   DEFAULT_LIMIT,
+  TIER_1_COMPONENTS,
+  TIER_2_COMPONENTS,
   buildBlsSampleRecords,
   buildColumnMap,
   mapBlsRowToSampleRecord,
@@ -28,6 +31,20 @@ const HEADERS = [
   'CHO Kohlenhydrate',
   'CHO Datenherkunft',
   'CHO Referenz',
+  'ENERCJ Kilojoule',
+  'WATER Wasser',
+  'FIBT Ballaststoffe',
+  'SUGAR Zucker',
+  'STARCH Stärke',
+  'ALC Alkohol',
+  'NACL Salz',
+  'NA Natrium',
+  'FASAT Gesättigte Fettsäuren',
+  'FAMS Einfach ungesättigte Fettsäuren',
+  'FAPU Mehrfach ungesättigte Fettsäuren',
+  'FAPUN3 Omega-3-Fettsäuren',
+  'FAPUN6 Omega-6-Fettsäuren',
+  'CHORL Cholesterin',
 ];
 
 function row(overrides = {}) {
@@ -47,10 +64,52 @@ function row(overrides = {}) {
     overrides.carbs ?? '3.68',
     'calc',
     'ref-carbs',
+    overrides.energyKj ?? '276,7',
+    overrides.waterG ?? '80,1',
+    overrides.fiberG ?? '1,2',
+    overrides.sugarG ?? '2,3',
+    overrides.starchG ?? '1,1',
+    overrides.alcoholG ?? '0',
+    overrides.saltG ?? '0,04',
+    overrides.sodiumMg ?? '16',
+    overrides.saturatedFatG ?? '0,05',
+    overrides.monounsaturatedFatG ?? '0,06',
+    overrides.polyunsaturatedFatG ?? '0,07',
+    overrides.omega3G ?? '0,01',
+    overrides.omega6G ?? '0,02',
+    overrides.cholesterolMg ?? '5',
   ];
 }
 
 describe('bls-sample-generator pure helpers', () => {
+  it('defines deterministic Tier 1 required and Tier 2 optional component policy', () => {
+    assert.deepEqual(
+      TIER_1_COMPONENTS.map(({ componentCode }) => componentCode),
+      ['ENERCC', 'PROT625', 'FAT', 'CHO'],
+    );
+    assert.deepEqual(
+      TIER_2_COMPONENTS.map(({ componentCode }) => componentCode),
+      [
+        'ENERCJ',
+        'WATER',
+        'FIBT',
+        'SUGAR',
+        'STARCH',
+        'ALC',
+        'NACL',
+        'NA',
+        'FASAT',
+        'FAMS',
+        'FAPU',
+        'FAPUN3',
+        'FAPUN6',
+        'CHORL',
+      ],
+    );
+    assert.equal(COMPONENT_TIERS.tier1Required, TIER_1_COMPONENTS);
+    assert.equal(COMPONENT_TIERS.tier2Optional, TIER_2_COMPONENTS);
+  });
+
   it('normalizes German names deterministically', () => {
     assert.equal(normalizeBlsName(' Äpfel süß / Öl (10 %)  '), 'aepfel suess oel 10');
     assert.equal(normalizeBlsName(null), '');
@@ -102,11 +161,45 @@ describe('bls-sample-generator pure helpers', () => {
       carbs: 3.68,
       fat: 0.18,
     });
+    assert.deepEqual(mapped.record.nutrientsPer100g, {
+      energyKj: 276.7,
+      waterG: 80.1,
+      fiberG: 1.2,
+      sugarG: 2.3,
+      starchG: 1.1,
+      alcoholG: 0,
+      saltG: 0.04,
+      sodiumMg: 16,
+      saturatedFatG: 0.05,
+      monounsaturatedFatG: 0.06,
+      polyunsaturatedFatG: 0.07,
+      omega3G: 0.01,
+      omega6G: 0.02,
+      cholesterolMg: 5,
+    });
     assert.equal(mapped.record.provenance.sourceRowNumber, 2);
     assert.equal(mapped.record.provenance.sourceWorkbookSha256, 'sha-fixture');
     assert.equal(mapped.record.provenance.componentColumns.kcal.componentCode, 'ENERCC');
     assert.equal(mapped.record.provenance.componentColumns.kcal.valueColumnNumber, 4);
     assert.equal(mapped.record.provenance.componentColumns.carbs.reference, 'ref-carbs');
+    assert.equal(
+      mapped.record.provenance.tier2ComponentColumns.fiberG.componentCode,
+      'FIBT',
+    );
+  });
+
+  it('keeps Tier 2 optional when columns are absent', () => {
+    const tier1OnlyHeaders = HEADERS.slice(0, 15);
+    const tier1OnlyRow = row().slice(0, 15);
+    const columnMap = buildColumnMap(tier1OnlyHeaders);
+    const mapped = mapBlsRowToSampleRecord(tier1OnlyRow, columnMap, {
+      sourceRowIndex: 1,
+      sourceWorkbookSha256: 'sha-fixture',
+    });
+
+    assert.equal(mapped.ok, true);
+    assert.equal(mapped.record.nutrientsPer100g, undefined);
+    assert.equal(mapped.record.provenance.tier2ComponentColumns, undefined);
   });
 
   it('excludes missing and invalid required macro rows with deterministic counts', () => {
@@ -150,6 +243,55 @@ describe('bls-sample-generator pure helpers', () => {
     );
     assert.equal(sample.mapping.dataRowsVisited, 2);
     assert.equal(sample.mapping.validRecordsSelected, 2);
+  });
+
+  it('reports Tier 1/Tier 2 column detection and Tier 2 coverage counts', () => {
+    const rows = [
+      HEADERS,
+      row({ blsCode: 'VALID1', germanName: 'Valid Eins' }),
+      row({ blsCode: 'VALID2', germanName: 'Valid Zwei', fiberG: '-', sugarG: 'abc' }),
+    ];
+
+    const sample = buildBlsSampleRecords(rows, { limit: 2, sourceWorkbookSha256: 'sha-fixture' });
+
+    assert.deepEqual(
+      sample.mapping.detectedTier1Columns.map(({ componentCode, found }) => [componentCode, found]),
+      [
+        ['ENERCC', true],
+        ['PROT625', true],
+        ['FAT', true],
+        ['CHO', true],
+      ],
+    );
+    assert.equal(sample.mapping.detectedTier2Columns.length, TIER_2_COMPONENTS.length);
+    assert.deepEqual(sample.mapping.missingTier2Columns, []);
+    assert.deepEqual(sample.mapping.tier2Coverage.fiberG, {
+      componentCode: 'FIBT',
+      valuesPresent: 1,
+      missingOrInvalid: 1,
+    });
+    assert.deepEqual(sample.mapping.tier2Coverage.sugarG, {
+      componentCode: 'SUGAR',
+      valuesPresent: 1,
+      missingOrInvalid: 1,
+    });
+    assert.deepEqual(sample.mapping.tier2Coverage.energyKj, {
+      componentCode: 'ENERCJ',
+      valuesPresent: 2,
+      missingOrInvalid: 0,
+    });
+  });
+
+  it('reports missing Tier 2 columns without failing sample generation', () => {
+    const tier1OnlyHeaders = HEADERS.slice(0, 15);
+    const rows = [tier1OnlyHeaders, row({ blsCode: 'VALID1' }).slice(0, 15)];
+
+    const sample = buildBlsSampleRecords(rows, { limit: 1, sourceWorkbookSha256: 'sha-fixture' });
+
+    assert.equal(sample.records.length, 1);
+    assert.equal(sample.mapping.missingTier2Columns.length, TIER_2_COMPONENTS.length);
+    assert.equal(sample.mapping.tier2Coverage.fiberG.valuesPresent, 0);
+    assert.equal(sample.mapping.tier2Coverage.fiberG.missingOrInvalid, 1);
   });
 });
 

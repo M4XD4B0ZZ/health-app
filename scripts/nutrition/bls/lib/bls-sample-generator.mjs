@@ -12,6 +12,35 @@ export const MACRO_COMPONENTS = Object.freeze({
   carbs: 'CHO',
 });
 
+export const TIER_1_COMPONENTS = Object.freeze([
+  { field: 'kcal', componentCode: 'ENERCC', required: true },
+  { field: 'protein', componentCode: 'PROT625', required: true },
+  { field: 'fat', componentCode: 'FAT', required: true },
+  { field: 'carbs', componentCode: 'CHO', required: true },
+]);
+
+export const TIER_2_COMPONENTS = Object.freeze([
+  { field: 'energyKj', componentCode: 'ENERCJ' },
+  { field: 'waterG', componentCode: 'WATER' },
+  { field: 'fiberG', componentCode: 'FIBT' },
+  { field: 'sugarG', componentCode: 'SUGAR' },
+  { field: 'starchG', componentCode: 'STARCH' },
+  { field: 'alcoholG', componentCode: 'ALC' },
+  { field: 'saltG', componentCode: 'NACL' },
+  { field: 'sodiumMg', componentCode: 'NA' },
+  { field: 'saturatedFatG', componentCode: 'FASAT' },
+  { field: 'monounsaturatedFatG', componentCode: 'FAMS' },
+  { field: 'polyunsaturatedFatG', componentCode: 'FAPU' },
+  { field: 'omega3G', componentCode: 'FAPUN3' },
+  { field: 'omega6G', componentCode: 'FAPUN6' },
+  { field: 'cholesterolMg', componentCode: 'CHORL' },
+]);
+
+export const COMPONENT_TIERS = Object.freeze({
+  tier1Required: TIER_1_COMPONENTS,
+  tier2Optional: TIER_2_COMPONENTS,
+});
+
 export const REQUIRED_DATA_COLUMNS = Object.freeze([
   { key: 'blsCode', label: 'BLS Code', match: (header) => header === 'BLS Code' },
   {
@@ -37,6 +66,12 @@ export const REQUIRED_DATA_COLUMNS = Object.freeze([
       match: (header) => header === `${code} Referenz`,
     },
   ]),
+  ...TIER_2_COMPONENTS.map(({ field, componentCode }) => ({
+    key: `tier2.${field}.value`,
+    label: `${componentCode} value`,
+    required: false,
+    match: (header) => header.startsWith(`${componentCode} `),
+  })),
 ]);
 
 export function asHeaderString(value) {
@@ -61,6 +96,7 @@ export function buildColumnMap(headers) {
       {
         key: expected.key,
         expected: expected.label,
+        required: expected.required !== false,
         found: columnIndex !== -1,
         columnIndex: columnIndex === -1 ? null : columnIndex,
         columnNumber: columnIndex === -1 ? null : columnIndex + 1,
@@ -73,7 +109,7 @@ export function buildColumnMap(headers) {
 }
 
 export function validateRequiredColumns(columnMap) {
-  return Object.values(columnMap).filter((column) => !column.found);
+  return Object.values(columnMap).filter((column) => column.required !== false && !column.found);
 }
 
 export function normalizeBlsName(value) {
@@ -161,6 +197,69 @@ function macroProvenance(row, columnMap, macro, parsed, options) {
   };
 }
 
+function parseOptionalTier2Nutrients(row, columnMap) {
+  const nutrientsPer100g = {};
+  const parsedTier2 = {};
+
+  for (const component of TIER_2_COMPONENTS) {
+    const key = `tier2.${component.field}.value`;
+    const column = columnMap[key];
+    const parsed = column?.found ? parseBlsNumber(row[column.columnIndex]) : { ok: false, reason: 'column_missing', raw: null };
+    parsedTier2[component.field] = parsed;
+
+    if (parsed.ok) {
+      nutrientsPer100g[component.field] = roundMacro(parsed.value);
+    }
+  }
+
+  return {
+    parsedTier2,
+    nutrientsPer100g: Object.keys(nutrientsPer100g).length > 0 ? nutrientsPer100g : undefined,
+  };
+}
+
+function tier2Provenance(row, columnMap, parsedTier2, options) {
+  return Object.fromEntries(
+    TIER_2_COMPONENTS.filter(({ field }) => parsedTier2[field]?.ok).map(({ field, componentCode }) => {
+      const valueColumn = columnMap[`tier2.${field}.value`];
+      return [
+        field,
+        {
+          componentCode,
+          valueColumnHeader: valueColumn.detectedHeader,
+          valueColumnNumber: valueColumn.columnNumber,
+          valueColumnIndex: valueColumn.columnIndex,
+          rawValue: parsedTier2[field].raw ?? null,
+          sourceWorkbookSha256: options.sourceWorkbookSha256,
+        },
+      ];
+    }),
+  );
+}
+
+function createTier2Coverage() {
+  return Object.fromEntries(
+    TIER_2_COMPONENTS.map(({ field, componentCode }) => [
+      field,
+      {
+        componentCode,
+        valuesPresent: 0,
+        missingOrInvalid: 0,
+      },
+    ]),
+  );
+}
+
+function updateTier2Coverage(coverage, parsedTier2) {
+  for (const component of TIER_2_COMPONENTS) {
+    if (parsedTier2[component.field]?.ok) {
+      coverage[component.field].valuesPresent += 1;
+    } else {
+      coverage[component.field].missingOrInvalid += 1;
+    }
+  }
+}
+
 export function mapBlsRowToSampleRecord(row, columnMap, options = {}) {
   const sourceRowIndex = options.sourceRowIndex;
   const sourceRowNumber = sourceRowIndex == null ? null : sourceRowIndex + 1;
@@ -188,37 +287,46 @@ export function mapBlsRowToSampleRecord(row, columnMap, options = {}) {
   const normalizedEnglishName = normalizeBlsName(englishName);
   const aliases = uniqueNonEmpty([normalizedName, normalizedEnglishName]);
   const tokens = tokenizeBlsNames(germanName, englishName);
+  const { parsedTier2, nutrientsPer100g } = parseOptionalTier2Nutrients(row, columnMap);
+
+  const record = {
+    id: `bls-${blsCode.toLowerCase()}`,
+    blsCode,
+    names: { de: germanName, en: englishName },
+    normalizedName,
+    aliases,
+    tokens,
+    macrosPer100g: {
+      kcal: roundMacro(parsedMacros.kcal.value),
+      protein: roundMacro(parsedMacros.protein.value),
+      carbs: roundMacro(parsedMacros.carbs.value),
+      fat: roundMacro(parsedMacros.fat.value),
+    },
+    provenance: {
+      source: SOURCE_ID,
+      sourceWorkbook: DATA_WORKBOOK_FILE,
+      sourceWorkbookPath: DATA_WORKBOOK_PATH,
+      sourceWorkbookSha256: options.sourceWorkbookSha256 ?? null,
+      sourceRowIndex,
+      sourceRowNumber,
+      componentColumns: {
+        kcal: macroProvenance(row, columnMap, 'kcal', parsedMacros.kcal, options),
+        protein: macroProvenance(row, columnMap, 'protein', parsedMacros.protein, options),
+        carbs: macroProvenance(row, columnMap, 'carbs', parsedMacros.carbs, options),
+        fat: macroProvenance(row, columnMap, 'fat', parsedMacros.fat, options),
+      },
+    },
+  };
+
+  if (nutrientsPer100g) {
+    record.nutrientsPer100g = nutrientsPer100g;
+    record.provenance.tier2ComponentColumns = tier2Provenance(row, columnMap, parsedTier2, options);
+  }
 
   return {
     ok: true,
-    record: {
-      id: `bls-${blsCode.toLowerCase()}`,
-      blsCode,
-      names: { de: germanName, en: englishName },
-      normalizedName,
-      aliases,
-      tokens,
-      macrosPer100g: {
-        kcal: roundMacro(parsedMacros.kcal.value),
-        protein: roundMacro(parsedMacros.protein.value),
-        carbs: roundMacro(parsedMacros.carbs.value),
-        fat: roundMacro(parsedMacros.fat.value),
-      },
-      provenance: {
-        source: SOURCE_ID,
-        sourceWorkbook: DATA_WORKBOOK_FILE,
-        sourceWorkbookPath: DATA_WORKBOOK_PATH,
-        sourceWorkbookSha256: options.sourceWorkbookSha256 ?? null,
-        sourceRowIndex,
-        sourceRowNumber,
-        componentColumns: {
-          kcal: macroProvenance(row, columnMap, 'kcal', parsedMacros.kcal, options),
-          protein: macroProvenance(row, columnMap, 'protein', parsedMacros.protein, options),
-          carbs: macroProvenance(row, columnMap, 'carbs', parsedMacros.carbs, options),
-          fat: macroProvenance(row, columnMap, 'fat', parsedMacros.fat, options),
-        },
-      },
-    },
+    parsedTier2,
+    record,
   };
 }
 
@@ -240,6 +348,7 @@ export function buildBlsSampleRecords(rows, options = {}) {
     missingRequiredMacros: 0,
     invalidRequiredMacros: 0,
   };
+  const tier2Coverage = createTier2Coverage();
   let dataRowsVisited = 0;
   let excludedBeforeLimit = 0;
 
@@ -255,8 +364,26 @@ export function buildBlsSampleRecords(rows, options = {}) {
       excludedBeforeLimit += 1;
       continue;
     }
+    updateTier2Coverage(tier2Coverage, mapped.parsedTier2);
     records.push(mapped.record);
   }
+
+  const detectedTier1Columns = Object.entries(MACRO_COMPONENTS).map(([macro, componentCode]) => ({
+    macro,
+    componentCode,
+    found: columnMap[`${macro}.value`].found,
+    columnIndex: columnMap[`${macro}.value`].columnIndex,
+    columnNumber: columnMap[`${macro}.value`].columnNumber,
+    detectedHeader: columnMap[`${macro}.value`].detectedHeader,
+  }));
+  const detectedTier2Columns = TIER_2_COMPONENTS.map(({ field, componentCode }) => ({
+    field,
+    componentCode,
+    found: columnMap[`tier2.${field}.value`].found,
+    columnIndex: columnMap[`tier2.${field}.value`].columnIndex,
+    columnNumber: columnMap[`tier2.${field}.value`].columnNumber,
+    detectedHeader: columnMap[`tier2.${field}.value`].detectedHeader,
+  }));
 
   return {
     header,
@@ -269,13 +396,12 @@ export function buildBlsSampleRecords(rows, options = {}) {
       validRecordsSelected: records.length,
       excludedBeforeLimit,
       exclusionCounts,
-      requiredMacroColumns: Object.entries(MACRO_COMPONENTS).map(([macro, componentCode]) => ({
-        macro,
-        componentCode,
-        columnIndex: columnMap[`${macro}.value`].columnIndex,
-        columnNumber: columnMap[`${macro}.value`].columnNumber,
-        detectedHeader: columnMap[`${macro}.value`].detectedHeader,
-      })),
+      componentTiers: COMPONENT_TIERS,
+      detectedTier1Columns,
+      detectedTier2Columns,
+      missingTier2Columns: detectedTier2Columns.filter((column) => !column.found),
+      tier2Coverage,
+      requiredMacroColumns: detectedTier1Columns,
     },
   };
 }

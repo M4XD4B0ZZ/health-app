@@ -66,7 +66,7 @@ describe('BLS Resolver Integration', () => {
 
       expect(result.status).toBe('accepted');
       expect(result.best?.source).toBe('BLS');
-      expect(result.best?.food.name).toContain('Ruehrei');
+      expect(result.best?.food.name).toContain('Rührei');
       expect(result.reasonCodes).toContain('ACCEPTED_STRONG_MATCH');
 
       // USDA should not be called due to BLS early return
@@ -182,7 +182,7 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_BLS_SOURCE_USED candidate="Ruehrei gebraten"'),
+        expect.stringContaining('PROOF_BLS_SOURCE_USED candidate="Rührei gebraten"'),
       );
 
       consoleSpy.mockRestore();

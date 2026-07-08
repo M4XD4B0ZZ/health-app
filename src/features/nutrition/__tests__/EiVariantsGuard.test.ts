@@ -56,7 +56,7 @@ describe('Ei Variants Guard Tests', () => {
       const results = await blsSource.search(query);
 
       expect(results).toHaveLength(1);
-      expect(results[0].food.name).toBe('Ruehrei gebraten');
+      expect(results[0].food.name).toBe('Rührei gebraten');
       expect(results[0].food.sourceId).toBe('Y720143');
       expect(results[0].match.exact).toBe(true);
     });
@@ -73,7 +73,7 @@ describe('Ei Variants Guard Tests', () => {
       const results = await blsSource.search(query);
 
       expect(results).toHaveLength(1);
-      expect(results[0].food.name).toBe('Ruehrei gebraten');
+      expect(results[0].food.name).toBe('Rührei gebraten');
       expect(results[0].food.sourceId).toBe('Y720143');
       expect(results[0].match.exact).toBe(true);
     });

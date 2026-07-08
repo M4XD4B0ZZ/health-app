@@ -103,6 +103,27 @@ describe('BlsCompactRuntimeAdapter', () => {
     expect(unrelated.aliases).not.toContain('toast');
   });
 
+  it('applies bare rührei/ruehrei compatibility aliases for Y720143 only', () => {
+    const ruehrei = adaptBlsCompactRuntimeRecord({
+      ...magerquarkRecord,
+      id: 'bls:Y720143',
+      sourceId: 'Y720143',
+      displayName: 'Rührei gebraten',
+      macrosPer100g: { kcal: 203, protein: 12.88, fat: 16.61, carbs: 0.39 },
+    });
+    const unrelatedRuehreiVariant = adaptBlsCompactRuntimeRecord({
+      ...magerquarkRecord,
+      id: 'bls:Y720163',
+      sourceId: 'Y720163',
+      displayName: 'Rührei gebraten in Butter',
+    });
+
+    expect(ruehrei.aliases).toEqual(expect.arrayContaining(['ruehrei', 'rührei', 'ruehei']));
+    expect(unrelatedRuehreiVariant.aliases).not.toContain('ruehrei');
+    expect(unrelatedRuehreiVariant.aliases).not.toContain('rührei');
+    expect(unrelatedRuehreiVariant.aliases).not.toContain('ruehei');
+  });
+
   it('builds deterministic unique tokens', () => {
     expect(tokenizeBlsRuntimeText('Weizentoastbrot/Buttertoastbrot')).toEqual([
       'weizentoastbrot',

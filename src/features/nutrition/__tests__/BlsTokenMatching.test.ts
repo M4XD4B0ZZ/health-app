@@ -40,7 +40,7 @@ describe('BLS Token-based Matching', () => {
 
       expect(results).toHaveLength(1);
       expect(results[0].food.source).toBe('bls');
-      expect(results[0].food.name).toContain('Ruehrei');
+      expect(results[0].food.name).toContain('Rührei');
       expect(results[0].food.sourceId).toBe('Y720143');
       expect(results[0].match.similarity).toBeGreaterThan(0.8);
     });

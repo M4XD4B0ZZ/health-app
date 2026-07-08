@@ -1,52 +1,39 @@
 import { FoodCandidate } from '../../../domain/catalog/FoodCatalogSource';
 import { BlsFoodRecord, BlsLookupEngine } from './bls/BlsLookupEngine';
+import { adaptBlsCompactRuntimeRecords } from './bls/BlsCompactRuntimeAdapter';
+import { BlsCompactRuntimeArtifact } from './bls/BlsCompactRuntimeTypes';
+import blsCompactRuntimeArtifactJson from './bls/generated/bls-runtime-compact.v1.json';
+
+/**
+ * Legacy compatibility overlay (P1-006C3E2B1).
+ *
+ * The generated compact BLS artifact (bls-runtime-compact.v1.json) does not
+ * contain sourceId Y720100 ("Huehnerei ganz roh"). Its closest match,
+ * E111100 ("Hühnerei roh"), has materially different macros (kcal 135 vs 137,
+ * protein 13.175 vs 11.9, carbs 0.34 vs 1.5, fat 9 vs 9.3) — see
+ * BlsArtifactEquivalence.test.ts. Whether E111100 should become the canonical
+ * replacement for Y720100 is an unresolved nutrition-data decision left for a
+ * dedicated follow-up, so this overlay copies the legacy Y720100 record
+ * unchanged to preserve current runtime behavior instead of silently
+ * substituting E111100.
+ */
+const LEGACY_Y720100_OVERLAY: BlsFoodRecord = {
+  id: 'bls-ei-roh',
+  sourceId: 'Y720100',
+  displayName: 'Huehnerei ganz roh',
+  normalizedName: 'ei',
+  aliases: ['ei', 'eier', 'huehnerei', 'hühnerei'],
+  tokens: ['huhn', 'hühn', 'ei', 'eier', 'roh'],
+  macrosPer100g: { kcal: 137, protein: 11.9, carbs: 1.5, fat: 9.3 },
+};
+
+const artifactRuntimeRecords = adaptBlsCompactRuntimeRecords(
+  blsCompactRuntimeArtifactJson as unknown as BlsCompactRuntimeArtifact,
+);
 
 export const BLS_GENERIC_FOODS: readonly BlsFoodRecord[] = [
-  {
-    id: 'bls-magerquark',
-    sourceId: 'M713100',
-    displayName: 'Speisequark Magerstufe, Magerquark < 10 % Fett i. Tr.',
-    normalizedName: 'magerquark',
-    aliases: ['magerquark', 'quark', 'speisequark', 'magerstufe'],
-    tokens: ['mager', 'quark', 'speise', 'magerstufe'],
-    macrosPer100g: { kcal: 66, protein: 11.85, carbs: 3.68, fat: 0.18 },
-  },
-  {
-    id: 'bls-frischkaese',
-    sourceId: 'M820100',
-    displayName: 'Frischkaesezubereitung Natur < 10 % Fett i. Tr.',
-    normalizedName: 'frischkaese',
-    aliases: ['frischkaese', 'frischkäse', 'cream cheese'],
-    tokens: ['frisch', 'kaese', 'käse', 'zubereitung', 'natur'],
-    macrosPer100g: { kcal: 64, protein: 11.9, carbs: 3, fat: 0.2 },
-  },
-  {
-    id: 'bls-ei-roh',
-    sourceId: 'Y720100',
-    displayName: 'Huehnerei ganz roh',
-    normalizedName: 'ei',
-    aliases: ['ei', 'eier', 'huehnerei', 'hühnerei'],
-    tokens: ['huhn', 'hühn', 'ei', 'eier', 'roh'],
-    macrosPer100g: { kcal: 137, protein: 11.9, carbs: 1.5, fat: 9.3 },
-  },
-  {
-    id: 'bls-ruehrei',
-    sourceId: 'Y720143',
-    displayName: 'Ruehrei gebraten',
-    normalizedName: 'ruehrei',
-    aliases: ['ruehrei', 'rührei', 'ruehei'],
-    tokens: ['ruehr', 'rühr', 'ei', 'gebraten'],
-    macrosPer100g: { kcal: 203, protein: 12.88, carbs: 0.39, fat: 16.61 },
-  },
-  {
-    id: 'bls-toast',
-    sourceId: 'B314000',
-    displayName: 'Weizentoastbrot/Buttertoastbrot',
-    normalizedName: 'toast',
-    aliases: ['toast', 'toastbrot', 'weizentoastbrot', 'buttertoast'],
-    tokens: ['weizen', 'toast', 'brot', 'butter'],
-    macrosPer100g: { kcal: 261, protein: 8.29, carbs: 46.8, fat: 3.59 },
-  },
+  ...artifactRuntimeRecords,
+  LEGACY_Y720100_OVERLAY,
 ];
 
 export const BLS_CANONICAL_SHORTCUTS: Readonly<Record<string, BlsFoodRecord>> = {
@@ -62,15 +49,22 @@ export const BLS_CANONICAL_SHORTCUTS: Readonly<Record<string, BlsFoodRecord>> = 
   },
 };
 
-export const BLS_LOOKUP_ENGINE = new BlsLookupEngine(BLS_GENERIC_FOODS, BLS_CANONICAL_SHORTCUTS);
+let blsLookupEngineSingleton: BlsLookupEngine | null = null;
+
+function getBlsLookupEngine(): BlsLookupEngine {
+  if (!blsLookupEngineSingleton) {
+    blsLookupEngineSingleton = new BlsLookupEngine(BLS_GENERIC_FOODS, BLS_CANONICAL_SHORTCUTS);
+  }
+  return blsLookupEngineSingleton;
+}
 
 export function getBlsShortcutCandidate(normalizedQuery: string): FoodCandidate | null {
-  const result = BLS_LOOKUP_ENGINE.lookupShortcut(normalizedQuery);
-  return result ? BLS_LOOKUP_ENGINE.toCandidate(result) : null;
+  const engine = getBlsLookupEngine();
+  const result = engine.lookupShortcut(normalizedQuery);
+  return result ? engine.toCandidate(result) : null;
 }
 
 export function searchBlsGenericFoods(normalizedQuery: string): FoodCandidate[] {
-  return BLS_LOOKUP_ENGINE.search(normalizedQuery).map((result) =>
-    BLS_LOOKUP_ENGINE.toCandidate(result),
-  );
+  const engine = getBlsLookupEngine();
+  return engine.search(normalizedQuery).map((result) => engine.toCandidate(result));
 }

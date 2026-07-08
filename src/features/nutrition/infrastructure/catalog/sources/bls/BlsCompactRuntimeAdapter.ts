@@ -11,6 +11,7 @@ const UMLAUT_REPLACEMENTS: Readonly<Record<string, string>> = {
 const COMPATIBILITY_ALIASES_BY_SOURCE_ID: Readonly<Record<string, readonly string[]>> = {
   M713100: ['magerquark', 'quark', 'speisequark', 'magerstufe'],
   B314000: ['toast', 'toastbrot', 'weizentoastbrot', 'buttertoast'],
+  Y720143: ['ruehrei', 'rührei', 'ruehei'],
 };
 
 export function adaptBlsCompactRuntimeRecords(

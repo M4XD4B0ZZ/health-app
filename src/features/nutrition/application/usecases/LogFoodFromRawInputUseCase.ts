@@ -63,10 +63,10 @@ export class LogFoodFromRawInputUseCase {
   }
 
   async execute(
-    input: { rawText: string; rawInput: string },
+    input: { rawText: string; rawInput: string; groupId?: string; groupLabel?: string },
     dateISO?: string,
   ): Promise<FoodEntry> {
-    const { rawText, rawInput } = input;
+    const { rawText, rawInput, groupId, groupLabel } = input;
     const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log(`[${traceId}] PROOF_USECASE_ENTERED rawText="${rawText}" rawInput="${rawInput}"`);
     try {
@@ -131,6 +131,8 @@ export class LogFoodFromRawInputUseCase {
         confidenceScore,
         sourceType: 'user',
         createdAt: entryDate,
+        groupId,
+        groupLabel,
       };
 
       // Sprint 5.3: Canonical Food Catalog Flow

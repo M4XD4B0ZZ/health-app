@@ -42,6 +42,8 @@ interface SerializedFoodEntry {
   assumptions?: AssumptionTag[];
   confidenceReason?: string;
   lastModifiedAt?: string; // ISO string
+  groupId?: string;
+  groupLabel?: string;
 }
 
 /**
@@ -234,6 +236,8 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       assumptions: entry.assumptions,
       confidenceReason: entry.confidenceReason,
       lastModifiedAt: entry.lastModifiedAt?.toISOString(),
+      groupId: entry.groupId,
+      groupLabel: entry.groupLabel,
     };
   }
 
@@ -306,6 +310,14 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
 
     if (serialized.assumptions !== undefined) {
       entry.assumptions = serialized.assumptions;
+    }
+
+    if (serialized.groupId !== undefined) {
+      entry.groupId = serialized.groupId;
+    }
+
+    if (serialized.groupLabel !== undefined) {
+      entry.groupLabel = serialized.groupLabel;
     }
 
     return entry;

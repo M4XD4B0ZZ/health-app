@@ -31,6 +31,10 @@ export interface FoodEntry {
   assumptions?: AssumptionTag[];
   confidenceReason?: string;
   lastModifiedAt?: Date;
+  /** P1-003C: shared id linking this entry to sibling entries under the same composite-dish label. */
+  groupId?: string;
+  /** P1-003C: the composite-dish head text (e.g. "Fruchtsalat"), never resolved as a standalone entry itself. */
+  groupLabel?: string;
 }
 
 export interface DailyNutritionSummary {

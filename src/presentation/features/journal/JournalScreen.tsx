@@ -19,7 +19,7 @@ import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineSt
 import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
-import { buildFoodEntryDisplay } from './journalEntryDisplay';
+import { buildFoodEntryDisplay, groupJournalEntries } from './journalEntryDisplay';
 
 const formatCalories = (value: number) => Math.round(value).toString();
 const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
@@ -421,19 +421,48 @@ const JournalScreen: React.FC = () => {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Heutige Einträge</AppText>
           {persistedDailyEntries.length > 0 ? (
-            persistedDailyEntries.map((item) => {
-              const display = buildFoodEntryDisplay(item);
+            groupJournalEntries(persistedDailyEntries).map((listItem) => {
+              if (listItem.kind === 'entry') {
+                const display = buildFoodEntryDisplay(listItem.entry);
+
+                return (
+                  <EntryRow
+                    key={listItem.entry.id}
+                    title={display.title}
+                    subtitle={display.subtitle}
+                    kcal={listItem.entry.calories}
+                    onPress={() => handleOpenEdit(listItem.entry)}
+                    actionLabel="Löschen"
+                    onActionPress={() => handleDeleteEntry(listItem.entry.id)}
+                  />
+                );
+              }
 
               return (
-                <EntryRow
-                  key={item.id}
-                  title={display.title}
-                  subtitle={display.subtitle}
-                  kcal={item.calories}
-                  onPress={() => handleOpenEdit(item)}
-                  actionLabel="Löschen"
-                  onActionPress={() => handleDeleteEntry(item.id)}
-                />
+                <View key={listItem.groupId} style={styles.group}>
+                  <EntryRow
+                    title={listItem.label}
+                    subtitle={`${listItem.children.length} Zutaten`}
+                    kcal={listItem.totalCalories}
+                    style={styles.groupHeader}
+                  />
+                  {listItem.children.map((child) => {
+                    const display = buildFoodEntryDisplay(child);
+
+                    return (
+                      <EntryRow
+                        key={child.id}
+                        title={display.title}
+                        subtitle={display.subtitle}
+                        kcal={child.calories}
+                        onPress={() => handleOpenEdit(child)}
+                        actionLabel="Löschen"
+                        onActionPress={() => handleDeleteEntry(child.id)}
+                        style={styles.groupChild}
+                      />
+                    );
+                  })}
+                </View>
               );
             })
           ) : (
@@ -526,6 +555,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 8,
+  },
+  group: {
+    marginBottom: tokens.spacing.xs,
+  },
+  groupHeader: {
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: tokens.spacing.s,
+    borderRadius: tokens.radius.medium,
+  },
+  groupChild: {
+    paddingLeft: tokens.spacing.l,
   },
   trustMessage: {
     marginTop: 8,

@@ -1,4 +1,4 @@
-import { buildFoodEntryDisplay } from '../journalEntryDisplay';
+import { buildFoodEntryDisplay, groupJournalEntries } from '../journalEntryDisplay';
 import type { FoodEntry } from '../../../../features/nutrition';
 
 function foodEntry(overrides: Partial<FoodEntry>): FoodEntry {
@@ -73,5 +73,94 @@ describe('buildFoodEntryDisplay', () => {
       title: 'Toast',
       subtitle: '35 g',
     });
+  });
+});
+
+describe('groupJournalEntries', () => {
+  it('groups children sharing a groupId under one JournalEntryGroup with summed macros', () => {
+    const bananen = foodEntry({
+      id: 'e1',
+      rawInput: 'bananen',
+      parsedName: 'bananen',
+      calories: 100,
+      protein: 1,
+      carbs: 20,
+      fat: 0.5,
+      groupId: 'g1',
+      groupLabel: 'fruchtsalat',
+    });
+    const kirschen = foodEntry({
+      id: 'e2',
+      rawInput: 'kirschen',
+      parsedName: 'kirschen',
+      calories: 50,
+      protein: 1,
+      carbs: 12,
+      fat: 0.2,
+      groupId: 'g1',
+      groupLabel: 'fruchtsalat',
+    });
+
+    const result = groupJournalEntries([bananen, kirschen]);
+
+    expect(result).toHaveLength(1);
+    const group = result[0];
+    expect(group.kind).toBe('group');
+    if (group.kind !== 'group') throw new Error('expected group');
+    expect(group.groupId).toBe('g1');
+    expect(group.label).toBe('Fruchtsalat');
+    expect(group.children).toEqual([bananen, kirschen]);
+    expect(group.totalCalories).toBe(150);
+    expect(group.totalProtein).toBe(2);
+    expect(group.totalCarbs).toBe(32);
+    expect(group.totalFat).toBeCloseTo(0.7);
+  });
+
+  it('passes through ungrouped entries as leaves in original order', () => {
+    const apfel = foodEntry({ id: 'e1', rawInput: 'apfel' });
+    const banane = foodEntry({ id: 'e2', rawInput: 'banane' });
+
+    const result = groupJournalEntries([apfel, banane]);
+
+    expect(result).toEqual([
+      { kind: 'entry', entry: apfel },
+      { kind: 'entry', entry: banane },
+    ]);
+  });
+
+  it('interleaves a group with flat entries at the position of the first child', () => {
+    const ei = foodEntry({ id: 'e1', rawInput: 'ei' });
+    const bananen = foodEntry({
+      id: 'e2',
+      rawInput: 'bananen',
+      groupId: 'g1',
+      groupLabel: 'fruchtsalat',
+    });
+    const kirschen = foodEntry({
+      id: 'e3',
+      rawInput: 'kirschen',
+      groupId: 'g1',
+      groupLabel: 'fruchtsalat',
+    });
+    const quark = foodEntry({ id: 'e4', rawInput: 'quark' });
+
+    const result = groupJournalEntries([ei, bananen, kirschen, quark]);
+
+    expect(result.map((item) => item.kind)).toEqual(['entry', 'group', 'entry']);
+  });
+
+  it('the group disappears once its last child is removed (nothing left to group)', () => {
+    const bananen = foodEntry({
+      id: 'e1',
+      rawInput: 'bananen',
+      groupId: 'g1',
+      groupLabel: 'fruchtsalat',
+    });
+
+    const withChild = groupJournalEntries([bananen]);
+    expect(withChild).toHaveLength(1);
+
+    const afterDeletingLastChild = groupJournalEntries([]);
+    expect(afterDeletingLastChild).toHaveLength(0);
   });
 });

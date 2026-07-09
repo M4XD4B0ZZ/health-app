@@ -2510,7 +2510,7 @@ requires no change since it already only iterates `splitResult.items`. Group dat
 
 ### P1-003C: Composite Meal Label Handling in Journal
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 When P1-003B detects a `<Kopf> mit <Liste>` pattern, `<Kopf>` must not be resolved as a
@@ -2526,6 +2526,24 @@ display, while macros are summed only from children (no double counting).
 
 **Verify:** Component/UI test for grouped display, unit test confirming label is excluded
 from resolver calls, manual app test.
+
+**Implementation notes:** Discovered during implementation that the live app submit path
+(`JournalScreen` → `logResolvedNutritionInput` → `prepareNutritionResolverDispatch` →
+`parseInput` → `simpleParse`) never used P1-003B's `splitMultiItemInput` — it had its own
+flat, non-clause-aware connector splitter, and `LogMealFromRawInputUseCase` (the only P1-003B
+consumer) was dead code never called from any UI. Fixed by rewriting
+`simpleParse` (`src/features/input/infrastructure/simpleParser.ts`) to delegate to
+`splitMultiItemInput`, then threading `groupId`/`groupLabel` through the full live pipeline:
+`ParsedItem` → `ResolverFoodRequest` → `FoodSearchQuery` →
+`LogFoodFromRawInputUseCase.execute()` → persisted `FoodEntry` (new optional
+`groupId`/`groupLabel` fields, also added to `PersistedFoodEntryRepository`'s
+serialize/deserialize). `LogMealFromRawInputUseCase` was updated too for consistency. A
+shared `buildGroupInfoByItemIndex()` helper in `splitMultiItemInput.ts` avoids duplicating the
+groupId-synthesis logic across both pipelines. Journal UI: `groupJournalEntries()` in
+`journalEntryDisplay.ts` derives grouped/flat display items from the flat entries array (no
+separate persisted "group" record), so group totals and group-disappears-on-last-delete both
+fall out for free from the existing per-entry data. Verified end-to-end against the real DI
+container (not mocks) via `logResolvedNutritionInput.test.ts`.
 
 ---
 

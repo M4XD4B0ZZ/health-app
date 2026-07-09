@@ -6,4 +6,6 @@ export interface ResolverFoodRequest {
   quantity: number | null;
   unit: string | null;
   status: 'ready' | 'unresolved';
+  groupId?: string;
+  groupLabel?: string;
 }

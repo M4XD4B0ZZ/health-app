@@ -3,6 +3,8 @@ export interface ParsedItem {
   quantity: number | null;
   unit: string | null;
   rawText?: string;
+  groupId?: string;
+  groupLabel?: string;
 }
 
 export interface ParsedInput {

@@ -106,3 +106,28 @@ export function splitMultiItemInput(rawInput: string): SplitMultiItemInputResult
     wasSplit,
   };
 }
+
+export interface SplitMultiItemGroupInfo {
+  groupId: string;
+  groupLabel: string;
+}
+
+/**
+ * P1-003C: maps each group child's item index to a stable groupId/groupLabel pair, so
+ * downstream persistence (FoodEntry.groupId/groupLabel) can tag sibling entries under
+ * the same composite-dish label without every consumer re-deriving group ids itself.
+ */
+export function buildGroupInfoByItemIndex(
+  result: SplitMultiItemInputResult,
+): Map<number, SplitMultiItemGroupInfo> {
+  const groupInfoByItemIndex = new Map<number, SplitMultiItemGroupInfo>();
+
+  result.groups.forEach((group, groupIndex) => {
+    const groupId = `group-${groupIndex}-${group.label.index}`;
+    for (const child of group.children) {
+      groupInfoByItemIndex.set(child.index, { groupId, groupLabel: group.label.rawText });
+    }
+  });
+
+  return groupInfoByItemIndex;
+}

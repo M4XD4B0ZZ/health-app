@@ -95,6 +95,22 @@ describe('logResolvedNutritionInput', () => {
     expect(result.dispatch.unresolvedRequests.length).toBe(0);
   });
 
+  it('satisfies P1-003C DoD: composite-dish label is grouped, not resolved standalone', async () => {
+    const result = await logResolvedNutritionInput('Auflauf mit Quark, Ei');
+
+    // Only the two children are dispatched to the resolver - "Auflauf" itself never
+    // becomes a resolver request or a standalone persisted entry.
+    expect(result.dispatch.readyRequests).toHaveLength(2);
+    expect(result.dispatch.readyRequests.every((req) => req.rawName !== 'auflauf')).toBe(true);
+    expect(result.persistedEntries).toHaveLength(2);
+    expect(result.persistedEntries.every((entry) => entry.rawInput !== 'Auflauf')).toBe(true);
+
+    expect(result.persistedEntries.every((entry) => entry.groupId)).toBe(true);
+    expect(result.persistedEntries.every((entry) => entry.groupLabel === 'Auflauf')).toBe(true);
+    const groupIds = new Set(result.persistedEntries.map((entry) => entry.groupId));
+    expect(groupIds.size).toBe(1);
+  });
+
   it('exposes structured needs-edit items while preserving blockedEntries count', async () => {
     const result = await logResolvedNutritionInput('zwei scheiben schinken');
 

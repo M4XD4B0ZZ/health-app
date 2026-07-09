@@ -44,4 +44,50 @@ describe('parseInput', () => {
     expect(result.items[0].name).toBe(input.startsWith('egg') ? 'egg' : 'ei');
     expect(result.items[1].name).toBe('quark');
   });
+
+  describe('P1-003C: composite-dish label grouping', () => {
+    it('groups children under a shared groupId/groupLabel and excludes the label itself', () => {
+      const result = parseInput('Fruchtsalat mit Bananen, Kirschen');
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items.map((item) => item.name)).toEqual(['bananen', 'kirschen']);
+      expect(result.items.every((item) => item.name !== 'fruchtsalat')).toBe(true);
+
+      const [bananen, kirschen] = result.items;
+      expect(bananen.groupId).toBeDefined();
+      expect(bananen.groupId).toBe(kirschen.groupId);
+      expect(bananen.groupLabel).toBe('Fruchtsalat');
+      expect(kirschen.groupLabel).toBe('Fruchtsalat');
+    });
+
+    it('does not attach group metadata to flat items outside a mit-clause', () => {
+      const result = parseInput('Apfel, Banane, Joghurt');
+
+      expect(result.items).toHaveLength(3);
+      result.items.forEach((item) => {
+        expect(item.groupId).toBeUndefined();
+        expect(item.groupLabel).toBeUndefined();
+      });
+    });
+
+    it('does not group a single "mit"-object without a comma list', () => {
+      const result = parseInput('burger mit cola');
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items.map((item) => item.name)).toEqual(['burger', 'cola']);
+      result.items.forEach((item) => {
+        expect(item.groupId).toBeUndefined();
+      });
+    });
+
+    it('assigns different groupIds to two separate mit-clause groups', () => {
+      const result = parseInput(
+        'Fruchtsalat mit Bananen, Kirschen und Wurstsalat mit Zwiebeln, Essig',
+      );
+
+      expect(result.items).toHaveLength(4);
+      const groupIds = new Set(result.items.map((item) => item.groupId));
+      expect(groupIds.size).toBe(2);
+    });
+  });
 });

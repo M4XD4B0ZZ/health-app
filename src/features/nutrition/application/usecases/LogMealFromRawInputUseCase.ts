@@ -15,7 +15,7 @@ import { FoodCatalogResolver } from '../services/FoodCatalogResolver';
 import { PortionKnowledgeService } from '../../domain/portion/PortionKnowledgeService';
 import { normalizeText } from '../utils/normalizeText';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
-import { splitMultiItemInput } from '../utils/splitMultiItemInput';
+import { splitMultiItemInput, buildGroupInfoByItemIndex } from '../utils/splitMultiItemInput';
 
 export interface MultiItemSplitFailureItem {
   rawText: string;
@@ -106,10 +106,18 @@ export class LogMealFromRawInputUseCase {
       const stagedRepository = new StagedFoodEntryRepository();
       const stagedSingleItemUseCase = this.createSingleItemUseCase(stagedRepository, undefined);
 
+      const groupInfoByItemIndex = buildGroupInfoByItemIndex(splitResult);
+
       for (const item of splitResult.items) {
         try {
+          const groupInfo = groupInfoByItemIndex.get(item.index);
           const entry = await stagedSingleItemUseCase.execute(
-            { rawText: item.rawText, rawInput: item.rawText },
+            {
+              rawText: item.rawText,
+              rawInput: item.rawText,
+              groupId: groupInfo?.groupId,
+              groupLabel: groupInfo?.groupLabel,
+            },
             dateISO,
           );
           createdEntries.push(entry);

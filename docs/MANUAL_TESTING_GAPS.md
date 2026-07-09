@@ -7,6 +7,17 @@ headless ist (kein React Native/Expo-Runtime, kein Android Emulator, kein iOS Si
 Ziel: Du siehst auf einen Blick, welche Änderungen nur durch Typecheck/Lint/Unit-Tests
 verifiziert wurden und wo noch ein **manueller App-Test in Expo** aussteht.
 
+> **Status:** Diese Datei wird automatisch gepflegt. Jede Agent-Session (Claude Code, Roo,
+> Cline, OpenCode, Codex) ist gemäß der bindenden Regel in [`AGENTS.md`](../AGENTS.md#manual-ui-testing-gap-log-binding)
+> und [`VERIFY.md`](../VERIFY.md#ui-relevant-changes--manual-testing-gap-log-binding) verpflichtet,
+> hier einen Eintrag zu ergänzen, sobald UI-relevante Dateien geändert wurden und keine echte
+> visuelle Prüfung in Expo/Simulator/Gerät möglich war. Du musst dafür nichts tun — kontrolliere
+> nach dem Urlaub einfach diese Datei von oben nach unten.
+>
+> Jeder Eintrag hat ein **Status**-Feld: `⏳ offen` (noch nicht manuell getestet) oder
+> `✅ geprüft` (von dir manuell verifiziert). Setze den Status manuell auf `✅ geprüft`,
+> sobald du einen Punkt abgehakt hast — Agents setzen ihn nicht selbst auf `✅`.
+
 ---
 
 ## Warum das passiert
@@ -40,18 +51,20 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
-### 2026-07-09 — Expo Testing Docs Setup
+### 2026-07-09 — Expo Testing Docs Setup + Governance-Bindung
 
-- **Betroffene Bereiche:** (initialer Eintrag, keine Code-Änderung — Dokumentation only)
+- **Status:** ✅ geprüft (keine Code-/UI-Änderung — reine Dokumentation + Governance-Regeln)
+- **Betroffene Bereiche:** `docs/MANUAL_TESTING_GAPS.md` (neu), `AGENTS.md`, `VERIFY.md` (Governance-Ergänzung)
 - **Verifiziert durch Agent:** —
 - **Nicht verifiziert:** —
-- **Zu testen:** n/a (Dieses Dokument selbst wurde nur als Doku angelegt)
+- **Zu testen:** n/a
 
 <!--
-Vorlage für neue Einträge:
+Vorlage für neue Einträge (Agents: bitte oben einfügen, neueste zuerst):
 
 ### YYYY-MM-DD — Kurzbeschreibung der Änderung
 
+- **Status:** ⏳ offen
 - **Branch/PR:** <link oder branch-name>
 - **Betroffene Bereiche:** z. B. `src/features/nutrition/presentation/...`
 - **Verifiziert durch Agent:** typecheck, lint, jest (welche Testdateien?)

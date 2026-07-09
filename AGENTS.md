@@ -141,6 +141,15 @@ Agents must read both files before starting any task.
 - Do not bypass or skip verification steps required by `VERIFY.md`.
 - Do not claim a task is done if required blocking checks from `VERIFY.md` have not passed.
 
+### Manual UI Testing Gap Log (Binding)
+
+- The agent execution environment is headless (no Expo runtime, no Android Emulator, no iOS Simulator, no working React-Native-Web interactive rendering for visual checks).
+- Whenever a task touches UI/presentation-layer files (e.g. `App.tsx`, anything under `src/**/presentation/**`, screens, components, navigation) and the agent could not visually verify the result in Expo/a simulator/a device, the agent **must** append a new entry to [`docs/MANUAL_TESTING_GAPS.md`](docs/MANUAL_TESTING_GAPS.md) before claiming the task done.
+- Use the template already present in that file (newest entry first). Fill in branch/PR, affected files, what was verified by the agent (typecheck/lint/test), what was **not** visually verified, and which checklist section in that file applies.
+- This rule applies to every adapter/tool (Roo, Cline, OpenCode, Codex, Claude Code) per the Tool Adapter Principle — it is not Claude-specific.
+- This log entry is required in addition to, not instead of, the checks in `VERIFY.md`. See `VERIFY.md` for the binding rule that ties this to the completion gate for UI-relevant changes.
+- Skip this only if the change contains no UI/presentation-layer files, or if the agent genuinely ran the app in a real Expo/simulator/device session and confirmed the change visually (state this explicitly in the handoff/summary).
+
 ### Dependency Command Safety (CLINE-OPS-003)
 
 - `npm install` is allowed only when explicitly required to restore missing local dependencies.
@@ -181,6 +190,7 @@ A task is done only when:
 - no type errors exist
 - no lint errors exist
 - edge verification passes if edge functions were changed
+- for UI-relevant changes without a real visual test: `docs/MANUAL_TESTING_GAPS.md` has a new entry (see "Manual UI Testing Gap Log" above)
 - ROADMAP.md task status is updated to `done`
 
 ### Secrets & Security

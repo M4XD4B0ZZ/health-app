@@ -100,4 +100,38 @@ describe('splitMultiItemInput', () => {
       expect(result.groups[0].label.rawText).toBe('Fruchtsalat');
     });
   });
+
+  describe('P1-005: Curated Composite-Dish Pattern List', () => {
+    it('does not group a "mit"-clause comma list when the head is an ordinary food, not a curated dish', () => {
+      const result = splitMultiItemInput('Haehnchen mit Reis, Brokkoli');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Haehnchen', 'Reis', 'Brokkoli']);
+      expect(result.groups).toEqual([]);
+    });
+
+    it('groups a bare "Auflauf" head (curated pattern used standalone, not just as a compound)', () => {
+      const result = splitMultiItemInput('Auflauf mit Quark, Ei');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Quark', 'Ei']);
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].label.rawText).toBe('Auflauf');
+    });
+
+    it('matches a curated head-word case-insensitively', () => {
+      const result = splitMultiItemInput('fruchtsalat mit Bananen, Kirschen');
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].label.rawText).toBe('fruchtsalat');
+    });
+
+    it('matches a curated head-word with an adjective prefix (last-token match)', () => {
+      const result = splitMultiItemInput('Gemischter Fruchtsalat mit Bananen, Kirschen');
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].label.rawText).toBe('Gemischter Fruchtsalat');
+      expect(result.items.map((item) => item.rawText)).toEqual(['Bananen', 'Kirschen']);
+    });
+  });
 });

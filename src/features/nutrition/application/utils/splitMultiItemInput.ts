@@ -1,3 +1,5 @@
+import { isCompositeDishHeadWord } from '../../domain/catalog/CompositeDishPatterns';
+
 export interface SplitMultiItemInputItem {
   rawText: string;
   index: number;
@@ -54,6 +56,12 @@ function splitAndTrim(text: string, pattern: RegExp): string[] {
  * keeps the original flat P1-003 behavior, e.g. "burger mit cola" still
  * yields two flat entries.
  *
+ * P1-005 (curated pattern gate): the head must also match a known
+ * composite-dish head-word (`isCompositeDishHeadWord`) for a group to form.
+ * This prevents ordinary food + "mit" + comma-list input from losing its own
+ * macros to an unresolved label, e.g. "Haehnchen mit Reis, Brokkoli" stays
+ * three flat entries since "Haehnchen" is not a recognized dish header.
+ *
  * Empty fragments are ignored safely so malformed delimiter sequences do not
  * create empty resolver calls.
  */
@@ -80,7 +88,7 @@ export function splitMultiItemInput(rawInput: string): SplitMultiItemInputResult
       const rest = segment.slice(clauseMatch.index + clauseMatch[0].length).trim();
       const children = splitAndTrim(rest, COMMA_PATTERN);
 
-      if (head.length > 0 && children.length >= 2) {
+      if (head.length > 0 && children.length >= 2 && isCompositeDishHeadWord(head)) {
         const label: SplitMultiItemInputItem = { rawText: head, index: nextIndex++ };
         const childItems: SplitMultiItemInputItem[] = children.map((rawText) => ({
           rawText,

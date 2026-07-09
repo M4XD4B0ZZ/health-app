@@ -2561,7 +2561,7 @@ container (not mocks) via `logResolvedNutritionInput.test.ts`.
 
 ### P1-005: Curated Composite-Dish Pattern List (Non-Growing Alias Strategy)
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Introduce a small curated list of common composite-dish head-words (e.g. "Fruchtsalat",
@@ -2581,6 +2581,21 @@ dish patterns apply privately first, never auto-promoted to global truth).
   RESOLVER-V2-005/006 (Supabase knowledge layer)
 
 **Verify:** `npm run test` for pattern list unit tests, `npm run verify`.
+
+**Implementation notes:** New file `src/features/nutrition/domain/catalog/CompositeDishPatterns.ts`
+defines `COMPOSITE_DISH_HEAD_WORDS` (18 seed entries, e.g. Fruchtsalat, Obstsalat, Wurstsalat,
+Auflauf, Eintopf) and `isCompositeDishHeadWord()`, which normalizes via the existing
+`normalizeText()` helper (lowercase, umlaut folding) and matches on the head text's last token
+so adjective-prefixed heads (e.g. "gemischter Fruchtsalat") still match. `splitMultiItemInput.ts`
+now gates P1-003B/C group formation on `isCompositeDishHeadWord(head)` in addition to the
+existing "≥2 comma children" condition, so an ordinary food followed by "mit" + a comma list
+(e.g. "Haehnchen mit Reis, Brokkoli") no longer loses its own macros to an unresolved label -
+it now stays 3 flat, individually-resolved entries. All pre-existing P1-003B/C fixtures already
+used curated head-words (Fruchtsalat, Wurstsalat, Obstsalat, Auflauf) and continue to pass
+unchanged. New tests in `CompositeDishPatterns.test.ts` and `splitMultiItemInput.test.ts` cover
+the list bounds, case/umlaut normalization, adjective-prefix matching, and the negative
+(non-curated head) case. Full suite (88 suites / 719 tests), `tsc --noEmit`, and `eslint` pass
+clean.
 
 ---
 

@@ -54,6 +54,13 @@ jest.mock('./infrastructure/di/container', () => {
   } = require('./features/nutrition/application/usecases/LogFoodFromRawInputUseCase');
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { TestIdGenerator } = require('./features/nutrition/infrastructure/RandomIdGenerator');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    PortionKnowledgeService,
+    InMemoryPortionHintRepository,
+  } = require('./features/nutrition/domain/portion/PortionKnowledgeService');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { SEED_PORTION_HINTS } = require('./features/nutrition/domain/portion/seedPortionHints');
 
   // Test-Implementierung für Clock
   class TestClock {
@@ -84,6 +91,14 @@ jest.mock('./infrastructure/di/container', () => {
     searchByName: jest.fn().mockResolvedValue(null),
   };
 
+  // Same wiring as the real container (container.ts): a single PortionKnowledgeService
+  // instance shared between the use case (read path) and the exposed container property
+  // (write path via confirmUserPrivateHint), so P1-004C's confirm-and-retry flow is
+  // testable end-to-end exactly as JournalScreen drives it in production.
+  const mockPortionKnowledgeService = new PortionKnowledgeService(
+    new InMemoryPortionHintRepository(SEED_PORTION_HINTS),
+  );
+
   const mockLogFoodFromRawInputUseCase = new LogFoodFromRawInputUseCase(
     mockRepository,
     mockClock,
@@ -94,12 +109,14 @@ jest.mock('./infrastructure/di/container', () => {
     undefined, // aiFoodMapper
     undefined, // nutritionLookup
     mockResolver,
+    mockPortionKnowledgeService,
   );
 
   return {
     __esModule: true,
     default: {
       logFoodFromRawInputUseCase: mockLogFoodFromRawInputUseCase,
+      portionKnowledgeService: mockPortionKnowledgeService,
       // Add other container properties as needed
     },
   };

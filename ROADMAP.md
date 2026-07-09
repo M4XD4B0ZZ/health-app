@@ -2497,19 +2497,23 @@ count foods return `needs_edit`/`COUNT_WITHOUT_PORTION_HINT` rather than a 100g 
 100g fallback path is reserved for genuinely quantity-less legacy input). 22 focused tests
 pass; full suite/typecheck unaffected (no production code touched).
 
-**Known gap (out of scope for this DoD, tracked as P1-004C):**
-`PortionKnowledgeService.confirmUserPrivateHint()` has no production call site yet - the
-read/precedence side is fully wired into the live app via DI, but there is no UI/use-case flow
-that lets a user actually save a private portion hint. Separately noted: `domain/canonicalFoods.ts`
-and `domain/catalog/CanonicalFood.ts` are two independently-maintained catalogs with the same
-concept name and some inconsistent values (e.g. apple 150g vs 180g) - a latent consistency risk
-worth consolidating, not attempted here to avoid scope creep into `SequentialFoodCatalogResolver`.
+**Correction (see P1-004C):** the note below about `confirmUserPrivateHint()` having "zero
+production call sites" was wrong - `JournalScreen.tsx` (`savePortionHintAndRetry`,
+`handleUseEstimatedPortion`, `handleConfirmManualPortion`) already calls
+`container.portionKnowledgeService.confirmUserPrivateHint()` in production (added in commit
+208f5f7, predating this status update). What was actually missing was test coverage: the
+globally mocked test container (`src/test-setup.ts`) never exposed a `portionKnowledgeService`
+at all, so this flow was unverified by any test. P1-004C closes that gap. Separately noted:
+`domain/canonicalFoods.ts` and `domain/catalog/CanonicalFood.ts` are two independently-maintained
+catalogs with the same concept name and some inconsistent values (e.g. apple 150g vs 180g) - a
+latent consistency risk worth consolidating, not attempted here to avoid scope creep into
+`SequentialFoodCatalogResolver`.
 
 ---
 
 ### P1-004C: Wire User-Private Portion Hint Confirmation UI
 
-Status: `todo`
+Status: `done`
 
 **Description:** `PortionKnowledgeService.confirmUserPrivateHint()` (domain layer, P1-004B) is
 fully implemented and tested but has zero production callers. Add a use-case + UI entry point
@@ -2523,6 +2527,26 @@ that user (per P1-004B precedence) without affecting other users or promoting to
 truth.
 
 **Verify:** New use-case/UI test exercising the confirm flow end-to-end, `npm run verify`.
+
+**Implementation notes:** Investigation found the UI entry point already existed
+(`JournalScreen.tsx`'s "estimate" and manual-grams confirm actions both call
+`container.portionKnowledgeService.confirmUserPrivateHint()` and then retry the blocked input) -
+this ticket's real remaining work was closing the test gap. `src/test-setup.ts`'s global
+container mock previously only exposed `logFoodFromRawInputUseCase`, built without a
+`portionKnowledgeService` (10th constructor arg omitted), so `resolvePortionGrams` silently fell
+back to its own internal module-level default instance and `container.portionKnowledgeService`
+was `undefined` in every test. Fixed by constructing one shared `PortionKnowledgeService`
+(same `InMemoryPortionHintRepository` + `SEED_PORTION_HINTS` wiring as production `container.ts`)
+and wiring it into both the mocked use case and the exposed `container.portionKnowledgeService`,
+so confirming a hint through the container in a test now actually affects the next resolution -
+exactly mirroring the real DI graph. New end-to-end test
+(`src/features/input/application/__tests__/portionHintConfirmationFlow.test.ts`) drives the full
+production call path: "zwei scheiben schinken" blocks with `needs_edit` (`canonical:ham`/slice),
+`container.portionKnowledgeService.confirmUserPrivateHint(...)` is called exactly as
+`JournalScreen.savePortionHintAndRetry` calls it, the identical input then resolves immediately
+(50g, calories > 0), and a different `userId` still gets no hint for the same food/unit
+(private, not promoted to global). Full suite (89 suites / 720 tests), `tsc --noEmit`, `eslint`,
+and `prettier -c` (on touched files) pass clean.
 
 ---
 

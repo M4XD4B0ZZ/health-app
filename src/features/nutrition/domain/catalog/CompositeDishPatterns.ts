@@ -54,7 +54,9 @@ const NORMALIZED_HEAD_WORDS = new Set(
  * Case-insensitive and umlaut-normalized via `normalizeText`.
  */
 export function isCompositeDishHeadWord(headText: string): boolean {
-  const tokens = normalizeText(headText).split(' ').filter((token) => token.length > 0);
+  const tokens = normalizeText(headText)
+    .split(' ')
+    .filter((token) => token.length > 0);
   const lastToken = tokens[tokens.length - 1];
   return lastToken !== undefined && NORMALIZED_HEAD_WORDS.has(lastToken);
 }

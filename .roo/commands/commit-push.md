@@ -33,7 +33,12 @@ Pflichtschritte:
 5. Commit erstellen
 6. Aktuellen Branch ermitteln
 7. Push des aktuellen Branches ausführen
-8. Am Ende Commit-Hash, Branch und Push-Ziel knapp ausgeben
+8. Nach dem Push: `git fetch origin <default-branch>` ausführen. Prüfen, ob der
+   Basis-Branch seit dem Start des aktuellen Branches neue Commits erhalten hat
+   (`git log <branch>..origin/<default-branch> --oneline`). Falls ja, das explizit
+   melden statt still weiterzuarbeiten — siehe AGENTS.md, "Git Branch Sync After Push".
+9. Am Ende Commit-Hash, Branch und Push-Ziel knapp ausgeben (inkl. Hinweis, falls der
+   Basis-Branch inzwischen abweicht)
 
 Wichtige Sicherheitsregeln:
 

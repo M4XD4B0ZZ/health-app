@@ -26,11 +26,15 @@ describe('SequentialFoodCatalogResolver', () => {
     search: jest.fn().mockResolvedValue(results),
   });
 
-  const createCandidate = (source: 'off' | 'usda' | 'user', similarity: number): FoodCandidate => ({
+  const createCandidate = (
+    source: 'off' | 'usda' | 'user',
+    similarity: number,
+    normalizedName = 'test',
+  ): FoodCandidate => ({
     food: {
       id: `${source}-test`,
       name: `Test ${source}`,
-      normalizedName: 'test',
+      normalizedName,
       macrosPer100g: { kcal: 100, protein: 10, carbs: 20, fat: 5 },
       source,
     },
@@ -93,9 +97,12 @@ describe('SequentialFoodCatalogResolver', () => {
       },
     };
 
-    const offCandidate = createCandidate('off', 1);
+    // "raw" marks the candidate as a plain/generic match instead of falling into the
+    // OFF-only "unclassified -> branded_product" default, so its score legitimately
+    // clears the early-return threshold below.
+    const offCandidate = createCandidate('off', 1, 'test raw');
     const offSource = createMockOffSource([offCandidate]);
-    const usdaSource = createMockUsdaSource([createCandidate('usda', 1)]);
+    const usdaSource = createMockUsdaSource([createCandidate('usda', 1, 'test raw')]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
@@ -103,7 +110,7 @@ describe('SequentialFoodCatalogResolver', () => {
       config,
     );
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const query: FoodSearchQuery = { raw: 'test raw', normalized: 'test raw', locale: 'de' };
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
@@ -514,25 +521,25 @@ describe('SequentialFoodCatalogResolver', () => {
     expect(result.best?.food.source).toBe('off');
   });
 
-  it('returns OFF when confidence is equal but source weight is higher', async () => {
-    const offCandidate = createCandidate('off', 0.5);
-    const usdaCandidate = createCandidate('usda', 0.5);
-
-    // Force same confidence by mocking engine
-    const mockEngine = {
-      score: jest.fn().mockReturnValue({ confidence: 0.5, reasons: [] }),
-    };
+  it('returns USDA when match quality is tied but source trust is higher', async () => {
+    // The resolver's injected confidence engine is not used for scoring (ScoreCalculator
+    // computes scores internally). The candidate normalizedName deliberately does not
+    // exactly equal the query so the DACH "exact match required" gate blocks OFF's early
+    // return, letting both sources be compared. With identical match quality between OFF
+    // and USDA, the tie is broken by SOURCE_TRUST, which weighs USDA (0.95) above OFF (0.9).
+    const offCandidate = createCandidate('off', 0.5, 'testfood roh');
+    const usdaCandidate = createCandidate('usda', 0.5, 'testfood roh');
 
     const offSource = createMockOffSource([offCandidate]);
     const usdaSource = createMockUsdaSource([usdaCandidate]);
 
-    const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], mockEngine as any);
+    const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const query: FoodSearchQuery = { raw: 'roh testfood', normalized: 'roh testfood', locale: 'de' };
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
-    expect(result.best?.food.source).toBe('off');
+    expect(result.best?.food.source).toBe('usda');
   });
 
   describe('Circuit Breaker', () => {
@@ -1038,7 +1045,10 @@ describe('SequentialFoodCatalogResolver', () => {
         },
       };
 
-      const offSource = createMockOffSource([createCandidate('off', 0.9)]);
+      // "raw" marks the candidate as a plain/generic match instead of falling into the
+      // OFF-only "unclassified -> branded_product" default, so its score legitimately
+      // clears the early-return threshold and USDA is never queried.
+      const offSource = createMockOffSource([createCandidate('off', 0.9, 'test raw')]);
       const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
@@ -1047,7 +1057,7 @@ describe('SequentialFoodCatalogResolver', () => {
         config,
       );
 
-      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+      const query: FoodSearchQuery = { raw: 'test raw', normalized: 'test raw', locale: 'de' };
       await resolver.resolve(query);
 
       // Find the summary log call

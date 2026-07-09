@@ -2650,16 +2650,37 @@ Prinzip 0 in their own future decomposition into tasks.
 
 Status: `todo`
 
-Ready for decomposition into concrete tasks (not yet decomposed). Per the accepted Product
-Bible, starts with the factual question "What is a journal entry in Zera?" (data model,
-not UI/screens) — the journal entry is the foundation that Food Catalog references,
-Saved Meals, Goals, Dashboard, Evaluation, AI Coach, Reports, and notifications all build
-on.
+Foundational question answered and decisions accepted — ready for concrete `ROADMAP.md`
+task decomposition (not yet decomposed). See
+[`docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md`](docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md)
+("What is a journal entry in Zera?", `accepted`) and
+[`docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md`](docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md)
+(correction model, Food Catalog reference, CanonicalFood cleanup, Future Compatibility
+Principle — `accepted`).
 
-**Scope boundary (Product Bible Abschnitt 6/7):** stays profile-independent; references
-Food Catalog entries rather than owning food properties itself; never contains evaluations
-("gut"/"schlecht"). Food Catalog decomposition (BLS/OFF/USDA-backed objective food
-properties layer) happens within this domain phase, not as a separate fifth phase.
+**Scope boundary (Product Bible Abschnitt 6/7, unchanged):** stays profile-independent;
+references Food Catalog entries rather than owning food properties itself; never contains
+evaluations ("gut"/"schlecht"). Food Catalog remains fachlich part of the Journal Domain
+per Product Bible Abschnitt 9/11 — **not** a fifth Tier-1 domain. The Product Bible
+describes the factual architecture (Food Catalog → Journal → Evaluation Engine); this
+section only refines the *implementation sequence* within the Journal Domain, per Decision
+Record 1's implementation order:
+
+1. **Food Catalog Identity Cleanup** — consolidate/rename the duplicate `CanonicalFood`
+   type definitions onto one stable identity (narrow scope only, no new Food Catalog
+   functionality — see Decision Record 1, Entscheidung 4).
+2. **Journal Model** — apply the accepted `FoodEntry` shape changes: explicit
+   `nutritionSnapshot`, optional `foodCatalogRef`.
+3. **Corrections** — append-only correction log, soft-delete instead of hard-delete
+   (Decision Record 1, Entscheidung 1).
+4. **Food References** — wire `foodCatalogRef` population into
+   `resolveCanonicalFood()`/the log pipeline once step 1 provides a stable identity
+   (Decision Record 1, Entscheidung 3).
+5. **Logging** — auto-merge correction heuristic narrowed to a 2-minute window, made
+   visible/undoable, logged as system-triggered (Decision Record 1, Entscheidung 2).
+
+Each of these five work packages still needs its own concrete, verifiable `ROADMAP.md`
+task(s) — this list is a sequencing outline, not yet task decomposition.
 
 ### Saved Meals Domain
 

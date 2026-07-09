@@ -108,9 +108,7 @@ describe('BLS Token-based Matching', () => {
       const results = await blsSource.search(query);
 
       expect(results.length).toBeGreaterThan(0);
-      // food.name is the human-readable display name (keeps German umlauts/casing),
-      // unlike normalizedName/tokens which fold "ä" -> "ae" for matching purposes.
-      expect(results[0].food.name.toLowerCase()).toContain('käse');
+      expect(results[0].food.name).toContain('Käse');
     });
   });
 

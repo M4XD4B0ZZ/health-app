@@ -185,7 +185,7 @@ describe('OFF Generic Canonicals Relevance', () => {
         food: {
           id: 'usda-egg-raw',
           name: 'Egg, whole, raw',
-          normalizedName: 'egg',
+          normalizedName: 'egg whole raw',
           macrosPer100g: { kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
           source: 'usda',
         },
@@ -204,13 +204,12 @@ describe('OFF Generic Canonicals Relevance', () => {
     const query: FoodSearchQuery = { raw: 'ei', normalized: 'ei', locale: 'de' };
     const result = await resolver.resolve(query);
 
-    // DACH strategy: USDA's raw canonical egg is confidently preferred over OFF's
-    // "gekocht" (cooked) variant for an unqualified "ei" query - both candidates
-    // still appear in the ranked list (neither is discarded as irrelevant), but the
-    // resolver does not need to ask the user to disambiguate since the canonical
-    // raw entry is the better default answer than a specific preparation.
+    // The generic short query "ei" prefers the raw/generic candidate (USDA "Egg, whole, raw")
+    // over the prepared candidate (OFF "Ei, gekocht") per the DACH generic-first semantic
+    // ranking, so the resolver confidently accepts the raw candidate instead of staying
+    // ambiguous between a prepared and a plain match.
     expect(result.status).toBe('accepted');
-    expect(result.best?.source).toBe('USDA');
+    expect(result.best?.food.source).toBe('usda');
     expect(result.candidates.length).toBeGreaterThan(1);
     // Verify that reasonable egg candidates are present
     const eggCandidate = result.candidates.find(

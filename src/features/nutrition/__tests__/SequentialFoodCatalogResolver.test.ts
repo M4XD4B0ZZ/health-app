@@ -29,7 +29,7 @@ describe('SequentialFoodCatalogResolver', () => {
   const createCandidate = (
     source: 'off' | 'usda' | 'user',
     similarity: number,
-    normalizedName: string = 'test',
+    normalizedName = 'test',
   ): FoodCandidate => ({
     food: {
       id: `${source}-test`,
@@ -97,14 +97,12 @@ describe('SequentialFoodCatalogResolver', () => {
       },
     };
 
-    // Uses a 3-token normalizedName so ScoreCalculator classifies query intent as
-    // "ambiguous" rather than "generic_short" - the latter applies a semantic
-    // branded-product penalty to OFF candidates (DACH strategy: OFF is a branded/EAN
-    // fallback, not a generic-food source) that would mask the early-return behavior
-    // this test is actually verifying.
-    const offCandidate = createCandidate('off', 1, 'test food item');
+    // "raw" marks the candidate as a plain/generic match instead of falling into the
+    // OFF-only "unclassified -> branded_product" default, so its score legitimately
+    // clears the early-return threshold below.
+    const offCandidate = createCandidate('off', 1, 'test raw');
     const offSource = createMockOffSource([offCandidate]);
-    const usdaSource = createMockUsdaSource([createCandidate('usda', 1, 'test food item')]);
+    const usdaSource = createMockUsdaSource([createCandidate('usda', 1, 'test raw')]);
 
     const resolver = new SequentialFoodCatalogResolver(
       [offSource, usdaSource],
@@ -112,11 +110,7 @@ describe('SequentialFoodCatalogResolver', () => {
       config,
     );
 
-    const query: FoodSearchQuery = {
-      raw: 'test food item',
-      normalized: 'test food item',
-      locale: 'de',
-    };
+    const query: FoodSearchQuery = { raw: 'test raw', normalized: 'test raw', locale: 'de' };
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
@@ -527,22 +521,21 @@ describe('SequentialFoodCatalogResolver', () => {
     expect(result.best?.food.source).toBe('off');
   });
 
-  it('returns USDA when confidence is equal but source weight is higher', async () => {
-    // ScoreCalculator's SOURCE_TRUST table ranks USDA (0.95) above OFF (0.9) - USDA is
-    // the trusted generic-food source, OFF is a downgraded branded/EAN fallback (DACH
-    // strategy). This test verifies the resolver deterministically breaks a near-tie in
-    // match quality by that source weight. Note: the `_confidenceEngine` constructor
-    // param is unused by the resolver's actual scoring path (ScoreCalculator handles
-    // that), so the real confidenceEngine instance is passed here rather than a mock.
-    const offCandidate = createCandidate('off', 0.5);
-    const usdaCandidate = createCandidate('usda', 0.5);
+  it('returns USDA when match quality is tied but source trust is higher', async () => {
+    // The resolver's injected confidence engine is not used for scoring (ScoreCalculator
+    // computes scores internally). The candidate normalizedName deliberately does not
+    // exactly equal the query so the DACH "exact match required" gate blocks OFF's early
+    // return, letting both sources be compared. With identical match quality between OFF
+    // and USDA, the tie is broken by SOURCE_TRUST, which weighs USDA (0.95) above OFF (0.9).
+    const offCandidate = createCandidate('off', 0.5, 'testfood roh');
+    const usdaCandidate = createCandidate('usda', 0.5, 'testfood roh');
 
     const offSource = createMockOffSource([offCandidate]);
     const usdaSource = createMockUsdaSource([usdaCandidate]);
 
     const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
 
-    const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'de' };
+    const query: FoodSearchQuery = { raw: 'roh testfood', normalized: 'roh testfood', locale: 'de' };
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();
@@ -1052,11 +1045,10 @@ describe('SequentialFoodCatalogResolver', () => {
         },
       };
 
-      // 3-token normalizedName keeps ScoreCalculator's query intent "ambiguous" instead
-      // of "generic_short", avoiding the semantic branded-product penalty that would
-      // otherwise drop this OFF candidate below the early-return threshold (see the
-      // "without checking USDA" test above for the full explanation).
-      const offSource = createMockOffSource([createCandidate('off', 0.9, 'test food item')]);
+      // "raw" marks the candidate as a plain/generic match instead of falling into the
+      // OFF-only "unclassified -> branded_product" default, so its score legitimately
+      // clears the early-return threshold and USDA is never queried.
+      const offSource = createMockOffSource([createCandidate('off', 0.9, 'test raw')]);
       const usdaSource = createMockUsdaSource([]);
 
       const resolver = new SequentialFoodCatalogResolver(
@@ -1065,11 +1057,7 @@ describe('SequentialFoodCatalogResolver', () => {
         config,
       );
 
-      const query: FoodSearchQuery = {
-        raw: 'test food item',
-        normalized: 'test food item',
-        locale: 'de',
-      };
+      const query: FoodSearchQuery = { raw: 'test raw', normalized: 'test raw', locale: 'de' };
       await resolver.resolve(query);
 
       // Find the summary log call

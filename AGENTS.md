@@ -133,6 +133,29 @@ Agents must read both files before starting any task.
 - Keep changes minimal and deterministic.
 - Do not introduce new libraries without explicit approval.
 
+### Git Branch Sync After Push (Multi-Session Conflict Prevention)
+
+- After every `git push`, immediately `git fetch origin <default-branch>` to check
+  whether the branch's base has advanced since the branch was created or last synced.
+- If the base branch has new commits not yet in the current branch's history, report
+  this explicitly (do not silently continue as if the branch is still current).
+- Before opening or merging a pull request, check for other open pull requests on the
+  same repository, not just this branch's own diff against its original base.
+- If multiple open pull requests touch the same file paths, compare their diffs before
+  merging either — check for both textual conflicts and semantic/design-decision
+  conflicts (e.g. one PR reversing a choice already made in an accepted document).
+- This rule applies to every adapter/tool per the Tool Adapter Principle — it is not
+  Claude-specific.
+
+#### Incident rationale
+
+- Two parallel sessions branched from the same base commit and diverged without
+  visibility into each other's work; their pull requests (#4, #5 in this repo) later
+  turned out to implement conflicting versions of the same task (P1-005) and to create
+  the same new file path with different content. The conflict was only caught by
+  reviewing both PRs together at merge time, after both had already accumulated
+  significant independent work.
+
 ### Verification
 
 - Run verification before marking any task done (see VERIFY.md).

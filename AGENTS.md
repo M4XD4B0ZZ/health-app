@@ -146,6 +146,17 @@ Agents must read both files before starting any task.
   conflicts (e.g. one PR reversing a choice already made in an accepted document).
 - This rule applies to every adapter/tool per the Tool Adapter Principle — it is not
   Claude-specific.
+- After a pull request is confirmed merged, delete its source branch
+  (`git push origin --delete <branch>`, or the GitHub UI/API) to keep the branch list
+  current. Merge commits preserve all history in the default branch, so this is safe
+  once merge is confirmed.
+- Never delete a branch whose pull request was closed without merging without explicit
+  human confirmation for that specific branch — its commits exist nowhere else once
+  deleted, unlike a merged branch's commits, which live on via the merge commit.
+- If the current environment cannot perform branch deletion (e.g. git proxy or MCP
+  tooling blocks it), do not build ad-hoc workarounds (raw API calls, new tools) to
+  route around that restriction — report it and leave the branch for deletion via a
+  channel with proper access.
 
 #### Incident rationale
 
@@ -155,6 +166,14 @@ Agents must read both files before starting any task.
   the same new file path with different content. The conflict was only caught by
   reviewing both PRs together at merge time, after both had already accumulated
   significant independent work.
+- In one Claude Code Remote session, `git push origin --delete <branch>` was rejected
+  with HTTP 403 by the environment's git proxy for every merged branch tried (none were
+  GitHub-protected), and no GitHub MCP tool exists for branch deletion either. The
+  agent then attempted to build a local MCP server calling the GitHub REST API directly
+  to fill the gap; the environment's own permission system blocked the dependency
+  install, treating it as circumventing the "GitHub MCP tools only" rule. Branches from
+  that session were left undeleted for a human (or a channel with proper access) to
+  remove — see the rule above.
 
 ### Verification
 

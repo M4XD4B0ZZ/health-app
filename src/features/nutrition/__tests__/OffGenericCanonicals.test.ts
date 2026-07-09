@@ -169,7 +169,7 @@ describe('OFF Generic Canonicals Relevance', () => {
         food: {
           id: 'off-ei-gekocht',
           name: 'Ei, gekocht',
-          normalizedName: 'ei',
+          normalizedName: 'ei gekocht',
           macrosPer100g: { kcal: 155, protein: 13, carbs: 1.1, fat: 11 },
           source: 'off',
         },
@@ -185,7 +185,7 @@ describe('OFF Generic Canonicals Relevance', () => {
         food: {
           id: 'usda-egg-raw',
           name: 'Egg, whole, raw',
-          normalizedName: 'egg',
+          normalizedName: 'egg whole raw',
           macrosPer100g: { kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
           source: 'usda',
         },
@@ -204,9 +204,12 @@ describe('OFF Generic Canonicals Relevance', () => {
     const query: FoodSearchQuery = { raw: 'ei', normalized: 'ei', locale: 'de' };
     const result = await resolver.resolve(query);
 
-    // The resolver returns "ambiguous" when multiple good candidates exist
-    // This is actually correct behavior for ensuring quality
-    expect(result.status).toBe('ambiguous');
+    // The generic short query "ei" prefers the raw/generic candidate (USDA "Egg, whole, raw")
+    // over the prepared candidate (OFF "Ei, gekocht") per the DACH generic-first semantic
+    // ranking, so the resolver confidently accepts the raw candidate instead of staying
+    // ambiguous between a prepared and a plain match.
+    expect(result.status).toBe('accepted');
+    expect(result.best?.food.source).toBe('usda');
     expect(result.candidates.length).toBeGreaterThan(1);
     // Verify that reasonable egg candidates are present
     const eggCandidate = result.candidates.find(

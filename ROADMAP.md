@@ -2618,27 +2618,73 @@ learning/growth mechanism as originally scoped.
 
 ---
 
-## Tier 1 Planning Targets — Require Later Task Decomposition
+## Nutrition Evaluation Foundation → Domain Phases
 
-The following product modules are Tier 1 planning targets. They are intentionally listed as planning placeholders only and must be decomposed into concrete, verifiable tasks before implementation.
+Supersedes the former "Tier 1 Planning Targets" flat module list (Journal, Saved Meals,
+Dashboard, Goals treated as four equivalent placeholders). Journal and Saved Meals are
+data domains; Goals and Dashboard are direct expressions of the Evaluation Engine — this
+ordering reflects the accepted architecture instead of a flat list.
 
-**Blocked pending product/architecture concept approval:** Decomposition of these four
-modules is intentionally paused pending sign-off on the Zera Evaluation Engine concept —
-see [`docs/vision/ZERA_FOUNDING_BRIEF.md`](docs/vision/ZERA_FOUNDING_BRIEF.md) (product
-vision: Zera as a Nutrition Evaluation Platform, strict separation of neutral Journal data
-from swappable Evaluation Models) and
-[`docs/vision/ZERA_PRODUCT_BIBLE.md`](docs/vision/ZERA_PRODUCT_BIBLE.md) (architecture:
-Journal-vs-Evaluation-Engine data ownership, model contract, candidate evaluation models,
-extensibility rules). Each module's eventual decomposition must respect that split: Journal
-and Saved Meals stay model-independent; Dashboard and Goals become views driven by the
-active Evaluation Model.
+### Nutrition Evaluation Foundation
 
-| Module      | Status    | Notes                                                     |
-| ----------- | --------- | ---------------------------------------------------------- |
-| Journal     | `blocked` | Editable food log, daily view — neutral fact layer only    |
-| Saved Meals | `blocked` | Reusable meal templates — model-independent logging aid    |
-| Dashboard   | `blocked` | Summary/progress view — driven by active Evaluation Model  |
-| Goals       | `blocked` | Target config/progress — driven by active Evaluation Model |
+Status: `done`
+
+Product/architecture concept accepted as Zera's factual authority for all further product
+decisions: strict separation of Food Catalog (objective food properties) → Journal
+(objective who/when/how-much history) → Evaluation Engine (interchangeable interpretation
+via Evaluation Profiles composed of Rules; Prinzip 0: no Profile ever changes facts). See
+[`docs/vision/ZERA_FOUNDING_BRIEF.md`](docs/vision/ZERA_FOUNDING_BRIEF.md) (vision, target
+motivations) and [`docs/vision/ZERA_PRODUCT_BIBLE.md`](docs/vision/ZERA_PRODUCT_BIBLE.md)
+(architecture, data ownership, profile/rule contract, Origin taxonomy). Both carry Status
+`accepted`. Review trail:
+[`ZERA_CONCEPT_REVIEW_R1.md`](docs/vision/ZERA_CONCEPT_REVIEW_R1.md),
+[`ZERA_CONCEPT_REVIEW_R2.md`](docs/vision/ZERA_CONCEPT_REVIEW_R2.md).
+
+**DoD:** Founding Brief and Product Bible both carry Status `accepted`. All four downstream
+domain phases below must respect the Food-Catalog/Journal/Evaluation-Engine split and
+Prinzip 0 in their own future decomposition into tasks.
+
+---
+
+### Journal Domain
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Per the accepted Product
+Bible, starts with the factual question "What is a journal entry in Zera?" (data model,
+not UI/screens) — the journal entry is the foundation that Food Catalog references,
+Saved Meals, Goals, Dashboard, Evaluation, AI Coach, Reports, and notifications all build
+on.
+
+**Scope boundary (Product Bible Abschnitt 6/7):** stays profile-independent; references
+Food Catalog entries rather than owning food properties itself; never contains evaluations
+("gut"/"schlecht"). Food Catalog decomposition (BLS/OFF/USDA-backed objective food
+properties layer) happens within this domain phase, not as a separate fifth phase.
+
+### Saved Meals Domain
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Reusable meal templates
+— a logging-speed aid, explicitly not an evaluation object (Product Bible Abschnitt 6).
+Must function identically regardless of the active Evaluation Profile.
+
+### Goals & Evaluation
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Target
+configuration/progress — driven entirely by the active Evaluation Profile (Product Bible
+Abschnitt 7), not a fixed schema. Depends on Journal Domain (reads journal data) and the
+Evaluation Profile contract (Product Bible Abschnitt 4).
+
+### Dashboard & Insights
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Summary/progress view —
+driven entirely by the active Evaluation Profile, not a fixed generic calorie/macro
+screen. Depends on Journal Domain and Goals & Evaluation.
 
 ---
 

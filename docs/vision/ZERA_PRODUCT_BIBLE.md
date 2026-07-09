@@ -1,10 +1,15 @@
 # Zera — Product Bible: Evaluation Engine
 
-Status: `draft` — überarbeitet nach Concept Review R1 und R2/R3, weiterhin nicht freigegeben
+Status: `accepted` — fachliche Autorität für Zera (freigegeben nach Concept Review R1/R2/R3)
 Ebene: Produkt-/Architekturkonzept (unterhalb des Founding Brief, oberhalb der
 `ROADMAP.md`-Task-Zerlegung)
 Voraussetzung: [`ZERA_FOUNDING_BRIEF.md`](./ZERA_FOUNDING_BRIEF.md) (Vision, Zielgruppen,
 Kernprinzip)
+
+> **Freigabe:** Dieses Dokument ist ab sofort fachliche Autorität für Zera — alle künftigen
+> Produktentscheidungen werden an ihm gemessen. `accepted` bedeutet **nicht** `final`:
+> Produktvisionen entwickeln sich weiter. Änderungen erfordern künftig einen bewussten
+> Review-/Revisionsprozess (wie R1/R2/R3), keine stillen Edits.
 
 > Revision R1: "Evaluation Model" → "Evaluation Profile" + Regel-Ebene, explizite
 > Statelessness-Regel, Zuständigkeit für lebensmittel-intrinsische Zusatzdaten geklärt,
@@ -31,7 +36,7 @@ Vision und der späteren Zerlegung von Journal, Saved Meals, Dashboard und Goals
 Auch dieses Dokument ist **kein Implementierungsplan**. Es definiert Verantwortlichkeiten,
 Datenkategorien und Konzepte auf Produktebene — keine Datenbankschemata, keine
 TypeScript-Interfaces, keine konkreten Dateien. Diese Ebene folgt erst in den späteren
-P1-Tasks, nachdem dieses Konzept freigegeben ist.
+Domänen-Tasks der Zerlegung nach `ROADMAP.md` (siehe Abschnitt 11).
 
 ---
 
@@ -453,13 +458,19 @@ offene Punkte für spätere, gezielte Entscheidungen:
 
 ## 11. Nächste Schritte
 
-1. Freigabe von Founding Brief und dieser Product Bible.
-2. Erst danach: Zerlegung von Journal, Saved Meals, Dashboard und Goals in konkrete,
-   verifizierbare `ROADMAP.md`-Tasks unter expliziter Berücksichtigung der hier
-   festgelegten Food-Catalog-/Journal-/Evaluation-Engine-Trennung.
-3. Auswahl eines ersten MVP-Profiles (vermutlich Evidence-based Standard als neutraler
+1. ~~Freigabe von Founding Brief und dieser Product Bible.~~ **Erledigt** — beide Dokumente
+   sind `accepted` und damit fachliche Autorität für Zera.
+2. `ROADMAP.md` ist entsprechend restrukturiert: `Nutrition Evaluation Foundation → Journal
+Domain → Saved Meals Domain → Goals & Evaluation → Dashboard & Insights` ersetzt die
+   bisherige flache "Tier 1 Planning Targets"-Liste.
+3. Zerlegung der vier Domänen-Phasen in konkrete, verifizierbare `ROADMAP.md`-Tasks unter
+   expliziter Berücksichtigung der hier festgelegten
+   Food-Catalog-/Journal-/Evaluation-Engine-Trennung — beginnend mit der **Journal Domain**
+   und der fachlichen Grundfrage "Was ist ein Journal-Eintrag in Zera?", nicht mit
+   UI/Implementierung.
+4. Auswahl eines ersten MVP-Profiles (vermutlich Evidence-based Standard als neutraler
    Default) für die erste konkrete Evaluation-Engine-Implementierung — Priorisierung folgt
-   in der Tier-1-Zerlegung, nicht hier.
-4. Food Catalog als eigenständige erste Datendomäne vorsehen (nicht Teil dieses Dokuments)
-   — die Zerlegung in Abschnitt 9 und eine mögliche künftige Tier-Phasen-Struktur sollten
-   dies explizit berücksichtigen.
+   in der Domänen-Zerlegung, nicht hier.
+5. Food Catalog ist als eigenständige, der Journal Domain vorgelagerte Datendomäne
+   berücksichtigt (siehe Abschnitt 9) — konkrete Zerlegung folgt im Rahmen der Journal
+   Domain, nicht als fünfte separate Phase.

@@ -1,8 +1,13 @@
 # Zera — Founding Brief
 
-Status: `draft` — überarbeitet nach Concept Review R1 und R2/R3, weiterhin nicht freigegeben
+Status: `accepted` — fachliche Autorität für Zera (freigegeben nach Concept Review R1/R2/R3)
 Ebene: Strategische Vision (steht über `ROADMAP.md`, nicht darunter)
 Zugehöriges Dokument: [`ZERA_PRODUCT_BIBLE.md`](./ZERA_PRODUCT_BIBLE.md) (Architektur- und Profil-Ebene)
+
+> **Freigabe:** Dieses Dokument ist ab sofort fachliche Autorität für Zera — alle künftigen
+> Produktentscheidungen werden an ihm gemessen. `accepted` bedeutet **nicht** `final`:
+> Produktvisionen entwickeln sich weiter. Änderungen erfordern künftig einen bewussten
+> Review-/Revisionsprozess (wie R1/R2/R3), keine stillen Edits.
 
 > Revision R1: Nach [`ZERA_CONCEPT_REVIEW_R1.md`](./ZERA_CONCEPT_REVIEW_R1.md) überarbeitet
 > — Terminologie "Evaluation Model" → "Evaluation Profile" (Profile sind konfigurierbare
@@ -38,8 +43,10 @@ Dieses Dokument definiert **keine** Implementierung, keine Tasks und keine Code-
 Es beantwortet ausschließlich die Frage nach Produktvision, Zielgruppen und der
 grundsätzlichen Verantwortungsteilung zwischen Datenerfassung und Bewertung. Die
 technische/produktseitige Ausarbeitung der Evaluation Profiles folgt in der
-[Product Bible](./ZERA_PRODUCT_BIBLE.md). Die Zerlegung von Journal/Saved Meals/Dashboard/
-Goals in `ROADMAP.md`-Tasks folgt **erst nach** Freigabe beider Dokumente.
+[Product Bible](./ZERA_PRODUCT_BIBLE.md). Mit der Freigabe beider Dokumente (siehe
+Abschnitt 11) beginnt die Zerlegung von Journal, Saved Meals, Goals und Dashboard in
+konkrete `ROADMAP.md`-Tasks — als eigene Domänen-Phasen, nicht mehr als vier gleichrangige
+Platzhalter.
 
 ---
 
@@ -238,11 +245,14 @@ Erweiterbarkeit sind bewusst **nicht** Teil dieses Dokuments — siehe
 ## 11. Verhältnis zu ROADMAP.md
 
 `ROADMAP.md` bleibt die einzige verbindliche Aufgaben- und Prioritätenquelle (SSOK-Regel,
-unverändert). Dieses Dokument und die Product Bible stehen **über** der Tier-1-Zerlegung,
-nicht daneben oder darunter: Die vier Platzhalter-Module (Journal, Saved Meals, Dashboard,
-Goals) werden erst dann in konkrete `ROADMAP.md`-Tasks zerlegt, wenn dieses Konzept
-freigegeben ist. Bis dahin bleibt ihr Status in `ROADMAP.md` als `blocked` (abhängig von
-dieser Konzeptfreigabe) markiert, nicht als `todo`.
+unverändert). Dieses Dokument und die Product Bible stehen **über** der weiteren
+Domänen-Zerlegung, nicht daneben oder darunter — mit ihrer Freigabe (Status `accepted`)
+gilt die bisherige "Tier 1 Planning Targets"-Platzhalterliste als abgelöst durch die
+Phasenstruktur `Nutrition Evaluation Foundation → Journal Domain → Saved Meals Domain →
+Goals & Evaluation → Dashboard & Insights` (Details: `ROADMAP.md`). Die vier
+Domänen-Phasen sind damit für Zerlegung in konkrete `ROADMAP.md`-Tasks freigegeben, aber
+noch nicht zerlegt — jede Domäne beginnt mit einer fachlichen Grundfrage (z. B. Journal:
+"Was ist ein Journal-Eintrag in Zera?"), nicht mit UI/Implementierung.
 
 ---
 

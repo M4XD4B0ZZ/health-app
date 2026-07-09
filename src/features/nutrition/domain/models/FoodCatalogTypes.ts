@@ -1,10 +1,6 @@
-import { NutritionPer100g } from './NutritionTypes';
+import { CanonicalFood } from '../catalog/FoodCatalogSource';
 
-export interface CanonicalFood {
-  id: string; // stable canonical ID (e.g. "banana")
-  displayName: string; // human readable
-  per100g: NutritionPer100g; // reuse existing type
-}
+export type { CanonicalFood } from '../catalog/FoodCatalogSource';
 
 export interface FoodSearchResult {
   food: CanonicalFood;

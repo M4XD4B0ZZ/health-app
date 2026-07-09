@@ -2719,7 +2719,7 @@ transformation — directly required by the Future Compatibility Principle
 
 #### J-001: CanonicalFood Identity Cleanup
 
-Status: `todo`
+Status: `done`
 
 **Ziel:** Consolidate the fragmented Food Catalog identity concepts into one stable type,
 per Decision Record 1 Entscheidung 4 — narrow, mechanical scope only, no new Food Catalog
@@ -2759,6 +2759,33 @@ must stay green.
 - No food-group/NOVA/GI/allergen fields or other new Food Catalog functionality added.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `FoodCatalogTypes.CanonicalFood` now re-exports the real,
+macro-bearing `CanonicalFood` from `FoodCatalogSource.ts` instead of defining its own
+`{id, displayName, per100g}` shape; `InMemoryFoodCatalog.ts` (legacy deterministic
+`FoodCatalog.searchByName` path) was adapted to construct/consume the modern shape
+(`name`/`normalizedName`/`macrosPer100g`/`source: 'user'`) rather than merging two
+incompatible shapes. `LogFoodFromRawInputUseCase.ts` and `LogMealFromRawInputUseCase.ts`
+each already transformed the modern `CanonicalFood` into a local
+`{per100g: {calories,...}}` shape at their resolver call site (feeding `computeTotals`);
+this is now done via one small `toLegacyPer100g()` helper per use case, applied
+consistently at all three `FoodCatalog`-consuming branches (cache-hit, deterministic
+search, AI-mapper fallback) instead of only the resolver branch — no change to the
+widely-used `NutritionPer100g`/`per100g` convention used throughout the rest of the
+codebase. `domain/catalog/CanonicalFood.ts` (the DE/EN alias dictionary, despite its old
+name) was renamed to `FoodAliasDictionary.ts`; its two importers
+(`SequentialFoodCatalogResolver.ts`, `deEnAliases.test.ts`) updated accordingly.
+Deliberately out of scope (per DoD "no new Food Catalog functionality"): the unrelated
+`domain/canonicalFoods.ts` + `domain/detectCanonicalEntity.ts` pair (a fourth, separate
+portion-hint/alias dictionary actively used by both use cases) was left untouched — it
+does not import from any of the renamed/merged files, so consolidating it would be scope
+creep beyond this task's narrow, mechanical rename/merge.
+Full suite (89 suites / 718 tests), `tsc --noEmit`, and `eslint` pass clean.
+**Known pre-existing gap (not introduced by this task, confirmed via `git stash` against
+the branch tip before this change):** `npm run format:check` (part of `npm run verify`)
+fails repo-wide on 238 files unrelated to this task (governance docs, `scripts/agent/**`,
+`reports/**`, etc.), predating this change. All files touched by J-001 are confirmed
+individually Prettier-clean.
 
 ---
 

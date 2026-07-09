@@ -42,8 +42,8 @@ describe('Canonical Food System - Sprint 5.3', () => {
       const result = await catalog.getById('banana');
 
       expect(result).toBeDefined();
-      expect(result?.displayName).toBe('Banana');
-      expect(result?.per100g.calories).toBe(89);
+      expect(result?.name).toBe('Banana');
+      expect(result?.macrosPer100g.kcal).toBe(89);
     });
 
     it('sollte bei exaktem Match hohe Confidence zurückgeben', async () => {

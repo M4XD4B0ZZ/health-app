@@ -1,4 +1,4 @@
-import { detectCanonicalEntity, getSourceQuery } from '../domain/catalog/CanonicalFood';
+import { detectCanonicalEntity, getSourceQuery } from '../domain/catalog/FoodAliasDictionary';
 
 describe('Canonical Food Entity Detection + Source Query Adapter', () => {
   // -------------------------------------------------------------------------

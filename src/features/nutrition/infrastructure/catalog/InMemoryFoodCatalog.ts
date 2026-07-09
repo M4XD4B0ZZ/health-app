@@ -13,63 +13,75 @@ export class InMemoryFoodCatalog implements FoodCatalog {
     const seedFoods: CanonicalFood[] = [
       {
         id: 'banana',
-        displayName: 'Banana',
-        per100g: {
-          calories: 89,
+        name: 'Banana',
+        normalizedName: 'banana',
+        macrosPer100g: {
+          kcal: 89,
           protein: 1.1,
           carbs: 22.8,
           fat: 0.3,
         },
+        source: 'user',
       },
       {
         id: 'apple',
-        displayName: 'Apple',
-        per100g: {
-          calories: 52,
+        name: 'Apple',
+        normalizedName: 'apple',
+        macrosPer100g: {
+          kcal: 52,
           protein: 0.3,
           carbs: 14,
           fat: 0.2,
         },
+        source: 'user',
       },
       {
         id: 'egg',
-        displayName: 'Egg',
-        per100g: {
-          calories: 155,
+        name: 'Egg',
+        normalizedName: 'egg',
+        macrosPer100g: {
+          kcal: 155,
           protein: 13,
           carbs: 1.1,
           fat: 11,
         },
+        source: 'user',
       },
       {
         id: 'chicken breast',
-        displayName: 'Chicken Breast',
-        per100g: {
-          calories: 165,
+        name: 'Chicken Breast',
+        normalizedName: 'chicken breast',
+        macrosPer100g: {
+          kcal: 165,
           protein: 31,
           carbs: 0,
           fat: 3.6,
         },
+        source: 'user',
       },
       {
         id: 'fries',
-        displayName: 'Fries',
-        per100g: {
-          calories: 312,
+        name: 'Fries',
+        normalizedName: 'fries',
+        macrosPer100g: {
+          kcal: 312,
           protein: 3.4,
           carbs: 41,
           fat: 15,
         },
+        source: 'user',
       },
       {
         id: 'cola',
-        displayName: 'Cola',
-        per100g: {
-          calories: 42,
+        name: 'Cola',
+        normalizedName: 'cola',
+        macrosPer100g: {
+          kcal: 42,
           protein: 0,
           carbs: 10.6,
           fat: 0,
         },
+        source: 'user',
       },
     ];
 
@@ -121,7 +133,7 @@ export class InMemoryFoodCatalog implements FoodCatalog {
 
     for (const [id, food] of this.foods.entries()) {
       const foodTokens = id.toLowerCase().split(/\s+/);
-      const displayTokens = food.displayName.toLowerCase().split(/\s+/);
+      const displayTokens = food.name.toLowerCase().split(/\s+/);
 
       // Calculate match score
       let score = 0;
@@ -131,7 +143,7 @@ export class InMemoryFoodCatalog implements FoodCatalog {
         score = 1.0;
       }
       // Exact display name match
-      else if (food.displayName.toLowerCase() === normalized) {
+      else if (food.name.toLowerCase() === normalized) {
         score = 0.95;
       }
       // Contains all tokens

@@ -20,7 +20,7 @@ import {
 } from './ResolverSourceLabel';
 import { filterMockCandidatesIfRealExist } from './resolver/filterMockCandidatesIfRealExist';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
-import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/CanonicalFood';
+import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/FoodAliasDictionary';
 import { ResolverDebugCollector, SourceCandidate, CandidateEvaluation } from './ResolverDebugTypes';
 import { InputConfidenceClassifier } from '../../domain/confidence/InputConfidenceClassifier';
 import { DefaultInputConfidenceClassifier } from './DefaultInputConfidenceClassifier';

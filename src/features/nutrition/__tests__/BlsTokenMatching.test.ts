@@ -108,7 +108,7 @@ describe('BLS Token-based Matching', () => {
       const results = await blsSource.search(query);
 
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].food.name).toContain('kaese');
+      expect(results[0].food.name).toContain('Käse');
     });
   });
 

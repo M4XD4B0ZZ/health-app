@@ -2452,11 +2452,23 @@ Focus: user-visible logging value, editability, repeat-use friction reduction, a
 
 ### P1-003 Multi-Item Split
 
-Status: `in_progress`
+Status: `done`
 
 Split input at "und", "mit", ",". Normalize number words. Force resolver per item.
 
 **DoD:** "ei und quark" produces two separate resolved entries.
+
+**Verify:** `npx jest --testPathPattern="logResolvedNutritionInput|splitMultiItemInput|parseInput"`,
+`npm run typecheck`.
+
+**Implementation notes:** Already satisfied by the live pipeline before this status update;
+no code change was needed, only verification. Splitting is implemented in
+`splitMultiItemInput.ts` (wired into the live `simpleParse` path since P1-003C), number-word
+normalization exists via `GERMAN_NUMBER_WORDS` (`src/features/input/infrastructure/simpleParser.ts`
+and `DeterministicFoodParser.ts`), and per-item resolver dispatch is exercised end-to-end
+against the real DI container by
+`logResolvedNutritionInput.test.ts › 'satisfies P1-003 DoD: "ei und quark" produces two separate resolved entries'`.
+Full suite (87 suites / 704 tests) and `tsc --noEmit` pass clean.
 
 ---
 

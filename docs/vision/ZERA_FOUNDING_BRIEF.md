@@ -1,8 +1,14 @@
 # Zera — Founding Brief
 
-Status: `draft` — zur Freigabe vor weiterer Tier-1-Zerlegung
+Status: `draft` — überarbeitet nach Concept Review R1, weiterhin nicht freigegeben
 Ebene: Strategische Vision (steht über `ROADMAP.md`, nicht darunter)
-Zugehöriges Dokument: [`ZERA_PRODUCT_BIBLE.md`](./ZERA_PRODUCT_BIBLE.md) (Architektur- und Modell-Ebene)
+Zugehöriges Dokument: [`ZERA_PRODUCT_BIBLE.md`](./ZERA_PRODUCT_BIBLE.md) (Architektur- und Profil-Ebene)
+
+> Revision: Nach [`ZERA_CONCEPT_REVIEW_R1.md`](./ZERA_CONCEPT_REVIEW_R1.md) überarbeitet —
+> Terminologie "Evaluation Model" → "Evaluation Profile" (Profile sind konfigurierbare
+> Bündel aus Regeln, keine festen Algorithmus-Klassen) und Zielgruppen von Ernährungsform
+> auf Nutzer-Motivation umgestellt. Details zur Profil-/Regel-Architektur: siehe Product
+> Bible.
 
 > Namenskonvention: Das Produkt heißt ab sofort **Zera**. Repo-Name (`health-app`) und
 > `package.json`-Name (`health-dashboard`) bleiben aus historischen Gründen vorerst
@@ -26,7 +32,7 @@ eigentliche Vision noch gar nicht sauber formuliert war. Dieses Dokument holt da
 Dieses Dokument definiert **keine** Implementierung, keine Tasks und keine Code-Architektur.
 Es beantwortet ausschließlich die Frage nach Produktvision, Zielgruppen und der
 grundsätzlichen Verantwortungsteilung zwischen Datenerfassung und Bewertung. Die
-technische/produktseitige Ausarbeitung der Bewertungsmodelle folgt in der
+technische/produktseitige Ausarbeitung der Evaluation Profiles folgt in der
 [Product Bible](./ZERA_PRODUCT_BIBLE.md). Die Zerlegung von Journal/Saved Meals/Dashboard/
 Goals in `ROADMAP.md`-Tasks folgt **erst nach** Freigabe beider Dokumente.
 
@@ -92,42 +98,49 @@ Zera trennt strikt zwischen zwei Verantwortungsbereichen:
 
 | Bereich                           | Frage, die er beantwortet                           | Charakter                                          |
 | --------------------------------- | --------------------------------------------------- | -------------------------------------------------- |
-| **Journal (Food Logging)**        | "Was wurde tatsächlich gegessen, wann, wie viel?"   | Neutral, faktenbasiert, modellunabhängig           |
+| **Journal (Food Logging)**        | "Was wurde tatsächlich gegessen, wann, wie viel?"   | Neutral, faktenbasiert, profilunabhängig           |
 | **Evaluation Engine (Bewertung)** | "Was bedeutet das für _dieses_ Ziel dieser Person?" | Austauschbar, zielgruppenabhängig, interpretierend |
 
 Das Journal ist die **Wahrheitsquelle über Fakten**. Die Evaluation Engine ist die
 **austauschbare Interpretationsschicht** darüber. Beide arbeiten auf denselben
-Journaldaten — ein Wechsel des Bewertungsmodells erzeugt keine neue Datenerfassung,
-sondern nur eine neue Sicht auf bereits vorhandene, unveränderte Fakten.
+Journaldaten — ein Wechsel des aktiven Evaluation Profiles erzeugt keine neue
+Datenerfassung, sondern nur eine neue Sicht auf bereits vorhandene, unveränderte Fakten.
 
 Diese Trennung ist der eigentliche Kern dieses Founding Briefs. Alles Weitere (Zielgruppen,
-Modell-Kandidaten, Datenverantwortung) leitet sich aus ihr ab.
+Profil-Kandidaten, Datenverantwortung) leitet sich aus ihr ab.
 
 ---
 
 ## 6. Zielgruppen
 
-Zera adressiert nicht eine Zielgruppe mit einem Ziel, sondern mehrere Zielgruppen mit
-unterschiedlichen, teils widersprüchlichen Zielen — verbunden durch dasselbe
-reibungsarme Logging-Fundament:
+Zera adressiert nicht eine Zielgruppe mit einem Ziel, sondern mehrere Motivationen, die
+teils gleichzeitig bestehen — verbunden durch dasselbe reibungsarme Logging-Fundament. Die
+Zielgruppen sind bewusst aus der **Nutzer-Motivation** heraus formuliert, nicht aus der
+Ernährungsform: Eine Ernährungsform-Formulierung ("Low-Carb-Zielgruppe") verschleiert, dass
+dieselbe Motivation oft mehrere Evaluation Profiles gleichzeitig berührt (z. B. berührt "ich
+möchte meine Blutwerte verbessern" sowohl einen Cholesterin- als auch einen
+Low-Carb-orientierten Regelbedarf — siehe Product Bible, Abschnitt 5):
 
-1. **Gewichtsreduktion** — klassisches Kaloriendefizit-Ziel, Fokus auf Sättigung und
+1. **"Ich möchte mich gesünder ernähren"** — kein konkretes Körper- oder Diätziel, Wunsch
+   nach Orientierung anhand anerkannter Referenzwerte.
+2. **"Ich möchte Gewicht verlieren"** — Kaloriendefizit, Fokus auf Sättigung und
    Proteinerhalt.
-2. **Muskelaufbau / Leistung** — Kalorienüberschuss, Proteinverteilung über den Tag,
+3. **"Ich möchte Muskeln aufbauen"** — Kalorienüberschuss, Proteinverteilung über den Tag,
    Trainingsbezug.
-3. **Allgemeine Gesundheit ohne konkretes Körperziel** — will verstehen, ob die eigene
-   Ernährung "gut" ist, ohne Diät-Ziel im engeren Sinn (Evidence-based Standard).
-4. **Ernährungsphilosophie/-stil** — z. B. Low Carb oder Mediterran, wo nicht primär
-   Kalorien, sondern Zusammensetzung und Lebensmittelqualität zählen.
-5. **Medizinisch/ärztlich motivierte Nutzer:innen** — z. B. Cholesterin-Fokus auf Anraten
-   einer Ärztin. Höhere Ansprüche an Nachvollziehbarkeit und Datenqualität, aber explizit
-   **kein** Ersatz für medizinische Beratung (siehe Offene Fragen in der Product Bible).
-6. **Selbstbestimmte Nutzer:innen mit eigenen Zielwerten** — wollen kein vorgefertigtes
-   Modell, sondern eigene Makro-/Nährstoff-Zielkorridore definieren.
+4. **"Ich möchte meine Blutwerte verbessern"** — medizinisch/ärztlich motiviert (z. B.
+   Cholesterin auf Anraten einer Ärztin). Höhere Ansprüche an Nachvollziehbarkeit und
+   Datenqualität, aber explizit **kein** Ersatz für medizinische Beratung (siehe Offene
+   Fragen in der Product Bible).
+5. **"Ich folge einer bestimmten Ernährungsweise"** — z. B. Low Carb oder Mediterran, wo
+   nicht primär Kalorien, sondern Zusammensetzung und Lebensmittelqualität zählen.
+6. **"Ich habe meine eigenen Ziele"** — will kein vorgefertigtes Profil, sondern eigene
+   Prioritäten (z. B. Protein hoch, Zucker niedrig, Kalorien egal) frei kombinieren.
 
-Diese Liste ist nicht abschließend und wird in der Product Bible in konkrete
-Bewertungsmodell-Kandidaten übersetzt. Wichtig ist an dieser Stelle nur: Es handelt sich um
-**mehrere gleichrangige Zielgruppen**, nicht um eine Hauptzielgruppe mit Sonderfällen.
+Diese Liste ist nicht abschließend. Sie beschreibt Motivationen, keine Evaluation Profiles —
+mehrere Motivationen können auf dasselbe Profile zulaufen, und eine Motivation kann mehrere
+Profile gleichzeitig berühren. Die konkrete Zuordnung Motivation ↔ Evaluation Profile ist
+Teil der Product Bible (Abschnitt 5). Wichtig ist an dieser Stelle nur: Es handelt sich um
+**mehrere gleichrangige Motivationen**, nicht um eine Hauptzielgruppe mit Sonderfällen.
 
 ---
 
@@ -137,15 +150,15 @@ Das Journal ist dafür zuständig:
 
 - Lebensmittel reibungsarm, natürlichsprachlich erfassbar zu machen (bestehende
   Input-Philosophie aus `README.md` bleibt unverändert gültig).
-- Fakten dauerhaft und modellunabhängig zu speichern (was, wann, wie viel, in welcher
+- Fakten dauerhaft und profilunabhängig zu speichern (was, wann, wie viel, in welcher
   Portion/Einheit, aus welcher Quelle aufgelöst).
-- Korrekturen und Nachbearbeitung zu ermöglichen, ohne dass ein Bewertungsmodell involviert
-  sein muss.
+- Korrekturen und Nachbearbeitung zu ermöglichen, ohne dass ein Evaluation Profile
+  involviert sein muss.
 
 Das Journal ist **explizit nicht** dafür zuständig, zu bewerten, ob eine Mahlzeit "gut" oder
 "schlecht" für ein bestimmtes Ziel war. Diese Neutralität ist Bedingung dafür, dass mehrere
-Bewertungsmodelle auf denselben Daten arbeiten können, ohne dass das Journal für jedes neue
-Modell angepasst werden muss.
+Evaluation Profiles auf denselben Daten arbeiten können, ohne dass das Journal für jedes
+neue Profil angepasst werden muss.
 
 ---
 
@@ -153,14 +166,15 @@ Modell angepasst werden muss.
 
 Die Evaluation Engine ist dafür zuständig:
 
-- Journaldaten im Kontext eines aktiven Bewertungsmodells zu interpretieren.
+- Journaldaten im Kontext eines aktiven Evaluation Profiles zu interpretieren.
 - Zielfortschritt, Insights, Warnungen/Hinweise und (perspektivisch) Coaching-Impulse aus
   denselben Journaldaten abzuleiten.
-- Modelle austauschbar zu machen, ohne dass historische Journaldaten verändert oder erneut
+- Profile austauschbar zu machen, ohne dass historische Journaldaten verändert oder erneut
   erfasst werden müssen.
 
-Details zu Modellen, Datenverantwortung und Erweiterbarkeit sind bewusst **nicht** Teil
-dieses Dokuments — siehe [Product Bible](./ZERA_PRODUCT_BIBLE.md).
+Details zu Evaluation Profiles, den zugrunde liegenden Regeln, Datenverantwortung und
+Erweiterbarkeit sind bewusst **nicht** Teil dieses Dokuments — siehe
+[Product Bible](./ZERA_PRODUCT_BIBLE.md).
 
 ---
 
@@ -170,12 +184,13 @@ dieses Dokuments — siehe [Product Bible](./ZERA_PRODUCT_BIBLE.md).
   Klassische Tracking-Apps verlieren Nutzer:innen, wenn Logging zur Last wird. Zera macht
   Logging leicht _und_ liefert danach einen individuellen Grund weiterzumachen.
 - **Zielwechsel ohne Datenverlust.** Ändert sich das Ziel einer Person, ändert sich nur das
-  aktive Modell — nicht die Notwendigkeit, neu zu beginnen.
+  aktive Evaluation Profile — nicht die Notwendigkeit, neu zu beginnen.
 - **Erweiterbarkeit als Produktstrategie, nicht nur als Architekturdetail.** Neue
-  Zielgruppen lassen sich langfristig durch neue Bewertungsmodelle erschließen, ohne den
-  Logging-Kern (das eigentliche technische Alleinstellungsmerkmal) anzufassen.
+  Motivationen lassen sich langfristig durch neue oder kombinierte Evaluation Profiles
+  erschließen, ohne den Logging-Kern (das eigentliche technische Alleinstellungsmerkmal)
+  anzufassen.
 - **Basis für spätere Erweiterungen** (Dashboard, Insights, Reports, AI Coach) wird vom
-  aktiven Bewertungsmodell bestimmt statt hart codiert — das eröffnet perspektivisch auch
+  aktiven Evaluation Profile bestimmt statt hart codiert — das eröffnet perspektivisch auch
   Optionen wie B2B/Coaching-Kontexte, ohne dass das hier bereits festgelegt wird.
 
 ---
@@ -209,7 +224,7 @@ dieser Konzeptfreigabe) markiert, nicht als `todo`.
 
 - Keine Implementierung, keine Code-Architektur, keine Datenbank-/API-Schnittstellen.
 - Keine Festlegung konkreter `ROADMAP.md`-Task-IDs für Journal/Saved Meals/Dashboard/Goals.
-- Keine abschließende Liste aller jemals unterstützten Bewertungsmodelle — die Product Bible
-  beschreibt einen initialen, bewusst kleinen Modell-Kandidatensatz.
-- Keine Entscheidung über Monetarisierung/Freemium-Grenzen zwischen Modellen.
+- Keine abschließende Liste aller jemals unterstützten Evaluation Profiles — die Product
+  Bible beschreibt einen initialen, bewusst kleinen Profil-Kandidatensatz.
+- Keine Entscheidung über Monetarisierung/Freemium-Grenzen zwischen Profilen.
 - Keine Aussage zur vollständigen Umbenennung von Repo/Package zu "Zera" (separater Task).

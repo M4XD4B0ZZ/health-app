@@ -140,7 +140,7 @@ Agents must read both files before starting any task.
 - Keep changes minimal and deterministic.
 - Do not introduce new libraries without explicit approval.
 
-### Git Branch Sync After Push (Multi-Session Conflict Prevention)
+### Git Branch Sync After Push/Pull (Multi-Session Conflict Prevention)
 
 - After every `git push`, immediately `git fetch origin <default-branch>` to check
   whether the branch's base has advanced since the branch was created or last synced.
@@ -164,6 +164,23 @@ Agents must read both files before starting any task.
   tooling blocks it), do not build ad-hoc workarounds (raw API calls, new tools) to
   route around that restriction — report it and leave the branch for deletion via a
   channel with proper access.
+- After every `git push` and every `git pull`/`git fetch --prune`, run the
+  `cleanup-branches` skill (see `.claude/skills/cleanup-branches/SKILL.md` for the
+  Claude Code implementation) to keep the local and remote branch lists free of
+  branches already merged into the default branch. This is a preview-and-report step,
+  not a bypass of the skill's own safety gates:
+  - Run it in local scope first (no `--remote`). Local deletions of branches merged
+    into `origin/<default-branch>` may proceed under the skill's normal single
+    confirmation, since they are recoverable via reflog for ~30 days.
+  - Only pass `--remote` when the branch being cleaned up is one whose pull request is
+    already confirmed merged in this session (per the standing authorization above) or
+    when the user explicitly asks for a remote sweep — remote deletion still requires
+    the skill's second, separate confirmation in every other case.
+  - Do not let this automatic run silently drop the confirmation step from the skill;
+    it exists to make cleanup a routine habit after sync points, not to make deletion
+    unattended.
+- This rule applies to every adapter/tool per the Tool Adapter Principle — it is not
+  Claude-specific.
 
 #### Incident rationale
 

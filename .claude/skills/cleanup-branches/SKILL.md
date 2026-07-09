@@ -1,6 +1,6 @@
 ---
 name: cleanup-branches
-description: Delete merged and stale Git branches locally and on the remote, with preview, protected-branch filtering, and explicit confirmation before any deletion. Use this skill whenever the user mentions cleaning up branches, deleting merged branches, pruning stale branches, "my repo has too many branches", tidying up after PR merges, or asks what branches can safely be removed — even if they don't say "cleanup" explicitly.
+description: Delete merged and stale Git branches locally and on the remote, with preview, protected-branch filtering, and explicit confirmation before any deletion. Use this skill whenever the user mentions cleaning up branches, deleting merged branches, pruning stale branches, "my repo has too many branches", tidying up after PR merges, or asks what branches can safely be removed — even if they don't say "cleanup" explicitly. Also run it automatically (local scope) right after every `git push` and `git pull`/`git fetch --prune`, per AGENTS.md's "Git Branch Sync After Push/Pull" rule, so the branch list stays clean as merges land.
 ---
 
 # Cleanup Branches
@@ -10,12 +10,30 @@ Remove branches that are fully merged or long inactive, without ever risking unm
 Branch deletion is one of the few Git operations that can lose work. Local deletion is recoverable via reflog; remote deletion generally is not. This skill therefore treats *showing* and *confirming* as the main job, and deletion as the small step at the end.
 
 This skill implements, for this repository, the branch-deletion behavior required by
-[`AGENTS.md`](../../../AGENTS.md)'s "Git Branch Sync After Push" rule: only delete a branch once its
+[`AGENTS.md`](../../../AGENTS.md)'s "Git Branch Sync After Push/Pull" rule: only delete a branch once its
 pull request is confirmed merged (merge commits preserve history, so this is safe), and never delete
 a branch whose PR was closed without merging without explicit, branch-specific human confirmation —
 its commits exist nowhere else once removed. That AGENTS.md rule applies to every adapter/tool per
 the Tool Adapter Principle; this file is the Claude Code-specific implementation of it, not a
 replacement for it.
+
+## Automatic invocation after push/pull
+
+Per the same AGENTS.md rule, run this skill proactively — not only when the user asks for cleanup —
+immediately after every `git push` and every `git pull`/`git fetch --prune`:
+
+- **Scope:** local only (no `--remote`) by default. This surfaces branches merged into
+  `origin/$DEFAULT` right after a sync point, when the list is most likely to have changed.
+- **Confirmation still applies.** An automatic trigger is not license to skip step 8 below — it
+  changes *when* the skill runs, not *whether* it asks before deleting. Present the preview and wait
+  for the normal single local confirmation, same as a manually-invoked run.
+- **`--remote` only** when either (a) the branch being cleaned up is one whose PR was confirmed
+  merged in this same session (the standing authorization already granted by AGENTS.md for that
+  narrow case), or (b) the user explicitly asks for a remote sweep. Otherwise leave remote branches
+  alone and let the user invoke `--remote` deliberately.
+- If nothing is merged since the last run, say so briefly (or stay silent if the push/pull itself
+  already produced output) — this is meant to be a lightweight habit, not a noisy interruption on
+  every sync.
 
 ## Flags
 

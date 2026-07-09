@@ -2622,12 +2622,23 @@ learning/growth mechanism as originally scoped.
 
 The following product modules are Tier 1 planning targets. They are intentionally listed as planning placeholders only and must be decomposed into concrete, verifiable tasks before implementation.
 
-| Module      | Status | Notes                             |
-| ----------- | ------ | --------------------------------- |
-| Journal     | `todo` | Editable food log, daily view     |
-| Saved Meals | `todo` | Reusable meal templates           |
-| Dashboard   | `todo` | Summary view, progress indicators |
-| Goals       | `todo` | Macro targets, metabolism profile |
+**Blocked pending product/architecture concept approval:** Decomposition of these four
+modules is intentionally paused pending sign-off on the Zera Evaluation Engine concept —
+see [`docs/vision/ZERA_FOUNDING_BRIEF.md`](docs/vision/ZERA_FOUNDING_BRIEF.md) (product
+vision: Zera as a Nutrition Evaluation Platform, strict separation of neutral Journal data
+from swappable Evaluation Models) and
+[`docs/vision/ZERA_PRODUCT_BIBLE.md`](docs/vision/ZERA_PRODUCT_BIBLE.md) (architecture:
+Journal-vs-Evaluation-Engine data ownership, model contract, candidate evaluation models,
+extensibility rules). Each module's eventual decomposition must respect that split: Journal
+and Saved Meals stay model-independent; Dashboard and Goals become views driven by the
+active Evaluation Model.
+
+| Module      | Status    | Notes                                                     |
+| ----------- | --------- | ---------------------------------------------------------- |
+| Journal     | `blocked` | Editable food log, daily view — neutral fact layer only    |
+| Saved Meals | `blocked` | Reusable meal templates — model-independent logging aid    |
+| Dashboard   | `blocked` | Summary/progress view — driven by active Evaluation Model  |
+| Goals       | `blocked` | Target config/progress — driven by active Evaluation Model |
 
 ---
 

@@ -35,6 +35,24 @@ React Native (Expo) MVP for nutrition and recovery tracking, backed by Supabase 
 
 ---
 
+## MCP Servers
+
+This repo defines a project-scoped Supabase MCP server in [`.mcp.json`](.mcp.json) (read-only by
+default, consistent with this repo's DB-safety governance in `.governance/SAFETY.md`). To use it:
+
+1. Create a personal access token at https://supabase.com/dashboard/account/tokens
+2. Find the project ref under Project Settings > General ("Reference ID")
+3. Export both before starting your Claude Code session (`.mcp.json` reads process env vars, not `.env`):
+   ```bash
+   export SUPABASE_ACCESS_TOKEN=...
+   export SUPABASE_PROJECT_REF=...
+   ```
+
+Remove `--read-only` from `.mcp.json` only with explicit approval — it exists to keep the MCP server
+from performing writes/migrations outside the governance gates in `.governance/SAFETY.md`.
+
+---
+
 ## Quick Start
 
 ```bash

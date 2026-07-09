@@ -45,6 +45,44 @@ describe('parseInput', () => {
     expect(result.items[1].name).toBe('quark');
   });
 
+  describe('P1-003: number-word normalization across split items', () => {
+    it('normalizes a German number word per item after "und"-splitting', () => {
+      const result = parseInput('zwei eier und drei bananen');
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toEqual({
+        name: 'eier',
+        quantity: 2,
+        unit: null,
+        rawText: 'zwei eier',
+      });
+      expect(result.items[1]).toEqual({
+        name: 'bananen',
+        quantity: 3,
+        unit: null,
+        rawText: 'drei bananen',
+      });
+    });
+
+    it('normalizes a German number word with unit per item after comma-splitting', () => {
+      const result = parseInput('eine scheibe toast, zwei scheiben käse');
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toEqual({
+        name: 'toast',
+        quantity: 1,
+        unit: 'slice',
+        rawText: 'eine scheibe toast',
+      });
+      expect(result.items[1]).toEqual({
+        name: 'käse',
+        quantity: 2,
+        unit: 'slice',
+        rawText: 'zwei scheiben käse',
+      });
+    });
+  });
+
   describe('P1-003C: composite-dish label grouping', () => {
     it('groups children under a shared groupId/groupLabel and excludes the label itself', () => {
       const result = parseInput('Fruchtsalat mit Bananen, Kirschen');

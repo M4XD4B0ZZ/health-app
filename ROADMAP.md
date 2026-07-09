@@ -2452,22 +2452,50 @@ Focus: user-visible logging value, editability, repeat-use friction reduction, a
 
 ### P1-003 Multi-Item Split
 
-Status: `in_progress`
+Status: `done`
 
 Split input at "und", "mit", ",". Normalize number words. Force resolver per item.
 
 **DoD:** "ei und quark" produces two separate resolved entries.
 
+**Verify:** `npx jest --runInBand src/features/input/application/__tests__/parseInput.test.ts src/features/nutrition/__tests__/splitMultiItemInput.test.ts`.
+
+**Implementation notes:** Both DoD elements were already implemented and live but lacked
+explicit combined test coverage. Splitting lives in
+`src/features/nutrition/application/utils/splitMultiItemInput.ts` (P1-003B clause-aware).
+German number-word normalization ("zwei", "drei", ...) lives in
+`src/features/input/infrastructure/simpleParser.ts`'s `parseQuantityAndUnit()`, which runs
+per split item, so "zwei eier und drei bananen" already resolved to two entries with correct
+quantities (2, 3) before this task — added
+`parseInput.test.ts` coverage for the split+number-word interaction to lock this in. Note:
+number-word dictionaries are duplicated across `simpleParser.ts`, `DeterministicFoodParser.ts`,
+and `src/features/nutrition/domain/portion/UnitNormalization.ts` with slightly different word
+sets (e.g. "eins"/umlaut variants) — a future consolidation task could unify these, but no
+DoD regression was found and none is required for this task's scope.
+
 ---
 
 ### P1-004B Domain + Local Portion Knowledge MVP
 
-Status: `in_progress`
+Status: `done`
 
 Implement local/testable portion knowledge for identity-based count/piece/slice resolution.
 Portion hints attach to `foodIdentityKey + unit`, not aliases. User-private confirmed hints are immediately usable for that user and never automatically become global truth.
 
 **DoD:** Seed hints exist for the small MVP set. Carrot aliases share the same canonical identity hint. User-private hints outrank seed/global/source hints for that user. Explicit grams remain authoritative. Unknown count foods still require edit instead of falling back to 100g. Required focused tests and runtime verification pass.
+
+**Verify:** `npx jest --runInBand src/features/nutrition/__tests__/PortionKnowledgeService.test.ts src/features/nutrition/__tests__/resolvePortionGrams.test.ts src/features/nutrition/__tests__/PersistedPortionHintRepository.test.ts src/features/nutrition/__tests__/PortionParser.test.ts src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`.
+
+**Implementation notes:** Already fully implemented and wired live prior to this task
+(`src/features/nutrition/domain/portion/{PortionHint,PortionKnowledgeService,seedPortionHints,PortionNeedsEdit,resolvePortionGrams}.ts`,
+instantiated in `src/infrastructure/di/container.ts` with `PersistedPortionHintRepository` +
+`SEED_PORTION_HINTS`, consumed by `LogFoodFromRawInputUseCase`/`LogMealFromRawInputUseCase`).
+Ran the full focused test suite (31 tests across 5 files, all passing) confirming every DoD
+element: seed hints for the MVP set (egg, banana, apple, carrot, potato, toast), carrot-alias
+identity sharing, user-private-outranks-seed/global/trusted-source lookup priority, explicit
+grams remaining authoritative over hints, and unknown count foods returning a
+`needs-edit`/`COUNT_WITHOUT_PORTION_HINT` result instead of a silent 100g fallback. No code
+changes were required — this task closed out verification only.
 
 ---
 
@@ -2549,7 +2577,7 @@ container (not mocks) via `logResolvedNutritionInput.test.ts`.
 
 ### P1-005: Curated Composite-Dish Pattern List (Non-Growing Alias Strategy)
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Introduce a small curated list of common composite-dish head-words (e.g. "Fruchtsalat",
@@ -2568,7 +2596,25 @@ dish patterns apply privately first, never auto-promoted to global truth).
 - Documented dependency note: full learning/growth mechanism deferred to
   RESOLVER-V2-005/006 (Supabase knowledge layer)
 
-**Verify:** `npm run test` for pattern list unit tests, `npm run verify`.
+**Verify:** `npx jest --runInBand src/features/nutrition/__tests__/CompositeDishPatterns.test.ts`, `npm run verify`.
+
+**Implementation notes:** Implemented as an additive recognition helper only — explicit
+scope decision, not the literal "list gates grouping" reading of the description. Existing
+P1-003B/C grouping in `splitMultiItemInput.ts` already triggers generically for any
+"`<head>` mit `<list>`" pattern (>= 2 comma-separated children), regardless of head word;
+narrowing that to only curated head-words would have been a behavior change (uncurated
+composite dishes would stop grouping) with no such non-regression requirement stated in
+P1-003B/C's own DoD. Added
+`src/features/nutrition/domain/catalog/CompositeDishPatterns.ts` — a 20-entry curated seed
+list (`COMPOSITE_DISH_HEAD_WORDS`) plus `isKnownCompositeDishHeadWord()`, normalized via the
+existing `normalizeText()` helper (same umlaut-folding used by `CanonicalFood.ts`). Tests in
+`src/features/nutrition/__tests__/CompositeDishPatterns.test.ts` confirm the list's size,
+structural separation from macro data, case/umlaut-insensitive matching, that curated
+head-words trigger grouping, and that non-curated head-words still group unchanged (locking
+in the additive-only decision). The list is not yet consumed anywhere as a gate/filter — a
+future task may use it for ranking/quality signals once product direction on
+narrowing-vs-generic grouping is decided; deferred to RESOLVER-V2-005/006 for the underlying
+learning/growth mechanism as originally scoped.
 
 ---
 

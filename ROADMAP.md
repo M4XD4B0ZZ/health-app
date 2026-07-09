@@ -2452,22 +2452,50 @@ Focus: user-visible logging value, editability, repeat-use friction reduction, a
 
 ### P1-003 Multi-Item Split
 
-Status: `in_progress`
+Status: `done`
 
 Split input at "und", "mit", ",". Normalize number words. Force resolver per item.
 
 **DoD:** "ei und quark" produces two separate resolved entries.
 
+**Verify:** `npx jest --runInBand src/features/input/application/__tests__/parseInput.test.ts src/features/nutrition/__tests__/splitMultiItemInput.test.ts`.
+
+**Implementation notes:** Both DoD elements were already implemented and live but lacked
+explicit combined test coverage. Splitting lives in
+`src/features/nutrition/application/utils/splitMultiItemInput.ts` (P1-003B clause-aware).
+German number-word normalization ("zwei", "drei", ...) lives in
+`src/features/input/infrastructure/simpleParser.ts`'s `parseQuantityAndUnit()`, which runs
+per split item, so "zwei eier und drei bananen" already resolved to two entries with correct
+quantities (2, 3) before this task — added
+`parseInput.test.ts` coverage for the split+number-word interaction to lock this in. Note:
+number-word dictionaries are duplicated across `simpleParser.ts`, `DeterministicFoodParser.ts`,
+and `src/features/nutrition/domain/portion/UnitNormalization.ts` with slightly different word
+sets (e.g. "eins"/umlaut variants) — a future consolidation task could unify these, but no
+DoD regression was found and none is required for this task's scope.
+
 ---
 
 ### P1-004B Domain + Local Portion Knowledge MVP
 
-Status: `in_progress`
+Status: `done`
 
 Implement local/testable portion knowledge for identity-based count/piece/slice resolution.
 Portion hints attach to `foodIdentityKey + unit`, not aliases. User-private confirmed hints are immediately usable for that user and never automatically become global truth.
 
 **DoD:** Seed hints exist for the small MVP set. Carrot aliases share the same canonical identity hint. User-private hints outrank seed/global/source hints for that user. Explicit grams remain authoritative. Unknown count foods still require edit instead of falling back to 100g. Required focused tests and runtime verification pass.
+
+**Verify:** `npx jest --runInBand src/features/nutrition/__tests__/PortionKnowledgeService.test.ts src/features/nutrition/__tests__/resolvePortionGrams.test.ts src/features/nutrition/__tests__/PersistedPortionHintRepository.test.ts src/features/nutrition/__tests__/PortionParser.test.ts src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`.
+
+**Implementation notes:** Already fully implemented and wired live prior to this task
+(`src/features/nutrition/domain/portion/{PortionHint,PortionKnowledgeService,seedPortionHints,PortionNeedsEdit,resolvePortionGrams}.ts`,
+instantiated in `src/infrastructure/di/container.ts` with `PersistedPortionHintRepository` +
+`SEED_PORTION_HINTS`, consumed by `LogFoodFromRawInputUseCase`/`LogMealFromRawInputUseCase`).
+Ran the full focused test suite (31 tests across 5 files, all passing) confirming every DoD
+element: seed hints for the MVP set (egg, banana, apple, carrot, potato, toast), carrot-alias
+identity sharing, user-private-outranks-seed/global/trusted-source lookup priority, explicit
+grams remaining authoritative over hints, and unknown count foods returning a
+`needs-edit`/`COUNT_WITHOUT_PORTION_HINT` result instead of a silent 100g fallback. No code
+changes were required — this task closed out verification only.
 
 ---
 
@@ -2549,7 +2577,7 @@ container (not mocks) via `logResolvedNutritionInput.test.ts`.
 
 ### P1-005: Curated Composite-Dish Pattern List (Non-Growing Alias Strategy)
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Introduce a small curated list of common composite-dish head-words (e.g. "Fruchtsalat",
@@ -2568,20 +2596,340 @@ dish patterns apply privately first, never auto-promoted to global truth).
 - Documented dependency note: full learning/growth mechanism deferred to
   RESOLVER-V2-005/006 (Supabase knowledge layer)
 
-**Verify:** `npm run test` for pattern list unit tests, `npm run verify`.
+**Verify:** `npx jest --runInBand src/features/nutrition/__tests__/CompositeDishPatterns.test.ts`, `npm run verify`.
+
+**Implementation notes:** Implemented as an additive recognition helper only — explicit
+scope decision, not the literal "list gates grouping" reading of the description. Existing
+P1-003B/C grouping in `splitMultiItemInput.ts` already triggers generically for any
+"`<head>` mit `<list>`" pattern (>= 2 comma-separated children), regardless of head word;
+narrowing that to only curated head-words would have been a behavior change (uncurated
+composite dishes would stop grouping) with no such non-regression requirement stated in
+P1-003B/C's own DoD. Added
+`src/features/nutrition/domain/catalog/CompositeDishPatterns.ts` — a 20-entry curated seed
+list (`COMPOSITE_DISH_HEAD_WORDS`) plus `isKnownCompositeDishHeadWord()`, normalized via the
+existing `normalizeText()` helper (same umlaut-folding used by `CanonicalFood.ts`). Tests in
+`src/features/nutrition/__tests__/CompositeDishPatterns.test.ts` confirm the list's size,
+structural separation from macro data, case/umlaut-insensitive matching, that curated
+head-words trigger grouping, and that non-curated head-words still group unchanged (locking
+in the additive-only decision). The list is not yet consumed anywhere as a gate/filter — a
+future task may use it for ranking/quality signals once product direction on
+narrowing-vs-generic grouping is decided; deferred to RESOLVER-V2-005/006 for the underlying
+learning/growth mechanism as originally scoped.
 
 ---
 
-## Tier 1 Planning Targets — Require Later Task Decomposition
+## Nutrition Evaluation Foundation → Domain Phases
 
-The following product modules are Tier 1 planning targets. They are intentionally listed as planning placeholders only and must be decomposed into concrete, verifiable tasks before implementation.
+Supersedes the former "Tier 1 Planning Targets" flat module list (Journal, Saved Meals,
+Dashboard, Goals treated as four equivalent placeholders). Journal and Saved Meals are
+data domains; Goals and Dashboard are direct expressions of the Evaluation Engine — this
+ordering reflects the accepted architecture instead of a flat list.
 
-| Module      | Status | Notes                             |
-| ----------- | ------ | --------------------------------- |
-| Journal     | `todo` | Editable food log, daily view     |
-| Saved Meals | `todo` | Reusable meal templates           |
-| Dashboard   | `todo` | Summary view, progress indicators |
-| Goals       | `todo` | Macro targets, metabolism profile |
+### Nutrition Evaluation Foundation
+
+Status: `done`
+
+Product/architecture concept accepted as Zera's factual authority for all further product
+decisions: strict separation of Food Catalog (objective food properties) → Journal
+(objective who/when/how-much history) → Evaluation Engine (interchangeable interpretation
+via Evaluation Profiles composed of Rules; Prinzip 0: no Profile ever changes facts). See
+[`docs/vision/ZERA_FOUNDING_BRIEF.md`](docs/vision/ZERA_FOUNDING_BRIEF.md) (vision, target
+motivations) and [`docs/vision/ZERA_PRODUCT_BIBLE.md`](docs/vision/ZERA_PRODUCT_BIBLE.md)
+(architecture, data ownership, profile/rule contract, Origin taxonomy). Both carry Status
+`accepted`. Review trail:
+[`ZERA_CONCEPT_REVIEW_R1.md`](docs/vision/ZERA_CONCEPT_REVIEW_R1.md),
+[`ZERA_CONCEPT_REVIEW_R2.md`](docs/vision/ZERA_CONCEPT_REVIEW_R2.md).
+
+**DoD:** Founding Brief and Product Bible both carry Status `accepted`. All four downstream
+domain phases below must respect the Food-Catalog/Journal/Evaluation-Engine split and
+Prinzip 0 in their own future decomposition into tasks.
+
+---
+
+### Journal Domain
+
+Status: `todo`
+
+Foundational question answered and decisions accepted — ready for concrete `ROADMAP.md`
+task decomposition (not yet decomposed). See
+[`docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md`](docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md)
+("What is a journal entry in Zera?", `accepted`) and
+[`docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md`](docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md)
+(correction model, Food Catalog reference, CanonicalFood cleanup, Future Compatibility
+Principle — `accepted`).
+
+**Scope boundary (Product Bible Abschnitt 6/7, unchanged):** stays profile-independent;
+references Food Catalog entries rather than owning food properties itself; never contains
+evaluations ("gut"/"schlecht"). Food Catalog remains fachlich part of the Journal Domain
+per Product Bible Abschnitt 9/11 — **not** a fifth Tier-1 domain. The Product Bible
+describes the factual architecture (Food Catalog → Journal → Evaluation Engine); this
+section only refines the *implementation sequence* within the Journal Domain, per Decision
+Record 1's implementation order:
+
+1. **Food Catalog Identity Cleanup** (J-001)
+2. **Journal Model** (J-002)
+3. **Corrections** (J-003)
+4. **Food References** (J-004)
+5. **Logging** (J-005)
+
+Cross-cutting: **J-006** (regression coverage across J-001–J-005).
+
+No dedicated migration task is planned: every schema change below is additive
+(new optional fields), so existing persisted `FoodEntry` rows remain valid without
+transformation — directly required by the Future Compatibility Principle
+(Decision Record 1, Abschnitt 6).
+
+---
+
+#### J-001: CanonicalFood Identity Cleanup
+
+Status: `todo`
+
+**Ziel:** Consolidate the fragmented Food Catalog identity concepts into one stable type,
+per Decision Record 1 Entscheidung 4 — narrow, mechanical scope only, no new Food Catalog
+functionality (no food groups/NOVA/GI/allergens).
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/domain/catalog/FoodCatalogSource.ts` — the real, multi-source
+  `CanonicalFood { id, name, normalizedName, macrosPer100g, source, sourceId }`; becomes
+  the single canonical shape.
+- `src/features/nutrition/domain/models/FoodCatalogTypes.ts` — older, simpler
+  `CanonicalFood { id, displayName, per100g }` used by the legacy deterministic
+  `FoodCatalog.searchByName` path; merge into the shape above or adapt the legacy path to
+  produce it.
+- `src/features/nutrition/domain/catalog/CanonicalFood.ts` — despite the filename, this is
+  a DE/EN alias dictionary (`CanonicalFoodEntity`), not a catalog entity; rename to an
+  unambiguous name (e.g. `FoodAliasDictionary.ts`).
+- All call sites: resolver services
+  (`application/services/SequentialFoodCatalogResolver.ts`,
+  `DefaultFoodCatalogResolver.ts`), `detectCanonicalEntity.ts`, and any other importer of
+  the renamed/merged types.
+
+**Risiken:** Touches many files (mechanical rename/merge), but low architectural risk —
+existing 717 tests are the regression net. Main risk is an incomplete rename leaving a
+stale import; typecheck will catch this.
+
+**Tests:** No new test scenarios required (behavior must not change); full existing suite
+must stay green.
+
+**Akzeptanzkriterien (DoD):**
+
+- Exactly one `CanonicalFood` interface represents the real macro-bearing catalog entity,
+  used by both the modern and legacy resolution paths.
+- The alias dictionary no longer shares the name `CanonicalFood`.
+- No behavior change: all 717 existing tests, typecheck, and lint pass unmodified in
+  outcome.
+- No food-group/NOVA/GI/allergen fields or other new Food Catalog functionality added.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### J-002: Journal Model — `nutritionSnapshot` + `foodCatalogRef`
+
+Status: `todo`
+Depends on: none (can proceed in parallel with J-001; J-004 depends on both)
+
+**Ziel:** Apply the accepted `FoodEntry` shape changes from Decision Record 1 Entscheidung 3
+— explicit `nutritionSnapshot`, optional `foodCatalogRef` — as additive, backward-compatible
+fields.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/domain/models/NutritionTypes.ts` — add `nutritionSnapshot: {
+  kcal, protein, carbs, fat }` (explicit grouping of the existing top-level macro fields)
+  and optional `foodCatalogRef?: { source, sourceId, displayName, confidence }`.
+- `src/features/nutrition/infrastructure/repositories/PersistedFoodEntryRepository.ts` —
+  extend `SerializedFoodEntry` + `serializeEntry`/`deserializeEntry` for both new fields,
+  with graceful handling of entries that predate this change (`foodCatalogRef` absent =
+  valid, unchanged meaning — Future Compatibility Principle).
+
+**Risiken:** Low — purely additive type/schema change. Care needed that existing top-level
+`calories/protein/carbs/fat` fields either stay (for compatibility) or are migrated to read
+from `nutritionSnapshot` consistently across all read sites; decide and document which,
+to avoid two sources of truth for the same numbers within this task.
+
+**Tests:** Serialization round-trip tests for old entries (no `foodCatalogRef`/
+`nutritionSnapshot`) and new entries (both present); typecheck coverage for the new fields.
+
+**Akzeptanzkriterien (DoD):**
+
+- `FoodEntry` carries `nutritionSnapshot` and optional `foodCatalogRef`.
+- Old persisted entries deserialize without error and remain semantically unchanged
+  (Future Compatibility Principle).
+- No existing test regresses.
+
+**Verify:** `npm run typecheck`, `npm run test` (incl. new serialization round-trip tests).
+
+---
+
+#### J-003: Correction Log + Soft Delete
+
+Status: `todo`
+Depends on: J-002 (extends the same `FoodEntry`/repository surface)
+
+**Ziel:** Implement Decision Record 1 Entscheidung 1 — append-only correction log on every
+edit/delete, soft-delete instead of hard-delete. Internal audit/undo foundation only, not a
+visible UI history (Decision Record 1, Präzisierung in Abschnitt 2).
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/EditFoodEntryFromNaturalLanguageUseCase.ts`
+- `src/features/nutrition/application/usecases/ApplyNaturalLanguageEditUseCase.ts`
+- `src/features/nutrition/application/usecases/DeleteFoodEntryUseCase.ts`
+- `PersistedFoodEntryRepository.ts` — add correction-log storage (append-only, keyed by
+  entry id) and a `deletedAt`/tombstone field instead of hard removal from the array.
+
+**Risiken:** Behavior change for delete (soft instead of hard) — anything reading the
+entries list must filter tombstoned rows; check all read call sites (journal display,
+daily summary, calendar month summary) for implicit reliance on hard deletion.
+
+**Tests:** Edit/delete use cases append a correction-log entry with previous values; delete
+sets tombstone instead of removing the row; existing summary/display use cases correctly
+exclude tombstoned entries.
+
+**Akzeptanzkriterien (DoD):**
+
+- Every edit and delete appends an immutable correction-log entry
+  (`{timestamp, previousValues, triggeredBy}`).
+- Delete is soft (tombstone), not hard.
+- Correction log is not exposed in any existing UI-facing read path by this task (internal
+  only, per Decision Record 1 Präzisierung).
+- No existing test regresses; new tests cover log-append and soft-delete filtering.
+
+**Verify:** `npm run typecheck`, `npm run test`.
+
+---
+
+#### J-004: Food Catalog Reference Population
+
+Status: `todo`
+Depends on: J-001 (stable identity to reference), J-002 (`foodCatalogRef` field must exist)
+
+**Ziel:** Implement Decision Record 1 Entscheidung 3 — stop discarding the resolver's
+`CanonicalFood.id`/`source`/`sourceId` and populate `foodCatalogRef` whenever resolution
+actually produced a catalog match.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts` —
+  `resolveCanonicalFood()` (currently reduces the resolver's result to `{ per100g }`,
+  discarding identity) must retain and forward `id`/`source`/`sourceId` into
+  `foodCatalogRef`.
+- `src/features/nutrition/application/usecases/LogMealFromRawInputUseCase.ts` — same
+  reduction happens in the multi-item path; apply the same fix.
+- Leave `foodCatalogRef` unset for pure AI-fallback/manual-entry paths with no stable
+  catalog match (per Decision Record 1: "wenn vorhanden").
+
+**Risiken:** Low-to-moderate — touches the core logging path; must not change any
+persisted macro numbers, only add the reference alongside them. Regression risk mitigated
+by existing macro-calculation tests (must show unchanged `nutritionSnapshot` output).
+
+**Tests:** Logging a food with a real catalog match populates `foodCatalogRef`; logging via
+AI-fallback/manual entry with no catalog match leaves it unset; macro values remain
+byte-identical to pre-change behavior.
+
+**Akzeptanzkriterien (DoD):**
+
+- `foodCatalogRef` is populated whenever the resolver returns a real catalog identity.
+- No macro/`nutritionSnapshot` value changes as a side effect.
+- No existing test regresses.
+
+**Verify:** `npm run typecheck`, `npm run test`.
+
+---
+
+#### J-005: Auto-Merge Narrowing + Visible/Undoable Correction
+
+Status: `todo`
+Depends on: J-003 (correction log must exist to record system-triggered merges)
+
+**Ziel:** Implement Decision Record 1 Entscheidung 2 — narrow the auto-merge heuristic to a
+2-minute window, make it visible and undoable, and log it as system-triggered
+(distinguishable from a user-initiated edit).
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts` —
+  `findCorrectionCandidate`/`isCorrectionCandidate`/`CORRECTION_WINDOW_MS` (currently 30
+  minutes; change to 2 minutes) and the merge path (currently silent `updateEntryById`)
+  must return enough structured information for the caller to surface an undo-capable
+  notification, and must write a correction-log entry (J-003) marked
+  `triggeredBy: 'system'`.
+- Presentation-layer hook for the undo affordance itself (minimal, scoped to this specific
+  notification — not a general UI redesign) — exact component TBD at implementation time,
+  out of scope for this domain-level task description beyond "must exist and be wired to
+  an undo action that reverts to the correction-log's previous values."
+
+**Risiken:** The UI-visible piece is the main scope-creep risk — keep it to the minimum
+notification + undo affordance needed to satisfy Entscheidung 2, not a broader UX pass.
+
+**Tests:** Merge only triggers within 2 minutes (not 30); merge result includes enough data
+for an undo action; undo restores the previous values via the correction log; merge is
+logged as system-triggered.
+
+**Akzeptanzkriterien (DoD):**
+
+- Auto-merge window is 2 minutes.
+- A successful auto-merge is visible (non-blocking notification) and undoable.
+- Undo restores the pre-merge values exactly (via J-003's correction log).
+- Merge is distinguishable in the correction log from user-initiated edits.
+
+**Verify:** `npm run typecheck`, `npm run test`, manual app verification of the undo
+notification per the `/verify` skill.
+
+---
+
+#### J-006: Journal Domain Regression Coverage
+
+Status: `todo`
+Depends on: J-001–J-005
+
+**Ziel:** Consolidated regression pass across the full Journal Domain change set, ensuring
+Prinzip 0, the Future Compatibility Principle, and all five accepted decisions hold
+together, not just individually.
+
+**Scope:** Cross-cutting — no new production code; test-focused.
+
+**Tests:**
+
+- End-to-end: log → auto-merge-corrected → manually re-edited → soft-deleted, verifying the
+  correction log accurately reflects all three events in order.
+- Old-shape persisted entries (pre-J-002, no `foodCatalogRef`/explicit `nutritionSnapshot`)
+  continue to deserialize and function correctly (Future Compatibility Principle).
+- Full existing 717-test suite plus all new tests from J-001–J-005 green together, not just
+  individually.
+
+**Akzeptanzkriterien (DoD):** Full suite (`npm run verify`) green; no regressions in
+existing P1-001–P1-005 resolver behavior, portion knowledge, or composite-dish grouping.
+
+**Verify:** `npm run verify`.
+
+### Saved Meals Domain
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Reusable meal templates
+— a logging-speed aid, explicitly not an evaluation object (Product Bible Abschnitt 6).
+Must function identically regardless of the active Evaluation Profile.
+
+### Goals & Evaluation
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Target
+configuration/progress — driven entirely by the active Evaluation Profile (Product Bible
+Abschnitt 7), not a fixed schema. Depends on Journal Domain (reads journal data) and the
+Evaluation Profile contract (Product Bible Abschnitt 4).
+
+### Dashboard & Insights
+
+Status: `todo`
+
+Ready for decomposition into concrete tasks (not yet decomposed). Summary/progress view —
+driven entirely by the active Evaluation Profile, not a fixed generic calorie/macro
+screen. Depends on Journal Domain and Goals & Evaluation.
 
 ---
 

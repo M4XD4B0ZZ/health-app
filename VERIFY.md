@@ -50,9 +50,17 @@ Verification must be:
 | 1) Documentation-only | Änderungen nur an Doku-Dateien (z. B. `*.md`, `docs/`, `reports/`, `handoffs/`) ohne Runtime-/Test-/Infra-Code | `git --no-pager status --short`<br>`git --no-pager diff --stat`<br>`git --no-pager diff --name-only` | `npm run verify` (nur wenn zusätzlicher Sicherheits-/Vertrauensbedarf besteht) | Alle required readback checks müssen erfolgreich und vollständig dokumentiert sein |
 | 2) Governance-only | Änderungen nur an Governance-/Policy-Texten (z. B. `AGENTS.md`, `SSOK.md`, `.governance/*.md`, `VERIFY.md`) ohne Runtime-/Test-/Infra-Code | `git --no-pager status --short`<br>`git --no-pager diff --stat`<br>`git --no-pager diff --name-only` | `npm run verify` (nur falls im Task explizit gefordert) | Alle required readback checks müssen erfolgreich und vollständig dokumentiert sein |
 | 3) Test-only | Änderungen nur in Testdateien/-fixtures (keine Produkt-/Infra-Logik) | Task-relevante Tests (z. B. `npm run test -- --runTestsByPath <path>`)<br>`git --no-pager status --short`<br>`git --no-pager diff --stat`<br>`git --no-pager diff --name-only` | `npm run test` (gesamte Suite)<br>`npm run verify` | Alle ausgeführten required Tests müssen pass sein; bei gefordertem `npm run verify` ist dieses ebenfalls blocking |
-| 4) Product/runtime code | Änderungen an App-/Domain-/Application-/UI-/Infra-Runtime-Code | `npm run verify` | `npm run lint`<br>`npm run typecheck`<br>`npm run test`<br>`npm run doctor` | `npm run verify` muss pass sein |
+| 4) Product/runtime code | Änderungen an App-/Domain-/Application-/UI-/Infra-Runtime-Code | `npm run verify` | `npm run lint`<br>`npm run typecheck`<br>`npm run test`<br>`npm run doctor` | `npm run verify` muss pass sein; bei UI-relevanten Änderungen ohne echten visuellen Test zusätzlich: Eintrag in `docs/MANUAL_TESTING_GAPS.md` (siehe Abschnitt unten) |
 | 5) Edge/Supabase | Änderungen an Supabase Edge Functions / edge-relevanter Integration | `npm run verify:supabase:link`<br>`npm run verify:schema`<br>`npm run verify:edge`<br>zusätzlich `npm run verify` bei Runtime-Code-Änderungen | `npm run typecheck:functions`<br>`npm run doctor` | Alle required edge checks müssen pass sein; falls Runtime-Code mitgeändert wurde, zusätzlich `npm run verify` pass |
 | 6) Dependency changes | Änderungen an `package.json` / `package-lock.json` (nur wenn Task explizit erlaubt) | `npm run verify`<br>zusätzlich task-spezifische Regressionstests in betroffenen Bereichen | `npm run doctor`<br>`npm audit` (read-only) | `npm run verify` muss pass sein; alle task-spezifisch required Regressionstests müssen pass sein |
+
+### UI-Relevant Changes — Manual Testing Gap Log (Binding)
+
+Die Agent-Ausführungsumgebung ist headless (kein Expo-Runtime, kein Android Emulator, kein iOS Simulator, keine funktionsfähige interaktive React-Native-Web-Vorschau). Für Kategorie 4 (Product/runtime code) gilt daher zusätzlich:
+
+- Betrifft eine Änderung UI-/Presentation-Layer-Dateien (z. B. `App.tsx`, `src/**/presentation/**`, Screens, Components, Navigation) und konnte das Ergebnis nicht real in Expo/Simulator/Gerät visuell geprüft werden, ist ein neuer Eintrag in [`docs/MANUAL_TESTING_GAPS.md`](docs/MANUAL_TESTING_GAPS.md) **blocking** für den Completion-Gate — zusätzlich zu `npm run verify`.
+- Der Eintrag folgt der Vorlage in `docs/MANUAL_TESTING_GAPS.md` (Branch/PR, betroffene Bereiche, was durch den Agent verifiziert wurde, was nicht visuell geprüft wurde, relevanter Checklisten-Abschnitt).
+- Entfällt nur, wenn keine UI-/Presentation-Layer-Dateien betroffen sind, oder wenn der Agent die Änderung nachweislich in einer echten Expo/Simulator/Geräte-Session visuell verifiziert hat (im Handoff/Summary explizit dokumentieren).
 
 ### Category Resolution Rule
 

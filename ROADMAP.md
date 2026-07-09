@@ -2142,11 +2142,14 @@ Demonstrate that the RALPH-047A read-only execution-plan preview can be independ
    - Instant recognition, zero latency
    - Builds user confidence through consistency
 
-2. **DACH Source** (Planned - Critical for Launch)
+2. **DACH Source** (Live — BLS wired into resolver, Stand 2026-07-09)
    - German/Austrian/Swiss specific food database
    - Local brands, regional specialties, German portion sizes
    - Essential for market penetration and user trust
    - Reduces AI fallback dependency
+   - Implemented as `BlsStaticSource` in `resolverSources`
+     (`src/infrastructure/di/container.ts`), prioritized ahead of OFF/USDA
+     in `SequentialFoodCatalogResolver` — see Decisions Log
 
 3. **Open Food Facts (OFF)** (Brand/EAN Fallback)
    - Downgraded from primary to fallback role

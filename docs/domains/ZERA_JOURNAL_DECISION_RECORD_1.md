@@ -1,6 +1,6 @@
 # Zera — Journal Decision Record 1: Was darf ein Journal-Eintrag sein?
 
-Status: `draft` — zur Freigabe, noch nicht `accepted`
+Status: `accepted` — fachliche Autorität für die Journal Domain
 Ebene: Domänen-Entscheidung (unterhalb
 [`ZERA_JOURNAL_DOMAIN_MODEL.md`](./ZERA_JOURNAL_DOMAIN_MODEL.md), oberhalb konkreter
 `ROADMAP.md`-Implementierungstasks)
@@ -8,6 +8,11 @@ Voraussetzung: [`ZERA_FOUNDING_BRIEF.md`](../vision/ZERA_FOUNDING_BRIEF.md) (Pri
 [`ZERA_PRODUCT_BIBLE.md`](../vision/ZERA_PRODUCT_BIBLE.md) (Abschnitt 2a: Variante B),
 [`ZERA_JOURNAL_DOMAIN_MODEL.md`](./ZERA_JOURNAL_DOMAIN_MODEL.md) (Abschnitt 4: die vier
 Spannungen, die dieses Dokument entscheidet)
+
+> **Freigabe:** Dieses Dokument ist ab sofort fachliche Autorität für die Journal Domain —
+> künftige Journal-Implementierungstasks werden an ihm gemessen. `accepted` bedeutet
+> **nicht** `final`: Änderungen erfordern einen bewussten Review-/Revisionsprozess, keine
+> stillen Edits.
 
 ---
 
@@ -170,21 +175,43 @@ geringes architektonisches Risiko, abgesichert durch die bestehenden 717 Tests.
 
 ---
 
-## 6. Umsetzungsreihenfolge
+## 6. Future Compatibility Principle
 
-1. **Food Catalog Identity Cleanup** (Entscheidung 4) — Voraussetzung für 4, schnell,
-   mechanisch.
+Als generalisierende Regel über die vier Einzelentscheidungen hinaus, mit Blick auf
+absehbare künftige Erweiterungen (Vitamine, NOVA, Allergene, CO₂/Nachhaltigkeit u. Ä.):
+
+> **Journal-Einträge dürfen in Zukunft um neue optionale Fakten ergänzt werden (z. B.
+> weitere Food-Catalog-Referenzen oder zusätzliche Metadaten). Bereits gespeicherte Fakten
+> dürfen dadurch jedoch niemals ihre ursprüngliche Bedeutung verlieren oder ungültig
+> werden.**
+
+Kurzform: **Neue Informationen dürfen ergänzt werden. Bereits gespeicherte Fakten dürfen
+dadurch nicht umgedeutet werden.**
+
+Das ist keine fünfte, eigenständige Entscheidung, sondern die explizite Verallgemeinerung
+dessen, was `foodCatalogRef` (Entscheidung 3) und das Correction Log (Entscheidung 1)
+bereits demonstrieren: Erweiterung geschieht durch **Ergänzung**, nie durch rückwirkende
+**Umdeutung**. Jedes künftige neue optionale Feld auf `FoodEntry` muss so entworfen sein,
+dass sein Fehlen bei älteren Einträgen ein gültiger, unveränderter Zustand bleibt — nie ein
+Migrationszwang oder eine implizite Neuinterpretation des ursprünglichen Fakts. Das ist
+eine direkte Verlängerung von Prinzip 0 in die Journal Domain hinein.
+
+---
+
+## 7. Umsetzungsreihenfolge
+
+1. **Food Catalog Identity Cleanup** (Entscheidung 4) — Voraussetzung für Entscheidung 3,
+   schnell, mechanisch.
 2. **Korrektur-Modell** (Entscheidungen 1+2 zusammen) — Correction Log + sichtbarer,
    umkehrbarer, auf 2 Minuten begrenzter Auto-Merge. Unabhängig von Schritt 1, hier aus
    Fokus-Gründen danach sequenziert.
 3. **Food-Catalog-Referenz auf Journal-Einträgen** (Entscheidung 3) — abhängig von Schritt 1.
 4. Erst danach: konkrete `ROADMAP.md`-Tasks für die Journal Domain formulieren — und damit
-   auch Saved Meals Domain, Goals & Evaluation und Dashboard & Insights entblocken, die auf
-   der Journal-Eintragsform aufbauen.
+   auch die davon abhängigen Bereiche entblocken, die auf der Journal-Eintragsform aufbauen.
 
 ---
 
-## 7. Was dieses Dokument nicht entscheidet
+## 8. Was dieses Dokument nicht entscheidet
 
 - Keine Katalog-Versionierung (wann/ob sich ein referenzierter Food-Catalog-Eintrag
   rückwirkend ändern darf) — eigene, spätere Food-Catalog-Domain-Frage.

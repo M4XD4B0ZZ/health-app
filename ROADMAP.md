@@ -2474,12 +2474,55 @@ Full suite (87 suites / 704 tests) and `tsc --noEmit` pass clean.
 
 ### P1-004B Domain + Local Portion Knowledge MVP
 
-Status: `in_progress`
+Status: `done`
 
 Implement local/testable portion knowledge for identity-based count/piece/slice resolution.
 Portion hints attach to `foodIdentityKey + unit`, not aliases. User-private confirmed hints are immediately usable for that user and never automatically become global truth.
 
 **DoD:** Seed hints exist for the small MVP set. Carrot aliases share the same canonical identity hint. User-private hints outrank seed/global/source hints for that user. Explicit grams remain authoritative. Unknown count foods still require edit instead of falling back to 100g. Required focused tests and runtime verification pass.
+
+**Verify:** `npx jest --testPathPattern="PortionKnowledgeService|PersistedPortionHintRepository|resolvePortionGrams|LogFoodFromRawInputUseCase.unitPortions"`, `npm run typecheck`.
+
+**Implementation notes:** Already satisfied by the existing domain layer before this status
+update; no code change was needed, only verification. `resolveFoodIdentityKey`
+(`domain/portion/foodIdentity.ts`) maps DE/EN aliases (via `domain/canonicalFoods.ts`) to a
+shared `canonical:<id>` key - `karotte`/`karotten`/`möhre`/`möhren` all resolve to
+`canonical:carrot` and share one seed hint (60g/piece), per
+`PortionKnowledgeService.test.ts` and `resolvePortionGrams.test.ts`. Precedence
+(user-private > global_verified > trusted-source > seed) is implemented in
+`PortionKnowledgeService.lookup()` and covered by a 4-tier test including per-user persistence
+scoping (`PersistedPortionHintRepository.test.ts`). Explicit grams short-circuit hint lookup
+entirely (`resolvePortionGrams.ts`, "uses explicit grams without overriding them"). Unknown
+count foods return `needs_edit`/`COUNT_WITHOUT_PORTION_HINT` rather than a 100g fallback (the
+100g fallback path is reserved for genuinely quantity-less legacy input). 22 focused tests
+pass; full suite/typecheck unaffected (no production code touched).
+
+**Known gap (out of scope for this DoD, tracked as P1-004C):**
+`PortionKnowledgeService.confirmUserPrivateHint()` has no production call site yet - the
+read/precedence side is fully wired into the live app via DI, but there is no UI/use-case flow
+that lets a user actually save a private portion hint. Separately noted: `domain/canonicalFoods.ts`
+and `domain/catalog/CanonicalFood.ts` are two independently-maintained catalogs with the same
+concept name and some inconsistent values (e.g. apple 150g vs 180g) - a latent consistency risk
+worth consolidating, not attempted here to avoid scope creep into `SequentialFoodCatalogResolver`.
+
+---
+
+### P1-004C: Wire User-Private Portion Hint Confirmation UI
+
+Status: `todo`
+
+**Description:** `PortionKnowledgeService.confirmUserPrivateHint()` (domain layer, P1-004B) is
+fully implemented and tested but has zero production callers. Add a use-case + UI entry point
+(e.g. from a `needs_edit` portion correction in the Journal) that lets a user confirm a
+count/piece/slice portion for a food, persisting it as a private hint for that user only via
+the existing `PersistedPortionHintRepository`.
+
+**DoD:** A user-reachable action exists that calls `confirmUserPrivateHint()` with a real grams
+value and persists it. The confirmed hint is immediately used on the next matching input for
+that user (per P1-004B precedence) without affecting other users or promoting to seed/global
+truth.
+
+**Verify:** New use-case/UI test exercising the confirm flow end-to-end, `npm run verify`.
 
 ---
 

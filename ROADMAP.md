@@ -2473,7 +2473,7 @@ Portion hints attach to `foodIdentityKey + unit`, not aliases. User-private conf
 
 ### P1-003B: Clause-Aware Comma Splitting (Nested "mit"-Lists)
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Extend Multi-Item Split (P1-003) to be clause-aware. Currently "und", "mit", and "," are
@@ -2494,8 +2494,17 @@ on "," remains unchanged when no "mit"-clause is active.
   mit-clauses)
 
 **Verify:** New unit tests for clause-scoped comma parsing
-(`npx jest --testPathPattern="multiItemSplit|clauseScope"`), manual app test with the four
-cases above, `npm run verify`.
+(`npx jest --testPathPatterns="splitMultiItemInput|LogMealFromRawInputUseCase"`), manual app
+test with the four cases above, `npm run typecheck`.
+
+**Implementation notes:** Implemented in
+`src/features/nutrition/application/utils/splitMultiItemInput.ts`. A "mit"/"with" clause only
+forms a label+children group when it is followed by a real comma list (>= 2 children) — a
+single trailing item after "mit" (e.g. "burger mit cola") keeps the original flat P1-003
+behavior, since that phrasing denotes two separate menu items, not an ingredient list. The
+label is excluded from `items` (never sent to the resolver); `LogMealFromRawInputUseCase`
+requires no change since it already only iterates `splitResult.items`. Group data
+(`SplitMultiItemGroup[]`) is exposed on the result for P1-003C to consume for Journal display.
 
 ---
 

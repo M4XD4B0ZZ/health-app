@@ -1,14 +1,19 @@
 # Zera — Founding Brief
 
-Status: `draft` — überarbeitet nach Concept Review R1, weiterhin nicht freigegeben
+Status: `draft` — überarbeitet nach Concept Review R1 und R2/R3, weiterhin nicht freigegeben
 Ebene: Strategische Vision (steht über `ROADMAP.md`, nicht darunter)
 Zugehöriges Dokument: [`ZERA_PRODUCT_BIBLE.md`](./ZERA_PRODUCT_BIBLE.md) (Architektur- und Profil-Ebene)
 
-> Revision: Nach [`ZERA_CONCEPT_REVIEW_R1.md`](./ZERA_CONCEPT_REVIEW_R1.md) überarbeitet —
-> Terminologie "Evaluation Model" → "Evaluation Profile" (Profile sind konfigurierbare
+> Revision R1: Nach [`ZERA_CONCEPT_REVIEW_R1.md`](./ZERA_CONCEPT_REVIEW_R1.md) überarbeitet
+> — Terminologie "Evaluation Model" → "Evaluation Profile" (Profile sind konfigurierbare
 > Bündel aus Regeln, keine festen Algorithmus-Klassen) und Zielgruppen von Ernährungsform
-> auf Nutzer-Motivation umgestellt. Details zur Profil-/Regel-Architektur: siehe Product
-> Bible.
+> auf Nutzer-Motivation umgestellt.
+>
+> Revision R2/R3: Nach [`ZERA_CONCEPT_REVIEW_R2.md`](./ZERA_CONCEPT_REVIEW_R2.md) überarbeitet
+> — Food Catalog als dritte, vorgelagerte Schicht (Food Catalog → Journal → Evaluation
+> Engine) ergänzt, Prinzip 0 ("kein Profile verändert jemals Fakten") eingeführt, sowie ein
+> Hinweis, dass "Evaluation Profile" reine Architektursprache ist. Details zur vollständigen
+> Profil-/Regel-/Origin-Architektur: siehe Product Bible.
 
 > Namenskonvention: Das Produkt heißt ab sofort **Zera**. Repo-Name (`health-app`) und
 > `package.json`-Name (`health-dashboard`) bleiben aus historischen Gründen vorerst
@@ -94,20 +99,34 @@ Infrastruktur, Bewertung ist das eigentliche Produkt.
 
 ## 5. Kernprinzip: Trennung von Datenerfassung und Bewertung
 
-Zera trennt strikt zwischen zwei Verantwortungsbereichen:
+> **Prinzip 0 (oberstes Architekturprinzip, Review R2/R3):** Kein Evaluation Profile darf
+> jemals Fakten verändern. Es interpretiert ausschließlich objektive Daten aus Food Catalog
+> und Journal. 100 g Haferflocken bleiben immer 100 g Haferflocken — unabhängig davon,
+> welches Ziel gerade aktiv ist. Nur die Interpretation dieser 100 g ändert sich.
+
+Aus Prinzip 0 folgt eine Struktur mit **drei**, nicht zwei Verantwortungsbereichen:
 
 | Bereich                           | Frage, die er beantwortet                           | Charakter                                          |
 | --------------------------------- | --------------------------------------------------- | -------------------------------------------------- |
+| **Food Catalog**                  | "Was ist dieses Lebensmittel objektiv?"             | Neutral, benutzerunabhängig, dauerhaft             |
 | **Journal (Food Logging)**        | "Was wurde tatsächlich gegessen, wann, wie viel?"   | Neutral, faktenbasiert, profilunabhängig           |
 | **Evaluation Engine (Bewertung)** | "Was bedeutet das für _dieses_ Ziel dieser Person?" | Austauschbar, zielgruppenabhängig, interpretierend |
 
-Das Journal ist die **Wahrheitsquelle über Fakten**. Die Evaluation Engine ist die
-**austauschbare Interpretationsschicht** darüber. Beide arbeiten auf denselben
-Journaldaten — ein Wechsel des aktiven Evaluation Profiles erzeugt keine neue
-Datenerfassung, sondern nur eine neue Sicht auf bereits vorhandene, unveränderte Fakten.
+Der Food Catalog kennt keinen Benutzer und keinen Zeitpunkt — er enthält nur objektive
+Lebensmitteleigenschaften (Makros, Lebensmittelgruppen usw.). Das Journal baut auf dem Food
+Catalog auf (wer hat wann wie viel wovon gegessen) und ist die **Wahrheitsquelle über
+Fakten**. Die Evaluation Engine ist die **austauschbare Interpretationsschicht** darüber.
+Alle drei arbeiten auf denselben, unveränderten Fakten — ein Wechsel des aktiven Evaluation
+Profiles erzeugt keine neue Datenerfassung, sondern nur eine neue Sicht auf bereits
+vorhandene Fakten (Details und Begründung: Product Bible, Abschnitt 2a).
 
 Diese Trennung ist der eigentliche Kern dieses Founding Briefs. Alles Weitere (Zielgruppen,
 Profil-Kandidaten, Datenverantwortung) leitet sich aus ihr ab.
+
+**Hinweis zur Sprache (Review R2/R3):** "Evaluation Profile" ist reine Architektursprache.
+In der Produktoberfläche sprechen wir nie von einem "Profil", das Nutzer:innen auswählen
+müssten, sondern von einem **Ziel**, **Ernährungsziel** oder **Fokus** (siehe Product Bible,
+Abschnitt 4b, für die vollständige Begriffszuordnung).
 
 ---
 
@@ -150,10 +169,14 @@ Das Journal ist dafür zuständig:
 
 - Lebensmittel reibungsarm, natürlichsprachlich erfassbar zu machen (bestehende
   Input-Philosophie aus `README.md` bleibt unverändert gültig).
-- Fakten dauerhaft und profilunabhängig zu speichern (was, wann, wie viel, in welcher
-  Portion/Einheit, aus welcher Quelle aufgelöst).
+- Fakten dauerhaft und profilunabhängig zu speichern: wer, wann, wie viel — als Referenz
+  auf einen Food-Catalog-Eintrag, nicht als eigene Kopie von dessen Eigenschaften.
 - Korrekturen und Nachbearbeitung zu ermöglichen, ohne dass ein Evaluation Profile
   involviert sein muss.
+
+Die objektiven Lebensmitteleigenschaften selbst (Makros, Lebensmittelgruppen, Herkunft
+usw.) gehören zum **Food Catalog**, einer eigenen, dem Journal vorgelagerten Schicht — das
+Journal referenziert sie, führt sie aber nicht selbst (Details: Product Bible, Abschnitt 3).
 
 Das Journal ist **explizit nicht** dafür zuständig, zu bewerten, ob eine Mahlzeit "gut" oder
 "schlecht" für ein bestimmtes Ziel war. Diese Neutralität ist Bedingung dafür, dass mehrere
@@ -184,7 +207,10 @@ Erweiterbarkeit sind bewusst **nicht** Teil dieses Dokuments — siehe
   Klassische Tracking-Apps verlieren Nutzer:innen, wenn Logging zur Last wird. Zera macht
   Logging leicht _und_ liefert danach einen individuellen Grund weiterzumachen.
 - **Zielwechsel ohne Datenverlust.** Ändert sich das Ziel einer Person, ändert sich nur das
-  aktive Evaluation Profile — nicht die Notwendigkeit, neu zu beginnen.
+  aktive Evaluation Profile — nicht die Notwendigkeit, neu zu beginnen. Auch bereits
+  vergangene Tage werden dabei automatisch neu bewertet, nicht nur zukünftige Einträge —
+  eine bewusste Entscheidung (Product Bible, Abschnitt 2a), die z. B. die Frage "Wie hätte
+  mein letzter Monat unter einem anderen Ziel ausgesehen?" beantwortbar macht.
 - **Erweiterbarkeit als Produktstrategie, nicht nur als Architekturdetail.** Neue
   Motivationen lassen sich langfristig durch neue oder kombinierte Evaluation Profiles
   erschließen, ohne den Logging-Kern (das eigentliche technische Alleinstellungsmerkmal)

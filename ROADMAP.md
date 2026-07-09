@@ -2499,6 +2499,42 @@ changes were required — this task closed out verification only.
 
 ---
 
+### P1-004C: Wire User-Private Portion Hint Confirmation Test Coverage
+
+Status: `done`
+
+**Description:** `PortionKnowledgeService.confirmUserPrivateHint()` (domain layer, P1-004B)
+is fully implemented and already called in production from `JournalScreen.tsx`
+(`savePortionHintAndRetry`, `handleUseEstimatedPortion`, `handleConfirmManualPortion`), but
+had zero test coverage: the global test-setup container mock never exposed
+`portionKnowledgeService`, so this flow was unverified.
+
+**DoD:** An end-to-end test drives the confirm flow through the same
+`container.portionKnowledgeService.confirmUserPrivateHint()` call path the running app uses,
+confirms the same input resolves immediately afterward for that user, and confirms a
+different user gets no hint for the same food/unit (private, not promoted to global truth).
+
+**Verify:** `npx jest --runInBand src/features/input/application/__tests__/portionHintConfirmationFlow.test.ts`, `npm run typecheck`.
+
+**Implementation notes:** `src/test-setup.ts`'s global container mock previously only
+exposed `logFoodFromRawInputUseCase`, built without a `portionKnowledgeService` (10th
+constructor arg omitted), so `resolvePortionGrams` silently fell back to its own
+internal module-level default instance and `container.portionKnowledgeService` was
+`undefined` in every test. Fixed by constructing one shared `PortionKnowledgeService` (same
+`InMemoryPortionHintRepository` + `SEED_PORTION_HINTS` wiring as production `container.ts`)
+and wiring it into both the mocked use case and the exposed `container.portionKnowledgeService`,
+so confirming a hint through the container in a test now actually affects the next
+resolution — exactly mirroring the real DI graph. New end-to-end test
+(`src/features/input/application/__tests__/portionHintConfirmationFlow.test.ts`) drives the
+full production call path: "zwei scheiben schinken" blocks with `needs_edit`
+(`canonical:ham`/slice), `confirmUserPrivateHint(...)` is called exactly as
+`JournalScreen.savePortionHintAndRetry` calls it, the identical input then resolves
+immediately (50g, calories > 0), and a different `userId` still gets no hint for the same
+food/unit. Full suite (89 suites / 718 tests), `tsc --noEmit`, `eslint`, and `prettier -c`
+pass clean.
+
+---
+
 ### P1-003B: Clause-Aware Comma Splitting (Nested "mit"-Lists)
 
 Status: `done`

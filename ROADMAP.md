@@ -2142,11 +2142,14 @@ Demonstrate that the RALPH-047A read-only execution-plan preview can be independ
    - Instant recognition, zero latency
    - Builds user confidence through consistency
 
-2. **DACH Source** (Planned - Critical for Launch)
+2. **DACH Source** (Live — BLS wired into resolver, Stand 2026-07-09)
    - German/Austrian/Swiss specific food database
    - Local brands, regional specialties, German portion sizes
    - Essential for market penetration and user trust
    - Reduces AI fallback dependency
+   - Implemented as `BlsStaticSource` in `resolverSources`
+     (`src/infrastructure/di/container.ts`), prioritized ahead of OFF/USDA
+     in `SequentialFoodCatalogResolver` — see Decisions Log
 
 3. **Open Food Facts (OFF)** (Brand/EAN Fallback)
    - Downgraded from primary to fallback role
@@ -2465,6 +2468,107 @@ Implement local/testable portion knowledge for identity-based count/piece/slice 
 Portion hints attach to `foodIdentityKey + unit`, not aliases. User-private confirmed hints are immediately usable for that user and never automatically become global truth.
 
 **DoD:** Seed hints exist for the small MVP set. Carrot aliases share the same canonical identity hint. User-private hints outrank seed/global/source hints for that user. Explicit grams remain authoritative. Unknown count foods still require edit instead of falling back to 100g. Required focused tests and runtime verification pass.
+
+---
+
+### P1-003B: Clause-Aware Comma Splitting (Nested "mit"-Lists)
+
+Status: `done`
+
+**Description:**
+Extend Multi-Item Split (P1-003) to be clause-aware. Currently "und", "mit", and "," are
+split at the same flat level, causing composite-dish headers (e.g. "Fruchtsalat mit Bananen,
+Kirschen, Erdbeeren, Ananas") to become spurious standalone entries alongside their listed
+components. Commas following an active "mit"-clause must be treated as intra-clause
+separators (children of that clause), not as new top-level split points. Top-level splitting
+on "," remains unchanged when no "mit"-clause is active.
+
+**DoD:**
+
+- "Fruchtsalat mit Bananen, Kirschen" → 1 label + 2 resolved child entries, no separate
+  "Fruchtsalat" resolution attempt
+- "Apfel, Banane, Joghurt" (no "mit") → 3 flat top-level entries (unchanged)
+- "Ei und Quark" → 2 top-level entries (unchanged)
+- "Wurstsalat mit Zwiebeln, Essig, Öl" → 1 label + 3 children
+- Existing P1-003 tests still pass (no regression to flat "und"/","-splitting outside
+  mit-clauses)
+
+**Verify:** New unit tests for clause-scoped comma parsing
+(`npx jest --testPathPatterns="splitMultiItemInput|LogMealFromRawInputUseCase"`), manual app
+test with the four cases above, `npm run typecheck`.
+
+**Implementation notes:** Implemented in
+`src/features/nutrition/application/utils/splitMultiItemInput.ts`. A "mit"/"with" clause only
+forms a label+children group when it is followed by a real comma list (>= 2 children) — a
+single trailing item after "mit" (e.g. "burger mit cola") keeps the original flat P1-003
+behavior, since that phrasing denotes two separate menu items, not an ingredient list. The
+label is excluded from `items` (never sent to the resolver); `LogMealFromRawInputUseCase`
+requires no change since it already only iterates `splitResult.items`. Group data
+(`SplitMultiItemGroup[]`) is exposed on the result for P1-003C to consume for Journal display.
+
+---
+
+### P1-003C: Composite Meal Label Handling in Journal
+
+Status: `done`
+
+**Description:**
+When P1-003B detects a `<Kopf> mit <Liste>` pattern, `<Kopf>` must not be resolved as a
+standalone food/macro source. Journal UI groups the resolved children under the label for
+display, while macros are summed only from children (no double counting).
+
+**DoD:**
+
+- Label entries do not query BLS/OFF/USDA individually
+- Journal displays label with nested/grouped children (collapsible or visually grouped)
+- Total macros for the group equal sum of child macros exactly
+- Editing/deleting a child updates the group total; deleting all children removes the group
+
+**Verify:** Component/UI test for grouped display, unit test confirming label is excluded
+from resolver calls, manual app test.
+
+**Implementation notes:** Discovered during implementation that the live app submit path
+(`JournalScreen` → `logResolvedNutritionInput` → `prepareNutritionResolverDispatch` →
+`parseInput` → `simpleParse`) never used P1-003B's `splitMultiItemInput` — it had its own
+flat, non-clause-aware connector splitter, and `LogMealFromRawInputUseCase` (the only P1-003B
+consumer) was dead code never called from any UI. Fixed by rewriting
+`simpleParse` (`src/features/input/infrastructure/simpleParser.ts`) to delegate to
+`splitMultiItemInput`, then threading `groupId`/`groupLabel` through the full live pipeline:
+`ParsedItem` → `ResolverFoodRequest` → `FoodSearchQuery` →
+`LogFoodFromRawInputUseCase.execute()` → persisted `FoodEntry` (new optional
+`groupId`/`groupLabel` fields, also added to `PersistedFoodEntryRepository`'s
+serialize/deserialize). `LogMealFromRawInputUseCase` was updated too for consistency. A
+shared `buildGroupInfoByItemIndex()` helper in `splitMultiItemInput.ts` avoids duplicating the
+groupId-synthesis logic across both pipelines. Journal UI: `groupJournalEntries()` in
+`journalEntryDisplay.ts` derives grouped/flat display items from the flat entries array (no
+separate persisted "group" record), so group totals and group-disappears-on-last-delete both
+fall out for free from the existing per-entry data. Verified end-to-end against the real DI
+container (not mocks) via `logResolvedNutritionInput.test.ts`.
+
+---
+
+### P1-005: Curated Composite-Dish Pattern List (Non-Growing Alias Strategy)
+
+Status: `todo`
+
+**Description:**
+Introduce a small curated list of common composite-dish head-words (e.g. "Fruchtsalat",
+"Wurstsalat", "Nudelauflauf") used only for pattern recognition (triggering P1-003B/C
+grouping), not as a nutrition-alias/macro source. This list is intentionally small and
+static (seed set), analogous to the ~20 Canonical Food Entities from P1-002. Long-term
+growth must come from the Resolver V2 knowledge layer (`food_aliases`, `corrections`), not
+manual list maintenance — mirrors the user-private-hint pattern from P1-004B (user-confirmed
+dish patterns apply privately first, never auto-promoted to global truth).
+
+**DoD:**
+
+- Seed list of ~15-20 composite-dish head-words defined
+- Pattern list is structurally separate from nutrition/macro data (no macro values attached)
+- Unit tests confirm head-words trigger grouping behavior
+- Documented dependency note: full learning/growth mechanism deferred to
+  RESOLVER-V2-005/006 (Supabase knowledge layer)
+
+**Verify:** `npm run test` for pattern list unit tests, `npm run verify`.
 
 ---
 
@@ -2856,3 +2960,4 @@ Before marking Resolver V2 as done:
 - **AI Endpoints gating:** AI endpoints will never be anon. Strictly JWT + subscription/entitlement required.
 - **Deterministic-first:** No LLM calls in core logging pipeline. AI only for complex multi-item parsing when deterministic logic is insufficient.
 - **Resolver V2 Architecture:** Multi-source fusion replaces sequential early-return to eliminate translation bias and improve match quality.
+- **BLS Live-Status (Stand 2026-07-09):** BLS ist inzwischen aktiv im Resolver verdrahtet (`BlsStaticSource` in `src/infrastructure/di/container.ts`, `resolverSources = [userAliasSource, blsSource, offSource, usdaSource]`) und wird in `SequentialFoodCatalogResolver` mit Priorität vor OFF/USDA berücksichtigt (siehe `BlsResolverIntegration.test.ts`). Der ältere Stand "nur OFF + USDA live" (P0-007 Proof-Points) ist damit überholt.

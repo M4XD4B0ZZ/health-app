@@ -6,6 +6,8 @@ export interface FoodSearchQuery {
   normalized: string;
   locale: 'de' | 'en';
   traceId?: string;
+  groupId?: string;
+  groupLabel?: string;
 }
 
 export function buildNutritionResolverInputs(
@@ -26,6 +28,8 @@ export function buildNutritionResolverInputs(
       normalized: request.query, // Use the query (canonical name if available, otherwise raw name)
       locale,
       traceId,
+      groupId: request.groupId,
+      groupLabel: request.groupLabel,
     };
   });
 }

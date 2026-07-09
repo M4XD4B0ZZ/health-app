@@ -53,7 +53,12 @@ export async function resolvePreparedNutritionInputs(
       try {
         // Use the existing use case to resolve each nutrition input
         // Pass rawText explicitly to preserve truthfulness
-        return await useCase.execute({ rawText: input.raw, rawInput: input.raw });
+        return await useCase.execute({
+          rawText: input.raw,
+          rawInput: input.raw,
+          groupId: input.groupId,
+          groupLabel: input.groupLabel,
+        });
       } catch (error) {
         if (error instanceof PortionNeedsEditError) {
           console.log('Controlled input resolution block:', input.raw);

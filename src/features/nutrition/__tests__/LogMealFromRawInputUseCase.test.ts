@@ -242,6 +242,56 @@ describe('LogMealFromRawInputUseCase', () => {
     });
   });
 
+  describe('Composite-Dish Label Handling (P1-003B)', () => {
+    it('sollte bei "Obstsalat mit Apple, Banana" nur die Kinder resolven, nicht das Label', async () => {
+      useCase = new LogMealFromRawInputUseCase(
+        repository,
+        clock,
+        idGenerator,
+        parser,
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        undefined, // nutritionLookup
+        undefined, // kein AI-Parser nötig
+        mockResolver, // resolver
+      );
+
+      const result = await useCase.execute('Obstsalat mit Apple, Banana');
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+      expect(entries).toHaveLength(2);
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['Apple', 'Banana']);
+      expect(entries.some((entry) => entry.rawInput.toLowerCase() === 'obstsalat')).toBe(false);
+    });
+
+    it('sollte bei einem einzelnen "mit"-Objekt ohne Kommaliste weiterhin flach splitten', async () => {
+      useCase = new LogMealFromRawInputUseCase(
+        repository,
+        clock,
+        idGenerator,
+        parser,
+        mockFoodCatalog as any, // foodCatalog - needed to enable resolver
+        undefined, // aliasRepository
+        undefined, // aiFoodMapper
+        undefined, // nutritionLookup
+        undefined, // kein AI-Parser nötig
+        mockResolver, // resolver
+      );
+
+      const result = await useCase.execute('burger mit cola');
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+      expect(entries.map((entry) => entry.rawInput)).toEqual(['burger', 'cola']);
+    });
+  });
+
   describe('Date Handling', () => {
     it('sollte custom dateISO korrekt verarbeiten', async () => {
       useCase = new LogMealFromRawInputUseCase(

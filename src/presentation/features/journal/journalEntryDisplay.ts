@@ -144,3 +144,69 @@ export function buildFoodEntryDisplay(entry: FoodEntry): FoodEntryDisplay {
     subtitle: buildSubtitle(entry.rawInput, grams),
   };
 }
+
+/**
+ * P1-003C: a composite-dish group (e.g. "Fruchtsalat mit Bananen, Kirschen") - the
+ * label itself is never a persisted FoodEntry, so the group total is always exactly
+ * the sum of its children's macros (no separate total to keep in sync, and deleting
+ * the last child makes the group disappear on the next grouping pass for free).
+ */
+export interface JournalEntryGroup {
+  kind: 'group';
+  groupId: string;
+  label: string;
+  children: FoodEntry[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+}
+
+export interface JournalEntryLeaf {
+  kind: 'entry';
+  entry: FoodEntry;
+}
+
+export type JournalListItem = JournalEntryGroup | JournalEntryLeaf;
+
+/**
+ * Groups entries sharing a groupId (set by P1-003B/C composite-dish detection) under
+ * a single JournalEntryGroup, in the position of their first-seen child. Entries
+ * without a groupId pass through unchanged as JournalEntryLeaf items.
+ */
+export function groupJournalEntries(entries: FoodEntry[]): JournalListItem[] {
+  const result: JournalListItem[] = [];
+  const groupIndexByGroupId = new Map<string, number>();
+
+  for (const entry of entries) {
+    if (!entry.groupId) {
+      result.push({ kind: 'entry', entry });
+      continue;
+    }
+
+    const existingIndex = groupIndexByGroupId.get(entry.groupId);
+    if (existingIndex === undefined) {
+      groupIndexByGroupId.set(entry.groupId, result.length);
+      result.push({
+        kind: 'group',
+        groupId: entry.groupId,
+        label: formatTitle(entry.groupLabel ?? ''),
+        children: [entry],
+        totalCalories: entry.calories,
+        totalProtein: entry.protein,
+        totalCarbs: entry.carbs,
+        totalFat: entry.fat,
+      });
+      continue;
+    }
+
+    const group = result[existingIndex] as JournalEntryGroup;
+    group.children.push(entry);
+    group.totalCalories += entry.calories;
+    group.totalProtein += entry.protein;
+    group.totalCarbs += entry.carbs;
+    group.totalFat += entry.fat;
+  }
+
+  return result;
+}

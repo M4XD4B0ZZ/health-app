@@ -42,4 +42,62 @@ describe('splitMultiItemInput', () => {
     expect(result.wasSplit).toBe(false);
     expect(result.items.map((item) => item.rawText)).toEqual(['20er nuggets']);
   });
+
+  describe('P1-003B: Clause-Aware Comma Splitting (Nested "mit"-Lists)', () => {
+    it('groups a "mit"-clause with a comma list under a label instead of flat entries', () => {
+      const result = splitMultiItemInput('Fruchtsalat mit Bananen, Kirschen');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Bananen', 'Kirschen']);
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].label.rawText).toBe('Fruchtsalat');
+      expect(result.groups[0].children.map((item) => item.rawText)).toEqual([
+        'Bananen',
+        'Kirschen',
+      ]);
+    });
+
+    it('keeps flat top-level splitting for comma lists without a "mit"-clause', () => {
+      const result = splitMultiItemInput('Apfel, Banane, Joghurt');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Apfel', 'Banane', 'Joghurt']);
+      expect(result.groups).toEqual([]);
+    });
+
+    it('keeps flat top-level splitting for "und" outside mit-clauses', () => {
+      const result = splitMultiItemInput('Ei und Quark');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Ei', 'Quark']);
+      expect(result.groups).toEqual([]);
+    });
+
+    it('groups a "mit"-clause with a three-item comma list under a label', () => {
+      const result = splitMultiItemInput('Wurstsalat mit Zwiebeln, Essig, Öl');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Zwiebeln', 'Essig', 'Öl']);
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].label.rawText).toBe('Wurstsalat');
+      expect(result.groups[0].children).toHaveLength(3);
+    });
+
+    it('does not form a group for a "mit"-clause without a comma list (unchanged legacy behavior)', () => {
+      const result = splitMultiItemInput('burger mit cola');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['burger', 'cola']);
+      expect(result.groups).toEqual([]);
+    });
+
+    it('handles a flat top-level item combined with a "mit"-clause group', () => {
+      const result = splitMultiItemInput('Ei und Fruchtsalat mit Bananen, Kirschen');
+
+      expect(result.wasSplit).toBe(true);
+      expect(result.items.map((item) => item.rawText)).toEqual(['Ei', 'Bananen', 'Kirschen']);
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].label.rawText).toBe('Fruchtsalat');
+    });
+  });
 });

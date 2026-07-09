@@ -106,6 +106,31 @@ describe('LogFoodFromRawInputUseCase', () => {
     });
   });
 
+  describe('P1-003C: composite-dish group metadata', () => {
+    it('persists groupId/groupLabel when provided', async () => {
+      const entry = await useCase.execute({
+        rawText: '150g banana',
+        rawInput: '150g banana',
+        groupId: 'group-0-0',
+        groupLabel: 'Fruchtsalat',
+      });
+
+      expect(entry.groupId).toBe('group-0-0');
+      expect(entry.groupLabel).toBe('Fruchtsalat');
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+      expect(entries[0].groupId).toBe('group-0-0');
+      expect(entries[0].groupLabel).toBe('Fruchtsalat');
+    });
+
+    it('leaves groupId/groupLabel undefined when not provided', async () => {
+      const entry = await useCase.execute({ rawText: '200g skyr', rawInput: '200g skyr' });
+
+      expect(entry.groupId).toBeUndefined();
+      expect(entry.groupLabel).toBeUndefined();
+    });
+  });
+
   describe('Date Handling', () => {
     it('sollte custom dateISO verwenden', async () => {
       await useCase.execute({ rawText: '100g oats', rawInput: '100g oats' }, '2026-02-10');

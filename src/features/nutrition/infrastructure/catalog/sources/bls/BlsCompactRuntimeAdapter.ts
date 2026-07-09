@@ -81,8 +81,32 @@ function foldGermanUmlauts(text: string): string {
 function splitAliasCandidates(displayName: string): string[] {
   const withoutAngles = displayName.replace(/<[^>]*>/g, ' ');
   const withoutParentheses = withoutAngles.replace(/[()]/g, ' ');
-  return withoutParentheses
-    .split(/[\/,;]+/)
+
+  // A "mit" clause introduces a natural-language ingredient/addition list (e.g.
+  // "Schichtsalat mit Gemüse, Käse, Eiern"), not alternate names for the record - a
+  // comma segment that only starts once that clause is underway is a listed
+  // ingredient, not an alternate name, and must not become an exact-match alias for
+  // the whole (composite) record. Segments that start before the "mit" clause are
+  // kept even if the clause itself begins partway through them (e.g. a name with no
+  // delimiter at all, "Eier mit Käse überbacken", stays a single specific alias
+  // instead of being truncated down to the overly generic "Eier").
+  const mitClauseIndex = withoutParentheses.search(/\bmit\b/i);
+
+  const segments: string[] = [];
+  const delimiterPattern = /[\/,;]+/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = delimiterPattern.exec(withoutParentheses)) !== null) {
+    if (mitClauseIndex === -1 || cursor < mitClauseIndex) {
+      segments.push(withoutParentheses.slice(cursor, match.index));
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (mitClauseIndex === -1 || cursor < mitClauseIndex) {
+    segments.push(withoutParentheses.slice(cursor));
+  }
+
+  return segments
     .map((candidate) => candidate.trim())
     .filter((candidate) => candidate.length > 0);
 }

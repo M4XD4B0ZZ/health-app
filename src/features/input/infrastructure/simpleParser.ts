@@ -1,3 +1,9 @@
+import {
+  splitMultiItemInput,
+  buildGroupInfoByItemIndex,
+} from '../../nutrition/application/utils/splitMultiItemInput';
+import { ParsedItem } from '../domain/ParsedInput';
+
 const NUMBER_REGEX = /^(\d+)\s*([a-zA-ZäöüÄÖÜß]*)\s+(.*)$/i;
 const UNIT_REGEX =
   /^(\d+)\s*(g|kg|ml|l|gramm|kilogramm|milliliter|liter|stück|stueck|piece|pieces|scheibe|scheiben|slice|slices)\s+(.*)$/i;
@@ -54,8 +60,6 @@ const REMOVABLE_MODIFIERS = [
   'frischer',
   'frisches',
 ];
-
-const MULTI_ITEM_CONNECTOR_PATTERN = /\s*(?:,|&|\b(?:und|mit|and|with)\b)\s*/gi;
 
 function normalizeUnit(unit: string | null | undefined): string | null {
   if (!unit) return null;
@@ -143,44 +147,33 @@ function parseQuantityAndUnit(part: string): {
   };
 }
 
-export function simpleParse(input: string) {
-  // Split input by supported P1-003 connectors while preserving per-item raw text.
-  const rawParts = input
-    .replace(MULTI_ITEM_CONNECTOR_PATTERN, '|')
-    .replace(/[.!?;:]/g, '') // Remove punctuation that is not a connector
-    .split('|')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+export function simpleParse(input: string): ParsedItem[] {
+  // P1-003C: delegate connector splitting to the shared clause-aware splitter so a
+  // "mit"-clause followed by a comma list (e.g. "Fruchtsalat mit Bananen, Kirschen")
+  // is grouped under a label instead of resolving the label as a standalone item.
+  // "&" is folded into "und" first - it never survives into item text either way,
+  // since P1-003 connectors are always consumed as delimiters, not displayed.
+  const splitResult = splitMultiItemInput(input.replace(/&/g, ' und '));
 
-  // Normalize input for parsing quantities and units
-  const normalized = input
-    .toLowerCase()
-    .replace(MULTI_ITEM_CONNECTOR_PATTERN, '|')
-    .replace(/[.!?;:]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const normalizedParts = normalized
-    .split('|')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+  const groupInfoByItemIndex = buildGroupInfoByItemIndex(splitResult);
 
-  // Map raw and normalized parts together
-  const items = normalizedParts.map((normPart, index) => {
-    const rawText = rawParts[index] || normPart;
+  const items = splitResult.items.map((splitItem): ParsedItem | null => {
+    // Remove punctuation that is not a connector (matches legacy P1-003 behavior).
+    const rawText = splitItem.rawText.replace(/[.!?;:]/g, '').trim();
+    const normPart = rawText.toLowerCase().replace(/\s+/g, ' ').trim();
     const { quantity, unit, foodName } = parseQuantityAndUnit(normPart);
     if (foodName.length === 0) return null;
+
+    const groupInfo = groupInfoByItemIndex.get(splitItem.index);
+
     return {
       name: foodName.toLowerCase(),
       quantity,
       unit,
       rawText,
+      ...(groupInfo ? { groupId: groupInfo.groupId, groupLabel: groupInfo.groupLabel } : {}),
     };
   });
 
-  return items.filter(
-    (
-      item,
-    ): item is { name: string; quantity: number | null; unit: string | null; rawText: string } =>
-      item !== null && item.name.length > 0,
-  );
+  return items.filter((item): item is ParsedItem => item !== null && item.name.length > 0);
 }

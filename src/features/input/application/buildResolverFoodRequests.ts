@@ -21,6 +21,8 @@ export function buildResolverFoodRequests(
       quantity: item.quantity,
       unit: item.unit,
       status: canDispatchToResolver ? 'ready' : 'unresolved',
+      groupId: item.groupId,
+      groupLabel: item.groupLabel,
     };
   });
 }

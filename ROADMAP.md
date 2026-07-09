@@ -2666,21 +2666,245 @@ describes the factual architecture (Food Catalog → Journal → Evaluation Engi
 section only refines the *implementation sequence* within the Journal Domain, per Decision
 Record 1's implementation order:
 
-1. **Food Catalog Identity Cleanup** — consolidate/rename the duplicate `CanonicalFood`
-   type definitions onto one stable identity (narrow scope only, no new Food Catalog
-   functionality — see Decision Record 1, Entscheidung 4).
-2. **Journal Model** — apply the accepted `FoodEntry` shape changes: explicit
-   `nutritionSnapshot`, optional `foodCatalogRef`.
-3. **Corrections** — append-only correction log, soft-delete instead of hard-delete
-   (Decision Record 1, Entscheidung 1).
-4. **Food References** — wire `foodCatalogRef` population into
-   `resolveCanonicalFood()`/the log pipeline once step 1 provides a stable identity
-   (Decision Record 1, Entscheidung 3).
-5. **Logging** — auto-merge correction heuristic narrowed to a 2-minute window, made
-   visible/undoable, logged as system-triggered (Decision Record 1, Entscheidung 2).
+1. **Food Catalog Identity Cleanup** (J-001)
+2. **Journal Model** (J-002)
+3. **Corrections** (J-003)
+4. **Food References** (J-004)
+5. **Logging** (J-005)
 
-Each of these five work packages still needs its own concrete, verifiable `ROADMAP.md`
-task(s) — this list is a sequencing outline, not yet task decomposition.
+Cross-cutting: **J-006** (regression coverage across J-001–J-005).
+
+No dedicated migration task is planned: every schema change below is additive
+(new optional fields), so existing persisted `FoodEntry` rows remain valid without
+transformation — directly required by the Future Compatibility Principle
+(Decision Record 1, Abschnitt 6).
+
+---
+
+#### J-001: CanonicalFood Identity Cleanup
+
+Status: `todo`
+
+**Ziel:** Consolidate the fragmented Food Catalog identity concepts into one stable type,
+per Decision Record 1 Entscheidung 4 — narrow, mechanical scope only, no new Food Catalog
+functionality (no food groups/NOVA/GI/allergens).
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/domain/catalog/FoodCatalogSource.ts` — the real, multi-source
+  `CanonicalFood { id, name, normalizedName, macrosPer100g, source, sourceId }`; becomes
+  the single canonical shape.
+- `src/features/nutrition/domain/models/FoodCatalogTypes.ts` — older, simpler
+  `CanonicalFood { id, displayName, per100g }` used by the legacy deterministic
+  `FoodCatalog.searchByName` path; merge into the shape above or adapt the legacy path to
+  produce it.
+- `src/features/nutrition/domain/catalog/CanonicalFood.ts` — despite the filename, this is
+  a DE/EN alias dictionary (`CanonicalFoodEntity`), not a catalog entity; rename to an
+  unambiguous name (e.g. `FoodAliasDictionary.ts`).
+- All call sites: resolver services
+  (`application/services/SequentialFoodCatalogResolver.ts`,
+  `DefaultFoodCatalogResolver.ts`), `detectCanonicalEntity.ts`, and any other importer of
+  the renamed/merged types.
+
+**Risiken:** Touches many files (mechanical rename/merge), but low architectural risk —
+existing 717 tests are the regression net. Main risk is an incomplete rename leaving a
+stale import; typecheck will catch this.
+
+**Tests:** No new test scenarios required (behavior must not change); full existing suite
+must stay green.
+
+**Akzeptanzkriterien (DoD):**
+
+- Exactly one `CanonicalFood` interface represents the real macro-bearing catalog entity,
+  used by both the modern and legacy resolution paths.
+- The alias dictionary no longer shares the name `CanonicalFood`.
+- No behavior change: all 717 existing tests, typecheck, and lint pass unmodified in
+  outcome.
+- No food-group/NOVA/GI/allergen fields or other new Food Catalog functionality added.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### J-002: Journal Model — `nutritionSnapshot` + `foodCatalogRef`
+
+Status: `todo`
+Depends on: none (can proceed in parallel with J-001; J-004 depends on both)
+
+**Ziel:** Apply the accepted `FoodEntry` shape changes from Decision Record 1 Entscheidung 3
+— explicit `nutritionSnapshot`, optional `foodCatalogRef` — as additive, backward-compatible
+fields.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/domain/models/NutritionTypes.ts` — add `nutritionSnapshot: {
+  kcal, protein, carbs, fat }` (explicit grouping of the existing top-level macro fields)
+  and optional `foodCatalogRef?: { source, sourceId, displayName, confidence }`.
+- `src/features/nutrition/infrastructure/repositories/PersistedFoodEntryRepository.ts` —
+  extend `SerializedFoodEntry` + `serializeEntry`/`deserializeEntry` for both new fields,
+  with graceful handling of entries that predate this change (`foodCatalogRef` absent =
+  valid, unchanged meaning — Future Compatibility Principle).
+
+**Risiken:** Low — purely additive type/schema change. Care needed that existing top-level
+`calories/protein/carbs/fat` fields either stay (for compatibility) or are migrated to read
+from `nutritionSnapshot` consistently across all read sites; decide and document which,
+to avoid two sources of truth for the same numbers within this task.
+
+**Tests:** Serialization round-trip tests for old entries (no `foodCatalogRef`/
+`nutritionSnapshot`) and new entries (both present); typecheck coverage for the new fields.
+
+**Akzeptanzkriterien (DoD):**
+
+- `FoodEntry` carries `nutritionSnapshot` and optional `foodCatalogRef`.
+- Old persisted entries deserialize without error and remain semantically unchanged
+  (Future Compatibility Principle).
+- No existing test regresses.
+
+**Verify:** `npm run typecheck`, `npm run test` (incl. new serialization round-trip tests).
+
+---
+
+#### J-003: Correction Log + Soft Delete
+
+Status: `todo`
+Depends on: J-002 (extends the same `FoodEntry`/repository surface)
+
+**Ziel:** Implement Decision Record 1 Entscheidung 1 — append-only correction log on every
+edit/delete, soft-delete instead of hard-delete. Internal audit/undo foundation only, not a
+visible UI history (Decision Record 1, Präzisierung in Abschnitt 2).
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/EditFoodEntryFromNaturalLanguageUseCase.ts`
+- `src/features/nutrition/application/usecases/ApplyNaturalLanguageEditUseCase.ts`
+- `src/features/nutrition/application/usecases/DeleteFoodEntryUseCase.ts`
+- `PersistedFoodEntryRepository.ts` — add correction-log storage (append-only, keyed by
+  entry id) and a `deletedAt`/tombstone field instead of hard removal from the array.
+
+**Risiken:** Behavior change for delete (soft instead of hard) — anything reading the
+entries list must filter tombstoned rows; check all read call sites (journal display,
+daily summary, calendar month summary) for implicit reliance on hard deletion.
+
+**Tests:** Edit/delete use cases append a correction-log entry with previous values; delete
+sets tombstone instead of removing the row; existing summary/display use cases correctly
+exclude tombstoned entries.
+
+**Akzeptanzkriterien (DoD):**
+
+- Every edit and delete appends an immutable correction-log entry
+  (`{timestamp, previousValues, triggeredBy}`).
+- Delete is soft (tombstone), not hard.
+- Correction log is not exposed in any existing UI-facing read path by this task (internal
+  only, per Decision Record 1 Präzisierung).
+- No existing test regresses; new tests cover log-append and soft-delete filtering.
+
+**Verify:** `npm run typecheck`, `npm run test`.
+
+---
+
+#### J-004: Food Catalog Reference Population
+
+Status: `todo`
+Depends on: J-001 (stable identity to reference), J-002 (`foodCatalogRef` field must exist)
+
+**Ziel:** Implement Decision Record 1 Entscheidung 3 — stop discarding the resolver's
+`CanonicalFood.id`/`source`/`sourceId` and populate `foodCatalogRef` whenever resolution
+actually produced a catalog match.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts` —
+  `resolveCanonicalFood()` (currently reduces the resolver's result to `{ per100g }`,
+  discarding identity) must retain and forward `id`/`source`/`sourceId` into
+  `foodCatalogRef`.
+- `src/features/nutrition/application/usecases/LogMealFromRawInputUseCase.ts` — same
+  reduction happens in the multi-item path; apply the same fix.
+- Leave `foodCatalogRef` unset for pure AI-fallback/manual-entry paths with no stable
+  catalog match (per Decision Record 1: "wenn vorhanden").
+
+**Risiken:** Low-to-moderate — touches the core logging path; must not change any
+persisted macro numbers, only add the reference alongside them. Regression risk mitigated
+by existing macro-calculation tests (must show unchanged `nutritionSnapshot` output).
+
+**Tests:** Logging a food with a real catalog match populates `foodCatalogRef`; logging via
+AI-fallback/manual entry with no catalog match leaves it unset; macro values remain
+byte-identical to pre-change behavior.
+
+**Akzeptanzkriterien (DoD):**
+
+- `foodCatalogRef` is populated whenever the resolver returns a real catalog identity.
+- No macro/`nutritionSnapshot` value changes as a side effect.
+- No existing test regresses.
+
+**Verify:** `npm run typecheck`, `npm run test`.
+
+---
+
+#### J-005: Auto-Merge Narrowing + Visible/Undoable Correction
+
+Status: `todo`
+Depends on: J-003 (correction log must exist to record system-triggered merges)
+
+**Ziel:** Implement Decision Record 1 Entscheidung 2 — narrow the auto-merge heuristic to a
+2-minute window, make it visible and undoable, and log it as system-triggered
+(distinguishable from a user-initiated edit).
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts` —
+  `findCorrectionCandidate`/`isCorrectionCandidate`/`CORRECTION_WINDOW_MS` (currently 30
+  minutes; change to 2 minutes) and the merge path (currently silent `updateEntryById`)
+  must return enough structured information for the caller to surface an undo-capable
+  notification, and must write a correction-log entry (J-003) marked
+  `triggeredBy: 'system'`.
+- Presentation-layer hook for the undo affordance itself (minimal, scoped to this specific
+  notification — not a general UI redesign) — exact component TBD at implementation time,
+  out of scope for this domain-level task description beyond "must exist and be wired to
+  an undo action that reverts to the correction-log's previous values."
+
+**Risiken:** The UI-visible piece is the main scope-creep risk — keep it to the minimum
+notification + undo affordance needed to satisfy Entscheidung 2, not a broader UX pass.
+
+**Tests:** Merge only triggers within 2 minutes (not 30); merge result includes enough data
+for an undo action; undo restores the previous values via the correction log; merge is
+logged as system-triggered.
+
+**Akzeptanzkriterien (DoD):**
+
+- Auto-merge window is 2 minutes.
+- A successful auto-merge is visible (non-blocking notification) and undoable.
+- Undo restores the pre-merge values exactly (via J-003's correction log).
+- Merge is distinguishable in the correction log from user-initiated edits.
+
+**Verify:** `npm run typecheck`, `npm run test`, manual app verification of the undo
+notification per the `/verify` skill.
+
+---
+
+#### J-006: Journal Domain Regression Coverage
+
+Status: `todo`
+Depends on: J-001–J-005
+
+**Ziel:** Consolidated regression pass across the full Journal Domain change set, ensuring
+Prinzip 0, the Future Compatibility Principle, and all five accepted decisions hold
+together, not just individually.
+
+**Scope:** Cross-cutting — no new production code; test-focused.
+
+**Tests:**
+
+- End-to-end: log → auto-merge-corrected → manually re-edited → soft-deleted, verifying the
+  correction log accurately reflects all three events in order.
+- Old-shape persisted entries (pre-J-002, no `foodCatalogRef`/explicit `nutritionSnapshot`)
+  continue to deserialize and function correctly (Future Compatibility Principle).
+- Full existing 717-test suite plus all new tests from J-001–J-005 green together, not just
+  individually.
+
+**Akzeptanzkriterien (DoD):** Full suite (`npm run verify`) green; no regressions in
+existing P1-001–P1-005 resolver behavior, portion knowledge, or composite-dish grouping.
+
+**Verify:** `npm run verify`.
 
 ### Saved Meals Domain
 

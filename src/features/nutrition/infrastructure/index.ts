@@ -2,6 +2,7 @@ export { InMemoryFoodEntryRepository } from './repositories/InMemoryFoodEntryRep
 export { PersistedFoodEntryRepository } from './repositories/PersistedFoodEntryRepository';
 export { InMemoryNutritionLookup } from './repositories/InMemoryNutritionLookup';
 export { InMemorySavedMealRepository } from './repositories/InMemorySavedMealRepository';
+export { PersistedSavedMealRepository } from './repositories/PersistedSavedMealRepository';
 export { PersistedGoalsRepository } from './repositories/PersistedGoalsRepository';
 export { PersistedReminderSettingsRepository } from './repositories/PersistedReminderSettingsRepository';
 export { PersistedPortionHintRepository } from './repositories/PersistedPortionHintRepository';

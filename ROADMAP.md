@@ -3304,7 +3304,7 @@ clean.
 
 #### SM-004: Persisted Saved Meal Repository
 
-Status: `todo`
+Status: `done`
 Depends on: SM-003 (needs the final `SavedMealRepository` port shape, incl. `update()`)
 
 **Ziel:** Give `SavedMealTemplate`s the same durable-storage treatment `FoodEntry` already
@@ -3334,6 +3334,13 @@ mirroring `PersistedFoodEntryRepository.test.ts`'s structure.
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `container.ts` registers only the repository itself in this task
+(`_savedMealRepository`, exposed via a `savedMealRepository` getter) — wiring the SM-002/
+SM-003 use cases through the container is SM-005's job, once a presentation layer exists to
+consume them. `getById`/`list` return copies (`{ ...template }`), matching
+`PersistedFoodEntryRepository`'s external-mutation-safety convention. Full suite (93 suites
+/ 764 tests, +10 new), `tsc --noEmit`, and `eslint` pass clean.
 
 ---
 

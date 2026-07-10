@@ -37,6 +37,7 @@ import {
   GetReminderDecisionUseCase,
   GetCalendarMonthSummaryUseCase,
   UndoAutoMergeUseCase,
+  PersistedSavedMealRepository,
 } from '../../features/nutrition';
 import { PortionKnowledgeService } from '../../features/nutrition/domain/portion/PortionKnowledgeService';
 import { SEED_PORTION_HINTS } from '../../features/nutrition/domain/portion/seedPortionHints';
@@ -67,6 +68,7 @@ import {
   GoalsRepository,
   KeyValueStore,
   ReminderSettingsRepository,
+  SavedMealRepository,
 } from '../../features/nutrition/application/ports';
 import { FoodCatalogSource } from '../../features/nutrition/domain/catalog/FoodCatalogSource';
 
@@ -121,6 +123,7 @@ class Container {
   private _nutritionGoalsRepository: GoalsRepository;
   private _reminderSettingsRepository: ReminderSettingsRepository;
   private _portionKnowledgeService: PortionKnowledgeService;
+  private _savedMealRepository: SavedMealRepository;
 
   // Goals Feature - Infrastructure
   private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
@@ -181,6 +184,7 @@ class Container {
     this._portionKnowledgeService = new PortionKnowledgeService(
       new PersistedPortionHintRepository(this._keyValueStore, SEED_PORTION_HINTS),
     );
+    this._savedMealRepository = new PersistedSavedMealRepository(this._keyValueStore);
 
     // Goals infrastructure
     this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
@@ -396,6 +400,10 @@ class Container {
 
   get portionKnowledgeService(): PortionKnowledgeService {
     return this._portionKnowledgeService;
+  }
+
+  get savedMealRepository(): SavedMealRepository {
+    return this._savedMealRepository;
   }
 
   // Goals Infrastructure

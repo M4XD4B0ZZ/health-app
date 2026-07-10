@@ -12,6 +12,7 @@
 RALPH-007E successfully enhances the Ralph V2 runtime validator to recognize and use review evidence stored in `review/review-results.jsonl`. This integration resolves the 7 false-positive review evidence findings introduced by the successful RALPH-007D backfill.
 
 **Key Outcomes:**
+
 - ✅ Validator now reads `review/review-results.jsonl`
 - ✅ All 7 backfilled review acceptance events recognized
 - ✅ Critical findings reduced from 8 to 2 (7 review evidence gaps resolved)
@@ -47,6 +48,7 @@ The validator now recognizes the following review event types from `review/revie
 ### 1. review.accepted
 
 **Detection logic:**
+
 - `event_type === 'review.accepted'` OR
 - `review_result === 'accepted'`
 
@@ -55,6 +57,7 @@ The validator now recognizes the following review event types from `review/revie
 ### 2. review.rejected
 
 **Detection logic:**
+
 - `event_type === 'review.rejected'` OR
 - `review_result === 'rejected'`
 
@@ -63,6 +66,7 @@ The validator now recognizes the following review event types from `review/revie
 ### 3. review.needs_changes
 
 **Detection logic:**
+
 - `event_type === 'review.needs_changes'` OR
 - `review_result === 'needs_changes'`
 
@@ -84,6 +88,7 @@ This ensures backward compatibility while prioritizing the normalized V2 review 
 ### Task Matching
 
 Review events are matched to tasks using:
+
 - Normalized `task_id` (strips `-CLOSEOUT` suffix)
 - Optional `run_id` filtering when provided
 
@@ -155,6 +160,7 @@ When multiple review events exist for a task, the validator uses the **latest** 
 **Validation Run:** 2026-05-22T17:18:45.301Z
 
 **Critical Findings:** 8
+
 1. `[done_without_review_evidence]` RALPH-002A
 2. `[done_without_review_evidence]` RALPH-003A
 3. `[done_without_review_evidence]` RALPH-004A
@@ -175,18 +181,21 @@ When multiple review events exist for a task, the validator uses the **latest** 
 **Validation Run:** 2026-05-22T17:26:32.565Z
 
 **Critical Findings:** 2
+
 1. `[done_without_validation_evidence]` RALPH-006A (known linkage issue)
 2. `[latest_handoff_missing_required_section]` human_review_status (handoff issue)
 
 **Warnings:** 43 (unchanged)
 
 **Review Evidence:**
+
 - Found (accepted): 7
 - Missing: 0
 - Rejected: 0
 - Needs changes: 0
 
 **Tasks with Review Acceptance:**
+
 - RALPH-002A (review.accepted)
 - RALPH-003A (review.accepted)
 - RALPH-004A (review.accepted)
@@ -203,15 +212,15 @@ When multiple review events exist for a task, the validator uses the **latest** 
 
 All 7 `done_without_review_evidence` findings were **false positives** caused by the validator not checking `review/review-results.jsonl`. These are now resolved:
 
-| Task ID | Status | Review Evidence | Resolution |
-|---------|--------|-----------------|------------|
-| RALPH-002A | done | review.accepted found | ✅ Resolved |
-| RALPH-003A | done | review.accepted found | ✅ Resolved |
-| RALPH-004A | done | review.accepted found | ✅ Resolved |
-| RALPH-006A | done | review.accepted found | ✅ Resolved (review only) |
-| RALPH-008A | done | review.accepted found | ✅ Resolved |
-| RALPH-009A | done | review.accepted found | ✅ Resolved |
-| RALPH-010A | done | review.accepted found | ✅ Resolved |
+| Task ID    | Status | Review Evidence       | Resolution                |
+| ---------- | ------ | --------------------- | ------------------------- |
+| RALPH-002A | done   | review.accepted found | ✅ Resolved               |
+| RALPH-003A | done   | review.accepted found | ✅ Resolved               |
+| RALPH-004A | done   | review.accepted found | ✅ Resolved               |
+| RALPH-006A | done   | review.accepted found | ✅ Resolved (review only) |
+| RALPH-008A | done   | review.accepted found | ✅ Resolved               |
+| RALPH-009A | done   | review.accepted found | ✅ Resolved               |
+| RALPH-010A | done   | review.accepted found | ✅ Resolved               |
 
 ### Remaining (2 findings)
 
@@ -246,6 +255,7 @@ All 7 `done_without_review_evidence` findings were **false positives** caused by
 ### Unchanged (43 warnings)
 
 All 43 warnings remain unchanged from pre-integration state:
+
 - 36 legacy JSONL event schema warnings (tolerated)
 - 1 handoff run mismatch warning (expected)
 - 6 legacy artifact warnings (non-authoritative, tolerated)
@@ -261,7 +271,7 @@ All 43 warnings remain unchanged from pre-integration state:
 ```javascript
 const PATHS = {
   // ... existing paths ...
-  reviewResults: 'review/review-results.jsonl',  // NEW
+  reviewResults: 'review/review-results.jsonl', // NEW
   // ... existing paths ...
 };
 ```
@@ -277,15 +287,18 @@ Uses existing `readJsonl()` helper with empty legacy types set (no legacy review
 ### 3. Enhanced hasReviewEvidence()
 
 **Before:**
+
 - Only checked `runs/run-history.jsonl`
 - Single parameter: `runRecords`
 
 **After:**
+
 - Checks `review/review-results.jsonl` first (canonical V2)
 - Falls back to `runs/run-history.jsonl` (legacy)
 - Two parameters: `runRecords`, `reviewRecords`
 
 **Detection Logic:**
+
 ```javascript
 // Primary: check review-results.jsonl
 const hasReviewAccepted = reviewRecords.some(({ data }) => {
@@ -309,21 +322,33 @@ return runRecords.some(/* legacy detection logic */);
 if (taskState.data?.tasks) {
   for (const task of taskState.data.tasks) {
     if (task.requires_human_review === true) {
-      const reviewEvidence = reviewResults.records.filter(({ data }) => 
-        normalizeTaskId(data.task_id) === normalizeTaskId(task.id)
+      const reviewEvidence = reviewResults.records.filter(
+        ({ data }) => normalizeTaskId(data.task_id) === normalizeTaskId(task.id),
       );
-      
+
       if (reviewEvidence.length > 0) {
         const latestReview = reviewEvidence[reviewEvidence.length - 1].data;
         const eventType = String(latestReview.event_type || '').toLowerCase();
         const reviewResult = String(latestReview.review_result || '').toLowerCase();
-        
+
         if (eventType === 'review.accepted' || reviewResult === 'accepted') {
-          findings.reviewEvidence.found.push({ task_id: task.id, review_result: 'accepted', event_type: latestReview.event_type });
+          findings.reviewEvidence.found.push({
+            task_id: task.id,
+            review_result: 'accepted',
+            event_type: latestReview.event_type,
+          });
         } else if (eventType === 'review.rejected' || reviewResult === 'rejected') {
-          findings.reviewEvidence.rejected.push({ task_id: task.id, review_result: 'rejected', event_type: latestReview.event_type });
+          findings.reviewEvidence.rejected.push({
+            task_id: task.id,
+            review_result: 'rejected',
+            event_type: latestReview.event_type,
+          });
         } else if (eventType === 'review.needs_changes' || reviewResult === 'needs_changes') {
-          findings.reviewEvidence.needsChanges.push({ task_id: task.id, review_result: 'needs_changes', event_type: latestReview.event_type });
+          findings.reviewEvidence.needsChanges.push({
+            task_id: task.id,
+            review_result: 'needs_changes',
+            event_type: latestReview.event_type,
+          });
         }
       } else if (task.status === 'done') {
         // Only report missing if task is done (already reported as critical finding)
@@ -353,7 +378,7 @@ Ensures review event IDs are unique across the review evidence stream.
 3. **Current run validation** - Still validates runs/current-run.json
 4. **ROADMAP/runtime reconciliation** - Still checks ROADMAP.md consistency
 5. **Handoff validation** - Still validates handoffs/latest-handoff.md
-6. **Legacy artifact detection** - Still reports .agent/* artifacts
+6. **Legacy artifact detection** - Still reports .agent/\* artifacts
 7. **JSONL event schema warnings** - Still tolerates legacy event types
 8. **Exit codes** - Still returns 0 (ok) or 1 (critical findings)
 9. **Read-only guarantee** - Still never writes files
@@ -383,6 +408,7 @@ node scripts/agent/validate-ralph-state.mjs
 ```
 
 **Result:** ✅ Passed
+
 - Review Evidence Summary section present
 - 7 tasks with review acceptance listed
 - Critical findings reduced from 8 to 2
@@ -395,6 +421,7 @@ node scripts/agent/validate-ralph-state.mjs --json
 ```
 
 **Result:** ✅ Passed
+
 - `review_evidence_found: 7`
 - `review_evidence_missing: 0`
 - `review_evidence_rejected: 0`
@@ -409,6 +436,7 @@ git --no-pager status --short
 ```
 
 **Result:** ✅ Expected changes only
+
 - Modified: `scripts/agent/validate-ralph-state.mjs`
 - Untracked: `reports/RALPH-007E_REVIEW_EVIDENCE_VALIDATOR_INTEGRATION_REPORT.md`
 
@@ -419,6 +447,7 @@ git --no-pager diff --stat
 ```
 
 **Result:** ✅ Single file modified
+
 ```
 scripts/agent/validate-ralph-state.mjs | [changes]
 ```
@@ -430,6 +459,7 @@ git --no-pager diff --name-only
 ```
 
 **Result:** ✅ Single file modified
+
 ```
 scripts/agent/validate-ralph-state.mjs
 ```
@@ -455,6 +485,7 @@ scripts/agent/validate-ralph-state.mjs
 ### Warnings (43)
 
 All warnings are expected and safe to ignore per RALPH-007A assessment:
+
 - 36 legacy JSONL event schema warnings (tolerated)
 - 1 handoff run mismatch warning (expected)
 - 6 legacy artifact warnings (non-authoritative, tolerated)
@@ -468,6 +499,7 @@ All warnings are expected and safe to ignore per RALPH-007A assessment:
 **Objective:** Address RALPH-006A validation evidence linkage issue.
 
 **Scope:**
+
 - Add explicit validation evidence linked to `task_id: RALPH-006A`
 - Or add canonical reconciliation/repair event mapping RALPH-006A-FIX validation to RALPH-006A
 - Requires human approval for evidence linkage policy
@@ -491,6 +523,7 @@ All warnings are expected and safe to ignore per RALPH-007A assessment:
 RALPH-007E successfully enhances the Ralph V2 runtime validator to recognize and use review evidence stored in `review/review-results.jsonl`. The integration resolves all 7 false-positive review evidence findings introduced by the RALPH-007D backfill.
 
 **Key Achievements:**
+
 - ✅ 7 false-positive review evidence findings resolved
 - ✅ Critical findings reduced from 8 to 2
 - ✅ Review evidence summary added to validator output
@@ -500,6 +533,7 @@ RALPH-007E successfully enhances the Ralph V2 runtime validator to recognize and
 - ✅ Read-only guarantee maintained
 
 **Remaining Work:**
+
 - RALPH-006A validation evidence linkage (known issue, deferred)
 - Latest handoff update (expected, not blocking)
 

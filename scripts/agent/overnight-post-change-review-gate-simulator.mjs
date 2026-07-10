@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildPostChangeReviewGateSimulation,
-  formatPostChangeReviewGateSimulationPretty
+  formatPostChangeReviewGateSimulationPretty,
 } from './lib/overnight-post-change-review-gate-simulator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,7 +38,7 @@ const REJECTED_FLAGS = new Set([
   '--output',
   '--commit',
   '--push',
-  '--stage'
+  '--stage',
 ]);
 
 function usage() {
@@ -65,7 +65,10 @@ function parseArgs(argv) {
   for (const arg of args) {
     if (arg === '--pretty') options.pretty = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
-    else if (REJECTED_FLAGS.has(arg)) throw new Error(`Execution, worker, adapter, provider, model, prompt, diff, validation, review, evidence, write, commit, stage, or push flag is forbidden for post-change review gate simulator: ${arg}`);
+    else if (REJECTED_FLAGS.has(arg))
+      throw new Error(
+        `Execution, worker, adapter, provider, model, prompt, diff, validation, review, evidence, write, commit, stage, or push flag is forbidden for post-change review gate simulator: ${arg}`,
+      );
     else if (arg.startsWith('--')) throw new Error(`Unknown argument: ${arg}`);
     else if (!options.simulationPath) options.simulationPath = arg;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -74,7 +77,9 @@ function parseArgs(argv) {
 }
 
 function resolveSimulationPath(simulationPath) {
-  return path.isAbsolute(simulationPath) ? simulationPath : path.resolve(projectRoot, simulationPath);
+  return path.isAbsolute(simulationPath)
+    ? simulationPath
+    : path.resolve(projectRoot, simulationPath);
 }
 
 function readChangeDiffSimulation(simulationPath) {
@@ -108,7 +113,11 @@ async function main() {
       phase: null,
       mode: null,
       reason_codes: ['invalid_input'],
-      error: { code: 'change_diff_simulation_read_or_parse_failed', message: error.message, simulation_path: options.simulationPath }
+      error: {
+        code: 'change_diff_simulation_read_or_parse_failed',
+        message: error.message,
+        simulation_path: options.simulationPath,
+      },
     });
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);

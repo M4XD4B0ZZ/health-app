@@ -230,6 +230,7 @@ Implement the smallest possible supervised sandbox runtime-state write proving t
 ---
 
 ### RALPH-035C Sandbox Runtime-State Smoke Execution
+
 Status: `done`
 
 Perform the first supervised real sandbox runtime-state write using the RALPH-035B writer, creating exactly one non-authoritative sandbox JSON artifact in the repository for human review.
@@ -259,7 +260,6 @@ Perform the first supervised real sandbox runtime-state write using the RALPH-03
 - No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the smoke task.
 
 ---
-
 
 ### RALPH-036A Controlled Command Capability Planning
 
@@ -293,6 +293,7 @@ Plan the first safe command-execution capability for the Ralph-Loop / Overnight 
 ---
 
 ### RALPH-036B Minimal Read-Only Command Sandbox
+
 Status: `done`
 
 Implement the first tightly bounded read-only command sandbox for the Ralph-Loop / Overnight Worker workflow without enabling arbitrary shell execution or mutation-capable commands.
@@ -329,6 +330,7 @@ Implement the first tightly bounded read-only command sandbox for the Ralph-Loop
 ---
 
 ### RALPH-036C Read-Only Command Smoke Execution
+
 Status: `done`
 
 Perform the first supervised real execution of the RALPH-036B read-only command sandbox using only the existing approved allowlist.
@@ -391,6 +393,7 @@ Plan a standardized review-evidence bundle for future Ralph-Loop / Overnight Wor
 ---
 
 ### RALPH-037B Minimal Review Evidence Bundle Generator
+
 Status: `done`
 
 Implement the smallest safe review-evidence bundle generator so future Ralph-Loop tasks can produce consistent, bounded evidence for human review without relying on agent summaries.
@@ -473,6 +476,7 @@ Plan the first controlled mutation capability for the Ralph-Loop / Overnight Wor
 ---
 
 ### RALPH-038B Minimal Controlled Report Mutation Smoke
+
 Status: `done`
 
 Implement the first controlled Ralph mutation capability as a tightly bounded, human-reviewable, create-only report artifact mutation. This task proves Ralph can perform one explicit, non-authoritative, single-file write under `reports/` without authorizing product, runtime, governance, evidence, package, Git, deployment, or arbitrary file mutation.
@@ -587,11 +591,11 @@ Plan the task-admission model that determines which future tasks may enter the R
   - `.governance/REVIEW_POLICY.md`
   - `.agent/config/protected-files.json`
 - Relevant prior Ralph tasks were inspected:
-  - RALPH-034*
-  - RALPH-035*
-  - RALPH-036*
-  - RALPH-037*
-  - RALPH-038*
+  - RALPH-034\*
+  - RALPH-035\*
+  - RALPH-036\*
+  - RALPH-037\*
+  - RALPH-038\*
 - Admission classes, criteria, escalation rules, rejection rules, evidence requirements, and minimum metadata were defined.
 - RALPH-039B implementation boundaries are defined.
 - No implementation or file modification was performed.
@@ -665,6 +669,7 @@ Implement a read-only deterministic task-admission classifier that evaluates tas
 ---
 
 ### RALPH-039C Task Admission Smoke Evaluation
+
 Status: `done`
 
 Validate the RALPH-039B task-admission classifier against representative task metadata fixtures before integrating admission decisions into any queue or worker flow.
@@ -2702,7 +2707,7 @@ references Food Catalog entries rather than owning food properties itself; never
 evaluations ("gut"/"schlecht"). Food Catalog remains fachlich part of the Journal Domain
 per Product Bible Abschnitt 9/11 — **not** a fifth Tier-1 domain. The Product Bible
 describes the factual architecture (Food Catalog → Journal → Evaluation Engine); this
-section only refines the *implementation sequence* within the Journal Domain, per Decision
+section only refines the _implementation sequence_ within the Journal Domain, per Decision
 Record 1's implementation order:
 
 1. **Food Catalog Identity Cleanup** (J-001)
@@ -2804,7 +2809,7 @@ fields.
 **Scope / betroffene Dateien:**
 
 - `src/features/nutrition/domain/models/NutritionTypes.ts` — add `nutritionSnapshot: {
-  kcal, protein, carbs, fat }` (explicit grouping of the existing top-level macro fields)
+kcal, protein, carbs, fat }` (explicit grouping of the existing top-level macro fields)
   and optional `foodCatalogRef?: { source, sourceId, displayName, confidence }`.
 - `src/features/nutrition/infrastructure/repositories/PersistedFoodEntryRepository.ts` —
   extend `SerializedFoodEntry` + `serializeEntry`/`deserializeEntry` for both new fields,
@@ -2965,7 +2970,7 @@ deterministic search, AI-mapper-then-catalog-lookup) now populate `foodCatalogRe
 branch's own confidence value; the two `canonicalFood: null` branches (no match at all)
 naturally leave it unset by never reaching the helper.
 On investigating the "AI-fallback/manual-entry with no catalog match leaves it unset" test
-scenario: in this codebase's current architecture that scenario can't produce a *persisted*
+scenario: in this codebase's current architecture that scenario can't produce a _persisted_
 entry to assert an unset field on. `LogFoodFromRawInputUseCase`'s resolver dependency is
 mandatory (constructor throws without one), so a `canonicalFood: null` result always means
 zero macros, which the pre-existing P0-004 Zero-Macro Blocker rejects before save. The
@@ -3223,7 +3228,7 @@ where available, `foodCatalogRef` — deterministically, without a fresh by-name
   `per100g` from the source entry (`macros * 100 / quantityGrams`) when `calories > 0`.
 
 **Implementation notes (deviation from original plan above):** investigation during
-implementation found `FoodCatalog.getById(id)` is keyed by the *legacy, single-source*
+implementation found `FoodCatalog.getById(id)` is keyed by the _legacy, single-source_
 `InMemoryFoodCatalog`'s own id space — it has no relationship to `foodCatalogRef.sourceId`
 for BLS/OFF/USDA-sourced refs (those come from `SequentialFoodCatalogResolver`'s source
 objects, which are not stored in `InMemoryFoodCatalog` and have no "fetch by ref" port at
@@ -3384,7 +3389,7 @@ stack-modal route like `VoiceScreen` — `VoiceScreen`'s stack route is never ac
 triggered anywhere in the app today (`useNavigation` is imported but commented out in
 `JournalScreen.tsx`), so a tab keeps the new feature genuinely reachable rather than
 repeating that pre-existing orphaned-route gap. Only supports creating/logging against
-*today's* date (no calendar/date-picker component exists in this codebase to reuse, and
+_today's_ date (no calendar/date-picker component exists in this codebase to reuse, and
 `JournalScreen` itself only ever operates on `today` — consistent with existing
 conventions, not a regression). The per100g-based total-calorie display
 (`templateTotalCalories`, extracted to `savedMealsDisplay.ts` for unit testing, mirroring
@@ -3459,7 +3464,7 @@ innerhalb eines Profiles, statt eines einzelnen festen Zielschemas"). Concretely
 inspection found **two separate, competing goal-target systems already live in the app**:
 
 1. `src/features/goals/` (`MetabolismProfile` → `EffectiveGoals` — `mode: 'suggested' |
-   'manual'`, via `MetabolismCalculator`/`GoalsSuggestionCalculator`/`ProgressCalculator`) —
+'manual'`, via `MetabolismCalculator`/`GoalsSuggestionCalculator`/`ProgressCalculator`) —
    wired to the actual `GoalsScreen.tsx` tab, and read by
    `src/features/journal/application/usecases/ComputeProgressForDateUseCase.ts`.
 2. `src/features/nutrition/domain/goals/` (`UserGoals` — `source: 'manual' | 'calculated'`,
@@ -3483,7 +3488,7 @@ silently ignoring these findings.
 
 Given that risk profile, GE-001–GE-005 stay additive-first (mirroring J-001's "narrow,
 mechanical, no behavior change" precedent): introduce the Evaluation Profile/Rule contract,
-adapt the *already-screen-wired* `src/features/goals` system (not the unused-by-UI one)
+adapt the _already-screen-wired_ `src/features/goals` system (not the unused-by-UI one)
 behind it as the first concrete Preset, prove swappability with a second Preset, and leave
 existing `GoalsScreen`/`JournalScreen` behavior otherwise unchanged.
 
@@ -3516,15 +3521,15 @@ an explicit, checkable type contract instead of only prose.
 **Scope / betroffene Dateien:**
 
 - New `src/features/evaluation/domain/models/EvaluationProfile.ts` — `EvaluationProfile {
-  id, name, origin: 'preset' | 'user' | 'professional' | 'community' | 'ai', ruleIds:
-  string[], metadata: { motivation?, maturity? } }` (Product Bible §4 "Profil-Metadaten").
+id, name, origin: 'preset' | 'user' | 'professional' | 'community' | 'ai', ruleIds:
+string[], metadata: { motivation?, maturity? } }` (Product Bible §4 "Profil-Metadaten").
 - New `src/features/evaluation/domain/models/Rule.ts` — `Rule { id, name, description,
-  dataRequirements?: string[], evaluate(input: EvaluationInput): RuleResult }` (§4a);
+dataRequirements?: string[], evaluate(input: EvaluationInput): RuleResult }` (§4a);
   `evaluate` is a pure function signature only in this task (no real rule bodies yet).
 - New `src/features/evaluation/domain/models/EvaluationContract.ts` — `EvaluationInput {
-  foodCatalogReads, journalReadsForPeriod, userProfileBasics?, profileSettings }` and
+foodCatalogReads, journalReadsForPeriod, userProfileBasics?, profileSettings }` and
   `EvaluationOutput { assessment, insights: string[], warnings: string[], recommendations:
-  string[], goalProgress }` (§4's exact input/output lists).
+string[], goalProgress }` (§4's exact input/output lists).
 - New `src/features/evaluation/index.ts` barrel (new feature directory — this is the first
   code under an explicit "Evaluation Engine" module, distinct from `features/goals`).
 
@@ -3556,7 +3561,7 @@ since those shapes are already stable; `userProfileBasics`/`profileSettings` sta
 cholesterol-limit parameter vs. a macro-strategy string), per this task's own risk note.
 `EvaluationOutput`/`EvaluationGoalProgress` are defined fresh in this feature rather than
 importing `features/goals`' `DailyGoals`/`DailyProgress` — deliberate: the Evaluation Engine
-is the layer `features/goals` gets adapted *behind* (GE-002), so the dependency should not
+is the layer `features/goals` gets adapted _behind_ (GE-002), so the dependency should not
 run the other way. `Rule.evaluate` is synchronous by design: all repository reads happen
 when assembling `EvaluationInput` (a future orchestrator's job, GE-003), not inside a Rule
 itself, keeping Rules trivially pure-function-testable. `EvaluationProfile` intentionally has
@@ -3582,8 +3587,8 @@ existing files modified.
 Status: `done`
 Depends on: GE-001
 
-**Ziel:** First concrete `EvaluationProfile` implementation — adapts the *already
-screen-wired* `src/features/goals` system (`MetabolismProfile`/`EffectiveGoals`/
+**Ziel:** First concrete `EvaluationProfile` implementation — adapts the _already
+screen-wired_ `src/features/goals` system (`MetabolismProfile`/`EffectiveGoals`/
 `ProgressCalculator`), not the unused-by-UI `nutrition/domain/goals` one, behind the GE-001
 contract as the Default-Profile (Origin: `preset`), per Product Bible §5 "Evidence-based
 Standard". No behavior change to `GoalsScreen.tsx` or `ComputeProgressForDateUseCase`.
@@ -3645,7 +3650,7 @@ profile switch is never a data migration).
 **Scope / betroffene Dateien:**
 
 - New `src/features/evaluation/application/ports/EvaluationProfileRegistry.ts` — `list():
-  EvaluationProfile[]`, `getActiveProfileId(): Promise<string>`,
+EvaluationProfile[]`, `getActiveProfileId(): Promise<string>`,
   `setActiveProfileId(id): Promise<void>`.
 - New `src/features/evaluation/infrastructure/PersistedActiveProfileRepository.ts` —
   `KeyValueStore`-backed (reuses the nutrition feature's `KeyValueStore` port/
@@ -3674,7 +3679,7 @@ pattern).
 EvaluationProfile[]` as a constructor argument rather than hardcoding
 `EvidenceBasedStandardProfile` — GE-004's second Preset only needs a longer array at the
 composition root, not a change to this class. Defaults to `knownProfiles[0]` both when
-nothing is stored *and* when a stored id no longer matches any known profile (defensive —
+nothing is stored _and_ when a stored id no longer matches any known profile (defensive —
 never throws for "nothing set yet"); rejects `setActiveProfileId` for an unknown id.
 `GetActiveEvaluationOutputUseCase` resolves the active profile, maps its `ruleIds` through
 an injected `knownRules: Rule[]` array (same "inject, don't hardcode" reasoning), and merges
@@ -3695,7 +3700,7 @@ Depends on: GE-003
 
 **Ziel:** Implement a second concrete `EvaluationProfile` (Product Bible §5 "Weight Loss":
 Kaloriendefizit + Proteinerhalt) and prove — with a real regression test, not just
-assertion-by-design — that switching the active profile reinterprets the *same* Journal day
+assertion-by-design — that switching the active profile reinterprets the _same_ Journal day
 differently, with zero Journal/Food-Catalog mutation (Variante B, §2a).
 
 **Scope / betroffene Dateien:**
@@ -3749,7 +3754,7 @@ are deliberately **out of scope** here.
 **Scope / betroffene Dateien:** New
 `src/features/evaluation/__tests__/EvaluationDomainRegressionCoverage.test.ts`: set active
 profile to Evidence-based Standard → get output for a fixture day → switch active profile
-to Weight Loss (GE-003/GE-004) → get output for the *same* fixture day → assert different
+to Weight Loss (GE-003/GE-004) → get output for the _same_ fixture day → assert different
 assessment, zero Journal/Food-Catalog writes across the whole flow, and that
 `EvaluationProfileRegistry.list()` includes both.
 
@@ -3775,8 +3780,8 @@ and (if needed) a `ROADMAP.md` update adding the follow-up task stubs below.
 
 **Implementation notes:** `ProfileSwappability.test.ts` (GE-004) already proved the
 single-session switch/compare/zero-writes scenario, so this task's own test file focuses on
-what wasn't yet covered: durability of the active-profile selection across a *simulated app
-restart* (fresh `PersistedActiveProfileRepository`/`GetActiveEvaluationOutputUseCase`
+what wasn't yet covered: durability of the active-profile selection across a _simulated app
+restart_ (fresh `PersistedActiveProfileRepository`/`GetActiveEvaluationOutputUseCase`
 instances over the same `KeyValueStore`, mirroring SM-006's restart-proof technique) — a
 switch made in one "session" is still active, and still reinterprets the same fixture day
 correctly, in a brand-new "session". A closing sentinel test documents where GE-001–GE-004's
@@ -3822,7 +3827,7 @@ in `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`'s existing test cov
 `GetCalendarMonthSummaryUseCase` now read from `EffectiveGoalsRepository`
 (`src/features/goals`), a single source of truth for goal targets.
 
-**Implementation notes:** Investigation before migrating found the *entire*
+**Implementation notes:** Investigation before migrating found the _entire_
 `nutrition/domain/goals`/`GoalsRepository`/`PersistedGoalsRepository` system — plus
 `nutrition/domain/metabolism` (a **third**, independent metabolism/TDEE calculator, used
 only by `CalculateGoalsFromMetabolismInputsUseCase`) and the `GetGoalsUseCase`/
@@ -3979,7 +3984,7 @@ shape).
 
 - New `src/features/evaluation/application/ports/ProfileSettingsProvider.ts` —
   `ProfileSettingsProvider { profileId: string; build(dateISO: string):
-  Promise<Record<string, unknown>> }`.
+Promise<Record<string, unknown>> }`.
 - New `src/features/evaluation/application/settingsProviders/EvidenceBasedStandardSettingsProvider.ts`
   — reads `EffectiveGoalsRepository.get()` (`src/features/goals`), builds `{ goals }`.
 - New `src/features/evaluation/application/settingsProviders/WeightLossSettingsProvider.ts`
@@ -4100,7 +4105,7 @@ Add at least one genuine insight and one genuine recommendation per rule, so "Da
   already met.
 - `src/features/evaluation/application/rules/ProteinPreservingDeficitRule.ts` — a
   deficit-specific insight (e.g. pace-of-loss framing), distinct from the generic corridor
-  insight, so the two Presets are demonstrably different in *Insights* output too, not just
+  insight, so the two Presets are demonstrably different in _Insights_ output too, not just
   in target numbers.
 
 **Risiken:** Low — additive content within already-tested rules; must not change existing
@@ -4169,7 +4174,7 @@ and a `ROADMAP.md` follow-up stub.
 **Implementation notes:** Seeds one real Journal day via `PersistedFoodEntryRepository`
 (`KeyValueStore`-backed, the actual class the app uses) plus real `EffectiveGoals`/
 `MetabolismProfile` via their real, unmodified use cases
-(`SetEffectiveGoalsUseCase`/`UpsertMetabolismProfileUseCase`), then runs the *exact* wiring
+(`SetEffectiveGoalsUseCase`/`UpsertMetabolismProfileUseCase`), then runs the _exact_ wiring
 shape `container.ts` uses (same fixed `knownProfiles`/`knownRules`/settings-provider arrays)
 end-to-end for both profiles — closing the gap DI-001's own tests left open (those exercised
 one profile at a time against `InMemory*` repositories; this proves both together, plus
@@ -4220,7 +4225,7 @@ portion is superseded by `EvaluationSummaryScreen`; Recovery's fate is explicitl
 question, not decided by this task.
 
 **Implementation notes:** Investigation before removing found `DashboardScreen`/
-`GetDashboardSummary` were the *only* consumers of the combined recovery+nutrition mock
+`GetDashboardSummary` were the _only_ consumers of the combined recovery+nutrition mock
 summary — `RecoveryScreen.tsx` (still-active "Erholung" tab) uses `GetRecoverySummary`/
 `RecoveryRepository`/`MockRecoveryRepository` directly, and `NutritionScreen.tsx`
 (still-active "Ernährung" tab) uses `GetNutritionSummary`/`NutritionRepository`/

@@ -30,7 +30,7 @@ function runtimeTask(id, overrides = {}) {
     priority: 'medium',
     risk_level: 'review_required',
     runtime_only: false,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -38,16 +38,36 @@ function stubScript(exitCode = 0, name = 'stub') {
   return `#!/usr/bin/env node\nconsole.log(JSON.stringify({ summary: { status: '${name}', exit_code: ${exitCode} } }));\nprocess.exit(${exitCode});\n`;
 }
 
-function tempProject(t, { roadmap = roadmapTask('P1-001', 'todo'), state = taskState(), reconcilerExit = 0, validatorExit = 0 } = {}) {
+function tempProject(
+  t,
+  {
+    roadmap = roadmapTask('P1-001', 'todo'),
+    state = taskState(),
+    reconcilerExit = 0,
+    validatorExit = 0,
+  } = {},
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-025-create-task-'));
   fs.mkdirSync(path.join(root, 'scripts/agent/lib'), { recursive: true });
   fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(root, 'scripts/agent/create-runtime-task-from-roadmap.mjs'));
   fs.copyFileSync(PARSER, path.join(root, 'scripts/agent/lib/roadmap-parser.mjs'));
-  fs.writeFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), stubScript(reconcilerExit, 'reconciler'), 'utf8');
-  fs.writeFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), stubScript(validatorExit, 'validator'), 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'),
+    stubScript(reconcilerExit, 'reconciler'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(root, 'scripts/agent/validate-ralph-state.mjs'),
+    stubScript(validatorExit, 'validator'),
+    'utf8',
+  );
   fs.writeFileSync(path.join(root, 'ROADMAP.md'), roadmap, 'utf8');
-  fs.writeFileSync(path.join(root, 'tasks/task-state.json'), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'tasks/task-state.json'),
+    `${JSON.stringify(state, null, 2)}\n`,
+    'utf8',
+  );
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
@@ -57,11 +77,15 @@ function readState(root) {
 }
 
 function runCli(root, args = []) {
-  return spawnSync(process.execPath, ['scripts/agent/create-runtime-task-from-roadmap.mjs', ...args], {
-    cwd: root,
-    env: { ...process.env, RALPH_PROJECT_ROOT: root },
-    encoding: 'utf8'
-  });
+  return spawnSync(
+    process.execPath,
+    ['scripts/agent/create-runtime-task-from-roadmap.mjs', ...args],
+    {
+      cwd: root,
+      env: { ...process.env, RALPH_PROJECT_ROOT: root },
+      encoding: 'utf8',
+    },
+  );
 }
 
 function runJson(root, args = []) {
@@ -102,7 +126,9 @@ test('confirm-write without write fails', (t) => {
 
 test('first eligible todo selected', (t) => {
   const root = tempProject(t, {
-    roadmap: [roadmapTask('P1-001', 'todo', 'First'), roadmapTask('P1-002', 'todo', 'Second')].join('\n')
+    roadmap: [roadmapTask('P1-001', 'todo', 'First'), roadmapTask('P1-002', 'todo', 'Second')].join(
+      '\n',
+    ),
   });
   const { result, json } = runJson(root);
 
@@ -113,8 +139,11 @@ test('first eligible todo selected', (t) => {
 
 test('existing runtime task skipped', (t) => {
   const root = tempProject(t, {
-    roadmap: [roadmapTask('P1-001', 'todo', 'Existing'), roadmapTask('P1-002', 'todo', 'Next')].join('\n'),
-    state: taskState([runtimeTask('P1-001')])
+    roadmap: [
+      roadmapTask('P1-001', 'todo', 'Existing'),
+      roadmapTask('P1-002', 'todo', 'Next'),
+    ].join('\n'),
+    state: taskState([runtimeTask('P1-001')]),
   });
   const { result, json } = runJson(root);
 
@@ -128,8 +157,8 @@ test('done, blocked, and in_progress tasks are skipped', (t) => {
       roadmapTask('P1-001', 'done', 'Done'),
       roadmapTask('P1-002', 'blocked', 'Blocked'),
       roadmapTask('P1-003', 'in_progress', 'In Progress'),
-      roadmapTask('P1-004', 'todo', 'Todo')
-    ].join('\n')
+      roadmapTask('P1-004', 'todo', 'Todo'),
+    ].join('\n'),
   });
   const { result, json } = runJson(root);
 
@@ -139,9 +168,15 @@ test('done, blocked, and in_progress tasks are skipped', (t) => {
 
 test('exactly one task created in write mode', (t) => {
   const root = tempProject(t, {
-    roadmap: [roadmapTask('P1-001', 'todo', 'First'), roadmapTask('P1-002', 'todo', 'Second')].join('\n')
+    roadmap: [roadmapTask('P1-001', 'todo', 'First'), roadmapTask('P1-002', 'todo', 'Second')].join(
+      '\n',
+    ),
   });
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
   const state = readState(root);
 
   assert.equal(result.status, 0);
@@ -151,7 +186,9 @@ test('exactly one task created in write mode', (t) => {
 });
 
 test('generated fields are correct', (t) => {
-  const root = tempProject(t, { roadmap: '# Phase A\n\n## P1-001 Generated Fields\n\nStatus: `todo`\n' });
+  const root = tempProject(t, {
+    roadmap: '# Phase A\n\n## P1-001 Generated Fields\n\nStatus: `todo`\n',
+  });
   const { result, json } = runJson(root);
   const task = json.generated_task;
 
@@ -168,7 +205,7 @@ test('generated fields are correct', (t) => {
       roadmap_status: task.roadmap_status,
       attempt_count: task.attempt_count,
       max_attempts: task.max_attempts,
-      requires_human_review: task.requires_human_review
+      requires_human_review: task.requires_human_review,
     },
     {
       id: 'P1-001',
@@ -181,8 +218,8 @@ test('generated fields are correct', (t) => {
       roadmap_status: 'todo',
       attempt_count: 0,
       max_attempts: 3,
-      requires_human_review: true
-    }
+      requires_human_review: true,
+    },
   );
   assert.equal(task.roadmap_section, 'Phase A');
   assert.equal(task.roadmap_line, 3);
@@ -192,7 +229,7 @@ test('generated fields are correct', (t) => {
 
 test('duplicate prevention rejects duplicate runtime IDs', (t) => {
   const root = tempProject(t, {
-    state: taskState([runtimeTask('P1-001'), runtimeTask('P1-001')])
+    state: taskState([runtimeTask('P1-001'), runtimeTask('P1-001')]),
   });
   const { result, json } = runJson(root);
 
@@ -203,22 +240,38 @@ test('duplicate prevention rejects duplicate runtime IDs', (t) => {
 test('write modifies only task-state.json in temp fixture', (t) => {
   const root = tempProject(t);
   const beforeRoadmap = fs.readFileSync(path.join(root, 'ROADMAP.md'), 'utf8');
-  const beforeReconciler = fs.readFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), 'utf8');
-  const beforeValidator = fs.readFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), 'utf8');
+  const beforeReconciler = fs.readFileSync(
+    path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'),
+    'utf8',
+  );
+  const beforeValidator = fs.readFileSync(
+    path.join(root, 'scripts/agent/validate-ralph-state.mjs'),
+    'utf8',
+  );
 
   const { result } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
 
   assert.equal(result.status, 0);
   assert.equal(fs.readFileSync(path.join(root, 'ROADMAP.md'), 'utf8'), beforeRoadmap);
-  assert.equal(fs.readFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), 'utf8'), beforeReconciler);
-  assert.equal(fs.readFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), 'utf8'), beforeValidator);
+  assert.equal(
+    fs.readFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), 'utf8'),
+    beforeReconciler,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), 'utf8'),
+    beforeValidator,
+  );
   assert.equal(fs.existsSync(path.join(root, 'tasks/task-state.json.tmp')), false);
   assert.equal(fs.existsSync(path.join(root, 'tasks/task-state.json.backup')), false);
 });
 
 test('post-write reconciler green in fixture', (t) => {
   const root = tempProject(t, { reconcilerExit: 0 });
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
 
   assert.equal(result.status, 0);
   assert.equal(json.post_write_checks.reconciler.status, 'passed');
@@ -226,7 +279,11 @@ test('post-write reconciler green in fixture', (t) => {
 
 test('post-write validator green in fixture', (t) => {
   const root = tempProject(t, { validatorExit: 0 });
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
 
   assert.equal(result.status, 0);
   assert.equal(json.post_write_checks.validator.status, 'passed');
@@ -235,7 +292,11 @@ test('post-write validator green in fixture', (t) => {
 test('post-write validator failure rolls back original content', (t) => {
   const root = tempProject(t, { validatorExit: 1 });
   const before = fs.readFileSync(path.join(root, 'tasks/task-state.json'), 'utf8');
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
   const after = fs.readFileSync(path.join(root, 'tasks/task-state.json'), 'utf8');
 
   assert.equal(result.status, 1);
@@ -245,7 +306,7 @@ test('post-write validator failure rolls back original content', (t) => {
 
 test('no eligible tasks exits with code 3', (t) => {
   const root = tempProject(t, {
-    roadmap: [roadmapTask('P1-001', 'done'), roadmapTask('P1-002', 'blocked')].join('\n')
+    roadmap: [roadmapTask('P1-001', 'done'), roadmapTask('P1-002', 'blocked')].join('\n'),
   });
   const { result, json } = runJson(root);
 
@@ -271,7 +332,8 @@ test('canonical heading task required; checkbox-only task is ignored', (t) => {
 });
 
 test('shared parser treats checkbox plus heading as one task and one reference for create-runtime selection', (t) => {
-  const roadmap = '- [x] P1-001: Summary reference\n\n## P1-001 Full Task\n\nStatus: `todo`\n\n**DoD:** Shared parser DoD.';
+  const roadmap =
+    '- [x] P1-001: Summary reference\n\n## P1-001 Full Task\n\nStatus: `todo`\n\n**DoD:** Shared parser DoD.';
   const parsed = parseRoadmap(roadmap);
 
   assert.equal(parsed.tasks.length, 1);

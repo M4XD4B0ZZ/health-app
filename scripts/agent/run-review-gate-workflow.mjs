@@ -25,7 +25,7 @@ import {
   normalizeTimestampForId,
   nonce,
   nowIso,
-  SCHEMA_VERSION
+  SCHEMA_VERSION,
 } from './lib/review-gate-core.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -56,15 +56,15 @@ function parseArgs(argv) {
     confirmAppend: false,
     dryRun: false,
     json: false,
-    help: false
+    help: false,
   };
 
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') options.help = true;
-    else if (arg === '--handoff') options.handoff = requireValue(args, i += 1, arg);
-    else if (arg === '--output-dir') options.outputDir = requireValue(args, i += 1, arg);
+    else if (arg === '--handoff') options.handoff = requireValue(args, (i += 1), arg);
+    else if (arg === '--output-dir') options.outputDir = requireValue(args, (i += 1), arg);
     else if (arg === '--append') options.append = true;
     else if (arg === '--confirm-append') options.confirmAppend = true;
     else if (arg === '--dry-run') options.dryRun = true;
@@ -73,11 +73,16 @@ function parseArgs(argv) {
   }
 
   if (!options.help) {
-    if (!options.handoff || options.handoff.trim() === '') throw new Error('Missing required argument: --handoff <path>');
-    if (!options.outputDir || options.outputDir.trim() === '') throw new Error('Missing value for --output-dir');
-    if (options.confirmAppend && !options.append) throw new Error('--confirm-append is only valid together with --append');
-    if (options.append && !options.confirmAppend) throw new Error('--append requires --confirm-append for real review evidence append');
-    if (options.dryRun && options.append) throw new Error('--dry-run cannot be combined with --append');
+    if (!options.handoff || options.handoff.trim() === '')
+      throw new Error('Missing required argument: --handoff <path>');
+    if (!options.outputDir || options.outputDir.trim() === '')
+      throw new Error('Missing value for --output-dir');
+    if (options.confirmAppend && !options.append)
+      throw new Error('--confirm-append is only valid together with --append');
+    if (options.append && !options.confirmAppend)
+      throw new Error('--append requires --confirm-append for real review evidence append');
+    if (options.dryRun && options.append)
+      throw new Error('--dry-run cannot be combined with --append');
   }
 
   return options;
@@ -138,8 +143,8 @@ function buildPreparedReviewEvidence(decision, handoff) {
     source_decision: {
       review_id: decision.review_id,
       handoff_id: handoff.handoff_id || null,
-      workflow: WORKFLOW_ID
-    }
+      workflow: WORKFLOW_ID,
+    },
   };
 }
 
@@ -171,17 +176,27 @@ function buildReviewEvent(preparedEvidence) {
     source: {
       writer: REVIEW_WRITER_ID,
       workflow: WORKFLOW_ID,
-      input: outputPath(DEFAULT_OUTPUT_DIR, PREPARED_EVIDENCE_FILENAME)
-    }
+      input: outputPath(DEFAULT_OUTPUT_DIR, PREPARED_EVIDENCE_FILENAME),
+    },
   };
 }
 
 function formatFindings(title, findings) {
   if (!findings.length) return `${title}: none`;
-  return [`${title}:`, ...findings.map((finding) => `- [${finding.code}] ${finding.message}`)].join('\n');
+  return [`${title}:`, ...findings.map((finding) => `- [${finding.code}] ${finding.message}`)].join(
+    '\n',
+  );
 }
 
-function buildWorkflowSummary({ options, handoff, decision, decisionWrite, preparedEvidence, preparedEvidenceWrite, appendResult }) {
+function buildWorkflowSummary({
+  options,
+  handoff,
+  decision,
+  decisionWrite,
+  preparedEvidence,
+  preparedEvidenceWrite,
+  appendResult,
+}) {
   const appendAuthorized = options.append && options.confirmAppend;
   return {
     schema_version: SCHEMA_VERSION,
@@ -201,7 +216,7 @@ function buildWorkflowSummary({ options, handoff, decision, decisionWrite, prepa
     handoff_id: handoff.handoff_id || null,
     decision,
     prepared_review_evidence: preparedEvidence,
-    append_result: appendResult || null
+    append_result: appendResult || null,
   };
 }
 
@@ -214,7 +229,10 @@ async function main() {
     }
 
     const handoff = loadCanonicalHandoffJson(options.handoff);
-    const decision = buildNormalizedReviewDecision(handoff, { workflowId: WORKFLOW_ID, invalidResultMessage: 'Unsupported review decision' });
+    const decision = buildNormalizedReviewDecision(handoff, {
+      workflowId: WORKFLOW_ID,
+      invalidResultMessage: 'Unsupported review decision',
+    });
     const decisionWrite = writeJson(outputPath(options.outputDir, DECISION_FILENAME), decision);
 
     let preparedEvidence = null;
@@ -223,15 +241,30 @@ async function main() {
 
     if (decision.review_result === 'accepted') {
       preparedEvidence = buildPreparedReviewEvidence(decision, handoff);
-      preparedEvidenceWrite = writeJson(outputPath(options.outputDir, PREPARED_EVIDENCE_FILENAME), preparedEvidence);
+      preparedEvidenceWrite = writeJson(
+        outputPath(options.outputDir, PREPARED_EVIDENCE_FILENAME),
+        preparedEvidence,
+      );
       if (options.append && options.confirmAppend) {
-        appendResult = appendJsonlEvent(REVIEW_RESULTS_PATH, buildReviewEvent(preparedEvidence), { dryRun: false });
+        appendResult = appendJsonlEvent(REVIEW_RESULTS_PATH, buildReviewEvent(preparedEvidence), {
+          dryRun: false,
+        });
       }
     } else if (options.append || options.confirmAppend) {
-      throw new Error(`Refusing append for ${decision.review_result} decision. Only accepted decisions may be appended.`);
+      throw new Error(
+        `Refusing append for ${decision.review_result} decision. Only accepted decisions may be appended.`,
+      );
     }
 
-    const summary = buildWorkflowSummary({ options, handoff, decision, decisionWrite, preparedEvidence, preparedEvidenceWrite, appendResult });
+    const summary = buildWorkflowSummary({
+      options,
+      handoff,
+      decision,
+      decisionWrite,
+      preparedEvidence,
+      preparedEvidenceWrite,
+      appendResult,
+    });
 
     if (options.json) {
       process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

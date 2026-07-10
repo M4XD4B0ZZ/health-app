@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { parseArgs } from '../ralph-command-sandbox.mjs';
-import { planRalphReadonlyCommand, RALPH_READONLY_COMMAND_ALLOWLIST, runRalphReadonlyCommand, validateCommandTextForRejection } from '../lib/ralph-command-sandbox.mjs';
+import {
+  planRalphReadonlyCommand,
+  RALPH_READONLY_COMMAND_ALLOWLIST,
+  runRalphReadonlyCommand,
+  validateCommandTextForRejection,
+} from '../lib/ralph-command-sandbox.mjs';
 
 test('plan-only default does not spawn and returns deterministic plan', async () => {
   const result = await runRalphReadonlyCommand('git_status_short');
@@ -45,45 +50,130 @@ test('unknown command IDs are blocked before spawn', async () => {
 });
 
 test('custom allowlist without explicit test mode is blocked before spawn', async () => {
-  const allowlist = { custom: { command_id: 'custom', command_category: 'test_hook', executable: 'node', args: ['-e', 'process.exit(99)'], timeout_ms: 30_000 } };
-  const result = await runRalphReadonlyCommand('custom', { executeReadonlyCommand: true, allowlist, skipAllowlistValidation: true });
+  const allowlist = {
+    custom: {
+      command_id: 'custom',
+      command_category: 'test_hook',
+      executable: 'node',
+      args: ['-e', 'process.exit(99)'],
+      timeout_ms: 30_000,
+    },
+  };
+  const result = await runRalphReadonlyCommand('custom', {
+    executeReadonlyCommand: true,
+    allowlist,
+    skipAllowlistValidation: true,
+  });
   assert.equal(result.allowed, false);
   assert.equal(result.status, 'blocked');
   assert.equal(result.exit_code, null);
   assert.ok(result.reason_codes.includes('custom_allowlist_requires_test_mode'));
 
-  const skipOnly = await runRalphReadonlyCommand('git_status_short', { executeReadonlyCommand: true, skipAllowlistValidation: true });
+  const skipOnly = await runRalphReadonlyCommand('git_status_short', {
+    executeReadonlyCommand: true,
+    skipAllowlistValidation: true,
+  });
   assert.equal(skipOnly.allowed, false);
   assert.equal(skipOnly.status, 'blocked');
   assert.ok(skipOnly.reason_codes.includes('skip_allowlist_validation_requires_test_mode'));
 });
 
 test('forbidden command and pattern inputs are blocked before spawn', () => {
-  for (const value of ['powershell git status', 'pwsh git status', 'cmd /c dir', 'bash -lc ls', 'git add .', 'git commit -m x', 'git push', 'git reset --hard', 'git clean -fd', 'git fetch', 'npm install', 'npx prettier --write .', 'pnpm test', 'yarn lint --fix', 'curl https://example.invalid', 'supabase deploy', 'docker ps', 'kubectl get pods', 'echo hi && git status', 'echo hi || git status', 'echo hi; git status', 'echo hi | more', 'echo hi > out.txt', 'echo %PATH%', 'node -e "console.log(process.env)"']) {
+  for (const value of [
+    'powershell git status',
+    'pwsh git status',
+    'cmd /c dir',
+    'bash -lc ls',
+    'git add .',
+    'git commit -m x',
+    'git push',
+    'git reset --hard',
+    'git clean -fd',
+    'git fetch',
+    'npm install',
+    'npx prettier --write .',
+    'pnpm test',
+    'yarn lint --fix',
+    'curl https://example.invalid',
+    'supabase deploy',
+    'docker ps',
+    'kubectl get pods',
+    'echo hi && git status',
+    'echo hi || git status',
+    'echo hi; git status',
+    'echo hi | more',
+    'echo hi > out.txt',
+    'echo %PATH%',
+    'node -e "console.log(process.env)"',
+  ]) {
     assert.equal(validateCommandTextForRejection(value).valid, false, value);
     assert.throws(() => parseArgs(['node', 'cli', value]), /rejected before spawn/, value);
   }
-  assert.throws(() => parseArgs(['node', 'cli', '--unknown']), /Unknown flag rejected before spawn/);
+  assert.throws(
+    () => parseArgs(['node', 'cli', '--unknown']),
+    /Unknown flag rejected before spawn/,
+  );
 });
 
 test('output limit behavior is represented without unbounded output', async () => {
-  const allowlist = { noisy: { command_id: 'noisy', command_category: 'test_hook', executable: 'node', args: ['-e', 'console.log("x".repeat(5000))'], timeout_ms: 30_000 } };
-  const result = await runRalphReadonlyCommand('noisy', { executeReadonlyCommand: true, allowlist, skipAllowlistValidation: true, testMode: true, maxStdoutBytes: 32 });
+  const allowlist = {
+    noisy: {
+      command_id: 'noisy',
+      command_category: 'test_hook',
+      executable: 'node',
+      args: ['-e', 'console.log("x".repeat(5000))'],
+      timeout_ms: 30_000,
+    },
+  };
+  const result = await runRalphReadonlyCommand('noisy', {
+    executeReadonlyCommand: true,
+    allowlist,
+    skipAllowlistValidation: true,
+    testMode: true,
+    maxStdoutBytes: 32,
+  });
   assert.equal(result.status, 'output_limit_exceeded');
   assert.equal(result.stdout_truncated, true);
   assert.ok(result.stdout_bytes <= 32);
 });
 
 test('timeout behavior is represented with timed_out status', async () => {
-  const allowlist = { slow: { command_id: 'slow', command_category: 'test_hook', executable: 'node', args: ['-e', 'setTimeout(() => {}, 1000)'], timeout_ms: 1_000 } };
-  const result = await runRalphReadonlyCommand('slow', { executeReadonlyCommand: true, allowlist, skipAllowlistValidation: true, testMode: true, timeoutMs: 50 });
+  const allowlist = {
+    slow: {
+      command_id: 'slow',
+      command_category: 'test_hook',
+      executable: 'node',
+      args: ['-e', 'setTimeout(() => {}, 1000)'],
+      timeout_ms: 1_000,
+    },
+  };
+  const result = await runRalphReadonlyCommand('slow', {
+    executeReadonlyCommand: true,
+    allowlist,
+    skipAllowlistValidation: true,
+    testMode: true,
+    timeoutMs: 50,
+  });
   assert.equal(result.status, 'timed_out');
   assert.equal(result.timed_out, true);
 });
 
 test('nonzero exit handling is represented through harmless internal test hook', async () => {
-  const allowlist = { nonzero: { command_id: 'nonzero', command_category: 'test_hook', executable: 'node', args: ['-e', 'process.exit(7)'], timeout_ms: 30_000 } };
-  const result = await runRalphReadonlyCommand('nonzero', { executeReadonlyCommand: true, allowlist, skipAllowlistValidation: true, testMode: true });
+  const allowlist = {
+    nonzero: {
+      command_id: 'nonzero',
+      command_category: 'test_hook',
+      executable: 'node',
+      args: ['-e', 'process.exit(7)'],
+      timeout_ms: 30_000,
+    },
+  };
+  const result = await runRalphReadonlyCommand('nonzero', {
+    executeReadonlyCommand: true,
+    allowlist,
+    skipAllowlistValidation: true,
+    testMode: true,
+  });
   assert.equal(result.status, 'failed');
   assert.equal(result.exit_code, 7);
 });

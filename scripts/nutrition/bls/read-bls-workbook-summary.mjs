@@ -139,7 +139,9 @@ function asHeaderString(value) {
 }
 
 function findHeaderRow(rows, requiredHeader) {
-  const index = rows.findIndex((row) => row.some((cell) => asHeaderString(cell) === requiredHeader));
+  const index = rows.findIndex((row) =>
+    row.some((cell) => asHeaderString(cell) === requiredHeader),
+  );
   if (index === -1) {
     return { index: null, headers: [] };
   }
@@ -187,7 +189,9 @@ function summarizeComponentRows(rows) {
         rowIndex: rowIndex === -1 || header.index == null ? null : header.index + 1 + rowIndex,
         rowNumber: rowIndex === -1 || header.index == null ? null : header.index + 2 + rowIndex,
         componentName:
-          row && componentNameColumnIndex !== -1 ? asHeaderString(row[componentNameColumnIndex]) : null,
+          row && componentNameColumnIndex !== -1
+            ? asHeaderString(row[componentNameColumnIndex])
+            : null,
         unit: row && unitColumnIndex !== -1 ? asHeaderString(row[unitColumnIndex]) : null,
         group: row && groupColumnIndex !== -1 ? asHeaderString(row[groupColumnIndex]) : null,
       };

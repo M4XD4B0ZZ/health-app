@@ -76,7 +76,11 @@ function row(overrides = {}) {
 }
 
 function fixtureRows() {
-  return [HEADERS, row(), row({ blsCode: 'B314000', germanName: 'Weizentoastbrot', englishName: 'Wheat toast' })];
+  return [
+    HEADERS,
+    row(),
+    row({ blsCode: 'B314000', germanName: 'Weizentoastbrot', englishName: 'Wheat toast' }),
+  ];
 }
 
 describe('runtime profile benchmark args', () => {
@@ -85,7 +89,10 @@ describe('runtime profile benchmark args', () => {
     assert.deepEqual(parseBenchmarkArgs(['node', 'cli', '--limit', '2']).mode, 'bounded-probe');
     assert.deepEqual(parseBenchmarkArgs(['node', 'cli', '--limit=2']).limit, 2);
     assert.deepEqual(parseBenchmarkArgs(['node', 'cli', '--full-readonly']).mode, 'full-readonly');
-    assert.deepEqual(parseBenchmarkArgs(['node', 'cli', '--limit', '1', '--profile', 'ultra-lite']).profile, 'ultra-lite');
+    assert.deepEqual(
+      parseBenchmarkArgs(['node', 'cli', '--limit', '1', '--profile', 'ultra-lite']).profile,
+      'ultra-lite',
+    );
   });
 
   it('refuses mutation flags, output paths, unknown flags, and positional paths', () => {
@@ -103,7 +110,10 @@ describe('runtime profile benchmark args', () => {
       ['--limit', '1', 'out.json'],
       ['--limit', '1', '--unknown'],
     ]) {
-      assert.throws(() => parseBenchmarkArgs(['node', 'cli', ...args]), /refused|Unknown|Positional/);
+      assert.throws(
+        () => parseBenchmarkArgs(['node', 'cli', ...args]),
+        /refused|Unknown|Positional/,
+      );
     }
   });
 });
@@ -140,7 +150,10 @@ describe('runtime profile benchmark output', () => {
   });
 
   it('defines expected Tier2 and token policies for core profiles', () => {
-    const result = runBlsRuntimeProfileBenchmark(fixtureRows(), { mode: 'bounded-probe', limit: 2 });
+    const result = runBlsRuntimeProfileBenchmark(fixtureRows(), {
+      mode: 'bounded-probe',
+      limit: 2,
+    });
     const byName = Object.fromEntries(result.profiles.map((profile) => [profile.profile, profile]));
 
     assert.equal(byName['object-runtime'].definition.tier2Included, true);
@@ -160,13 +173,23 @@ describe('runtime profile benchmark output', () => {
       profile: 'ultra-lite',
     });
 
-    assert.deepEqual(result.profiles.map((profile) => profile.profile), ['ultra-lite']);
+    assert.deepEqual(
+      result.profiles.map((profile) => profile.profile),
+      ['ultra-lite'],
+    );
     assert.equal(stableJsonBytes({ a: 1 }), '{"a":1}\n');
   });
 
   it('builds lookup indexes for object, tuple, and split payloads', () => {
     const objectIndex = buildLookupIndex({
-      records: [{ id: 'bls-a', sourceId: 'A', displayName: 'Apfel frisch', macrosPer100g: { kcal: 1, protein: 1, fat: 1, carbs: 1 } }],
+      records: [
+        {
+          id: 'bls-a',
+          sourceId: 'A',
+          displayName: 'Apfel frisch',
+          macrosPer100g: { kcal: 1, protein: 1, fat: 1, carbs: 1 },
+        },
+      ],
     });
     const tupleIndex = buildLookupIndex({
       columns: ['id', 'sourceId', 'displayName', 'kcal', 'protein', 'fat', 'carbs'],

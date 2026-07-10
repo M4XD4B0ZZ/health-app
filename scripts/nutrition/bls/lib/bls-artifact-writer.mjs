@@ -65,7 +65,8 @@ export function parseArgs(argv) {
       options.force = true;
     } else if (arg === '--limit') {
       const value = args[index + 1];
-      if (!value || value.startsWith('-')) throw new Error('--limit requires a positive integer value');
+      if (!value || value.startsWith('-'))
+        throw new Error('--limit requires a positive integer value');
       options.limit = parseLimitValue(value);
       index += 1;
     } else if (arg.startsWith('--limit=')) {
@@ -80,9 +81,11 @@ export function parseArgs(argv) {
   }
 
   if (options.help) return options;
-  if (options.sample === options.full) throw new Error('Exactly one of --sample or --full is required');
+  if (options.sample === options.full)
+    throw new Error('Exactly one of --sample or --full is required');
   if (options.full) throw new Error('Full artifact writing is out of scope for P1-006C3B');
-  if (options.write && !options.sample) throw new Error('--write is only allowed with --sample in P1-006C3B');
+  if (options.write && !options.sample)
+    throw new Error('--write is only allowed with --sample in P1-006C3B');
   return options;
 }
 
@@ -167,7 +170,8 @@ export function buildBlsArtifactPayload(rows, options = {}) {
           sha256: options.sourceWorkbookSha256 ?? null,
           sheetSelection: {
             selector: 1,
-            limitation: 'The first worksheet is read explicitly to avoid loading all workbook sheets.',
+            limitation:
+              'The first worksheet is read explicitly to avoid loading all workbook sheets.',
           },
         },
       },
@@ -177,7 +181,10 @@ export function buildBlsArtifactPayload(rows, options = {}) {
     records: sample.records.map(toRuntimeRecord),
   };
 
-  const payload = withContentHash(payloadWithoutHash, computeArtifactContentHash(payloadWithoutHash));
+  const payload = withContentHash(
+    payloadWithoutHash,
+    computeArtifactContentHash(payloadWithoutHash),
+  );
   return {
     payload,
     bytes: stableJsonBytes(payload),
@@ -189,7 +196,8 @@ export function validateBlsArtifactPayload(payload) {
   const errors = [];
   if (payload?.schemaVersion !== SCHEMA_VERSION) errors.push('schemaVersion mismatch');
   if (payload?.manifest?.artifact?.kind !== 'sample') errors.push('artifact kind must be sample');
-  if (payload?.manifest?.artifact?.path !== SAMPLE_ARTIFACT_PATH) errors.push('artifact path mismatch');
+  if (payload?.manifest?.artifact?.path !== SAMPLE_ARTIFACT_PATH)
+    errors.push('artifact path mismatch');
   if (!verifyArtifactContentHash(payload)) errors.push('content hash verification failed');
   if (!Array.isArray(payload?.records)) errors.push('records must be an array');
   for (const [index, record] of (payload?.records ?? []).entries()) {

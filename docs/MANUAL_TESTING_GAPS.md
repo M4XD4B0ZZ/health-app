@@ -43,7 +43,7 @@ Rendering (iOS vs. Android vs. Web) oder echtes Gerätefeedback (Haptics, Permis
 
 ## Wie neue Einträge hinzugefügt werden
 
-Wenn eine Session/PR mit einem Hinweis wie *"Ich konnte die UI nicht visuell testen"* endet,
+Wenn eine Session/PR mit einem Hinweis wie _"Ich konnte die UI nicht visuell testen"_ endet,
 trage einen neuen Eintrag unten ein (neueste zuerst) und fülle die Checkliste aus dem passenden
 Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
@@ -231,7 +231,7 @@ Gedächtnisstütze gedacht, nicht als persistenter Status (kein Tracking-Tool).
 ### 5. Netzwerk & Backend-Integration (Supabase Edge Functions)
 
 - [ ] Echte Requests gegen `food-off-search` / `food-usda-search` im Gerät/Simulator getestet
-  (nicht nur gemockt in Jest)
+      (nicht nur gemockt in Jest)
 - [ ] Fehlerzustände bei fehlender Internetverbindung sichtbar und verständlich
 - [ ] Ladezeiten/Latenz im echten Netzwerk gefühlt akzeptabel
 
@@ -244,7 +244,7 @@ Gedächtnisstütze gedacht, nicht als persistenter Status (kein Tracking-Tool).
 ### 7. Regressionscheck angrenzender Features
 
 - [ ] Mindestens 1-2 benachbarte, nicht direkt geänderte Screens stichprobenartig gegengeprüft
-  (typische Stelle für unbeabsichtigte Nebenwirkungen bei Shared Components/Theme)
+      (typische Stelle für unbeabsichtigte Nebenwirkungen bei Shared Components/Theme)
 
 ---
 

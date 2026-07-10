@@ -13,7 +13,7 @@ import {
   formatSandboxQueueEntryWriterSummary,
   runSandboxQueueEntryWriter,
   validateExpectedPayload,
-  validateFixedTarget
+  validateFixedTarget,
 } from '../lib/sandbox-queue-entry-writer.mjs';
 
 function tempRoot(t) {
@@ -68,31 +68,79 @@ test('overwrite is refused', async (t) => {
 });
 
 test('traversal, absolute, drive-qualified, and alternative paths are refused', () => {
-  for (const candidate of ['../tasks/x.json', '/tmp/x.json', 'C:\\tmp\\x.json', '.agent/runtime/sandbox/queue-admission/other.json']) {
+  for (const candidate of [
+    '../tasks/x.json',
+    '/tmp/x.json',
+    'C:\\tmp\\x.json',
+    '.agent/runtime/sandbox/queue-admission/other.json',
+  ]) {
     const validation = validateFixedTarget(candidate, process.cwd());
     assert.equal(validation.ok, false, candidate);
   }
 });
 
 test('protected and canonical target paths are refused when supplied as alternatives', () => {
-  for (const candidate of ['tasks/task-state.json', 'runs/current-run.json', 'validation/validation-results.jsonl', 'review/review-results.jsonl', 'handoffs/latest-handoff.md', '.agent/overnight/queue.json', 'src/index.ts', 'supabase/config.toml', 'package.json', 'SSOK.md', 'AGENTS.md', 'VERIFY.md', '.governance/SAFETY.md']) {
+  for (const candidate of [
+    'tasks/task-state.json',
+    'runs/current-run.json',
+    'validation/validation-results.jsonl',
+    'review/review-results.jsonl',
+    'handoffs/latest-handoff.md',
+    '.agent/overnight/queue.json',
+    'src/index.ts',
+    'supabase/config.toml',
+    'package.json',
+    'SSOK.md',
+    'AGENTS.md',
+    'VERIFY.md',
+    '.governance/SAFETY.md',
+  ]) {
     const validation = validateFixedTarget(candidate, process.cwd());
-    assert.ok(validation.findings.some((entry) => entry.code === 'protected_canonical_target_refused' || entry.code === 'alternate_target_refused'), candidate);
+    assert.ok(
+      validation.findings.some(
+        (entry) =>
+          entry.code === 'protected_canonical_target_refused' ||
+          entry.code === 'alternate_target_refused',
+      ),
+      candidate,
+    );
   }
 });
 
 test('alternate payload/content is refused', async (t) => {
   const root = tempRoot(t);
-  const payloadValidation = validateExpectedPayload({ ...EXPECTED_PAYLOAD, classification: 'FORBIDDEN' });
+  const payloadValidation = validateExpectedPayload({
+    ...EXPECTED_PAYLOAD,
+    classification: 'FORBIDDEN',
+  });
   assert.equal(payloadValidation.ok, false);
-  const result = await runSandboxQueueEntryWriter({ projectRoot: root, execute: true, payload: { ...EXPECTED_PAYLOAD, admission_decision: 'rejected' } });
+  const result = await runSandboxQueueEntryWriter({
+    projectRoot: root,
+    execute: true,
+    payload: { ...EXPECTED_PAYLOAD, admission_decision: 'rejected' },
+  });
   assert.equal(result.status, 'blocked');
   assert.ok(result.findings.some((entry) => entry.code === 'alternate_payload_refused'));
   assert.equal(fs.existsSync(path.join(root, TARGET_PATH)), false);
 });
 
 test('CLI rejects forbidden flags and positional output paths', () => {
-  for (const forbidden of ['--output=x', '--path', '--payload={}', '--content=x', '--append', '--truncate', '--delete', '--rename', '--move', '--stage', '--commit', '--push', '--deploy', 'other.json']) {
+  for (const forbidden of [
+    '--output=x',
+    '--path',
+    '--payload={}',
+    '--content=x',
+    '--append',
+    '--truncate',
+    '--delete',
+    '--rename',
+    '--move',
+    '--stage',
+    '--commit',
+    '--push',
+    '--deploy',
+    'other.json',
+  ]) {
     assert.throws(() => parseArgs(['node', 'cli', forbidden]), /refused/i, forbidden);
   }
 });
@@ -117,7 +165,20 @@ test('result safety counters remain false and zero in dry-run', async (t) => {
   const result = await runSandboxQueueEntryWriter({ projectRoot: root });
   assert.equal(result.writes_performed, false);
   assert.deepEqual(result.files_written, []);
-  for (const key of ['queue_execution', 'worker_execution', 'task_execution', 'runtime_authority', 'evidence_mutation', 'review_mutation', 'validation_mutation', 'staging', 'commit', 'push', 'deploy', 'network']) {
+  for (const key of [
+    'queue_execution',
+    'worker_execution',
+    'task_execution',
+    'runtime_authority',
+    'evidence_mutation',
+    'review_mutation',
+    'validation_mutation',
+    'staging',
+    'commit',
+    'push',
+    'deploy',
+    'network',
+  ]) {
     assert.equal(result[key], false, key);
   }
 });
@@ -126,7 +187,20 @@ test('result safety execution flags remain false after explicit write', async (t
   const root = tempRoot(t);
   const result = await runSandboxQueueEntryWriter({ projectRoot: root, execute: true });
   assert.equal(result.writes_performed, true);
-  for (const key of ['queue_execution', 'worker_execution', 'task_execution', 'runtime_authority', 'evidence_mutation', 'review_mutation', 'validation_mutation', 'staging', 'commit', 'push', 'deploy', 'network']) {
+  for (const key of [
+    'queue_execution',
+    'worker_execution',
+    'task_execution',
+    'runtime_authority',
+    'evidence_mutation',
+    'review_mutation',
+    'validation_mutation',
+    'staging',
+    'commit',
+    'push',
+    'deploy',
+    'network',
+  ]) {
     assert.equal(result[key], false, key);
   }
 });

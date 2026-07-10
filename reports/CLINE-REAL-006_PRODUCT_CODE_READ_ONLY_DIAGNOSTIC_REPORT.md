@@ -9,12 +9,14 @@
 ## 1) Files inspected
 
 ### Governance / context
+
 - `AGENTS.md`
 - `VERIFY.md`
 - `SSOK.md`
 - `handoffs/latest-handoff.md`
 
 ### Product-code (read-only)
+
 - `src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts`
 - `src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts`
 - `src/features/nutrition/domain/portion/resolvePortionGrams.ts`
@@ -22,6 +24,7 @@
 - `src/features/nutrition/domain/fusion/FusionCandidate.ts`
 
 ### Relevant tests inspected (read-only)
+
 - `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.test.ts`
 - `src/features/nutrition/__tests__/LogFoodFromRawInputUseCase.unitPortions.test.ts`
 - `src/features/nutrition/__tests__/resolvePortionGrams.test.ts`
@@ -33,9 +36,11 @@
 ## 2) Current pipeline summary (nutrition logging / resolver)
 
 Observed primary entry point for raw food logging:
+
 - **`LogFoodFromRawInputUseCase.execute()`**
 
 High-level flow currently implemented:
+
 1. Parse raw input via `DeterministicFoodParser`.
 2. Preserve original parsed name and raw input for downstream resolver behavior and logging.
 3. Derive initial quantity/confidence (grams, count-based fallback, or low-confidence zero-grams state).
@@ -51,6 +56,7 @@ High-level flow currently implemented:
 9. Persist via `FoodEntryRepository.addEntry(...)`.
 
 Resolver service involved:
+
 - **`SequentialFoodCatalogResolver.resolve()`** as the core multi-source resolver implementation.
 - Implements source routing, early-return logic, scoring, timeout/circuit-breaker behavior, and negative caching.
 
@@ -82,16 +88,19 @@ Resolver service involved:
 ## 4) Relevant tests found
 
 ### Use-case and input flow
+
 - `LogFoodFromRawInputUseCase.test.ts`
   - Basic entry creation/persistence/date handling and parsing flow.
 
 ### Portion behavior
+
 - `resolvePortionGrams.test.ts`
   - Explicit grams precedence, canonical unit portions, fallback behavior, edge cases.
 - `LogFoodFromRawInputUseCase.unitPortions.test.ts`
   - Integration-level verification for unit-based defaults (egg/eier/ei, etc.) and proportional scaling.
 
 ### Resolver behavior and reliability
+
 - `SequentialFoodCatalogResolver.test.ts`
   - User-source priority, OFF/USDA sequencing, early return thresholds, error fallback,
     circuit breaker behavior, timeout handling, global budget, negative caching, summary metrics.
@@ -126,6 +135,7 @@ Resolver service involved:
 Add a narrowly scoped regression test that explicitly verifies the **zero-macro guard blocks persistence** when resolver returns no valid macro candidate.
 
 Why this is the smallest safe next step:
+
 - Uses existing architecture and test patterns.
 - No broad refactor required.
 - Directly protects a critical safety contract already present in runtime logic.

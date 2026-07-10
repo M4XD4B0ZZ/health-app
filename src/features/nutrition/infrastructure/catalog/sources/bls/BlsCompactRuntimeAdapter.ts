@@ -106,9 +106,7 @@ function splitAliasCandidates(displayName: string): string[] {
     segments.push(withoutParentheses.slice(cursor));
   }
 
-  return segments
-    .map((candidate) => candidate.trim())
-    .filter((candidate) => candidate.length > 0);
+  return segments.map((candidate) => candidate.trim()).filter((candidate) => candidate.length > 0);
 }
 
 function uniqueStrings(values: readonly string[]): string[] {

@@ -3,7 +3,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseAdmissionJson, readAdmissionMetadataFile, validateQueueAdmission } from './lib/queue-admission-validator.mjs';
+import {
+  parseAdmissionJson,
+  readAdmissionMetadataFile,
+  validateQueueAdmission,
+} from './lib/queue-admission-validator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -25,9 +29,12 @@ export function parseArgs(argv) {
       index += 1;
     } else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (!['json', 'markdown'].includes(options.format)) throw new Error(`Unsupported format: ${options.format}`);
-  if (options.metadataJson && options.metadataFile) throw new Error('Use either --metadata-json or --metadata-file, not both');
-  if (!options.help && !options.metadataJson && !options.metadataFile) throw new Error('Missing input: provide --metadata-json or --metadata-file');
+  if (!['json', 'markdown'].includes(options.format))
+    throw new Error(`Unsupported format: ${options.format}`);
+  if (options.metadataJson && options.metadataFile)
+    throw new Error('Use either --metadata-json or --metadata-file, not both');
+  if (!options.help && !options.metadataJson && !options.metadataFile)
+    throw new Error('Missing input: provide --metadata-json or --metadata-file');
   return options;
 }
 
@@ -55,7 +62,7 @@ export function formatMarkdown(result) {
     `- Queue entry preview ID: ${result.queue_entry_preview.queue_entry_id}`,
     `- Reason codes: ${result.reason_codes.join(', ') || '(none)'}`,
     '',
-    result.non_authorization_statement
+    result.non_authorization_statement,
   ].join('\n');
 }
 
@@ -66,12 +73,29 @@ async function main() {
       console.log(usage());
       process.exit(0);
     }
-    const metadata = options.metadataJson ? parseAdmissionJson(options.metadataJson) : readAdmissionMetadataFile(options.metadataFile);
+    const metadata = options.metadataJson
+      ? parseAdmissionJson(options.metadataJson)
+      : readAdmissionMetadataFile(options.metadataFile);
     const result = validateQueueAdmission(metadata);
-    console.log(options.format === 'markdown' ? formatMarkdown(result) : JSON.stringify(result, null, 2));
+    console.log(
+      options.format === 'markdown' ? formatMarkdown(result) : JSON.stringify(result, null, 2),
+    );
     process.exit(0);
   } catch (error) {
-    console.error(JSON.stringify({ schema_version: '1.0.0', validator: 'ralph-queue-admission-validator', admission_decision: 'rejected', admission_allowed: false, reason_codes: ['validator_input_error'], error: error.message }, null, 2));
+    console.error(
+      JSON.stringify(
+        {
+          schema_version: '1.0.0',
+          validator: 'ralph-queue-admission-validator',
+          admission_decision: 'rejected',
+          admission_allowed: false,
+          reason_codes: ['validator_input_error'],
+          error: error.message,
+        },
+        null,
+        2,
+      ),
+    );
     process.exit(1);
   }
 }

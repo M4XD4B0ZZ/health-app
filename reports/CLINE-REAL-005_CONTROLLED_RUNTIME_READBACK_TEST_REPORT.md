@@ -21,6 +21,7 @@ Executed a bounded Ralph/runtime readback test using **existing** scripts only, 
 5. `git --no-pager diff --name-only`
 
 Command discipline:
+
 - Short isolated commands used.
 - No bash chaining.
 - No `&&` used.
@@ -31,20 +32,24 @@ Command discipline:
 ## Script Output Summary
 
 ### 1) Task selector dry run
+
 Command:
 `node scripts/agent/select-next-ralph-task.mjs --dry-run --json`
 
 Result summary:
+
 - `status: "no_eligible_task"`
 - `eligible_task_count: 0`
 - `write_performed: false`
 - Deterministic JSON output captured successfully.
 
 ### 2) Morning review generator
+
 Command:
 `node scripts/agent/generate-morning-review.mjs --write`
 
 Result summary:
+
 - Report written to `reports/morning-review.md`.
 - Controlled runtime artifact update observed.
 
@@ -53,9 +58,11 @@ Result summary:
 ## Files Changed (Observed)
 
 From final git readback:
+
 - `reports/morning-review.md`
 
 For this task deliverable, additionally updated:
+
 - `reports/CLINE-REAL-005_CONTROLLED_RUNTIME_READBACK_TEST_REPORT.md`
 - `handoffs/latest-handoff.md`
 
@@ -81,6 +88,7 @@ Because JSONL files were not touched, no additional JSONL validation command was
 ## Operational Conclusion
 
 For this bounded class of runtime/readback tasks, Cline behavior was stable:
+
 - Existing scripts executed successfully.
 - Output capture worked.
 - Scope remained controlled.

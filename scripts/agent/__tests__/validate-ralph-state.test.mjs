@@ -22,7 +22,7 @@ function liveTask(id = 'RALPH-LIVE-001', overrides = {}) {
     status: 'done',
     runtime_only: true,
     requires_human_review: false,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -37,9 +37,9 @@ function reconstructedTask(id = 'RALPH-025', overrides = {}) {
       type: 'reconstructed_from_git',
       commit_hash: 'abcdef1234567890abcdef1234567890abcdef12',
       changed_files: ['scripts/agent/fixture.mjs'],
-      report_or_handoff_refs: ['reports/fixture.md']
+      report_or_handoff_refs: ['reports/fixture.md'],
     },
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -48,7 +48,7 @@ function currentRun(taskId = 'RALPH-LIVE-001') {
     run_id: 'run_validator_fixture',
     task_id: taskId,
     status: 'completed',
-    lock: { is_active: false }
+    lock: { is_active: false },
   };
 }
 
@@ -77,8 +77,8 @@ function reconstructedEvent(task) {
     source: {
       type: 'reconstructed_from_git',
       commit_hash: task.source.commit_hash,
-      changed_files: task.source.changed_files
-    }
+      changed_files: task.source.changed_files,
+    },
   };
 }
 
@@ -92,16 +92,27 @@ function lineageBackfillEvent(taskIds = ['RALPH-025']) {
     task_id: 'RALPH-032',
     source: {
       type: 'targeted_reconstruction',
-      included_tasks: taskIds
-    }
+      included_tasks: taskIds,
+    },
   };
 }
 
 function jsonl(records) {
-  return records.map((record) => JSON.stringify(record)).join('\n') + (records.length > 0 ? '\n' : '');
+  return (
+    records.map((record) => JSON.stringify(record)).join('\n') + (records.length > 0 ? '\n' : '')
+  );
 }
 
-function tempProject(t, { state = taskState(), taskHistory = '', runHistory = '', validationResults = '', reviewResults = '' } = {}) {
+function tempProject(
+  t,
+  {
+    state = taskState(),
+    taskHistory = '',
+    runHistory = '',
+    validationResults = '',
+    reviewResults = '',
+  } = {},
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-032b-validator-'));
   fs.mkdirSync(path.join(root, 'scripts/agent'), { recursive: true });
   fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
@@ -111,12 +122,24 @@ function tempProject(t, { state = taskState(), taskHistory = '', runHistory = ''
   fs.mkdirSync(path.join(root, 'handoffs'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(root, 'scripts/agent/validate-ralph-state.mjs'));
   const currentTaskId = state.tasks[0]?.id || 'RALPH-LIVE-001';
-  fs.writeFileSync(path.join(root, 'tasks/task-state.json'), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'tasks/task-state.json'),
+    `${JSON.stringify(state, null, 2)}\n`,
+    'utf8',
+  );
   fs.writeFileSync(path.join(root, 'tasks/task-history.jsonl'), taskHistory, 'utf8');
-  fs.writeFileSync(path.join(root, 'runs/current-run.json'), `${JSON.stringify(currentRun(currentTaskId), null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'runs/current-run.json'),
+    `${JSON.stringify(currentRun(currentTaskId), null, 2)}\n`,
+    'utf8',
+  );
   fs.writeFileSync(path.join(root, 'runs/run-history.jsonl'), runHistory, 'utf8');
   fs.writeFileSync(path.join(root, 'validation/validation-rules.json'), '{}\n', 'utf8');
-  fs.writeFileSync(path.join(root, 'validation/validation-results.jsonl'), validationResults, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'validation/validation-results.jsonl'),
+    validationResults,
+    'utf8',
+  );
   fs.writeFileSync(path.join(root, 'review/review-results.jsonl'), reviewResults, 'utf8');
   fs.writeFileSync(path.join(root, 'ROADMAP.md'), '', 'utf8');
   fs.writeFileSync(path.join(root, 'handoffs/latest-handoff.md'), validHandoff(), 'utf8');
@@ -127,7 +150,7 @@ function tempProject(t, { state = taskState(), taskHistory = '', runHistory = ''
 function runValidator(root) {
   const result = spawnSync(process.execPath, ['scripts/agent/validate-ralph-state.mjs', '--json'], {
     cwd: root,
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
   return { result, json: JSON.parse(result.stdout || result.stderr) };
 }
@@ -145,7 +168,9 @@ test('live done task without validation remains critical', (t) => {
 });
 
 test('live done review-required task without review remains critical', (t) => {
-  const root = tempProject(t, { state: taskState([liveTask('RALPH-LIVE-001', { requires_human_review: true })]) });
+  const root = tempProject(t, {
+    state: taskState([liveTask('RALPH-LIVE-001', { requires_human_review: true })]),
+  });
   const { result, json } = runValidator(root);
 
   assert.equal(result.status, 1);
@@ -157,7 +182,7 @@ test('valid reconstructed task is accepted without live validation or review evi
   const root = tempProject(t, {
     state: taskState([task]),
     taskHistory: jsonl([reconstructedEvent(task)]),
-    runHistory: jsonl([lineageBackfillEvent([task.id])])
+    runHistory: jsonl([lineageBackfillEvent([task.id])]),
   });
   const { result, json } = runValidator(root);
 
@@ -170,7 +195,7 @@ test('reconstructed task missing task.reconstructed event is critical', (t) => {
   const task = reconstructedTask('RALPH-025');
   const root = tempProject(t, {
     state: taskState([task]),
-    runHistory: jsonl([lineageBackfillEvent([task.id])])
+    runHistory: jsonl([lineageBackfillEvent([task.id])]),
   });
   const { result, json } = runValidator(root);
 
@@ -183,7 +208,7 @@ test('reconstructed task missing runtime_lineage.backfilled inclusion is critica
   const root = tempProject(t, {
     state: taskState([task]),
     taskHistory: jsonl([reconstructedEvent(task)]),
-    runHistory: jsonl([lineageBackfillEvent(['RALPH-027'])])
+    runHistory: jsonl([lineageBackfillEvent(['RALPH-027'])]),
   });
   const { result, json } = runValidator(root);
 
@@ -196,7 +221,7 @@ test('runtime_lineage.backfilled misplaced in task history is critical', (t) => 
   const root = tempProject(t, {
     state: taskState([task]),
     taskHistory: jsonl([reconstructedEvent(task), lineageBackfillEvent([task.id])]),
-    runHistory: jsonl([lineageBackfillEvent([task.id])])
+    runHistory: jsonl([lineageBackfillEvent([task.id])]),
   });
   const { result, json } = runValidator(root);
 
@@ -210,17 +235,21 @@ test('empty report_or_handoff_refs for reconstructed task is warning-only', (t) 
       type: 'reconstructed_from_git',
       commit_hash: 'abcdef1234567890abcdef1234567890abcdef12',
       changed_files: ['scripts/agent/fixture.mjs'],
-      report_or_handoff_refs: []
-    }
+      report_or_handoff_refs: [],
+    },
   });
   const root = tempProject(t, {
     state: taskState([task]),
     taskHistory: jsonl([reconstructedEvent(task)]),
-    runHistory: jsonl([lineageBackfillEvent([task.id])])
+    runHistory: jsonl([lineageBackfillEvent([task.id])]),
   });
   const { result, json } = runValidator(root);
 
   assert.equal(result.status, 0);
   assert.ok(errorCodes(json).length === 0);
-  assert.ok(json.warnings.some((finding) => finding.code === 'reconstructed_task_missing_report_or_handoff_refs'));
+  assert.ok(
+    json.warnings.some(
+      (finding) => finding.code === 'reconstructed_task_missing_report_or_handoff_refs',
+    ),
+  );
 });

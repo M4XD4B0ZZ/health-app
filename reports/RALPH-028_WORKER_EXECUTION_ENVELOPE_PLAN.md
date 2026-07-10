@@ -85,17 +85,17 @@ The envelope is a **derived execution contract**, not a new source of truth. It 
 
 Recommended ownership:
 
-| Concept | Canonical Owner | Envelope Role |
-|---|---|---|
-| Task priority and planning | `ROADMAP.md` | Reference only |
-| Runtime task status/scope | `tasks/task-state.json` | Snapshot into envelope |
-| Runtime run status | `runs/current-run.json` | Source run object |
-| Safety policy | `.governance/SAFETY.md` | Required constraints |
-| Lifecycle ordering | `.governance/SYSTEM.md` | Required stop model |
-| Execution discipline | `.governance/RULES.md` | Required worker rules |
-| Review acceptance | `.governance/REVIEW_POLICY.md` | Required review gate |
-| Verification | `VERIFY.md` | Required checks and disclosure |
-| Adapter behavior | `.agent/adapters/<adapter>.md` | Adapter overlay only |
+| Concept                    | Canonical Owner                | Envelope Role                  |
+| -------------------------- | ------------------------------ | ------------------------------ |
+| Task priority and planning | `ROADMAP.md`                   | Reference only                 |
+| Runtime task status/scope  | `tasks/task-state.json`        | Snapshot into envelope         |
+| Runtime run status         | `runs/current-run.json`        | Source run object              |
+| Safety policy              | `.governance/SAFETY.md`        | Required constraints           |
+| Lifecycle ordering         | `.governance/SYSTEM.md`        | Required stop model            |
+| Execution discipline       | `.governance/RULES.md`         | Required worker rules          |
+| Review acceptance          | `.governance/REVIEW_POLICY.md` | Required review gate           |
+| Verification               | `VERIFY.md`                    | Required checks and disclosure |
+| Adapter behavior           | `.agent/adapters/<adapter>.md` | Adapter overlay only           |
 
 ---
 
@@ -148,16 +148,8 @@ Illustrative schema only; RALPH-028 must not generate a real envelope file.
       "scripts/agent/__tests__/start-runtime-run.test.mjs",
       "reports/RALPH-029_RUN_START_IMPLEMENTATION_REPORT.md"
     ],
-    "forbidden_files": [
-      ".env*",
-      "package.json",
-      "package-lock.json",
-      "src/**/*",
-      "supabase/**/*"
-    ],
-    "expected_outputs": [
-      "reports/RALPH-029_RUN_START_IMPLEMENTATION_REPORT.md"
-    ]
+    "forbidden_files": [".env*", "package.json", "package-lock.json", "src/**/*", "supabase/**/*"],
+    "expected_outputs": ["reports/RALPH-029_RUN_START_IMPLEMENTATION_REPORT.md"]
   },
   "validation": {
     "validation_required": true,
@@ -231,20 +223,20 @@ Illustrative schema only; RALPH-028 must not generate a real envelope file.
 
 ### 4.3 Required Envelope Fields
 
-| Field | Required | Source | Notes |
-|---|---:|---|---|
-| `run_id` | Yes | `runs/current-run.json` | Canonical run identity. |
-| `task_id` | Yes | `runs/current-run.json` and task state | Must match runtime task. |
-| `task.title` | Yes | Task state / run snapshot | Human readability. |
-| `task.status` | Yes | `tasks/task-state.json` | Used for eligibility. |
-| `allowed_files` | Yes | Runtime task/run snapshot | Worker write boundary. |
-| `forbidden_files` | Yes | Runtime task/run + safety policy | Hard deny list. |
-| `validation_requirements` | Yes | Runtime task + `VERIFY.md` | Completion gate. |
-| `review_requirements` | Yes | Runtime task + review policy | Stop gate. |
-| `governance_constraints` | Yes | Governance files | Authority and lifecycle. |
-| `stop_conditions` | Yes | `.governance/*` + adapter policy | Immediate stops. |
-| `command_safety_constraints` | Yes | Adapter policy | Cline-specific today; adapter-specific later. |
-| `expected_output_format` | Yes | `.governance/RULES.md`, `VERIFY.md` | Handoff and validation disclosure. |
+| Field                        | Required | Source                                 | Notes                                         |
+| ---------------------------- | -------: | -------------------------------------- | --------------------------------------------- |
+| `run_id`                     |      Yes | `runs/current-run.json`                | Canonical run identity.                       |
+| `task_id`                    |      Yes | `runs/current-run.json` and task state | Must match runtime task.                      |
+| `task.title`                 |      Yes | Task state / run snapshot              | Human readability.                            |
+| `task.status`                |      Yes | `tasks/task-state.json`                | Used for eligibility.                         |
+| `allowed_files`              |      Yes | Runtime task/run snapshot              | Worker write boundary.                        |
+| `forbidden_files`            |      Yes | Runtime task/run + safety policy       | Hard deny list.                               |
+| `validation_requirements`    |      Yes | Runtime task + `VERIFY.md`             | Completion gate.                              |
+| `review_requirements`        |      Yes | Runtime task + review policy           | Stop gate.                                    |
+| `governance_constraints`     |      Yes | Governance files                       | Authority and lifecycle.                      |
+| `stop_conditions`            |      Yes | `.governance/*` + adapter policy       | Immediate stops.                              |
+| `command_safety_constraints` |      Yes | Adapter policy                         | Cline-specific today; adapter-specific later. |
+| `expected_output_format`     |      Yes | `.governance/RULES.md`, `VERIFY.md`    | Handoff and validation disclosure.            |
 
 ---
 
@@ -383,12 +375,12 @@ Adapter-specific rules live under:
 
 Current and future examples:
 
-| Adapter | Adapter File | Specific Concerns |
-|---|---|---|
-| Cline | `.agent/adapters/cline.md` | VS Code, tool execution, PowerShell command safety, no chained commands. |
-| OpenCode | `.agent/adapters/opencode.md` | CLI/headless semantics, deterministic file edits, terminal behavior. |
-| Codex | `.agent/adapters/codex.md` | Repository-aware assistant behavior, command and edit boundaries. |
-| Future adapters | `.agent/adapters/<name>.md` | Must implement the same core envelope. |
+| Adapter         | Adapter File                  | Specific Concerns                                                        |
+| --------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| Cline           | `.agent/adapters/cline.md`    | VS Code, tool execution, PowerShell command safety, no chained commands. |
+| OpenCode        | `.agent/adapters/opencode.md` | CLI/headless semantics, deterministic file edits, terminal behavior.     |
+| Codex           | `.agent/adapters/codex.md`    | Repository-aware assistant behavior, command and edit boundaries.        |
+| Future adapters | `.agent/adapters/<name>.md`   | Must implement the same core envelope.                                   |
 
 Adapter docs never override `SSOK.md`, `AGENTS.md`, `VERIFY.md`, or `.governance/*`.
 
@@ -411,23 +403,23 @@ For Cline, the envelope should include or reference:
 
 All gates must pass before a planned run can become worker-ready or active.
 
-| Gate | Pass Criteria | Failure Action |
-|---|---|---|
-| Current run exists | `runs/current-run.json` parses and contains `run_id`, `task_id`, `status`. | Abort. |
-| Run status planned | Current run status is exactly `planned`. | Abort; do not start non-planned run. |
-| Task exists | Matching `task_id` exists in `tasks/task-state.json`. | Abort. |
-| Task eligible | Task status is `not_started`, or explicit recovery mode permits another state. | Abort. |
-| Attempt capacity | `attempt_count < max_attempts` when both exist. | Abort or require human recovery. |
-| Run/task match | Run `task_id` matches task `id`; title mismatch is warning or abort depending strictness. | Abort on ID mismatch. |
-| Allowed files present | Allowed files array exists; empty allowed list requires explicit documentation-only/no-write semantics. | Abort or require human review. |
-| Forbidden files present | Forbidden files array exists and includes protected constraints from task/policy. | Abort. |
-| Protected-file check | No planned allowed file conflicts with protected files unless explicitly authorized. | Abort. |
-| Working tree policy | Clean working tree before write-mode start. | Abort. |
-| Reconciler green | `node scripts/agent/reconcile-roadmap-task-state.mjs --json` exits 0. | Abort. |
-| Validator green | `node scripts/agent/validate-ralph-state.mjs --json` exits 0. | Abort. |
-| Adapter supported | Requested adapter has known adapter contract file. | Abort. |
-| Command safety acknowledged | Envelope includes adapter command policy refs and constraints. | Abort. |
-| No worker execution | Start/envelope command does not invoke an agent, model, IDE, network process, or prompt runner. | Abort. |
+| Gate                        | Pass Criteria                                                                                           | Failure Action                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Current run exists          | `runs/current-run.json` parses and contains `run_id`, `task_id`, `status`.                              | Abort.                               |
+| Run status planned          | Current run status is exactly `planned`.                                                                | Abort; do not start non-planned run. |
+| Task exists                 | Matching `task_id` exists in `tasks/task-state.json`.                                                   | Abort.                               |
+| Task eligible               | Task status is `not_started`, or explicit recovery mode permits another state.                          | Abort.                               |
+| Attempt capacity            | `attempt_count < max_attempts` when both exist.                                                         | Abort or require human recovery.     |
+| Run/task match              | Run `task_id` matches task `id`; title mismatch is warning or abort depending strictness.               | Abort on ID mismatch.                |
+| Allowed files present       | Allowed files array exists; empty allowed list requires explicit documentation-only/no-write semantics. | Abort or require human review.       |
+| Forbidden files present     | Forbidden files array exists and includes protected constraints from task/policy.                       | Abort.                               |
+| Protected-file check        | No planned allowed file conflicts with protected files unless explicitly authorized.                    | Abort.                               |
+| Working tree policy         | Clean working tree before write-mode start.                                                             | Abort.                               |
+| Reconciler green            | `node scripts/agent/reconcile-roadmap-task-state.mjs --json` exits 0.                                   | Abort.                               |
+| Validator green             | `node scripts/agent/validate-ralph-state.mjs --json` exits 0.                                           | Abort.                               |
+| Adapter supported           | Requested adapter has known adapter contract file.                                                      | Abort.                               |
+| Command safety acknowledged | Envelope includes adapter command policy refs and constraints.                                          | Abort.                               |
+| No worker execution         | Start/envelope command does not invoke an agent, model, IDE, network process, or prompt runner.         | Abort.                               |
 
 ### Working Tree Policy
 
@@ -455,20 +447,20 @@ After actual worker execution, the worker must return enough information for val
 
 ### Required Worker Return Fields
 
-| Field | Required | Description |
-|---|---:|---|
-| `run_id` | Yes | Current run identity. |
-| `task_id` | Yes | Assigned task. |
-| `worker_adapter` | Yes | Adapter used, e.g. `cline`. |
-| `started_at` / `completed_at` | Yes | Execution timestamps or null on failure. |
-| `changed_files` | Yes | Added, modified, deleted files. |
-| `verification_commands_run` | Yes | Commands executed exactly as run. |
-| `validation_results` | Yes | Pass/fail/skipped per check. |
-| `skipped_commands` | Yes | Any expected checks not run, with rationale. |
-| `blockers` | Yes | Ambiguities, validation failures, safety issues, missing tools. |
-| `safety_findings` | Yes | Scope/protected-file/forbidden-action result. |
-| `human_review_status` | Yes | `required`, `blocked`, `ready_for_review`, or `not_applicable`. |
-| `completion_claim` | Yes | Must not claim done unless required verification passed. |
+| Field                         | Required | Description                                                     |
+| ----------------------------- | -------: | --------------------------------------------------------------- |
+| `run_id`                      |      Yes | Current run identity.                                           |
+| `task_id`                     |      Yes | Assigned task.                                                  |
+| `worker_adapter`              |      Yes | Adapter used, e.g. `cline`.                                     |
+| `started_at` / `completed_at` |      Yes | Execution timestamps or null on failure.                        |
+| `changed_files`               |      Yes | Added, modified, deleted files.                                 |
+| `verification_commands_run`   |      Yes | Commands executed exactly as run.                               |
+| `validation_results`          |      Yes | Pass/fail/skipped per check.                                    |
+| `skipped_commands`            |      Yes | Any expected checks not run, with rationale.                    |
+| `blockers`                    |      Yes | Ambiguities, validation failures, safety issues, missing tools. |
+| `safety_findings`             |      Yes | Scope/protected-file/forbidden-action result.                   |
+| `human_review_status`         |      Yes | `required`, `blocked`, `ready_for_review`, or `not_applicable`. |
+| `completion_claim`            |      Yes | Must not claim done unless required verification passed.        |
 
 ### Expected Handoff Structure
 
@@ -606,14 +598,14 @@ node scripts/agent/start-runtime-run.mjs --help
 
 Flags:
 
-| Flag | Default | Purpose |
-|---|---:|---|
-| `--adapter <name>` | `cline` or none | Select worker adapter overlay. |
-| `--json` | false | Machine-readable output. |
-| `--write` | false | Enable real state transition. |
-| `--confirm-write` | false | Required with `--write`. |
-| `--print-envelope` | true | Print envelope to stdout; no file write. |
-| `--help` | false | Show usage. |
+| Flag               |         Default | Purpose                                  |
+| ------------------ | --------------: | ---------------------------------------- |
+| `--adapter <name>` | `cline` or none | Select worker adapter overlay.           |
+| `--json`           |           false | Machine-readable output.                 |
+| `--write`          |           false | Enable real state transition.            |
+| `--confirm-write`  |           false | Required with `--write`.                 |
+| `--print-envelope` |            true | Print envelope to stdout; no file write. |
+| `--help`           |           false | Show usage.                              |
 
 ### 10.3 Dry-Run Default
 
@@ -707,31 +699,31 @@ Commands should be run separately when executed by Cline.
 
 ## 11. Test Matrix
 
-| Area | Test | Expected Result |
-|---|---|---|
-| Envelope | Generated preview includes run identity | `run_id` present and matches current run. |
-| Envelope | Generated preview includes task identity | `task_id`, title, status present. |
-| Envelope | Scope included | Allowed, forbidden, expected outputs present. |
-| Envelope | Governance included | Authority and stop conditions present. |
-| Envelope | Adapter constraints included | Cline command safety rules present when adapter is Cline. |
-| Start gate | Missing current run | Abort, no writes. |
-| Start gate | Current run not planned | Abort, no writes. |
-| Start gate | Task missing | Abort, no writes. |
-| Start gate | Task status not eligible | Abort, no writes. |
-| Start gate | Attempt count exceeded | Abort, no writes. |
-| Safety | Protected-file conflict | Abort, no writes. |
-| Safety | Dirty working tree in write mode | Abort, no writes. |
-| Safety | Reconciler fails | Abort, no writes. |
-| Safety | Validator fails | Abort, no writes. |
-| Write mode | `--write` without confirmation | Reject. |
-| Write mode | Confirm without write | Reject. |
-| Write mode | Planned run starts | `current-run.json` status becomes `active`. |
-| Write mode | History append | Exactly one `run.started` JSONL line appended. |
-| Write mode | No worker execution | No worker process spawned. |
-| Recovery | Already active run | Abort as duplicate start. |
-| Recovery | Partial write failure | Restore current-run where possible; do not claim success. |
-| Output | JSON mode parseable | `JSON.parse` succeeds. |
-| Output | Human output clear | Includes gates, would-change files, and next steps. |
+| Area       | Test                                     | Expected Result                                           |
+| ---------- | ---------------------------------------- | --------------------------------------------------------- |
+| Envelope   | Generated preview includes run identity  | `run_id` present and matches current run.                 |
+| Envelope   | Generated preview includes task identity | `task_id`, title, status present.                         |
+| Envelope   | Scope included                           | Allowed, forbidden, expected outputs present.             |
+| Envelope   | Governance included                      | Authority and stop conditions present.                    |
+| Envelope   | Adapter constraints included             | Cline command safety rules present when adapter is Cline. |
+| Start gate | Missing current run                      | Abort, no writes.                                         |
+| Start gate | Current run not planned                  | Abort, no writes.                                         |
+| Start gate | Task missing                             | Abort, no writes.                                         |
+| Start gate | Task status not eligible                 | Abort, no writes.                                         |
+| Start gate | Attempt count exceeded                   | Abort, no writes.                                         |
+| Safety     | Protected-file conflict                  | Abort, no writes.                                         |
+| Safety     | Dirty working tree in write mode         | Abort, no writes.                                         |
+| Safety     | Reconciler fails                         | Abort, no writes.                                         |
+| Safety     | Validator fails                          | Abort, no writes.                                         |
+| Write mode | `--write` without confirmation           | Reject.                                                   |
+| Write mode | Confirm without write                    | Reject.                                                   |
+| Write mode | Planned run starts                       | `current-run.json` status becomes `active`.               |
+| Write mode | History append                           | Exactly one `run.started` JSONL line appended.            |
+| Write mode | No worker execution                      | No worker process spawned.                                |
+| Recovery   | Already active run                       | Abort as duplicate start.                                 |
+| Recovery   | Partial write failure                    | Restore current-run where possible; do not claim success. |
+| Output     | JSON mode parseable                      | `JSON.parse` succeeds.                                    |
+| Output     | Human output clear                       | Includes gates, would-change files, and next steps.       |
 
 ---
 

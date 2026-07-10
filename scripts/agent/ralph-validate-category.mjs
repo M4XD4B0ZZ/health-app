@@ -36,7 +36,7 @@ const CATEGORIES = new Set([
   'edge-supabase',
   'dependency-change',
   'runtime-state-only',
-  'governance-script-only'
+  'governance-script-only',
 ]);
 
 const CATEGORY_PRIORITY = [
@@ -47,13 +47,13 @@ const CATEGORY_PRIORITY = [
   'governance-script-only',
   'product-runtime-code',
   'edge-supabase',
-  'dependency-change'
+  'dependency-change',
 ];
 
 const READBACK_CHECKS = [
   'git --no-pager status --short',
   'git --no-pager diff --stat',
-  'git --no-pager diff --name-only'
+  'git --no-pager diff --name-only',
 ];
 
 const FORBIDDEN_COMMAND_TOKENS = ['&&', ';', '||', '|'];
@@ -67,7 +67,10 @@ function normalizeTimestampForId(timestamp) {
 }
 
 function nonce(length = 6) {
-  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+  return crypto
+    .randomBytes(Math.ceil(length / 2))
+    .toString('hex')
+    .slice(0, length);
 }
 
 function validationId(timestamp, taskId) {
@@ -84,7 +87,7 @@ function parseArgs(argv) {
     scripts: [],
     changedFiles: [],
     taskSpecificTests: [],
-    taskSpecificDryRuns: []
+    taskSpecificDryRuns: [],
   };
 
   const args = argv.slice(2);
@@ -96,13 +99,15 @@ function parseArgs(argv) {
     else if (arg === '--execute') {
       options.execute = true;
       options.dryRun = false;
-    } else if (arg === '--category') options.category = requireValue(args, i += 1, arg);
-    else if (arg === '--task-id') options.taskId = requireValue(args, i += 1, arg);
-    else if (arg === '--run-id') options.runId = requireValue(args, i += 1, arg);
-    else if (arg === '--script') options.scripts.push(requireValue(args, i += 1, arg));
-    else if (arg === '--changed-file') options.changedFiles.push(requireValue(args, i += 1, arg));
-    else if (arg === '--test-command') options.taskSpecificTests.push(requireValue(args, i += 1, arg));
-    else if (arg === '--dry-run-command') options.taskSpecificDryRuns.push(requireValue(args, i += 1, arg));
+    } else if (arg === '--category') options.category = requireValue(args, (i += 1), arg);
+    else if (arg === '--task-id') options.taskId = requireValue(args, (i += 1), arg);
+    else if (arg === '--run-id') options.runId = requireValue(args, (i += 1), arg);
+    else if (arg === '--script') options.scripts.push(requireValue(args, (i += 1), arg));
+    else if (arg === '--changed-file') options.changedFiles.push(requireValue(args, (i += 1), arg));
+    else if (arg === '--test-command')
+      options.taskSpecificTests.push(requireValue(args, (i += 1), arg));
+    else if (arg === '--dry-run-command')
+      options.taskSpecificDryRuns.push(requireValue(args, (i += 1), arg));
     else throw new Error(`Unknown argument: ${arg}`);
   }
 
@@ -155,7 +160,7 @@ function getGitChangedFiles() {
     const output = execFileSync('git', ['--no-pager', 'status', '--short'], {
       cwd: projectRoot,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     return output
       .split(/\r?\n/)
@@ -177,7 +182,9 @@ function parseGitStatusPath(line) {
 }
 
 function normalizePath(filePath) {
-  return String(filePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
+  return String(filePath || '')
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '');
 }
 
 function isMarkdownOrDocs(filePath) {
@@ -185,11 +192,16 @@ function isMarkdownOrDocs(filePath) {
 }
 
 function isGovernanceText(filePath) {
-  return /^(AGENTS\.md|SSOK\.md|VERIFY\.md|ROADMAP\.md)$/.test(filePath) || /^\.governance\/.*\.md$/.test(filePath);
+  return (
+    /^(AGENTS\.md|SSOK\.md|VERIFY\.md|ROADMAP\.md)$/.test(filePath) ||
+    /^\.governance\/.*\.md$/.test(filePath)
+  );
 }
 
 function isTestFile(filePath) {
-  return /(^__tests__\/|\/__tests__\/|\.test\.[cm]?[jt]sx?$|\.spec\.[cm]?[jt]sx?$|^test-|\/test-|^.*test\.js$)/i.test(filePath);
+  return /(^__tests__\/|\/__tests__\/|\.test\.[cm]?[jt]sx?$|\.spec\.[cm]?[jt]sx?$|^test-|\/test-|^.*test\.js$)/i.test(
+    filePath,
+  );
 }
 
 function isRuntimeStateFile(filePath) {
@@ -210,7 +222,9 @@ function isDependencyFile(filePath) {
 
 function isProductRuntime(filePath) {
   if (/^src\//.test(filePath)) return !isTestFile(filePath);
-  return /^(App\.tsx|Apptest\.tsx|index\.ts|app\.json|babel\.config\.js|jest\.config\.js|tsconfig\.json)$/.test(filePath);
+  return /^(App\.tsx|Apptest\.tsx|index\.ts|app\.json|babel\.config\.js|jest\.config\.js|tsconfig\.json)$/.test(
+    filePath,
+  );
 }
 
 function categoryForFile(filePath) {
@@ -228,12 +242,14 @@ function categoryForFile(filePath) {
 
 function resolveCategory(options, changedFiles) {
   if (options.category) return { category: options.category, source: 'cli' };
-  if (changedFiles.length === 0) return { category: 'documentation-only', source: 'default_no_changed_files' };
+  if (changedFiles.length === 0)
+    return { category: 'documentation-only', source: 'default_no_changed_files' };
 
   const detected = new Set(changedFiles.map(categoryForFile));
   let selected = 'documentation-only';
   for (const category of detected) {
-    if (CATEGORY_PRIORITY.indexOf(category) > CATEGORY_PRIORITY.indexOf(selected)) selected = category;
+    if (CATEGORY_PRIORITY.indexOf(category) > CATEGORY_PRIORITY.indexOf(selected))
+      selected = category;
   }
   return { category: selected, source: 'changed_files' };
 }
@@ -244,24 +260,41 @@ function commandSpec(command, { required = true, blocking = true, source = 'VERI
 
 function buildValidationPlan(category, options, changedFiles) {
   const runtimeChanged = changedFiles.some((file) => isProductRuntime(file));
-  const scripts = options.scripts.length > 0
-    ? options.scripts
-    : changedFiles.filter((file) => categoryForFile(file) === 'governance-script-only');
+  const scripts =
+    options.scripts.length > 0
+      ? options.scripts
+      : changedFiles.filter((file) => categoryForFile(file) === 'governance-script-only');
 
-  const taskTests = options.taskSpecificTests.map((command) => commandSpec(command, { source: 'task-specific' }));
-  const taskDryRuns = options.taskSpecificDryRuns.map((command) => commandSpec(command, { source: 'task-specific-dry-run' }));
+  const taskTests = options.taskSpecificTests.map((command) =>
+    commandSpec(command, { source: 'task-specific' }),
+  );
+  const taskDryRuns = options.taskSpecificDryRuns.map((command) =>
+    commandSpec(command, { source: 'task-specific-dry-run' }),
+  );
 
   if (category === 'documentation-only') {
     return {
       required: READBACK_CHECKS.map((command) => commandSpec(command)),
-      optional: [commandSpec('npm run verify', { required: false, blocking: false, source: 'VERIFY.md optional' })]
+      optional: [
+        commandSpec('npm run verify', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+      ],
     };
   }
 
   if (category === 'governance-only') {
     return {
       required: READBACK_CHECKS.map((command) => commandSpec(command)),
-      optional: [commandSpec('npm run verify', { required: false, blocking: false, source: 'VERIFY.md optional' })]
+      optional: [
+        commandSpec('npm run verify', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+      ],
     };
   }
 
@@ -269,9 +302,17 @@ function buildValidationPlan(category, options, changedFiles) {
     return {
       required: [...taskTests, ...READBACK_CHECKS.map((command) => commandSpec(command))],
       optional: [
-        commandSpec('npm run test', { required: false, blocking: false, source: 'VERIFY.md optional' }),
-        commandSpec('npm run verify', { required: false, blocking: false, source: 'VERIFY.md optional' })
-      ]
+        commandSpec('npm run test', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+        commandSpec('npm run verify', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+      ],
     };
   }
 
@@ -279,11 +320,27 @@ function buildValidationPlan(category, options, changedFiles) {
     return {
       required: [commandSpec('npm run verify')],
       optional: [
-        commandSpec('npm run lint', { required: false, blocking: false, source: 'VERIFY.md optional' }),
-        commandSpec('npm run typecheck', { required: false, blocking: false, source: 'VERIFY.md optional' }),
-        commandSpec('npm run test', { required: false, blocking: false, source: 'VERIFY.md optional' }),
-        commandSpec('npm run doctor', { required: false, blocking: false, source: 'VERIFY.md optional' })
-      ]
+        commandSpec('npm run lint', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+        commandSpec('npm run typecheck', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+        commandSpec('npm run test', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+        commandSpec('npm run doctor', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+      ],
     };
   }
 
@@ -291,15 +348,23 @@ function buildValidationPlan(category, options, changedFiles) {
     const required = [
       commandSpec('npm run verify:supabase:link'),
       commandSpec('npm run verify:schema'),
-      commandSpec('npm run verify:edge')
+      commandSpec('npm run verify:edge'),
     ];
     if (runtimeChanged) required.push(commandSpec('npm run verify'));
     return {
       required,
       optional: [
-        commandSpec('npm run typecheck:functions', { required: false, blocking: false, source: 'VERIFY.md optional' }),
-        commandSpec('npm run doctor', { required: false, blocking: false, source: 'VERIFY.md optional' })
-      ]
+        commandSpec('npm run typecheck:functions', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+        commandSpec('npm run doctor', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+      ],
     };
   }
 
@@ -307,24 +372,39 @@ function buildValidationPlan(category, options, changedFiles) {
     return {
       required: [commandSpec('npm run verify'), ...taskTests],
       optional: [
-        commandSpec('npm run doctor', { required: false, blocking: false, source: 'VERIFY.md optional' }),
-        commandSpec('npm audit', { required: false, blocking: false, source: 'VERIFY.md optional read-only' })
-      ]
+        commandSpec('npm run doctor', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional',
+        }),
+        commandSpec('npm audit', {
+          required: false,
+          blocking: false,
+          source: 'VERIFY.md optional read-only',
+        }),
+      ],
     };
   }
 
   if (category === 'runtime-state-only') {
     return {
-      required: [commandSpec('node scripts/agent/validate-ralph-state.mjs'), ...READBACK_CHECKS.map((command) => commandSpec(command))],
-      optional: []
+      required: [
+        commandSpec('node scripts/agent/validate-ralph-state.mjs'),
+        ...READBACK_CHECKS.map((command) => commandSpec(command)),
+      ],
+      optional: [],
     };
   }
 
   if (category === 'governance-script-only') {
     const nodeChecks = scripts.map((script) => commandSpec(`node --check ${script}`));
     return {
-      required: [...nodeChecks, ...taskDryRuns, ...READBACK_CHECKS.map((command) => commandSpec(command))],
-      optional: []
+      required: [
+        ...nodeChecks,
+        ...taskDryRuns,
+        ...READBACK_CHECKS.map((command) => commandSpec(command)),
+      ],
+      optional: [],
     };
   }
 
@@ -376,7 +456,7 @@ function executeChecks(commandSpecs) {
         cwd: projectRoot,
         encoding: 'utf8',
         shell: false,
-        windowsHide: true
+        windowsHide: true,
       });
       executed.push({
         command: spec.command,
@@ -388,7 +468,7 @@ function executeChecks(commandSpecs) {
         started_at: startedAt,
         completed_at: nowIso(),
         stdout_excerpt: excerpt(result.stdout),
-        stderr_excerpt: excerpt(result.stderr)
+        stderr_excerpt: excerpt(result.stderr),
       });
     } catch (error) {
       executed.push({
@@ -399,7 +479,7 @@ function executeChecks(commandSpecs) {
         exit_code: 2,
         started_at: startedAt,
         completed_at: nowIso(),
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -413,15 +493,22 @@ function excerpt(value, limit = 4000) {
 
 function buildResult(options) {
   const timestamp = nowIso();
-  const changedFiles = options.changedFiles.length > 0 ? options.changedFiles.map(normalizePath) : getGitChangedFiles();
+  const changedFiles =
+    options.changedFiles.length > 0
+      ? options.changedFiles.map(normalizePath)
+      : getGitChangedFiles();
   const categoryResolution = resolveCategory(options, changedFiles);
   const plan = buildValidationPlan(categoryResolution.category, options, changedFiles);
   const commandsPlanned = plan.required.map((spec) => ({ ...spec }));
   const commandsExecuted = options.execute ? executeChecks(commandsPlanned) : [];
-  const failedBlocking = commandsExecuted.filter((check) => check.blocking && check.status !== 'passed');
+  const failedBlocking = commandsExecuted.filter(
+    (check) => check.blocking && check.status !== 'passed',
+  );
 
   const overallResult = options.execute
-    ? failedBlocking.length === 0 ? 'passed' : 'failed'
+    ? failedBlocking.length === 0
+      ? 'passed'
+      : 'failed'
     : 'planned';
 
   return {
@@ -444,13 +531,14 @@ function buildResult(options) {
     writes_performed: false,
     append_validation_results_jsonl: false,
     verify_md_rule_reference: 'VERIFY.md canonical verification decision table',
-    validation_rules_reference: 'validation/validation-rules.json read as structured non-weakening rule catalog',
+    validation_rules_reference:
+      'validation/validation-rules.json read as structured non-weakening rule catalog',
     safety_notes: [
       'No runtime state mutations are performed.',
       'No automatic repairs are performed.',
       'No validation-results.jsonl append is performed.',
-      'Execute mode runs planned commands one by one without shell command chaining.'
-    ]
+      'Execute mode runs planned commands one by one without shell command chaining.',
+    ],
   };
 }
 
@@ -467,26 +555,50 @@ function formatHuman(result) {
   lines.push(`Writes performed: ${result.writes_performed}`);
   lines.push('');
   lines.push('## Required Checks');
-  lines.push(...(result.required_checks.length ? result.required_checks.map((check) => `- ${check}`) : ['- None']));
+  lines.push(
+    ...(result.required_checks.length
+      ? result.required_checks.map((check) => `- ${check}`)
+      : ['- None']),
+  );
   lines.push('');
   lines.push('## Optional Checks');
-  lines.push(...(result.optional_checks.length ? result.optional_checks.map((check) => `- ${check}`) : ['- None']));
+  lines.push(
+    ...(result.optional_checks.length
+      ? result.optional_checks.map((check) => `- ${check}`)
+      : ['- None']),
+  );
   lines.push('');
   lines.push('## Blocking Checks');
-  lines.push(...(result.blocking_checks.length ? result.blocking_checks.map((check) => `- ${check}`) : ['- None']));
+  lines.push(
+    ...(result.blocking_checks.length
+      ? result.blocking_checks.map((check) => `- ${check}`)
+      : ['- None']),
+  );
   lines.push('');
   lines.push('## Commands Planned');
-  lines.push(...(result.commands_planned.length ? result.commands_planned.map((check) => `- ${check.command}`) : ['- None']));
+  lines.push(
+    ...(result.commands_planned.length
+      ? result.commands_planned.map((check) => `- ${check.command}`)
+      : ['- None']),
+  );
   lines.push('');
   lines.push('## Commands Executed');
   if (result.commands_executed.length === 0) {
     lines.push('- None (dry-run)');
   } else {
-    lines.push(...result.commands_executed.map((check) => `- [${check.status}] ${check.command} (exit ${check.exit_code})`));
+    lines.push(
+      ...result.commands_executed.map(
+        (check) => `- [${check.status}] ${check.command} (exit ${check.exit_code})`,
+      ),
+    );
   }
   lines.push('');
   lines.push('## Changed Files Basis');
-  lines.push(...(result.changed_files_basis.length ? result.changed_files_basis.map((file) => `- ${file}`) : ['- None detected/provided']));
+  lines.push(
+    ...(result.changed_files_basis.length
+      ? result.changed_files_basis.map((file) => `- ${file}`)
+      : ['- None detected/provided']),
+  );
   return lines.join('\n');
 }
 
@@ -508,7 +620,7 @@ async function main() {
       validator: { type: 'validator', id: VALIDATOR_ID },
       overall_result: 'validator_execution_error',
       writes_performed: false,
-      error: error.message
+      error: error.message,
     };
     if (process.argv.includes('--json')) console.error(JSON.stringify(payload, null, 2));
     else console.error(`Ralph category validator error: ${error.message}`);

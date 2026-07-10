@@ -10,7 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { readSheet } from 'read-excel-file/node';
 
 import { DATA_WORKBOOK_PATH } from './lib/bls-sample-generator.mjs';
-import { buildFullArtifactDryRunSummary, errorPayload, parseArgs } from './lib/bls-full-artifact-dry-run.mjs';
+import {
+  buildFullArtifactDryRunSummary,
+  errorPayload,
+  parseArgs,
+} from './lib/bls-full-artifact-dry-run.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = process.cwd();
@@ -51,7 +55,9 @@ function relaunchWithLargerHeapIfNeeded() {
   if (result.error) {
     console.error(
       JSON.stringify(
-        errorPayload(`Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`),
+        errorPayload(
+          `Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`,
+        ),
         null,
         2,
       ),
@@ -70,7 +76,8 @@ function sha256File(filePath) {
 
 function assertWorkbookExists() {
   const absolutePath = path.join(REPO_ROOT, DATA_WORKBOOK_PATH);
-  if (!fs.existsSync(absolutePath)) throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
+  if (!fs.existsSync(absolutePath))
+    throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
   return absolutePath;
 }
 

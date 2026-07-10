@@ -3,14 +3,19 @@ import { buildWorkerInvocationContractSimulation } from './overnight-worker-invo
 export const WORKER_ADAPTER_SIMULATOR_SCHEMA_VERSION = '1.0.0';
 export const WORKER_ADAPTER_SIMULATOR_PHASE = 'RALPH-034K';
 
-const NON_AUTHORIZATION_STATEMENT = 'This adapter route is a planning artifact only. It does not authorize adapter invocation, worker invocation, provider/model invocation, prompt execution, queued task execution, validation execution, file changes, runtime mutation, evidence mutation, network activity, commits, pushes, dependency changes, external side effects, or product work.';
+const NON_AUTHORIZATION_STATEMENT =
+  'This adapter route is a planning artifact only. It does not authorize adapter invocation, worker invocation, provider/model invocation, prompt execution, queued task execution, validation execution, file changes, runtime mutation, evidence mutation, network activity, commits, pushes, dependency changes, external side effects, or product work.';
 
 function asArray(value) {
   return Array.isArray(value) ? [...value] : [];
 }
 
 function sanitizeId(value) {
-  return String(value || 'missing').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'missing';
+  return (
+    String(value || 'missing')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'missing'
+  );
 }
 
 function buildRouteId(queueId, taskId) {
@@ -21,7 +26,7 @@ function authorizationEnforcement(contract = {}) {
   const requiredFlags = [
     'execution_authorized',
     'worker_invocation_authorized',
-    'prompt_execution_authorized'
+    'prompt_execution_authorized',
   ];
   const missingAuthorizations = requiredFlags.filter((flag) => contract[flag] !== true);
   return {
@@ -37,16 +42,19 @@ function authorizationEnforcement(contract = {}) {
     all_required_authorizations_present: missingAuthorizations.length === 0,
     missing_authorizations: missingAuthorizations,
     authorization_failure_blocks_route: missingAuthorizations.length > 0,
-    route_blocked: true
+    route_blocked: true,
   };
 }
 
 function routingDecision(contract = {}, enforcement = {}) {
   const reasonCodes = [];
   if (contract.execution_authorized !== true) reasonCodes.push('execution_not_authorized');
-  if (contract.worker_invocation_authorized !== true) reasonCodes.push('worker_invocation_not_authorized');
-  if (contract.prompt_execution_authorized !== true) reasonCodes.push('prompt_execution_not_authorized');
-  if (contract.adapter_binding?.adapter_implemented !== true) reasonCodes.push('adapter_not_implemented');
+  if (contract.worker_invocation_authorized !== true)
+    reasonCodes.push('worker_invocation_not_authorized');
+  if (contract.prompt_execution_authorized !== true)
+    reasonCodes.push('prompt_execution_not_authorized');
+  if (contract.adapter_binding?.adapter_implemented !== true)
+    reasonCodes.push('adapter_not_implemented');
   if (contract.adapter_binding?.adapter_selected !== true) reasonCodes.push('adapter_not_selected');
 
   return {
@@ -56,7 +64,7 @@ function routingDecision(contract = {}, enforcement = {}) {
     selected_model: null,
     route_blocked: true,
     route_blocked_by_authorization: enforcement.authorization_failure_blocks_route === true,
-    reason_codes: [...new Set(reasonCodes)]
+    reason_codes: [...new Set(reasonCodes)],
   };
 }
 
@@ -65,7 +73,7 @@ function inputContractSnapshot(contract = {}) {
     contract_id: contract.contract_id || null,
     source_queue_id: contract.source_queue_id || null,
     source_task_id: contract.source_task_id || null,
-    source_envelope_id: contract.source_envelope_id || null
+    source_envelope_id: contract.source_envelope_id || null,
   };
 }
 
@@ -86,11 +94,14 @@ export function buildWorkerAdapterRouteSimulation(contractEntry) {
       route_id: buildRouteId(queueId, taskId),
       source_contract_id: contract.contract_id || null,
       source_task_id: taskId,
-      worker_type_placeholder: contract.worker_type_placeholder || 'future_supervised_worker_adapter_placeholder',
+      worker_type_placeholder:
+        contract.worker_type_placeholder || 'future_supervised_worker_adapter_placeholder',
       adapter_family_placeholder: 'future_human_approved_adapter_family_placeholder',
       adapter_name_placeholder: 'future_human_approved_adapter_name_placeholder',
-      provider_placeholder: contract.model_provider_placeholder || 'future_human_approved_provider_placeholder',
-      model_placeholder: contract.model_name_placeholder || 'future_human_approved_model_placeholder',
+      provider_placeholder:
+        contract.model_provider_placeholder || 'future_human_approved_provider_placeholder',
+      model_placeholder:
+        contract.model_name_placeholder || 'future_human_approved_model_placeholder',
       provider_selected: false,
       model_selected: false,
       provider_selection_authorized: false,
@@ -104,16 +115,16 @@ export function buildWorkerAdapterRouteSimulation(contractEntry) {
         adapter_selected: false,
         adapter_invocation_command: null,
         adapter_endpoint: null,
-        callable_invocation_function: null
+        callable_invocation_function: null,
       },
       input_contract_snapshot: inputContractSnapshot(contract),
       authorization_enforcement: enforcement,
-      non_authorization_statement: NON_AUTHORIZATION_STATEMENT
+      non_authorization_statement: NON_AUTHORIZATION_STATEMENT,
     },
     execution_authorized: false,
     worker_invocation_authorized: false,
     adapter_invocation_authorized: false,
-    prompt_execution_authorized: false
+    prompt_execution_authorized: false,
   };
 }
 
@@ -125,11 +136,12 @@ function buildNotEligibleAdapterResult(contractEntry) {
     adapter_simulation_created: false,
     adapter_route_disposition: 'not_eligible_no_contract',
     reason_codes: asArray(contractEntry?.reason_codes),
-    human_explanation: 'No adapter route simulated because no RALPH-034J invocation contract was created.',
+    human_explanation:
+      'No adapter route simulated because no RALPH-034J invocation contract was created.',
     execution_authorized: false,
     worker_invocation_authorized: false,
     adapter_invocation_authorized: false,
-    prompt_execution_authorized: false
+    prompt_execution_authorized: false,
   };
 }
 
@@ -137,21 +149,31 @@ function summarizeAdapterSimulations(entries) {
   return {
     total_tasks: entries.length,
     adapter_routes_created: 0,
-    adapter_routes_simulated: entries.filter((entry) => entry.adapter_simulation_created === true).length,
-    blocked_by_authorization: entries.filter((entry) => entry.adapter_route_disposition === 'blocked_by_authorization').length,
-    not_eligible: entries.filter((entry) => entry.adapter_route_disposition === 'not_eligible_no_contract').length
+    adapter_routes_simulated: entries.filter((entry) => entry.adapter_simulation_created === true)
+      .length,
+    blocked_by_authorization: entries.filter(
+      (entry) => entry.adapter_route_disposition === 'blocked_by_authorization',
+    ).length,
+    not_eligible: entries.filter(
+      (entry) => entry.adapter_route_disposition === 'not_eligible_no_contract',
+    ).length,
   };
 }
 
 function recommendedHumanActions(summary) {
   if (summary.adapter_routes_simulated > 0) {
-    return ['Review adapter route simulations manually. They do not authorize adapters, workers, providers, models, prompts, tasks, validation commands, commits, or pushes.'];
+    return [
+      'Review adapter route simulations manually. They do not authorize adapters, workers, providers, models, prompts, tasks, validation commands, commits, or pushes.',
+    ];
   }
-  return ['No adapter routes simulated. Review RALPH-034J invocation contract results before future adapter design.'];
+  return [
+    'No adapter routes simulated. Review RALPH-034J invocation contract results before future adapter design.',
+  ];
 }
 
 export function buildWorkerAdapterSimulation(queue, options = {}) {
-  const contractSimulation = options.contractSimulation || buildWorkerInvocationContractSimulation(queue, options);
+  const contractSimulation =
+    options.contractSimulation || buildWorkerInvocationContractSimulation(queue, options);
   const taskAdapterSimulations = asArray(contractSimulation.task_contracts).map((entry) => {
     if (entry.contract_created !== true) return buildNotEligibleAdapterResult(entry);
     return buildWorkerAdapterRouteSimulation(entry);
@@ -168,7 +190,7 @@ export function buildWorkerAdapterSimulation(queue, options = {}) {
     source_invocation_contract_simulation: {
       runner: contractSimulation.runner,
       phase: contractSimulation.phase,
-      mode: contractSimulation.mode
+      mode: contractSimulation.mode,
     },
     summary,
     task_adapter_simulations: taskAdapterSimulations,
@@ -186,7 +208,7 @@ export function buildWorkerAdapterSimulation(queue, options = {}) {
       product_work: 0,
       files_written: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -205,9 +227,9 @@ export function buildWorkerAdapterSimulation(queue, options = {}) {
       no_commit: true,
       no_push: true,
       writes_by_default: false,
-      non_authorizing_output: true
+      non_authorizing_output: true,
     },
-    recommended_human_actions: recommendedHumanActions(summary)
+    recommended_human_actions: recommendedHumanActions(summary),
   };
 }
 
@@ -218,7 +240,9 @@ export function formatWorkerAdapterSimulationPretty(simulation) {
   lines.push(`Queue: ${simulation.queue_id || '(missing)'}`);
   lines.push(`Mode: ${simulation.mode}`);
   lines.push(`Valid: ${simulation.valid}`);
-  lines.push('Execution: planning-only adapter simulation; no queued task execution; no prompt execution; no validation commands; no worker invocation; no adapter invocation; no provider/model invocation; no network activity; no runtime mutation; no commit; no push.');
+  lines.push(
+    'Execution: planning-only adapter simulation; no queued task execution; no prompt execution; no validation commands; no worker invocation; no adapter invocation; no provider/model invocation; no network activity; no runtime mutation; no commit; no push.',
+  );
   lines.push('');
   lines.push('Summary:');
   lines.push(`- total_tasks: ${simulation.summary.total_tasks}`);
@@ -228,10 +252,14 @@ export function formatWorkerAdapterSimulationPretty(simulation) {
   lines.push('');
   lines.push('Task adapter simulations:');
   for (const entry of simulation.task_adapter_simulations) {
-    lines.push(`- ${entry.task_id || '(missing)'} adapter_simulation_created=${entry.adapter_simulation_created} disposition=${entry.adapter_route_disposition}`);
+    lines.push(
+      `- ${entry.task_id || '(missing)'} adapter_simulation_created=${entry.adapter_simulation_created} disposition=${entry.adapter_route_disposition}`,
+    );
   }
   lines.push('');
-  lines.push('Non-authorization: adapter route simulations do not authorize adapter invocation, worker invocation, provider/model invocation, prompt execution, task execution, validation execution, network activity, commits, or pushes.');
+  lines.push(
+    'Non-authorization: adapter route simulations do not authorize adapter invocation, worker invocation, provider/model invocation, prompt execution, task execution, validation execution, network activity, commits, or pushes.',
+  );
   lines.push('Recommended Human Actions:');
   for (const action of simulation.recommended_human_actions) lines.push(`- ${action}`);
   return lines.join('\n');

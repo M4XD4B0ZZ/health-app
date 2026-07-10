@@ -14,7 +14,8 @@ import { SCHEMA_VERSION, sha256Bytes, stableJsonBytes } from './bls-artifact-wri
 
 export const TOOL_ID = 'P1-006C3C_BLS_FULL_ARTIFACT_DRY_RUN';
 export const DRY_RUN_SCHEMA_VERSION = 'bls-full-runtime-artifact-dry-run.v1';
-export const FULL_ARTIFACT_TARGET_PATH = 'scripts/nutrition/bls/out/runtime/bls-runtime-catalog.v1.json';
+export const FULL_ARTIFACT_TARGET_PATH =
+  'scripts/nutrition/bls/out/runtime/bls-runtime-catalog.v1.json';
 export const DUPLICATE_EXAMPLE_LIMIT = 10;
 export const MAX_BOUNDED_PROBE_ROWS = 500;
 
@@ -31,10 +32,13 @@ const FORBIDDEN_FLAG_PATTERNS = Object.freeze([
 ]);
 
 function parseMaxRowsValue(value) {
-  if (!/^\d+$/.test(value ?? '')) throw new Error(`Invalid --max-rows value refused: ${value ?? '<missing>'}`);
+  if (!/^\d+$/.test(value ?? ''))
+    throw new Error(`Invalid --max-rows value refused: ${value ?? '<missing>'}`);
   const maxRows = Number(value);
   if (!Number.isSafeInteger(maxRows) || maxRows < 1 || maxRows > MAX_BOUNDED_PROBE_ROWS) {
-    throw new Error(`Invalid --max-rows value refused: ${value}; allowed range is 1..${MAX_BOUNDED_PROBE_ROWS}`);
+    throw new Error(
+      `Invalid --max-rows value refused: ${value}; allowed range is 1..${MAX_BOUNDED_PROBE_ROWS}`,
+    );
   }
   return maxRows;
 }
@@ -141,7 +145,9 @@ function detectDuplicateRecords(records, keySelector) {
     .map(([value, duplicateRecords]) => ({
       value,
       count: duplicateRecords.length,
-      sourceRowNumbers: duplicateRecords.map((record) => record.provenance?.sourceRowNumber ?? null),
+      sourceRowNumbers: duplicateRecords.map(
+        (record) => record.provenance?.sourceRowNumber ?? null,
+      ),
     }));
 
   return {
@@ -229,7 +235,8 @@ export function buildFullArtifactPayloadFromRecords(records, options = {}) {
           sha256: options.sourceWorkbookSha256 ?? null,
           sheetSelection: {
             selector: 1,
-            limitation: 'The first worksheet is read explicitly to avoid loading all workbook sheets.',
+            limitation:
+              'The first worksheet is read explicitly to avoid loading all workbook sheets.',
           },
         },
       },
@@ -239,7 +246,10 @@ export function buildFullArtifactPayloadFromRecords(records, options = {}) {
     records: records.map(toRuntimeRecord),
   };
 
-  const payload = withContentHash(payloadWithoutHash, computeFullArtifactContentHash(payloadWithoutHash));
+  const payload = withContentHash(
+    payloadWithoutHash,
+    computeFullArtifactContentHash(payloadWithoutHash),
+  );
   const bytes = stableJsonBytes(payload);
   return {
     payload,
@@ -257,7 +267,9 @@ export function scanAllBlsRows(rows, options = {}) {
   const columnMap = buildColumnMap(header.headers);
   const missingRequiredColumns = validateRequiredColumns(columnMap);
   if (missingRequiredColumns.length > 0) {
-    throw new Error(`Missing required BLS columns: ${missingRequiredColumns.map((column) => column.key).join(', ')}`);
+    throw new Error(
+      `Missing required BLS columns: ${missingRequiredColumns.map((column) => column.key).join(', ')}`,
+    );
   }
 
   const records = [];
@@ -329,8 +341,10 @@ export function validateFullArtifactPayload(payload) {
   const errors = [];
   if (payload?.schemaVersion !== SCHEMA_VERSION) errors.push('schemaVersion mismatch');
   if (payload?.manifest?.artifact?.kind !== 'full') errors.push('artifact kind must be full');
-  if (payload?.manifest?.artifact?.path !== FULL_ARTIFACT_TARGET_PATH) errors.push('artifact path mismatch');
-  if (payload?.manifest?.generator?.writesFiles !== false) errors.push('full dry-run generator must declare writesFiles false');
+  if (payload?.manifest?.artifact?.path !== FULL_ARTIFACT_TARGET_PATH)
+    errors.push('artifact path mismatch');
+  if (payload?.manifest?.generator?.writesFiles !== false)
+    errors.push('full dry-run generator must declare writesFiles false');
   if (payload?.manifest?.artifact?.contentSha256 !== computeFullArtifactContentHash(payload)) {
     errors.push('content hash verification failed');
   }
@@ -359,16 +373,25 @@ function evaluateBundleRisk(byteLength) {
   return { status: 'acceptable', requiresHumanReviewBeforeC3D: false };
 }
 
-function buildRiskChecklist({ scanResult, artifactEstimate, deterministicRegeneration, validation }) {
+function buildRiskChecklist({
+  scanResult,
+  artifactEstimate,
+  deterministicRegeneration,
+  validation,
+}) {
   const blockingFindings = [];
   const warnings = [];
 
-  if (scanResult.scan.maxRows == null && scanResult.scan.dataRowsScanned !== scanResult.scan.dataRowsAvailable) {
+  if (
+    scanResult.scan.maxRows == null &&
+    scanResult.scan.dataRowsScanned !== scanResult.scan.dataRowsAvailable
+  ) {
     blockingFindings.push('full_scan_did_not_scan_all_available_data_rows');
   }
   if (scanResult.scan.maxRows != null) warnings.push('bounded_probe_not_full_workbook_evidence');
   if (scanResult.scan.validTier1Records === 0) blockingFindings.push('zero_valid_tier1_records');
-  if (scanResult.mapping.missingTier1Columns.length > 0) blockingFindings.push('missing_tier1_columns');
+  if (scanResult.mapping.missingTier1Columns.length > 0)
+    blockingFindings.push('missing_tier1_columns');
   if (scanResult.duplicates.blsCodes.count > 0) blockingFindings.push('duplicate_bls_codes');
   if (scanResult.duplicates.ids.count > 0) blockingFindings.push('duplicate_generated_ids');
   if (artifactEstimate && artifactEstimate.byteLength > BUNDLE_SIZE_THRESHOLDS.defaultBlockBytes) {
@@ -384,14 +407,22 @@ function buildRiskChecklist({ scanResult, artifactEstimate, deterministicRegener
 
   if (scanResult.mapping.missingTier2Columns.length > 0) warnings.push('missing_tier2_columns');
   if (scanResult.duplicates.normalizedNames.count > 0) warnings.push('duplicate_normalized_names');
-  if (artifactEstimate && artifactEstimate.byteLength >= BUNDLE_SIZE_THRESHOLDS.reviewRequiredBytes) {
+  if (
+    artifactEstimate &&
+    artifactEstimate.byteLength >= BUNDLE_SIZE_THRESHOLDS.reviewRequiredBytes
+  ) {
     warnings.push('artifact_size_requires_mobile_bundle_review');
   }
 
   return {
     blockingFindings,
     warnings,
-    c3dRecommendation: blockingFindings.length > 0 ? 'blocked' : warnings.length > 0 ? 'review_before_proceeding' : 'proceed',
+    c3dRecommendation:
+      blockingFindings.length > 0
+        ? 'blocked'
+        : warnings.length > 0
+          ? 'review_before_proceeding'
+          : 'proceed',
   };
 }
 
@@ -457,14 +488,22 @@ export function buildFullArtifactDryRunSummary(rows, options = {}) {
   const bundleRiskBase = artifactEstimate
     ? evaluateBundleRisk(artifactEstimate.byteLength)
     : { status: 'not_evaluated_scan_only', requiresHumanReviewBeforeC3D: true };
-  const riskChecklist = buildRiskChecklist({ scanResult, artifactEstimate, deterministicRegeneration, validation });
+  const riskChecklist = buildRiskChecklist({
+    scanResult,
+    artifactEstimate,
+    deterministicRegeneration,
+    validation,
+  });
   const durationMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
 
   return {
     schemaVersion: DRY_RUN_SCHEMA_VERSION,
     tool: TOOL_ID,
     ok: true,
-    mode: mode === 'scan-only' ? 'full-artifact-scan-only-summary-only' : 'full-artifact-dry-run-summary-only',
+    mode:
+      mode === 'scan-only'
+        ? 'full-artifact-scan-only-summary-only'
+        : 'full-artifact-dry-run-summary-only',
     writesFiles: false,
     generatesRuntimeArtifactFile: false,
     generatedArtifactBytesInMemory: mode === 'estimate-artifact',
@@ -479,7 +518,8 @@ export function buildFullArtifactDryRunSummary(rows, options = {}) {
         sha256: options.sourceWorkbookSha256 ?? null,
         sheetSelection: {
           selector: 1,
-          limitation: 'The first worksheet is read explicitly to avoid loading all workbook sheets.',
+          limitation:
+            'The first worksheet is read explicitly to avoid loading all workbook sheets.',
         },
         workbookRows: rows.length,
         columnCount: rows.reduce((max, row) => Math.max(max, row.length), 0),

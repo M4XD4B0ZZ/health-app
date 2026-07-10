@@ -9,7 +9,7 @@ import test from 'node:test';
 import {
   BASELINE_FORBIDDEN_FILES,
   buildDryRunPlan,
-  validateOvernightQueue
+  validateOvernightQueue,
 } from '../lib/overnight-queue-schema.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,7 +39,7 @@ function validTask(overrides = {}) {
     handoff_required: true,
     review_required: true,
     notes: 'Fixture only.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -51,7 +51,7 @@ function validQueue(overrides = {}) {
     created_by: 'human-operator',
     mode: 'dry_run',
     tasks: [validTask()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -72,13 +72,16 @@ function writeQueue(root, queue) {
 }
 
 function snapshot(root) {
-  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+  return fs
+    .readdirSync(root)
+    .sort()
+    .map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
 }
 
 function runCli(queuePath, args = []) {
   return spawnSync(process.execPath, [SCRIPT, queuePath, ...args], {
     cwd: projectRoot,
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
 }
 
@@ -100,7 +103,9 @@ test('missing task class fails', () => {
 });
 
 test('unknown task class fails', () => {
-  const result = validateOvernightQueue(validQueue({ tasks: [validTask({ class: 'MAYBE_SAFE' })] }));
+  const result = validateOvernightQueue(
+    validQueue({ tasks: [validTask({ class: 'MAYBE_SAFE' })] }),
+  );
 
   assert.equal(result.valid, false);
   assert.ok(criticalCodes(result).includes('invalid_task_class'));
@@ -116,14 +121,18 @@ test('missing required fields fail', () => {
 });
 
 test('commit_policy other than never fails', () => {
-  const result = validateOvernightQueue(validQueue({ tasks: [validTask({ commit_policy: 'allowed' })] }));
+  const result = validateOvernightQueue(
+    validQueue({ tasks: [validTask({ commit_policy: 'allowed' })] }),
+  );
 
   assert.equal(result.valid, false);
   assert.ok(criticalCodes(result).includes('commit_policy_must_be_never'));
 });
 
 test('push_policy other than never fails', () => {
-  const result = validateOvernightQueue(validQueue({ tasks: [validTask({ push_policy: 'allowed' })] }));
+  const result = validateOvernightQueue(
+    validQueue({ tasks: [validTask({ push_policy: 'allowed' })] }),
+  );
 
   assert.equal(result.valid, false);
   assert.ok(criticalCodes(result).includes('push_policy_must_be_never'));
@@ -131,10 +140,17 @@ test('push_policy other than never fails', () => {
 
 test('baseline forbidden files must be present', () => {
   const missingBaseline = BASELINE_FORBIDDEN_FILES.filter((pattern) => pattern !== '.env');
-  const result = validateOvernightQueue(validQueue({ tasks: [validTask({ forbidden_files: missingBaseline })] }));
+  const result = validateOvernightQueue(
+    validQueue({ tasks: [validTask({ forbidden_files: missingBaseline })] }),
+  );
 
   assert.equal(result.valid, false);
-  assert.ok(result.findings.critical.some((finding) => finding.code === 'baseline_forbidden_file_missing' && finding.details.pattern === '.env'));
+  assert.ok(
+    result.findings.critical.some(
+      (finding) =>
+        finding.code === 'baseline_forbidden_file_missing' && finding.details.pattern === '.env',
+    ),
+  );
 });
 
 test('unsafe command patterns are rejected', () => {
@@ -143,17 +159,21 @@ test('unsafe command patterns are rejected', () => {
     'git push',
     'npm install',
     'Set-Content file.txt value',
-    'node script.mjs <<EOF'
+    'node script.mjs <<EOF',
   ];
 
   for (const command of commands) {
-    const result = validateOvernightQueue(validQueue({ tasks: [validTask({ allowed_commands: [command] })] }));
+    const result = validateOvernightQueue(
+      validQueue({ tasks: [validTask({ allowed_commands: [command] })] }),
+    );
     assert.equal(result.valid, false, command);
   }
 });
 
 test('product feature scope is rejected for v1', () => {
-  const result = validateOvernightQueue(validQueue({ tasks: [validTask({ allowed_files: ['src/features/example.ts'] })] }));
+  const result = validateOvernightQueue(
+    validQueue({ tasks: [validTask({ allowed_files: ['src/features/example.ts'] })] }),
+  );
 
   assert.equal(result.valid, false);
   assert.ok(criticalCodes(result).includes('product_scope_forbidden_in_v1'));

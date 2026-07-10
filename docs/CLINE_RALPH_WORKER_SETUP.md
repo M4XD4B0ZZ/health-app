@@ -21,6 +21,7 @@ Canonical owners:
 ## What Cline is Allowed to Be
 
 ### Worker Adapter Role
+
 - **Task Executor**: Cline executes exactly one assigned task per run
 - **File Modifier**: Cline creates, modifies, and deletes files as specified by task scope
 - **Validation Runner**: Cline executes required validation checks per task definition
@@ -28,6 +29,7 @@ Canonical owners:
 - **Repository Reader**: Cline reads governance files and task assignments
 
 ### Operational Boundaries
+
 - **Scoped Implementation**: Cline works within task-defined file boundaries
 - **Safety Compliant**: Cline respects protected files and forbidden operations
 - **Governance Follower**: Cline implements repository contracts, not its own logic
@@ -36,12 +38,14 @@ Canonical owners:
 ## What Cline is NOT Allowed to Be
 
 ### Prohibited Roles
+
 - **Source of Truth**: Repository governance is authoritative, not Cline's internal logic
 - **Task Selector**: Cline executes assigned tasks, never selects them
 - **Autonomous Agent**: Cline requires explicit task assignment and human review gates
 - **Decision Maker**: Cline implements specifications, does not make architectural decisions
 
 ### Prohibited Behaviors
+
 - **Multi-Task Execution**: Never execute multiple tasks in a single run
 - **Scope Expansion**: Never exceed task-defined boundaries
 - **Chat History Reliance**: Never rely on conversation history for task context
@@ -50,25 +54,30 @@ Canonical owners:
 ## Required Files Cline Must Read First
 
 ### Governance Foundation (Read in Order)
+
 1. **`.governance/SYSTEM.md`** - Ralph-Loop governance system overview
 2. **`.governance/RULES.md`** - Operational rules and constraints
 3. **`.governance/SAFETY.md`** - Safety policies and protected files
 4. **`.governance/REVIEW_POLICY.md`** - Human review requirements
 
 ### Task Assignment Context
+
 5. **`runs/current-run.json`** - Current task assignment and scope
 6. **`tasks/task-state.json`** - Task state and dependencies
 7. **`handoffs/latest-handoff.md`** - Previous execution context
 
 ### Worker Role Definition
+
 8. **`.agent/prompts/worker.md`** - Worker role responsibilities and constraints
 
 ### Adapter Integration
+
 9. **`.agent/adapters/cline.md`** - Cline-specific integration requirements
 
 ## Required Operating Rules
 
 > **Canonical owners (normative):**
+>
 > - Terminal safety policy: [`.agent/adapters/cline.md`](../.agent/adapters/cline.md)
 > - Safety policy: [`.governance/SAFETY.md`](../.governance/SAFETY.md)
 > - Protected-file enforcement patterns: [`.agent/config/protected-files.json`](../.agent/config/protected-files.json)
@@ -76,6 +85,7 @@ Canonical owners:
 The following sections are **operator summaries** for onboarding convenience and are **non-authoritative**.
 
 ### Command Syntax (Windows PowerShell) — Operator Summary
+
 - Use Windows/PowerShell-safe commands only.
 - Run exactly one short command per execution.
 - Do not chain commands.
@@ -94,6 +104,7 @@ The following sections are **operator summaries** for onboarding convenience and
 - For full rules (forbidden separators, pager handling, timeout recovery, blocking commands), use the canonical policy in `.agent/adapters/cline.md`.
 
 ### Verification Guidance (documentation-only tasks)
+
 - Prefer git readback checks (`git status --short`, `git --no-pager diff --stat`).
 - Avoid full `npm run verify` unless product/runtime code changed.
 
@@ -122,11 +133,13 @@ If `package.json` or `package-lock.json` drifts accidentally:
 6. document the incident in `handoffs/latest-handoff.md`.
 
 ### Unattended Execution Constraint
+
 - Cline is currently allowed only as a scoped worker.
 - Cline is not yet trusted for unattended overnight execution.
 - Ralph/Governor remains responsible for scope, stop conditions, and human review gates.
 
 ### Task Execution Protocol
+
 1. **Read Assignment**: Parse `runs/current-run.json` for complete task details
 2. **Verify Scope**: Confirm allowed/forbidden files and operations
 3. **Plan Implementation**: Understand requirements before making changes
@@ -136,12 +149,14 @@ If `package.json` or `package-lock.json` drifts accidentally:
 7. **Stop for Review**: Never continue to next task automatically
 
 ### Governance Compliance
+
 - **Repository First**: Repository files are authoritative, not Cline defaults
 - **Safety First**: Protected files override all other considerations
 - **Scope First**: Task boundaries override implementation preferences
 - **Human First**: Human review gates override automation desires
 
 ### File System Discipline
+
 - **Allowed Files Only**: Modify only files listed in task's `allowed_files`
 - **Forbidden Files Never**: Never touch files in task's `forbidden_files`
 - **Protected Files Never**: Follow canonical protected-file policy and patterns from `.governance/SAFETY.md` and `.agent/config/protected-files.json`
@@ -150,6 +165,7 @@ If `package.json` or `package-lock.json` drifts accidentally:
 ## Forbidden Actions
 
 ### Never Allowed Under Any Circumstances
+
 - **Push to Remote**: No `git push` operations
 - **Deploy to Production**: No production deployments
 - **Install Dependencies**: No `npm install` without explicit task authorization
@@ -159,12 +175,14 @@ If `package.json` or `package-lock.json` drifts accidentally:
 - **Claim Done Without Validation**: Never mark tasks complete without passing validation
 
 ### Requires Explicit Task Authorization
+
 - **Product Code Changes**: Only if task explicitly allows `src/` modifications
 - **Configuration Changes**: Only if task explicitly allows config file modifications
 - **Database Changes**: Only if task explicitly allows schema modifications
 - **Script Execution**: Only if task explicitly allows script modifications
 
 ### Human Approval Required
+
 - **Protected File Changes**: Any modification to protected files requires human approval
 - **Scope Expansion**: Any work beyond task definition requires human approval
 - **Safety Policy Exceptions**: Any deviation from safety policies requires human approval
@@ -172,13 +190,16 @@ If `package.json` or `package-lock.json` drifts accidentally:
 ## First Safe Task Type
 
 ### Documentation and State Tasks
+
 The safest first tasks for Cline are:
+
 - **Documentation Creation**: Creating or updating `.md` files
 - **State File Updates**: Updating `tasks/task-state.json`, `handoffs/latest-handoff.md`
 - **Planning Tasks**: Creating files in `plans/` directory
 - **Report Generation**: Updating `reports/` files
 
 ### Characteristics of Safe Tasks
+
 - **No Product Code**: No modifications to `src/` directory
 - **No Dependencies**: No `package.json` or `package-lock.json` changes
 - **No Database**: No `supabase/` modifications
@@ -189,11 +210,13 @@ The safest first tasks for Cline are:
 ## Handoff Requirements
 
 ### Required Handoff Sections
+
 Every Cline run MUST produce a handoff document that conforms to the canonical normative schema in [`.governance/RULES.md`](../.governance/RULES.md), including required verification disclosure per [`VERIFY.md`](../VERIFY.md).
 
 The section list in this onboarding document is an operator-oriented example structure for usability, not a separate schema owner.
 
 ### Handoff Quality Standards
+
 - **Complete**: All sections must be filled out
 - **Specific**: Concrete details, not generic statements
 - **Actionable**: Clear next steps for human reviewer
@@ -202,17 +225,20 @@ The section list in this onboarding document is an operator-oriented example str
 ## Validation Requirements
 
 ### Always Required
+
 - **Protected File Check**: Verify no protected files were modified
 - **Scope Boundary Check**: Confirm all changes within allowed scope
 - **Forbidden File Check**: Verify no forbidden files were touched
 - **JSON/JSONL Syntax**: Validate syntax of any JSON/JSONL files modified
 
 ### Conditionally Required
+
 - **Standard Validation**: Run `npm run verify` if task validation type is "standard" or higher
 - **Edge Verification**: Run `npm run verify:edge` if Supabase functions modified
 - **Custom Validation**: Run task-specific validation commands as defined
 
 ### Validation Failure Handling
+
 - **Document Failure**: Record specific validation errors
 - **Attempt Fix**: Try to resolve within task scope
 - **Escalate if Unfixable**: Stop and escalate to human review if cannot resolve
@@ -221,7 +247,9 @@ The section list in this onboarding document is an operator-oriented example str
 ## Stop Conditions
 
 ### Immediate Stop Required
+
 Cline MUST stop immediately when:
+
 - **Ambiguous Requirements**: Task specification is unclear or conflicting
 - **Protected File Needed**: Implementation requires modifying protected files
 - **Forbidden Operation**: Task requires forbidden actions
@@ -231,7 +259,9 @@ Cline MUST stop immediately when:
 - **Missing Dependency**: Required tools or resources unavailable
 
 ### Escalation Process
+
 When stop conditions occur:
+
 1. **Preserve State**: Save all work in progress
 2. **Document Issue**: Record what caused the stop
 3. **Update Handoff**: Explain the blocking condition
@@ -240,6 +270,7 @@ When stop conditions occur:
 ## Human Review Requirements
 
 ### Always Requires Human Review
+
 - **Task Completion**: Every task completion requires human approval
 - **Validation Failures**: Any validation failure that cannot be resolved
 - **Scope Questions**: Any ambiguity about task boundaries
@@ -247,6 +278,7 @@ When stop conditions occur:
 - **Large Changes**: Changes exceeding 500 lines or 10 files
 
 ### Review Quality Expectations
+
 - **Complete Diff Review**: Human must examine all changes
 - **Scope Verification**: Human must confirm changes within task boundaries
 - **Quality Assessment**: Human must assess implementation quality
@@ -255,6 +287,7 @@ When stop conditions occur:
 ## Setup Checklist Before Installing Cline
 
 ### Prerequisites Verification
+
 - [ ] **VS Code Installed**: Cline requires VS Code environment
 - [ ] **Node.js Available**: Verify `node --version` works
 - [ ] **NPM Available**: Verify `npm --version` works
@@ -262,17 +295,20 @@ When stop conditions occur:
 - [ ] **Git Status Clean**: Verify no uncommitted changes
 
 ### Governance Verification
+
 - [ ] **Governance Files Exist**: Verify `.governance/` directory exists
 - [ ] **Task State Exists**: Verify `tasks/task-state.json` exists
 - [ ] **Handoff Directory Exists**: Verify `handoffs/` directory exists
 - [ ] **Agent Prompts Exist**: Verify `.agent/prompts/` directory exists
 
 ### Permission Verification
+
 - [ ] **File System Access**: Verify can read/write repository files
 - [ ] **Terminal Access**: Verify can execute commands in VS Code terminal
 - [ ] **Network Access**: Verify can access required external resources
 
 ### Safety Verification
+
 - [ ] **Protected Files Identified**: Review `.governance/SAFETY.md` protected file list
 - [ ] **Forbidden Operations Understood**: Review forbidden actions list
 - [ ] **Validation Commands Work**: Verify `npm run verify` executes successfully
@@ -280,19 +316,25 @@ When stop conditions occur:
 ## How to Verify Cline is Following Repository Governance
 
 ### Pre-Execution Verification
+
 Before each Cline run:
+
 - [ ] **Task Assignment Clear**: Verify `runs/current-run.json` contains clear task
 - [ ] **Scope Boundaries Defined**: Verify allowed/forbidden files are specified
 - [ ] **Validation Requirements Clear**: Verify required validation checks are defined
 
 ### During Execution Monitoring
+
 While Cline is running:
+
 - [ ] **File Modifications Tracked**: Monitor which files Cline is modifying
 - [ ] **Scope Compliance**: Verify modifications stay within allowed boundaries
 - [ ] **Protected File Protection**: Verify no protected files are accessed
 
 ### Post-Execution Verification
+
 After each Cline run:
+
 - [ ] **Handoff Complete**: Verify comprehensive handoff document created
 - [ ] **Validation Passed**: Verify all required validation checks passed
 - [ ] **Scope Compliance**: Verify all changes within task boundaries
@@ -302,6 +344,7 @@ After each Cline run:
 ### Governance Compliance Indicators
 
 #### Good Compliance Signs
+
 - ✅ Cline reads governance files before starting work
 - ✅ Cline stays within task-defined file boundaries
 - ✅ Cline runs required validation checks
@@ -309,6 +352,7 @@ After each Cline run:
 - ✅ Cline stops after task completion for human review
 
 #### Poor Compliance Signs
+
 - ❌ Cline modifies files outside task scope
 - ❌ Cline skips validation requirements
 - ❌ Cline produces incomplete handoff documentation
@@ -316,7 +360,9 @@ After each Cline run:
 - ❌ Cline modifies protected files
 
 ### Corrective Actions
+
 If governance violations detected:
+
 1. **Stop Cline Immediately**: Prevent further violations
 2. **Document Violation**: Record what governance rule was violated
 3. **Assess Damage**: Determine scope of any inappropriate changes
@@ -327,15 +373,19 @@ If governance violations detected:
 ## Important Notes
 
 ### Cline Installation Not Covered
+
 This document describes how Cline should operate within Ralph-Loop governance. The actual installation and configuration of Cline is handled by separate processes and is NOT part of this task.
 
 ### Repository Governance is Authoritative
+
 Cline is an adapter that implements repository contracts. When conflicts arise between Cline's default behaviors and repository governance, repository governance takes precedence.
 
 ### Safety is Paramount
+
 All Cline operations must comply with safety policies defined in `.governance/SAFETY.md`. Safety violations immediately stop execution and require human intervention.
 
 ### Human Review is Required
+
 Cline operates under human supervision. Every task completion requires human review and approval before proceeding to next tasks.
 
 ---

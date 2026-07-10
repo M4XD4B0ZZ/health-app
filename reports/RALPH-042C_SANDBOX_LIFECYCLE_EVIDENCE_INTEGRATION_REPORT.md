@@ -16,14 +16,14 @@ This task did not add a lifecycle execution engine, queue execution path, worker
 
 Initial readbacks were executed one command at a time with `git --no-pager`:
 
-| Command | Result |
-| --- | --- |
-| `git --no-pager status --short` | PASS; no changed files reported before edits |
-| `git --no-pager log -5 --oneline` | PASS; showed `f70a09c`, `7ef4dc3`, `9e925ed`, `031abb2`, `edeb2b0` |
-| `git --no-pager diff --stat` | PASS; empty before edits |
-| `git --no-pager diff --name-only` | PASS; empty before edits |
-| `git --no-pager diff --cached --name-only` | PASS; empty before edits |
-| `git --no-pager diff --cached --stat` | PASS; empty before edits |
+| Command                                    | Result                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `git --no-pager status --short`            | PASS; no changed files reported before edits                       |
+| `git --no-pager log -5 --oneline`          | PASS; showed `f70a09c`, `7ef4dc3`, `9e925ed`, `031abb2`, `edeb2b0` |
+| `git --no-pager diff --stat`               | PASS; empty before edits                                           |
+| `git --no-pager diff --name-only`          | PASS; empty before edits                                           |
+| `git --no-pager diff --cached --name-only` | PASS; empty before edits                                           |
+| `git --no-pager diff --cached --stat`      | PASS; empty before edits                                           |
 
 The readbacks establish that the task started from a clean unstaged/staged diff state and that the RALPH-042B lifecycle implementation commit is the current HEAD, with the requested base commit in recent history.
 

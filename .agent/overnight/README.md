@@ -464,11 +464,13 @@ Invalid or unsafe queues do not produce an execution plan. They produce critical
 RALPH-034G establishes the validation executor as the canonical overnight dry-run orchestrator.
 
 **Operator command:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs <queue.json> [--pretty] [--write-report] [--write-run-log]
 ```
 
 **Orchestrator behavior:**
+
 - Validates queue (RALPH-034A)
 - Maps checks (RALPH-034C)
 - Executes validation commands (RALPH-034D)

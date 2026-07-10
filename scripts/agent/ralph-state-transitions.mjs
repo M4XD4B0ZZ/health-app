@@ -29,7 +29,7 @@ export const PATHS = {
   currentRun: 'runs/current-run.json',
   taskHistory: 'tasks/task-history.jsonl',
   runHistory: 'runs/run-history.jsonl',
-  validationResults: 'validation/validation-results.jsonl'
+  validationResults: 'validation/validation-results.jsonl',
 };
 
 export const TASK_STATUSES = new Set([
@@ -41,7 +41,7 @@ export const TASK_STATUSES = new Set([
   'failed',
   'done',
   'skipped',
-  'cancelled'
+  'cancelled',
 ]);
 
 export const RUN_STATUSES = new Set([
@@ -52,7 +52,7 @@ export const RUN_STATUSES = new Set([
   'completed',
   'failed',
   'blocked',
-  'cancelled'
+  'cancelled',
 ]);
 
 const ACTIVE_RUN_STATUSES = new Set(['planned', 'active', 'validating', 'needs_review']);
@@ -60,58 +60,120 @@ const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'blocked', 'cancel
 const SUCCESS_VALIDATION_RESULTS = new Set(['passed', 'success', 'successful']);
 
 const ALLOWED_TASK_TRANSITIONS = new Map([
-  ['not_started', new Map([
-    ['in_progress', { actors: ['coordinator'], evidence: ['no_active_run_conflict', 'safety_preflight', 'run_lock_created'] }],
-    ['blocked', { actors: ['coordinator', 'reconciler', 'human'], evidence: ['blocker_reason'] }],
-    ['skipped', { actors: ['human', 'reconciler'], evidence: ['skip_reason', 'human_approval_for_reconciler'] }],
-    ['cancelled', { actors: ['human'], evidence: ['cancellation_reason'] }]
-  ])],
-  ['in_progress', new Map([
-    ['needs_validation', { actors: ['coordinator'], evidence: ['worker_completed_or_partial_work', 'changed_files_recorded'] }],
-    ['blocked', { actors: ['coordinator'], evidence: ['stop_condition_reason'] }],
-    ['failed', { actors: ['coordinator'], evidence: ['failure_reason'] }],
-    ['cancelled', { actors: ['human'], evidence: ['cancellation_reason'] }]
-  ])],
-  ['needs_validation', new Map([
-    ['needs_review', { actors: ['validator'], evidence: ['passing_validation_or_docs_readback'] }],
-    ['in_progress', { actors: ['coordinator'], evidence: ['retry_or_fix_attempt_allowed'] }],
-    ['blocked', { actors: ['validator', 'coordinator'], evidence: ['validation_blocker_reason'] }],
-    ['failed', { actors: ['validator', 'coordinator'], evidence: ['validation_failed_attempts_exhausted'] }]
-  ])],
-  ['needs_review', new Map([
-    ['done', { actors: ['reviewer', 'human'], evidence: ['validation_evidence', 'review_acceptance'] }],
-    ['in_progress', { actors: ['reviewer', 'human'], evidence: ['revision_requested'] }],
-    ['blocked', { actors: ['reviewer', 'human'], evidence: ['review_blocker_reason'] }],
-    ['failed', { actors: ['reviewer', 'human'], evidence: ['review_rejection'] }]
-  ])],
-  ['blocked', new Map([
-    ['not_started', { actors: ['human', 'reconciler'], evidence: ['blocker_resolved'] }],
-    ['in_progress', { actors: ['coordinator'], evidence: ['human_unblock_evidence', 'run_lock_acquired'] }]
-  ])],
-  ['failed', new Map([
-    ['not_started', { actors: ['human'], evidence: ['retry_authorization'] }],
-    ['blocked', { actors: ['human', 'reviewer'], evidence: ['reclassified_as_blocked'] }]
-  ])],
-  ['done', new Map([
-    ['in_progress', { actors: ['human'], evidence: ['explicit_reopen_reason', 'new_run_id'] }]
-  ])],
-  ['skipped', new Map([
-    ['not_started', { actors: ['human'], evidence: ['explicit_unskip_reason'] }]
-  ])],
-  ['cancelled', new Map([
-    ['not_started', { actors: ['human'], evidence: ['explicit_restart_reason'] }]
-  ])]
+  [
+    'not_started',
+    new Map([
+      [
+        'in_progress',
+        {
+          actors: ['coordinator'],
+          evidence: ['no_active_run_conflict', 'safety_preflight', 'run_lock_created'],
+        },
+      ],
+      ['blocked', { actors: ['coordinator', 'reconciler', 'human'], evidence: ['blocker_reason'] }],
+      [
+        'skipped',
+        {
+          actors: ['human', 'reconciler'],
+          evidence: ['skip_reason', 'human_approval_for_reconciler'],
+        },
+      ],
+      ['cancelled', { actors: ['human'], evidence: ['cancellation_reason'] }],
+    ]),
+  ],
+  [
+    'in_progress',
+    new Map([
+      [
+        'needs_validation',
+        {
+          actors: ['coordinator'],
+          evidence: ['worker_completed_or_partial_work', 'changed_files_recorded'],
+        },
+      ],
+      ['blocked', { actors: ['coordinator'], evidence: ['stop_condition_reason'] }],
+      ['failed', { actors: ['coordinator'], evidence: ['failure_reason'] }],
+      ['cancelled', { actors: ['human'], evidence: ['cancellation_reason'] }],
+    ]),
+  ],
+  [
+    'needs_validation',
+    new Map([
+      [
+        'needs_review',
+        { actors: ['validator'], evidence: ['passing_validation_or_docs_readback'] },
+      ],
+      ['in_progress', { actors: ['coordinator'], evidence: ['retry_or_fix_attempt_allowed'] }],
+      [
+        'blocked',
+        { actors: ['validator', 'coordinator'], evidence: ['validation_blocker_reason'] },
+      ],
+      [
+        'failed',
+        {
+          actors: ['validator', 'coordinator'],
+          evidence: ['validation_failed_attempts_exhausted'],
+        },
+      ],
+    ]),
+  ],
+  [
+    'needs_review',
+    new Map([
+      [
+        'done',
+        { actors: ['reviewer', 'human'], evidence: ['validation_evidence', 'review_acceptance'] },
+      ],
+      ['in_progress', { actors: ['reviewer', 'human'], evidence: ['revision_requested'] }],
+      ['blocked', { actors: ['reviewer', 'human'], evidence: ['review_blocker_reason'] }],
+      ['failed', { actors: ['reviewer', 'human'], evidence: ['review_rejection'] }],
+    ]),
+  ],
+  [
+    'blocked',
+    new Map([
+      ['not_started', { actors: ['human', 'reconciler'], evidence: ['blocker_resolved'] }],
+      [
+        'in_progress',
+        { actors: ['coordinator'], evidence: ['human_unblock_evidence', 'run_lock_acquired'] },
+      ],
+    ]),
+  ],
+  [
+    'failed',
+    new Map([
+      ['not_started', { actors: ['human'], evidence: ['retry_authorization'] }],
+      ['blocked', { actors: ['human', 'reviewer'], evidence: ['reclassified_as_blocked'] }],
+    ]),
+  ],
+  [
+    'done',
+    new Map([
+      ['in_progress', { actors: ['human'], evidence: ['explicit_reopen_reason', 'new_run_id'] }],
+    ]),
+  ],
+  [
+    'skipped',
+    new Map([['not_started', { actors: ['human'], evidence: ['explicit_unskip_reason'] }]]),
+  ],
+  [
+    'cancelled',
+    new Map([['not_started', { actors: ['human'], evidence: ['explicit_restart_reason'] }]]),
+  ],
 ]);
 
 const ALLOWED_RUN_TRANSITIONS = new Map([
   ['planned', new Set(['active', 'blocked', 'cancelled'])],
-  ['active', new Set(['validating', 'needs_review', 'completed', 'failed', 'blocked', 'cancelled'])],
+  [
+    'active',
+    new Set(['validating', 'needs_review', 'completed', 'failed', 'blocked', 'cancelled']),
+  ],
   ['validating', new Set(['needs_review', 'completed', 'failed', 'blocked', 'cancelled'])],
   ['needs_review', new Set(['completed', 'active', 'blocked', 'failed', 'cancelled'])],
   ['completed', new Set([])],
   ['failed', new Set([])],
   ['blocked', new Set([])],
-  ['cancelled', new Set([])]
+  ['cancelled', new Set([])],
 ]);
 
 function resolveProjectPath(filePath) {
@@ -127,14 +189,17 @@ function normalizeTimestampForId(timestamp) {
 }
 
 function nonce(length = 6) {
-  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+  return crypto
+    .randomBytes(Math.ceil(length / 2))
+    .toString('hex')
+    .slice(0, length);
 }
 
 function normalizeActor(actor = 'coordinator') {
   if (typeof actor === 'string') return { type: actor, id: 'ralph-v2' };
   return {
     type: actor.type || 'coordinator',
-    id: actor.id || 'ralph-v2'
+    id: actor.id || 'ralph-v2',
   };
 }
 
@@ -144,7 +209,13 @@ function readTextSafe(relativePath) {
     return { path: relativePath, fullPath, exists: false, content: null, error: null };
   }
   try {
-    return { path: relativePath, fullPath, exists: true, content: fs.readFileSync(fullPath, 'utf8'), error: null };
+    return {
+      path: relativePath,
+      fullPath,
+      exists: true,
+      content: fs.readFileSync(fullPath, 'utf8'),
+      error: null,
+    };
   } catch (error) {
     return { path: relativePath, fullPath, exists: true, content: null, error: error.message };
   }
@@ -164,7 +235,8 @@ function parseJsonlSafe(relativePath) {
   const text = readTextSafe(relativePath);
   const records = [];
   const parseErrors = [];
-  if (!text.exists || text.error) return { ...text, records, parseErrors: text.error ? [{ message: text.error }] : [] };
+  if (!text.exists || text.error)
+    return { ...text, records, parseErrors: text.error ? [{ message: text.error }] : [] };
 
   text.content.split(/\r?\n/).forEach((line, index) => {
     const trimmed = line.trim();
@@ -200,8 +272,12 @@ function reviewMatches(record, taskId, runId) {
   if (taskId && data?.task_id !== taskId) return false;
   if (runId && data?.run_id && data.run_id !== runId) return false;
   const eventType = String(data?.event_type || '').toLowerCase();
-  const status = String(data?.review_status || data?.human_review_status || data?.status || '').toLowerCase();
-  return eventType === 'review.accepted' || eventType === 'task.review_accepted' || status === 'accepted';
+  const status = String(
+    data?.review_status || data?.human_review_status || data?.status || '',
+  ).toLowerCase();
+  return (
+    eventType === 'review.accepted' || eventType === 'task.review_accepted' || status === 'accepted'
+  );
 }
 
 function hasValidationEvidence(context) {
@@ -215,7 +291,7 @@ function hasReviewEvidence(context) {
   if (context?.requiresHumanReview === false) return true;
   const records = [
     ...(context?.runHistory || context?.state?.runHistory?.records || []),
-    ...(context?.taskHistory || context?.state?.taskHistory?.records || [])
+    ...(context?.taskHistory || context?.state?.taskHistory?.records || []),
   ];
   return records.some((record) => reviewMatches(record, context.taskId, context.runId));
 }
@@ -237,7 +313,7 @@ export function loadRalphState(options = {}) {
     currentRun.parseError ? { file: paths.currentRun, message: currentRun.parseError } : null,
     ...taskHistory.parseErrors.map((error) => ({ file: paths.taskHistory, ...error })),
     ...runHistory.parseErrors.map((error) => ({ file: paths.runHistory, ...error })),
-    ...validationResults.parseErrors.map((error) => ({ file: paths.validationResults, ...error }))
+    ...validationResults.parseErrors.map((error) => ({ file: paths.validationResults, ...error })),
   ].filter(Boolean);
 
   return {
@@ -250,56 +326,109 @@ export function loadRalphState(options = {}) {
     taskHistory,
     runHistory,
     validationResults,
-    parseErrors
+    parseErrors,
   };
 }
 
 export function validateTaskTransition(fromStatus, toStatus, context = {}) {
   const actor = normalizeActor(context.actor).type;
-  if (!TASK_STATUSES.has(fromStatus)) return structuredResult(false, 'unknown_from_status', `Unknown task from_status: ${fromStatus}`);
-  if (!TASK_STATUSES.has(toStatus)) return structuredResult(false, 'unknown_to_status', `Unknown task to_status: ${toStatus}`);
+  if (!TASK_STATUSES.has(fromStatus))
+    return structuredResult(
+      false,
+      'unknown_from_status',
+      `Unknown task from_status: ${fromStatus}`,
+    );
+  if (!TASK_STATUSES.has(toStatus))
+    return structuredResult(false, 'unknown_to_status', `Unknown task to_status: ${toStatus}`);
 
   const transition = ALLOWED_TASK_TRANSITIONS.get(fromStatus)?.get(toStatus);
   if (!transition) {
-    return structuredResult(false, 'transition_not_allowed', `Task transition ${fromStatus} -> ${toStatus} is not allowed by RALPH-002`, { from_status: fromStatus, to_status: toStatus });
+    return structuredResult(
+      false,
+      'transition_not_allowed',
+      `Task transition ${fromStatus} -> ${toStatus} is not allowed by RALPH-002`,
+      { from_status: fromStatus, to_status: toStatus },
+    );
   }
   if (!transition.actors.includes(actor)) {
-    return structuredResult(false, 'actor_not_allowed', `Actor ${actor} may not perform task transition ${fromStatus} -> ${toStatus}`, { actor, allowed_actors: transition.actors });
+    return structuredResult(
+      false,
+      'actor_not_allowed',
+      `Actor ${actor} may not perform task transition ${fromStatus} -> ${toStatus}`,
+      { actor, allowed_actors: transition.actors },
+    );
   }
 
   if (toStatus === 'done') {
     if (!hasValidationEvidence(context)) {
-      return structuredResult(false, 'missing_validation_evidence', 'Transition to done requires passing or accepted validation evidence linked by task_id and run_id');
+      return structuredResult(
+        false,
+        'missing_validation_evidence',
+        'Transition to done requires passing or accepted validation evidence linked by task_id and run_id',
+      );
     }
     if (!hasReviewEvidence(context)) {
-      return structuredResult(false, 'missing_review_evidence', 'Transition to done requires review acceptance when human review is required');
+      return structuredResult(
+        false,
+        'missing_review_evidence',
+        'Transition to done requires review acceptance when human review is required',
+      );
     }
   }
 
-  if (fromStatus === 'not_started' && toStatus === 'in_progress' && context.state?.currentRun?.data) {
+  if (
+    fromStatus === 'not_started' &&
+    toStatus === 'in_progress' &&
+    context.state?.currentRun?.data
+  ) {
     const currentRun = context.state.currentRun.data;
     if (currentRunHasActiveLock(currentRun)) {
-      return structuredResult(false, 'active_run_conflict', 'Cannot start task while current-run has an active lock or active-like status', { current_run_id: currentRun.run_id, current_run_status: currentRun.status });
+      return structuredResult(
+        false,
+        'active_run_conflict',
+        'Cannot start task while current-run has an active lock or active-like status',
+        { current_run_id: currentRun.run_id, current_run_status: currentRun.status },
+      );
     }
   }
 
-  if (context.requireKnownTask === true && context.taskId && !taskById(context.state?.taskState?.data, context.taskId)) {
-    return structuredResult(false, 'unknown_task_id', `Task ${context.taskId} was not found in task-state`);
+  if (
+    context.requireKnownTask === true &&
+    context.taskId &&
+    !taskById(context.state?.taskState?.data, context.taskId)
+  ) {
+    return structuredResult(
+      false,
+      'unknown_task_id',
+      `Task ${context.taskId} was not found in task-state`,
+    );
   }
 
-  return structuredResult(true, 'transition_allowed', `Task transition ${fromStatus} -> ${toStatus} is allowed`, {
-    from_status: fromStatus,
-    to_status: toStatus,
-    actor,
-    required_evidence: transition.evidence
-  });
+  return structuredResult(
+    true,
+    'transition_allowed',
+    `Task transition ${fromStatus} -> ${toStatus} is allowed`,
+    {
+      from_status: fromStatus,
+      to_status: toStatus,
+      actor,
+      required_evidence: transition.evidence,
+    },
+  );
 }
 
 export function validateRunTransition(fromStatus, toStatus, context = {}) {
-  if (!RUN_STATUSES.has(fromStatus)) return structuredResult(false, 'unknown_from_status', `Unknown run from_status: ${fromStatus}`);
-  if (!RUN_STATUSES.has(toStatus)) return structuredResult(false, 'unknown_to_status', `Unknown run to_status: ${toStatus}`);
+  if (!RUN_STATUSES.has(fromStatus))
+    return structuredResult(false, 'unknown_from_status', `Unknown run from_status: ${fromStatus}`);
+  if (!RUN_STATUSES.has(toStatus))
+    return structuredResult(false, 'unknown_to_status', `Unknown run to_status: ${toStatus}`);
   if (!ALLOWED_RUN_TRANSITIONS.get(fromStatus)?.has(toStatus)) {
-    return structuredResult(false, 'transition_not_allowed', `Run transition ${fromStatus} -> ${toStatus} is not allowed by RALPH-002`, { from_status: fromStatus, to_status: toStatus });
+    return structuredResult(
+      false,
+      'transition_not_allowed',
+      `Run transition ${fromStatus} -> ${toStatus} is not allowed by RALPH-002`,
+      { from_status: fromStatus, to_status: toStatus },
+    );
   }
 
   const currentRun = context.state?.currentRun?.data || context.currentRun;
@@ -307,18 +436,36 @@ export function validateRunTransition(fromStatus, toStatus, context = {}) {
   if (acquiringLock && currentRun?.run_id && currentRunHasActiveLock(currentRun)) {
     const sameRun = context.runId && currentRun.run_id === context.runId;
     if (!sameRun) {
-      return structuredResult(false, 'active_run_conflict', 'Cannot acquire run lock while another current-run is active-like', { current_run_id: currentRun.run_id, current_run_status: currentRun.status });
+      return structuredResult(
+        false,
+        'active_run_conflict',
+        'Cannot acquire run lock while another current-run is active-like',
+        { current_run_id: currentRun.run_id, current_run_status: currentRun.status },
+      );
     }
   }
 
   if (TERMINAL_RUN_STATUSES.has(toStatus) && context.lock?.is_active === true) {
-    return structuredResult(false, 'terminal_run_active_lock', `Terminal run status ${toStatus} must not keep lock.is_active=true`);
+    return structuredResult(
+      false,
+      'terminal_run_active_lock',
+      `Terminal run status ${toStatus} must not keep lock.is_active=true`,
+    );
   }
   if (context.lock?.is_active === true && !ACTIVE_RUN_STATUSES.has(toStatus)) {
-    return structuredResult(false, 'lock_status_mismatch', `Active locks are allowed only for ${Array.from(ACTIVE_RUN_STATUSES).join(', ')}`);
+    return structuredResult(
+      false,
+      'lock_status_mismatch',
+      `Active locks are allowed only for ${Array.from(ACTIVE_RUN_STATUSES).join(', ')}`,
+    );
   }
 
-  return structuredResult(true, 'transition_allowed', `Run transition ${fromStatus} -> ${toStatus} is allowed`, { from_status: fromStatus, to_status: toStatus });
+  return structuredResult(
+    true,
+    'transition_allowed',
+    `Run transition ${fromStatus} -> ${toStatus} is allowed`,
+    { from_status: fromStatus, to_status: toStatus },
+  );
 }
 
 export function buildTaskTransitionEvent({
@@ -342,11 +489,12 @@ export function buildTaskTransitionEvent({
     actor: normalizeActor(actor),
     task_id: taskId,
     run_id: runId,
-    correlation_id: correlationId || `corr_${stamp}_${String(taskId || 'task').toLowerCase()}_${nonce()}`,
+    correlation_id:
+      correlationId || `corr_${stamp}_${String(taskId || 'task').toLowerCase()}_${nonce()}`,
     from_status: fromStatus,
     to_status: toStatus,
     reason,
-    ...extra
+    ...extra,
   };
 }
 
@@ -364,7 +512,8 @@ export function buildRunTransitionEvent({
   ...extra
 } = {}) {
   const stamp = normalizeTimestampForId(timestamp);
-  const normalizedEventType = eventType || (toStatus === 'active' ? 'run.started' : `run.${toStatus}`);
+  const normalizedEventType =
+    eventType || (toStatus === 'active' ? 'run.started' : `run.${toStatus}`);
   return {
     schema_version: SCHEMA_VERSION,
     event_id: `evt_${stamp}_run_transition_${nonce()}`,
@@ -373,12 +522,13 @@ export function buildRunTransitionEvent({
     actor: normalizeActor(actor),
     task_id: taskId,
     run_id: runId,
-    correlation_id: correlationId || `corr_${stamp}_${String(taskId || 'run').toLowerCase()}_${nonce()}`,
+    correlation_id:
+      correlationId || `corr_${stamp}_${String(taskId || 'run').toLowerCase()}_${nonce()}`,
     from_status: fromStatus,
     to_status: toStatus,
     reason,
     ...(lock ? { lock } : {}),
-    ...extra
+    ...extra,
   };
 }
 
@@ -386,29 +536,69 @@ export function writeJsonAtomic(filePath, data, options = {}) {
   const fullPath = resolveProjectPath(filePath);
   const payload = `${JSON.stringify(data, null, options.spaces ?? 2)}\n`;
   if (options.dryRun === true) {
-    return { dryRun: true, written: false, filePath: fullPath, bytes: Buffer.byteLength(payload, 'utf8') };
+    return {
+      dryRun: true,
+      written: false,
+      filePath: fullPath,
+      bytes: Buffer.byteLength(payload, 'utf8'),
+    };
   }
   const tempPath = `${fullPath}.tmp-${process.pid}-${Date.now()}-${nonce()}`;
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
   fs.writeFileSync(tempPath, payload, 'utf8');
   fs.renameSync(tempPath, fullPath);
-  return { dryRun: false, written: true, filePath: fullPath, tempPath, bytes: Buffer.byteLength(payload, 'utf8') };
+  return {
+    dryRun: false,
+    written: true,
+    filePath: fullPath,
+    tempPath,
+    bytes: Buffer.byteLength(payload, 'utf8'),
+  };
 }
 
 export function appendJsonlEvent(filePath, event, options = {}) {
   const fullPath = resolveProjectPath(filePath);
   const payload = `${JSON.stringify(event)}\n`;
   if (options.dryRun === true) {
-    return { dryRun: true, written: false, filePath: fullPath, bytes: Buffer.byteLength(payload, 'utf8'), event };
+    return {
+      dryRun: true,
+      written: false,
+      filePath: fullPath,
+      bytes: Buffer.byteLength(payload, 'utf8'),
+      event,
+    };
   }
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
   fs.appendFileSync(fullPath, payload, 'utf8');
-  return { dryRun: false, written: true, filePath: fullPath, bytes: Buffer.byteLength(payload, 'utf8'), event_id: event.event_id };
+  return {
+    dryRun: false,
+    written: true,
+    filePath: fullPath,
+    bytes: Buffer.byteLength(payload, 'utf8'),
+    event_id: event.event_id,
+  };
 }
 
-export function dryRunTaskTransition({ taskId, runId, fromStatus, toStatus, reason, actor = 'coordinator', state = loadRalphState(), correlationId, context = {} } = {}) {
+export function dryRunTaskTransition({
+  taskId,
+  runId,
+  fromStatus,
+  toStatus,
+  reason,
+  actor = 'coordinator',
+  state = loadRalphState(),
+  correlationId,
+  context = {},
+} = {}) {
   const task = taskById(state.taskState.data, taskId);
-  const validation = validateTaskTransition(fromStatus, toStatus, { ...context, actor, taskId, runId, state, requiresHumanReview: task?.requires_human_review });
+  const validation = validateTaskTransition(fromStatus, toStatus, {
+    ...context,
+    actor,
+    taskId,
+    runId,
+    state,
+    requiresHumanReview: task?.requires_human_review,
+  });
   const event = buildTaskTransitionEvent({
     eventType: validation.ok ? 'task.transition.applied' : 'task.transition.rejected',
     actor,
@@ -418,25 +608,70 @@ export function dryRunTaskTransition({ taskId, runId, fromStatus, toStatus, reas
     fromStatus,
     toStatus,
     reason,
-    validation_code: validation.code
+    validation_code: validation.code,
   });
-  const plannedTask = task ? { ...task, status: validation.ok ? toStatus : task.status, updated_at: event.timestamp } : { id: taskId, status: validation.ok ? toStatus : fromStatus };
-  return { dry_run: true, writes_performed: false, validation, event, planned_state: { task: plannedTask } };
+  const plannedTask = task
+    ? { ...task, status: validation.ok ? toStatus : task.status, updated_at: event.timestamp }
+    : { id: taskId, status: validation.ok ? toStatus : fromStatus };
+  return {
+    dry_run: true,
+    writes_performed: false,
+    validation,
+    event,
+    planned_state: { task: plannedTask },
+  };
 }
 
-export function dryRunRunTransition({ taskId, runId, fromStatus, toStatus, reason, actor = 'coordinator', state = loadRalphState(), correlationId, lock, context = {} } = {}) {
+export function dryRunRunTransition({
+  taskId,
+  runId,
+  fromStatus,
+  toStatus,
+  reason,
+  actor = 'coordinator',
+  state = loadRalphState(),
+  correlationId,
+  lock,
+  context = {},
+} = {}) {
   const timestamp = nowIso();
-  const effectiveRunId = runId || `run_${normalizeTimestampForId(timestamp)}_${String(taskId || 'task').toLowerCase()}_${nonce()}`;
-  const effectiveLock = lock || (toStatus === 'active' ? {
-    is_active: true,
-    owner: normalizeActor(actor).id,
-    acquired_at: timestamp,
-    expires_at: new Date(Date.parse(timestamp) + 30 * 60 * 1000).toISOString(),
-    heartbeat_at: timestamp,
-    ttl_minutes: 30
-  } : TERMINAL_RUN_STATUSES.has(toStatus) ? { is_active: false } : undefined);
-  const validation = validateRunTransition(fromStatus, toStatus, { ...context, taskId, runId: effectiveRunId, state, lock: effectiveLock, acquireLock: toStatus === 'active' });
-  const event = buildRunTransitionEvent({ actor, taskId, runId: effectiveRunId, correlationId, fromStatus, toStatus, reason, lock: effectiveLock, timestamp, validation_code: validation.code });
+  const effectiveRunId =
+    runId ||
+    `run_${normalizeTimestampForId(timestamp)}_${String(taskId || 'task').toLowerCase()}_${nonce()}`;
+  const effectiveLock =
+    lock ||
+    (toStatus === 'active'
+      ? {
+          is_active: true,
+          owner: normalizeActor(actor).id,
+          acquired_at: timestamp,
+          expires_at: new Date(Date.parse(timestamp) + 30 * 60 * 1000).toISOString(),
+          heartbeat_at: timestamp,
+          ttl_minutes: 30,
+        }
+      : TERMINAL_RUN_STATUSES.has(toStatus)
+        ? { is_active: false }
+        : undefined);
+  const validation = validateRunTransition(fromStatus, toStatus, {
+    ...context,
+    taskId,
+    runId: effectiveRunId,
+    state,
+    lock: effectiveLock,
+    acquireLock: toStatus === 'active',
+  });
+  const event = buildRunTransitionEvent({
+    actor,
+    taskId,
+    runId: effectiveRunId,
+    correlationId,
+    fromStatus,
+    toStatus,
+    reason,
+    lock: effectiveLock,
+    timestamp,
+    validation_code: validation.code,
+  });
   return {
     dry_run: true,
     writes_performed: false,
@@ -449,9 +684,9 @@ export function dryRunRunTransition({ taskId, runId, fromStatus, toStatus, reaso
         task_id: taskId,
         status: validation.ok ? toStatus : fromStatus,
         updated_at: timestamp,
-        ...(effectiveLock ? { lock: effectiveLock } : {})
-      }
-    }
+        ...(effectiveLock ? { lock: effectiveLock } : {}),
+      },
+    },
   };
 }
 
@@ -506,16 +741,36 @@ async function main() {
       printHelp();
       return;
     }
-    if (!options.dryRun) throw new Error('CLI transition mode requires --dry-run. Real writes are intentionally not exposed by this CLI.');
+    if (!options.dryRun)
+      throw new Error(
+        'CLI transition mode requires --dry-run. Real writes are intentionally not exposed by this CLI.',
+      );
     if (!options.mode) throw new Error('Missing transition kind: task or run');
     if (!options.taskId || !options.fromStatus || !options.toStatus || !options.reason) {
       throw new Error('Missing required arguments: --task-id, --from, --to, --reason');
     }
 
     const state = loadRalphState();
-    const payload = options.mode === 'task'
-      ? dryRunTaskTransition({ taskId: options.taskId, runId: options.runId, fromStatus: options.fromStatus, toStatus: options.toStatus, reason: options.reason, actor: options.actor || 'coordinator', state })
-      : dryRunRunTransition({ taskId: options.taskId, runId: options.runId, fromStatus: options.fromStatus, toStatus: options.toStatus, reason: options.reason, actor: options.actor || 'coordinator', state });
+    const payload =
+      options.mode === 'task'
+        ? dryRunTaskTransition({
+            taskId: options.taskId,
+            runId: options.runId,
+            fromStatus: options.fromStatus,
+            toStatus: options.toStatus,
+            reason: options.reason,
+            actor: options.actor || 'coordinator',
+            state,
+          })
+        : dryRunRunTransition({
+            taskId: options.taskId,
+            runId: options.runId,
+            fromStatus: options.fromStatus,
+            toStatus: options.toStatus,
+            reason: options.reason,
+            actor: options.actor || 'coordinator',
+            state,
+          });
     console.log(JSON.stringify(payload, null, 2));
     process.exitCode = payload.validation.ok ? 0 : 1;
   } catch (error) {

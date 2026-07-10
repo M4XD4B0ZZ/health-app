@@ -9,7 +9,12 @@ import { fileURLToPath } from 'node:url';
 
 import { readSheet } from 'read-excel-file/node';
 
-import { DATA_WORKBOOK_PATH, DEFAULT_LIMIT, MAX_LIMIT, countColumns } from './lib/bls-sample-generator.mjs';
+import {
+  DATA_WORKBOOK_PATH,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+  countColumns,
+} from './lib/bls-sample-generator.mjs';
 import {
   SAMPLE_ARTIFACT_PATH,
   TOOL_ID,
@@ -56,16 +61,22 @@ function relaunchWithLargerHeapIfNeeded() {
   const hasHeapFlag = process.execArgv.some((arg) => arg.startsWith('--max-old-space-size='));
   if (hasHeapFlag || process.env[RELAUNCH_ENV] === '1') return;
 
-  const result = spawnSync(process.execPath, [`--max-old-space-size=${REQUIRED_HEAP_MB}`, ...process.argv.slice(1)], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, [RELAUNCH_ENV]: '1' },
-    stdio: 'inherit',
-  });
+  const result = spawnSync(
+    process.execPath,
+    [`--max-old-space-size=${REQUIRED_HEAP_MB}`, ...process.argv.slice(1)],
+    {
+      cwd: REPO_ROOT,
+      env: { ...process.env, [RELAUNCH_ENV]: '1' },
+      stdio: 'inherit',
+    },
+  );
 
   if (result.error) {
     console.error(
       JSON.stringify(
-        errorPayload(`Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`),
+        errorPayload(
+          `Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`,
+        ),
         null,
         2,
       ),
@@ -84,7 +95,8 @@ function sha256File(filePath) {
 
 function assertWorkbookExists() {
   const absolutePath = path.join(REPO_ROOT, DATA_WORKBOOK_PATH);
-  if (!fs.existsSync(absolutePath)) throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
+  if (!fs.existsSync(absolutePath))
+    throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
   return absolutePath;
 }
 
@@ -110,7 +122,10 @@ async function main() {
       sourceWorkbookSha256: workbook.sha256,
     });
     const validation = validateBlsArtifactPayload(artifact.payload);
-    if (!validation.ok) throw new Error(`Generated artifact failed schema validation: ${validation.errors.join(', ')}`);
+    if (!validation.ok)
+      throw new Error(
+        `Generated artifact failed schema validation: ${validation.errors.join(', ')}`,
+      );
 
     const writeResult = writeBlsSampleArtifact({
       repoRoot: REPO_ROOT,
@@ -138,7 +153,8 @@ async function main() {
               sha256: workbook.sha256,
               sheetSelection: {
                 selector: 1,
-                limitation: 'The first worksheet is read explicitly to avoid loading all workbook sheets.',
+                limitation:
+                  'The first worksheet is read explicitly to avoid loading all workbook sheets.',
               },
               workbookRows: workbook.rows.length,
               columnCount: countColumns(workbook.rows),

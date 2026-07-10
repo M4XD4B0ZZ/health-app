@@ -12,7 +12,7 @@ import {
   SANDBOX_LIFECYCLE_STATES,
   validateSandboxLifecycleMetadata,
   validateSandboxLifecycleState,
-  validateSandboxLifecycleTransition
+  validateSandboxLifecycleTransition,
 } from '../lib/sandbox-queue-entry-lifecycle.mjs';
 
 function validMetadata(overrides = {}) {
@@ -21,7 +21,7 @@ function validMetadata(overrides = {}) {
     non_authoritative: true,
     lifecycle: { state: 'draft' },
     non_authoritative_statement: NON_AUTHORITATIVE_LIFECYCLE_STATEMENT,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -39,7 +39,7 @@ function safetyFlagKeys() {
     'commit',
     'push',
     'deploy',
-    'network'
+    'network',
   ];
 }
 
@@ -56,7 +56,10 @@ test('forbidden lifecycle states are rejected', () => {
   for (const state of FORBIDDEN_LIFECYCLE_STATES) {
     const result = validateSandboxLifecycleState(state);
     assert.equal(result.ok, false, state);
-    assert.ok(result.findings.some((entry) => entry.code === 'forbidden_lifecycle_state'), state);
+    assert.ok(
+      result.findings.some((entry) => entry.code === 'forbidden_lifecycle_state'),
+      state,
+    );
   }
 });
 
@@ -97,16 +100,24 @@ test('allowed state can transition to blocked', () => {
 test('blocked recovery refused without human_authorized_recovery', () => {
   const refused = validateSandboxLifecycleTransition('blocked', 'draft');
   assert.equal(refused.ok, false);
-  assert.ok(refused.findings.some((entry) => entry.code === 'blocked_recovery_requires_human_authorization'));
+  assert.ok(
+    refused.findings.some(
+      (entry) => entry.code === 'blocked_recovery_requires_human_authorization',
+    ),
+  );
 
-  const advisory = validateSandboxLifecycleTransition('blocked', 'draft', { human_authorized_recovery: true });
+  const advisory = validateSandboxLifecycleTransition('blocked', 'draft', {
+    human_authorized_recovery: true,
+  });
   assert.equal(advisory.ok, true);
   assert.equal(advisory.queue_execution, false);
   assert.equal(advisory.runtime_authority, false);
 });
 
 test('metadata must be sandbox true and non_authoritative true', () => {
-  const result = validateSandboxLifecycleMetadata(validMetadata({ sandbox: false, non_authoritative: false }));
+  const result = validateSandboxLifecycleMetadata(
+    validMetadata({ sandbox: false, non_authoritative: false }),
+  );
   assert.equal(result.ok, false);
   assert.ok(result.findings.some((entry) => entry.code === 'sandbox_true_required'));
   assert.ok(result.findings.some((entry) => entry.code === 'non_authoritative_true_required'));
@@ -116,18 +127,31 @@ test('metadata with forbidden authority claims rejected', () => {
   for (const claim of FORBIDDEN_AUTHORITY_CLAIMS) {
     const result = validateSandboxLifecycleMetadata(validMetadata({ [claim]: true }));
     assert.equal(result.ok, false, claim);
-    assert.ok(result.findings.some((entry) => entry.code === 'forbidden_authority_claim' && entry.details.claim === claim), claim);
+    assert.ok(
+      result.findings.some(
+        (entry) => entry.code === 'forbidden_authority_claim' && entry.details.claim === claim,
+      ),
+      claim,
+    );
   }
 });
 
 test('metadata requires non-authoritative statement', () => {
-  const missing = validateSandboxLifecycleMetadata(validMetadata({ non_authoritative_statement: undefined }));
+  const missing = validateSandboxLifecycleMetadata(
+    validMetadata({ non_authoritative_statement: undefined }),
+  );
   assert.equal(missing.ok, false);
   assert.ok(missing.findings.some((entry) => entry.code === 'missing_non_authoritative_statement'));
 
-  const authoritativeTerms = validateSandboxLifecycleMetadata(validMetadata({ non_authoritative_statement: 'non-authoritative queue_execution statement' }));
+  const authoritativeTerms = validateSandboxLifecycleMetadata(
+    validMetadata({ non_authoritative_statement: 'non-authoritative queue_execution statement' }),
+  );
   assert.equal(authoritativeTerms.ok, false);
-  assert.ok(authoritativeTerms.findings.some((entry) => entry.code === 'non_authoritative_statement_contains_authority_terms'));
+  assert.ok(
+    authoritativeTerms.findings.some(
+      (entry) => entry.code === 'non_authoritative_statement_contains_authority_terms',
+    ),
+  );
 });
 
 test('metadata requires lifecycle.state', () => {
@@ -140,7 +164,7 @@ test('result safety flags remain false', () => {
   const results = [
     validateSandboxLifecycleState('draft'),
     validateSandboxLifecycleTransition('draft', 'admission_previewed'),
-    validateSandboxLifecycleMetadata(validMetadata())
+    validateSandboxLifecycleMetadata(validMetadata()),
   ];
   for (const result of results) {
     for (const key of safetyFlagKeys()) {

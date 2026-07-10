@@ -29,7 +29,7 @@ function runtimeTask(id, status, overrides = {}) {
     status,
     priority: 'medium',
     risk_level: 'safe_autonomous',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -40,7 +40,9 @@ function findTask(tasks, id) {
 }
 
 function findFinding(result, code, taskId) {
-  const finding = result.findings.find((entry) => entry.code === code && entry.details.task_id === taskId);
+  const finding = result.findings.find(
+    (entry) => entry.code === code && entry.details.task_id === taskId,
+  );
   assert.ok(finding, `Expected finding ${code} for ${taskId}`);
   return finding;
 }
@@ -52,7 +54,11 @@ function tempProject(t, { roadmap = '', state = taskState([]) } = {}) {
   fs.copyFileSync(SCRIPT, path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'));
   fs.copyFileSync(PARSER, path.join(root, 'scripts/agent/lib/roadmap-parser.mjs'));
   fs.writeFileSync(path.join(root, 'ROADMAP.md'), roadmap, 'utf8');
-  fs.writeFileSync(path.join(root, 'tasks/task-state.json'), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'tasks/task-state.json'),
+    `${JSON.stringify(state, null, 2)}\n`,
+    'utf8',
+  );
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
@@ -60,14 +66,14 @@ function tempProject(t, { roadmap = '', state = taskState([]) } = {}) {
 function runCli(cwd, args = []) {
   return spawnSync(process.execPath, ['scripts/agent/reconcile-roadmap-task-state.mjs', ...args], {
     cwd,
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
 }
 
 test('roadmap_backed task classification is added to roadmap and runtime task output', () => {
   const result = buildResultFromInputs(
     roadmapTask('RALPH-016', 'in_progress'),
-    taskState([runtimeTask('RALPH-016', 'needs_validation')])
+    taskState([runtimeTask('RALPH-016', 'needs_validation')]),
   );
 
   assert.equal(findTask(result.roadmap_tasks, 'RALPH-016').ownership_class, 'roadmap_backed');
@@ -97,7 +103,10 @@ test('roadmap_only in_progress classification keeps missing runtime severity as 
 });
 
 test('runtime_only explicit classification sets ownership_explicit true and keeps severity info', () => {
-  const result = buildResultFromInputs('', taskState([runtimeTask('RALPH-016A', 'in_progress', { runtime_only: true })]));
+  const result = buildResultFromInputs(
+    '',
+    taskState([runtimeTask('RALPH-016A', 'in_progress', { runtime_only: true })]),
+  );
   const task = findTask(result.task_state_tasks, 'RALPH-016A');
   const finding = findFinding(result, 'runtime_task_missing_from_roadmap', 'RALPH-016A');
 
@@ -134,7 +143,7 @@ test('runtime_only implicit active classification sets ownership_explicit false 
 test('roadmap done while runtime active remains critical with roadmap_backed ownership', () => {
   const result = buildResultFromInputs(
     roadmapTask('RALPH-016', 'done'),
-    taskState([runtimeTask('RALPH-016', 'in_progress')])
+    taskState([runtimeTask('RALPH-016', 'in_progress')]),
   );
   const finding = findFinding(result, 'roadmap_done_runtime_active', 'RALPH-016');
 
@@ -146,7 +155,7 @@ test('roadmap done while runtime active remains critical with roadmap_backed own
 test('runtime done while roadmap not done remains critical with roadmap_backed ownership', () => {
   const result = buildResultFromInputs(
     roadmapTask('RALPH-016', 'in_progress'),
-    taskState([runtimeTask('RALPH-016', 'done')])
+    taskState([runtimeTask('RALPH-016', 'done')]),
   );
   const finding = findFinding(result, 'runtime_done_roadmap_not_done', 'RALPH-016');
 
@@ -158,7 +167,7 @@ test('runtime done while roadmap not done remains critical with roadmap_backed o
 test('ownership_summary counts computed classes and reserves historical and legacy as zero', () => {
   const result = buildResultFromInputs(
     [roadmapTask('RALPH-016', 'in_progress'), roadmapTask('P2-003', 'todo')].join('\n'),
-    taskState([runtimeTask('RALPH-016', 'needs_review'), runtimeTask('RALPH-016A', 'done')])
+    taskState([runtimeTask('RALPH-016', 'needs_review'), runtimeTask('RALPH-016A', 'done')]),
   );
 
   assert.deepEqual(result.ownership_summary, {
@@ -167,7 +176,7 @@ test('ownership_summary counts computed classes and reserves historical and lega
     roadmap_only_count: 1,
     historical_count: 0,
     legacy_count: 0,
-    unclassified_count: 0
+    unclassified_count: 0,
   });
 });
 
@@ -201,7 +210,7 @@ test('CLI exit code remains 1 when critical findings are present', (t) => {
 test('CLI exit code remains 0 when no critical findings are present', (t) => {
   const root = tempProject(t, {
     roadmap: roadmapTask('RALPH-016', 'in_progress'),
-    state: taskState([runtimeTask('RALPH-016', 'needs_validation')])
+    state: taskState([runtimeTask('RALPH-016', 'needs_validation')]),
   });
   const result = runCli(root, ['--json']);
   const json = JSON.parse(result.stdout);
@@ -213,7 +222,7 @@ test('CLI exit code remains 0 when no critical findings are present', (t) => {
 test('CLI exit code remains 2 for execution errors', (t) => {
   const root = tempProject(t, {
     roadmap: roadmapTask('RALPH-016', 'in_progress'),
-    state: taskState([])
+    state: taskState([]),
   });
   fs.writeFileSync(path.join(root, 'tasks/task-state.json'), '{ invalid json', 'utf8');
   const result = runCli(root, ['--json']);
@@ -225,7 +234,8 @@ test('CLI exit code remains 2 for execution errors', (t) => {
 });
 
 test('checkbox reference does not create canonical task entry', () => {
-  const roadmap = '- [x] P0-002: Summary reference\n\n## P0-002 Full Task\n\nStatus: `done`\n\n**DoD:** Test DoD.';
+  const roadmap =
+    '- [x] P0-002: Summary reference\n\n## P0-002 Full Task\n\nStatus: `done`\n\n**DoD:** Test DoD.';
   const result = buildResultFromInputs(roadmap, taskState([]));
 
   // Should find only 1 P0-002 (heading-style), not 2
@@ -261,7 +271,8 @@ test('checkbox-only reference creates no canonical task', () => {
 });
 
 test('heading-style tasks still parsed with full metadata', () => {
-  const roadmap = '## P0-002 Full Task\n\nStatus: `done`\n\n**DoD:** Test DoD.\n\n**Verify:** npm test';
+  const roadmap =
+    '## P0-002 Full Task\n\nStatus: `done`\n\n**DoD:** Test DoD.\n\n**Verify:** npm test';
   const result = buildResultFromInputs(roadmap, taskState([]));
 
   const task = result.roadmap_tasks.find((t) => t.id === 'P0-002');
@@ -281,7 +292,7 @@ test('duplicate heading definitions still produce critical finding', () => {
 
   // Should have critical duplicate finding
   const duplicateFinding = result.findings.find(
-    (f) => f.code === 'duplicate_roadmap_task_id' && f.details.task_id === 'P0-002'
+    (f) => f.code === 'duplicate_roadmap_task_id' && f.details.task_id === 'P0-002',
   );
   assert.ok(duplicateFinding);
   assert.equal(duplicateFinding.severity, 'critical');

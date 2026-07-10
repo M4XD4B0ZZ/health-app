@@ -41,11 +41,11 @@ The normalized event implements the RALPH-002 validation event shape with:
 
 Supported event type mapping:
 
-| `overall_result` | `event_type` |
-| --- | --- |
-| `passed` | `validation.completed` |
-| `failed` | `validation.failed` |
-| `blocked` | `validation.blocked` |
+| `overall_result` | `event_type`           |
+| ---------------- | ---------------------- |
+| `passed`         | `validation.completed` |
+| `failed`         | `validation.failed`    |
+| `blocked`        | `validation.blocked`   |
 
 Any other `overall_result` is rejected as invalid.
 

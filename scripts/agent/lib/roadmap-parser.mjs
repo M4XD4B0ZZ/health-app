@@ -1,6 +1,10 @@
 const ROADMAP_TASK_ID_PATTERN = String.raw`(?:P\d+-\d+|RESOLVER-V2-\d+|RALPH-\d+[A-Z]?)`;
-const ROADMAP_TASK_HEADER = new RegExp(String.raw`^(#{2,6})\s+(?:[-*]\s+)?(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`);
-const CHECKBOX_TASK = new RegExp(String.raw`^\s*-\s+\[[ xX]\]\s+(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`);
+const ROADMAP_TASK_HEADER = new RegExp(
+  String.raw`^(#{2,6})\s+(?:[-*]\s+)?(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`,
+);
+const CHECKBOX_TASK = new RegExp(
+  String.raw`^\s*-\s+\[[ xX]\]\s+(${ROADMAP_TASK_ID_PATTERN})(?::)?\s*(.*)$`,
+);
 const ANY_HEADING = /^(#{1,6})\s+(.+)$/;
 
 export { ROADMAP_TASK_ID_PATTERN };
@@ -10,7 +14,9 @@ export function normalizeStatus(value) {
 }
 
 function cleanTitle(title) {
-  return String(title || '').trim().replace(/\s+/g, ' ');
+  return String(title || '')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 function sectionPathFromStack(stack) {
@@ -91,8 +97,10 @@ export function parseRoadmap(content) {
         status: extractStatus(taskLines),
         order,
         line: index + 1,
-        section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id))),
-        dod_verify_text: extractDodVerify(taskLines)
+        section: sectionPathFromStack(
+          sectionStack.filter((section) => !section.title.includes(id)),
+        ),
+        dod_verify_text: extractDodVerify(taskLines),
       });
       return;
     }
@@ -108,7 +116,9 @@ export function parseRoadmap(content) {
         title,
         checkbox_state: isDone ? 'done' : 'not_done',
         line: index + 1,
-        section: sectionPathFromStack(sectionStack.filter((section) => !section.title.includes(id)))
+        section: sectionPathFromStack(
+          sectionStack.filter((section) => !section.title.includes(id)),
+        ),
       });
     }
   });

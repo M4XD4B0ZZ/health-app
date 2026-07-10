@@ -535,7 +535,11 @@ describe('SequentialFoodCatalogResolver', () => {
 
     const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
 
-    const query: FoodSearchQuery = { raw: 'roh testfood', normalized: 'roh testfood', locale: 'de' };
+    const query: FoodSearchQuery = {
+      raw: 'roh testfood',
+      normalized: 'roh testfood',
+      locale: 'de',
+    };
     const result = await resolver.resolve(query);
 
     expect(result).not.toBeNull();

@@ -30,16 +30,10 @@ const REVIEW_RESULTS_PATH = 'review/review-results.jsonl';
 const VALID_REVIEW_RESULTS = new Map([
   ['accepted', 'review.accepted'],
   ['rejected', 'review.rejected'],
-  ['needs_changes', 'review.needs_changes']
+  ['needs_changes', 'review.needs_changes'],
 ]);
 
-const REQUIRED_FIELDS = [
-  'review_id',
-  'task_id',
-  'reviewer',
-  'review_result',
-  'review_required'
-];
+const REQUIRED_FIELDS = ['review_id', 'task_id', 'reviewer', 'review_result', 'review_required'];
 
 function nowIso() {
   return new Date().toISOString();
@@ -50,7 +44,10 @@ function normalizeTimestampForId(timestamp) {
 }
 
 function nonce(length = 6) {
-  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+  return crypto
+    .randomBytes(Math.ceil(length / 2))
+    .toString('hex')
+    .slice(0, length);
 }
 
 function parseArgs(argv) {
@@ -58,14 +55,14 @@ function parseArgs(argv) {
     append: false,
     confirmAppend: false,
     stdin: false,
-    help: false
+    help: false,
   };
 
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') options.help = true;
-    else if (arg === '--input') options.input = requireValue(args, i += 1, arg);
+    else if (arg === '--input') options.input = requireValue(args, (i += 1), arg);
     else if (arg === '--stdin') options.stdin = true;
     else if (arg === '--append') options.append = true;
     else if (arg === '--confirm-append') options.confirmAppend = true;
@@ -134,7 +131,9 @@ SAFETY:
 
 function readInput(options) {
   if (options.stdin) return fs.readFileSync(0, 'utf8');
-  const fullPath = path.isAbsolute(options.input) ? options.input : path.resolve(projectRoot, options.input);
+  const fullPath = path.isAbsolute(options.input)
+    ? options.input
+    : path.resolve(projectRoot, options.input);
   return fs.readFileSync(fullPath, 'utf8');
 }
 
@@ -147,9 +146,11 @@ function parseJsonObject(text) {
 }
 
 function validateRequiredFields(result) {
-  const missing = REQUIRED_FIELDS.filter((field) => result[field] === undefined || result[field] === null);
+  const missing = REQUIRED_FIELDS.filter(
+    (field) => result[field] === undefined || result[field] === null,
+  );
   if (missing.length > 0) throw new Error(`Missing required field(s): ${missing.join(', ')}`);
-  
+
   if (typeof result.review_id !== 'string' || result.review_id.trim() === '') {
     throw new Error('review_id must be a non-empty string');
   }
@@ -165,14 +166,18 @@ function validateRequiredFields(result) {
 }
 
 function normalizeReviewResult(value) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
 function eventTypeForReviewResult(reviewResult) {
   const normalized = normalizeReviewResult(reviewResult);
   const eventType = VALID_REVIEW_RESULTS.get(normalized);
   if (!eventType) {
-    throw new Error(`Unsupported review_result: ${reviewResult}. Expected one of: accepted, rejected, needs_changes`);
+    throw new Error(
+      `Unsupported review_result: ${reviewResult}. Expected one of: accepted, rejected, needs_changes`,
+    );
   }
   return eventType;
 }
@@ -182,7 +187,7 @@ function normalizeActor(result) {
   if (sourceReviewer && typeof sourceReviewer === 'object') {
     return {
       type: sourceReviewer.type || 'reviewer',
-      id: sourceReviewer.id || WRITER_ID
+      id: sourceReviewer.id || WRITER_ID,
     };
   }
   return { type: 'reviewer', id: sourceReviewer || WRITER_ID };
@@ -191,7 +196,7 @@ function normalizeActor(result) {
 function sourceDescriptor(options) {
   return {
     writer: WRITER_ID,
-    input: options.stdin ? 'stdin' : options.input
+    input: options.stdin ? 'stdin' : options.input,
   };
 }
 
@@ -202,7 +207,7 @@ function buildReviewEvent(result, options) {
   const stamp = normalizeTimestampForId(timestamp);
   const eventType = eventTypeForReviewResult(result.review_result);
   const normalizedReviewResult = normalizeReviewResult(result.review_result);
-  
+
   const event = {
     schema_version: SCHEMA_VERSION,
     review_id: result.review_id,
@@ -213,11 +218,12 @@ function buildReviewEvent(result, options) {
     ...(result.run_id ? { run_id: result.run_id } : {}),
     ...(result.correlation_id ? { correlation_id: result.correlation_id } : {}),
     actor: normalizeActor(result),
-    reviewer: typeof result.reviewer === 'string' ? result.reviewer : result.reviewer?.id || WRITER_ID,
+    reviewer:
+      typeof result.reviewer === 'string' ? result.reviewer : result.reviewer?.id || WRITER_ID,
     review_required: Boolean(result.review_required),
     review_result: normalizedReviewResult,
     ...(result.review_notes ? { review_notes: result.review_notes } : {}),
-    source: sourceDescriptor(options)
+    source: sourceDescriptor(options),
   };
 
   if (!event.correlation_id && (event.task_id || event.run_id)) {
@@ -238,7 +244,7 @@ function buildOutput(event, appendResult, options) {
     append_confirmed: options.confirmAppend,
     target: REVIEW_RESULTS_PATH,
     planned_event: event,
-    append_result: appendResult
+    append_result: appendResult,
   };
 }
 

@@ -33,14 +33,7 @@ export type CandidateSemanticClass =
 type QueryIntent = 'generic_short' | 'product_specific' | 'ambiguous';
 
 // Plain/raw indicators
-const PLAIN_RAW_INDICATORS = [
-  'raw',
-  'roh',
-  'fresh',
-  'frisch',
-  'uncooked',
-  'ungekocht',
-] as const;
+const PLAIN_RAW_INDICATORS = ['raw', 'roh', 'fresh', 'frisch', 'uncooked', 'ungekocht'] as const;
 
 // Simple preparation indicators
 const SIMPLE_PREP_INDICATORS = [

@@ -54,14 +54,26 @@ function relaunchWithLargerHeapIfNeeded() {
   const hasHeapFlag = process.execArgv.some((arg) => arg.startsWith('--max-old-space-size='));
   if (hasHeapFlag || process.env[RELAUNCH_ENV] === '1') return;
 
-  const result = spawnSync(process.execPath, [`--max-old-space-size=${REQUIRED_HEAP_MB}`, ...process.argv.slice(1)], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, [RELAUNCH_ENV]: '1' },
-    stdio: 'inherit',
-  });
+  const result = spawnSync(
+    process.execPath,
+    [`--max-old-space-size=${REQUIRED_HEAP_MB}`, ...process.argv.slice(1)],
+    {
+      cwd: REPO_ROOT,
+      env: { ...process.env, [RELAUNCH_ENV]: '1' },
+      stdio: 'inherit',
+    },
+  );
 
   if (result.error) {
-    console.error(JSON.stringify(errorPayload(`Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`), null, 2));
+    console.error(
+      JSON.stringify(
+        errorPayload(
+          `Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`,
+        ),
+        null,
+        2,
+      ),
+    );
     process.exit(1);
   }
 
@@ -76,7 +88,8 @@ function sha256File(filePath) {
 
 function assertWorkbookExists() {
   const absolutePath = path.join(REPO_ROOT, DATA_WORKBOOK_PATH);
-  if (!fs.existsSync(absolutePath)) throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
+  if (!fs.existsSync(absolutePath))
+    throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
   return absolutePath;
 }
 
@@ -101,7 +114,10 @@ async function main() {
       sourceWorkbookSha256: workbook.sha256,
     });
     const validation = validateBlsCompactRuntimePayload(artifact.payload);
-    if (!validation.ok) throw new Error(`Generated compact runtime artifact failed validation: ${validation.errors.join(', ')}`);
+    if (!validation.ok)
+      throw new Error(
+        `Generated compact runtime artifact failed validation: ${validation.errors.join(', ')}`,
+      );
 
     const writeResult = writeBlsCompactRuntimeArtifact({
       repoRoot: REPO_ROOT,

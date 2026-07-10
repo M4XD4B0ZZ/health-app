@@ -4,7 +4,7 @@ import {
   evaluateSandboxLifecycleEligibility,
   parseEligibilityJson,
   isSafeRelativeEligibilityFile,
-  ELIGIBILITY_DECISIONS
+  ELIGIBILITY_DECISIONS,
 } from '../lib/sandbox-lifecycle-eligibility-evaluator.mjs';
 
 describe('sandbox-lifecycle-eligibility-evaluator', () => {
@@ -16,10 +16,10 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         task_id: 'RALPH-043B',
         lifecycle: {
           state: 'evidence_bundled',
-          timestamp: '2026-06-10T11:00:00Z'
+          timestamp: '2026-06-10T11:00:00Z',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
@@ -39,9 +39,9 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         queue_entry_id: 'QE-001',
         lifecycle: {
           state: 'awaiting_human_review',
-          timestamp: '2026-06-10T11:00:00Z'
+          timestamp: '2026-06-10T11:00:00Z',
         },
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
@@ -57,16 +57,16 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'sandbox_marker_missing'));
+      assert.ok(result.findings.some((f) => f.code === 'sandbox_marker_missing'));
     });
 
     it('returns blocked_missing_evidence when non_authoritative marker is missing', () => {
@@ -75,16 +75,16 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: false,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'non_authoritative_marker_missing'));
+      assert.ok(result.findings.some((f) => f.code === 'non_authoritative_marker_missing'));
     });
 
     it('returns blocked_missing_evidence when lifecycle is missing', () => {
@@ -93,13 +93,13 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'lifecycle_object_missing'));
+      assert.ok(result.findings.some((f) => f.code === 'lifecycle_object_missing'));
     });
 
     it('returns blocked_missing_evidence when evidence markers are absent', () => {
@@ -109,16 +109,16 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         task_id: 'RALPH-043B',
         lifecycle: {
           state: 'draft',
-          timestamp: '2026-06-10T11:00:00Z'
+          timestamp: '2026-06-10T11:00:00Z',
         },
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_MISSING_EVIDENCE);
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'missing_evidence_marker'));
+      assert.ok(result.findings.some((f) => f.code === 'missing_evidence_marker'));
     });
 
     it('returns blocked_forbidden_claim when forbidden authority claim is present', () => {
@@ -127,18 +127,22 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         queue_execution: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_FORBIDDEN_CLAIM);
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'forbidden_authority_claim' && f.details.claim === 'queue_execution'));
+      assert.ok(
+        result.findings.some(
+          (f) => f.code === 'forbidden_authority_claim' && f.details.claim === 'queue_execution',
+        ),
+      );
     });
 
     it('returns blocked_invalid_lifecycle for forbidden lifecycle state', () => {
@@ -148,17 +152,17 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         task_id: 'RALPH-043B',
         lifecycle: {
           state: 'queued',
-          timestamp: '2026-06-10T11:00:00Z'
+          timestamp: '2026-06-10T11:00:00Z',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_INVALID_LIFECYCLE);
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'forbidden_lifecycle_state'));
+      assert.ok(result.findings.some((f) => f.code === 'forbidden_lifecycle_state'));
     });
 
     it('returns blocked_invalid_lifecycle for invalid lifecycle transition', () => {
@@ -169,17 +173,17 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         lifecycle: {
           state: 'draft',
           next_state: 'evidence_bundled',
-          timestamp: '2026-06-10T11:00:00Z'
+          timestamp: '2026-06-10T11:00:00Z',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_INVALID_LIFECYCLE);
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'skipped_lifecycle_transition'));
+      assert.ok(result.findings.some((f) => f.code === 'skipped_lifecycle_transition'));
     });
 
     it('returns blocked_canonical_scope for tasks/ reference', () => {
@@ -188,18 +192,22 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         artifact_path: 'tasks/task-state.json',
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_CANONICAL_SCOPE);
       assert.equal(result.blocked, true);
-      assert.ok(result.findings.some(f => f.code === 'canonical_scope_violation' && f.details.protected_path === 'tasks/'));
+      assert.ok(
+        result.findings.some(
+          (f) => f.code === 'canonical_scope_violation' && f.details.protected_path === 'tasks/',
+        ),
+      );
     });
 
     it('returns blocked_canonical_scope for runs/ reference', () => {
@@ -208,17 +216,21 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         target_path: 'runs/current-run.json',
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_CANONICAL_SCOPE);
-      assert.ok(result.findings.some(f => f.code === 'canonical_scope_violation' && f.details.protected_path === 'runs/'));
+      assert.ok(
+        result.findings.some(
+          (f) => f.code === 'canonical_scope_violation' && f.details.protected_path === 'runs/',
+        ),
+      );
     });
 
     it('returns blocked_canonical_scope for validation/ reference', () => {
@@ -227,17 +239,22 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         evidence_path: 'validation/validation-results.jsonl',
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_CANONICAL_SCOPE);
-      assert.ok(result.findings.some(f => f.code === 'canonical_scope_violation' && f.details.protected_path === 'validation/'));
+      assert.ok(
+        result.findings.some(
+          (f) =>
+            f.code === 'canonical_scope_violation' && f.details.protected_path === 'validation/',
+        ),
+      );
     });
 
     it('returns blocked_canonical_scope for src/ reference', () => {
@@ -246,17 +263,21 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         allowed_files: ['src/domain/model.ts'],
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_CANONICAL_SCOPE);
-      assert.ok(result.findings.some(f => f.code === 'canonical_scope_violation' && f.details.protected_path === 'src/'));
+      assert.ok(
+        result.findings.some(
+          (f) => f.code === 'canonical_scope_violation' && f.details.protected_path === 'src/',
+        ),
+      );
     });
 
     it('returns blocked_canonical_scope for package.json reference', () => {
@@ -265,17 +286,22 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         expected_changed_files: ['package.json'],
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_CANONICAL_SCOPE);
-      assert.ok(result.findings.some(f => f.code === 'canonical_scope_violation' && f.details.protected_path === 'package.json'));
+      assert.ok(
+        result.findings.some(
+          (f) =>
+            f.code === 'canonical_scope_violation' && f.details.protected_path === 'package.json',
+        ),
+      );
     });
 
     it('prioritizes canonical_scope over forbidden_claim', () => {
@@ -284,19 +310,19 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
         artifact_path: 'tasks/task-state.json',
         queue_execution: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
 
       assert.equal(result.decision, ELIGIBILITY_DECISIONS.BLOCKED_CANONICAL_SCOPE);
-      assert.ok(result.findings.some(f => f.code === 'canonical_scope_violation'));
-      assert.ok(result.findings.some(f => f.code === 'forbidden_authority_claim'));
+      assert.ok(result.findings.some((f) => f.code === 'canonical_scope_violation'));
+      assert.ok(result.findings.some((f) => f.code === 'forbidden_authority_claim'));
     });
 
     it('ensures all authority flags are false', () => {
@@ -305,10 +331,10 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
@@ -334,10 +360,10 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);
@@ -413,10 +439,10 @@ describe('sandbox-lifecycle-eligibility-evaluator', () => {
         non_authoritative: true,
         task_id: 'RALPH-043B',
         lifecycle: {
-          state: 'evidence_bundled'
+          state: 'evidence_bundled',
         },
         evidence_bundled: true,
-        non_authoritative_statement: 'This is non-authoritative advisory metadata only.'
+        non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
       };
 
       const result = evaluateSandboxLifecycleEligibility(input);

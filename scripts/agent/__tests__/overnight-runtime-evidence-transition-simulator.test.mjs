@@ -7,7 +7,7 @@ import {
   buildRuntimeEvidenceTransitionSimulation,
   evaluateSourceSafetyInvariants,
   formatRuntimeEvidenceTransitionSimulationPretty,
-  validateValidationApprovalGateInput
+  validateValidationApprovalGateInput,
 } from '../lib/overnight-runtime-evidence-transition-simulator.mjs';
 import { parseArgs } from '../overnight-runtime-evidence-transition-simulator.mjs';
 
@@ -32,8 +32,8 @@ function sourceSimulation(overrides = {}) {
         executed: false,
         passed: null,
         evidence_created: false,
-        not_validation_evidence: true
-      }
+        not_validation_evidence: true,
+      },
     ],
     approval_consideration: {
       future_approval_could_be_considered_after_requirements: true,
@@ -45,7 +45,7 @@ function sourceSimulation(overrides = {}) {
       human_review_required: true,
       not_approval: true,
       not_review_evidence: true,
-      not_validation_evidence: true
+      not_validation_evidence: true,
     },
     execution_plan: {
       queued_tasks_executed: 0,
@@ -68,7 +68,7 @@ function sourceSimulation(overrides = {}) {
       staged_files: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -98,10 +98,10 @@ function sourceSimulation(overrides = {}) {
       no_push: true,
       writes_by_default: false,
       not_review_evidence: true,
-      not_validation_evidence: true
+      not_validation_evidence: true,
     },
     non_authorization_statement: 'source non-authorization',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -131,47 +131,81 @@ test('all transition entries remain non-mutating and non-evidence', () => {
 });
 
 test('invalid phase or mode produces invalid_input', () => {
-  const simulation = buildRuntimeEvidenceTransitionSimulation(sourceSimulation({ phase: 'RALPH-034M', mode: 'post_change_review_gate_simulation_only' }));
+  const simulation = buildRuntimeEvidenceTransitionSimulation(
+    sourceSimulation({ phase: 'RALPH-034M', mode: 'post_change_review_gate_simulation_only' }),
+  );
   assert.equal(simulation.transition_disposition, 'invalid_input');
   assert.ok(simulation.reason_codes.includes('invalid_source_phase'));
   assert.ok(simulation.reason_codes.includes('invalid_source_mode'));
 });
 
 test('blocked_before_validation blocks transition planning', () => {
-  const simulation = buildRuntimeEvidenceTransitionSimulation(sourceSimulation({ approval_gate_disposition: 'blocked_before_validation', reason_codes: ['source_blocked_before_validation'] }));
+  const simulation = buildRuntimeEvidenceTransitionSimulation(
+    sourceSimulation({
+      approval_gate_disposition: 'blocked_before_validation',
+      reason_codes: ['source_blocked_before_validation'],
+    }),
+  );
   assert.equal(simulation.transition_disposition, 'blocked_before_transition_planning');
   assert.equal(simulation.hypothetical_runtime_transitions.length, 0);
   assert.equal(simulation.hypothetical_evidence_transitions.length, 0);
 });
 
 test('source authorization claim blocks future workflow consideration', () => {
-  const simulation = buildRuntimeEvidenceTransitionSimulation(sourceSimulation({ approval_consideration: { ...sourceSimulation().approval_consideration, approval_authorized: true } }));
+  const simulation = buildRuntimeEvidenceTransitionSimulation(
+    sourceSimulation({
+      approval_consideration: {
+        ...sourceSimulation().approval_consideration,
+        approval_authorized: true,
+      },
+    }),
+  );
   assert.equal(simulation.transition_disposition, 'no_future_workflow_consideration');
   assert.ok(simulation.reason_codes.includes('source_claims_authorization'));
 });
 
 test('source non-zero counters block future workflow consideration', () => {
-  const simulation = buildRuntimeEvidenceTransitionSimulation(sourceSimulation({ execution_plan: { ...sourceSimulation().execution_plan, validation_commands_executed: 1 } }));
+  const simulation = buildRuntimeEvidenceTransitionSimulation(
+    sourceSimulation({
+      execution_plan: { ...sourceSimulation().execution_plan, validation_commands_executed: 1 },
+    }),
+  );
   assert.equal(simulation.transition_disposition, 'no_future_workflow_consideration');
   assert.ok(simulation.reason_codes.includes('nonzero_execution_counter'));
 });
 
 test('blocked validation requirements fail closed before transition planning', () => {
-  const simulation = buildRuntimeEvidenceTransitionSimulation(sourceSimulation({ hypothetical_validation_requirements: [{ requirement_id: 'blocked_category_runtime_or_evidence_state', category: 'runtime-or-evidence-state', required_checks: ['explicit future runtime/evidence mutation authorization'] }] }));
+  const simulation = buildRuntimeEvidenceTransitionSimulation(
+    sourceSimulation({
+      hypothetical_validation_requirements: [
+        {
+          requirement_id: 'blocked_category_runtime_or_evidence_state',
+          category: 'runtime-or-evidence-state',
+          required_checks: ['explicit future runtime/evidence mutation authorization'],
+        },
+      ],
+    }),
+  );
   assert.equal(simulation.transition_disposition, 'blocked_before_transition_planning');
   assert.ok(simulation.reason_codes.includes('blocked_transition_requirement'));
 });
 
 test('validation requirements map to evidence prerequisites without writing evidence', () => {
   const transitions = buildHypotheticalEvidenceTransitions(sourceSimulation());
-  const validation = transitions.find((entry) => entry.transition_id === 'validation_evidence_required');
+  const validation = transitions.find(
+    (entry) => entry.transition_id === 'validation_evidence_required',
+  );
   assert.match(validation.required_source, /node --check/);
   assert.equal(validation.evidence_written, false);
 });
 
 test('runtime transition model references required validation and review evidence', () => {
   const transitions = buildHypotheticalRuntimeTransitions(sourceSimulation());
-  assert.ok(transitions.some((entry) => entry.required_evidence.includes('passing_validation_or_docs_readback')));
+  assert.ok(
+    transitions.some((entry) =>
+      entry.required_evidence.includes('passing_validation_or_docs_readback'),
+    ),
+  );
   assert.ok(transitions.some((entry) => entry.required_evidence.includes('validation_evidence')));
   assert.ok(transitions.some((entry) => entry.required_evidence.includes('review_acceptance')));
 });
@@ -194,13 +228,49 @@ test('safety counters and helper validation remain deterministic', () => {
 });
 
 test('CLI parser rejects execution, evidence, runtime, write, git, and worker flags', () => {
-  for (const flag of ['--execute', '--worker', '--run-worker', '--invoke-worker', '--adapter', '--invoke-adapter', '--provider', '--model', '--invoke-model', '--execute-prompt', '--prompt-execute', '--apply-diff', '--write-changes', '--validate', '--run-validation', '--review', '--approve', '--accept-review', '--write-review-evidence', '--append-review', '--write-validation-evidence', '--append-validation-evidence', '--write-runtime-state', '--mutate-runtime', '--append-task-history', '--append-run-history', '--write-evidence', '--write-report', '--write-run-log', '--output', '--commit', '--push', '--stage']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-worker',
+    '--invoke-worker',
+    '--adapter',
+    '--invoke-adapter',
+    '--provider',
+    '--model',
+    '--invoke-model',
+    '--execute-prompt',
+    '--prompt-execute',
+    '--apply-diff',
+    '--write-changes',
+    '--validate',
+    '--run-validation',
+    '--review',
+    '--approve',
+    '--accept-review',
+    '--write-review-evidence',
+    '--append-review',
+    '--write-validation-evidence',
+    '--append-validation-evidence',
+    '--write-runtime-state',
+    '--mutate-runtime',
+    '--append-task-history',
+    '--append-run-history',
+    '--write-evidence',
+    '--write-report',
+    '--write-run-log',
+    '--output',
+    '--commit',
+    '--push',
+    '--stage',
+  ]) {
     assert.throws(() => parseArgs(['node', 'cli', 'ralph-034n.json', flag]), /forbidden/, flag);
   }
 });
 
 test('pretty output contains non-authorization language', () => {
-  const pretty = formatRuntimeEvidenceTransitionSimulationPretty(buildRuntimeEvidenceTransitionSimulation(sourceSimulation()));
+  const pretty = formatRuntimeEvidenceTransitionSimulationPretty(
+    buildRuntimeEvidenceTransitionSimulation(sourceSimulation()),
+  );
   assert.match(pretty, /planning-only runtime\/evidence transition simulation/);
   assert.match(pretty, /no runtime state writes/);
   assert.match(pretty, /no task history writes/);

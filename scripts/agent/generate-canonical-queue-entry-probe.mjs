@@ -6,14 +6,14 @@ import { fileURLToPath } from 'node:url';
 import {
   TARGET_PATH,
   formatCanonicalQueueEntryWriterProbeSummary,
-  runCanonicalQueueEntryWriterProbe
+  runCanonicalQueueEntryWriterProbe,
 } from './lib/canonical-queue-entry-writer-probe.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const FORBIDDEN_FLAG_PATTERNS = [
   /^--(?:out|output|path|target|target-path|payload|content|append|truncate|delete|rename|move|stage|commit|push|deploy)(?:$|=)/,
-  /^-(?:o|p)$/
+  /^-(?:o|p)$/,
 ];
 
 export function parseArgs(argv) {
@@ -22,7 +22,8 @@ export function parseArgs(argv) {
     if (arg === '--execute-canonical-queue-entry-probe') options.execute = true;
     else if (arg === '--pretty') options.pretty = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
-    else if (FORBIDDEN_FLAG_PATTERNS.some((pattern) => pattern.test(arg))) throw new Error(`Forbidden argument refused: ${arg}`);
+    else if (FORBIDDEN_FLAG_PATTERNS.some((pattern) => pattern.test(arg)))
+      throw new Error(`Forbidden argument refused: ${arg}`);
     else if (arg.startsWith('-')) throw new Error(`Unknown argument refused: ${arg}`);
     else throw new Error(`Positional output paths/content are refused: ${arg}`);
   }

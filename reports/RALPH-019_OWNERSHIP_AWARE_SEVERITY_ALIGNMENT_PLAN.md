@@ -22,16 +22,19 @@ This report analyzes the current severity logic in the ROADMAP/runtime reconcile
 ### 2.1 Live Reconciler State (2026-05-23T16:10:06Z)
 
 **ROADMAP.md:**
+
 - 27 tasks (all product tasks: P0-xxx, P1-xxx, P2-xxx, RESOLVER-V2-xxx)
 - No RALPH-XXX tasks in ROADMAP.md
 
 **tasks/task-state.json:**
+
 - 10 tasks (all RALPH-001A through RALPH-010A)
 - All `status: "done"`
 - All `runtime_only: false` (should be `true`)
 - All `ownership_explicit: false` (derived from `runtime_only: false`)
 
 **Reconciler output:**
+
 - 37 findings: 0 critical, 11 warnings, 26 info
 - 0 `roadmap_backed` tasks (no overlap between authorities)
 - 10 `runtime_only` tasks (all RALPH-XXX)
@@ -39,17 +42,17 @@ This report analyzes the current severity logic in the ROADMAP/runtime reconcile
 
 ### 2.2 Finding Code Inventory
 
-| Code | Current Severity | Ownership Applicability | Governance Impact | Ownership-Aware? |
-|---|---|---|---|---|
-| `duplicate_roadmap_task_id` | `critical` | `roadmap_backed` or `roadmap_only` | Breaks stable task identity and evidence linkage | No (hardcoded) |
-| `duplicate_task_state_id` | `critical` | `roadmap_backed` or `runtime_only` | Breaks stable task identity and evidence linkage | No (hardcoded) |
-| `unknown_roadmap_status` | `warning` | Task's own class | Invalid status vocabulary | No (hardcoded) |
-| `unknown_task_state_status` | `warning` | Task's own class | Invalid status vocabulary | No (hardcoded) |
-| `roadmap_task_missing_from_task_state` | `info` (done/todo) or `warning` (in_progress) | `roadmap_only` | Missing runtime visibility for active work | **Yes** (via `severityForMissingRuntime()`) |
-| `runtime_task_missing_from_roadmap` | `info` (explicit runtime_only), `warning` (done), `critical` (active) | `runtime_only` | Runtime state must not create planning truth | **Yes** (via `severityForRuntimeMissingRoadmap()`) |
-| `roadmap_done_runtime_active` | `critical` | `roadmap_backed` | Planning says complete while runtime says incomplete | No (hardcoded) |
-| `runtime_done_roadmap_not_done` | `critical` | `roadmap_backed` | Runtime claims done without planning authority | No (hardcoded) |
-| `roadmap_status_differs_from_task_state` | `warning` | `roadmap_backed` | Status drift between authorities | No (hardcoded) |
+| Code                                     | Current Severity                                                      | Ownership Applicability            | Governance Impact                                    | Ownership-Aware?                                   |
+| ---------------------------------------- | --------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| `duplicate_roadmap_task_id`              | `critical`                                                            | `roadmap_backed` or `roadmap_only` | Breaks stable task identity and evidence linkage     | No (hardcoded)                                     |
+| `duplicate_task_state_id`                | `critical`                                                            | `roadmap_backed` or `runtime_only` | Breaks stable task identity and evidence linkage     | No (hardcoded)                                     |
+| `unknown_roadmap_status`                 | `warning`                                                             | Task's own class                   | Invalid status vocabulary                            | No (hardcoded)                                     |
+| `unknown_task_state_status`              | `warning`                                                             | Task's own class                   | Invalid status vocabulary                            | No (hardcoded)                                     |
+| `roadmap_task_missing_from_task_state`   | `info` (done/todo) or `warning` (in_progress)                         | `roadmap_only`                     | Missing runtime visibility for active work           | **Yes** (via `severityForMissingRuntime()`)        |
+| `runtime_task_missing_from_roadmap`      | `info` (explicit runtime_only), `warning` (done), `critical` (active) | `runtime_only`                     | Runtime state must not create planning truth         | **Yes** (via `severityForRuntimeMissingRoadmap()`) |
+| `roadmap_done_runtime_active`            | `critical`                                                            | `roadmap_backed`                   | Planning says complete while runtime says incomplete | No (hardcoded)                                     |
+| `runtime_done_roadmap_not_done`          | `critical`                                                            | `roadmap_backed`                   | Runtime claims done without planning authority       | No (hardcoded)                                     |
+| `roadmap_status_differs_from_task_state` | `warning`                                                             | `roadmap_backed`                   | Status drift between authorities                     | No (hardcoded)                                     |
 
 **Total:** 9 finding codes, 2 already ownership-aware, 7 ownership-blind.
 
@@ -62,10 +65,12 @@ These findings represent governance violations that must always remain `critical
 ### 3.1 Duplicate Canonical Task ID
 
 **Finding codes:**
+
 - `duplicate_roadmap_task_id`
 - `duplicate_task_state_id`
 
 **Why critical:**
+
 - Task IDs are stable and never reused (SSOK.md, AGENTS.md)
 - Duplicate canonical IDs break evidence linkage
 - Ambiguous identity prevents safe task selection
@@ -82,6 +87,7 @@ These findings represent governance violations that must always remain `critical
 **Finding code:** `roadmap_done_runtime_active`
 
 **Why critical:**
+
 - Planning authority says complete while runtime says incomplete
 - Dependent planning may proceed incorrectly
 - Violates ROADMAP.md as planning authority (SSOK.md)
@@ -98,6 +104,7 @@ These findings represent governance violations that must always remain `critical
 **Finding code:** `runtime_done_roadmap_not_done`
 
 **Why critical:**
+
 - Runtime claims completion without planning authority
 - Violates ROADMAP.md as planning authority (SSOK.md)
 - Dependent planning may proceed incorrectly
@@ -114,12 +121,14 @@ These findings represent governance violations that must always remain `critical
 **Finding code:** `runtime_task_missing_from_roadmap` (when `status` is active and `ownership_explicit: false`)
 
 **Why critical:**
+
 - Active runtime task appears to represent product/planning work
 - Should have ROADMAP authority if not explicitly runtime-only
 - Runtime state must not create planning truth (RALPH-015)
 - Prevents silent planning authority bypass
 
 **Current severity logic:**
+
 ```javascript
 function severityForRuntimeMissingRoadmap(runtimeTask) {
   if (runtimeTask.runtime_only === true) return 'info';
@@ -143,11 +152,13 @@ These findings could safely downgrade when ownership classification indicates le
 **Finding code:** `runtime_task_missing_from_roadmap`
 
 **Current severity logic:**
+
 - `info` when `runtime_only: true` (explicit runtime-only marker)
 - `warning` when `status: "done"` and `runtime_only: false`
 - `critical` when active and `runtime_only: false`
 
 **Ownership impact:**
+
 - `ownership_explicit: true` (derived from `runtime_only: true`) → `info` (legitimate runtime-only work)
 - `ownership_explicit: false` + `done` → `warning` (done without explicit classification)
 - `ownership_explicit: false` + active → `critical` (active work without planning authority)
@@ -163,15 +174,18 @@ These findings could safely downgrade when ownership classification indicates le
 **Finding code:** `roadmap_task_missing_from_task_state`
 
 **Current severity logic:**
+
 - `info` when `roadmap_status: "done"` or `roadmap_status: "todo"`
 - `warning` when `roadmap_status: "in_progress"`
 
 **Ownership impact:**
+
 - `roadmap_only` + `done` → `info` (historical/product completion outside Ralph runtime)
 - `roadmap_only` + `todo` → `info` (normal backlog not yet imported)
 - `roadmap_only` + `in_progress` → `warning` (active work without runtime visibility)
 
 **Rationale:**
+
 - ROADMAP owns planning backlog; runtime absence is expected before execution
 - `in_progress` without runtime state suggests missing runtime visibility
 - `done` without runtime state is valid for pre-Ralph work
@@ -191,6 +205,7 @@ These findings could safely downgrade when ownership classification indicates le
 **Current behavior:** Always `warning` for any status mismatch that isn't explicitly allowed by `isStatusMappingAllowed()`.
 
 **Potential ownership-aware logic:**
+
 - `roadmap_backed` + incompatible status → `warning` (status drift between authorities)
 - `runtime_only` + any status → N/A (finding not emitted; no ROADMAP entry exists)
 
@@ -204,31 +219,31 @@ These findings could safely downgrade when ownership classification indicates le
 
 ### 5.1 Always-Critical Findings (No Ownership Logic)
 
-| Finding Code | Current Severity | Recommended Severity | Ownership Conditions | Rationale |
-|---|---|---|---|---|
-| `duplicate_roadmap_task_id` | `critical` | `critical` | Always | Breaks stable identity |
-| `duplicate_task_state_id` | `critical` | `critical` | Always | Breaks stable identity |
-| `roadmap_done_runtime_active` | `critical` | `critical` | `roadmap_backed` only | Planning/runtime contradiction |
-| `runtime_done_roadmap_not_done` | `critical` | `critical` | `roadmap_backed` only | Planning/runtime contradiction |
+| Finding Code                    | Current Severity | Recommended Severity | Ownership Conditions  | Rationale                      |
+| ------------------------------- | ---------------- | -------------------- | --------------------- | ------------------------------ |
+| `duplicate_roadmap_task_id`     | `critical`       | `critical`           | Always                | Breaks stable identity         |
+| `duplicate_task_state_id`       | `critical`       | `critical`           | Always                | Breaks stable identity         |
+| `roadmap_done_runtime_active`   | `critical`       | `critical`           | `roadmap_backed` only | Planning/runtime contradiction |
+| `runtime_done_roadmap_not_done` | `critical`       | `critical`           | `roadmap_backed` only | Planning/runtime contradiction |
 
 ---
 
 ### 5.2 Ownership-Aware Findings (Existing Logic Correct)
 
-| Finding Code | Current Severity | Recommended Severity | Ownership Conditions | Rationale |
-|---|---|---|---|---|
-| `runtime_task_missing_from_roadmap` | `info` / `warning` / `critical` | **No change** | `info` when `ownership_explicit: true`<br>`warning` when `done` + `ownership_explicit: false`<br>`critical` when active + `ownership_explicit: false` | Already ownership-aware via `severityForRuntimeMissingRoadmap()` |
-| `roadmap_task_missing_from_task_state` | `info` / `warning` | **No change** | `info` when `done` or `todo`<br>`warning` when `in_progress` | Already ownership-aware via `severityForMissingRuntime()` |
+| Finding Code                           | Current Severity                | Recommended Severity | Ownership Conditions                                                                                                                                  | Rationale                                                        |
+| -------------------------------------- | ------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `runtime_task_missing_from_roadmap`    | `info` / `warning` / `critical` | **No change**        | `info` when `ownership_explicit: true`<br>`warning` when `done` + `ownership_explicit: false`<br>`critical` when active + `ownership_explicit: false` | Already ownership-aware via `severityForRuntimeMissingRoadmap()` |
+| `roadmap_task_missing_from_task_state` | `info` / `warning`              | **No change**        | `info` when `done` or `todo`<br>`warning` when `in_progress`                                                                                          | Already ownership-aware via `severityForMissingRuntime()`        |
 
 ---
 
 ### 5.3 Ownership-Blind Findings (No Changes Recommended)
 
-| Finding Code | Current Severity | Recommended Severity | Ownership Conditions | Rationale |
-|---|---|---|---|---|
-| `unknown_roadmap_status` | `warning` | `warning` | Always | Invalid vocabulary |
-| `unknown_task_state_status` | `warning` | `warning` | Always | Invalid vocabulary |
-| `roadmap_status_differs_from_task_state` | `warning` | `warning` | `roadmap_backed` only | Status drift (finding scoped to `roadmap_backed` by loop structure) |
+| Finding Code                             | Current Severity | Recommended Severity | Ownership Conditions  | Rationale                                                           |
+| ---------------------------------------- | ---------------- | -------------------- | --------------------- | ------------------------------------------------------------------- |
+| `unknown_roadmap_status`                 | `warning`        | `warning`            | Always                | Invalid vocabulary                                                  |
+| `unknown_task_state_status`              | `warning`        | `warning`            | Always                | Invalid vocabulary                                                  |
+| `roadmap_status_differs_from_task_state` | `warning`        | `warning`            | `roadmap_backed` only | Status drift (finding scoped to `roadmap_backed` by loop structure) |
 
 ---
 
@@ -241,18 +256,21 @@ These findings could safely downgrade when ownership classification indicates le
 **Change:** Set `runtime_only: true` on all RALPH-001A through RALPH-010A tasks.
 
 **Impact:**
+
 - 10 `warning` findings → 10 `info` findings
 - `warning_count: 11` → `warning_count: 1`
 - `info_count: 26` → `info_count: 36`
 - Exit code remains 0 (no critical findings)
 
 **Rationale:**
+
 - RALPH-XXX tasks are explicitly Ralph-Loop migration/governance work
 - They are not product tasks and should not be in ROADMAP.md
 - Setting `runtime_only: true` aligns severity with ownership intent
 - Reduces false-positive warnings
 
 **Example change:**
+
 ```json
 {
   "id": "RALPH-001A",
@@ -268,6 +286,7 @@ These findings could safely downgrade when ownership classification indicates le
 ### 6.2 Optional Action: No Severity Logic Changes Needed
 
 **Analysis:** The existing severity logic is correct. The reconciler already has ownership-aware severity for the two findings that need it:
+
 - `runtime_task_missing_from_roadmap` (via `severityForRuntimeMissingRoadmap()`)
 - `roadmap_task_missing_from_task_state` (via `severityForMissingRuntime()`)
 
@@ -298,14 +317,17 @@ The following must remain out of scope unless explicitly tasked:
 ### 7.1 Risks
 
 **Risk 1: Incorrect `runtime_only` classification**
+
 - **Mitigation:** Only set `runtime_only: true` on RALPH-XXX tasks (explicitly Ralph-Loop work)
 - **Validation:** Manual review of each task title/description before setting flag
 
 **Risk 2: Breaking existing reconciler behavior**
+
 - **Mitigation:** No severity logic changes; only data changes
 - **Validation:** Run reconciler before/after and compare finding counts
 
 **Risk 3: False negatives (missing legitimate warnings)**
+
 - **Mitigation:** Existing severity logic already handles this correctly
 - **Validation:** Test with fixture data (active runtime task without marker should remain critical)
 
@@ -314,26 +336,31 @@ The following must remain out of scope unless explicitly tasked:
 ### 7.2 Validation Strategy
 
 **Pre-change validation:**
+
 ```bash
 node scripts/agent/reconcile-roadmap-task-state.mjs --json > before.json
 ```
 
 **Expected before state:**
+
 - `warning_count: 11`
 - `info_count: 26`
 - 10 `runtime_task_missing_from_roadmap` warnings for RALPH-XXX tasks
 
 **Post-change validation:**
+
 ```bash
 node scripts/agent/reconcile-roadmap-task-state.mjs --json > after.json
 ```
 
 **Expected after state:**
+
 - `warning_count: 1` (only P1-003 `in_progress` without runtime state)
 - `info_count: 36` (26 + 10 RALPH-XXX tasks)
 - 10 `runtime_task_missing_from_roadmap` info findings for RALPH-XXX tasks
 
 **Diff validation:**
+
 ```bash
 # Compare finding counts
 jq '.summary | {critical_count, warning_count, info_count}' before.json
@@ -345,6 +372,7 @@ jq '.findings[] | select(.details.task_id | startswith("RALPH-")) | {task_id: .d
 ```
 
 **Test coverage validation:**
+
 ```bash
 node --test scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs
 ```
@@ -356,12 +384,14 @@ node --test scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs
 ### 7.3 Rollback Strategy
 
 **If validation fails:**
+
 1. Restore `tasks/task-state.json` from git
 2. Rerun reconciler to confirm original state
 3. Document failure reason
 4. Escalate to human review
 
 **Rollback command:**
+
 ```bash
 git checkout tasks/task-state.json
 node scripts/agent/reconcile-roadmap-task-state.mjs --json

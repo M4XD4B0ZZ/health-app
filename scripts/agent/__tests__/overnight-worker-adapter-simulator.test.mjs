@@ -9,7 +9,7 @@ import test from 'node:test';
 import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
 import {
   buildWorkerAdapterSimulation,
-  formatWorkerAdapterSimulationPretty
+  formatWorkerAdapterSimulationPretty,
 } from '../lib/overnight-worker-adapter-simulator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,7 +29,11 @@ function validTask(overrides = {}) {
     max_files_changed: 1,
     max_diff_lines: 80,
     allowed_commands: ['node scripts/agent/validate-ralph-state.mjs'],
-    forbidden_commands: ['dependency changes are forbidden', 'push operations are forbidden', 'external invocation is forbidden'],
+    forbidden_commands: [
+      'dependency changes are forbidden',
+      'push operations are forbidden',
+      'external invocation is forbidden',
+    ],
     required_checks: ['validate_ralph_state'],
     timeout_minutes: 5,
     max_attempts: 0,
@@ -40,7 +44,7 @@ function validTask(overrides = {}) {
     handoff_required: true,
     review_required: false,
     notes: 'Fixture only.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -52,7 +56,7 @@ function validQueue(overrides = {}) {
     created_by: 'human-operator',
     mode: 'dry_run',
     tasks: [validTask()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -69,7 +73,10 @@ function writeQueue(root, queue) {
 }
 
 function snapshot(root) {
-  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+  return fs
+    .readdirSync(root)
+    .sort()
+    .map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
 }
 
 function runCli(args = []) {
@@ -88,12 +95,16 @@ test('creates adapter simulation only for contract_created entries', () => {
 });
 
 test('returns not_eligible_no_contract for non-created contracts', () => {
-  const simulation = buildWorkerAdapterSimulation(validQueue({ tasks: [
-    validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
-    validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
-    validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
-    validTask({ task_id: 'FORBID', class: 'FORBIDDEN' })
-  ] }));
+  const simulation = buildWorkerAdapterSimulation(
+    validQueue({
+      tasks: [
+        validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
+        validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
+        validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
+        validTask({ task_id: 'FORBID', class: 'FORBIDDEN' }),
+      ],
+    }),
+  );
   assert.equal(simulation.summary.adapter_routes_simulated, 0);
   assert.equal(simulation.summary.not_eligible, 4);
   for (const entry of simulation.task_adapter_simulations) {
@@ -116,7 +127,7 @@ test('created adapter route contains mandatory routing and safety fields', () =>
     'routing_strategy',
     'routing_decision',
     'authorization_enforcement',
-    'non_authorization_statement'
+    'non_authorization_statement',
   ]) {
     assert.ok(Object.hasOwn(route, field), field);
   }
@@ -194,7 +205,29 @@ test('CLI writes no files and JSON output is parseable', (t) => {
 test('CLI rejects execution, worker, adapter, provider, model, prompt, diff, write, commit, and push flags', (t) => {
   const root = tempDir(t);
   const queuePath = writeQueue(root, validQueue());
-  for (const flag of ['--execute', '--worker', '--run-worker', '--invoke-worker', '--invoke-adapter', '--adapter', '--adapter-command', '--adapter-endpoint', '--provider', '--model', '--invoke-model', '--execute-prompt', '--prompt-execute', '--apply-diff', '--write-changes', '--write-report', '--write-run-log', '--output', '--overwrite', '--commit', '--push']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-worker',
+    '--invoke-worker',
+    '--invoke-adapter',
+    '--adapter',
+    '--adapter-command',
+    '--adapter-endpoint',
+    '--provider',
+    '--model',
+    '--invoke-model',
+    '--execute-prompt',
+    '--prompt-execute',
+    '--apply-diff',
+    '--write-changes',
+    '--write-report',
+    '--write-run-log',
+    '--output',
+    '--overwrite',
+    '--commit',
+    '--push',
+  ]) {
     const result = runCli([queuePath, flag]);
     assert.equal(result.status, 1, flag);
   }

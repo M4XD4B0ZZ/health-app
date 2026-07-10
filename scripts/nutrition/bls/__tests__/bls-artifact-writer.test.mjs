@@ -59,7 +59,11 @@ function row(overrides = {}) {
 }
 
 function fixtureRows() {
-  return [HEADERS, row(), row({ blsCode: 'B314000', germanName: 'Weizentoastbrot', englishName: 'Wheat toast' })];
+  return [
+    HEADERS,
+    row(),
+    row({ blsCode: 'B314000', germanName: 'Weizentoastbrot', englishName: 'Wheat toast' }),
+  ];
 }
 
 function collectKeys(value, keys = []) {
@@ -109,7 +113,10 @@ describe('bls artifact writer CLI parsing', () => {
 
 describe('bls artifact payload schema and determinism', () => {
   it('builds the requested schema without timestamp metadata', () => {
-    const artifact = buildBlsArtifactPayload(fixtureRows(), { limit: 2, sourceWorkbookSha256: 'sha-fixture' });
+    const artifact = buildBlsArtifactPayload(fixtureRows(), {
+      limit: 2,
+      sourceWorkbookSha256: 'sha-fixture',
+    });
     const payload = artifact.payload;
 
     assert.equal(payload.schemaVersion, SCHEMA_VERSION);
@@ -130,8 +137,14 @@ describe('bls artifact payload schema and determinism', () => {
   });
 
   it('generates byte-identical stable JSON with one trailing newline', () => {
-    const first = buildBlsArtifactPayload(fixtureRows(), { limit: 2, sourceWorkbookSha256: 'sha-fixture' });
-    const second = buildBlsArtifactPayload(fixtureRows(), { limit: 2, sourceWorkbookSha256: 'sha-fixture' });
+    const first = buildBlsArtifactPayload(fixtureRows(), {
+      limit: 2,
+      sourceWorkbookSha256: 'sha-fixture',
+    });
+    const second = buildBlsArtifactPayload(fixtureRows(), {
+      limit: 2,
+      sourceWorkbookSha256: 'sha-fixture',
+    });
 
     assert.equal(first.bytes, second.bytes);
     assert.equal(first.sha256, second.sha256);
@@ -152,7 +165,10 @@ describe('bls artifact payload schema and determinism', () => {
 describe('bls sample artifact write safety', () => {
   it('dry-run writes no file, write creates fixed target, and same content is unchanged', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bls-artifact-writer-'));
-    const artifact = buildBlsArtifactPayload(fixtureRows(), { limit: 2, sourceWorkbookSha256: 'sha-fixture' });
+    const artifact = buildBlsArtifactPayload(fixtureRows(), {
+      limit: 2,
+      sourceWorkbookSha256: 'sha-fixture',
+    });
     const target = path.join(repoRoot, SAMPLE_ARTIFACT_PATH);
 
     const dryRun = writeBlsSampleArtifact({ repoRoot, artifact, write: false });
@@ -170,7 +186,10 @@ describe('bls sample artifact write safety', () => {
 
   it('refuses changed existing content unless force is explicit', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bls-artifact-writer-'));
-    const artifact = buildBlsArtifactPayload(fixtureRows(), { limit: 1, sourceWorkbookSha256: 'sha-fixture' });
+    const artifact = buildBlsArtifactPayload(fixtureRows(), {
+      limit: 1,
+      sourceWorkbookSha256: 'sha-fixture',
+    });
     const target = path.join(repoRoot, SAMPLE_ARTIFACT_PATH);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, '{"changed":true}\n', 'utf8');

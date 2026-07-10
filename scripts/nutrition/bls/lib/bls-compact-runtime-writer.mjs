@@ -42,7 +42,13 @@ const FORBIDDEN_ARG_PATTERNS = Object.freeze([
   /^-(?:o|w)$/,
 ]);
 
-const FORBIDDEN_PAYLOAD_KEYS = Object.freeze(['tokens', 'aliases', 'normalizedName', 'provenance', 'names']);
+const FORBIDDEN_PAYLOAD_KEYS = Object.freeze([
+  'tokens',
+  'aliases',
+  'normalizedName',
+  'provenance',
+  'names',
+]);
 
 export function sha256Bytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -78,8 +84,10 @@ export function parseArgs(argv) {
   }
 
   if (options.help) return options;
-  if (options.dryRun && options.write) throw new Error('Choose exactly one mode: --dry-run or --write');
-  if (!options.dryRun && !options.write) throw new Error('Explicit mode required: --dry-run or --write');
+  if (options.dryRun && options.write)
+    throw new Error('Choose exactly one mode: --dry-run or --write');
+  if (!options.dryRun && !options.write)
+    throw new Error('Explicit mode required: --dry-run or --write');
   return options;
 }
 
@@ -132,7 +140,9 @@ function toCompactRuntimeRecord(record) {
       fat: macroValue(record, 'fat'),
       carbs: macroValue(record, 'carbs'),
     },
-    nutrientsPer100g: Object.fromEntries(TIER2_FIELDS.map((field) => [field, nutrientValue(record, field)])),
+    nutrientsPer100g: Object.fromEntries(
+      TIER2_FIELDS.map((field) => [field, nutrientValue(record, field)]),
+    ),
   };
 }
 
@@ -192,31 +202,51 @@ function hasExactKeys(value, keys) {
 export function validateBlsCompactRuntimePayload(payload) {
   const errors = [];
   if (payload?.schemaVersion !== SCHEMA_VERSION) errors.push('schemaVersion mismatch');
-  if (!hasExactKeys(payload, ['schemaVersion', 'artifact', 'source', 'records'])) errors.push('top-level schema keys mismatch');
-  if (!hasExactKeys(payload?.artifact, ['kind', 'recordCount', 'contentSha256'])) errors.push('artifact keys mismatch');
-  if (payload?.artifact?.kind !== 'runtime-compact') errors.push('artifact kind must be runtime-compact');
-  if (!hasExactKeys(payload?.source, ['kind', 'version', 'locale', 'dataWorkbookPath', 'sourceWorkbookSha256', 'validRecordCount'])) {
+  if (!hasExactKeys(payload, ['schemaVersion', 'artifact', 'source', 'records']))
+    errors.push('top-level schema keys mismatch');
+  if (!hasExactKeys(payload?.artifact, ['kind', 'recordCount', 'contentSha256']))
+    errors.push('artifact keys mismatch');
+  if (payload?.artifact?.kind !== 'runtime-compact')
+    errors.push('artifact kind must be runtime-compact');
+  if (
+    !hasExactKeys(payload?.source, [
+      'kind',
+      'version',
+      'locale',
+      'dataWorkbookPath',
+      'sourceWorkbookSha256',
+      'validRecordCount',
+    ])
+  ) {
     errors.push('source keys mismatch');
   }
   if (payload?.source?.kind !== SOURCE_KIND) errors.push('source kind mismatch');
   if (payload?.source?.version !== SOURCE_VERSION) errors.push('source version mismatch');
   if (payload?.source?.locale !== SOURCE_LOCALE) errors.push('source locale mismatch');
-  if (payload?.source?.dataWorkbookPath !== DATA_WORKBOOK_PATH) errors.push('source workbook path mismatch');
+  if (payload?.source?.dataWorkbookPath !== DATA_WORKBOOK_PATH)
+    errors.push('source workbook path mismatch');
   if (!Array.isArray(payload?.records)) errors.push('records must be an array');
-  if (payload?.artifact?.recordCount !== payload?.records?.length) errors.push('artifact recordCount mismatch');
-  if (payload?.source?.validRecordCount !== payload?.records?.length) errors.push('source validRecordCount mismatch');
+  if (payload?.artifact?.recordCount !== payload?.records?.length)
+    errors.push('artifact recordCount mismatch');
+  if (payload?.source?.validRecordCount !== payload?.records?.length)
+    errors.push('source validRecordCount mismatch');
   if (!verifyContentHash(payload)) errors.push('content hash verification failed');
 
   const forbiddenKeys = collectKeys(payload).filter((key) => FORBIDDEN_PAYLOAD_KEYS.includes(key));
-  if (forbiddenKeys.length > 0) errors.push(`forbidden keys present: ${[...new Set(forbiddenKeys)].join(', ')}`);
+  if (forbiddenKeys.length > 0)
+    errors.push(`forbidden keys present: ${[...new Set(forbiddenKeys)].join(', ')}`);
 
   for (const [index, record] of (payload?.records ?? []).entries()) {
-    if (!hasExactKeys(record, ['id', 'sourceId', 'displayName', 'macrosPer100g', 'nutrientsPer100g'])) {
+    if (
+      !hasExactKeys(record, ['id', 'sourceId', 'displayName', 'macrosPer100g', 'nutrientsPer100g'])
+    ) {
       errors.push(`record ${index} keys mismatch`);
     }
     if (record.id !== `bls:${record.sourceId}`) errors.push(`record ${index} id/sourceId mismatch`);
-    if (!hasExactKeys(record.macrosPer100g, ['kcal', 'protein', 'fat', 'carbs'])) errors.push(`record ${index} macros keys mismatch`);
-    if (!hasExactKeys(record.nutrientsPer100g, TIER2_FIELDS)) errors.push(`record ${index} nutrients keys mismatch`);
+    if (!hasExactKeys(record.macrosPer100g, ['kcal', 'protein', 'fat', 'carbs']))
+      errors.push(`record ${index} macros keys mismatch`);
+    if (!hasExactKeys(record.nutrientsPer100g, TIER2_FIELDS))
+      errors.push(`record ${index} nutrients keys mismatch`);
   }
 
   return { ok: errors.length === 0, errors };
@@ -235,10 +265,26 @@ export function artifactMetrics(bytes, recordCount) {
     brotliBytes,
     brotliMiB: bytesToMiB(brotliBytes),
     thresholds: {
-      recordCount: { actual: recordCount, expected: EXPECTED_VALID_RECORD_COUNT, pass: recordCount === EXPECTED_VALID_RECORD_COUNT },
-      rawJson: { actualBytes: rawJsonBytes, maxBytes: SIZE_THRESHOLDS_BYTES.rawJson, pass: rawJsonBytes <= SIZE_THRESHOLDS_BYTES.rawJson },
-      gzip: { actualBytes: gzipBytes, maxBytes: SIZE_THRESHOLDS_BYTES.gzip, pass: gzipBytes <= SIZE_THRESHOLDS_BYTES.gzip },
-      brotli: { actualBytes: brotliBytes, maxBytes: SIZE_THRESHOLDS_BYTES.brotli, pass: brotliBytes <= SIZE_THRESHOLDS_BYTES.brotli },
+      recordCount: {
+        actual: recordCount,
+        expected: EXPECTED_VALID_RECORD_COUNT,
+        pass: recordCount === EXPECTED_VALID_RECORD_COUNT,
+      },
+      rawJson: {
+        actualBytes: rawJsonBytes,
+        maxBytes: SIZE_THRESHOLDS_BYTES.rawJson,
+        pass: rawJsonBytes <= SIZE_THRESHOLDS_BYTES.rawJson,
+      },
+      gzip: {
+        actualBytes: gzipBytes,
+        maxBytes: SIZE_THRESHOLDS_BYTES.gzip,
+        pass: gzipBytes <= SIZE_THRESHOLDS_BYTES.gzip,
+      },
+      brotli: {
+        actualBytes: brotliBytes,
+        maxBytes: SIZE_THRESHOLDS_BYTES.brotli,
+        pass: brotliBytes <= SIZE_THRESHOLDS_BYTES.brotli,
+      },
     },
   };
 }
@@ -289,7 +335,8 @@ export function writeBlsCompactRuntimeArtifact({ repoRoot, artifact, write }) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, artifact.bytes, 'utf8');
   const readback = fs.readFileSync(targetPath, 'utf8');
-  if (readback !== artifact.bytes) throw new Error('Artifact readback did not match generated bytes');
+  if (readback !== artifact.bytes)
+    throw new Error('Artifact readback did not match generated bytes');
 
   return {
     ok: true,

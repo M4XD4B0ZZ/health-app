@@ -2,7 +2,11 @@ import { gzipSync, brotliCompressSync } from 'node:zlib';
 import process from 'node:process';
 import { performance } from 'node:perf_hooks';
 
-import { buildBlsSampleRecords, normalizeBlsName, tokenizeBlsNames } from './bls-sample-generator.mjs';
+import {
+  buildBlsSampleRecords,
+  normalizeBlsName,
+  tokenizeBlsNames,
+} from './bls-sample-generator.mjs';
 
 export const TOOL_ID = 'P1-006C3D1_BLS_RUNTIME_PROFILE_BENCHMARK';
 
@@ -59,17 +63,21 @@ export function parseBenchmarkArgs(argv) {
     if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else if (arg === '--full-readonly') {
-      if (options.mode) throw new Error('Choose exactly one benchmark mode: --limit or --full-readonly');
+      if (options.mode)
+        throw new Error('Choose exactly one benchmark mode: --limit or --full-readonly');
       options.mode = 'full-readonly';
     } else if (arg === '--limit') {
-      if (options.mode) throw new Error('Choose exactly one benchmark mode: --limit or --full-readonly');
+      if (options.mode)
+        throw new Error('Choose exactly one benchmark mode: --limit or --full-readonly');
       const value = args[index + 1];
-      if (!value || value.startsWith('-')) throw new Error('--limit requires a positive integer value');
+      if (!value || value.startsWith('-'))
+        throw new Error('--limit requires a positive integer value');
       options.limit = parsePositiveInteger(value, '--limit');
       options.mode = 'bounded-probe';
       index += 1;
     } else if (arg.startsWith('--limit=')) {
-      if (options.mode) throw new Error('Choose exactly one benchmark mode: --limit or --full-readonly');
+      if (options.mode)
+        throw new Error('Choose exactly one benchmark mode: --limit or --full-readonly');
       options.limit = parsePositiveInteger(arg.slice('--limit='.length), '--limit');
       options.mode = 'bounded-probe';
     } else if (arg === '--profile') {
@@ -88,14 +96,16 @@ export function parseBenchmarkArgs(argv) {
     }
   }
 
-  if (!options.help && !options.mode) throw new Error('A read-only mode is required: --limit <n> or --full-readonly');
+  if (!options.help && !options.mode)
+    throw new Error('A read-only mode is required: --limit <n> or --full-readonly');
   return options;
 }
 
 function parsePositiveInteger(value, label) {
   if (!/^\d+$/.test(String(value))) throw new Error(`${label} must be a positive integer`);
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1) throw new Error(`${label} must be a positive integer`);
+  if (!Number.isSafeInteger(parsed) || parsed < 1)
+    throw new Error(`${label} must be a positive integer`);
   return parsed;
 }
 
@@ -142,7 +152,19 @@ function profileDefinitions(records) {
   return {
     'full-current-baseline': {
       definition: definition({
-        includedFields: ['id', 'blsCode', 'sourceId', 'displayName', 'names', 'normalizedName', 'aliases', 'tokens', 'macrosPer100g', 'nutrientsPer100g', 'provenance'],
+        includedFields: [
+          'id',
+          'blsCode',
+          'sourceId',
+          'displayName',
+          'names',
+          'normalizedName',
+          'aliases',
+          'tokens',
+          'macrosPer100g',
+          'nutrientsPer100g',
+          'provenance',
+        ],
         excludedFields: ['artifactFileWrite', 'artifactOutputPath'],
         tier2Included: true,
         tokensIncluded: true,
@@ -150,8 +172,14 @@ function profileDefinitions(records) {
         namesObjectIncluded: true,
         namesEnIncluded: true,
       }),
-      architecture: architecture('low', 'low', 'high', 'high', ['Current verbose baseline; expected to be rejected for bundle size.']),
-      payload: { schemaVersion: 'bls-runtime-profile.full-current-baseline.v1', profile: 'full-current-baseline', records },
+      architecture: architecture('low', 'low', 'high', 'high', [
+        'Current verbose baseline; expected to be rejected for bundle size.',
+      ]),
+      payload: {
+        schemaVersion: 'bls-runtime-profile.full-current-baseline.v1',
+        profile: 'full-current-baseline',
+        records,
+      },
     },
     'object-runtime': {
       definition: definition({
@@ -159,54 +187,128 @@ function profileDefinitions(records) {
         excludedFields: ['blsCode', 'names', 'tokens', 'aliases', 'normalizedName', 'provenance'],
         tier2Included: true,
       }),
-      architecture: architecture('low-medium', 'low', 'high', 'high', ['Tokens are generated at runtime from displayName.']),
-      payload: { schemaVersion: 'bls-runtime-profile.object-runtime.v1', profile: 'object-runtime', records: records.map((record) => objectRuntimeRecord(record, true)) },
+      architecture: architecture('low-medium', 'low', 'high', 'high', [
+        'Tokens are generated at runtime from displayName.',
+      ]),
+      payload: {
+        schemaVersion: 'bls-runtime-profile.object-runtime.v1',
+        profile: 'object-runtime',
+        records: records.map((record) => objectRuntimeRecord(record, true)),
+      },
     },
     'object-runtime-tier1': {
       definition: definition({
         includedFields: ['id', 'sourceId', 'displayName', 'macrosPer100g'],
-        excludedFields: ['nutrientsPer100g', 'blsCode', 'names', 'tokens', 'aliases', 'normalizedName', 'provenance'],
+        excludedFields: [
+          'nutrientsPer100g',
+          'blsCode',
+          'names',
+          'tokens',
+          'aliases',
+          'normalizedName',
+          'provenance',
+        ],
         tier2Included: false,
       }),
-      architecture: architecture('low', 'low', 'high', 'medium-high', ['Tier1-only object candidate.']),
-      payload: { schemaVersion: 'bls-runtime-profile.object-runtime-tier1.v1', profile: 'object-runtime-tier1', records: records.map((record) => objectRuntimeRecord(record, false)) },
+      architecture: architecture('low', 'low', 'high', 'medium-high', [
+        'Tier1-only object candidate.',
+      ]),
+      payload: {
+        schemaVersion: 'bls-runtime-profile.object-runtime-tier1.v1',
+        profile: 'object-runtime-tier1',
+        records: records.map((record) => objectRuntimeRecord(record, false)),
+      },
     },
     'tuple-runtime': {
       definition: definition({
-        includedFields: ['columns', 'id', 'sourceId', 'displayName', 'tier1Macros', 'tier2Nutrients'],
-        excludedFields: ['objectKeysPerRecord', 'names', 'tokens', 'aliases', 'normalizedName', 'provenance'],
+        includedFields: [
+          'columns',
+          'id',
+          'sourceId',
+          'displayName',
+          'tier1Macros',
+          'tier2Nutrients',
+        ],
+        excludedFields: [
+          'objectKeysPerRecord',
+          'names',
+          'tokens',
+          'aliases',
+          'normalizedName',
+          'provenance',
+        ],
         tier2Included: true,
       }),
-      architecture: architecture('medium', 'medium-high', 'medium-low', 'medium', ['Requires stable column contract.']),
+      architecture: architecture('medium', 'medium-high', 'medium-low', 'medium', [
+        'Requires stable column contract.',
+      ]),
       payload: tuplePayload('tuple-runtime', true, records),
     },
     'tuple-runtime-tier1': {
       definition: definition({
         includedFields: ['columns', 'id', 'sourceId', 'displayName', 'tier1Macros'],
-        excludedFields: ['tier2Nutrients', 'objectKeysPerRecord', 'names', 'tokens', 'aliases', 'normalizedName', 'provenance'],
+        excludedFields: [
+          'tier2Nutrients',
+          'objectKeysPerRecord',
+          'names',
+          'tokens',
+          'aliases',
+          'normalizedName',
+          'provenance',
+        ],
         tier2Included: false,
       }),
-      architecture: architecture('medium', 'medium-high', 'medium-low', 'medium', ['Compact Tier1 tuple candidate.']),
+      architecture: architecture('medium', 'medium-high', 'medium-low', 'medium', [
+        'Compact Tier1 tuple candidate.',
+      ]),
       payload: tuplePayload('tuple-runtime-tier1', false, records),
     },
     'split-runtime': {
       definition: definition({
-        includedFields: ['foodsColumns', 'foods', 'searchIndexColumns', 'searchIndex', 'id', 'sourceId', 'tier1Macros', 'tier2Nutrients', 'displayName', 'aliases', 'normalizedName'],
+        includedFields: [
+          'foodsColumns',
+          'foods',
+          'searchIndexColumns',
+          'searchIndex',
+          'id',
+          'sourceId',
+          'tier1Macros',
+          'tier2Nutrients',
+          'displayName',
+          'aliases',
+          'normalizedName',
+        ],
         excludedFields: ['tokens', 'names', 'provenance', 'perRecordObjectWrappers'],
         tier2Included: true,
         aliasesIncluded: true,
       }),
-      architecture: architecture('high', 'high', 'medium-low', 'high', ['Separates nutrition and search concerns; tokens generated at runtime.']),
+      architecture: architecture('high', 'high', 'medium-low', 'high', [
+        'Separates nutrition and search concerns; tokens generated at runtime.',
+      ]),
       payload: splitPayload(records),
     },
     'ultra-lite': {
       definition: definition({
         includedFields: ['id', 'sourceId', 'displayName', 'macrosPer100g'],
-        excludedFields: ['nutrientsPer100g', 'names', 'tokens', 'aliases', 'normalizedName', 'provenance', 'optionalMetadata'],
+        excludedFields: [
+          'nutrientsPer100g',
+          'names',
+          'tokens',
+          'aliases',
+          'normalizedName',
+          'provenance',
+          'optionalMetadata',
+        ],
         tier2Included: false,
       }),
-      architecture: architecture('low', 'low', 'high', 'medium', ['Strict minimal object baseline.']),
-      payload: { schemaVersion: 'bls-runtime-profile.ultra-lite.v1', profile: 'ultra-lite', records: records.map((record) => objectRuntimeRecord(record, false)) },
+      architecture: architecture('low', 'low', 'high', 'medium', [
+        'Strict minimal object baseline.',
+      ]),
+      payload: {
+        schemaVersion: 'bls-runtime-profile.ultra-lite.v1',
+        profile: 'ultra-lite',
+        records: records.map((record) => objectRuntimeRecord(record, false)),
+      },
     },
   };
 }
@@ -223,7 +325,13 @@ function definition(overrides) {
   };
 }
 
-function architecture(implementationComplexity, runtimeComplexity, readability, extensibility, notes) {
+function architecture(
+  implementationComplexity,
+  runtimeComplexity,
+  readability,
+  extensibility,
+  notes,
+) {
   return { implementationComplexity, runtimeComplexity, readability, extensibility, notes };
 }
 
@@ -264,7 +372,12 @@ function splitPayload(records) {
       ...tier2Values(record),
     ]),
     searchIndexColumns: ['foodIndex', 'displayName', 'aliases', 'normalizedName'],
-    searchIndex: records.map((record, index) => [index, record.displayName, record.aliases ?? [], record.normalizedName ?? normalizeBlsName(record.displayName)]),
+    searchIndex: records.map((record, index) => [
+      index,
+      record.displayName,
+      record.aliases ?? [],
+      record.normalizedName ?? normalizeBlsName(record.displayName),
+    ]),
   };
 }
 
@@ -279,7 +392,9 @@ export function buildLookupIndex(parsedPayload) {
       indexRecord(record, byId, bySourceId, searchTerms);
     }
   } else if (Array.isArray(parsedPayload.foods) && Array.isArray(parsedPayload.searchIndex)) {
-    const foodRecords = parsedPayload.foods.map((raw) => tupleToRecord(parsedPayload.foodsColumns, raw));
+    const foodRecords = parsedPayload.foods.map((raw) =>
+      tupleToRecord(parsedPayload.foodsColumns, raw),
+    );
     for (const searchRow of parsedPayload.searchIndex) {
       const [foodIndex, displayName, aliases, normalizedName] = searchRow;
       const record = { ...foodRecords[foodIndex], displayName, aliases, normalizedName };
@@ -287,7 +402,11 @@ export function buildLookupIndex(parsedPayload) {
     }
   }
 
-  return { byIdSize: byId.size, bySourceIdSize: bySourceId.size, searchTermCount: searchTerms.size };
+  return {
+    byIdSize: byId.size,
+    bySourceIdSize: bySourceId.size,
+    searchTermCount: searchTerms.size,
+  };
 }
 
 function tupleToRecord(columns, row) {
@@ -308,7 +427,11 @@ function tupleToRecord(columns, row) {
 function indexRecord(record, byId, bySourceId, searchTerms) {
   if (record.id) byId.set(record.id, record);
   if (record.sourceId) bySourceId.set(record.sourceId, record);
-  for (const token of tokenizeBlsNames(record.displayName, ...(record.aliases ?? []), record.normalizedName ?? '')) {
+  for (const token of tokenizeBlsNames(
+    record.displayName,
+    ...(record.aliases ?? []),
+    record.normalizedName ?? '',
+  )) {
     if (!searchTerms.has(token)) searchTerms.set(token, 0);
     searchTerms.set(token, searchTerms.get(token) + 1);
   }
@@ -322,9 +445,17 @@ function classifyRawSize(jsonMiB) {
 
 function profileRecommendation(profile, storage, architectureSummary) {
   const rawSizeClass = classifyRawSize(storage.jsonMiB);
-  const rejected = rawSizeClass === 'blocked' || (architectureSummary.runtimeComplexity === 'high' && rawSizeClass !== 'target');
+  const rejected =
+    rawSizeClass === 'blocked' ||
+    (architectureSummary.runtimeComplexity === 'high' && rawSizeClass !== 'target');
   const reasons = [];
-  reasons.push(rawSizeClass === 'target' ? 'under_raw_json_target' : rawSizeClass === 'review' ? 'raw_json_requires_review' : 'raw_json_blocked');
+  reasons.push(
+    rawSizeClass === 'target'
+      ? 'under_raw_json_target'
+      : rawSizeClass === 'review'
+        ? 'raw_json_requires_review'
+        : 'raw_json_blocked',
+  );
   if (architectureSummary.runtimeComplexity === 'high') reasons.push('high_runtime_complexity');
   if (profile.includes('tier1') || profile === 'ultra-lite') reasons.push('tier1_only');
   return {
@@ -365,7 +496,8 @@ function benchmarkProfile(profile, config, baselineJsonBytes, selectedRecordCoun
     brotliBytes,
     brotliMiB: bytesToMiB(brotliBytes),
     bytesPerRecord: selectedRecordCount === 0 ? 0 : round(jsonBytes / selectedRecordCount, 3),
-    reductionVsBaseline: baselineJsonBytes === 0 ? 0 : round((baselineJsonBytes - jsonBytes) / baselineJsonBytes, 6),
+    reductionVsBaseline:
+      baselineJsonBytes === 0 ? 0 : round((baselineJsonBytes - jsonBytes) / baselineJsonBytes, 6),
   };
 
   return {
@@ -411,7 +543,10 @@ export function runBlsRuntimeProfileBenchmark(rows, options = {}) {
   const selectedRecordCount = selected.records.length;
   const definitions = profileDefinitions(selected.records);
   const selectedProfiles = options.profile ? [options.profile] : PROFILE_NAMES;
-  const baselineJsonBytes = Buffer.byteLength(stableJsonBytes(definitions['full-current-baseline'].payload), 'utf8');
+  const baselineJsonBytes = Buffer.byteLength(
+    stableJsonBytes(definitions['full-current-baseline'].payload),
+    'utf8',
+  );
   const profiles = selectedProfiles.map((profile) =>
     benchmarkProfile(profile, definitions[profile], baselineJsonBytes, selectedRecordCount),
   );
@@ -420,7 +555,9 @@ export function runBlsRuntimeProfileBenchmark(rows, options = {}) {
     .filter((profile) => profile.recommendation.keepCandidate)
     .sort((a, b) => a.storage.jsonBytes - b.storage.jsonBytes)
     .map((profile) => profile.profile);
-  const rejectedProfiles = profiles.filter((profile) => profile.recommendation.reject).map((profile) => profile.profile);
+  const rejectedProfiles = profiles
+    .filter((profile) => profile.recommendation.reject)
+    .map((profile) => profile.profile);
 
   return {
     tool: TOOL_ID,
@@ -436,7 +573,7 @@ export function runBlsRuntimeProfileBenchmark(rows, options = {}) {
       workbookRows: rows.length,
       validRecordCount: selected.mapping.validRecordsSelected,
       selectedRecordCount,
-      limit: fullReadonly ? null : options.limit ?? 100,
+      limit: fullReadonly ? null : (options.limit ?? 100),
       fullBenchmark: fullReadonly,
     },
     benchmarkEnvironment: {
@@ -446,7 +583,9 @@ export function runBlsRuntimeProfileBenchmark(rows, options = {}) {
       highResolutionTimer: 'performance.now',
       memorySource: 'process.memoryUsage.heapUsed',
       gcAvailable: typeof global.gc === 'function',
-      notes: ['Memory measurements are process-local estimates and should be compared relatively, not as absolute mobile heap usage.'],
+      notes: [
+        'Memory measurements are process-local estimates and should be compared relatively, not as absolute mobile heap usage.',
+      ],
     },
     baseline: {
       profile: 'full-current-baseline',
@@ -463,7 +602,12 @@ export function runBlsRuntimeProfileBenchmark(rows, options = {}) {
       needsAlternativeArchitecture: preferredProfiles.length === 0,
       alternativeArchitectureOptions:
         preferredProfiles.length === 0
-          ? ['lazy-loaded compressed JSON asset', 'binary/indexed format', 'prebuilt SQLite catalog', 'split search index plus lazy nutrition table']
+          ? [
+              'lazy-loaded compressed JSON asset',
+              'binary/indexed format',
+              'prebuilt SQLite catalog',
+              'split search index plus lazy nutrition table',
+            ]
           : [],
       finalArtifactChosen: false,
       finalArtifactWritten: false,

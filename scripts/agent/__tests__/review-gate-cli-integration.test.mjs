@@ -24,28 +24,28 @@ function canonicalHandoff(overrides = {}) {
       task_id: 'RALPH-013',
       status: 'done',
       title: 'Coordinator review-gate integration tests',
-      run_id: 'run_ralph-013_fixture'
+      run_id: 'run_ralph-013_fixture',
     },
     validation: {
       status: 'passed',
       validation_id: 'validation_ralph-013_fixture',
-      summary: 'Fixture validation passed.'
+      summary: 'Fixture validation passed.',
     },
     review: {
       status: 'accepted',
       review_id: 'review_ralph-013_fixture',
-      summary: 'Fixture review accepted.'
+      summary: 'Fixture review accepted.',
     },
     changes: {
       files_changed: ['scripts/agent/__tests__/review-gate-cli-integration.test.mjs'],
-      artifacts_created: []
+      artifacts_created: [],
     },
     issues: {
       critical: [],
-      warnings: []
+      warnings: [],
     },
     recommended_next_task: 'Human review of coordinator review-gate integration coverage.',
-    human_review_required: true
+    human_review_required: true,
   };
 
   return {
@@ -55,7 +55,7 @@ function canonicalHandoff(overrides = {}) {
     validation: { ...base.validation, ...(overrides.validation || {}) },
     review: { ...base.review, ...(overrides.review || {}) },
     changes: { ...base.changes, ...(overrides.changes || {}) },
-    issues: { ...base.issues, ...(overrides.issues || {}) }
+    issues: { ...base.issues, ...(overrides.issues || {}) },
   };
 }
 
@@ -74,7 +74,7 @@ function writeHandoff(directory, filename, handoff) {
 function runCli(script, args) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd: projectRoot,
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
 }
 
@@ -144,7 +144,14 @@ test('run-review-gate-workflow writes only temp decision and prepared evidence f
   const outputDir = path.join(root, 'out');
   const handoffPath = writeHandoff(root, 'accepted-handoff.json', canonicalHandoff());
 
-  const result = runCli(WORKFLOW_SCRIPT, ['--handoff', handoffPath, '--output-dir', outputDir, '--dry-run', '--json']);
+  const result = runCli(WORKFLOW_SCRIPT, [
+    '--handoff',
+    handoffPath,
+    '--output-dir',
+    outputDir,
+    '--dry-run',
+    '--json',
+  ]);
   const summary = parseJsonStdout(result);
   const decisionPath = path.join(outputDir, 'review-decision.json');
   const preparedEvidencePath = path.join(outputDir, 'prepared-review-evidence.json');
@@ -172,13 +179,24 @@ test('run-review-gate-workflow writes decision but no prepared evidence for need
   const reviewResultsBefore = readReviewResults();
   const root = tempRoot(t);
   const outputDir = path.join(root, 'out');
-  const handoffPath = writeHandoff(root, 'needs-changes-handoff.json', canonicalHandoff({
-    issues: {
-      warnings: ['Fixture warning requiring review attention.']
-    }
-  }));
+  const handoffPath = writeHandoff(
+    root,
+    'needs-changes-handoff.json',
+    canonicalHandoff({
+      issues: {
+        warnings: ['Fixture warning requiring review attention.'],
+      },
+    }),
+  );
 
-  const result = runCli(WORKFLOW_SCRIPT, ['--handoff', handoffPath, '--output-dir', outputDir, '--dry-run', '--json']);
+  const result = runCli(WORKFLOW_SCRIPT, [
+    '--handoff',
+    handoffPath,
+    '--output-dir',
+    outputDir,
+    '--dry-run',
+    '--json',
+  ]);
   const summary = parseJsonStdout(result);
   const decisionPath = path.join(outputDir, 'review-decision.json');
   const preparedEvidencePath = path.join(outputDir, 'prepared-review-evidence.json');
@@ -197,20 +215,35 @@ test('run-review-gate-workflow refuses append for rejected handoff and does not 
   const reviewResultsBefore = readReviewResults();
   const root = tempRoot(t);
   const outputDir = path.join(root, 'out');
-  const handoffPath = writeHandoff(root, 'rejected-handoff.json', canonicalHandoff({
-    validation: {
-      status: 'failed',
-      summary: 'Fixture validation failed.'
-    }
-  }));
+  const handoffPath = writeHandoff(
+    root,
+    'rejected-handoff.json',
+    canonicalHandoff({
+      validation: {
+        status: 'failed',
+        summary: 'Fixture validation failed.',
+      },
+    }),
+  );
 
-  const result = runCli(WORKFLOW_SCRIPT, ['--handoff', handoffPath, '--output-dir', outputDir, '--append', '--confirm-append', '--json']);
+  const result = runCli(WORKFLOW_SCRIPT, [
+    '--handoff',
+    handoffPath,
+    '--output-dir',
+    outputDir,
+    '--append',
+    '--confirm-append',
+    '--json',
+  ]);
   const decisionPath = path.join(outputDir, 'review-decision.json');
   const preparedEvidencePath = path.join(outputDir, 'prepared-review-evidence.json');
   const decision = JSON.parse(fs.readFileSync(decisionPath, 'utf8'));
 
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /Refusing append for rejected decision\. Only accepted decisions may be appended\./);
+  assert.match(
+    result.stderr,
+    /Refusing append for rejected decision\. Only accepted decisions may be appended\./,
+  );
   assert.equal(decision.review_result, 'rejected');
   assert.ok(decision.blocking_findings.some((finding) => finding.code === 'validation_failed'));
   assert.equal(fs.existsSync(preparedEvidencePath), false);
@@ -223,7 +256,14 @@ test('run-review-gate-workflow append without confirm fails before writing outpu
   const outputDir = path.join(root, 'out');
   const handoffPath = writeHandoff(root, 'accepted-handoff.json', canonicalHandoff());
 
-  const result = runCli(WORKFLOW_SCRIPT, ['--handoff', handoffPath, '--output-dir', outputDir, '--append', '--json']);
+  const result = runCli(WORKFLOW_SCRIPT, [
+    '--handoff',
+    handoffPath,
+    '--output-dir',
+    outputDir,
+    '--append',
+    '--json',
+  ]);
 
   assert.equal(result.status, 2);
   assert.match(result.stderr, /--append requires --confirm-append for real review evidence append/);

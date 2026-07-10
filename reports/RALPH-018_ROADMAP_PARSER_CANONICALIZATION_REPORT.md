@@ -25,6 +25,7 @@ Successfully implemented ROADMAP parser canonicalization to resolve the P0-002 f
 **File:** `scripts/agent/reconcile-roadmap-task-state.mjs`
 
 **Changes:**
+
 1. Modified `parseRoadmap()` to return `{ tasks, taskReferences }` instead of flat array
 2. Heading-style task sections → canonical task definitions (unchanged behavior)
 3. Checkbox task lines → reference-only entries (new: captured separately, not canonical)
@@ -38,6 +39,7 @@ Successfully implemented ROADMAP parser canonicalization to resolve the P0-002 f
 **File:** `scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs`
 
 **New tests added:**
+
 1. `checkbox reference does not create canonical task entry`
 2. `checkbox reference is captured separately as task reference`
 3. `checkbox-only reference creates no canonical task`
@@ -79,6 +81,7 @@ node scripts/agent/reconcile-roadmap-task-state.mjs --json
 ```
 
 **Summary:**
+
 - `status`: `"ok"`
 - `roadmap_task_count`: 27 (heading-style canonical tasks)
 - `task_reference_count`: 1 (checkbox reference at line 40)
@@ -90,6 +93,7 @@ node scripts/agent/reconcile-roadmap-task-state.mjs --json
 **P0-002 duplicate finding:** ✓ **RESOLVED** (no `duplicate_roadmap_task_id` finding for P0-002)
 
 **P0-002 task details:**
+
 - Canonical task found at line 401 (heading-style section)
 - Task reference found at line 40 (checkbox reference)
 - No duplicate canonical task finding
@@ -106,6 +110,7 @@ M scripts/agent/reconcile-roadmap-task-state.mjs
 ```
 
 **Diff stats:**
+
 ```
 scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs | 82 +++++++++++++++++++++-
 scripts/agent/reconcile-roadmap-task-state.mjs                | 65 +++++++++++------
@@ -129,6 +134,7 @@ scripts/agent/reconcile-roadmap-task-state.mjs                | 65 +++++++++++--
 ### 5.1 Parser Canonicalization Logic
 
 **Before (RALPH-017):**
+
 ```javascript
 const headerMatch = line.match(ROADMAP_TASK_HEADER);
 const checkboxMatch = headerMatch ? null : line.match(CHECKBOX_TASK);
@@ -138,6 +144,7 @@ if (!headerMatch && !checkboxMatch) return;
 ```
 
 **After (RALPH-018):**
+
 ```javascript
 const headerMatch = line.match(ROADMAP_TASK_HEADER);
 if (headerMatch) {
@@ -156,10 +163,12 @@ if (checkboxMatch) {
 ### 5.2 Output Schema Changes
 
 **New fields added:**
+
 - `summary.task_reference_count`: Number of checkbox references found
 - `task_references[]`: Array of reference-only checkbox entries
 
 **Backward compatibility:**
+
 - `buildResultFromInputs()` handles both old array format and new object format
 - Existing fields preserved: `roadmap_tasks`, `task_state_tasks`, `findings`, `ownership_summary`
 - Exit codes unchanged: 0 (ok), 1 (critical), 2 (error)
@@ -167,6 +176,7 @@ if (checkboxMatch) {
 ### 5.3 Reference Structure
 
 **Task reference schema:**
+
 ```json
 {
   "id": "P0-002",
@@ -181,16 +191,16 @@ if (checkboxMatch) {
 
 ## 6. Test Coverage Matrix
 
-| Test Case | Status | Purpose |
-|-----------|--------|---------|
-| Checkbox reference does not create canonical task | ✓ Pass | Verify checkbox exclusion from canonical tasks |
-| Checkbox reference captured separately | ✓ Pass | Verify reference preservation |
-| Checkbox-only reference creates no canonical task | ✓ Pass | Verify orphan reference handling |
-| Heading-style tasks still parsed with full metadata | ✓ Pass | Verify canonical parsing unchanged |
-| Duplicate heading definitions still critical | ✓ Pass | Verify real duplicates still detected |
-| Summary includes task_reference_count | ✓ Pass | Verify output schema extension |
-| Backward compatibility | ✓ Pass | Verify old code compatibility |
-| All existing ownership tests | ✓ Pass (14 tests) | Verify RALPH-016 logic preserved |
+| Test Case                                           | Status            | Purpose                                        |
+| --------------------------------------------------- | ----------------- | ---------------------------------------------- |
+| Checkbox reference does not create canonical task   | ✓ Pass            | Verify checkbox exclusion from canonical tasks |
+| Checkbox reference captured separately              | ✓ Pass            | Verify reference preservation                  |
+| Checkbox-only reference creates no canonical task   | ✓ Pass            | Verify orphan reference handling               |
+| Heading-style tasks still parsed with full metadata | ✓ Pass            | Verify canonical parsing unchanged             |
+| Duplicate heading definitions still critical        | ✓ Pass            | Verify real duplicates still detected          |
+| Summary includes task_reference_count               | ✓ Pass            | Verify output schema extension                 |
+| Backward compatibility                              | ✓ Pass            | Verify old code compatibility                  |
+| All existing ownership tests                        | ✓ Pass (14 tests) | Verify RALPH-016 logic preserved               |
 
 ---
 
@@ -231,6 +241,7 @@ M scripts/agent/reconcile-roadmap-task-state.mjs
 ```
 
 **Diff stats:**
+
 ```
 scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs | 82 +++++++++++++++++++++-
 scripts/agent/reconcile-roadmap-task-state.mjs                | 65 +++++++++++------
@@ -238,10 +249,12 @@ scripts/agent/reconcile-roadmap-task-state.mjs                | 65 +++++++++++--
 ```
 
 **Changed files:**
+
 - `scripts/agent/reconcile-roadmap-task-state.mjs` (parser implementation)
 - `scripts/agent/__tests__/reconcile-roadmap-task-state.test.mjs` (test coverage)
 
 **Unchanged files (verified):**
+
 - ROADMAP.md
 - tasks/task-state.json
 - runs/current-run.json
@@ -269,6 +282,7 @@ This implementation is consistent with:
 **Implementation complete. Awaiting human review.**
 
 **Review checklist:**
+
 1. ✓ Parser canonicalization correctly distinguishes canonical vs. reference
 2. ✓ P0-002 duplicate finding resolved
 3. ✓ All tests pass (21/21)
@@ -278,6 +292,7 @@ This implementation is consistent with:
 7. ✓ Ownership classification logic unchanged
 
 **Next steps after approval:**
+
 1. Human review of implementation
 2. Approval to commit changes
 3. Update ROADMAP.md task status to `done`

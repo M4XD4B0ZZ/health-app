@@ -7,7 +7,7 @@ High-level outcome:
 - Governance is **rich but fragmented** across root docs, Ralph-Loop docs, adapter docs, and legacy Roo references.
 - Several rule families are intentionally duplicated for operational visibility, but some duplications are now drifting.
 - There are material contradictions in authority hierarchy, verification semantics, and push/deployment expectations.
-- Governance work has been executed (RALPH-* and CLINE-REAL/OPS streams) that is **not reflected as task records in `ROADMAP.md`**.
+- Governance work has been executed (RALPH-\* and CLINE-REAL/OPS streams) that is **not reflected as task records in `ROADMAP.md`**.
 
 # Governance Sources
 
@@ -53,18 +53,21 @@ Discovery note for requested IDs:
 ## A) Command execution rules
 
 ### Rule: One-command-per-execution (PowerShell-safe isolation)
+
 - **Description:** Terminal commands must be short, isolated, and not chained.
 - **Canonical location (recommended):** `.agent/adapters/cline.md` (Cline execution contract)
 - **Duplicate locations:** `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
 - **Duplication type:** Intentional (operational safety), but high drift risk.
 
 ### Rule: No chained separators (`&&`, `||`, `;`, `|`, etc.)
+
 - **Description:** Explicitly forbidden command chaining and compound shell execution.
 - **Canonical location (recommended):** `.agent/adapters/cline.md`
 - **Duplicate locations:** same as above
 - **Duplication type:** Intentional.
 
 ### Rule: Git no-pager reliability
+
 - **Description:** Use `git --no-pager` for read-only inspection to avoid pager hangs.
 - **Canonical location (recommended):** `.agent/adapters/cline.md`
 - **Duplicate locations:** setup/checklist docs
@@ -73,12 +76,14 @@ Discovery note for requested IDs:
 ## B) Verification rules
 
 ### Rule: Verification SSOK and command order
+
 - **Description:** Core verification stack is lint → typecheck → verify → verify:edge.
 - **Canonical location:** `VERIFY.md`
 - **Duplicate locations:** `AGENTS.md`, `SSOK.md`, `.governance/RULES.md`, `.governance/SYSTEM.md`, adapter/setup docs
 - **Duplication type:** Mostly intentional; semantic drift present.
 
 ### Rule: Docs-only verification path
+
 - **Description:** For documentation/governance-only tasks, git readback checks are allowed.
 - **Canonical location:** `VERIFY.md`
 - **Duplicate locations:** `.agent/adapters/cline.md`, setup/checklist docs, CLINE-REAL reports
@@ -87,6 +92,7 @@ Discovery note for requested IDs:
 ## C) Dependency safety rules
 
 ### Rule: CLINE-OPS-003 dependency command safety
+
 - **Description:** `npm install` only when needed; `npm audit` read-only; `npm audit fix` approval required; `npm audit fix --force` forbidden unless dedicated migration task; lockfile/package changes out of scope unless explicitly allowed.
 - **Canonical location (recommended):** `AGENTS.md` + `VERIFY.md` (root governance)
 - **Duplicate locations:** `.agent/adapters/cline.md`, setup/checklist docs
@@ -95,6 +101,7 @@ Discovery note for requested IDs:
 ## D) Protected file rules
 
 ### Rule: Absolute/conditional protected files
+
 - **Description:** `.env*`, secrets, credentials, `.git`, dependency files, migrations, etc. protected by policy with strict/conditional constraints.
 - **Canonical location:** `.governance/SAFETY.md`
 - **Duplicate locations:** `AGENTS.md` (references), `.agent/adapters/cline.md` (summaries), setup/checklist docs
@@ -103,6 +110,7 @@ Discovery note for requested IDs:
 ## E) Handoff rules
 
 ### Rule: Mandatory handoff and evidence
+
 - **Description:** Every run/task must produce clear handoff, including changes, rationale, checks, risks.
 - **Canonical location:** `SSOK.md` (handoff contract) + `.governance/RULES.md`
 - **Duplicate locations:** `.governance/SYSTEM.md`, `.governance/REVIEW_POLICY.md`, `.agent/adapters/cline.md`, setup docs
@@ -111,6 +119,7 @@ Discovery note for requested IDs:
 ## F) Review gate rules
 
 ### Rule: Stop for human review after task
+
 - **Description:** One task then mandatory human review; no autonomous continuation.
 - **Canonical location:** `.governance/SYSTEM.md`, `.governance/REVIEW_POLICY.md`
 - **Duplicate locations:** `AGENTS.md`, `.governance/RULES.md`, `.agent/adapters/cline.md`, setup/checklist docs
@@ -119,12 +128,14 @@ Discovery note for requested IDs:
 ## G) Task execution rules
 
 ### Rule: Exactly one task per run
+
 - **Description:** Scope-bounded single-task execution.
 - **Canonical location:** `.governance/RULES.md`
 - **Duplicate locations:** `AGENTS.md`, `.governance/SYSTEM.md`, adapter/setup docs
 - **Duplication type:** Intentional.
 
 ### Rule: Task registry expectations
+
 - **Description:** Work must follow declared task source and state model.
 - **Canonical location (currently conflicting):** `ROADMAP.md` and `tasks/task-state.json` split model
 - **Duplicate locations:** `AGENTS.md`, `.governance/*`, adapter docs
@@ -133,6 +144,7 @@ Discovery note for requested IDs:
 ## H) Stop conditions
 
 ### Rule: Immediate stop on safety/ambiguity/validation/scope issues
+
 - **Description:** Clear stop triggers for protected files, validation failures, ambiguous scope, repeated failures, etc.
 - **Canonical location:** `.governance/SYSTEM.md` + `.governance/SAFETY.md`
 - **Duplicate locations:** `AGENTS.md`, adapter/setup docs, checklist docs
@@ -141,6 +153,7 @@ Discovery note for requested IDs:
 ## I) Agent neutrality rules
 
 ### Rule: Tools are adapters, repository is source of truth
+
 - **Description:** Roo/Cline/OpenCode/Codex are workers; governance files are authoritative.
 - **Canonical location:** `SSOK.md` (transition section) + `.governance/RULES.md`
 - **Duplicate locations:** `AGENTS.md`, `.governance/SYSTEM.md`, `.agent/adapters/cline.md`, setup docs
@@ -149,6 +162,7 @@ Discovery note for requested IDs:
 ## J) Ralph-Loop lifecycle rules
 
 ### Rule: Lifecycle (read governance → select one task → execute scoped work → validate → update state → stop)
+
 - **Description:** End-to-end operating loop for Ralph-mode execution.
 - **Canonical location:** `.governance/SYSTEM.md`
 - **Duplicate locations:** `AGENTS.md` Ralph section, adapter/setup/checklist docs
@@ -156,24 +170,24 @@ Discovery note for requested IDs:
 
 # Duplicate Rule Matrix
 
-| Rule family | Primary source | Duplicates | Intentional? | Drift risk |
-|---|---|---|---|---|
-| Verification contract | `VERIFY.md` | `AGENTS.md`, `SSOK.md`, `.governance/*`, adapter/docs | Yes | High (wording differences) |
-| Dependency safety (CLINE-OPS-003) | `AGENTS.md` + `VERIFY.md` | adapter/setup/checklist docs | Yes | Medium |
-| Command isolation (CLINE-OPS-004) | `.agent/adapters/cline.md` | setup/checklist docs | Yes | Medium |
-| Protected files | `.governance/SAFETY.md` | AGENTS/adapters/docs summaries | Yes | Medium |
-| Stop conditions | `.governance/SYSTEM.md`/`SAFETY.md` | AGENTS/adapters/docs | Yes | Medium |
-| Tool-neutral authority | `SSOK.md` transition + `.governance/RULES.md` | AGENTS/adapters | Yes | **High (internal contradiction in SSOK)** |
-| Handoff contract | `SSOK.md` + `.governance/RULES.md` | REVIEW_POLICY/adapters/docs | Yes | Low-Medium |
+| Rule family                       | Primary source                                | Duplicates                                            | Intentional? | Drift risk                                |
+| --------------------------------- | --------------------------------------------- | ----------------------------------------------------- | ------------ | ----------------------------------------- |
+| Verification contract             | `VERIFY.md`                                   | `AGENTS.md`, `SSOK.md`, `.governance/*`, adapter/docs | Yes          | High (wording differences)                |
+| Dependency safety (CLINE-OPS-003) | `AGENTS.md` + `VERIFY.md`                     | adapter/setup/checklist docs                          | Yes          | Medium                                    |
+| Command isolation (CLINE-OPS-004) | `.agent/adapters/cline.md`                    | setup/checklist docs                                  | Yes          | Medium                                    |
+| Protected files                   | `.governance/SAFETY.md`                       | AGENTS/adapters/docs summaries                        | Yes          | Medium                                    |
+| Stop conditions                   | `.governance/SYSTEM.md`/`SAFETY.md`           | AGENTS/adapters/docs                                  | Yes          | Medium                                    |
+| Tool-neutral authority            | `SSOK.md` transition + `.governance/RULES.md` | AGENTS/adapters                                       | Yes          | **High (internal contradiction in SSOK)** |
+| Handoff contract                  | `SSOK.md` + `.governance/RULES.md`            | REVIEW_POLICY/adapters/docs                           | Yes          | Low-Medium                                |
 
 # Contradiction Matrix
 
-| ID | Topic | Source A | Source B | Contradiction |
-|---|---|---|---|---|
-| C-01 | Governance authority hierarchy | `SSOK.md` transition (repository-first/tool-neutral becoming authoritative) | `SSOK.md` legacy section (“Roo ist die operative SSOK”) | Dual authority model unresolved in one canonical text |
-| C-02 | Verification strictness | `AGENTS.md` wording implies full sequence/no skipping | `VERIFY.md` allows docs-only minimal checks; `SSOK.md` relevant-check framing | Ambiguous completion criteria for non-runtime tasks |
-| C-03 | Push behavior | Legacy Roo command flows include push workflow references | Ralph safety/governance forbids push in current governed runs | Operational conflict if operator follows wrong command family |
-| C-04 | Task source of truth | `AGENTS.md` says every task references ROADMAP ID | Ralph runtime executes `RALPH-*` and CLINE-real runs via runtime state/history | ROADMAP vs runtime task registry boundary is unclear |
+| ID   | Topic                          | Source A                                                                    | Source B                                                                       | Contradiction                                                 |
+| ---- | ------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| C-01 | Governance authority hierarchy | `SSOK.md` transition (repository-first/tool-neutral becoming authoritative) | `SSOK.md` legacy section (“Roo ist die operative SSOK”)                        | Dual authority model unresolved in one canonical text         |
+| C-02 | Verification strictness        | `AGENTS.md` wording implies full sequence/no skipping                       | `VERIFY.md` allows docs-only minimal checks; `SSOK.md` relevant-check framing  | Ambiguous completion criteria for non-runtime tasks           |
+| C-03 | Push behavior                  | Legacy Roo command flows include push workflow references                   | Ralph safety/governance forbids push in current governed runs                  | Operational conflict if operator follows wrong command family |
+| C-04 | Task source of truth           | `AGENTS.md` says every task references ROADMAP ID                           | Ralph runtime executes `RALPH-*` and CLINE-real runs via runtime state/history | ROADMAP vs runtime task registry boundary is unclear          |
 
 # Missing ROADMAP Entries
 
@@ -203,16 +217,16 @@ Based on `tasks/task-history.jsonl`, `runs/run-history.jsonl`, and reviewed repo
 
 # Recommended Canonical Ownership
 
-| Governance domain | Recommended canonical owner |
-|---|---|
-| Product/task planning and status | `ROADMAP.md` |
-| Verification rules and decision table | `VERIFY.md` |
-| Cross-agent operating principles | `AGENTS.md` |
-| Ralph loop lifecycle/contracts | `.governance/SYSTEM.md` + `.governance/RULES.md` |
-| Safety/protected files/forbidden actions | `.governance/SAFETY.md` |
-| Review gates and acceptance policy | `.governance/REVIEW_POLICY.md` |
-| Cline-specific terminal and adapter execution policy | `.agent/adapters/cline.md` |
-| Setup/how-to guidance only | `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md` |
+| Governance domain                                    | Recommended canonical owner                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| Product/task planning and status                     | `ROADMAP.md`                                                                |
+| Verification rules and decision table                | `VERIFY.md`                                                                 |
+| Cross-agent operating principles                     | `AGENTS.md`                                                                 |
+| Ralph loop lifecycle/contracts                       | `.governance/SYSTEM.md` + `.governance/RULES.md`                            |
+| Safety/protected files/forbidden actions             | `.governance/SAFETY.md`                                                     |
+| Review gates and acceptance policy                   | `.governance/REVIEW_POLICY.md`                                              |
+| Cline-specific terminal and adapter execution policy | `.agent/adapters/cline.md`                                                  |
+| Setup/how-to guidance only                           | `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md` |
 
 Ownership principle: root + `.governance/` define policy; adapter/docs should **reference**, not redefine.
 

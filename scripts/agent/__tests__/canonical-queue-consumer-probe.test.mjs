@@ -13,7 +13,7 @@ import {
   consumeCanonicalQueueEntryProbe,
   consumeCanonicalQueueEntryProbeFromContent,
   evaluateQueueEntryArtifact,
-  validateQueueEntryPath
+  validateQueueEntryPath,
 } from '../lib/canonical-queue-consumer-probe.mjs';
 
 function tempRoot() {
@@ -32,11 +32,15 @@ function validArtifact(overrides = {}) {
     non_authoritative: true,
     ...Object.fromEntries(REQUIRED_FALSE_FLAGS.map((flag) => [flag, false])),
     non_authorization_statement: 'non-authoritative and not executable',
-    ...overrides
+    ...overrides,
   };
 }
 
-function writeArtifact(projectRoot, artifactPath = DEFAULT_ARTIFACT_PATH, artifact = validArtifact()) {
+function writeArtifact(
+  projectRoot,
+  artifactPath = DEFAULT_ARTIFACT_PATH,
+  artifact = validArtifact(),
+) {
   const absolutePath = path.join(projectRoot, ...artifactPath.split('/'));
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
   fs.writeFileSync(absolutePath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
@@ -46,7 +50,10 @@ describe('canonical-queue-consumer-probe', () => {
   it('inspects a valid RALPH-045A probe as non-executable without writes', () => {
     const projectRoot = tempRoot();
     writeArtifact(projectRoot);
-    const result = consumeCanonicalQueueEntryProbe({ projectRoot, artifactPath: DEFAULT_ARTIFACT_PATH });
+    const result = consumeCanonicalQueueEntryProbe({
+      projectRoot,
+      artifactPath: DEFAULT_ARTIFACT_PATH,
+    });
     assert.equal(result.decision, DECISIONS.INSPECTABLE_NON_EXECUTABLE_PROBE);
     assert.equal(result.stdout_only, true);
     assert.equal(result.writes_performed, false);
@@ -65,11 +72,16 @@ describe('canonical-queue-consumer-probe', () => {
 
   it('refuses missing and invalid JSON artifacts', () => {
     const projectRoot = tempRoot();
-    const missing = consumeCanonicalQueueEntryProbe({ projectRoot, artifactPath: DEFAULT_ARTIFACT_PATH });
+    const missing = consumeCanonicalQueueEntryProbe({
+      projectRoot,
+      artifactPath: DEFAULT_ARTIFACT_PATH,
+    });
     assert.equal(missing.decision, DECISIONS.BLOCKED_MISSING_OR_INVALID_ARTIFACT);
     assert.ok(missing.findings.some((entry) => entry.code === 'artifact_missing'));
 
-    const invalid = consumeCanonicalQueueEntryProbeFromContent('{not-json', { artifactPath: DEFAULT_ARTIFACT_PATH });
+    const invalid = consumeCanonicalQueueEntryProbeFromContent('{not-json', {
+      artifactPath: DEFAULT_ARTIFACT_PATH,
+    });
     assert.equal(invalid.decision, DECISIONS.BLOCKED_MISSING_OR_INVALID_ARTIFACT);
     assert.ok(invalid.findings.some((entry) => entry.code === 'invalid_json'));
   });
@@ -80,7 +92,10 @@ describe('canonical-queue-consumer-probe', () => {
     assert.equal(validateQueueEntryPath('.agent/overnight/queue-entries/../probe.json').ok, false);
     assert.equal(validateQueueEntryPath('reports/probe.json').ok, false);
     assert.equal(validateQueueEntryPath('.agent/overnight/queue-entries/probe.txt').ok, false);
-    const result = consumeCanonicalQueueEntryProbe({ projectRoot: tempRoot(), artifactPath: '../probe.json' });
+    const result = consumeCanonicalQueueEntryProbe({
+      projectRoot: tempRoot(),
+      artifactPath: '../probe.json',
+    });
     assert.equal(result.decision, DECISIONS.BLOCKED_UNSAFE_PATH);
   });
 
@@ -88,23 +103,42 @@ describe('canonical-queue-consumer-probe', () => {
     const projectRoot = tempRoot();
     const outside = tempRoot();
     fs.mkdirSync(path.join(projectRoot, '.agent', 'overnight'), { recursive: true });
-    fs.symlinkSync(outside, path.join(projectRoot, '.agent', 'overnight', 'queue-entries'), 'junction');
-    const result = consumeCanonicalQueueEntryProbe({ projectRoot, artifactPath: DEFAULT_ARTIFACT_PATH });
+    fs.symlinkSync(
+      outside,
+      path.join(projectRoot, '.agent', 'overnight', 'queue-entries'),
+      'junction',
+    );
+    const result = consumeCanonicalQueueEntryProbe({
+      projectRoot,
+      artifactPath: DEFAULT_ARTIFACT_PATH,
+    });
     assert.equal(result.decision, DECISIONS.BLOCKED_UNSAFE_PATH);
     assert.ok(result.findings.some((entry) => entry.code === 'symlink_escape_refused'));
   });
 
   it('blocks wrong artifact type as not a queue-entry probe', () => {
-    const evaluation = evaluateQueueEntryArtifact(validArtifact({ artifact_type: 'promotion_proposal' }));
+    const evaluation = evaluateQueueEntryArtifact(
+      validArtifact({ artifact_type: 'promotion_proposal' }),
+    );
     assert.equal(evaluation.decision, DECISIONS.BLOCKED_NOT_QUEUE_ENTRY_PROBE);
     assert.ok(evaluation.findings.some((entry) => entry.code === 'wrong_artifact_type'));
   });
 
   it('blocks authority and execution claims', () => {
-    for (const flag of ['canonical_queue_admission', 'queue_execution', 'worker_execution', 'task_execution', 'lifecycle_execution', 'runtime_authority']) {
+    for (const flag of [
+      'canonical_queue_admission',
+      'queue_execution',
+      'worker_execution',
+      'task_execution',
+      'lifecycle_execution',
+      'runtime_authority',
+    ]) {
       const evaluation = evaluateQueueEntryArtifact(validArtifact({ [flag]: true }));
       assert.equal(evaluation.decision, DECISIONS.BLOCKED_AUTHORITY_CLAIM, flag);
-      assert.ok(evaluation.findings.some((entry) => entry.code === 'authority_or_execution_claim'), flag);
+      assert.ok(
+        evaluation.findings.some((entry) => entry.code === 'authority_or_execution_claim'),
+        flag,
+      );
     }
     const authoritative = evaluateQueueEntryArtifact(validArtifact({ non_authoritative: false }));
     assert.equal(authoritative.decision, DECISIONS.BLOCKED_AUTHORITY_CLAIM);
@@ -120,9 +154,29 @@ describe('canonical-queue-consumer-probe', () => {
 
   it('CLI parser is read-only and refuses execution or output flags', () => {
     assert.equal(parseArgs(['node', 'cli']).artifactPath, DEFAULT_ARTIFACT_PATH);
-    assert.equal(parseArgs(['node', 'cli', '--input-file', DEFAULT_ARTIFACT_PATH]).artifactPath, DEFAULT_ARTIFACT_PATH);
-    assert.equal(parseArgs(['node', 'cli', `--input-file=${DEFAULT_ARTIFACT_PATH}`]).artifactPath, DEFAULT_ARTIFACT_PATH);
-    for (const flag of ['--output', '--write', '--execute', '--dequeue', '--ack', '--reserve', '--lock', '--retry', '--execution-plan', '--commit', '--push', '--deploy', 'positional.json']) {
+    assert.equal(
+      parseArgs(['node', 'cli', '--input-file', DEFAULT_ARTIFACT_PATH]).artifactPath,
+      DEFAULT_ARTIFACT_PATH,
+    );
+    assert.equal(
+      parseArgs(['node', 'cli', `--input-file=${DEFAULT_ARTIFACT_PATH}`]).artifactPath,
+      DEFAULT_ARTIFACT_PATH,
+    );
+    for (const flag of [
+      '--output',
+      '--write',
+      '--execute',
+      '--dequeue',
+      '--ack',
+      '--reserve',
+      '--lock',
+      '--retry',
+      '--execution-plan',
+      '--commit',
+      '--push',
+      '--deploy',
+      'positional.json',
+    ]) {
       assert.throws(() => parseArgs(['node', 'cli', flag]), /refused/);
     }
   });

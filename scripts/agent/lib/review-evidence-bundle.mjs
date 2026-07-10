@@ -25,7 +25,7 @@ const SAFE_ENV_KEYS = Object.freeze([
   'HOME',
   'USERPROFILE',
   'TMP',
-  'TEMP'
+  'TEMP',
 ]);
 
 export const AUTHORITY_REFERENCES = Object.freeze([
@@ -34,16 +34,46 @@ export const AUTHORITY_REFERENCES = Object.freeze([
   'AGENTS.md',
   'SSOK.md',
   '.governance/REVIEW_POLICY.md',
-  '.agent/config/protected-files.json'
+  '.agent/config/protected-files.json',
 ]);
 
 export const READ_ONLY_GIT_COMMANDS = Object.freeze({
-  git_status_short: Object.freeze({ id: 'git_status_short', cmd: 'git', args: ['--no-pager', 'status', '--short'], required: true }),
-  git_log_last_oneline: Object.freeze({ id: 'git_log_last_oneline', cmd: 'git', args: ['--no-pager', 'log', '-1', '--oneline'], required: true }),
-  git_diff_stat: Object.freeze({ id: 'git_diff_stat', cmd: 'git', args: ['--no-pager', 'diff', '--stat'], required: true }),
-  git_diff_name_only: Object.freeze({ id: 'git_diff_name_only', cmd: 'git', args: ['--no-pager', 'diff', '--name-only'], required: true }),
-  git_diff_cached_name_only: Object.freeze({ id: 'git_diff_cached_name_only', cmd: 'git', args: ['--no-pager', 'diff', '--cached', '--name-only'], required: true }),
-  git_diff_cached_stat: Object.freeze({ id: 'git_diff_cached_stat', cmd: 'git', args: ['--no-pager', 'diff', '--cached', '--stat'], required: true })
+  git_status_short: Object.freeze({
+    id: 'git_status_short',
+    cmd: 'git',
+    args: ['--no-pager', 'status', '--short'],
+    required: true,
+  }),
+  git_log_last_oneline: Object.freeze({
+    id: 'git_log_last_oneline',
+    cmd: 'git',
+    args: ['--no-pager', 'log', '-1', '--oneline'],
+    required: true,
+  }),
+  git_diff_stat: Object.freeze({
+    id: 'git_diff_stat',
+    cmd: 'git',
+    args: ['--no-pager', 'diff', '--stat'],
+    required: true,
+  }),
+  git_diff_name_only: Object.freeze({
+    id: 'git_diff_name_only',
+    cmd: 'git',
+    args: ['--no-pager', 'diff', '--name-only'],
+    required: true,
+  }),
+  git_diff_cached_name_only: Object.freeze({
+    id: 'git_diff_cached_name_only',
+    cmd: 'git',
+    args: ['--no-pager', 'diff', '--cached', '--name-only'],
+    required: true,
+  }),
+  git_diff_cached_stat: Object.freeze({
+    id: 'git_diff_cached_stat',
+    cmd: 'git',
+    args: ['--no-pager', 'diff', '--cached', '--stat'],
+    required: true,
+  }),
 });
 
 const REQUIRED_COMMAND_IDS = Object.freeze(Object.keys(READ_ONLY_GIT_COMMANDS));
@@ -66,7 +96,10 @@ function appendBounded(current, chunk, limitBytes) {
 }
 
 function normalizePath(value) {
-  return String(value ?? '').trim().replace(/\\/g, '/').replace(/^\.\//, '');
+  return String(value ?? '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '');
 }
 
 function uniqueSorted(values) {
@@ -113,22 +146,56 @@ export function validateReadOnlyGitCommands(commands = READ_ONLY_GIT_COMMANDS) {
   const findings = [];
   const requireCompleteSet = commands === READ_ONLY_GIT_COMMANDS;
   for (const [id, spec] of Object.entries(commands)) {
-    if (!REQUIRED_COMMAND_IDS.includes(id)) findings.push(makeFinding('critical', 'unknown_command_id', `Unknown command id: ${id}`, { id }));
+    if (!REQUIRED_COMMAND_IDS.includes(id))
+      findings.push(
+        makeFinding('critical', 'unknown_command_id', `Unknown command id: ${id}`, { id }),
+      );
     if (!spec) {
-      findings.push(makeFinding('critical', 'missing_command_spec', `Missing command spec for ${id}`, { id }));
+      findings.push(
+        makeFinding('critical', 'missing_command_spec', `Missing command spec for ${id}`, { id }),
+      );
       continue;
     }
-    if (spec.id !== id) findings.push(makeFinding('critical', 'command_id_mismatch', `Command id mismatch for ${id}`, { id, spec_id: spec.id }));
-    if (spec.cmd !== 'git') findings.push(makeFinding('critical', 'non_git_command', `Readback command must use git: ${id}`, { cmd: spec.cmd }));
-    if (!Array.isArray(spec.args) || spec.args[0] !== '--no-pager') findings.push(makeFinding('critical', 'missing_no_pager', `Git readback must use --no-pager: ${id}`));
+    if (spec.id !== id)
+      findings.push(
+        makeFinding('critical', 'command_id_mismatch', `Command id mismatch for ${id}`, {
+          id,
+          spec_id: spec.id,
+        }),
+      );
+    if (spec.cmd !== 'git')
+      findings.push(
+        makeFinding('critical', 'non_git_command', `Readback command must use git: ${id}`, {
+          cmd: spec.cmd,
+        }),
+      );
+    if (!Array.isArray(spec.args) || spec.args[0] !== '--no-pager')
+      findings.push(
+        makeFinding('critical', 'missing_no_pager', `Git readback must use --no-pager: ${id}`),
+      );
     const text = [spec.cmd, ...(spec.args || [])].join(' ');
     if (/\b(add|commit|push|reset|checkout|switch|merge|rebase|clean|tag)\b/.test(text)) {
-      findings.push(makeFinding('critical', 'mutating_git_command', `Mutating git command is forbidden: ${id}`, { command: text }));
+      findings.push(
+        makeFinding(
+          'critical',
+          'mutating_git_command',
+          `Mutating git command is forbidden: ${id}`,
+          { command: text },
+        ),
+      );
     }
   }
   if (requireCompleteSet) {
     for (const id of REQUIRED_COMMAND_IDS) {
-      if (!commands[id]) findings.push(makeFinding('critical', 'missing_required_command', `Missing required git readback command: ${id}`, { id }));
+      if (!commands[id])
+        findings.push(
+          makeFinding(
+            'critical',
+            'missing_required_command',
+            `Missing required git readback command: ${id}`,
+            { id },
+          ),
+        );
     }
   }
   return { valid: findings.length === 0, findings };
@@ -138,7 +205,19 @@ export async function runReadOnlyGitCommand(commandId, options = {}) {
   const commandSpec = READ_ONLY_GIT_COMMANDS[commandId];
   const validation = validateReadOnlyGitCommands({ [commandId]: commandSpec });
   if (!commandSpec || !validation.valid) {
-    return commandResult(commandId, commandSpec, 'blocked', null, null, '', '', false, false, validation.findings, options);
+    return commandResult(
+      commandId,
+      commandSpec,
+      'blocked',
+      null,
+      null,
+      '',
+      '',
+      false,
+      false,
+      validation.findings,
+      options,
+    );
   }
 
   const projectRoot = options.projectRoot || DEFAULT_PROJECT_ROOT;
@@ -164,12 +243,24 @@ export async function runReadOnlyGitCommand(commandId, options = {}) {
       const endedAtMs = Date.now();
       const status = timedOut ? 'timed_out' : exitCode === 0 ? 'passed' : 'failed';
       resolve({
-        ...commandResult(commandId, commandSpec, status, exitCode, signal, stdout, stderr, stdoutTruncated, stderrTruncated, extraFindings, options),
+        ...commandResult(
+          commandId,
+          commandSpec,
+          status,
+          exitCode,
+          signal,
+          stdout,
+          stderr,
+          stdoutTruncated,
+          stderrTruncated,
+          extraFindings,
+          options,
+        ),
         started_at: startedAt,
         ended_at: new Date(endedAtMs).toISOString(),
         duration_ms: endedAtMs - startedAtMs,
         timed_out: timedOut,
-        timeout_ms: timeoutMs
+        timeout_ms: timeoutMs,
       });
     };
 
@@ -183,7 +274,7 @@ export async function runReadOnlyGitCommand(commandId, options = {}) {
         cwd: projectRoot,
         shell: false,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: createSafeSpawnEnv()
+        env: createSafeSpawnEnv(),
       });
     } catch (error) {
       finish(null, null, [makeFinding('critical', 'spawn_failed', error.message)]);
@@ -200,12 +291,26 @@ export async function runReadOnlyGitCommand(commandId, options = {}) {
       stderr = next.value;
       stderrTruncated ||= next.truncated;
     });
-    child.on('error', (error) => finish(null, null, [makeFinding('critical', 'spawn_error', error.message)]));
+    child.on('error', (error) =>
+      finish(null, null, [makeFinding('critical', 'spawn_error', error.message)]),
+    );
     child.on('close', (code, signal) => finish(code, signal));
   });
 }
 
-function commandResult(commandId, spec, status, exitCode, signal, stdout, stderr, stdoutTruncated, stderrTruncated, findings, options) {
+function commandResult(
+  commandId,
+  spec,
+  status,
+  exitCode,
+  signal,
+  stdout,
+  stderr,
+  stdoutTruncated,
+  stderrTruncated,
+  findings,
+  options,
+) {
   return {
     command_id: commandId,
     command: spec ? [spec.cmd, ...spec.args].join(' ') : null,
@@ -230,7 +335,7 @@ function commandResult(commandId, spec, status, exitCode, signal, stdout, stderr
     read_only: true,
     shell: false,
     stdin: 'ignored',
-    writes_performed: false
+    writes_performed: false,
   };
 }
 
@@ -266,8 +371,13 @@ export function classifyChangedFiles(files = []) {
     else if (file.startsWith('src/')) category = 'product_code';
     else if (file.startsWith('supabase/')) category = 'supabase';
     else if (file === 'package.json' || file === 'package-lock.json') category = 'package';
-    else if (file.startsWith('.governance/') || ['SSOK.md', 'AGENTS.md', 'VERIFY.md'].includes(file)) category = 'governance';
-    else if (/^(tasks|runs|validation|review|handoffs)\//.test(file)) category = 'runtime_or_evidence';
+    else if (
+      file.startsWith('.governance/') ||
+      ['SSOK.md', 'AGENTS.md', 'VERIFY.md'].includes(file)
+    )
+      category = 'governance';
+    else if (/^(tasks|runs|validation|review|handoffs)\//.test(file))
+      category = 'runtime_or_evidence';
     return { file, category };
   });
 }
@@ -279,19 +389,39 @@ export function parseProtectedConfig(text) {
     const conditional = config?.protected_patterns?.conditional_protection?.patterns;
     const approval = config?.approval_required_patterns?.patterns;
     if (!Array.isArray(absolute) || !Array.isArray(conditional) || !Array.isArray(approval)) {
-      return { ok: false, config: null, findings: [makeFinding('critical', 'malformed_protected_config', 'Protected config is missing required pattern arrays')] };
+      return {
+        ok: false,
+        config: null,
+        findings: [
+          makeFinding(
+            'critical',
+            'malformed_protected_config',
+            'Protected config is missing required pattern arrays',
+          ),
+        ],
+      };
     }
     return { ok: true, config, findings: [] };
   } catch (error) {
-    return { ok: false, config: null, findings: [makeFinding('critical', 'malformed_protected_config', error.message)] };
+    return {
+      ok: false,
+      config: null,
+      findings: [makeFinding('critical', 'malformed_protected_config', error.message)],
+    };
   }
 }
 
 export function loadProtectedConfig(projectRoot = DEFAULT_PROJECT_ROOT) {
   try {
-    return parseProtectedConfig(fs.readFileSync(path.join(projectRoot, '.agent/config/protected-files.json'), 'utf8'));
+    return parseProtectedConfig(
+      fs.readFileSync(path.join(projectRoot, '.agent/config/protected-files.json'), 'utf8'),
+    );
   } catch (error) {
-    return { ok: false, config: null, findings: [makeFinding('critical', 'protected_config_read_failed', error.message)] };
+    return {
+      ok: false,
+      config: null,
+      findings: [makeFinding('critical', 'protected_config_read_failed', error.message)],
+    };
   }
 }
 
@@ -303,15 +433,25 @@ export function classifyProtectedFiles(files = [], protectedConfig) {
   const approvalPatterns = parsed.config.approval_required_patterns.patterns;
   const results = uniqueSorted(files).map((file) => {
     const absolute_matches = absolutePatterns.filter((pattern) => matchesPattern(file, pattern));
-    const conditional_matches = conditionalPatterns.filter((entry) => matchesPattern(file, entry.pattern)).map((entry) => ({ pattern: entry.pattern, condition: entry.condition, approval_required: entry.approval_required === true }));
-    const approval_required_matches = approvalPatterns.filter((pattern) => matchesPattern(file, pattern));
+    const conditional_matches = conditionalPatterns
+      .filter((entry) => matchesPattern(file, entry.pattern))
+      .map((entry) => ({
+        pattern: entry.pattern,
+        condition: entry.condition,
+        approval_required: entry.approval_required === true,
+      }));
+    const approval_required_matches = approvalPatterns.filter((pattern) =>
+      matchesPattern(file, pattern),
+    );
     return {
       file,
       protected: absolute_matches.length > 0,
-      approval_required: approval_required_matches.length > 0 || conditional_matches.some((entry) => entry.approval_required),
+      approval_required:
+        approval_required_matches.length > 0 ||
+        conditional_matches.some((entry) => entry.approval_required),
       absolute_matches,
       conditional_matches,
-      approval_required_matches
+      approval_required_matches,
     };
   });
   return { files: results, findings: [] };
@@ -325,7 +465,8 @@ export function reconcileClaimedChangedFiles(actualFiles = [], claimedFiles = []
     claimed_files: claimed,
     missing_from_claims: actual.filter((file) => !claimed.includes(file)),
     claimed_but_not_actual: claimed.filter((file) => !actual.includes(file)),
-    matches: actual.length === claimed.length && actual.every((file, index) => file === claimed[index])
+    matches:
+      actual.length === claimed.length && actual.every((file, index) => file === claimed[index]),
   };
 }
 
@@ -333,68 +474,189 @@ export function evaluateCommitReadiness(bundle, options = {}) {
   const blocking = [];
   const warnings = [];
   const readbacks = bundle.git_readbacks || {};
-  if (options.requireTaskId !== false && !bundle.task_id) blocking.push(makeFinding('critical', 'task_id_missing', 'Task ID is required for commit readiness'));
+  if (options.requireTaskId !== false && !bundle.task_id)
+    blocking.push(
+      makeFinding('critical', 'task_id_missing', 'Task ID is required for commit readiness'),
+    );
   for (const id of REQUIRED_COMMAND_IDS) {
     const result = readbacks[id];
-    if (!result) blocking.push(makeFinding('critical', 'missing_required_git_evidence', `Missing required git evidence: ${id}`, { command_id: id }));
-    else if (result.status !== 'passed') blocking.push(makeFinding('critical', 'failed_git_readback', `Git readback did not pass: ${id}`, { command_id: id, status: result.status }));
-    else if (result.stdout_truncated || result.stderr_truncated) blocking.push(makeFinding('critical', 'required_evidence_truncated', `Required git evidence was truncated: ${id}`, { command_id: id }));
+    if (!result)
+      blocking.push(
+        makeFinding(
+          'critical',
+          'missing_required_git_evidence',
+          `Missing required git evidence: ${id}`,
+          { command_id: id },
+        ),
+      );
+    else if (result.status !== 'passed')
+      blocking.push(
+        makeFinding('critical', 'failed_git_readback', `Git readback did not pass: ${id}`, {
+          command_id: id,
+          status: result.status,
+        }),
+      );
+    else if (result.stdout_truncated || result.stderr_truncated)
+      blocking.push(
+        makeFinding(
+          'critical',
+          'required_evidence_truncated',
+          `Required git evidence was truncated: ${id}`,
+          { command_id: id },
+        ),
+      );
   }
   for (const finding of bundle.protected_scope?.findings || []) blocking.push(finding);
   for (const entry of bundle.protected_scope?.files || []) {
-    if (entry.protected) blocking.push(makeFinding('critical', 'protected_file_changed', `Protected file changed: ${entry.file}`, { file: entry.file }));
-    if (entry.approval_required && !options.allowApprovalRequiredChanges) blocking.push(makeFinding('critical', 'approval_required_file_changed', `Approval-required file changed without explicit allowance: ${entry.file}`, { file: entry.file }));
+    if (entry.protected)
+      blocking.push(
+        makeFinding('critical', 'protected_file_changed', `Protected file changed: ${entry.file}`, {
+          file: entry.file,
+        }),
+      );
+    if (entry.approval_required && !options.allowApprovalRequiredChanges)
+      blocking.push(
+        makeFinding(
+          'critical',
+          'approval_required_file_changed',
+          `Approval-required file changed without explicit allowance: ${entry.file}`,
+          { file: entry.file },
+        ),
+      );
   }
   if (options.allowStagedFiles === false && (bundle.changed_files?.staged_files || []).length > 0) {
-    blocking.push(makeFinding('critical', 'staged_files_disallowed', 'Staged files are present while staged state is disallowed', { staged_files: bundle.changed_files.staged_files }));
+    blocking.push(
+      makeFinding(
+        'critical',
+        'staged_files_disallowed',
+        'Staged files are present while staged state is disallowed',
+        { staged_files: bundle.changed_files.staged_files },
+      ),
+    );
   }
   if (bundle.claim_reconciliation && !bundle.claim_reconciliation.matches) {
-    blocking.push(makeFinding('critical', 'claimed_changed_files_mismatch', 'Claimed changed files do not match actual changed files', bundle.claim_reconciliation));
+    blocking.push(
+      makeFinding(
+        'critical',
+        'claimed_changed_files_mismatch',
+        'Claimed changed files do not match actual changed files',
+        bundle.claim_reconciliation,
+      ),
+    );
   }
   for (const check of bundle.verification?.required_checks || []) {
-    if (!check.evidence || check.status === 'missing') blocking.push(makeFinding('critical', 'missing_required_verification_evidence', `Missing required verification evidence: ${check.id}`, { check_id: check.id }));
-    else if (!['passed', 'not_required'].includes(check.status)) blocking.push(makeFinding('critical', 'required_verification_not_passed', `Required verification did not pass: ${check.id}`, { check_id: check.id, status: check.status }));
+    if (!check.evidence || check.status === 'missing')
+      blocking.push(
+        makeFinding(
+          'critical',
+          'missing_required_verification_evidence',
+          `Missing required verification evidence: ${check.id}`,
+          { check_id: check.id },
+        ),
+      );
+    else if (!['passed', 'not_required'].includes(check.status))
+      blocking.push(
+        makeFinding(
+          'critical',
+          'required_verification_not_passed',
+          `Required verification did not pass: ${check.id}`,
+          { check_id: check.id, status: check.status },
+        ),
+      );
   }
-  if (bundle.size?.limit_exceeded) blocking.push(makeFinding('critical', 'bundle_size_limit_exceeded', 'Bundle size/output limit exceeded', bundle.size));
-  return { ready: blocking.length === 0, status: blocking.length === 0 ? 'ready' : 'blocked', blocking_findings: blocking, warnings };
+  if (bundle.size?.limit_exceeded)
+    blocking.push(
+      makeFinding(
+        'critical',
+        'bundle_size_limit_exceeded',
+        'Bundle size/output limit exceeded',
+        bundle.size,
+      ),
+    );
+  return {
+    ready: blocking.length === 0,
+    status: blocking.length === 0 ? 'ready' : 'blocked',
+    blocking_findings: blocking,
+    warnings,
+  };
 }
 
 export async function generateReviewEvidenceBundle(options = {}) {
   const generatedAt = options.generatedAt || new Date().toISOString();
   const gitReadbacks = await collectGitReadbacks(options);
   const statusParse = parseGitStatusChangedFiles(gitReadbacks.git_status_short?.stdout || '');
-  const actualFiles = uniqueSorted([...
-    statusParse.changedFiles,
+  const actualFiles = uniqueSorted([
+    ...statusParse.changedFiles,
     ...String(gitReadbacks.git_diff_name_only?.stdout || '').split(/\r?\n/),
-    ...String(gitReadbacks.git_diff_cached_name_only?.stdout || '').split(/\r?\n/)
+    ...String(gitReadbacks.git_diff_cached_name_only?.stdout || '').split(/\r?\n/),
   ]);
-  const protectedConfig = options.protectedConfig || loadProtectedConfig(options.projectRoot || DEFAULT_PROJECT_ROOT);
-  const protectedScope = protectedConfig.ok === false
-    ? { files: [], findings: protectedConfig.findings }
-    : classifyProtectedFiles(actualFiles, protectedConfig.config);
+  const protectedConfig =
+    options.protectedConfig || loadProtectedConfig(options.projectRoot || DEFAULT_PROJECT_ROOT);
+  const protectedScope =
+    protectedConfig.ok === false
+      ? { files: [], findings: protectedConfig.findings }
+      : classifyProtectedFiles(actualFiles, protectedConfig.config);
   const verificationEvidence = {
-    required_checks: (options.requiredChecks || []).map((check) => ({ id: check.id, command: check.command || null, status: check.status || 'missing', evidence: check.evidence || null })),
-    missing_required_checks: (options.requiredChecks || []).filter((check) => !check.evidence || check.status === 'missing').map((check) => check.id)
+    required_checks: (options.requiredChecks || []).map((check) => ({
+      id: check.id,
+      command: check.command || null,
+      status: check.status || 'missing',
+      evidence: check.evidence || null,
+    })),
+    missing_required_checks: (options.requiredChecks || [])
+      .filter((check) => !check.evidence || check.status === 'missing')
+      .map((check) => check.id),
   };
   const bundle = {
     schema_version: SCHEMA_VERSION,
-    bundle_id: options.bundleId || `review-evidence-${generatedAt.replace(/[-:.]/g, '').replace(/Z$/, 'Z')}-${crypto.createHash('sha256').update(`${options.taskId || ''}:${generatedAt}`).digest('hex').slice(0, 8)}`,
+    bundle_id:
+      options.bundleId ||
+      `review-evidence-${generatedAt.replace(/[-:.]/g, '').replace(/Z$/, 'Z')}-${crypto
+        .createHash('sha256')
+        .update(`${options.taskId || ''}:${generatedAt}`)
+        .digest('hex')
+        .slice(0, 8)}`,
     generated_at: generatedAt,
     task_id: options.taskId || null,
     task_title: options.taskTitle || null,
-    generator: { id: GENERATOR_ID, mode: GENERATOR_MODE, authoritative: false, writes_performed: false, output: 'stdout_only' },
+    generator: {
+      id: GENERATOR_ID,
+      mode: GENERATOR_MODE,
+      authoritative: false,
+      writes_performed: false,
+      output: 'stdout_only',
+    },
     authority_references: [...AUTHORITY_REFERENCES],
     git_readbacks: gitReadbacks,
-    changed_files: { actual_files: actualFiles, staged_files: uniqueSorted([...statusParse.stagedFiles, ...String(gitReadbacks.git_diff_cached_name_only?.stdout || '').split(/\r?\n/)]), classification: classifyChangedFiles(actualFiles) },
+    changed_files: {
+      actual_files: actualFiles,
+      staged_files: uniqueSorted([
+        ...statusParse.stagedFiles,
+        ...String(gitReadbacks.git_diff_cached_name_only?.stdout || '').split(/\r?\n/),
+      ]),
+      classification: classifyChangedFiles(actualFiles),
+    },
     protected_scope: protectedScope,
     verification: verificationEvidence,
-    claim_reconciliation: reconcileClaimedChangedFiles(actualFiles, options.claimedChangedFiles || []),
+    claim_reconciliation: reconcileClaimedChangedFiles(
+      actualFiles,
+      options.claimedChangedFiles || [],
+    ),
     dry_run: true,
-    writes_performed: false
+    writes_performed: false,
   };
   const sizeBytes = byteLength(JSON.stringify(bundle));
-  bundle.size = { bytes: sizeBytes, limit_bytes: options.bundleLimitBytes || DEFAULT_BUNDLE_LIMIT_BYTES, limit_exceeded: sizeBytes > (options.bundleLimitBytes || DEFAULT_BUNDLE_LIMIT_BYTES), truncation_explicit: true };
-  bundle.commit_readiness = evaluateCommitReadiness(bundle, { allowStagedFiles: options.allowStagedFiles === true, allowApprovalRequiredChanges: options.allowApprovalRequiredChanges === true, requireTaskId: options.requireTaskId !== false });
+  bundle.size = {
+    bytes: sizeBytes,
+    limit_bytes: options.bundleLimitBytes || DEFAULT_BUNDLE_LIMIT_BYTES,
+    limit_exceeded: sizeBytes > (options.bundleLimitBytes || DEFAULT_BUNDLE_LIMIT_BYTES),
+    truncation_explicit: true,
+  };
+  bundle.commit_readiness = evaluateCommitReadiness(bundle, {
+    allowStagedFiles: options.allowStagedFiles === true,
+    allowApprovalRequiredChanges: options.allowApprovalRequiredChanges === true,
+    requireTaskId: options.requireTaskId !== false,
+  });
   return bundle;
 }
 
@@ -415,29 +677,42 @@ export function formatReviewEvidenceBundleMarkdown(bundle) {
   lines.push('## Git Readbacks');
   for (const id of REQUIRED_COMMAND_IDS) {
     const result = bundle.git_readbacks[id];
-    lines.push(`- ${id}: ${result?.status || 'missing'} (exit=${result?.exit_code ?? 'n/a'}, stdout_truncated=${result?.stdout_truncated ?? 'n/a'}, stderr_truncated=${result?.stderr_truncated ?? 'n/a'})`);
+    lines.push(
+      `- ${id}: ${result?.status || 'missing'} (exit=${result?.exit_code ?? 'n/a'}, stdout_truncated=${result?.stdout_truncated ?? 'n/a'}, stderr_truncated=${result?.stderr_truncated ?? 'n/a'})`,
+    );
   }
   lines.push('');
   lines.push('## Changed Files');
   if (bundle.changed_files.actual_files.length === 0) lines.push('- (none)');
-  for (const entry of bundle.changed_files.classification) lines.push(`- ${entry.file} — ${entry.category}`);
+  for (const entry of bundle.changed_files.classification)
+    lines.push(`- ${entry.file} — ${entry.category}`);
   lines.push('');
   lines.push('## Protected / Approval-Required Classification');
   if (bundle.protected_scope.files.length === 0) lines.push('- (none)');
-  for (const entry of bundle.protected_scope.files) lines.push(`- ${entry.file}: protected=${entry.protected}, approval_required=${entry.approval_required}`);
+  for (const entry of bundle.protected_scope.files)
+    lines.push(
+      `- ${entry.file}: protected=${entry.protected}, approval_required=${entry.approval_required}`,
+    );
   lines.push('');
   lines.push('## Verification Evidence');
-  if (bundle.verification.required_checks.length === 0) lines.push('- No required checks provided; placeholders only.');
-  for (const check of bundle.verification.required_checks) lines.push(`- ${check.id}: ${check.status}`);
+  if (bundle.verification.required_checks.length === 0)
+    lines.push('- No required checks provided; placeholders only.');
+  for (const check of bundle.verification.required_checks)
+    lines.push(`- ${check.id}: ${check.status}`);
   lines.push('');
   lines.push('## Claim vs Actual Reconciliation');
   lines.push(`- Matches: ${bundle.claim_reconciliation.matches}`);
-  lines.push(`- Missing from claims: ${bundle.claim_reconciliation.missing_from_claims.join(', ') || '(none)'}`);
-  lines.push(`- Claimed but not actual: ${bundle.claim_reconciliation.claimed_but_not_actual.join(', ') || '(none)'}`);
+  lines.push(
+    `- Missing from claims: ${bundle.claim_reconciliation.missing_from_claims.join(', ') || '(none)'}`,
+  );
+  lines.push(
+    `- Claimed but not actual: ${bundle.claim_reconciliation.claimed_but_not_actual.join(', ') || '(none)'}`,
+  );
   lines.push('');
   lines.push('## Commit Readiness');
   if (bundle.commit_readiness.blocking_findings.length === 0) lines.push('- No blocking findings.');
-  for (const finding of bundle.commit_readiness.blocking_findings) lines.push(`- BLOCKED ${finding.code}: ${finding.message}`);
+  for (const finding of bundle.commit_readiness.blocking_findings)
+    lines.push(`- BLOCKED ${finding.code}: ${finding.message}`);
   lines.push('');
   lines.push('## Size / Truncation');
   lines.push(`- Bundle bytes: ${bundle.size.bytes}/${bundle.size.limit_bytes}`);

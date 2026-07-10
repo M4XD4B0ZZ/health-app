@@ -157,12 +157,16 @@ describe('bls full artifact scan and estimate', () => {
 
   it('returns a summary-only estimate with deterministic regeneration and no records field', () => {
     const summary = buildFullArtifactDryRunSummary(
-      [HEADERS, row({ blsCode: 'A001', germanName: 'Alpha' }), row({ blsCode: 'B002', germanName: 'Beta' })],
+      [
+        HEADERS,
+        row({ blsCode: 'A001', germanName: 'Alpha' }),
+        row({ blsCode: 'B002', germanName: 'Beta' }),
+      ],
       {
-      mode: 'estimate-artifact',
-      sourceWorkbookSha256: 'sha-fixture',
-      requiredHeapMb: 8192,
-      heapRelaunched: true,
+        mode: 'estimate-artifact',
+        sourceWorkbookSha256: 'sha-fixture',
+        requiredHeapMb: 8192,
+        heapRelaunched: true,
       },
     );
 
@@ -231,7 +235,15 @@ describe('bls full artifact scan and estimate', () => {
       },
     );
 
-    assert.equal(summary.riskChecklist.warnings.includes('bounded_probe_not_full_workbook_evidence'), true);
-    assert.equal(summary.riskChecklist.blockingFindings.includes('full_scan_did_not_scan_all_available_data_rows'), false);
+    assert.equal(
+      summary.riskChecklist.warnings.includes('bounded_probe_not_full_workbook_evidence'),
+      true,
+    );
+    assert.equal(
+      summary.riskChecklist.blockingFindings.includes(
+        'full_scan_did_not_scan_all_available_data_rows',
+      ),
+      false,
+    );
   });
 });

@@ -25,15 +25,15 @@ Category can be supplied explicitly with `--category`. If omitted, the script in
 
 ## VERIFY.md Mapping Summary
 
-| Category | Required checks produced |
-| --- | --- |
-| `documentation-only` | `git --no-pager status --short`; `git --no-pager diff --stat`; `git --no-pager diff --name-only` |
-| `governance-only` | `git --no-pager status --short`; `git --no-pager diff --stat`; `git --no-pager diff --name-only` |
-| `test-only` | task-specific `--test-command` values if provided; readback git checks |
-| `product-runtime-code` | `npm run verify` |
-| `edge-supabase` | `npm run verify:supabase:link`; `npm run verify:schema`; `npm run verify:edge`; plus `npm run verify` when runtime code is also detected |
-| `dependency-change` | `npm run verify`; task-specific regression tests from `--test-command` if provided |
-| `runtime-state-only` | `node scripts/agent/validate-ralph-state.mjs`; readback git checks |
+| Category                 | Required checks produced                                                                                                                                                                             |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `documentation-only`     | `git --no-pager status --short`; `git --no-pager diff --stat`; `git --no-pager diff --name-only`                                                                                                     |
+| `governance-only`        | `git --no-pager status --short`; `git --no-pager diff --stat`; `git --no-pager diff --name-only`                                                                                                     |
+| `test-only`              | task-specific `--test-command` values if provided; readback git checks                                                                                                                               |
+| `product-runtime-code`   | `npm run verify`                                                                                                                                                                                     |
+| `edge-supabase`          | `npm run verify:supabase:link`; `npm run verify:schema`; `npm run verify:edge`; plus `npm run verify` when runtime code is also detected                                                             |
+| `dependency-change`      | `npm run verify`; task-specific regression tests from `--test-command` if provided                                                                                                                   |
+| `runtime-state-only`     | `node scripts/agent/validate-ralph-state.mjs`; readback git checks                                                                                                                                   |
 | `governance-script-only` | `node --check <changed-script>` for scripts supplied by `--script` or detected under `scripts/agent/*.mjs`; task-specific dry-run commands from `--dry-run-command` if provided; readback git checks |
 
 Optional checks from `VERIFY.md` are included in `optional_checks` but are not executed or treated as blocking unless explicitly included as required inputs in a future task.

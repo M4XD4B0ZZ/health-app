@@ -5,7 +5,7 @@ import {
   buildSandboxPromotionProposal,
   buildSandboxPromotionProposalFromArtifact,
   formatSandboxPromotionProposalMarkdown,
-  isSafeRelativePromotionInputFile
+  isSafeRelativePromotionInputFile,
 } from '../lib/sandbox-promotion-proposal-generator.mjs';
 import { parseArgs } from '../generate-sandbox-promotion-proposal.mjs';
 
@@ -19,13 +19,37 @@ function eligibleResult(overrides = {}) {
     blocked: false,
     reason_codes: [],
     findings: [],
-    artifact_summary: { sandbox: true, non_authoritative: true, task_id: 'RALPH-041B', queue_entry_id: null, evidence_bundled: true },
-    lifecycle_summary: { state: 'evidence_bundled', next_state: null, timestamp: '2026-06-10T00:00:00Z' },
-    authority_flags: { queue_execution: false, worker_execution: false, task_execution: false, runtime_authority: false, evidence_mutation: false, review_mutation: false, validation_mutation: false, canonical_queue_admission: false, staging: false, commit: false, push: false, deploy: false, network: false },
+    artifact_summary: {
+      sandbox: true,
+      non_authoritative: true,
+      task_id: 'RALPH-041B',
+      queue_entry_id: null,
+      evidence_bundled: true,
+    },
+    lifecycle_summary: {
+      state: 'evidence_bundled',
+      next_state: null,
+      timestamp: '2026-06-10T00:00:00Z',
+    },
+    authority_flags: {
+      queue_execution: false,
+      worker_execution: false,
+      task_execution: false,
+      runtime_authority: false,
+      evidence_mutation: false,
+      review_mutation: false,
+      validation_mutation: false,
+      canonical_queue_admission: false,
+      staging: false,
+      commit: false,
+      push: false,
+      deploy: false,
+      network: false,
+    },
     writes_performed: false,
     stdout_only: true,
     non_authorization_statement: 'This eligibility evaluation does not authorize queue execution.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -39,7 +63,13 @@ describe('sandbox-promotion-proposal-generator', () => {
   });
 
   it('blocked eligibility refuses proposal', () => {
-    const result = buildSandboxPromotionProposal(eligibleResult({ decision: 'blocked_missing_evidence', eligible_for_human_consideration: false, blocked: true }));
+    const result = buildSandboxPromotionProposal(
+      eligibleResult({
+        decision: 'blocked_missing_evidence',
+        eligible_for_human_consideration: false,
+        blocked: true,
+      }),
+    );
     assert.equal(result.proposal_created, false);
     assert.ok(result.reason_codes.includes('eligibility_decision_not_eligible'));
   });
@@ -63,14 +93,18 @@ describe('sandbox-promotion-proposal-generator', () => {
   });
 
   it('any upstream authority flag true blocks proposal', () => {
-    const source = eligibleResult({ authority_flags: { ...eligibleResult().authority_flags, worker_execution: true } });
+    const source = eligibleResult({
+      authority_flags: { ...eligibleResult().authority_flags, worker_execution: true },
+    });
     const result = buildSandboxPromotionProposal(source);
     assert.equal(result.proposal_created, false);
     assert.ok(result.reason_codes.includes('upstream_authority_flag_not_false'));
   });
 
   it('canonical/protected source or target path references block proposal', () => {
-    const result = buildSandboxPromotionProposal(eligibleResult({ target_path: 'tasks/task-state.json' }));
+    const result = buildSandboxPromotionProposal(
+      eligibleResult({ target_path: 'tasks/task-state.json' }),
+    );
     assert.equal(result.proposal_created, false);
     assert.ok(result.reason_codes.includes('canonical_or_protected_scope_reference'));
   });
@@ -88,8 +122,12 @@ describe('sandbox-promotion-proposal-generator', () => {
   });
 
   it('markdown output is deterministic', () => {
-    const first = formatSandboxPromotionProposalMarkdown(buildSandboxPromotionProposal(eligibleResult()));
-    const second = formatSandboxPromotionProposalMarkdown(buildSandboxPromotionProposal(eligibleResult()));
+    const first = formatSandboxPromotionProposalMarkdown(
+      buildSandboxPromotionProposal(eligibleResult()),
+    );
+    const second = formatSandboxPromotionProposalMarkdown(
+      buildSandboxPromotionProposal(eligibleResult()),
+    );
     assert.equal(first, second);
   });
 
@@ -101,12 +139,26 @@ describe('sandbox-promotion-proposal-generator', () => {
   });
 
   it('can evaluate safe artifact JSON through existing evaluator', () => {
-    const result = buildSandboxPromotionProposalFromArtifact({ sandbox: true, non_authoritative: true, task_id: 'RALPH-041B', lifecycle: { state: 'evidence_bundled' }, evidence_bundled: true, non_authoritative_statement: 'This is non-authoritative advisory metadata only.' });
+    const result = buildSandboxPromotionProposalFromArtifact({
+      sandbox: true,
+      non_authoritative: true,
+      task_id: 'RALPH-041B',
+      lifecycle: { state: 'evidence_bundled' },
+      evidence_bundled: true,
+      non_authoritative_statement: 'This is non-authoritative advisory metadata only.',
+    });
     assert.equal(result.proposal_created, true);
   });
 
   it('CLI parse helper rejects unsafe usage through parsed fields', () => {
-    const args = parseArgs(['node', 'cli', '--eligibility-file', 'reports/source.json', '--format', 'json']);
+    const args = parseArgs([
+      'node',
+      'cli',
+      '--eligibility-file',
+      'reports/source.json',
+      '--format',
+      'json',
+    ]);
     assert.equal(args.eligibilityFile, 'reports/source.json');
     assert.equal(isSafeRelativePromotionInputFile('tasks/task-state.json'), false);
   });

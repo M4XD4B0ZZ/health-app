@@ -3,7 +3,7 @@
 **Task ID:** RALPH-005A  
 **Created:** 2026-05-19T09:15:00Z  
 **Status:** Planning Phase  
-**Risk Level:** Safe Autonomous  
+**Risk Level:** Safe Autonomous
 
 ---
 
@@ -12,6 +12,7 @@
 Der Dry-run Task Selector ist die erste ausführbare Ralph-Loop-Komponente, die deterministisch den nächsten geeigneten Task aus dem Task-State auswählt. Er operiert ausschließlich im Dry-run-Modus und führt keine Task-Implementierung oder automatische Status-Übergänge durch.
 
 ### Kernfunktion
+
 - **Task-Auswahl:** Deterministisch den nächsten geeigneten Task identifizieren
 - **Dry-run-Modus:** Nur Analyse und Ausgabe, keine State-Mutation
 - **Safety-First:** Umfassende Sicherheitsprüfungen vor jeder Auswahl
@@ -36,11 +37,13 @@ Diese Planungsaufgabe umfasst explizit **NICHT**:
 ## 3. Proposed Script Path
 
 **Empfohlener Pfad:**
+
 ```
 scripts/agent/select-next-ralph-task.mjs
 ```
 
 **Begründung:**
+
 - Konsistent mit bestehender Agent-Script-Struktur in [`scripts/agent/`](../scripts/agent/)
 - Klare Abgrenzung zu bestehendem [`select-next-task.mjs`](../scripts/agent/select-next-task.mjs)
 - Ralph-spezifische Namensgebung für zukünftige Tool-Neutralität
@@ -50,6 +53,7 @@ scripts/agent/select-next-ralph-task.mjs
 ## 4. Proposed Future Command
 
 **Empfohlener package.json Script-Name:**
+
 ```json
 {
   "scripts": {
@@ -59,11 +63,13 @@ scripts/agent/select-next-ralph-task.mjs
 ```
 
 **Alternative Namen (falls besser begründet):**
+
 - `ralph:task:select`
 - `ralph:coordinator`
 - `agent:select:ralph`
 
 **Begründung für `agent:ralph:select`:**
+
 - Konsistent mit bestehender `agent:*` Namenskonvention
 - Klare Ralph-Loop-Zuordnung
 - Kurz und prägnant
@@ -75,20 +81,24 @@ scripts/agent/select-next-ralph-task.mjs
 Der Script soll folgende Dateien lesen (in dieser Reihenfolge):
 
 ### Governance-Dateien (Required)
+
 1. **[`.governance/SYSTEM.md`](../.governance/SYSTEM.md)** - Ralph-Loop-Governance-System
 2. **[`.governance/RULES.md`](../.governance/RULES.md)** - Operative Regeln
 3. **[`.governance/SAFETY.md`](../.governance/SAFETY.md)** - Sicherheitsrichtlinien
 
 ### Runtime-State-Dateien (Required)
+
 4. **[`tasks/task-state.json`](../tasks/task-state.json)** - Aktueller Task-State (primäre Quelle)
 5. **[`.agent/config/loop-config.json`](../.agent/config/loop-config.json)** - Loop-Konfiguration
 6. **[`.agent/config/protected-files.json`](../.agent/config/protected-files.json)** - Geschützte Dateien
 7. **[`handoffs/latest-handoff.md`](../handoffs/latest-handoff.md)** - Letzter Ausführungskontext
 
 ### Optional/Conditional
+
 8. **[`runs/current-run.json`](../runs/current-run.json)** - Aktueller Run (falls vorhanden)
 
 ### Nicht erforderlich in der ersten Dry-run-Version
+
 - **[`ROADMAP.md`](../ROADMAP.md)** bleibt SSOK, aber Task-State ist die Runtime-Queue
 - Parsing von ROADMAP.md wird in späteren Versionen hinzugefügt
 
@@ -97,6 +107,7 @@ Der Script soll folgende Dateien lesen (in dieser Reihenfolge):
 ## 6. Outputs
 
 ### Console Output (Dry-run Mode - Default)
+
 ```
 # Task Selection Result
 
@@ -119,6 +130,7 @@ Human approval required for implementation task. Run with --write to update runs
 ```
 
 ### JSON Output (--json Flag)
+
 ```json
 {
   "selected_task": {
@@ -142,6 +154,7 @@ Human approval required for implementation task. Run with --write to update runs
 ```
 
 ### File Output (--write Flag)
+
 - **Nur [`runs/current-run.json`](../runs/current-run.json)** wird geschrieben
 - **Keine Task-State-Mutation** im Dry-run
 - **Keine ROADMAP.md-Mutation**
@@ -151,6 +164,7 @@ Human approval required for implementation task. Run with --write to update runs
 ## 7. CLI Interface
 
 ### Proposed Flags
+
 ```bash
 # Dry-run (default behavior)
 node scripts/agent/select-next-ralph-task.mjs
@@ -172,6 +186,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
 ```
 
 ### Flag Definitions
+
 - **`--dry-run`** (default: true) - Nur Analyse, keine Dateischreibung
 - **`--write`** - Schreibt [`runs/current-run.json`](../runs/current-run.json) mit ausgewähltem Task
 - **`--json`** - Maschinenlesbare JSON-Ausgabe statt Markdown
@@ -186,6 +201,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
 ### Deterministische Auswahllogik
 
 #### Ausschlusskriterien (Task wird NICHT ausgewählt)
+
 1. **Status-Ausschluss:**
    - `done` - Task bereits abgeschlossen
    - `blocked` - Task kann nicht fortgesetzt werden
@@ -204,6 +220,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
    - Abhängigkeiten nicht erfüllt (basierend auf Task-Reihenfolge)
 
 #### Einschlusskriterien (Task wird berücksichtigt)
+
 1. **Status-Einschluss:**
    - `not_started` - Bevorzugt
    - `in_progress` - Kann fortgesetzt werden
@@ -217,6 +234,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
    - Keine `forbidden_files` erforderlich
 
 ### Prioritätsreihenfolge
+
 1. **Hohe Priorität** + `safe_autonomous`
 2. **Hohe Priorität** + `review_required` (wenn Review verfügbar)
 3. **Mittlere Priorität** + `safe_autonomous`
@@ -224,6 +242,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
 5. **Niedrige Priorität** (nur wenn keine höheren verfügbar)
 
 ### Tie-Breaking-Regeln
+
 1. **Priority** (ascending: high → medium → low)
 2. **Created_at** (ascending: ältere Tasks zuerst)
 3. **Task ID** (ascending: alphabetisch)
@@ -233,6 +252,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
 ## 9. Stop Conditions
 
 ### Normale Stop-Bedingungen
+
 1. **Kein geeigneter Task gefunden**
    - Alle Tasks sind `done`, `blocked`, `failed`, `skipped`, oder `cancelled`
    - Alle verfügbaren Tasks erfordern menschliche Genehmigung
@@ -242,6 +262,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
    - Auswahlkriterien erfüllt
 
 ### Fehler-Stop-Bedingungen
+
 1. **Konfigurationsfehler:**
    - [`tasks/task-state.json`](../tasks/task-state.json) fehlt oder ungültig
    - [`.agent/config/loop-config.json`](../.agent/config/loop-config.json) fehlt oder ungültig
@@ -256,6 +277,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
    - Task-Scope überschreitet erlaubte Grenzen
 
 ### Human-Intervention-Required
+
 1. **Mehrdeutige Situationen:**
    - Mehrere gleichwertige Task-Kandidaten
    - Widersprüchliche Task-Anforderungen
@@ -267,6 +289,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
    - Architekturänderungen erforderlich
 
 ### No-op-Detection
+
 1. **Wiederholte Auswahl:**
    - Derselbe Task bereits in [`runs/current-run.json`](../runs/current-run.json) aktiv
    - Kein Fortschritt seit letzter Auswahl
@@ -280,6 +303,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
 ## 10. Validation Requirements
 
 ### JSON-Parse-Validierung
+
 ```javascript
 // Alle JSON-Dateien müssen erfolgreich geparst werden
 const taskState = JSON.parse(fs.readFileSync('tasks/task-state.json'));
@@ -288,33 +312,50 @@ const protectedFiles = JSON.parse(fs.readFileSync('.agent/config/protected-files
 ```
 
 ### Required-Field-Validierung
+
 ```javascript
 // Jeder Task muss diese Felder haben
 const requiredTaskFields = [
-  'id', 'title', 'status', 'priority', 'risk_level',
-  'created_at', 'updated_at', 'attempt_count', 'max_attempts',
-  'allowed_files', 'forbidden_files'
+  'id',
+  'title',
+  'status',
+  'priority',
+  'risk_level',
+  'created_at',
+  'updated_at',
+  'attempt_count',
+  'max_attempts',
+  'allowed_files',
+  'forbidden_files',
 ];
 ```
 
 ### Status-Validierung
+
 ```javascript
 // Nur gültige Status-Werte erlaubt
 const validStatuses = [
-  'not_started', 'in_progress', 'needs_validation', 'needs_review',
-  'blocked', 'failed', 'done', 'skipped', 'cancelled'
+  'not_started',
+  'in_progress',
+  'needs_validation',
+  'needs_review',
+  'blocked',
+  'failed',
+  'done',
+  'skipped',
+  'cancelled',
 ];
 ```
 
 ### Risk-Level-Validierung
+
 ```javascript
 // Nur gültige Risk-Level erlaubt
-const validRiskLevels = [
-  'safe_autonomous', 'review_required', 'human_required'
-];
+const validRiskLevels = ['safe_autonomous', 'review_required', 'human_required'];
 ```
 
 ### Max-Attempts-Validierung
+
 ```javascript
 // attempt_count darf max_attempts nicht überschreiten
 if (task.attempt_count >= task.max_attempts) {
@@ -323,6 +364,7 @@ if (task.attempt_count >= task.max_attempts) {
 ```
 
 ### Output-Path-Validierung
+
 ```javascript
 // Bei --write: runs/current-run.json muss schreibbar sein
 if (writeMode && !fs.accessSync('runs/current-run.json', fs.constants.W_OK)) {
@@ -331,9 +373,10 @@ if (writeMode && !fs.accessSync('runs/current-run.json', fs.constants.W_OK)) {
 ```
 
 ### Protected-File-Pattern-Sanity-Check
+
 ```javascript
 // Protected-File-Patterns müssen gültig sein
-protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern => {
+protectedFiles.protected_patterns.absolute_protection.patterns.forEach((pattern) => {
   // Validiere Glob-Pattern-Syntax
 });
 ```
@@ -343,6 +386,7 @@ protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern =
 ## 11. Safety Rules
 
 ### File-System-Safety
+
 - **Script darf niemals [`src/`](../src/) berühren** - Produktcode ist tabu
 - **Script darf niemals [`supabase/`](../supabase/) berühren** - Datenbank/Edge-Functions sind tabu
 - **Script darf niemals Task-State im Dry-run mutieren** - Nur Lesen erlaubt
@@ -350,16 +394,19 @@ protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern =
 - **Script darf niemals npm-Kommandos ausführen** - Keine Build/Test-Ausführung
 
 ### Network-Safety
+
 - **Script darf keine Netzwerk-Requests machen** - Offline-Operation
 - **Script darf keine externen APIs aufrufen** - Lokale Dateien nur
 - **Script darf keine Secrets lesen** - Keine `.env`-Dateien
 
 ### Process-Safety
+
 - **Script darf keine Agenten aufrufen** - Nur Task-Auswahl
 - **Script darf keine Subprozesse starten** - Keine Tool-Invokation
 - **Script darf keine Git-Operationen durchführen** - Keine Repository-Änderungen
 
 ### State-Safety
+
 - **Dry-run-Modus ist Standard** - Explizites `--write` erforderlich
 - **Nur [`runs/current-run.json`](../runs/current-run.json) schreibbar** mit `--write`
 - **Keine ROADMAP.md-Mutation** - Master-Roadmap bleibt unberührt
@@ -382,23 +429,12 @@ protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern =
   "selection_reason": "Next logical step after planning phase completion",
   "blocked_reason": null,
   "stop_reason": null,
-  "allowed_files": [
-    "scripts/agent/select-next-ralph-task.mjs",
-    "package.json"
-  ],
-  "forbidden_files": [
-    "src/**/*",
-    ".env*",
-    "supabase/**/*"
-  ],
-  "expected_outputs": [
-    "scripts/agent/select-next-ralph-task.mjs"
-  ],
+  "allowed_files": ["scripts/agent/select-next-ralph-task.mjs", "package.json"],
+  "forbidden_files": ["src/**/*", ".env*", "supabase/**/*"],
+  "expected_outputs": ["scripts/agent/select-next-ralph-task.mjs"],
   "validation_requirements": {
     "type": "standard",
-    "required_checks": [
-      "npm_run_verify"
-    ]
+    "required_checks": ["npm_run_verify"]
   },
   "safety_checks": {
     "protected_files_check": "passed",
@@ -417,6 +453,7 @@ protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern =
 ```
 
 ### Feld-Definitionen
+
 - **`run_id`** - Eindeutige Run-Identifikation
 - **`created_at`** - ISO 8601 Timestamp der Auswahl
 - **`selected_task_id`** - ID des ausgewählten Tasks
@@ -438,6 +475,7 @@ protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern =
 ## 13. Error Handling
 
 ### Exit Codes
+
 - **0** - Erfolgreiche Task-Auswahl oder No-op Dry-run
 - **1** - Ungültige Eingabe/Konfiguration
 - **2** - Sicherheitsverletzung
@@ -446,6 +484,7 @@ protectedFiles.protected_patterns.absolute_protection.patterns.forEach(pattern =
 - **5** - Unerwarteter Fehler
 
 ### Error-Message-Format
+
 ```
 ERROR [Code]: [Category] - [Description]
 
@@ -461,6 +500,7 @@ Next steps:
 ```
 
 ### Beispiel-Error-Messages
+
 ```
 ERROR 1: Invalid Configuration - tasks/task-state.json contains invalid JSON
 
@@ -478,6 +518,7 @@ Next steps:
 ```
 
 ### Error-Recovery-Strategien
+
 1. **Graceful Degradation** - Versuche mit verfügbaren Daten fortzufahren
 2. **Clear Error Messages** - Präzise Fehlerbeschreibungen mit Lösungsvorschlägen
 3. **File-Path-Validation** - Prüfe Dateipfade vor dem Lesen
@@ -490,6 +531,7 @@ Next steps:
 ### Manuelle Kommandos für zukünftige Implementierung
 
 #### Basis-Funktionalität
+
 ```bash
 # Dry-run mit Standard-Ausgabe
 node scripts/agent/select-next-ralph-task.mjs --dry-run
@@ -502,6 +544,7 @@ node scripts/agent/select-next-ralph-task.mjs --write
 ```
 
 #### Validierungstests
+
 ```bash
 # JSON-Parse-Checks
 node -e "JSON.parse(require('fs').readFileSync('tasks/task-state.json'))"
@@ -516,6 +559,7 @@ node scripts/agent/select-next-ralph-task.mjs --help
 ```
 
 #### Error-Handling-Tests
+
 ```bash
 # Test mit ungültiger task-state.json
 mv tasks/task-state.json tasks/task-state.json.backup
@@ -532,6 +576,7 @@ mv .agent/config/loop-config.json.backup .agent/config/loop-config.json
 ```
 
 #### Sicherheitstests
+
 ```bash
 # Verify kein src/ Zugriff
 strace -e trace=openat node scripts/agent/select-next-ralph-task.mjs 2>&1 | grep src/
@@ -547,24 +592,28 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 ## 15. Definition of Done für zukünftige Implementierung
 
 ### Script-Existenz und Funktionalität
+
 - [ ] **Script existiert** unter `scripts/agent/select-next-ralph-task.mjs`
 - [ ] **Dry-run funktioniert** - Standard-Modus ohne Dateischreibung
 - [ ] **JSON-Ausgabe funktioniert** - `--json` Flag produziert gültiges JSON
 - [ ] **Write-Modus funktioniert** - `--write` aktualisiert nur `runs/current-run.json`
 
 ### Safety und Compliance
+
 - [ ] **Keine Task-State-Mutation** - `tasks/task-state.json` bleibt unverändert
 - [ ] **Keine ROADMAP-Mutation** - `ROADMAP.md` bleibt unverändert
 - [ ] **Ungültiges JSON schlägt sicher fehl** - Graceful Error-Handling
 - [ ] **Kein geeigneter Task meldet stop_reason** - Klare Kommunikation
 
 ### File-System-Safety
+
 - [ ] **Kein Produktcode berührt** - `src/` Verzeichnis unberührt
 - [ ] **Keine Supabase-Änderungen** - `supabase/` Verzeichnis unberührt
 - [ ] **Keine Script-Änderungen** - Andere Scripts unverändert
 - [ ] **Keine .env-Zugriffe** - Keine Umgebungsvariablen gelesen
 
 ### Validation und Testing
+
 - [ ] **JSON-Parse-Validation** - Alle JSON-Dateien werden validiert
 - [ ] **Required-Field-Validation** - Pflichtfelder werden geprüft
 - [ ] **Exit-Code-Handling** - Korrekte Exit-Codes für alle Szenarien
@@ -577,25 +626,31 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 ### Technische Risiken
 
 #### 1. Divergenz zwischen ROADMAP.md und task-state.json
+
 **Risiko:** Task-State und Master-Roadmap könnten inkonsistent werden.
 
 **Mitigation:**
+
 - Task-State ist Runtime-Queue, ROADMAP.md bleibt strategische SSOK
 - Regelmäßige Synchronisation zwischen beiden Systemen
 - Klare Dokumentation der Zuständigkeiten
 
 #### 2. Stale current-run.json
+
 **Risiko:** Veraltete Run-Informationen könnten falsche Entscheidungen verursachen.
 
 **Mitigation:**
+
 - Timestamp-basierte Stale-Detection
 - Automatische Bereinigung veralteter Runs
 - Human-Review-Gate vor jeder Task-Ausführung
 
 #### 3. Accidental State Mutation
+
 **Risiko:** Script könnte versehentlich Task-State oder andere kritische Dateien ändern.
 
 **Mitigation:**
+
 - Read-only-Modus als Standard
 - Explizites `--write` Flag erforderlich
 - Umfassende File-System-Safety-Checks
@@ -604,17 +659,21 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 ### Governance-Risiken
 
 #### 4. Over-selecting review-required Tasks
+
 **Risiko:** Script könnte Tasks auswählen, die menschliche Review erfordern, ohne verfügbare Review-Kapazität.
 
 **Mitigation:**
+
 - Konfigurierbare Review-Policy in loop-config.json
 - Explizite Human-Approval-Flags
 - Clear Stop-Conditions für Review-Required-Tasks
 
 #### 5. Future package.json Script Change
+
 **Risiko:** Hinzufügung des Scripts zu package.json könnte bestehende Workflows beeinträchtigen.
 
 **Mitigation:**
+
 - Namespace-Trennung mit `agent:ralph:*` Präfix
 - Keine Überschreibung bestehender Scripts
 - Dokumentierte Upgrade-Pfade
@@ -622,9 +681,11 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 ### Operational Risks
 
 #### 6. Task-Dependency-Resolution
+
 **Risiko:** Komplexe Task-Abhängigkeiten könnten falsch aufgelöst werden.
 
 **Mitigation:**
+
 - Einfache sequenzielle Abhängigkeitslogik zunächst
 - Explizite Dependency-Definition in Task-State
 - Human-Escalation bei Ambiguität
@@ -638,12 +699,14 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 **RALPH-006A — Dry-run Selector Implementation**
 
 **Begründung:**
+
 - **Direkte Umsetzung dieses Plans** - Alle Spezifikationen sind implementierungsbereit
 - **Geringes Risiko** - Nur Lese-Operationen und optionale Schreibung einer Datei
 - **Klare Abgrenzung** - Keine Agent-Invokation, keine Task-Ausführung
 - **Testbare Ergebnisse** - Deterministisch validierbare Ausgaben
 
 **Konkrete nächste Schritte für RALPH-006A:**
+
 1. **Erstelle `scripts/agent/select-next-ralph-task.mjs`** basierend auf diesem Plan
 2. **Implementiere JSON-Parsing und Validierung** für alle Input-Dateien
 3. **Implementiere Task-Eligibility-Logic** gemäß den definierten Regeln
@@ -653,6 +716,7 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 7. **Dokumentiere Ergebnisse** in Handoff-Report
 
 **Nach RALPH-006A:**
+
 - **RALPH-007A** - Morning Review Generator Plan
 - **RALPH-008A** - Cline Worker Adapter Preparation
 - **RALPH-009A** - First Cline Dry Run
@@ -663,6 +727,7 @@ strace -e trace=network node scripts/agent/select-next-ralph-task.mjs 2>&1
 ## Implementation Notes
 
 ### Code-Struktur-Empfehlungen
+
 ```javascript
 // scripts/agent/select-next-ralph-task.mjs
 import fs from 'fs';
@@ -689,6 +754,7 @@ class RalphTaskSelector {
 ```
 
 ### Error-Handling-Pattern
+
 ```javascript
 try {
   const result = await selector.selectNextTask();
@@ -707,6 +773,7 @@ try {
 ```
 
 ### Testing-Approach
+
 ```javascript
 // Separate test file: scripts/agent/test-select-next-ralph-task.mjs
 import { RalphTaskSelector } from './select-next-ralph-task.mjs';

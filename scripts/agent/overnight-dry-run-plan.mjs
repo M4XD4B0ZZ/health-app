@@ -12,7 +12,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 const EXIT_CODES = {
   OK: 0,
   INVALID_INPUT: 1,
-  UNSAFE_QUEUE: 2
+  UNSAFE_QUEUE: 2,
 };
 
 function parseArgs(argv) {
@@ -69,7 +69,9 @@ function formatPretty(plan) {
   }
   lines.push('Task Summaries:');
   for (const task of plan.task_summaries) {
-    lines.push(`- ${task.task_id || '(missing)'} ${task.class || '(missing class)'}: ${task.disposition}`);
+    lines.push(
+      `- ${task.task_id || '(missing)'} ${task.class || '(missing class)'}: ${task.disposition}`,
+    );
   }
   lines.push('');
   lines.push('Recommended Human Actions:');
@@ -104,17 +106,24 @@ async function main() {
       planner: 'overnight-dry-run-plan.mjs',
       valid: false,
       findings: {
-        critical: [{ severity: 'critical', code: 'queue_read_or_parse_failed', message: error.message, details: { queue_path: options.queuePath } }],
+        critical: [
+          {
+            severity: 'critical',
+            code: 'queue_read_or_parse_failed',
+            message: error.message,
+            details: { queue_path: options.queuePath },
+          },
+        ],
         warnings: [],
-        info: []
+        info: [],
       },
       execution_plan: {
         mode: 'dry_run',
         queued_tasks_executed: 0,
         worker_invocations: 0,
         runtime_state_mutations: 0,
-        commands_executed_from_queue: 0
-      }
+        commands_executed_from_queue: 0,
+      },
     };
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);

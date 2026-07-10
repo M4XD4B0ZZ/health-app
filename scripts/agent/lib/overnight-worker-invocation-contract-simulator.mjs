@@ -3,14 +3,19 @@ import { buildWorkerEnvelopePlan } from './overnight-worker-envelope-planner.mjs
 export const WORKER_INVOCATION_CONTRACT_SCHEMA_VERSION = '1.0.0';
 export const WORKER_INVOCATION_CONTRACT_PHASE = 'RALPH-034J';
 
-const NON_AUTHORIZATION_STATEMENT = 'This contract is a deterministic preview of a future worker adapter payload only. It does not authorize worker invocation, prompt execution, queued task execution, validation execution, file changes, runtime mutation, evidence mutation, commits, pushes, report writing, run-log writing, dependency changes, external side effects, or product work.';
+const NON_AUTHORIZATION_STATEMENT =
+  'This contract is a deterministic preview of a future worker adapter payload only. It does not authorize worker invocation, prompt execution, queued task execution, validation execution, file changes, runtime mutation, evidence mutation, commits, pushes, report writing, run-log writing, dependency changes, external side effects, or product work.';
 
 function asArray(value) {
   return Array.isArray(value) ? [...value] : [];
 }
 
 function sanitizeId(value) {
-  return String(value || 'missing').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'missing';
+  return (
+    String(value || 'missing')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'missing'
+  );
 }
 
 function findTask(queue, taskId) {
@@ -29,7 +34,7 @@ function buildTimeoutPolicy(task) {
   return {
     timeout_minutes: Number.isFinite(task?.timeout_minutes) ? task.timeout_minutes : null,
     source: 'queue_task.timeout_minutes',
-    enforced_by_this_contract: false
+    enforced_by_this_contract: false,
   };
 }
 
@@ -39,7 +44,7 @@ function buildAdapterBinding() {
     adapter_selected: false,
     adapter_invocation_command: null,
     adapter_endpoint: null,
-    callable_invocation_function: null
+    callable_invocation_function: null,
   };
 }
 
@@ -48,7 +53,7 @@ function buildPromptPayload(envelopeEntry) {
     format: 'text_preview',
     body: envelopeEntry?.prompt_proposal || '',
     execution_authorized: false,
-    prompt_execution_authorized: false
+    prompt_execution_authorized: false,
   };
 }
 
@@ -98,7 +103,7 @@ export function buildInvocationContractForEnvelope(envelopeEntry, context = {}) 
     runtime_mutation_authorized: false,
     evidence_mutation_authorized: false,
     report_or_run_log_write_authorized: false,
-    product_work_authorized: false
+    product_work_authorized: false,
   };
 
   return {
@@ -108,7 +113,7 @@ export function buildInvocationContractForEnvelope(envelopeEntry, context = {}) 
     contract,
     execution_authorized: false,
     worker_invocation_authorized: false,
-    prompt_execution_authorized: false
+    prompt_execution_authorized: false,
   };
 }
 
@@ -120,10 +125,11 @@ function buildNonCreatedContractResult(envelopeEntry) {
     source_disposition: envelopeEntry?.source_disposition || null,
     source_envelope_created: envelopeEntry?.envelope_created === true,
     reason_codes: asArray(envelopeEntry?.reason_codes),
-    human_explanation: 'No worker invocation contract created because no RALPH-034I envelope was created.',
+    human_explanation:
+      'No worker invocation contract created because no RALPH-034I envelope was created.',
     execution_authorized: false,
     worker_invocation_authorized: false,
-    prompt_execution_authorized: false
+    prompt_execution_authorized: false,
   };
 }
 
@@ -131,22 +137,29 @@ function summarizeContracts(taskContracts) {
   return {
     total_tasks: taskContracts.length,
     contracts_created: taskContracts.filter((entry) => entry.contract_created === true).length,
-    not_eligible: taskContracts.filter((entry) => entry.contract_created !== true).length
+    not_eligible: taskContracts.filter((entry) => entry.contract_created !== true).length,
   };
 }
 
 function recommendedHumanActions(summary) {
   if (summary.contracts_created > 0) {
-    return ['Review invocation contract payload previews manually. They do not authorize workers, prompts, tasks, validation commands, commits, or pushes.'];
+    return [
+      'Review invocation contract payload previews manually. They do not authorize workers, prompts, tasks, validation commands, commits, or pushes.',
+    ];
   }
-  return ['No invocation contracts created. Review RALPH-034I envelope results before future worker adapter design.'];
+  return [
+    'No invocation contracts created. Review RALPH-034I envelope results before future worker adapter design.',
+  ];
 }
 
 export function buildWorkerInvocationContractSimulation(queue, options = {}) {
   const envelopePlan = options.envelopePlan || buildWorkerEnvelopePlan(queue, options);
   const taskContracts = asArray(envelopePlan.task_envelopes).map((entry) => {
     if (entry.envelope_created !== true) return buildNonCreatedContractResult(entry);
-    return buildInvocationContractForEnvelope(entry, { queue, task: findTask(queue, entry.task_id) });
+    return buildInvocationContractForEnvelope(entry, {
+      queue,
+      task: findTask(queue, entry.task_id),
+    });
   });
   const summary = summarizeContracts(taskContracts);
 
@@ -160,7 +173,7 @@ export function buildWorkerInvocationContractSimulation(queue, options = {}) {
     source_envelope_plan: {
       runner: envelopePlan.runner,
       phase: envelopePlan.phase,
-      mode: envelopePlan.mode
+      mode: envelopePlan.mode,
     },
     summary,
     task_contracts: taskContracts,
@@ -173,7 +186,7 @@ export function buildWorkerInvocationContractSimulation(queue, options = {}) {
       prompt_executions: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -188,9 +201,9 @@ export function buildWorkerInvocationContractSimulation(queue, options = {}) {
       no_commit: true,
       no_push: true,
       writes_by_default: false,
-      non_authorizing_output: true
+      non_authorizing_output: true,
     },
-    recommended_human_actions: recommendedHumanActions(summary)
+    recommended_human_actions: recommendedHumanActions(summary),
   };
 }
 
@@ -201,7 +214,9 @@ export function formatWorkerInvocationContractSimulationPretty(simulation) {
   lines.push(`Queue: ${simulation.queue_id || '(missing)'}`);
   lines.push(`Mode: ${simulation.mode}`);
   lines.push(`Valid: ${simulation.valid}`);
-  lines.push('Execution: planning-only contract simulation; no queued task execution; no prompt execution; no validation commands; no worker invocation; no runtime mutation; no commit; no push.');
+  lines.push(
+    'Execution: planning-only contract simulation; no queued task execution; no prompt execution; no validation commands; no worker invocation; no runtime mutation; no commit; no push.',
+  );
   lines.push('');
   lines.push('Summary:');
   lines.push(`- total_tasks: ${simulation.summary.total_tasks}`);
@@ -213,7 +228,9 @@ export function formatWorkerInvocationContractSimulationPretty(simulation) {
     lines.push(`- ${entry.task_id || '(missing)'} contract_created=${entry.contract_created}`);
   }
   lines.push('');
-  lines.push('Non-authorization: contract previews do not authorize worker invocation, prompt execution, task execution, validation execution, commits, or pushes.');
+  lines.push(
+    'Non-authorization: contract previews do not authorize worker invocation, prompt execution, task execution, validation execution, commits, or pushes.',
+  );
   lines.push('Recommended Human Actions:');
   for (const action of simulation.recommended_human_actions) lines.push(`- ${action}`);
   return lines.join('\n');

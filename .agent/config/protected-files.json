@@ -6,14 +6,7 @@
   "protected_patterns": {
     "absolute_protection": {
       "description": "Files that must never be modified by any agent under any circumstances",
-      "patterns": [
-        ".env",
-        ".env.*",
-        "secrets/**",
-        "credentials/**",
-        "node_modules/**",
-        ".git/**"
-      ]
+      "patterns": [".env", ".env.*", "secrets/**", "credentials/**", "node_modules/**", ".git/**"]
     },
     "conditional_protection": {
       "description": "Files that require explicit human approval and task authorization",
@@ -67,14 +60,7 @@
     },
     "build_artifacts": {
       "description": "Generated files that should not be modified directly",
-      "patterns": [
-        "build/**",
-        "dist/**",
-        ".expo/**",
-        "coverage/**",
-        "*.log",
-        "*.tmp"
-      ]
+      "patterns": ["build/**", "dist/**", ".expo/**", "coverage/**", "*.log", "*.tmp"]
     }
   },
   "approval_required_patterns": {

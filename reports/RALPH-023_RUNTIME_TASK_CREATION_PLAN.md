@@ -12,6 +12,7 @@
 This report designs the first autonomous execution entrypoint for the Ralph-Loop system: the Runtime Task Creation Pipeline. This pipeline will enable automated creation of runtime task entries in `tasks/task-state.json` from planning authority in `ROADMAP.md`, establishing the bridge between planning and execution.
 
 **Key Design Principles:**
+
 - **Read-only ROADMAP.md:** Never modify planning authority
 - **Explicit task selection:** Human-approved task selection criteria
 - **Duplicate prevention:** Robust ID collision detection
@@ -28,18 +29,21 @@ This report designs the first autonomous execution entrypoint for the Ralph-Loop
 ### 1.1 Completed Foundation (RALPH-001 through RALPH-022)
 
 **Governance Layer:**
+
 - ✅ Agent-neutral governance (`.governance/`)
 - ✅ Runtime state model (`tasks/`, `runs/`, `validation/`, `review/`)
 - ✅ Evidence system operational
 - ✅ Handoff system operational
 
 **Verification Tools:**
+
 - ✅ Reconciler: `reconcile-roadmap-task-state.mjs` (exit_code=0)
 - ✅ Validator: `validate-ralph-state.mjs` (exit_code=0)
 - ✅ Ownership classification complete
 - ✅ Green baseline achieved (RALPH-022)
 
 **Current State:**
+
 - 27 ROADMAP tasks (product backlog)
 - 10 runtime tasks (Ralph governance, all `runtime_only: true`)
 - 0 roadmap-backed tasks (no active product execution)
@@ -48,15 +52,16 @@ This report designs the first autonomous execution entrypoint for the Ralph-Loop
 
 ### 1.2 Authority Hierarchy (from SSOK.md, AGENTS.md)
 
-| Level | Authority | Files |
-|-------|-----------|-------|
-| 1 | Repository Governance Constitution | `SSOK.md`, `AGENTS.md` |
-| 2 | Canonical Domain Authorities | `ROADMAP.md`, `VERIFY.md`, `.governance/*` |
-| 3 | Runtime Execution State | `tasks/task-state.json`, `runs/current-run.json` |
-| 4 | Adapter Execution Rules | `.agent/adapters/*` |
-| 5 | Operational Guides | Non-canonical implementation guidance |
+| Level | Authority                          | Files                                            |
+| ----- | ---------------------------------- | ------------------------------------------------ |
+| 1     | Repository Governance Constitution | `SSOK.md`, `AGENTS.md`                           |
+| 2     | Canonical Domain Authorities       | `ROADMAP.md`, `VERIFY.md`, `.governance/*`       |
+| 3     | Runtime Execution State            | `tasks/task-state.json`, `runs/current-run.json` |
+| 4     | Adapter Execution Rules            | `.agent/adapters/*`                              |
+| 5     | Operational Guides                 | Non-canonical implementation guidance            |
 
 **Conflict Resolution Order:**
+
 1. Safety wins first (`.governance/SAFETY.md`)
 2. Canonical domain authority wins second (`ROADMAP.md` for planning)
 3. Runtime state never overrides planning authority
@@ -65,11 +70,11 @@ This report designs the first autonomous execution entrypoint for the Ralph-Loop
 
 ### 1.3 Ownership Classes (from RALPH-015)
 
-| Class | Definition | Authority |
-|-------|------------|-----------|
-| `roadmap_backed` | Task exists in both ROADMAP.md and task-state.json | ROADMAP.md owns planning; task-state.json owns runtime execution |
-| `runtime_only` | Task exists only in task-state.json, explicitly classified | task-state.json owns runtime existence; ROADMAP.md remains planning authority |
-| `roadmap_only` | Task exists only in ROADMAP.md | ROADMAP.md owns planning; no runtime authority until imported |
+| Class            | Definition                                                 | Authority                                                                     |
+| ---------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `roadmap_backed` | Task exists in both ROADMAP.md and task-state.json         | ROADMAP.md owns planning; task-state.json owns runtime execution              |
+| `runtime_only`   | Task exists only in task-state.json, explicitly classified | task-state.json owns runtime existence; ROADMAP.md remains planning authority |
+| `roadmap_only`   | Task exists only in ROADMAP.md                             | ROADMAP.md owns planning; no runtime authority until imported                 |
 
 ---
 
@@ -114,14 +119,15 @@ ROADMAP.md (status: done)
 
 **ROADMAP Status → Runtime Status Mapping:**
 
-| ROADMAP Status | Eligible for Creation? | Initial Runtime Status | Rationale |
-|----------------|------------------------|------------------------|-----------|
-| `todo` | ✅ Yes | `not_started` | Normal backlog item ready for execution |
-| `in_progress` | ⚠️ Conditional | `in_progress` | Only if no runtime state exists (recovery scenario) |
-| `blocked` | ❌ No | N/A | Blocked tasks should not enter runtime execution |
-| `done` | ❌ No | N/A | Completed tasks should not be recreated |
+| ROADMAP Status | Eligible for Creation? | Initial Runtime Status | Rationale                                           |
+| -------------- | ---------------------- | ---------------------- | --------------------------------------------------- |
+| `todo`         | ✅ Yes                 | `not_started`          | Normal backlog item ready for execution             |
+| `in_progress`  | ⚠️ Conditional         | `in_progress`          | Only if no runtime state exists (recovery scenario) |
+| `blocked`      | ❌ No                  | N/A                    | Blocked tasks should not enter runtime execution    |
+| `done`         | ❌ No                  | N/A                    | Completed tasks should not be recreated             |
 
 **Runtime Status Lifecycle:**
+
 ```
 not_started → in_progress → needs_validation → needs_review → done
                 ↓               ↓                   ↓
@@ -155,6 +161,7 @@ not_started → in_progress → needs_validation → needs_review → done
 4. **Dependency Analysis:** Tasks with no unmet dependencies before dependent tasks (future)
 
 **For RALPH-024 (initial implementation):**
+
 - Use ROADMAP order only (simplest, deterministic)
 - Select first eligible `todo` task in document order
 - Defer priority/dependency logic to future enhancements
@@ -183,6 +190,7 @@ not_started → in_progress → needs_validation → needs_review → done
 5. **Report in dry-run output:** Include in "skipped" list with reason
 
 **Reconciliation implications:**
+
 - Existing runtime tasks remain `roadmap_backed` or `runtime_only` based on current classification
 - No status synchronization during creation (reconciler handles drift detection)
 - Creation pipeline is additive only, never modifies existing runtime state
@@ -233,13 +241,14 @@ not_started → in_progress → needs_validation → needs_review → done
 
 **Risk levels determine review requirements and safety constraints:**
 
-| Risk Level | Review Required? | Max Attempts | Allowed Operations | Example Tasks |
-|------------|------------------|--------------|-------------------|---------------|
-| `safe_autonomous` | No | 3 | Documentation, planning, read-only analysis | RALPH-001A, RALPH-005A |
-| `review_required` | Yes | 3 | Code changes, state modifications, script creation | RALPH-006A, RALPH-008A |
-| `human_required` | Yes | 1 | High-risk operations, governance changes, migrations | RALPH-010A |
+| Risk Level        | Review Required? | Max Attempts | Allowed Operations                                   | Example Tasks          |
+| ----------------- | ---------------- | ------------ | ---------------------------------------------------- | ---------------------- |
+| `safe_autonomous` | No               | 3            | Documentation, planning, read-only analysis          | RALPH-001A, RALPH-005A |
+| `review_required` | Yes              | 3            | Code changes, state modifications, script creation   | RALPH-006A, RALPH-008A |
+| `human_required`  | Yes              | 1            | High-risk operations, governance changes, migrations | RALPH-010A             |
 
 **Risk level determination (for RALPH-024):**
+
 - Default: `review_required` (safest)
 - Override via ROADMAP metadata (future enhancement)
 - Inferred from DoD/Verify text (future enhancement)
@@ -257,6 +266,7 @@ not_started → in_progress → needs_validation → needs_review → done
 7. **Creation event in `tasks/task-history.jsonl`:** Audit trail entry
 
 **Example creation event:**
+
 ```json
 {
   "event_id": "evt_2026-05-23_task-created_p1-003",
@@ -287,6 +297,7 @@ not_started → in_progress → needs_validation → needs_review → done
 4. **Historical ID check:** Check `tasks/task-history.jsonl` for retired IDs (optional)
 
 **If collision detected:**
+
 - Log as error: "Duplicate task ID detected: {id}"
 - Skip task creation
 - Report in dry-run output
@@ -322,6 +333,7 @@ not_started → in_progress → needs_validation → needs_review → done
 7. **Log creation event:** Append to `tasks/task-history.jsonl`
 
 **Rollback on failure:**
+
 - If any step fails, do not modify `tasks/task-state.json`
 - Log failure event to `tasks/task-history.jsonl`
 - Report error to user
@@ -335,41 +347,41 @@ not_started → in_progress → needs_validation → needs_review → done
 
 **All checks must pass before creating any tasks:**
 
-| Check | Purpose | Failure Action |
-|-------|---------|----------------|
-| **Reconciler baseline** | Verify green baseline (exit_code=0) | Abort creation, report error |
-| **Validator baseline** | Verify no critical runtime errors | Abort creation, report error |
-| **Working tree clean** | Ensure no uncommitted changes | Abort creation, report error |
-| **Protected file check** | Verify no protected files in scope | Abort creation, report error |
-| **Schema validation** | Verify current task-state.json is valid | Abort creation, report error |
-| **Duplicate detection** | Check for ID collisions | Skip duplicate tasks |
+| Check                        | Purpose                                 | Failure Action               |
+| ---------------------------- | --------------------------------------- | ---------------------------- |
+| **Reconciler baseline**      | Verify green baseline (exit_code=0)     | Abort creation, report error |
+| **Validator baseline**       | Verify no critical runtime errors       | Abort creation, report error |
+| **Working tree clean**       | Ensure no uncommitted changes           | Abort creation, report error |
+| **Protected file check**     | Verify no protected files in scope      | Abort creation, report error |
+| **Schema validation**        | Verify current task-state.json is valid | Abort creation, report error |
+| **Duplicate detection**      | Check for ID collisions                 | Skip duplicate tasks         |
 | **ROADMAP parse confidence** | Verify parser can read ROADMAP reliably | Abort creation, report error |
 
 ### 6.2 Creation-Time Validation
 
 **For each task being created:**
 
-| Validation | Check | Failure Action |
-|------------|-------|----------------|
-| **ID format** | Matches canonical pattern | Skip task, log warning |
-| **Title presence** | Non-empty title exists | Skip task, log warning |
-| **Status validity** | Status is in allowed set | Skip task, log warning |
-| **Risk level validity** | Risk level is in allowed set | Use default `review_required` |
-| **Metadata completeness** | Required fields present | Skip task, log warning |
-| **JSON schema compliance** | New task matches schema | Skip task, log error |
+| Validation                 | Check                        | Failure Action                |
+| -------------------------- | ---------------------------- | ----------------------------- |
+| **ID format**              | Matches canonical pattern    | Skip task, log warning        |
+| **Title presence**         | Non-empty title exists       | Skip task, log warning        |
+| **Status validity**        | Status is in allowed set     | Skip task, log warning        |
+| **Risk level validity**    | Risk level is in allowed set | Use default `review_required` |
+| **Metadata completeness**  | Required fields present      | Skip task, log warning        |
+| **JSON schema compliance** | New task matches schema      | Skip task, log error          |
 
 ### 6.3 Post-Creation Verification
 
 **After all tasks created:**
 
-| Verification | Check | Failure Action |
-|--------------|-------|----------------|
-| **JSON validity** | task-state.json is valid JSON | Rollback, restore backup |
-| **Schema compliance** | All tasks match schema | Rollback, restore backup |
-| **ID uniqueness** | No duplicate IDs in runtime state | Rollback, restore backup |
-| **Reconciler green** | Reconciler still passes | Rollback, restore backup |
-| **Validator green** | Validator still passes | Rollback, restore backup |
-| **Evidence written** | Creation events logged | Warn, but allow completion |
+| Verification          | Check                             | Failure Action             |
+| --------------------- | --------------------------------- | -------------------------- |
+| **JSON validity**     | task-state.json is valid JSON     | Rollback, restore backup   |
+| **Schema compliance** | All tasks match schema            | Rollback, restore backup   |
+| **ID uniqueness**     | No duplicate IDs in runtime state | Rollback, restore backup   |
+| **Reconciler green**  | Reconciler still passes           | Rollback, restore backup   |
+| **Validator green**   | Validator still passes            | Rollback, restore backup   |
+| **Evidence written**  | Creation events logged            | Warn, but allow completion |
 
 ### 6.4 Human Review Gates
 
@@ -388,16 +400,16 @@ not_started → in_progress → needs_validation → needs_review → done
 
 ### 7.1 Failure Modes
 
-| Failure Mode | Detection | Recovery Strategy |
-|--------------|-----------|-------------------|
-| **ROADMAP parse failure** | Parser throws error or returns empty | Abort creation, report parse error, fix ROADMAP syntax |
-| **task-state.json corrupted** | JSON parse error | Abort creation, restore from backup, investigate corruption |
-| **Duplicate ID collision** | ID already exists in runtime | Skip duplicate, log warning, continue with other tasks |
-| **Schema validation failure** | New task doesn't match schema | Skip invalid task, log error, continue with valid tasks |
-| **Reconciler regression** | Reconciler exit_code changes from 0 to 1 | Rollback creation, restore backup, investigate regression |
-| **Validator regression** | Validator critical_count increases | Rollback creation, restore backup, investigate regression |
-| **File write failure** | Cannot write task-state.json | Abort creation, report I/O error, check permissions |
-| **Evidence write failure** | Cannot append to task-history.jsonl | Warn, allow creation to complete, retry evidence write |
+| Failure Mode                  | Detection                                | Recovery Strategy                                           |
+| ----------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
+| **ROADMAP parse failure**     | Parser throws error or returns empty     | Abort creation, report parse error, fix ROADMAP syntax      |
+| **task-state.json corrupted** | JSON parse error                         | Abort creation, restore from backup, investigate corruption |
+| **Duplicate ID collision**    | ID already exists in runtime             | Skip duplicate, log warning, continue with other tasks      |
+| **Schema validation failure** | New task doesn't match schema            | Skip invalid task, log error, continue with valid tasks     |
+| **Reconciler regression**     | Reconciler exit_code changes from 0 to 1 | Rollback creation, restore backup, investigate regression   |
+| **Validator regression**      | Validator critical_count increases       | Rollback creation, restore backup, investigate regression   |
+| **File write failure**        | Cannot write task-state.json             | Abort creation, report I/O error, check permissions         |
+| **Evidence write failure**    | Cannot append to task-history.jsonl      | Warn, allow creation to complete, retry evidence write      |
 
 ### 7.2 Recovery Procedures
 
@@ -411,6 +423,7 @@ not_started → in_progress → needs_validation → needs_review → done
 6. **Report to user:** Provide clear error message and next steps
 
 **Rollback procedure:**
+
 ```bash
 # 1. Restore task-state.json from backup
 cp tasks/task-state.json.backup tasks/task-state.json
@@ -451,6 +464,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 4. **Evidence recording:** Write validation results to `validation/validation-results.jsonl`
 
 **Validation evidence schema:**
+
 ```json
 {
   "validation_id": "val_2026-05-23_task-creation_batch-001",
@@ -488,6 +502,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 5. **Rejection handling:** If rejected, rollback creation and investigate
 
 **Review evidence schema:**
+
 ```json
 {
   "review_id": "rev_2026-05-23_task-creation_batch-001",
@@ -517,6 +532,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 6. **Review request:** Explicit request for human review
 
 **Handoff template:**
+
 ```markdown
 # Task Creation Pipeline Handoff
 
@@ -525,21 +541,25 @@ echo "Task creation rolled back due to: {failure_reason}"
 **Status:** Completed, awaiting human review
 
 ## What Changed
+
 - Created {N} runtime tasks from ROADMAP.md
 - Updated tasks/task-state.json with new task entries
 - Logged creation events to tasks/task-history.jsonl
 
 ## Why Changed
+
 - Establish runtime execution state for ROADMAP-backed product tasks
 - Enable autonomous task selection and execution
 - Bridge planning authority (ROADMAP.md) with runtime execution (task-state.json)
 
 ## Changed Files
+
 - tasks/task-state.json (added {N} tasks)
 - tasks/task-history.jsonl (appended {N} creation events)
 - handoffs/latest-handoff.md (this file)
 
 ## Validation Executed
+
 - Reconciler baseline: PASSED (exit_code=0)
 - Validator baseline: PASSED (exit_code=0)
 - Schema validation: PASSED
@@ -548,14 +568,17 @@ echo "Task creation rolled back due to: {failure_reason}"
 - Post-creation validator: PASSED (exit_code=0)
 
 ## Validation Result
+
 ✅ All validation checks passed
 
 ## Known Issues/Risks
+
 - First run of creation pipeline (requires careful review)
 - {N} tasks created (review each for correctness)
 - No issues detected during creation
 
 ## Human Review Status
+
 ⏳ PENDING - Human review required before proceeding
 ```
 
@@ -585,6 +608,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 5. **Update handoff:** Document manual creation
 
 **When to use manual creation:**
+
 - Pipeline fails and cannot be fixed quickly
 - Special task requires custom metadata
 - Testing or debugging creation logic
@@ -600,6 +624,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 4. **Rollback automation:** Remove created tasks if needed
 
 **Disable scenarios:**
+
 - Pipeline introduces bugs or regressions
 - Manual control preferred for specific phase
 - Testing alternative workflows
@@ -611,18 +636,18 @@ echo "Task creation rolled back due to: {failure_reason}"
 
 ### 10.1 Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| **Duplicate task creation** | Medium | High | Robust duplicate detection, reconciler integration |
-| **Schema drift** | Low | High | Schema validation, rollback on failure |
-| **ROADMAP parse errors** | Low | Medium | Parser testing, error handling, dry-run mode |
-| **Reconciler regression** | Low | High | Pre/post validation, rollback on regression |
-| **Validator regression** | Low | High | Pre/post validation, rollback on regression |
-| **Evidence corruption** | Low | Medium | Atomic writes, backup strategy |
-| **Human review bypass** | Low | Critical | Mandatory review gates, no auto-continue |
-| **Ownership classification errors** | Medium | Medium | Explicit `runtime_only: false` for ROADMAP-backed tasks |
-| **Status mapping errors** | Low | Medium | Conservative mapping (todo → not_started only) |
-| **Batch creation overload** | Low | Low | Batch size limits, dry-run preview |
+| Risk                                | Likelihood | Impact   | Mitigation                                              |
+| ----------------------------------- | ---------- | -------- | ------------------------------------------------------- |
+| **Duplicate task creation**         | Medium     | High     | Robust duplicate detection, reconciler integration      |
+| **Schema drift**                    | Low        | High     | Schema validation, rollback on failure                  |
+| **ROADMAP parse errors**            | Low        | Medium   | Parser testing, error handling, dry-run mode            |
+| **Reconciler regression**           | Low        | High     | Pre/post validation, rollback on regression             |
+| **Validator regression**            | Low        | High     | Pre/post validation, rollback on regression             |
+| **Evidence corruption**             | Low        | Medium   | Atomic writes, backup strategy                          |
+| **Human review bypass**             | Low        | Critical | Mandatory review gates, no auto-continue                |
+| **Ownership classification errors** | Medium     | Medium   | Explicit `runtime_only: false` for ROADMAP-backed tasks |
+| **Status mapping errors**           | Low        | Medium   | Conservative mapping (todo → not_started only)          |
+| **Batch creation overload**         | Low        | Low      | Batch size limits, dry-run preview                      |
 
 ### 10.2 Rollback Strategy
 
@@ -636,6 +661,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 6. **Retry creation:** Re-run pipeline after fix verified
 
 **Rollback checklist:**
+
 - [ ] Backup current task-state.json
 - [ ] Restore previous task-state.json
 - [ ] Run reconciler (must pass)
@@ -656,6 +682,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 5. **Phase 5: Automated execution** - Integrate with task selector (future)
 
 **Success criteria for each phase:**
+
 - Reconciler remains green (exit_code=0)
 - Validator remains green (exit_code=0)
 - No schema violations
@@ -671,6 +698,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 **Primary eligibility:** `todo`
 
 **Rationale:**
+
 - `todo` tasks are planned but not started, ideal for runtime import
 - Clear semantic: "planned work ready for execution"
 - No ambiguity about current state
@@ -678,6 +706,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 **Conditional eligibility:** `in_progress` (recovery scenario only)
 
 **Conditions for `in_progress` creation:**
+
 - Task does not already exist in runtime state
 - Explicit `--recovery` flag provided
 - Human approval required
@@ -686,6 +715,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 **Not eligible:** `blocked`, `done`
 
 **Rationale:**
+
 - `blocked`: Should not enter execution until unblocked
 - `done`: Already completed, should not be recreated
 
@@ -720,6 +750,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 **For RALPH-024:** Use ROADMAP document order only. This is sufficient for initial implementation and avoids complexity.
 
 **Priority field in runtime task:**
+
 - Default: `"medium"` for all created tasks
 - Override: Parse from ROADMAP metadata if present (future)
 - Manual: Human can edit task-state.json to adjust priority
@@ -737,15 +768,18 @@ echo "Task creation rolled back due to: {failure_reason}"
 5. **Reason:** Include skip reason: "roadmap_status_blocked"
 
 **Blocked task criteria:**
+
 - Explicit `Status: blocked` in ROADMAP
 - No other criteria (keep simple for RALPH-024)
 
 **Future enhancements:**
+
 - Parse blocker reason from ROADMAP
 - Store blocker metadata in skip log
 - Support unblocking workflow
 
 **Example skip log entry:**
+
 ```json
 {
   "event_type": "task.creation_skipped",
@@ -772,6 +806,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 6. **Preservation:** Existing runtime state is never modified by creation pipeline
 
 **Rationale:**
+
 - Runtime state is authoritative for execution metadata
 - Creation pipeline is additive only, never modifies
 - Reconciler handles status drift detection
@@ -780,22 +815,26 @@ echo "Task creation rolled back due to: {failure_reason}"
 **Edge cases:**
 
 **Case 1: ROADMAP task exists, runtime task exists, statuses differ**
+
 - Action: Skip creation
 - Reconciler will detect drift and report as finding
 - Human resolves drift manually or via future sync tool
 
 **Case 2: ROADMAP task exists, runtime task exists, runtime task is `done`**
+
 - Action: Skip creation
 - This is normal: task was completed
 - Reconciler reports as info (expected state)
 
 **Case 3: ROADMAP task exists, runtime task exists, runtime task is `runtime_only: true`**
+
 - Action: Skip creation
 - This is an error: ROADMAP task should not have same ID as runtime-only task
 - Reconciler reports as critical finding
 - Human must resolve ID collision
 
 **Example skip log entry:**
+
 ```json
 {
   "event_type": "task.creation_skipped",
@@ -814,40 +853,40 @@ echo "Task creation rolled back due to: {failure_reason}"
 
 **Required auto-generated metadata:**
 
-| Field | Generation Rule | Example |
-|-------|----------------|---------|
-| `id` | Copy from ROADMAP task ID | `"P1-003"` |
-| `title` | Copy from ROADMAP task title | `"Multi-Item Split"` |
-| `status` | Map from ROADMAP status | `"not_started"` (from `todo`) |
-| `priority` | Default or parse from ROADMAP | `"medium"` (default) |
-| `risk_level` | Default or infer from DoD | `"review_required"` (default) |
-| `runtime_only` | Set to `false` for ROADMAP-backed | `false` |
-| `created_at` | Current timestamp (ISO8601) | `"2026-05-23T18:00:00Z"` |
-| `updated_at` | Same as `created_at` initially | `"2026-05-23T18:00:00Z"` |
-| `attempt_count` | Initialize to 0 | `0` |
-| `max_attempts` | Default based on risk level | `3` |
-| `requires_human_review` | Default based on risk level | `true` (for `review_required`) |
+| Field                   | Generation Rule                   | Example                        |
+| ----------------------- | --------------------------------- | ------------------------------ |
+| `id`                    | Copy from ROADMAP task ID         | `"P1-003"`                     |
+| `title`                 | Copy from ROADMAP task title      | `"Multi-Item Split"`           |
+| `status`                | Map from ROADMAP status           | `"not_started"` (from `todo`)  |
+| `priority`              | Default or parse from ROADMAP     | `"medium"` (default)           |
+| `risk_level`            | Default or infer from DoD         | `"review_required"` (default)  |
+| `runtime_only`          | Set to `false` for ROADMAP-backed | `false`                        |
+| `created_at`            | Current timestamp (ISO8601)       | `"2026-05-23T18:00:00Z"`       |
+| `updated_at`            | Same as `created_at` initially    | `"2026-05-23T18:00:00Z"`       |
+| `attempt_count`         | Initialize to 0                   | `0`                            |
+| `max_attempts`          | Default based on risk level       | `3`                            |
+| `requires_human_review` | Default based on risk level       | `true` (for `review_required`) |
 
 **Optional auto-generated metadata:**
 
-| Field | Generation Rule | Example |
-|-------|----------------|---------|
-| `source` | Set to `"roadmap_import"` | `"roadmap_import"` |
-| `roadmap_section` | Parse from ROADMAP section stack | `"PHASE 1 > EPIC: Resolver"` |
-| `roadmap_line` | Line number from parser | `518` |
-| `roadmap_status` | Original ROADMAP status | `"todo"` |
-| `acceptance_criteria` | Parse from DoD section | `["ei und quark produces two entries"]` |
-| `validation.type` | Infer from task type | `"standard"` |
-| `validation.required_checks` | Default set | `["npm_run_verify"]` |
+| Field                        | Generation Rule                  | Example                                 |
+| ---------------------------- | -------------------------------- | --------------------------------------- |
+| `source`                     | Set to `"roadmap_import"`        | `"roadmap_import"`                      |
+| `roadmap_section`            | Parse from ROADMAP section stack | `"PHASE 1 > EPIC: Resolver"`            |
+| `roadmap_line`               | Line number from parser          | `518`                                   |
+| `roadmap_status`             | Original ROADMAP status          | `"todo"`                                |
+| `acceptance_criteria`        | Parse from DoD section           | `["ei und quark produces two entries"]` |
+| `validation.type`            | Infer from task type             | `"standard"`                            |
+| `validation.required_checks` | Default set                      | `["npm_run_verify"]`                    |
 
 **Not auto-generated (require human input or future enhancement):**
 
-| Field | Why Not Auto-Generated | Future Enhancement |
-|-------|------------------------|-------------------|
-| `allowed_files` | Requires scope analysis | Parse from DoD or infer from task type |
-| `forbidden_files` | Requires safety analysis | Use default protected file list |
-| `outputs` | Requires implementation knowledge | Parse from DoD or leave empty |
-| `notes` | Requires human context | Leave empty or copy from ROADMAP |
+| Field             | Why Not Auto-Generated            | Future Enhancement                     |
+| ----------------- | --------------------------------- | -------------------------------------- |
+| `allowed_files`   | Requires scope analysis           | Parse from DoD or infer from task type |
+| `forbidden_files` | Requires safety analysis          | Use default protected file list        |
+| `outputs`         | Requires implementation knowledge | Parse from DoD or leave empty          |
+| `notes`           | Requires human context            | Leave empty or copy from ROADMAP       |
 
 ---
 
@@ -882,6 +921,7 @@ echo "Task creation rolled back due to: {failure_reason}"
 5. **Section ambiguity:** Task section path unclear
 
 **Example prevention logic:**
+
 ```javascript
 // Blocking check
 if (reconcilerExitCode !== 0) {
@@ -912,6 +952,7 @@ if (eligibleTasks.length > 5) {
 **File:** `scripts/agent/create-runtime-tasks.mjs`
 
 **Functionality:**
+
 1. Parse ROADMAP.md using existing reconciler parser
 2. Filter eligible tasks (status=`todo`, not in runtime)
 3. Generate runtime task entries with required metadata
@@ -921,6 +962,7 @@ if (eligibleTasks.length > 5) {
 7. Generate handoff documentation
 
 **CLI Interface:**
+
 ```bash
 # Dry-run mode (preview only, no changes)
 node scripts/agent/create-runtime-tasks.mjs --dry-run
@@ -942,6 +984,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ```
 
 **Exit codes:**
+
 - 0: Success (tasks created or dry-run completed)
 - 1: Validation failure (baseline checks failed)
 - 2: Creation failure (task creation failed)
@@ -950,6 +993,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ### 12.2 Safety Features
 
 **Pre-creation checks:**
+
 - ✅ Reconciler baseline (exit_code=0)
 - ✅ Validator baseline (exit_code=0)
 - ✅ Working tree clean
@@ -957,18 +1001,21 @@ node scripts/agent/create-runtime-tasks.mjs --help
 - ✅ ROADMAP.md parseable
 
 **Creation-time validation:**
+
 - ✅ Duplicate detection
 - ✅ ID format validation
 - ✅ Schema compliance
 - ✅ Required field presence
 
 **Post-creation verification:**
+
 - ✅ Reconciler still green
 - ✅ Validator still green
 - ✅ JSON validity
 - ✅ ID uniqueness
 
 **Rollback capability:**
+
 - ✅ Backup task-state.json before modification
 - ✅ Restore on any validation failure
 - ✅ Atomic write (temp file + rename)
@@ -976,6 +1023,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ### 12.3 Evidence & Audit Trail
 
 **Creation events logged to `tasks/task-history.jsonl`:**
+
 ```json
 {
   "event_id": "evt_2026-05-23_task-created_p1-003",
@@ -993,6 +1041,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ```
 
 **Validation evidence logged to `validation/validation-results.jsonl`:**
+
 ```json
 {
   "validation_id": "val_2026-05-23_task-creation_batch-001",
@@ -1007,6 +1056,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ```
 
 **Review evidence logged to `review/review-results.jsonl`:**
+
 ```json
 {
   "review_id": "rev_2026-05-23_task-creation_batch-001",
@@ -1021,6 +1071,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ### 12.4 Out of Scope for RALPH-024
 
 **Deferred to future enhancements:**
+
 - ❌ Automatic task selection after creation (use existing selector)
 - ❌ Dependency graph analysis
 - ❌ Priority parsing from ROADMAP metadata
@@ -1035,6 +1086,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 - ❌ Automatic ROADMAP status sync (reconciler only)
 
 **Explicitly forbidden for RALPH-024:**
+
 - ❌ Modifying ROADMAP.md
 - ❌ Modifying existing runtime tasks
 - ❌ Automatic task execution
@@ -1047,6 +1099,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ### 12.5 Testing Strategy
 
 **Unit tests:**
+
 - Parser integration (reuse reconciler parser)
 - Duplicate detection logic
 - Schema validation
@@ -1054,6 +1107,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 - Metadata generation
 
 **Integration tests:**
+
 - Full creation pipeline (dry-run)
 - Reconciler integration
 - Validator integration
@@ -1061,6 +1115,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 - Rollback mechanism
 
 **Manual testing:**
+
 - Dry-run with current ROADMAP
 - Create single task
 - Create small batch (3 tasks)
@@ -1069,6 +1124,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 - Test rollback on failure
 
 **Test fixtures:**
+
 - Sample ROADMAP.md with various task types
 - Sample task-state.json with existing tasks
 - Expected output for each test case
@@ -1076,6 +1132,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 ### 12.6 Documentation Requirements
 
 **Files to create/update:**
+
 - ✅ `scripts/agent/create-runtime-tasks.mjs` (new script)
 - ✅ `scripts/agent/__tests__/create-runtime-tasks.test.mjs` (new tests)
 - ✅ `reports/RALPH-024_RUNTIME_TASK_CREATION_REPORT.md` (implementation report)
@@ -1084,6 +1141,7 @@ node scripts/agent/create-runtime-tasks.mjs --help
 - ✅ `README.md` or `scripts/agent/README.md` (document new script)
 
 **Documentation content:**
+
 - Script purpose and usage
 - CLI flags and options
 - Safety features and gates
@@ -1306,43 +1364,43 @@ Alternative paths:
 
 ### 14.1 Unit Test Cases
 
-| Test Case | Input | Expected Output | Rationale |
-|-----------|-------|-----------------|-----------|
-| **Parse ROADMAP** | Valid ROADMAP.md | Task list with metadata | Verify parser integration |
-| **Filter todo tasks** | Mixed status tasks | Only `todo` tasks | Verify status filtering |
-| **Detect duplicates** | Task ID in runtime | Skip creation | Verify duplicate detection |
-| **Generate metadata** | ROADMAP task | Complete runtime task | Verify metadata generation |
-| **Validate schema** | Generated task | Schema compliance | Verify schema validation |
-| **Map status** | `todo` → `not_started` | Correct mapping | Verify status mapping |
-| **Handle blocked** | `blocked` task | Skip creation | Verify blocked handling |
-| **Handle done** | `done` task | Skip creation | Verify done handling |
-| **Invalid ID** | Malformed task ID | Skip creation | Verify ID validation |
-| **Missing title** | Task without title | Skip creation | Verify required field check |
+| Test Case             | Input                  | Expected Output         | Rationale                   |
+| --------------------- | ---------------------- | ----------------------- | --------------------------- |
+| **Parse ROADMAP**     | Valid ROADMAP.md       | Task list with metadata | Verify parser integration   |
+| **Filter todo tasks** | Mixed status tasks     | Only `todo` tasks       | Verify status filtering     |
+| **Detect duplicates** | Task ID in runtime     | Skip creation           | Verify duplicate detection  |
+| **Generate metadata** | ROADMAP task           | Complete runtime task   | Verify metadata generation  |
+| **Validate schema**   | Generated task         | Schema compliance       | Verify schema validation    |
+| **Map status**        | `todo` → `not_started` | Correct mapping         | Verify status mapping       |
+| **Handle blocked**    | `blocked` task         | Skip creation           | Verify blocked handling     |
+| **Handle done**       | `done` task            | Skip creation           | Verify done handling        |
+| **Invalid ID**        | Malformed task ID      | Skip creation           | Verify ID validation        |
+| **Missing title**     | Task without title     | Skip creation           | Verify required field check |
 
 ### 14.2 Integration Test Cases
 
-| Test Case | Setup | Action | Expected Result | Verification |
-|-----------|-------|--------|-----------------|--------------|
-| **Dry-run mode** | Valid ROADMAP | Run with `--dry-run` | Preview output, no changes | task-state.json unchanged |
-| **Create single task** | 1 eligible task | Run creation | 1 task created | Reconciler green, validator green |
-| **Create batch** | 3 eligible tasks | Run creation | 3 tasks created | Reconciler green, validator green |
-| **Skip duplicates** | 1 existing, 1 new | Run creation | 1 created, 1 skipped | Correct skip reason logged |
-| **Skip blocked** | 1 blocked task | Run creation | 0 created, 1 skipped | Correct skip reason logged |
-| **Rollback on failure** | Corrupt task-state | Run creation | Rollback executed | Original state restored |
-| **Evidence logging** | Create 1 task | Run creation | Evidence written | All 3 evidence streams updated |
-| **Reconciler integration** | Green baseline | Run creation | Still green | exit_code=0 before and after |
-| **Validator integration** | Green baseline | Run creation | Still green | exit_code=0 before and after |
-| **Handoff generation** | Create tasks | Run creation | Handoff written | handoffs/latest-handoff.md updated |
+| Test Case                  | Setup              | Action               | Expected Result            | Verification                       |
+| -------------------------- | ------------------ | -------------------- | -------------------------- | ---------------------------------- |
+| **Dry-run mode**           | Valid ROADMAP      | Run with `--dry-run` | Preview output, no changes | task-state.json unchanged          |
+| **Create single task**     | 1 eligible task    | Run creation         | 1 task created             | Reconciler green, validator green  |
+| **Create batch**           | 3 eligible tasks   | Run creation         | 3 tasks created            | Reconciler green, validator green  |
+| **Skip duplicates**        | 1 existing, 1 new  | Run creation         | 1 created, 1 skipped       | Correct skip reason logged         |
+| **Skip blocked**           | 1 blocked task     | Run creation         | 0 created, 1 skipped       | Correct skip reason logged         |
+| **Rollback on failure**    | Corrupt task-state | Run creation         | Rollback executed          | Original state restored            |
+| **Evidence logging**       | Create 1 task      | Run creation         | Evidence written           | All 3 evidence streams updated     |
+| **Reconciler integration** | Green baseline     | Run creation         | Still green                | exit_code=0 before and after       |
+| **Validator integration**  | Green baseline     | Run creation         | Still green                | exit_code=0 before and after       |
+| **Handoff generation**     | Create tasks       | Run creation         | Handoff written            | handoffs/latest-handoff.md updated |
 
 ### 14.3 Manual Test Scenarios
 
-| Scenario | Steps | Expected Outcome | Success Criteria |
-|----------|-------|------------------|------------------|
-| **First run** | 1. Dry-run<br>2. Review output<br>3. Run creation<br>4. Review handoff | Tasks created, handoff generated | Human approval, reconciler green |
-| **Incremental run** | 1. Create 3 tasks<br>2. Run again<br>3. Verify skips | Existing tasks skipped | No duplicates, correct skip reasons |
-| **Recovery scenario** | 1. Corrupt task-state<br>2. Run creation<br>3. Verify rollback | Rollback executed, state restored | Original state intact |
-| **Large batch** | 1. Create 10+ tasks<br>2. Verify review gate | Review required | Human review triggered |
-| **Edge cases** | 1. Empty ROADMAP<br>2. All tasks blocked<br>3. All tasks done | Graceful handling | Appropriate messages, no errors |
+| Scenario              | Steps                                                                  | Expected Outcome                  | Success Criteria                    |
+| --------------------- | ---------------------------------------------------------------------- | --------------------------------- | ----------------------------------- |
+| **First run**         | 1. Dry-run<br>2. Review output<br>3. Run creation<br>4. Review handoff | Tasks created, handoff generated  | Human approval, reconciler green    |
+| **Incremental run**   | 1. Create 3 tasks<br>2. Run again<br>3. Verify skips                   | Existing tasks skipped            | No duplicates, correct skip reasons |
+| **Recovery scenario** | 1. Corrupt task-state<br>2. Run creation<br>3. Verify rollback         | Rollback executed, state restored | Original state intact               |
+| **Large batch**       | 1. Create 10+ tasks<br>2. Verify review gate                           | Review required                   | Human review triggered              |
+| **Edge cases**        | 1. Empty ROADMAP<br>2. All tasks blocked<br>3. All tasks done          | Graceful handling                 | Appropriate messages, no errors     |
 
 ---
 
@@ -1413,6 +1471,7 @@ This design task is complete when:
 **Design conclusion:** The Runtime Task Creation Pipeline is a critical bridge between planning authority (ROADMAP.md) and runtime execution (task-state.json). This design provides a safe, deterministic, and auditable mechanism for creating runtime tasks from ROADMAP definitions.
 
 **Key design decisions:**
+
 - **Read-only ROADMAP:** Never modify planning authority
 - **Additive only:** Never modify existing runtime tasks
 - **Conservative defaults:** Safe defaults for all metadata

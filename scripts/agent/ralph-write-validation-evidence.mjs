@@ -28,7 +28,7 @@ const WRITER_ID = 'ralph-v2-validation-evidence-writer';
 const VALID_RESULTS = new Map([
   ['passed', 'validation.completed'],
   ['failed', 'validation.failed'],
-  ['blocked', 'validation.blocked']
+  ['blocked', 'validation.blocked'],
 ]);
 const REQUIRED_FIELDS = [
   'validation_id',
@@ -36,7 +36,7 @@ const REQUIRED_FIELDS = [
   'required_checks',
   'blocking_checks',
   'overall_result',
-  'writes_performed'
+  'writes_performed',
 ];
 const FORBIDDEN_COMMAND_TOKENS = ['&&', ';', '||', '|'];
 
@@ -49,7 +49,10 @@ function normalizeTimestampForId(timestamp) {
 }
 
 function nonce(length = 6) {
-  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+  return crypto
+    .randomBytes(Math.ceil(length / 2))
+    .toString('hex')
+    .slice(0, length);
 }
 
 function parseArgs(argv) {
@@ -58,14 +61,14 @@ function parseArgs(argv) {
     confirmAppend: false,
     allowSourceWrites: false,
     stdin: false,
-    help: false
+    help: false,
   };
 
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') options.help = true;
-    else if (arg === '--input') options.input = requireValue(args, i += 1, arg);
+    else if (arg === '--input') options.input = requireValue(args, (i += 1), arg);
     else if (arg === '--stdin') options.stdin = true;
     else if (arg === '--append') options.append = true;
     else if (arg === '--confirm-append') options.confirmAppend = true;
@@ -129,7 +132,9 @@ SAFETY:
 
 function readInput(options) {
   if (options.stdin) return fs.readFileSync(0, 'utf8');
-  const fullPath = path.isAbsolute(options.input) ? options.input : path.resolve(projectRoot, options.input);
+  const fullPath = path.isAbsolute(options.input)
+    ? options.input
+    : path.resolve(projectRoot, options.input);
   return fs.readFileSync(fullPath, 'utf8');
 }
 
@@ -142,14 +147,18 @@ function parseJsonObject(text) {
 }
 
 function validateRequiredFields(result, options) {
-  const missing = REQUIRED_FIELDS.filter((field) => result[field] === undefined || result[field] === null);
+  const missing = REQUIRED_FIELDS.filter(
+    (field) => result[field] === undefined || result[field] === null,
+  );
   if (missing.length > 0) throw new Error(`Missing required field(s): ${missing.join(', ')}`);
   if (!result.category) throw new Error('Missing category');
   if (!result.overall_result) throw new Error('Missing overall_result');
   if (!Array.isArray(result.required_checks)) throw new Error('required_checks must be an array');
   if (!Array.isArray(result.blocking_checks)) throw new Error('blocking_checks must be an array');
   if (result.writes_performed === true && !options.allowSourceWrites) {
-    throw new Error('Source validation result has writes_performed=true; pass --allow-source-writes to accept it');
+    throw new Error(
+      'Source validation result has writes_performed=true; pass --allow-source-writes to accept it',
+    );
   }
   if (typeof result.validation_id !== 'string' || result.validation_id.trim() === '') {
     throw new Error('validation_id must be a non-empty string');
@@ -157,14 +166,18 @@ function validateRequiredFields(result, options) {
 }
 
 function normalizeOverallResult(value) {
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
 function eventTypeForOverallResult(overallResult) {
   const normalized = normalizeOverallResult(overallResult);
   const eventType = VALID_RESULTS.get(normalized);
   if (!eventType) {
-    throw new Error(`Unsupported overall_result: ${overallResult}. Expected one of: passed, failed, blocked`);
+    throw new Error(
+      `Unsupported overall_result: ${overallResult}. Expected one of: passed, failed, blocked`,
+    );
   }
   return eventType;
 }
@@ -195,7 +208,7 @@ function validateCommandSafety(result) {
     ...collectCommandStrings(result.blocking_checks),
     ...collectCommandStrings(result.checks),
     ...collectCommandStrings(result.commands_planned),
-    ...collectCommandStrings(result.commands_executed)
+    ...collectCommandStrings(result.commands_executed),
   ];
 
   const unsafe = commandStrings.filter((command) => containsForbiddenCommandToken(command));
@@ -220,7 +233,8 @@ function normalizeChecks(result) {
         command: check,
         required: result.required_checks.includes(check),
         blocking: result.blocking_checks.includes(check),
-        status: normalizeOverallResult(result.overall_result) === 'passed' ? 'passed' : 'not_executed'
+        status:
+          normalizeOverallResult(result.overall_result) === 'passed' ? 'passed' : 'not_executed',
       };
     }
     if (!check || typeof check !== 'object') {
@@ -228,22 +242,30 @@ function normalizeChecks(result) {
         check_id: `check_${index + 1}`,
         required: false,
         blocking: false,
-        status: 'unknown'
+        status: 'unknown',
       };
     }
     return {
       check_id: check.check_id || check.id || `check_${index + 1}`,
       ...(check.command ? { command: check.command } : {}),
-      required: check.required === undefined ? result.required_checks.includes(check.command) : Boolean(check.required),
-      blocking: check.blocking === undefined ? result.blocking_checks.includes(check.command) : Boolean(check.blocking),
-      status: check.status || (normalizeOverallResult(result.overall_result) === 'passed' ? 'passed' : 'unknown'),
+      required:
+        check.required === undefined
+          ? result.required_checks.includes(check.command)
+          : Boolean(check.required),
+      blocking:
+        check.blocking === undefined
+          ? result.blocking_checks.includes(check.command)
+          : Boolean(check.blocking),
+      status:
+        check.status ||
+        (normalizeOverallResult(result.overall_result) === 'passed' ? 'passed' : 'unknown'),
       ...(check.exit_code !== undefined ? { exit_code: check.exit_code } : {}),
       ...(check.signal !== undefined ? { signal: check.signal } : {}),
       ...(check.started_at ? { started_at: check.started_at } : {}),
       ...(check.completed_at ? { completed_at: check.completed_at } : {}),
       ...(check.stdout_excerpt ? { stdout_excerpt: check.stdout_excerpt } : {}),
       ...(check.stderr_excerpt ? { stderr_excerpt: check.stderr_excerpt } : {}),
-      ...(check.error ? { error: check.error } : {})
+      ...(check.error ? { error: check.error } : {}),
     };
   });
 }
@@ -253,7 +275,7 @@ function normalizeActor(result) {
   if (sourceActor && typeof sourceActor === 'object') {
     return {
       type: sourceActor.type || 'validator',
-      id: sourceActor.id || WRITER_ID
+      id: sourceActor.id || WRITER_ID,
     };
   }
   return { type: 'validator', id: WRITER_ID };
@@ -266,7 +288,7 @@ function sourceDescriptor(options, result) {
     source_validator: result.validator || null,
     source_category_source: result.category_source || null,
     source_writes_performed: Boolean(result.writes_performed),
-    source_dry_run: result.dry_run === undefined ? null : Boolean(result.dry_run)
+    source_dry_run: result.dry_run === undefined ? null : Boolean(result.dry_run),
   };
 }
 
@@ -295,14 +317,16 @@ function buildValidationEvent(result, options) {
     overall_result: normalizedOverallResult,
     npm_verify_required: Boolean(result.npm_verify_required),
     npm_verify_executed: Boolean(result.npm_verify_executed),
-    source: sourceDescriptor(options, result)
+    source: sourceDescriptor(options, result),
   };
 
   if (!event.correlation_id && (event.task_id || event.run_id)) {
     event.correlation_id = `corr_${stamp}_${String(event.task_id || event.run_id).toLowerCase()}_${nonce()}`;
   }
-  if (result.verify_md_rule_reference) event.verify_md_rule_reference = result.verify_md_rule_reference;
-  if (result.validation_rules_reference) event.validation_rules_reference = result.validation_rules_reference;
+  if (result.verify_md_rule_reference)
+    event.verify_md_rule_reference = result.verify_md_rule_reference;
+  if (result.validation_rules_reference)
+    event.validation_rules_reference = result.validation_rules_reference;
   if (result.changed_files_basis) event.changed_files_basis = result.changed_files_basis;
   if (result.failure_reason) event.failure_reason = result.failure_reason;
   return event;
@@ -319,7 +343,7 @@ function buildOutput(event, appendResult, options) {
     append_confirmed: options.confirmAppend,
     target: PATHS.validationResults,
     planned_event: event,
-    append_result: appendResult
+    append_result: appendResult,
   };
 }
 
@@ -334,7 +358,9 @@ async function main() {
     const result = parseJsonObject(readInput(options));
     const event = buildValidationEvent(result, options);
     const shouldAppend = options.append && options.confirmAppend;
-    const appendResult = appendJsonlEvent(PATHS.validationResults, event, { dryRun: !shouldAppend });
+    const appendResult = appendJsonlEvent(PATHS.validationResults, event, {
+      dryRun: !shouldAppend,
+    });
     console.log(JSON.stringify(buildOutput(event, appendResult, options), null, 2));
   } catch (error) {
     console.error(`Ralph validation evidence writer error: ${error.message}`);

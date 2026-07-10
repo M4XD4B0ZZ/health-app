@@ -219,25 +219,25 @@ planned → active → validating → needs_review → completed
 
 ### 5.3 Status Decisions
 
-| Status | Decision | Reason |
-|---|---|---|
-| `planned` | Keep | Useful for a run created but not yet handed to a worker. Recommended initial status for RALPH-027. |
-| `active` | Keep | Worker execution has started. Future Worker Execution should transition `planned` → `active`. |
-| `validating` | Keep | Explicit bridge from worker output to validation evidence. |
-| `needs_review` | Keep | Explicit stop state before human review gate. |
-| `completed` | Keep | Terminal success after validation and required review acceptance. |
-| `failed` | Keep | Terminal or recoverable failure during execution/validation. |
-| `blocked` | Keep | Stop state when task/run cannot proceed because of dependency, ambiguity, safety, or human decision. |
-| `cancelled` | Keep | Terminal state for intentionally stopped runs. |
+| Status         | Decision | Reason                                                                                               |
+| -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `planned`      | Keep     | Useful for a run created but not yet handed to a worker. Recommended initial status for RALPH-027.   |
+| `active`       | Keep     | Worker execution has started. Future Worker Execution should transition `planned` → `active`.        |
+| `validating`   | Keep     | Explicit bridge from worker output to validation evidence.                                           |
+| `needs_review` | Keep     | Explicit stop state before human review gate.                                                        |
+| `completed`    | Keep     | Terminal success after validation and required review acceptance.                                    |
+| `failed`       | Keep     | Terminal or recoverable failure during execution/validation.                                         |
+| `blocked`      | Keep     | Stop state when task/run cannot proceed because of dependency, ambiguity, safety, or human decision. |
+| `cancelled`    | Keep     | Terminal state for intentionally stopped runs.                                                       |
 
 ### 5.4 Do Not Add These as Canonical Statuses
 
-| Candidate | Decision | Reason |
-|---|---|---|
-| `running` | Do not add | Legacy synonym for `active`; validator may continue tolerating it. |
-| `in_progress` | Do not add | Task status, not run status; use `active` for runs. |
-| `abandoned` | Do not add | Use `blocked` or `cancelled` plus `stop_reason: "abandoned"`. |
-| `stale` | Do not add | Staleness is derived from timestamps, not a lifecycle status. |
+| Candidate     | Decision   | Reason                                                             |
+| ------------- | ---------- | ------------------------------------------------------------------ |
+| `running`     | Do not add | Legacy synonym for `active`; validator may continue tolerating it. |
+| `in_progress` | Do not add | Task status, not run status; use `active` for runs.                |
+| `abandoned`   | Do not add | Use `blocked` or `cancelled` plus `stop_reason: "abandoned"`.      |
+| `stale`       | Do not add | Staleness is derived from timestamps, not a lifecycle status.      |
 
 ---
 
@@ -308,29 +308,29 @@ However, RALPH-027 should include the additional fields above because run creati
 
 ### 6.3 Field Recommendations
 
-| Field | Required? | Recommendation |
-|---|---:|---|
-| `schema_version` | Yes | Use `"2.0.0"` for canonical run schema. |
-| `run_id` | Yes | Unique run identity. |
-| `task_id` | Yes | Canonical task reference. |
-| `task_title` | Yes | Snapshot from runtime task for human readability. |
-| `status` | Yes | Initial value `planned`. |
-| `created_at` | Yes | Run creation timestamp. |
-| `started_at` | Yes | `null` until worker starts. |
-| `updated_at` | Yes | Same as `created_at` initially. |
-| `completed_at` | Yes | `null` until terminal status. |
-| `worker` | Yes | `unassigned` in RALPH-027. Future worker sets adapter/id. |
-| `source` | Yes | Identifies human/script/autonomous creator. |
-| `owner` | Yes | Human or system owner accountable for the run. |
-| `review_required` | Yes | Derived from task `requires_human_review`, default true if missing. |
-| `validation_required` | Yes | Default true. |
-| `validation_category` | Yes | Required for later validation routing. |
-| `selection_reason` | Yes | Explains why this task was selected. |
-| `allowed_files` | Recommended | Snapshot from task, default empty array if absent. |
-| `forbidden_files` | Recommended | Snapshot from task, default empty array if absent. |
-| `expected_outputs` | Recommended | Snapshot from task outputs, default empty array if absent. |
-| `safety_checks` | Yes | Evidence of pre-run gate results. |
-| `metadata` | Recommended | Versioning and notes. |
+| Field                 |   Required? | Recommendation                                                      |
+| --------------------- | ----------: | ------------------------------------------------------------------- |
+| `schema_version`      |         Yes | Use `"2.0.0"` for canonical run schema.                             |
+| `run_id`              |         Yes | Unique run identity.                                                |
+| `task_id`             |         Yes | Canonical task reference.                                           |
+| `task_title`          |         Yes | Snapshot from runtime task for human readability.                   |
+| `status`              |         Yes | Initial value `planned`.                                            |
+| `created_at`          |         Yes | Run creation timestamp.                                             |
+| `started_at`          |         Yes | `null` until worker starts.                                         |
+| `updated_at`          |         Yes | Same as `created_at` initially.                                     |
+| `completed_at`        |         Yes | `null` until terminal status.                                       |
+| `worker`              |         Yes | `unassigned` in RALPH-027. Future worker sets adapter/id.           |
+| `source`              |         Yes | Identifies human/script/autonomous creator.                         |
+| `owner`               |         Yes | Human or system owner accountable for the run.                      |
+| `review_required`     |         Yes | Derived from task `requires_human_review`, default true if missing. |
+| `validation_required` |         Yes | Default true.                                                       |
+| `validation_category` |         Yes | Required for later validation routing.                              |
+| `selection_reason`    |         Yes | Explains why this task was selected.                                |
+| `allowed_files`       | Recommended | Snapshot from task, default empty array if absent.                  |
+| `forbidden_files`     | Recommended | Snapshot from task, default empty array if absent.                  |
+| `expected_outputs`    | Recommended | Snapshot from task outputs, default empty array if absent.          |
+| `safety_checks`       |         Yes | Evidence of pre-run gate results.                                   |
+| `metadata`            | Recommended | Versioning and notes.                                               |
 
 ### 6.4 Legacy Compatibility
 
@@ -349,17 +349,17 @@ Existing `selected_task_id` and `selected_task_title` should remain tolerated by
 
 `runs/run-history.jsonl` should receive one append-only event for each run lifecycle transition:
 
-| Transition | Event Type | Writer |
-|---|---|---|
-| Run created | `run.created` | Runtime Run Creation CLI |
-| Worker starts | `run.started` | Future Worker Execution |
-| Worker blocks | `run.blocked` | Worker or coordinator |
-| Worker fails | `run.failed` | Worker or coordinator |
-| Validation starts | `run.validation_started` | Validator/coordinator |
-| Review required | `run.review_requested` | Review gate workflow/coordinator |
-| Run completed | `run.completed` | Coordinator after validation/review success |
-| Run cancelled | `run.cancelled` | Human or recovery CLI |
-| Run recovered | `run.recovered` | Future recovery CLI |
+| Transition        | Event Type               | Writer                                      |
+| ----------------- | ------------------------ | ------------------------------------------- |
+| Run created       | `run.created`            | Runtime Run Creation CLI                    |
+| Worker starts     | `run.started`            | Future Worker Execution                     |
+| Worker blocks     | `run.blocked`            | Worker or coordinator                       |
+| Worker fails      | `run.failed`             | Worker or coordinator                       |
+| Validation starts | `run.validation_started` | Validator/coordinator                       |
+| Review required   | `run.review_requested`   | Review gate workflow/coordinator            |
+| Run completed     | `run.completed`          | Coordinator after validation/review success |
+| Run cancelled     | `run.cancelled`          | Human or recovery CLI                       |
+| Run recovered     | `run.recovered`          | Future recovery CLI                         |
 
 RALPH-027 should write only `run.created`.
 
@@ -416,11 +416,11 @@ Every run event should answer:
 
 Run creation may be initiated by three actor classes, but all must use the same repository contract.
 
-| Creator | Allowed? | Conditions |
-|---|---:|---|
-| Human-created | Yes | Human directly invokes CLI with explicit task ID and write confirmation. |
-| Script-created | Yes | Script enforces safety gates and double-confirm write flags. |
-| Future autonomous worker-created | Later | Only after RALPH-027/028/029 establish run creation, evidence, and review gates. |
+| Creator                          | Allowed? | Conditions                                                                       |
+| -------------------------------- | -------: | -------------------------------------------------------------------------------- |
+| Human-created                    |      Yes | Human directly invokes CLI with explicit task ID and write confirmation.         |
+| Script-created                   |      Yes | Script enforces safety gates and double-confirm write flags.                     |
+| Future autonomous worker-created |    Later | Only after RALPH-027/028/029 establish run creation, evidence, and review gates. |
 
 ### 8.2 Human-Created Runs
 
@@ -459,18 +459,18 @@ All safety gates must pass before a real write.
 
 ### 9.1 Required Preconditions
 
-| Gate | Required for RALPH-027? | Pass Criteria | Failure Action |
-|---|---:|---|---|
-| Reconciler status | Yes | `node scripts/agent/reconcile-roadmap-task-state.mjs --json` exits 0 | Abort |
-| Validator status | Yes | `node scripts/agent/validate-ralph-state.mjs --json` exits 0 | Abort |
-| Working tree state | Yes | Clean before write | Abort |
-| Task existence | Yes | `task_id` exists in `tasks/task-state.json` | Abort |
-| Task eligibility | Yes | Task status is `not_started` or optionally `in_progress` only with explicit recovery flag later | Abort |
-| Duplicate active run prevention | Yes | No `planned`, `active`, `validating`, or `needs_review` current run | Abort |
-| Schema validation | Yes | Existing run state and generated run parse and satisfy schema | Abort |
-| Protected file scope | Yes | Write only `runs/current-run.json` and `runs/run-history.jsonl` | Abort |
-| ROADMAP immutability | Yes | No `ROADMAP.md` write | Abort |
-| Product-code immutability | Yes | No `src/**` write | Abort |
+| Gate                            | Required for RALPH-027? | Pass Criteria                                                                                   | Failure Action |
+| ------------------------------- | ----------------------: | ----------------------------------------------------------------------------------------------- | -------------- |
+| Reconciler status               |                     Yes | `node scripts/agent/reconcile-roadmap-task-state.mjs --json` exits 0                            | Abort          |
+| Validator status                |                     Yes | `node scripts/agent/validate-ralph-state.mjs --json` exits 0                                    | Abort          |
+| Working tree state              |                     Yes | Clean before write                                                                              | Abort          |
+| Task existence                  |                     Yes | `task_id` exists in `tasks/task-state.json`                                                     | Abort          |
+| Task eligibility                |                     Yes | Task status is `not_started` or optionally `in_progress` only with explicit recovery flag later | Abort          |
+| Duplicate active run prevention |                     Yes | No `planned`, `active`, `validating`, or `needs_review` current run                             | Abort          |
+| Schema validation               |                     Yes | Existing run state and generated run parse and satisfy schema                                   | Abort          |
+| Protected file scope            |                     Yes | Write only `runs/current-run.json` and `runs/run-history.jsonl`                                 | Abort          |
+| ROADMAP immutability            |                     Yes | No `ROADMAP.md` write                                                                           | Abort          |
+| Product-code immutability       |                     Yes | No `src/**` write                                                                               | Abort          |
 
 ### 9.2 Duplicate Active Run Prevention
 
@@ -503,13 +503,13 @@ No task-state mutation should happen in minimal RALPH-027 unless explicitly appr
 
 ### 10.1 Partial Write Scenarios
 
-| Scenario | Risk | Required Behavior |
-|---|---|---|
-| `current-run.json` write succeeds but history append fails | Current state without evidence | Roll back `current-run.json` to original content, report failure. |
+| Scenario                                                   | Risk                                | Required Behavior                                                                                                                                                                                                                   |
+| ---------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `current-run.json` write succeeds but history append fails | Current state without evidence      | Roll back `current-run.json` to original content, report failure.                                                                                                                                                                   |
 | History append succeeds but `current-run.json` write fails | Evidence references non-current run | Avoid by writing `current-run.json` first to temp file, validate, then rename, then append history; if append fails, restore original current run and append `run.creation_failed` only in a later recovery-capable implementation. |
-| Temp file remains | Confusing future runs | Delete temp file on failure. |
-| JSON parse fails after write | Corrupt current run | Restore original content immediately. |
-| Process interruption mid-write | Incomplete state | Use temp file + rename to minimize partial writes. |
+| Temp file remains                                          | Confusing future runs               | Delete temp file on failure.                                                                                                                                                                                                        |
+| JSON parse fails after write                               | Corrupt current run                 | Restore original content immediately.                                                                                                                                                                                               |
+| Process interruption mid-write                             | Incomplete state                    | Use temp file + rename to minimize partial writes.                                                                                                                                                                                  |
 
 ### 10.2 Rollback Requirements
 
@@ -672,22 +672,22 @@ node scripts/agent/create-runtime-run.mjs --help
 
 Flags:
 
-| Flag | Default | Purpose |
-|---|---:|---|
-| `--task-id <id>` | none | Create run for explicit task; recommended for write mode. |
-| `--write` | false | Enable real write mode. |
-| `--confirm-write` | false | Required with `--write`. |
-| `--json` | false | Machine-readable output. |
-| `--help` | false | Print usage. |
+| Flag              | Default | Purpose                                                   |
+| ----------------- | ------: | --------------------------------------------------------- |
+| `--task-id <id>`  |    none | Create run for explicit task; recommended for write mode. |
+| `--write`         |   false | Enable real write mode.                                   |
+| `--confirm-write` |   false | Required with `--write`.                                  |
+| `--json`          |   false | Machine-readable output.                                  |
+| `--help`          |   false | Print usage.                                              |
 
 Exit codes:
 
-| Code | Meaning |
-|---:|---|
-| 0 | Dry-run success or write success. |
-| 1 | Safety/validation gate failure. |
-| 2 | Run creation/write failure. |
-| 3 | No eligible task or task not eligible. |
+| Code | Meaning                                |
+| ---: | -------------------------------------- |
+|    0 | Dry-run success or write success.      |
+|    1 | Safety/validation gate failure.        |
+|    2 | Run creation/write failure.            |
+|    3 | No eligible task or task not eligible. |
 
 ### 12.3 Write Guards
 
@@ -717,25 +717,25 @@ Dry-run must:
 
 ### 12.5 Test Matrix
 
-| Test | Expected Result |
-|---|---|
-| Help prints CLI contract | Exit 0. |
-| Dry-run writes nothing | No file changes. |
-| `--write` without `--confirm-write` rejected | Exit 1. |
-| `--confirm-write` without `--write` rejected | Exit 1. |
-| Missing task ID in explicit mode rejected | Exit 3. |
-| Unknown task ID rejected | Exit 3. |
-| Task not `not_started` rejected | Exit 3. |
-| Completed current run allows new planned run | Exit 0 in valid write test. |
-| Active current run blocks new run | Exit 1. |
-| Generated run has required fields | Schema assertion passes. |
-| Run ID includes timestamp, task ID, nonce | Pattern assertion passes. |
-| Write modifies only run files | Only `runs/current-run.json` and `runs/run-history.jsonl`. |
-| History append is one valid JSONL line | JSON parse succeeds. |
-| Reconciler remains green | Exit 0. |
-| Validator remains green | Exit 0. |
-| JSON output parseable | `JSON.parse` succeeds. |
-| Rollback restores current run on post-write failure | Original content restored. |
+| Test                                                | Expected Result                                            |
+| --------------------------------------------------- | ---------------------------------------------------------- |
+| Help prints CLI contract                            | Exit 0.                                                    |
+| Dry-run writes nothing                              | No file changes.                                           |
+| `--write` without `--confirm-write` rejected        | Exit 1.                                                    |
+| `--confirm-write` without `--write` rejected        | Exit 1.                                                    |
+| Missing task ID in explicit mode rejected           | Exit 3.                                                    |
+| Unknown task ID rejected                            | Exit 3.                                                    |
+| Task not `not_started` rejected                     | Exit 3.                                                    |
+| Completed current run allows new planned run        | Exit 0 in valid write test.                                |
+| Active current run blocks new run                   | Exit 1.                                                    |
+| Generated run has required fields                   | Schema assertion passes.                                   |
+| Run ID includes timestamp, task ID, nonce           | Pattern assertion passes.                                  |
+| Write modifies only run files                       | Only `runs/current-run.json` and `runs/run-history.jsonl`. |
+| History append is one valid JSONL line              | JSON parse succeeds.                                       |
+| Reconciler remains green                            | Exit 0.                                                    |
+| Validator remains green                             | Exit 0.                                                    |
+| JSON output parseable                               | `JSON.parse` succeeds.                                     |
+| Rollback restores current run on post-write failure | Original content restored.                                 |
 
 ### 12.6 Verification Commands for RALPH-027
 
@@ -818,16 +818,16 @@ Review Gate / Review Evidence
 
 ## 14. Risks
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Creating a run while another run is active | Conflicting worker execution | Block on active-like current-run status. |
-| Run ID collision | Audit ambiguity | Timestamp + task ID + nonce + history collision check. |
-| History append without current state | Evidence/current-state mismatch | Validate current-run write before append; validate JSONL line before append. |
-| Current-run overwrite loses completed history | Loss of latest pointer context | Preserve completed runs in `run-history`; current-run is a pointer, not full history. |
-| Stale planned runs block progress | Autonomous loop stalls | Detect stale runs; defer recovery CLI. |
-| Scope creep into worker execution | Unsafe automation | RALPH-027 creates planned run only. No worker execution. |
-| Task-state mutation during run creation | Hidden status drift | Defer task status updates until worker start lifecycle. |
-| Validator lacks strict v2 run schema | Weak enforcement | Implement local schema checks in RALPH-027 tests; validator integration can follow. |
+| Risk                                          | Impact                          | Mitigation                                                                            |
+| --------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------- |
+| Creating a run while another run is active    | Conflicting worker execution    | Block on active-like current-run status.                                              |
+| Run ID collision                              | Audit ambiguity                 | Timestamp + task ID + nonce + history collision check.                                |
+| History append without current state          | Evidence/current-state mismatch | Validate current-run write before append; validate JSONL line before append.          |
+| Current-run overwrite loses completed history | Loss of latest pointer context  | Preserve completed runs in `run-history`; current-run is a pointer, not full history. |
+| Stale planned runs block progress             | Autonomous loop stalls          | Detect stale runs; defer recovery CLI.                                                |
+| Scope creep into worker execution             | Unsafe automation               | RALPH-027 creates planned run only. No worker execution.                              |
+| Task-state mutation during run creation       | Hidden status drift             | Defer task status updates until worker start lifecycle.                               |
+| Validator lacks strict v2 run schema          | Weak enforcement                | Implement local schema checks in RALPH-027 tests; validator integration can follow.   |
 
 ---
 

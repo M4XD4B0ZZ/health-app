@@ -6,7 +6,7 @@
   "runtime_note": "This is Ralph runtime state for agent execution tracking. It does not replace ROADMAP.md as the authoritative task source. All task definitions and priorities remain in ROADMAP.md.",
   "status_values": [
     "not_started",
-    "in_progress", 
+    "in_progress",
     "needs_validation",
     "needs_review",
     "blocked",
@@ -28,9 +28,7 @@
       "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": false,
-      "allowed_files": [
-        ".governance/**/*"
-      ],
+      "allowed_files": [".governance/**/*"],
       "forbidden_files": [
         "src/**/*",
         ".env*",
@@ -40,7 +38,7 @@
       ],
       "outputs": [
         ".governance/SYSTEM.md",
-        ".governance/RULES.md", 
+        ".governance/RULES.md",
         ".governance/SAFETY.md",
         ".governance/REVIEW_POLICY.md"
       ],
@@ -74,7 +72,7 @@
         "handoffs/latest-handoff.md",
         "handoffs/archive/.gitkeep",
         "runs/current-run.json",
-        "runs/run-history.jsonl", 
+        "runs/run-history.jsonl",
         "runs/logs/.gitkeep",
         "validation/validation-rules.json",
         "validation/validation-results.jsonl",
@@ -103,7 +101,7 @@
         "handoffs/archive/.gitkeep",
         "runs/current-run.json",
         "runs/run-history.jsonl",
-        "runs/logs/.gitkeep", 
+        "runs/logs/.gitkeep",
         "validation/validation-rules.json",
         "validation/validation-results.jsonl",
         "reports/morning-review.md"
@@ -137,15 +135,8 @@
       "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": true,
-      "allowed_files": [
-        ".agent/adapters/**/*",
-        ".governance/contracts/**/*"
-      ],
-      "forbidden_files": [
-        "src/**/*",
-        ".env*",
-        "package.json"
-      ],
+      "allowed_files": [".agent/adapters/**/*", ".governance/contracts/**/*"],
+      "forbidden_files": ["src/**/*", ".env*", "package.json"],
       "outputs": [
         ".agent/prompts/coordinator.md",
         ".agent/prompts/worker.md",
@@ -174,7 +165,7 @@
       "notes": "Completed - created static prompt templates and adapter contracts for Cline, OpenCode, Roo, and Codex. No executable adapters or runtime behavior changed."
     },
     {
-      "id": "RALPH-004A", 
+      "id": "RALPH-004A",
       "title": "Root governance transition notes",
       "status": "done",
       "priority": "medium",
@@ -210,11 +201,7 @@
         ".roo/**/*",
         ".roomodes"
       ],
-      "outputs": [
-        "docs/RALPH_LOOP_TRANSITION_NOTES.md",
-        "SSOK.md",
-        "AGENTS.md"
-      ],
+      "outputs": ["docs/RALPH_LOOP_TRANSITION_NOTES.md", "SSOK.md", "AGENTS.md"],
       "validation": {
         "type": "static_foundation_only",
         "required_checks": [
@@ -270,9 +257,7 @@
         ".agent/adapters/**/*",
         ".agent/prompts/**/*"
       ],
-      "outputs": [
-        "plans/RALPH_DRY_RUN_SELECTOR_PLAN.md"
-      ],
+      "outputs": ["plans/RALPH_DRY_RUN_SELECTOR_PLAN.md"],
       "validation": {
         "type": "static_foundation_only",
         "required_checks": [
@@ -330,14 +315,10 @@
         ".agent/adapters/**/*",
         ".agent/prompts/**/*"
       ],
-      "outputs": [
-        "scripts/agent/select-next-ralph-task.mjs"
-      ],
+      "outputs": ["scripts/agent/select-next-ralph-task.mjs"],
       "validation": {
         "type": "standard",
-        "required_checks": [
-          "npm_run_verify"
-        ]
+        "required_checks": ["npm_run_verify"]
       },
       "acceptance_criteria": [
         "Task selector script implemented",
@@ -358,15 +339,9 @@
       "attempt_count": 1,
       "max_attempts": 3,
       "requires_human_review": false,
-      "allowed_files": [
-        "plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md"
-      ],
-      "forbidden_files": [
-        "src/**/*"
-      ],
-      "outputs": [
-        "plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md"
-      ],
+      "allowed_files": ["plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md"],
+      "forbidden_files": ["src/**/*"],
+      "outputs": ["plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md"],
       "validation": {
         "type": "documentation_only",
         "required_checks": []
@@ -416,9 +391,7 @@
         ".agent/adapters/**/*",
         ".agent/prompts/**/*"
       ],
-      "outputs": [
-        "scripts/agent/generate-morning-review.mjs"
-      ],
+      "outputs": ["scripts/agent/generate-morning-review.mjs"],
       "validation": {
         "type": "morning_review_generator",
         "required_checks": [
@@ -545,11 +518,7 @@
       "outputs": [],
       "validation": {
         "type": "full_loop_test",
-        "required_checks": [
-          "npm_run_verify",
-          "single_task_only",
-          "human_review_gate"
-        ]
+        "required_checks": ["npm_run_verify", "single_task_only", "human_review_gate"]
       },
       "acceptance_criteria": [
         "Single task executed successfully",
@@ -576,9 +545,7 @@
           "scripts/agent/lib/roadmap-parser.mjs",
           "scripts/agent/reconcile-roadmap-task-state.mjs"
         ],
-        "report_or_handoff_refs": [
-          "reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md"
-        ]
+        "report_or_handoff_refs": ["reports/RALPH-024_MINIMAL_RUNTIME_TASK_CREATION_PLAN.md"]
       },
       "created_at": "2026-05-31T13:50:00.000Z",
       "updated_at": "2026-05-31T13:50:00.000Z",
@@ -620,9 +587,7 @@
           "scripts/agent/__tests__/create-runtime-run.test.mjs",
           "scripts/agent/create-runtime-run.mjs"
         ],
-        "report_or_handoff_refs": [
-          "handoffs/latest-handoff.md"
-        ]
+        "report_or_handoff_refs": ["handoffs/latest-handoff.md"]
       },
       "created_at": "2026-05-31T13:50:00.000Z",
       "updated_at": "2026-05-31T13:50:00.000Z",

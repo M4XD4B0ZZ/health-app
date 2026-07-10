@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildWorkerEnvelopePlan, formatWorkerEnvelopePlanPretty } from './lib/overnight-worker-envelope-planner.mjs';
+import {
+  buildWorkerEnvelopePlan,
+  formatWorkerEnvelopePlanPretty,
+} from './lib/overnight-worker-envelope-planner.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,7 +27,7 @@ const REJECTED_FLAGS = new Set([
   '--write-report',
   '--write-run-log',
   '--report-dir',
-  '--run-log-path'
+  '--run-log-path',
 ]);
 
 function usage() {
@@ -50,7 +53,10 @@ function parseArgs(argv) {
   for (const arg of args) {
     if (arg === '--pretty') options.pretty = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
-    else if (REJECTED_FLAGS.has(arg)) throw new Error(`Execution-like or write-like flag is forbidden for envelope planner: ${arg}`);
+    else if (REJECTED_FLAGS.has(arg))
+      throw new Error(
+        `Execution-like or write-like flag is forbidden for envelope planner: ${arg}`,
+      );
     else if (arg.startsWith('--')) throw new Error(`Unknown argument: ${arg}`);
     else if (!options.queuePath) options.queuePath = arg;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -95,7 +101,11 @@ async function main() {
       phase: 'RALPH-034I',
       mode: 'worker_envelope_planning_only',
       valid: false,
-      error: { code: 'queue_read_or_parse_failed', message: error.message, queue_path: options.queuePath },
+      error: {
+        code: 'queue_read_or_parse_failed',
+        message: error.message,
+        queue_path: options.queuePath,
+      },
       execution_plan: {
         queued_tasks_executed: 0,
         worker_invocations: 0,
@@ -104,8 +114,8 @@ async function main() {
         task_commands_executed: 0,
         product_work: 0,
         commits: false,
-        push: false
-      }
+        push: false,
+      },
     };
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);

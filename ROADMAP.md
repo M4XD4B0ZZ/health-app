@@ -2,6 +2,12 @@
 
 # Phase C: OpenCode CLI Worker Integration
 
+> **Einordnung (Housekeeping-Notiz):** Dies ist standing Agent-Tooling-Infrastruktur
+> (`scripts/agent/run-opencode-worker.mjs`, weiterhin aktiv über `npm run agent:worker` etc.),
+> **nicht** Teil der Produkt-Roadmap (DACH-Strategie / Tier 1–5) weiter unten. Bleibt hier stehen,
+> weil sie unabhängig vom Tier-System aktiv genutzt wird — nicht mit dem aktuellen Task-Status
+> verwechseln.
+
 # Ziel
 
 - OpenCode als optionaler CLI-Worker, ohne VS Code + Roo zu ersetzen

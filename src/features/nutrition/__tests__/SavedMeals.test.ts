@@ -173,6 +173,62 @@ describe('Saved Meals System', () => {
       expect(template.items[0].parsedName).toBe('chicken');
     });
 
+    it('should copy foodCatalogRef from source entries that have one (SM-001)', async () => {
+      // Arrange: one entry with a foodCatalogRef, one without
+      const dateISO = '2024-01-15';
+      const entries: FoodEntry[] = [
+        {
+          id: 'e1',
+          rawInput: '200g chicken',
+          parsedName: 'chicken',
+          quantityGrams: 200,
+          calories: 330,
+          protein: 62,
+          carbs: 0,
+          fat: 7,
+          confidenceScore: 0.9,
+          sourceType: 'branded',
+          createdAt: new Date(dateISO + 'T08:00:00Z'),
+          foodCatalogRef: {
+            source: 'off',
+            sourceId: 'off-123',
+            displayName: 'Chicken Breast',
+            confidence: 0.9,
+          },
+        },
+        {
+          id: 'e2',
+          rawInput: '150g rice',
+          parsedName: 'rice',
+          quantityGrams: 150,
+          calories: 195,
+          protein: 4.2,
+          carbs: 42,
+          fat: 0.45,
+          confidenceScore: 0.6,
+          sourceType: 'generic',
+          createdAt: new Date(dateISO + 'T08:00:00Z'),
+          // no foodCatalogRef
+        },
+      ];
+
+      for (const entry of entries) {
+        await foodEntryRepo.addEntry(entry);
+      }
+
+      // Act
+      const template = await createUseCase.execute(dateISO, 'My Lunch');
+
+      // Assert
+      expect(template.items[0].foodCatalogRef).toEqual({
+        source: 'off',
+        sourceId: 'off-123',
+        displayName: 'Chicken Breast',
+        confidence: 0.9,
+      });
+      expect(template.items[1].foodCatalogRef).toBeUndefined();
+    });
+
     it('should persist template to repository', async () => {
       // Arrange
       const dateISO = '2024-01-15';

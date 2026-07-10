@@ -3160,8 +3160,15 @@ existing in-memory templates (there is no persisted store yet to migrate) remain
 
 #### SM-001: Food Catalog Reference on Saved Meal Items
 
-Status: `todo`
+Status: `done`
 Depends on: none
+
+**Implementation notes:** `SavedMealItem.foodCatalogRef` added as an additive optional
+field (identical shape to `FoodEntry.foodCatalogRef`). `CreateSavedMealFromDateUseCase`
+spreads it in conditionally so items without one keep the field absent (not `undefined`-
+valued) rather than present-but-undefined. New test in `SavedMeals.test.ts` covers both the
+copy and the absence case. Full suite (92 suites / 745 tests, +1), `tsc --noEmit`, and
+`eslint` pass clean.
 
 **Ziel:** `SavedMealItem` captures the `foodCatalogRef` of the source `FoodEntry` (if any)
 at template-creation time, so a later log-back can reuse the exact same Food Catalog

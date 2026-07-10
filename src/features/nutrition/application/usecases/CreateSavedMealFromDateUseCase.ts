@@ -28,6 +28,9 @@ export class CreateSavedMealFromDateUseCase {
       .map((entry) => ({
         parsedName: entry.parsedName,
         quantityGrams: entry.quantityGrams,
+        // SM-001: preserve the source entry's Food Catalog identity, if any, so log-back
+        // (SM-002) can reuse it deterministically instead of re-resolving by name.
+        ...(entry.foodCatalogRef ? { foodCatalogRef: entry.foodCatalogRef } : {}),
       }));
 
     // Generate new template

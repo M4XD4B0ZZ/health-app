@@ -546,6 +546,51 @@ describe('SequentialFoodCatalogResolver', () => {
     expect(result.best?.food.source).toBe('usda');
   });
 
+  describe('Source-Native Query Adaptation (RESOLVER-V2-001 / RESOLVER-V2-002)', () => {
+    it('sends the same DE-native normalized input to BLS/OFF and only source-adapts USDA', async () => {
+      const blsSource: FoodCatalogSource = { type: 'bls', search: jest.fn().mockResolvedValue([]) };
+      const offSource: FoodCatalogSource = { type: 'off', search: jest.fn().mockResolvedValue([]) };
+      const usdaSource: FoodCatalogSource = {
+        type: 'usda',
+        search: jest.fn().mockResolvedValue([]),
+      };
+
+      const resolver = new SequentialFoodCatalogResolver(
+        [blsSource, offSource, usdaSource],
+        confidenceEngine,
+      );
+
+      // "ei" is a known DE alias for the "egg" canonical entity: no global/early translation
+      // happens before dispatch, but the USDA source-native adapter still maps it to "egg".
+      await resolver.resolve({ raw: 'Ei', normalized: 'ei', locale: 'de', inputType: 'generic' });
+
+      expect(blsSource.search).toHaveBeenCalledWith(expect.objectContaining({ normalized: 'ei' }));
+      expect(offSource.search).toHaveBeenCalledWith(expect.objectContaining({ normalized: 'ei' }));
+      expect(usdaSource.search).toHaveBeenCalledWith(
+        expect.objectContaining({ normalized: 'egg' }),
+      );
+    });
+
+    it('reaches all sources unchanged (no translation) when no canonical entity is known', async () => {
+      const offSource: FoodCatalogSource = { type: 'off', search: jest.fn().mockResolvedValue([]) };
+      const usdaSource: FoodCatalogSource = {
+        type: 'usda',
+        search: jest.fn().mockResolvedValue([]),
+      };
+
+      const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
+
+      await resolver.resolve({ raw: 'Hackbraten', normalized: 'hackbraten', locale: 'de' });
+
+      expect(offSource.search).toHaveBeenCalledWith(
+        expect.objectContaining({ normalized: 'hackbraten' }),
+      );
+      expect(usdaSource.search).toHaveBeenCalledWith(
+        expect.objectContaining({ normalized: 'hackbraten' }),
+      );
+    });
+  });
+
   describe('Circuit Breaker', () => {
     it('opens circuit after N failures and skips source', async () => {
       const config: FoodCatalogConfig = {

@@ -4402,7 +4402,7 @@ expected two lint errors). Full suite (108 suites / 819 tests), `tsc --noEmit`, 
 
 #### RESOLVER-V2-001: Remove Early Translation Layer
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Remove global translation before source querying. Keep normalization only (case, umlauts, punctuation). Input must reach multiple sources unchanged.
@@ -4414,6 +4414,29 @@ Remove global translation before source querying. Keep normalization only (case,
 - [`getSourceQuery()`](src/features/nutrition/domain/catalog/CanonicalFood.ts:199) only adapts per source, not globally
 
 **Verify:** Unit tests show "ei" sent to BLS, "egg" sent to USDA, "ei" sent to OFF
+
+**Implementation notes:** Audited the current resolver pipeline end-to-end
+([`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:79))
+and confirmed no global/early translation layer exists: the only pre-dispatch step is
+[`normalizeText()`](src/features/nutrition/application/utils/normalizeText.ts), which does
+lowercase/trim/umlaut-replacement/punctuation-stripping only — no language translation. Per-
+source query adaptation happens inside the source loop, once per source, via
+[`getSourceQuery()`](src/features/nutrition/domain/catalog/FoodAliasDictionary.ts:204) (note:
+this now lives in `FoodAliasDictionary.ts`, not `CanonicalFood.ts` — that file no longer exists;
+the DoD link above is stale from when this task was written). `getSourceQuery()` only special-
+cases `sourceName === 'usda'` with a known DE canonical match; every other source (`off`, `bls`,
+`user`) falls through to the shared `normalizedQuery` untouched. Unit coverage already existed
+for `getSourceQuery()` in isolation
+([`deEnAliases.test.ts`](src/features/nutrition/__tests__/deEnAliases.test.ts)), but nothing
+exercised the resolver's actual per-source dispatch end-to-end. Added two integration-level
+tests to
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts)
+(new `describe('Source-Native Query Adaptation (RESOLVER-V2-001 / RESOLVER-V2-002)')` block):
+one asserting `"ei"` reaches both a mocked BLS and OFF source unchanged while the mocked USDA
+source receives the mapped `"egg"` for the same resolve() call, and one asserting an unknown
+term reaches OFF/USDA unchanged when no canonical entity matches. Full suite (108 suites / 821
+tests, +2 new), `tsc --noEmit`, `eslint`, and `npx prettier -c .` (238-file pre-existing
+baseline, unchanged) all pass clean.
 
 ---
 

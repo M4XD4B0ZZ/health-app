@@ -216,12 +216,12 @@ describe('LogFoodFromRawInputUseCase', () => {
       );
     }
 
-    it('updates a recent same-food default portion when explicit grams are logged', async () => {
+    it('updates a recent same-food default portion when explicit grams are logged within the 2-minute window', async () => {
       const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
       useCase = createToastUseCase(mutableClock);
 
       const defaultEntry = await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
-      mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
+      mutableClock.setNow(new Date('2026-02-15T12:01:30Z'));
       const correctedEntry = await useCase.execute({
         rawText: '300g toast',
         rawInput: '300g toast',
@@ -233,13 +233,41 @@ describe('LogFoodFromRawInputUseCase', () => {
       expect(correctedEntry.id).toBe(defaultEntry.id);
       expect(entries[0].id).toBe(defaultEntry.id);
       expect(entries[0].createdAt).toEqual(defaultEntry.createdAt);
-      expect(entries[0].lastModifiedAt).toEqual(new Date('2026-02-15T12:10:00Z'));
+      expect(entries[0].lastModifiedAt).toEqual(new Date('2026-02-15T12:01:30Z'));
       expect(entries[0].rawInput).toBe('300g toast');
       expect(entries[0].parsedName).toBe('toast');
       expect(entries[0].quantityGrams).toBe(300);
       expect(entries[0].grams).toBe(300);
       expect(entries[0].calcBreakdown?.gramsUsed).toBe(300);
       expect(entries[0].calories).toBeCloseTo(795, 1);
+
+      // J-005: the merge is visible (returned metadata) and undoable, logged as system-triggered.
+      expect(correctedEntry.autoMergeInfo).toBeDefined();
+      expect(correctedEntry.autoMergeInfo?.previousValues).toEqual(defaultEntry);
+      expect(correctedEntry.autoMergeInfo?.correctionLogTimestamp).toEqual(
+        new Date('2026-02-15T12:01:30Z'),
+      );
+
+      const log = await repository.getCorrectionLog(defaultEntry.id);
+      expect(log).toHaveLength(1);
+      expect(log[0].triggeredBy).toBe('system');
+      expect(log[0].previousValues).toEqual(defaultEntry);
+    });
+
+    it('appends (does not merge) when the same food is logged just outside the 2-minute window', async () => {
+      const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
+      useCase = createToastUseCase(mutableClock);
+
+      const defaultEntry = await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
+      mutableClock.setNow(new Date('2026-02-15T12:02:01Z'));
+      const secondEntry = await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
+
+      const entries = await repository.listEntriesForDate('2026-02-15');
+
+      expect(entries).toHaveLength(2);
+      expect(secondEntry.id).not.toBe(defaultEntry.id);
+      expect(secondEntry.autoMergeInfo).toBeUndefined();
+      expect(await repository.getCorrectionLog(defaultEntry.id)).toEqual([]);
     });
 
     it('appends when both same-food entries have explicit grams', async () => {
@@ -247,7 +275,7 @@ describe('LogFoodFromRawInputUseCase', () => {
       useCase = createToastUseCase(mutableClock);
 
       await useCase.execute({ rawText: '100g toast', rawInput: '100g toast' });
-      mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
+      mutableClock.setNow(new Date('2026-02-15T12:01:00Z'));
       await useCase.execute({ rawText: '300g toast', rawInput: '300g toast' });
 
       const entries = await repository.listEntriesForDate('2026-02-15');
@@ -256,7 +284,7 @@ describe('LogFoodFromRawInputUseCase', () => {
       expect(entries.map((entry) => entry.rawInput)).toEqual(['100g toast', '300g toast']);
     });
 
-    it('appends when the same food is logged outside the correction window', async () => {
+    it('appends when the same food is logged outside the correction window (formerly 30min, now 2min)', async () => {
       const mutableClock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
       useCase = createToastUseCase(mutableClock);
 
@@ -275,7 +303,7 @@ describe('LogFoodFromRawInputUseCase', () => {
       useCase = createToastUseCase(mutableClock);
 
       await useCase.execute({ rawText: 'toast', rawInput: 'toast' });
-      mutableClock.setNow(new Date('2026-02-15T12:10:00Z'));
+      mutableClock.setNow(new Date('2026-02-15T12:01:00Z'));
       await useCase.execute({ rawText: '300g quark', rawInput: '300g quark' });
 
       const entries = await repository.listEntriesForDate('2026-02-15');

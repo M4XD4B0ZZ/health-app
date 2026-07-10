@@ -1,4 +1,4 @@
-import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { FoodEntry, AutoMergeInfo } from '../../domain/models/NutritionTypes';
 import { detectCanonicalEntity } from '../../domain/detectCanonicalEntity';
 import { resolvePortionGrams } from '../../domain/portion/resolvePortionGrams';
 import { PortionNeedsEditItem } from '../../domain/portion/PortionNeedsEdit';
@@ -22,6 +22,40 @@ import { buildLogDecisionMeta } from '../services/explainability/buildLogDecisio
 import { summarizeResolverDecision } from '../services/explainability/summarizeResolverDecision';
 import { AssumptionTag } from '../../domain/models/AssumptionTag';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
+import { CanonicalFood } from '../../domain/catalog/FoodCatalogSource';
+
+/**
+ * J-004: transforms a resolved CanonicalFood into the local per100g shape used by
+ * computeTotals, plus a foodCatalogRef pointing at the stable catalog identity that
+ * actually produced it (per Journal Decision Record 1 Entscheidung 3).
+ */
+function toResolvedCanonicalFood(
+  food: CanonicalFood,
+  confidence: number,
+): {
+  per100g: { calories: number; protein: number; carbs: number; fat: number };
+  foodCatalogRef: {
+    source: CanonicalFood['source'];
+    sourceId: string;
+    displayName: string;
+    confidence: number;
+  };
+} {
+  return {
+    per100g: {
+      calories: food.macrosPer100g.kcal,
+      protein: food.macrosPer100g.protein,
+      carbs: food.macrosPer100g.carbs,
+      fat: food.macrosPer100g.fat,
+    },
+    foodCatalogRef: {
+      source: food.source,
+      sourceId: food.sourceId ?? food.id,
+      displayName: food.name,
+      confidence,
+    },
+  };
+}
 
 /**
  * Use-Case: Log Food Entry from Raw Input
@@ -42,7 +76,8 @@ import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv'
 export class LogFoodFromRawInputUseCase {
   private readonly engine: NutritionEngine;
   private readonly portionParser: PortionParser;
-  private static readonly CORRECTION_WINDOW_MS = 30 * 60 * 1000;
+  /** J-005: narrowed from 30 minutes per Journal Decision Record 1 Entscheidung 2. */
+  private static readonly CORRECTION_WINDOW_MS = 2 * 60 * 1000;
   static readonly LOCAL_PORTION_HINT_USER_ID = 'local-user';
 
   constructor(
@@ -65,7 +100,7 @@ export class LogFoodFromRawInputUseCase {
   async execute(
     input: { rawText: string; rawInput: string; groupId?: string; groupLabel?: string },
     dateISO?: string,
-  ): Promise<FoodEntry> {
+  ): Promise<FoodEntry & { autoMergeInfo?: AutoMergeInfo }> {
     const { rawText, rawInput, groupId, groupLabel } = input;
     const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log(`[${traceId}] PROOF_USECASE_ENTERED rawText="${rawText}" rawInput="${rawInput}"`);
@@ -261,6 +296,7 @@ export class LogFoodFromRawInputUseCase {
               gramsUsed: computed.gramsUsed,
               multiplier: computed.multiplier,
             },
+            foodCatalogRef: result.canonicalFood.foodCatalogRef,
           };
 
           console.log(
@@ -383,9 +419,17 @@ export class LogFoodFromRawInputUseCase {
           lastModifiedAt: entryDate,
         };
 
+        // J-005: visible, undoable, system-triggered — not a silent merge.
+        const correctionLogTimestamp = this.clock.now();
+        await this.repository.appendCorrectionLogEntry(updatedEntry.id, {
+          timestamp: correctionLogTimestamp,
+          previousValues: correctionCandidate,
+          triggeredBy: 'system',
+        });
         await this.repository.updateEntryById(updatedEntry);
 
         console.log(`[${traceId}] PROOF_PERSIST_SUCCESS entryId="${updatedEntry.id}"`);
+        console.log(`[${traceId}] PROOF_AUTO_MERGE_LOGGED entryId="${updatedEntry.id}"`);
 
         if (isDebugLoggingEnabled()) {
           const durationMs = Date.now() - startTimeMs;
@@ -394,7 +438,13 @@ export class LogFoodFromRawInputUseCase {
           );
         }
 
-        return updatedEntry;
+        return {
+          ...updatedEntry,
+          autoMergeInfo: {
+            previousValues: correctionCandidate,
+            correctionLogTimestamp,
+          },
+        };
       }
 
       await this.repository.addEntry(entry);
@@ -435,6 +485,12 @@ export class LogFoodFromRawInputUseCase {
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
+      foodCatalogRef?: {
+        source: CanonicalFood['source'];
+        sourceId: string;
+        displayName: string;
+        confidence: number;
+      };
     } | null;
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
@@ -466,7 +522,7 @@ export class LogFoodFromRawInputUseCase {
         const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
         if (canonicalFood) {
           return {
-            canonicalFood,
+            canonicalFood: toResolvedCanonicalFood(canonicalFood, 0.8),
             sourceType: 'cache',
             confidence: 0.8,
             explanation: 'Cached alias mapping',
@@ -493,16 +549,7 @@ export class LogFoodFromRawInputUseCase {
 
       if (resolved && resolved.score >= 0.7) {
         // Transform CanonicalFood from resolver to expected format
-        const canonicalFood = {
-          id: resolved.food.id,
-          name: resolved.food.name,
-          per100g: {
-            calories: resolved.food.macrosPer100g.kcal,
-            protein: resolved.food.macrosPer100g.protein,
-            carbs: resolved.food.macrosPer100g.carbs,
-            fat: resolved.food.macrosPer100g.fat,
-          },
-        };
+        const canonicalFood = toResolvedCanonicalFood(resolved.food, resolved.score);
 
         // Save alias for future lookups (same as deterministic catalog match)
         if (this.aliasRepository) {
@@ -538,7 +585,7 @@ export class LogFoodFromRawInputUseCase {
       }
 
       return {
-        canonicalFood: searchResult.food,
+        canonicalFood: toResolvedCanonicalFood(searchResult.food, searchResult.confidence),
         sourceType: 'generic',
         confidence: searchResult.confidence,
         explanation: 'Deterministic catalog match',
@@ -558,7 +605,9 @@ export class LogFoodFromRawInputUseCase {
       const canonicalFood = await this.foodCatalog.getById(aiResult.canonicalId);
 
       return {
-        canonicalFood,
+        canonicalFood: canonicalFood
+          ? toResolvedCanonicalFood(canonicalFood, aiResult.confidence)
+          : null,
         sourceType: 'ai',
         confidence: aiResult.confidence,
         explanation: aiResult.explanation,

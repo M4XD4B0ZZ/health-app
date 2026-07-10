@@ -69,4 +69,25 @@ describe('GetCalendarMonthSummaryUseCase', () => {
     expect(summary.days[27].hasEntries).toBe(true);
     expect(summary.days.some((day) => day.totalCaloriesKcal === 999)).toBe(false);
   });
+
+  it('excludes soft-deleted (tombstoned) entries from day totals (J-003)', async () => {
+    const entriesRepo = new InMemoryFoodEntryRepository();
+    await entriesRepo.addEntry(
+      createEntry({ id: 'kept', createdAt: '2026-02-10T10:00:00.000Z', calories: 300 }),
+    );
+    await entriesRepo.addEntry(
+      createEntry({ id: 'deleted', createdAt: '2026-02-10T11:00:00.000Z', calories: 900 }),
+    );
+    await entriesRepo.deleteEntry('deleted', new Date('2026-02-10T12:00:00.000Z'));
+
+    const useCase = new GetCalendarMonthSummaryUseCase(
+      entriesRepo,
+      new InMemoryGoalsRepository(),
+      'Europe/Berlin',
+    );
+    const summary = await useCase.execute('2026-02');
+
+    const day10 = summary.days.find((day) => day.dateISO === '2026-02-10');
+    expect(day10?.totalCaloriesKcal).toBe(300);
+  });
 });

@@ -75,7 +75,12 @@ export class ApplyNaturalLanguageEditUseCase {
     updatedEntry.confidenceScore = confidenceMetadata.score;
     updatedEntry.confidenceReason = confidenceMetadata.reason;
 
-    // 6. Persist update
+    // 6. Append correction log entry, then persist update
+    await this.repository.appendCorrectionLogEntry(entry.id, {
+      timestamp: updatedEntry.lastModifiedAt ?? this.clock.now(),
+      previousValues: entry,
+      triggeredBy: 'user',
+    });
     await this.repository.updateEntry(dateISO, updatedEntry);
 
     return updatedEntry;

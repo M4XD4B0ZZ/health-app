@@ -14,3 +14,4 @@ export { GetReminderSettingsUseCase } from './GetReminderSettingsUseCase';
 export { SetReminderSettingsUseCase } from './SetReminderSettingsUseCase';
 export { GetReminderDecisionUseCase } from './GetReminderDecisionUseCase';
 export { GetCalendarMonthSummaryUseCase } from './GetCalendarMonthSummaryUseCase';
+export { UndoAutoMergeUseCase } from './UndoAutoMergeUseCase';

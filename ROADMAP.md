@@ -2684,10 +2684,13 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `todo`
+Status: `done`
 
-Foundational question answered and decisions accepted — ready for concrete `ROADMAP.md`
-task decomposition (not yet decomposed). See
+All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
+Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
+cleanup, the `nutritionSnapshot`/`foodCatalogRef` model, correction log + soft delete,
+Food Catalog reference population, and the narrowed/visible/undoable auto-merge — plus
+cross-cutting regression coverage (J-006) proving they hold together. See
 [`docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md`](docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md)
 ("What is a journal entry in Zera?", `accepted`) and
 [`docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md`](docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md)
@@ -2719,7 +2722,7 @@ transformation — directly required by the Future Compatibility Principle
 
 #### J-001: CanonicalFood Identity Cleanup
 
-Status: `todo`
+Status: `done`
 
 **Ziel:** Consolidate the fragmented Food Catalog identity concepts into one stable type,
 per Decision Record 1 Entscheidung 4 — narrow, mechanical scope only, no new Food Catalog
@@ -2760,11 +2763,38 @@ must stay green.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
 
+**Implementation notes:** `FoodCatalogTypes.CanonicalFood` now re-exports the real,
+macro-bearing `CanonicalFood` from `FoodCatalogSource.ts` instead of defining its own
+`{id, displayName, per100g}` shape; `InMemoryFoodCatalog.ts` (legacy deterministic
+`FoodCatalog.searchByName` path) was adapted to construct/consume the modern shape
+(`name`/`normalizedName`/`macrosPer100g`/`source: 'user'`) rather than merging two
+incompatible shapes. `LogFoodFromRawInputUseCase.ts` and `LogMealFromRawInputUseCase.ts`
+each already transformed the modern `CanonicalFood` into a local
+`{per100g: {calories,...}}` shape at their resolver call site (feeding `computeTotals`);
+this is now done via one small `toLegacyPer100g()` helper per use case, applied
+consistently at all three `FoodCatalog`-consuming branches (cache-hit, deterministic
+search, AI-mapper fallback) instead of only the resolver branch — no change to the
+widely-used `NutritionPer100g`/`per100g` convention used throughout the rest of the
+codebase. `domain/catalog/CanonicalFood.ts` (the DE/EN alias dictionary, despite its old
+name) was renamed to `FoodAliasDictionary.ts`; its two importers
+(`SequentialFoodCatalogResolver.ts`, `deEnAliases.test.ts`) updated accordingly.
+Deliberately out of scope (per DoD "no new Food Catalog functionality"): the unrelated
+`domain/canonicalFoods.ts` + `domain/detectCanonicalEntity.ts` pair (a fourth, separate
+portion-hint/alias dictionary actively used by both use cases) was left untouched — it
+does not import from any of the renamed/merged files, so consolidating it would be scope
+creep beyond this task's narrow, mechanical rename/merge.
+Full suite (89 suites / 718 tests), `tsc --noEmit`, and `eslint` pass clean.
+**Known pre-existing gap (not introduced by this task, confirmed via `git stash` against
+the branch tip before this change):** `npm run format:check` (part of `npm run verify`)
+fails repo-wide on 238 files unrelated to this task (governance docs, `scripts/agent/**`,
+`reports/**`, etc.), predating this change. All files touched by J-001 are confirmed
+individually Prettier-clean.
+
 ---
 
 #### J-002: Journal Model — `nutritionSnapshot` + `foodCatalogRef`
 
-Status: `todo`
+Status: `done`
 Depends on: none (can proceed in parallel with J-001; J-004 depends on both)
 
 **Ziel:** Apply the accepted `FoodEntry` shape changes from Decision Record 1 Entscheidung 3
@@ -2798,11 +2828,33 @@ to avoid two sources of truth for the same numbers within this task.
 
 **Verify:** `npm run typecheck`, `npm run test` (incl. new serialization round-trip tests).
 
+**Implementation notes — "which stays source of truth" decision (per Risiken above):** both
+new fields are **optional** on `FoodEntry`, and the existing top-level
+`calories/protein/carbs/fat` fields remain the sole source of truth for this task — no read
+site is migrated, and no write site is required to populate either field yet. This was the
+only option consistent with the task's own narrow 2-file scope and "Risiken: Low — purely
+additive": ~12 files across the codebase construct `FoodEntry` object literals (5 use cases,
+1 repository, 6 test files); making `nutritionSnapshot` non-optional would have forced edits
+to all of them, well beyond this task's stated scope and risk level. Populating
+`nutritionSnapshot`/`foodCatalogRef` at actual write time is deferred to J-004 (Food
+References) / J-005 (Logging), matching Decision Record 1's own implementation order and its
+explicit note that wiring `LogFoodFromRawInputUseCase.resolveCanonicalFood()` to stop
+discarding `id`/`source`/`sourceId` is a later, separate step. Since neither field is ever
+independently set by this task, there is no risk of divergence between them and the
+top-level macro fields — this task adds pure plumbing (type + serialize/deserialize),
+verified by two new round-trip tests: one persisting an entry with both fields populated and
+reloading it via a fresh repository instance, one deserializing a hand-written pre-J-002
+serialized entry (no `nutritionSnapshot`/`foodCatalogRef` keys at all) and confirming it
+loads without error with both fields `undefined`.
+Full suite (89 suites / 720 tests, +2 new), `tsc --noEmit`, `eslint`, and `prettier -c` on
+touched files pass clean. (Same pre-existing, unrelated repo-wide `format:check` gap noted
+in J-001 still applies to `npm run verify` as an aggregate command.)
+
 ---
 
 #### J-003: Correction Log + Soft Delete
 
-Status: `todo`
+Status: `done`
 Depends on: J-002 (extends the same `FoodEntry`/repository surface)
 
 **Ziel:** Implement Decision Record 1 Entscheidung 1 — append-only correction log on every
@@ -2836,11 +2888,40 @@ exclude tombstoned entries.
 
 **Verify:** `npm run typecheck`, `npm run test`.
 
+**Implementation notes:** `FoodEntry` gained `deletedAt?: Date` (tombstone) and a new
+`CorrectionLogEntry { timestamp, previousValues, triggeredBy: 'user' | 'system' }` type
+(`NutritionTypes.ts`). Read-path filtering happens once, at the repository boundary:
+`listEntriesForDate`/`listByDateRange`/`getEntryById` on both `PersistedFoodEntryRepository`
+and `InMemoryFoodEntryRepository` now exclude tombstoned rows — so `GetDailySummaryUseCase`,
+`GetCalendarMonthSummaryUseCase`, journal display, and `findCorrectionCandidate`'s auto-merge
+search all inherit the exclusion for free, with zero changes needed to those files (verified
+with new regression tests on the daily and calendar-month summary use cases). The
+`FoodEntryRepository` port gained `appendCorrectionLogEntry`/`getCorrectionLog` and
+`deleteEntry`'s signature grew a `deletedAt: Date` parameter (sourced from each use case's
+existing `Clock`, keeping the codebase's no-direct-`new Date()`-in-infra convention) — this
+propagated mechanically to all three port implementers (`PersistedFoodEntryRepository`,
+`InMemoryFoodEntryRepository`, and the private `StagedFoodEntryRepository` inside
+`LogMealFromRawInputUseCase.ts`), none of which were in the task's literal 4-file scope list
+but were structurally required by the interface change — same "many files, mechanical"
+pattern as J-001. `DeleteFoodEntryUseCase` gained a `Clock` constructor dependency (wired in
+`container.ts`); it now loads the entry first, logs the correction entry, then soft-deletes —
+an already-tombstoned or nonexistent id is a silent no-op (matches prior hard-delete
+behavior for missing ids). `EditFoodEntryFromNaturalLanguageUseCase`/
+`ApplyNaturalLanguageEditUseCase` log immediately before their existing persist call, using
+the untouched pre-edit entry object as `previousValues`; `ApplyNaturalLanguageEditUseCase`'s
+existing early-return-on-no-change path correctly appends no log entry. Correction log is
+persisted under its own storage key (`nutrition:correctionLog`), separate from
+`nutrition:entries`, and is only reachable via `getCorrectionLog()` — no UI-facing read path
+exists yet, satisfying the "internal only" DoD constraint.
+Full suite (89 suites / 732 tests, +12 new), `tsc --noEmit`, `eslint`, and `prettier -c` on
+touched files pass clean. (Same pre-existing, unrelated repo-wide `format:check` gap noted in
+J-001 still applies to `npm run verify` as an aggregate command.)
+
 ---
 
 #### J-004: Food Catalog Reference Population
 
-Status: `todo`
+Status: `done`
 Depends on: J-001 (stable identity to reference), J-002 (`foodCatalogRef` field must exist)
 
 **Ziel:** Implement Decision Record 1 Entscheidung 3 — stop discarding the resolver's
@@ -2874,11 +2955,41 @@ byte-identical to pre-change behavior.
 
 **Verify:** `npm run typecheck`, `npm run test`.
 
+**Implementation notes:** Both use cases' `toLegacyPer100g()` helper became
+`toResolvedCanonicalFood(food, confidence)`, now returning `{ per100g, foodCatalogRef }`
+together instead of just `per100g` — `foodCatalogRef.sourceId` falls back to `food.id` when
+the source `CanonicalFood.sourceId` is absent (e.g. the static `InMemoryFoodCatalog`), since
+the canonical `id` is itself a stable identity per Decision Record 1. All four
+`resolveCanonicalFood()` branches that return a real `CanonicalFood` (cache-hit, resolver,
+deterministic search, AI-mapper-then-catalog-lookup) now populate `foodCatalogRef` with that
+branch's own confidence value; the two `canonicalFood: null` branches (no match at all)
+naturally leave it unset by never reaching the helper.
+On investigating the "AI-fallback/manual-entry with no catalog match leaves it unset" test
+scenario: in this codebase's current architecture that scenario can't produce a *persisted*
+entry to assert an unset field on. `LogFoodFromRawInputUseCase`'s resolver dependency is
+mandatory (constructor throws without one), so a `canonicalFood: null` result always means
+zero macros, which the pre-existing P0-004 Zero-Macro Blocker rejects before save. The
+`LogMealFromRawInputUseCase`-internal NutritionLookup fallback (gated on `!this.foodCatalog`)
+is reachable only from its own AI-structured-multi-item branch, but every "mit"/"und"/","-
+connector input is intercepted first by deterministic `splitMultiItemInput()`, which
+delegates each item to `LogFoodFromRawInputUseCase` — same mandatory-resolver constraint —
+and `container.ts` always wires a real `foodCatalog` in production regardless. So "leaves it
+unset" is verified as its logical consequence instead: a new test confirms a fully-rejected
+resolver blocks the save entirely (`RESOLVER_FAILED_OR_NO_MACROS`, zero entries persisted) —
+there is no code path that persists real macros without a `foodCatalogRef` alongside them.
+New dedicated test file `FoodCatalogRefPopulation.test.ts` (4 tests) covers: resolver-match
+population with exact source/sourceId/displayName/confidence assertions (both use cases),
+cache-hit population at confidence 0.8, and the no-match-blocks-save proof. `nutritionSnapshot`
+is untouched by this task (still unpopulated by any write path, as decided in J-002).
+Full suite (90 suites / 736 tests, +4 new), `tsc --noEmit`, `eslint`, and `prettier -c` on
+touched files pass clean. (Same pre-existing, unrelated repo-wide `format:check` gap noted in
+J-001 still applies to `npm run verify` as an aggregate command.)
+
 ---
 
 #### J-005: Auto-Merge Narrowing + Visible/Undoable Correction
 
-Status: `todo`
+Status: `done`
 Depends on: J-003 (correction log must exist to record system-triggered merges)
 
 **Ziel:** Implement Decision Record 1 Entscheidung 2 — narrow the auto-merge heuristic to a
@@ -2915,11 +3026,41 @@ logged as system-triggered.
 **Verify:** `npm run typecheck`, `npm run test`, manual app verification of the undo
 notification per the `/verify` skill.
 
+**Implementation notes:** `CORRECTION_WINDOW_MS` narrowed to 2 minutes. The merge branch now
+writes a correction-log entry (`triggeredBy: 'system'`, `previousValues` = the pre-merge
+entry) before persisting, and `execute()`'s return type became
+`Promise<FoodEntry & { autoMergeInfo?: AutoMergeInfo }>` (new type in `NutritionTypes.ts`,
+`autoMergeInfo` never persisted — repositories only serialize fields they explicitly know
+about) — a superset of `FoodEntry`, so every existing typed consumer (`Awaited<ReturnType<...>>`
+usage in `resolvePreparedNutritionInputs.ts`/`logResolvedNutritionInput.ts`) picked up the new
+optional field automatically with zero call-site changes. New `UndoAutoMergeUseCase`
+(DI-wired in `container.ts`) restores an entry to `previousValues` and logs the undo itself
+as a `triggeredBy: 'user'` correction, so the log accurately reflects both events in order.
+Presentation-layer hook, kept minimal per the Risiken note: `JournalScreen.tsx` shows a small
+dismissible banner ("Mit vorherigem Eintrag zusammengeführt" + "Rückgängig", reusing the
+existing `PrimaryButton`/`AppText` primitives — no new UI components) when
+`logResolvedNutritionInput()`'s result contains a persisted entry with `autoMergeInfo`; only
+the first concurrent merge is surfaced (documented MVP limitation, not multi-item stacking).
+Full suite (91 suites / 740 tests, +4 new: narrowed-window merge assertions incl.
+`autoMergeInfo`/correction-log checks, a new just-outside-window boundary test, and 3
+`UndoAutoMergeUseCase` tests), `tsc --noEmit`, `eslint`, and `prettier -c` on touched files
+pass clean.
+**Manual app verification gap (per AGENTS.md's Manual UI Testing Gap Log binding rule):** the
+agent execution environment is headless — no Expo/simulator/device available — so the banner's
+actual on-screen appearance, layout, and touch behavior could not be visually verified. Logged
+as an open entry in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-10--j-005-auto-merge-undo-notification-in-journalscreen)
+per that binding rule; all application-layer logic (merge detection, undo restoration,
+correction-log bookkeeping) is fully unit-tested. This is the documented, sanctioned
+completion path for UI-relevant changes under this repo's governance — not a substitute for
+eventual real-device verification, which remains the human reviewer's follow-up per the gap
+log.
+
 ---
 
 #### J-006: Journal Domain Regression Coverage
 
-Status: `todo`
+Status: `done`
 Depends on: J-001–J-005
 
 **Ziel:** Consolidated regression pass across the full Journal Domain change set, ensuring
@@ -2941,6 +3082,34 @@ together, not just individually.
 existing P1-001–P1-005 resolver behavior, portion knowledge, or composite-dish grouping.
 
 **Verify:** `npm run verify`.
+
+**Implementation notes:** New `JournalDomainRegressionCoverage.test.ts` (3 tests) covers the
+two DoD-mandated scenarios directly: (1) a single `PersistedFoodEntryRepository` instance
+driven through log → auto-merge (within the J-005 2-minute window) → manual edit (J-003) →
+soft-delete (J-003), asserting the correction log holds exactly 3 entries in order with the
+correct `triggeredBy`/`previousValues`/`timestamp` at each step, and that the deleted entry
+is excluded from `listEntriesForDate` while still physically present with a `deletedAt`
+tombstone; (2) a hand-written pre-J-002 serialized entry (no `nutritionSnapshot`/
+`foodCatalogRef`/`deletedAt` keys at all) deserializes cleanly and is then driven through the
+daily summary use case, an edit, and a soft-delete without error — proving the Future
+Compatibility Principle holds across the full read/write surface, not just at
+deserialization. P1-001–P1-005/portion-knowledge/composite-dish regression coverage is not
+duplicated here — it already lives in `SequentialFoodCatalogResolver.test.ts`,
+`deEnAliases.test.ts`, `CompositeDishPatterns.test.ts`, `splitMultiItemInput.test.ts`,
+`PortionKnowledgeService.test.ts`, `resolvePortionGrams.test.ts`, etc., all of which ran green
+alongside every J-001–J-006 commit in this sequence (continuously verified after each task,
+not just at the end).
+Full suite (92 suites / 743 tests, +3 new), `tsc --noEmit`, and `eslint` pass clean.
+**`npm run verify` is not fully green** — the DoD's literal wording — because its
+`format:check` step still surfaces the same pre-existing, unrelated repo-wide Prettier debt
+(governance docs, `scripts/agent/**`, `reports/**`, etc.) first identified and confirmed
+pre-existing (via `git stash` against the branch tip) in J-001, and re-confirmed unchanged by
+every task in this sequence. `tsc --noEmit`, `eslint`, and `prettier -c` all pass clean on
+every file touched across J-001–J-006. Fixing that debt is a separate, out-of-scope repo-wide
+cleanup task (see J-001's implementation notes for the same finding) — a future task should
+either fix it or scope `format:check`/`npm run verify`'s policy in `VERIFY.md` to changed
+files only, since as currently defined no task can ever satisfy it without that unrelated
+mass-reformat.
 
 ### Saved Meals Domain
 

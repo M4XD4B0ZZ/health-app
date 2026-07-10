@@ -1,4 +1,4 @@
-import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { FoodEntry, CorrectionLogEntry } from '../../domain/models/NutritionTypes';
 import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 import { Clock } from '../ports/Clock';
 import { IdGenerator } from '../ports/IdGenerator';
@@ -16,6 +16,40 @@ import { PortionKnowledgeService } from '../../domain/portion/PortionKnowledgeSe
 import { normalizeText } from '../utils/normalizeText';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { splitMultiItemInput, buildGroupInfoByItemIndex } from '../utils/splitMultiItemInput';
+import { CanonicalFood } from '../../domain/catalog/FoodCatalogSource';
+
+/**
+ * J-004: transforms a resolved CanonicalFood into the local per100g shape used by
+ * computeTotals, plus a foodCatalogRef pointing at the stable catalog identity that
+ * actually produced it (per Journal Decision Record 1 Entscheidung 3).
+ */
+function toResolvedCanonicalFood(
+  food: CanonicalFood,
+  confidence: number,
+): {
+  per100g: { calories: number; protein: number; carbs: number; fat: number };
+  foodCatalogRef: {
+    source: CanonicalFood['source'];
+    sourceId: string;
+    displayName: string;
+    confidence: number;
+  };
+} {
+  return {
+    per100g: {
+      calories: food.macrosPer100g.kcal,
+      protein: food.macrosPer100g.protein,
+      carbs: food.macrosPer100g.carbs,
+      fat: food.macrosPer100g.fat,
+    },
+    foodCatalogRef: {
+      source: food.source,
+      sourceId: food.sourceId ?? food.id,
+      displayName: food.name,
+      confidence,
+    },
+  };
+}
 
 export interface MultiItemSplitFailureItem {
   rawText: string;
@@ -269,6 +303,7 @@ export class LogMealFromRawInputUseCase {
           sourceType: result.sourceType,
           confidenceScore: Math.min(result.confidence, confidenceScore + 0.25),
           explanation: `AI strukturierte Multi-Item-Mahlzeit. ${result.explanation || aiExplanation}`,
+          foodCatalogRef: result.canonicalFood.foodCatalogRef,
         };
       }
     }
@@ -332,6 +367,12 @@ export class LogMealFromRawInputUseCase {
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
+      foodCatalogRef?: {
+        source: CanonicalFood['source'];
+        sourceId: string;
+        displayName: string;
+        confidence: number;
+      };
     } | null;
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
@@ -355,7 +396,7 @@ export class LogMealFromRawInputUseCase {
         const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
         if (canonicalFood) {
           return {
-            canonicalFood,
+            canonicalFood: toResolvedCanonicalFood(canonicalFood, 0.8),
             sourceType: 'cache',
             confidence: 0.8,
             explanation: 'Cached alias mapping',
@@ -379,14 +420,10 @@ export class LogMealFromRawInputUseCase {
         }
 
         return {
-          canonicalFood: {
-            per100g: {
-              calories: resolverResult.best.food.macrosPer100g.kcal,
-              protein: resolverResult.best.food.macrosPer100g.protein,
-              carbs: resolverResult.best.food.macrosPer100g.carbs,
-              fat: resolverResult.best.food.macrosPer100g.fat,
-            },
-          },
+          canonicalFood: toResolvedCanonicalFood(
+            resolverResult.best.food,
+            resolverResult.best.score,
+          ),
           sourceType: 'generic',
           confidence: resolverResult.best.score,
           explanation: `Resolver match: ${resolverResult.best.food.name}`,
@@ -403,7 +440,7 @@ export class LogMealFromRawInputUseCase {
       }
 
       return {
-        canonicalFood: searchResult.food,
+        canonicalFood: toResolvedCanonicalFood(searchResult.food, searchResult.confidence),
         sourceType: 'generic',
         confidence: searchResult.confidence,
         explanation: 'Deterministic catalog match',
@@ -423,7 +460,9 @@ export class LogMealFromRawInputUseCase {
       const canonicalFood = await this.foodCatalog.getById(aiResult.canonicalId);
 
       return {
-        canonicalFood,
+        canonicalFood: canonicalFood
+          ? toResolvedCanonicalFood(canonicalFood, aiResult.confidence)
+          : null,
         sourceType: 'ai',
         confidence: aiResult.confidence,
         explanation: aiResult.explanation,
@@ -444,17 +483,18 @@ export class LogMealFromRawInputUseCase {
 
 class StagedFoodEntryRepository implements FoodEntryRepository {
   private readonly entries: FoodEntry[] = [];
+  private readonly correctionLog: Map<string, CorrectionLogEntry[]> = new Map();
 
   async addEntry(entry: FoodEntry): Promise<void> {
     this.entries.push(entry);
   }
 
   async listEntriesForDate(): Promise<FoodEntry[]> {
-    return [...this.entries];
+    return this.entries.filter((entry) => !entry.deletedAt);
   }
 
   async listByDateRange(): Promise<FoodEntry[]> {
-    return [...this.entries];
+    return this.entries.filter((entry) => !entry.deletedAt);
   }
 
   async updateEntry(_dateISO: string, entry: FoodEntry): Promise<void> {
@@ -462,7 +502,7 @@ class StagedFoodEntryRepository implements FoodEntryRepository {
   }
 
   async getEntryById(id: string): Promise<FoodEntry | null> {
-    return this.entries.find((entry) => entry.id === id) ?? null;
+    return this.entries.find((entry) => entry.id === id && !entry.deletedAt) ?? null;
   }
 
   async updateEntryById(entry: FoodEntry): Promise<void> {
@@ -473,14 +513,25 @@ class StagedFoodEntryRepository implements FoodEntryRepository {
     this.entries[index] = entry;
   }
 
-  async deleteEntry(id: string): Promise<void> {
-    const index = this.entries.findIndex((entry) => entry.id === id);
+  async deleteEntry(id: string, deletedAt: Date): Promise<void> {
+    const index = this.entries.findIndex((entry) => entry.id === id && !entry.deletedAt);
     if (index !== -1) {
-      this.entries.splice(index, 1);
+      this.entries[index] = { ...this.entries[index], deletedAt };
     }
+  }
+
+  async appendCorrectionLogEntry(entryId: string, logEntry: CorrectionLogEntry): Promise<void> {
+    const log = this.correctionLog.get(entryId) || [];
+    log.push(logEntry);
+    this.correctionLog.set(entryId, log);
+  }
+
+  async getCorrectionLog(entryId: string): Promise<CorrectionLogEntry[]> {
+    return [...(this.correctionLog.get(entryId) || [])];
   }
 
   async clearAll(): Promise<void> {
     this.entries.length = 0;
+    this.correctionLog.clear();
   }
 }

@@ -122,4 +122,40 @@ describe('GetDailySummaryUseCase', () => {
     expect(summary15.totals.caloriesKcal).toBe(200);
     expect(summary16.totals.caloriesKcal).toBe(100);
   });
+
+  it('excludes soft-deleted (tombstoned) entries from totals (J-003)', async () => {
+    const kept: FoodEntry = {
+      id: 'kept',
+      rawInput: 'kept meal',
+      parsedName: 'kept',
+      quantityGrams: 100,
+      calories: 300,
+      protein: 20,
+      carbs: 30,
+      fat: 10,
+      confidenceScore: 0.8,
+      sourceType: 'generic',
+      createdAt: new Date('2026-02-15T10:00:00Z'),
+    };
+    const deleted: FoodEntry = {
+      id: 'deleted',
+      rawInput: 'deleted meal',
+      parsedName: 'deleted',
+      quantityGrams: 100,
+      calories: 900,
+      protein: 60,
+      carbs: 90,
+      fat: 30,
+      confidenceScore: 0.8,
+      sourceType: 'generic',
+      createdAt: new Date('2026-02-15T11:00:00Z'),
+    };
+    await repository.addEntry(kept);
+    await repository.addEntry(deleted);
+    await repository.deleteEntry('deleted', new Date('2026-02-15T12:00:00Z'));
+
+    const summary = await useCase.execute('2026-02-15');
+
+    expect(summary.totals.caloriesKcal).toBe(300);
+  });
 });

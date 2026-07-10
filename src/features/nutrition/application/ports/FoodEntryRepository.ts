@@ -1,4 +1,4 @@
-import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { FoodEntry, CorrectionLogEntry } from '../../domain/models/NutritionTypes';
 
 export interface FoodEntryRepository {
   addEntry(entry: FoodEntry): Promise<void>;
@@ -7,6 +7,10 @@ export interface FoodEntryRepository {
   updateEntry(dateISO: string, entry: FoodEntry): Promise<void>;
   getEntryById(id: string): Promise<FoodEntry | null>;
   updateEntryById(entry: FoodEntry): Promise<void>;
-  deleteEntry(id: string): Promise<void>;
+  /** J-003: soft-delete — sets the tombstone (`deletedAt`) instead of removing the entry. */
+  deleteEntry(id: string, deletedAt: Date): Promise<void>;
   clearAll(): Promise<void>;
+  /** J-003: append-only correction log, keyed by entry id. Internal audit/undo foundation. */
+  appendCorrectionLogEntry(entryId: string, logEntry: CorrectionLogEntry): Promise<void>;
+  getCorrectionLog(entryId: string): Promise<CorrectionLogEntry[]>;
 }

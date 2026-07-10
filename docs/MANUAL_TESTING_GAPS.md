@@ -51,6 +51,29 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-10 — J-005: Auto-Merge-Undo-Notification in JournalScreen
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-g7eyp1`
+- **Betroffene Bereiche:** `src/presentation/features/journal/JournalScreen.tsx` (neuer
+  `autoMergeNotice`-Banner mit "Rückgängig"-Button, sichtbar wenn
+  `LogFoodFromRawInputUseCase.execute()` einen stillen Same-Food-Merge durchgeführt hat)
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (740/740,
+  inkl. neuer Tests für `UndoAutoMergeUseCase` und das enger gefasste 2-Minuten-Merge-Fenster
+  in `LogFoodFromRawInputUseCase.test.ts`; `JournalScreen.submitGuard.test.ts` weiterhin grün).
+  Die Anwendungslogik (Merge-Erkennung, Undo-Restaurierung, Correction-Log-Eintrag) ist damit
+  vollständig unit-getestet.
+- **Nicht verifiziert (visuell):** Ob der Banner in Expo/Simulator korrekt erscheint/verschwindet,
+  Layout/Spacing neben `InputArea`/`InlineStatus`, Touch-Target-Größe des "Rückgängig"-Buttons
+  (wiederverwendet `PrimaryButton`, aber in einer neuen, kompakteren Inline-Anordnung),
+  Verhalten bei mehreren gleichzeitig geloggten Items (nur der erste Merge wird angezeigt —
+  bewusste MVP-Einschränkung, aber ungetestet ob das UI dabei komisch wirkt).
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 2 (Layout & Rendering) und
+  3 (Interaktion & Eingabe). Konkret: "toast" loggen, innerhalb von 2 Minuten "300g toast"
+  loggen, Banner "Mit vorherigem Eintrag zusammengeführt" + "Rückgängig" sollte erscheinen;
+  Tippen auf "Rückgängig" sollte den Eintrag auf die Werte vor dem Merge zurücksetzen und den
+  Banner ausblenden.
+
 ### 2026-07-09 — Expo Testing Docs Setup + Governance-Bindung
 
 - **Status:** ✅ geprüft (keine Code-/UI-Änderung — reine Dokumentation + Governance-Regeln)

@@ -24,8 +24,22 @@ import { AssumptionTag } from '../../domain/models/AssumptionTag';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { CanonicalFood } from '../../domain/catalog/FoodCatalogSource';
 
-function toLegacyPer100g(food: CanonicalFood): {
+/**
+ * J-004: transforms a resolved CanonicalFood into the local per100g shape used by
+ * computeTotals, plus a foodCatalogRef pointing at the stable catalog identity that
+ * actually produced it (per Journal Decision Record 1 Entscheidung 3).
+ */
+function toResolvedCanonicalFood(
+  food: CanonicalFood,
+  confidence: number,
+): {
   per100g: { calories: number; protein: number; carbs: number; fat: number };
+  foodCatalogRef: {
+    source: CanonicalFood['source'];
+    sourceId: string;
+    displayName: string;
+    confidence: number;
+  };
 } {
   return {
     per100g: {
@@ -33,6 +47,12 @@ function toLegacyPer100g(food: CanonicalFood): {
       protein: food.macrosPer100g.protein,
       carbs: food.macrosPer100g.carbs,
       fat: food.macrosPer100g.fat,
+    },
+    foodCatalogRef: {
+      source: food.source,
+      sourceId: food.sourceId ?? food.id,
+      displayName: food.name,
+      confidence,
     },
   };
 }
@@ -275,6 +295,7 @@ export class LogFoodFromRawInputUseCase {
               gramsUsed: computed.gramsUsed,
               multiplier: computed.multiplier,
             },
+            foodCatalogRef: result.canonicalFood.foodCatalogRef,
           };
 
           console.log(
@@ -449,6 +470,12 @@ export class LogFoodFromRawInputUseCase {
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
+      foodCatalogRef?: {
+        source: CanonicalFood['source'];
+        sourceId: string;
+        displayName: string;
+        confidence: number;
+      };
     } | null;
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
@@ -480,7 +507,7 @@ export class LogFoodFromRawInputUseCase {
         const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
         if (canonicalFood) {
           return {
-            canonicalFood: toLegacyPer100g(canonicalFood),
+            canonicalFood: toResolvedCanonicalFood(canonicalFood, 0.8),
             sourceType: 'cache',
             confidence: 0.8,
             explanation: 'Cached alias mapping',
@@ -507,7 +534,7 @@ export class LogFoodFromRawInputUseCase {
 
       if (resolved && resolved.score >= 0.7) {
         // Transform CanonicalFood from resolver to expected format
-        const canonicalFood = toLegacyPer100g(resolved.food);
+        const canonicalFood = toResolvedCanonicalFood(resolved.food, resolved.score);
 
         // Save alias for future lookups (same as deterministic catalog match)
         if (this.aliasRepository) {
@@ -543,7 +570,7 @@ export class LogFoodFromRawInputUseCase {
       }
 
       return {
-        canonicalFood: toLegacyPer100g(searchResult.food),
+        canonicalFood: toResolvedCanonicalFood(searchResult.food, searchResult.confidence),
         sourceType: 'generic',
         confidence: searchResult.confidence,
         explanation: 'Deterministic catalog match',
@@ -563,7 +590,9 @@ export class LogFoodFromRawInputUseCase {
       const canonicalFood = await this.foodCatalog.getById(aiResult.canonicalId);
 
       return {
-        canonicalFood: canonicalFood ? toLegacyPer100g(canonicalFood) : null,
+        canonicalFood: canonicalFood
+          ? toResolvedCanonicalFood(canonicalFood, aiResult.confidence)
+          : null,
         sourceType: 'ai',
         confidence: aiResult.confidence,
         explanation: aiResult.explanation,

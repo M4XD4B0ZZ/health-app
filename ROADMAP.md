@@ -2918,7 +2918,7 @@ J-001 still applies to `npm run verify` as an aggregate command.)
 
 #### J-004: Food Catalog Reference Population
 
-Status: `todo`
+Status: `done`
 Depends on: J-001 (stable identity to reference), J-002 (`foodCatalogRef` field must exist)
 
 **Ziel:** Implement Decision Record 1 Entscheidung 3 — stop discarding the resolver's
@@ -2951,6 +2951,36 @@ byte-identical to pre-change behavior.
 - No existing test regresses.
 
 **Verify:** `npm run typecheck`, `npm run test`.
+
+**Implementation notes:** Both use cases' `toLegacyPer100g()` helper became
+`toResolvedCanonicalFood(food, confidence)`, now returning `{ per100g, foodCatalogRef }`
+together instead of just `per100g` — `foodCatalogRef.sourceId` falls back to `food.id` when
+the source `CanonicalFood.sourceId` is absent (e.g. the static `InMemoryFoodCatalog`), since
+the canonical `id` is itself a stable identity per Decision Record 1. All four
+`resolveCanonicalFood()` branches that return a real `CanonicalFood` (cache-hit, resolver,
+deterministic search, AI-mapper-then-catalog-lookup) now populate `foodCatalogRef` with that
+branch's own confidence value; the two `canonicalFood: null` branches (no match at all)
+naturally leave it unset by never reaching the helper.
+On investigating the "AI-fallback/manual-entry with no catalog match leaves it unset" test
+scenario: in this codebase's current architecture that scenario can't produce a *persisted*
+entry to assert an unset field on. `LogFoodFromRawInputUseCase`'s resolver dependency is
+mandatory (constructor throws without one), so a `canonicalFood: null` result always means
+zero macros, which the pre-existing P0-004 Zero-Macro Blocker rejects before save. The
+`LogMealFromRawInputUseCase`-internal NutritionLookup fallback (gated on `!this.foodCatalog`)
+is reachable only from its own AI-structured-multi-item branch, but every "mit"/"und"/","-
+connector input is intercepted first by deterministic `splitMultiItemInput()`, which
+delegates each item to `LogFoodFromRawInputUseCase` — same mandatory-resolver constraint —
+and `container.ts` always wires a real `foodCatalog` in production regardless. So "leaves it
+unset" is verified as its logical consequence instead: a new test confirms a fully-rejected
+resolver blocks the save entirely (`RESOLVER_FAILED_OR_NO_MACROS`, zero entries persisted) —
+there is no code path that persists real macros without a `foodCatalogRef` alongside them.
+New dedicated test file `FoodCatalogRefPopulation.test.ts` (4 tests) covers: resolver-match
+population with exact source/sourceId/displayName/confidence assertions (both use cases),
+cache-hit population at confidence 0.8, and the no-match-blocks-save proof. `nutritionSnapshot`
+is untouched by this task (still unpopulated by any write path, as decided in J-002).
+Full suite (90 suites / 736 tests, +4 new), `tsc --noEmit`, `eslint`, and `prettier -c` on
+touched files pass clean. (Same pre-existing, unrelated repo-wide `format:check` gap noted in
+J-001 still applies to `npm run verify` as an aggregate command.)
 
 ---
 

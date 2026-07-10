@@ -18,8 +18,22 @@ import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv'
 import { splitMultiItemInput, buildGroupInfoByItemIndex } from '../utils/splitMultiItemInput';
 import { CanonicalFood } from '../../domain/catalog/FoodCatalogSource';
 
-function toLegacyPer100g(food: CanonicalFood): {
+/**
+ * J-004: transforms a resolved CanonicalFood into the local per100g shape used by
+ * computeTotals, plus a foodCatalogRef pointing at the stable catalog identity that
+ * actually produced it (per Journal Decision Record 1 Entscheidung 3).
+ */
+function toResolvedCanonicalFood(
+  food: CanonicalFood,
+  confidence: number,
+): {
   per100g: { calories: number; protein: number; carbs: number; fat: number };
+  foodCatalogRef: {
+    source: CanonicalFood['source'];
+    sourceId: string;
+    displayName: string;
+    confidence: number;
+  };
 } {
   return {
     per100g: {
@@ -27,6 +41,12 @@ function toLegacyPer100g(food: CanonicalFood): {
       protein: food.macrosPer100g.protein,
       carbs: food.macrosPer100g.carbs,
       fat: food.macrosPer100g.fat,
+    },
+    foodCatalogRef: {
+      source: food.source,
+      sourceId: food.sourceId ?? food.id,
+      displayName: food.name,
+      confidence,
     },
   };
 }
@@ -283,6 +303,7 @@ export class LogMealFromRawInputUseCase {
           sourceType: result.sourceType,
           confidenceScore: Math.min(result.confidence, confidenceScore + 0.25),
           explanation: `AI strukturierte Multi-Item-Mahlzeit. ${result.explanation || aiExplanation}`,
+          foodCatalogRef: result.canonicalFood.foodCatalogRef,
         };
       }
     }
@@ -346,6 +367,12 @@ export class LogMealFromRawInputUseCase {
   ): Promise<{
     canonicalFood: {
       per100g: { calories: number; protein: number; carbs: number; fat: number };
+      foodCatalogRef?: {
+        source: CanonicalFood['source'];
+        sourceId: string;
+        displayName: string;
+        confidence: number;
+      };
     } | null;
     sourceType: 'cache' | 'generic' | 'ai' | 'user';
     confidence: number;
@@ -369,7 +396,7 @@ export class LogMealFromRawInputUseCase {
         const canonicalFood = await this.foodCatalog.getById(cachedCanonicalId);
         if (canonicalFood) {
           return {
-            canonicalFood: toLegacyPer100g(canonicalFood),
+            canonicalFood: toResolvedCanonicalFood(canonicalFood, 0.8),
             sourceType: 'cache',
             confidence: 0.8,
             explanation: 'Cached alias mapping',
@@ -393,7 +420,10 @@ export class LogMealFromRawInputUseCase {
         }
 
         return {
-          canonicalFood: toLegacyPer100g(resolverResult.best.food),
+          canonicalFood: toResolvedCanonicalFood(
+            resolverResult.best.food,
+            resolverResult.best.score,
+          ),
           sourceType: 'generic',
           confidence: resolverResult.best.score,
           explanation: `Resolver match: ${resolverResult.best.food.name}`,
@@ -410,7 +440,7 @@ export class LogMealFromRawInputUseCase {
       }
 
       return {
-        canonicalFood: toLegacyPer100g(searchResult.food),
+        canonicalFood: toResolvedCanonicalFood(searchResult.food, searchResult.confidence),
         sourceType: 'generic',
         confidence: searchResult.confidence,
         explanation: 'Deterministic catalog match',
@@ -430,7 +460,9 @@ export class LogMealFromRawInputUseCase {
       const canonicalFood = await this.foodCatalog.getById(aiResult.canonicalId);
 
       return {
-        canonicalFood: canonicalFood ? toLegacyPer100g(canonicalFood) : null,
+        canonicalFood: canonicalFood
+          ? toResolvedCanonicalFood(canonicalFood, aiResult.confidence)
+          : null,
         sourceType: 'ai',
         confidence: aiResult.confidence,
         explanation: aiResult.explanation,

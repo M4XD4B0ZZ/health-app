@@ -22,7 +22,7 @@ const EXIT_CODES = {
   OK: 0,
   VALIDATION_FAILURE: 1,
   CREATION_FAILURE: 2,
-  NO_ELIGIBLE_TASKS: 3
+  NO_ELIGIBLE_TASKS: 3,
 };
 
 const PATHS = {
@@ -31,10 +31,17 @@ const PATHS = {
   currentRunTemp: 'runs/current-run.json.tmp',
   runHistory: 'runs/run-history.jsonl',
   reconciler: 'scripts/agent/reconcile-roadmap-task-state.mjs',
-  validator: 'scripts/agent/validate-ralph-state.mjs'
+  validator: 'scripts/agent/validate-ralph-state.mjs',
 };
 
-const ACTIVE_RUN_STATUSES = new Set(['planned', 'active', 'validating', 'needs_review', 'running', 'in_progress']);
+const ACTIVE_RUN_STATUSES = new Set([
+  'planned',
+  'active',
+  'validating',
+  'needs_review',
+  'running',
+  'in_progress',
+]);
 
 function parseArgs(argv) {
   const options = {
@@ -44,7 +51,7 @@ function parseArgs(argv) {
     json: false,
     help: false,
     skipWorkingTreeCheck: false,
-    projectRoot: process.env.RALPH_PROJECT_ROOT || DEFAULT_PROJECT_ROOT
+    projectRoot: process.env.RALPH_PROJECT_ROOT || DEFAULT_PROJECT_ROOT,
   };
 
   for (let index = 2; index < argv.length; index += 1) {
@@ -105,7 +112,10 @@ function timestampForId(isoTimestamp) {
 }
 
 function normalizeTaskIdForRunId(taskId) {
-  return taskId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return taskId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function randomHex(bytes = 3) {
@@ -140,7 +150,7 @@ function runCommand(projectRoot, command, args) {
     exit_code: typeof result.status === 'number' ? result.status : 1,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
-    error: result.error?.message || null
+    error: result.error?.message || null,
   };
 }
 
@@ -152,13 +162,17 @@ function runWorkingTreeCheck(projectRoot, skipWorkingTreeCheck) {
     status: result.exit_code === 0 && changes === '' ? 'clean' : 'failed',
     passed: result.exit_code === 0 && changes === '',
     changes,
-    exit_code: result.exit_code
+    exit_code: result.exit_code,
   };
 }
 
 function runScriptCheck(projectRoot, scriptPath) {
   const result = runCommand(projectRoot, process.execPath, [scriptPath, '--json']);
-  return { status: result.exit_code === 0 ? 'passed' : 'failed', passed: result.exit_code === 0, exit_code: result.exit_code };
+  return {
+    status: result.exit_code === 0 ? 'passed' : 'failed',
+    passed: result.exit_code === 0,
+    exit_code: result.exit_code,
+  };
 }
 
 function validateTaskStateShape(taskState) {
@@ -187,7 +201,10 @@ function hasActiveCurrentRun(currentRun) {
 }
 
 function isTaskEligible(task) {
-  return task?.status === 'not_started' && (task.runtime_only === true || task.source === 'roadmap_import');
+  return (
+    task?.status === 'not_started' &&
+    (task.runtime_only === true || task.source === 'roadmap_import')
+  );
 }
 
 export function selectEligibleTask(runtimeTasks, explicitTaskId = null) {
@@ -197,37 +214,74 @@ export function selectEligibleTask(runtimeTasks, explicitTaskId = null) {
       selectedTask: selectedTask && isTaskEligible(selectedTask) ? selectedTask : null,
       eligibleTaskCount: runtimeTasks.filter(isTaskEligible).length,
       requestedTask: selectedTask,
-      explicitTaskId
+      explicitTaskId,
     };
   }
 
   const eligibleTasks = runtimeTasks.filter(isTaskEligible);
-  return { selectedTask: eligibleTasks[0] || null, eligibleTaskCount: eligibleTasks.length, requestedTask: null, explicitTaskId: null };
+  return {
+    selectedTask: eligibleTasks[0] || null,
+    eligibleTaskCount: eligibleTasks.length,
+    requestedTask: null,
+    explicitTaskId: null,
+  };
 }
 
 function validateRunSchema(run) {
-  const stringFields = ['schema_version', 'run_id', 'task_id', 'task_title', 'status', 'created_at', 'updated_at', 'validation_category', 'selection_reason'];
+  const stringFields = [
+    'schema_version',
+    'run_id',
+    'task_id',
+    'task_title',
+    'status',
+    'created_at',
+    'updated_at',
+    'validation_category',
+    'selection_reason',
+  ];
   for (const field of stringFields) {
-    if (typeof run[field] !== 'string' || run[field].trim() === '') return { valid: false, error: `Generated run missing string field: ${field}` };
+    if (typeof run[field] !== 'string' || run[field].trim() === '')
+      return { valid: false, error: `Generated run missing string field: ${field}` };
   }
-  if (run.schema_version !== '2.0.0') return { valid: false, error: 'Generated run must use schema_version 2.0.0' };
-  if (run.status !== 'planned') return { valid: false, error: 'Generated run must start with status planned' };
-  if (run.started_at !== null || run.completed_at !== null) return { valid: false, error: 'Generated run must not be started or completed' };
-  if (run.worker?.type !== 'unassigned') return { valid: false, error: 'Generated run worker must be unassigned' };
-  if (!Array.isArray(run.allowed_files) || !Array.isArray(run.forbidden_files) || !Array.isArray(run.expected_outputs)) {
+  if (run.schema_version !== '2.0.0')
+    return { valid: false, error: 'Generated run must use schema_version 2.0.0' };
+  if (run.status !== 'planned')
+    return { valid: false, error: 'Generated run must start with status planned' };
+  if (run.started_at !== null || run.completed_at !== null)
+    return { valid: false, error: 'Generated run must not be started or completed' };
+  if (run.worker?.type !== 'unassigned')
+    return { valid: false, error: 'Generated run worker must be unassigned' };
+  if (
+    !Array.isArray(run.allowed_files) ||
+    !Array.isArray(run.forbidden_files) ||
+    !Array.isArray(run.expected_outputs)
+  ) {
     return { valid: false, error: 'Generated run file snapshots must be arrays' };
   }
   return { valid: true };
 }
 
 function validateHistoryEventSchema(event) {
-  const stringFields = ['schema_version', 'event_id', 'event_type', 'timestamp', 'run_id', 'task_id', 'status', 'summary'];
+  const stringFields = [
+    'schema_version',
+    'event_id',
+    'event_type',
+    'timestamp',
+    'run_id',
+    'task_id',
+    'status',
+    'summary',
+  ];
   for (const field of stringFields) {
-    if (typeof event[field] !== 'string' || event[field].trim() === '') return { valid: false, error: `Generated event missing string field: ${field}` };
+    if (typeof event[field] !== 'string' || event[field].trim() === '')
+      return { valid: false, error: `Generated event missing string field: ${field}` };
   }
-  if (event.schema_version !== '2.0.0') return { valid: false, error: 'Generated event must use schema_version 2.0.0' };
-  if (event.event_type !== 'run.created') return { valid: false, error: 'Generated event must be run.created' };
-  if (event.status !== 'planned') return { valid: false, error: 'Generated event status must be planned' };
+  if (event.schema_version !== '2.0.0')
+    return { valid: false, error: 'Generated event must use schema_version 2.0.0' };
+  if (event.event_type !== 'run.created')
+    return { valid: false, error: 'Generated event must be run.created' };
+  if (event.status !== 'planned')
+    return { valid: false, error: 'Generated event status must be planned' };
   return { valid: true };
 }
 
@@ -265,17 +319,17 @@ export function generateRuntimeRun(task, runId, timestamp, dryRun) {
     worker: {
       type: 'unassigned',
       id: null,
-      adapter: null
+      adapter: null,
     },
     source: {
       type: 'script',
       id: 'create-runtime-run.mjs',
       mode: 'manual_cli',
-      dry_run: dryRun
+      dry_run: dryRun,
     },
     owner: {
       type: 'human',
-      id: 'operator'
+      id: 'operator',
     },
     review_required: task.requires_human_review !== false,
     validation_required: true,
@@ -291,13 +345,13 @@ export function generateRuntimeRun(task, runId, timestamp, dryRun) {
       task_exists: 'passed',
       task_eligibility: 'passed',
       duplicate_active_run: 'passed',
-      schema_validation: 'passed'
+      schema_validation: 'passed',
     },
     metadata: {
       ralph_loop_version: '0.1.0-alpha',
       creator_version: '1.0.0',
-      notes: 'Run created but worker execution has not started.'
-    }
+      notes: 'Run created but worker execution has not started.',
+    },
   };
 }
 
@@ -312,13 +366,13 @@ export function generateRunCreatedEvent(run, timestamp) {
     status: 'planned',
     actor: {
       type: 'script',
-      id: 'create-runtime-run.mjs'
+      id: 'create-runtime-run.mjs',
     },
     source: {
       writer: 'runtime-run-creation',
-      mode: 'write'
+      mode: 'write',
     },
-    summary: `Created planned runtime run for task ${run.task_id}. Worker execution not started.`
+    summary: `Created planned runtime run for task ${run.task_id}. Worker execution not started.`,
   };
 }
 
@@ -329,11 +383,12 @@ function buildSafetyChecks(projectRoot, currentRun, { includeWorkingTree, skipWo
     duplicate_active_run: {
       status: hasActiveCurrentRun(currentRun) ? 'failed' : 'passed',
       passed: !hasActiveCurrentRun(currentRun),
-      current_status: currentRun?.status || null
-    }
+      current_status: currentRun?.status || null,
+    },
   };
 
-  if (includeWorkingTree) checks.working_tree = runWorkingTreeCheck(projectRoot, skipWorkingTreeCheck);
+  if (includeWorkingTree)
+    checks.working_tree = runWorkingTreeCheck(projectRoot, skipWorkingTreeCheck);
   return checks;
 }
 
@@ -349,13 +404,15 @@ function writeRunAtomically(projectRoot, run, originalCurrentRunContent) {
     fs.writeFileSync(tempPath, `${JSON.stringify(run, null, 2)}\n`, 'utf8');
     const tempRun = JSON.parse(fs.readFileSync(tempPath, 'utf8'));
     const tempValidation = validateRunSchema(tempRun);
-    if (!tempValidation.valid) throw new Error(`Temp run validation failed: ${tempValidation.error}`);
+    if (!tempValidation.valid)
+      throw new Error(`Temp run validation failed: ${tempValidation.error}`);
 
     fs.renameSync(tempPath, targetPath);
 
     const writtenRun = JSON.parse(fs.readFileSync(targetPath, 'utf8'));
     const writtenValidation = validateRunSchema(writtenRun);
-    if (!writtenValidation.valid) throw new Error(`Written run validation failed: ${writtenValidation.error}`);
+    if (!writtenValidation.valid)
+      throw new Error(`Written run validation failed: ${writtenValidation.error}`);
 
     return { success: true };
   } catch (error) {
@@ -363,7 +420,10 @@ function writeRunAtomically(projectRoot, run, originalCurrentRunContent) {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       fs.writeFileSync(targetPath, originalCurrentRunContent, 'utf8');
     } catch (rollbackError) {
-      return { success: false, error: `${error.message}; rollback failed: ${rollbackError.message}` };
+      return {
+        success: false,
+        error: `${error.message}; rollback failed: ${rollbackError.message}`,
+      };
     }
     return { success: false, error: error.message };
   }
@@ -377,7 +437,8 @@ function appendHistoryEvent(projectRoot, event, originalCurrentRunContent) {
     const eventLine = `${JSON.stringify(event)}\n`;
     JSON.parse(eventLine);
     const eventValidation = validateHistoryEventSchema(JSON.parse(eventLine));
-    if (!eventValidation.valid) throw new Error(`History event validation failed: ${eventValidation.error}`);
+    if (!eventValidation.valid)
+      throw new Error(`History event validation failed: ${eventValidation.error}`);
 
     fs.appendFileSync(historyPath, eventLine, 'utf8');
 
@@ -386,7 +447,10 @@ function appendHistoryEvent(projectRoot, event, originalCurrentRunContent) {
     try {
       fs.writeFileSync(targetPath, originalCurrentRunContent, 'utf8');
     } catch (rollbackError) {
-      return { success: false, error: `${error.message}; rollback failed: ${rollbackError.message}` };
+      return {
+        success: false,
+        error: `${error.message}; rollback failed: ${rollbackError.message}`,
+      };
     }
     return { success: false, error: error.message };
   }
@@ -432,7 +496,9 @@ export function formatHuman(result) {
   }
 
   if (result.active_run) {
-    lines.push(`ACTIVE CURRENT RUN BLOCK: ${result.active_run.run_id || '(missing run_id)'} (${result.active_run.status})`);
+    lines.push(
+      `ACTIVE CURRENT RUN BLOCK: ${result.active_run.run_id || '(missing run_id)'} (${result.active_run.status})`,
+    );
     lines.push('');
   }
 
@@ -457,7 +523,8 @@ export function formatHuman(result) {
   }
 
   if (result.error) lines.push(`ERROR: ${result.error}`);
-  else if (result.mode === 'dry_run') lines.push('DRY-RUN: No changes made. Use --write --confirm-write to create run.');
+  else if (result.mode === 'dry_run')
+    lines.push('DRY-RUN: No changes made. Use --write --confirm-write to create run.');
   else lines.push('WRITE: Run created successfully. Worker execution not started.');
 
   return lines.join('\n');
@@ -468,7 +535,11 @@ async function main() {
   try {
     options = parseArgs(process.argv);
   } catch (error) {
-    const result = { timestamp: nowIso(), error: error.message, exit_code: EXIT_CODES.VALIDATION_FAILURE };
+    const result = {
+      timestamp: nowIso(),
+      error: error.message,
+      exit_code: EXIT_CODES.VALIDATION_FAILURE,
+    };
     outputResult(result, process.argv.includes('--json'));
     process.exit(EXIT_CODES.VALIDATION_FAILURE);
   }
@@ -479,8 +550,15 @@ async function main() {
   }
 
   if (options.write !== options.confirmWrite) {
-    const error = options.write ? '--write requires --confirm-write' : '--confirm-write requires --write';
-    const result = { timestamp: nowIso(), mode: 'invalid', error, exit_code: EXIT_CODES.VALIDATION_FAILURE };
+    const error = options.write
+      ? '--write requires --confirm-write'
+      : '--confirm-write requires --write';
+    const result = {
+      timestamp: nowIso(),
+      mode: 'invalid',
+      error,
+      exit_code: EXIT_CODES.VALIDATION_FAILURE,
+    };
     outputResult(result, options.json);
     process.exit(EXIT_CODES.VALIDATION_FAILURE);
   }
@@ -512,15 +590,22 @@ async function main() {
     result.eligible_task_count = selection.eligibleTaskCount;
 
     if (!selection.selectedTask) {
-      if (selection.explicitTaskId && !selection.requestedTask) result.error = `Runtime task not found: ${selection.explicitTaskId}`;
-      else if (selection.explicitTaskId) result.error = `Runtime task is not eligible for run creation: ${selection.explicitTaskId}`;
+      if (selection.explicitTaskId && !selection.requestedTask)
+        result.error = `Runtime task not found: ${selection.explicitTaskId}`;
+      else if (selection.explicitTaskId)
+        result.error = `Runtime task is not eligible for run creation: ${selection.explicitTaskId}`;
       else result.error = 'No eligible runtime task found';
       result.exit_code = EXIT_CODES.NO_ELIGIBLE_TASKS;
       outputResult(result, options.json);
       process.exit(EXIT_CODES.NO_ELIGIBLE_TASKS);
     }
 
-    const runId = generateRunId(options.projectRoot, selection.selectedTask.id, timestamp, currentRun);
+    const runId = generateRunId(
+      options.projectRoot,
+      selection.selectedTask.id,
+      timestamp,
+      currentRun,
+    );
     const generatedRun = generateRuntimeRun(selection.selectedTask, runId, timestamp, !writeMode);
     const generatedEvent = generateRunCreatedEvent(generatedRun, timestamp);
     const runValidation = validateRunSchema(generatedRun);
@@ -537,7 +622,7 @@ async function main() {
       title: selection.selectedTask.title,
       status: selection.selectedTask.status,
       runtime_only: selection.selectedTask.runtime_only === true,
-      source: selection.selectedTask.source || null
+      source: selection.selectedTask.source || null,
     };
     result.generated_run = generatedRun;
     result.generated_event = generatedEvent;
@@ -553,7 +638,7 @@ async function main() {
 
     const preWriteChecks = buildSafetyChecks(options.projectRoot, currentRun, {
       includeWorkingTree: true,
-      skipWorkingTreeCheck: options.skipWorkingTreeCheck
+      skipWorkingTreeCheck: options.skipWorkingTreeCheck,
     });
     result.safety_checks = preWriteChecks;
     if (!allChecksPassed(preWriteChecks)) {
@@ -570,13 +655,17 @@ async function main() {
       task_exists: 'passed',
       task_eligibility: 'passed',
       duplicate_active_run: preWriteChecks.duplicate_active_run.status,
-      schema_validation: 'passed'
+      schema_validation: 'passed',
     };
     generatedRun.source.dry_run = false;
     result.generated_run = generatedRun;
 
     const originalCurrentRunContent = readText(options.projectRoot, PATHS.currentRun);
-    const writeResult = writeRunAtomically(options.projectRoot, generatedRun, originalCurrentRunContent);
+    const writeResult = writeRunAtomically(
+      options.projectRoot,
+      generatedRun,
+      originalCurrentRunContent,
+    );
     result.write_result = writeResult;
     if (!writeResult.success) {
       result.error = `Write failed: ${writeResult.error}`;
@@ -587,18 +676,23 @@ async function main() {
 
     const postWriteChecks = buildSafetyChecks(options.projectRoot, generatedRun, {
       includeWorkingTree: false,
-      skipWorkingTreeCheck: options.skipWorkingTreeCheck
+      skipWorkingTreeCheck: options.skipWorkingTreeCheck,
     });
     result.post_write_checks = postWriteChecks;
     if (!postWriteChecks.reconciler.passed || !postWriteChecks.validator.passed) {
       restoreOriginalCurrentRun(options.projectRoot, originalCurrentRunContent);
-      result.error = 'Post-write reconciler or validator failed; restored original runs/current-run.json content';
+      result.error =
+        'Post-write reconciler or validator failed; restored original runs/current-run.json content';
       result.exit_code = EXIT_CODES.VALIDATION_FAILURE;
       outputResult(result, options.json);
       process.exit(EXIT_CODES.VALIDATION_FAILURE);
     }
 
-    const historyAppendResult = appendHistoryEvent(options.projectRoot, generatedEvent, originalCurrentRunContent);
+    const historyAppendResult = appendHistoryEvent(
+      options.projectRoot,
+      generatedEvent,
+      originalCurrentRunContent,
+    );
     result.history_append_result = historyAppendResult;
     if (!historyAppendResult.success) {
       result.error = `History append failed: ${historyAppendResult.error}`;

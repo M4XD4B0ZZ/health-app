@@ -2,20 +2,20 @@
 
 /**
  * Ralph-Loop Morning Review Generator
- * 
+ *
  * Aggregates runtime state from multiple sources to provide a comprehensive
  * overview of system status and recommended actions.
- * 
+ *
  * Usage:
  *   node scripts/agent/generate-morning-review.mjs [options]
- * 
+ *
  * Options:
  *   --dry-run          Preview report without writing (default)
  *   --write            Write report to reports/morning-review.md
  *   --json             Output machine-readable JSON instead of markdown
  *   --since <time>     Filter events since timestamp (ISO 8601 or relative like "24h")
  *   --help             Show this help message
- * 
+ *
  * Safety: Read-only by default, only writes reports/morning-review.md when --write is specified
  */
 
@@ -34,7 +34,7 @@ const EXIT_CODES = {
   SAFETY_VIOLATION: 2,
   MISSING_INPUT: 3,
   INCONSISTENT_STATE: 4,
-  UNEXPECTED_ERROR: 5
+  UNEXPECTED_ERROR: 5,
 };
 
 // Default file paths
@@ -48,7 +48,7 @@ const DEFAULT_PATHS = {
   output: 'reports/morning-review.md',
   loopConfig: '.agent/config/loop-config.json',
   reviewPolicy: '.governance/REVIEW_POLICY.md',
-  safetyPolicy: '.governance/SAFETY.md'
+  safetyPolicy: '.governance/SAFETY.md',
 };
 
 /**
@@ -68,12 +68,12 @@ function parseArgs() {
     runHistory: DEFAULT_PATHS.runHistory,
     validationResults: DEFAULT_PATHS.validationResults,
     handoff: DEFAULT_PATHS.handoff,
-    output: DEFAULT_PATHS.output
+    output: DEFAULT_PATHS.output,
   };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     switch (arg) {
       case '--help':
         options.help = true;
@@ -204,11 +204,11 @@ SAFETY:
 function validateOutputPath(outputPath) {
   const resolvedPath = path.resolve(projectRoot, outputPath);
   const reportsDir = path.resolve(projectRoot, 'reports');
-  
+
   if (!resolvedPath.startsWith(reportsDir)) {
     throw new Error(`Output path must be under reports/ directory: ${outputPath}`);
   }
-  
+
   return resolvedPath;
 }
 
@@ -218,7 +218,7 @@ function validateOutputPath(outputPath) {
 function parseRelativeTime(timeStr) {
   const now = new Date();
   const match = timeStr.match(/^(\d+)([hdwmy])$/);
-  
+
   if (!match) {
     // Try parsing as ISO 8601
     const parsed = new Date(timeStr);
@@ -227,10 +227,10 @@ function parseRelativeTime(timeStr) {
     }
     return parsed;
   }
-  
+
   const [, amount, unit] = match;
   const value = parseInt(amount, 10);
-  
+
   switch (unit) {
     case 'h':
       return new Date(now.getTime() - value * 60 * 60 * 1000);
@@ -273,8 +273,11 @@ function readJsonlFile(filePath) {
       return [];
     }
     const content = fs.readFileSync(fullPath, 'utf8');
-    const lines = content.trim().split('\n').filter(line => line.trim());
-    return lines.map(line => JSON.parse(line));
+    const lines = content
+      .trim()
+      .split('\n')
+      .filter((line) => line.trim());
+    return lines.map((line) => JSON.parse(line));
   } catch (error) {
     throw new Error(`Failed to read JSONL file ${filePath}: ${error.message}`);
   }
@@ -307,7 +310,7 @@ function loadData(options) {
     validationResults: [],
     handoff: null,
     loopConfig: null,
-    warnings: []
+    warnings: [],
   };
 
   // Load required files
@@ -365,10 +368,10 @@ function loadData(options) {
  */
 function filterEventsByTime(events, sinceTime) {
   if (!sinceTime) return events;
-  
+
   const filterTime = typeof sinceTime === 'string' ? parseRelativeTime(sinceTime) : sinceTime;
-  
-  return events.filter(event => {
+
+  return events.filter((event) => {
     const eventTime = new Date(event.timestamp || event.created_at || event.completed_at);
     return eventTime >= filterTime;
   });
@@ -380,42 +383,41 @@ function filterEventsByTime(events, sinceTime) {
 function aggregateTasks(data, options) {
   const tasks = data.taskState?.tasks || [];
   const history = data.taskHistory || [];
-  
+
   // Filter by time if specified
   const filteredHistory = filterEventsByTime(history, options.since);
-  
+
   const aggregated = {
-    completed: tasks.filter(task => task.status === 'done'),
-    inProgress: tasks.filter(task => 
-      ['in_progress', 'needs_validation', 'needs_review'].includes(task.status)
+    completed: tasks.filter((task) => task.status === 'done'),
+    inProgress: tasks.filter((task) =>
+      ['in_progress', 'needs_validation', 'needs_review'].includes(task.status),
     ),
-    needsReview: tasks.filter(task => 
-      task.status === 'needs_review' || task.requires_human_review === true
+    needsReview: tasks.filter(
+      (task) => task.status === 'needs_review' || task.requires_human_review === true,
     ),
-    blocked: tasks.filter(task => 
-      ['blocked', 'failed'].includes(task.status)
-    ),
-    notStarted: tasks.filter(task => task.status === 'not_started')
+    blocked: tasks.filter((task) => ['blocked', 'failed'].includes(task.status)),
+    notStarted: tasks.filter((task) => task.status === 'not_started'),
   };
 
   // Add completion events from history
-  aggregated.completed = aggregated.completed.map(task => {
-    const completionEvent = filteredHistory.find(event => 
-      event.task_id === task.id && 
-      event.event_type === 'task_completed' && 
-      event.to_status === 'done'
+  aggregated.completed = aggregated.completed.map((task) => {
+    const completionEvent = filteredHistory.find(
+      (event) =>
+        event.task_id === task.id &&
+        event.event_type === 'task_completed' &&
+        event.to_status === 'done',
     );
     return {
       ...task,
-      completion_event: completionEvent
+      completion_event: completionEvent,
     };
   });
 
   // Add active run info to in-progress tasks
   if (data.currentRun && data.currentRun.status === 'running') {
-    aggregated.inProgress = aggregated.inProgress.map(task => ({
+    aggregated.inProgress = aggregated.inProgress.map((task) => ({
       ...task,
-      active_run: data.currentRun.selected_task_id === task.id ? data.currentRun : null
+      active_run: data.currentRun.selected_task_id === task.id ? data.currentRun : null,
     }));
   }
 
@@ -428,13 +430,13 @@ function aggregateTasks(data, options) {
 function aggregateValidation(data, options) {
   const results = data.validationResults || [];
   const filtered = filterEventsByTime(results, options.since);
-  
+
   return {
     total: filtered.length,
-    passed: filtered.filter(r => r.overall_result === 'passed').length,
-    failed: filtered.filter(r => r.overall_result === 'failed').length,
-    npmVerifyExecuted: filtered.filter(r => r.npm_verify_executed).length,
-    recent: filtered.slice(-5) // Last 5 results
+    passed: filtered.filter((r) => r.overall_result === 'passed').length,
+    failed: filtered.filter((r) => r.overall_result === 'failed').length,
+    npmVerifyExecuted: filtered.filter((r) => r.npm_verify_executed).length,
+    recent: filtered.slice(-5), // Last 5 results
   };
 }
 
@@ -444,13 +446,13 @@ function aggregateValidation(data, options) {
 function aggregateRuns(data, options) {
   const history = data.runHistory || [];
   const filtered = filterEventsByTime(history, options.since);
-  
+
   return {
     current: data.currentRun,
     recent: filtered.slice(-10), // Last 10 runs
     total: filtered.length,
-    completed: filtered.filter(run => run.status === 'completed').length,
-    failed: filtered.filter(run => run.status === 'failed').length
+    completed: filtered.filter((run) => run.status === 'completed').length,
+    failed: filtered.filter((run) => run.status === 'failed').length,
   };
 }
 
@@ -463,7 +465,7 @@ function extractHandoffSummary(handoffContent) {
       lastHandoffDate: null,
       taskId: null,
       status: null,
-      keyFindings: []
+      keyFindings: [],
     };
   }
 
@@ -492,7 +494,7 @@ function extractHandoffSummary(handoffContent) {
     lastHandoffDate,
     taskId,
     status,
-    keyFindings
+    keyFindings,
   };
 }
 
@@ -503,16 +505,17 @@ function detectReviewIssues(data, aggregated) {
   const issues = [];
 
   // Failed validations
-  const failedValidations = data.validationResults.filter(r => 
-    r.overall_result === 'failed' &&
-    new Date(r.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const failedValidations = data.validationResults.filter(
+    (r) =>
+      r.overall_result === 'failed' &&
+      new Date(r.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000),
   );
   if (failedValidations.length > 0) {
     issues.push({
       type: 'validation_failure',
       severity: 'critical',
       count: failedValidations.length,
-      description: `${failedValidations.length} validation failure(s) in last 24 hours`
+      description: `${failedValidations.length} validation failure(s) in last 24 hours`,
     });
   }
 
@@ -525,14 +528,14 @@ function detectReviewIssues(data, aggregated) {
         type: 'stale_active_run',
         severity: 'high',
         ageHours: Math.floor(runAge / (60 * 60 * 1000)),
-        description: `Active run is ${Math.floor(runAge / (60 * 60 * 1000))} hours old`
+        description: `Active run is ${Math.floor(runAge / (60 * 60 * 1000))} hours old`,
       });
     }
   }
 
   // Tasks done without validation
-  const tasksWithoutValidation = aggregated.completed.filter(task => {
-    const validation = data.validationResults.find(v => v.task_id === task.id);
+  const tasksWithoutValidation = aggregated.completed.filter((task) => {
+    const validation = data.validationResults.find((v) => v.task_id === task.id);
     return !validation || validation.overall_result !== 'passed';
   });
   if (tasksWithoutValidation.length > 0) {
@@ -540,7 +543,7 @@ function detectReviewIssues(data, aggregated) {
       type: 'done_without_validation',
       severity: 'medium',
       count: tasksWithoutValidation.length,
-      description: `${tasksWithoutValidation.length} task(s) marked done without validation evidence`
+      description: `${tasksWithoutValidation.length} task(s) marked done without validation evidence`,
     });
   }
 
@@ -552,22 +555,21 @@ function detectReviewIssues(data, aggregated) {
  */
 function suggestNextRun(data, aggregated, issues) {
   // If there are critical issues, suggest fixing them first
-  const criticalIssues = issues.filter(issue => issue.severity === 'critical');
+  const criticalIssues = issues.filter((issue) => issue.severity === 'critical');
   if (criticalIssues.length > 0) {
     return {
       recommendation: 'Fix critical issues before proceeding',
       taskId: null,
       rationale: 'Critical validation failures must be resolved',
-      riskLevel: 'blocked'
+      riskLevel: 'blocked',
     };
   }
 
   // Find next not_started task by priority
-  const nextTask = aggregated.notStarted
-    .sort((a, b) => {
-      const priorityOrder = { high: 3, medium: 2, low: 1 };
-      return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
-    })[0];
+  const nextTask = aggregated.notStarted.sort((a, b) => {
+    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+  })[0];
 
   if (nextTask) {
     return {
@@ -575,7 +577,7 @@ function suggestNextRun(data, aggregated, issues) {
       taskId: nextTask.id,
       taskTitle: nextTask.title,
       rationale: `Next task in priority order (${nextTask.priority} priority)`,
-      riskLevel: nextTask.risk_level || 'unknown'
+      riskLevel: nextTask.risk_level || 'unknown',
     };
   }
 
@@ -583,17 +585,28 @@ function suggestNextRun(data, aggregated, issues) {
     recommendation: 'No eligible tasks available',
     taskId: null,
     rationale: 'All tasks are either completed, in progress, or blocked',
-    riskLevel: 'none'
+    riskLevel: 'none',
   };
 }
 
 /**
  * Generate markdown report
  */
-function generateMarkdownReport(data, aggregated, validation, runs, handoffSummary, issues, nextRun, options) {
+function generateMarkdownReport(
+  data,
+  aggregated,
+  validation,
+  runs,
+  handoffSummary,
+  issues,
+  nextRun,
+  options,
+) {
   const now = new Date();
-  const reviewPeriodStart = options.since ? parseRelativeTime(options.since) : new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
+  const reviewPeriodStart = options.since
+    ? parseRelativeTime(options.since)
+    : new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
   let report = `# Ralph-Loop Morning Review
 
 **Date:** ${now.toISOString().split('T')[0]}
@@ -605,9 +618,9 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 
 ## Executive Summary
 
-**Overall Status:** ${issues.filter(i => i.severity === 'critical').length > 0 ? 'Red' : issues.filter(i => i.severity === 'high').length > 0 ? 'Yellow' : 'Green'}
+**Overall Status:** ${issues.filter((i) => i.severity === 'critical').length > 0 ? 'Red' : issues.filter((i) => i.severity === 'high').length > 0 ? 'Yellow' : 'Green'}
 **Tasks Completed:** ${aggregated.completed.length} of ${data.taskState?.tasks?.length || 0} total tasks
-**Critical Issues:** ${issues.filter(i => i.severity === 'critical').length || 'None'}
+**Critical Issues:** ${issues.filter((i) => i.severity === 'critical').length || 'None'}
 **System Health:** ${validation.failed > 0 ? 'Degraded' : 'Operational'}
 
 **Key Highlights:**
@@ -625,8 +638,8 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 |---------|-------|----------------|-------------------|-------|
 `;
 
-  aggregated.completed.forEach(task => {
-    const validation = data.validationResults.find(v => v.task_id === task.id);
+  aggregated.completed.forEach((task) => {
+    const validation = data.validationResults.find((v) => v.task_id === task.id);
     const validationStatus = validation ? validation.overall_result : 'unknown';
     const completionDate = task.completion_event?.timestamp || task.updated_at || 'unknown';
     report += `| ${task.id} | ${task.title} | ${completionDate} | ${validationStatus} | ${task.notes || ''} |\n`;
@@ -639,7 +652,10 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 ### Quality Metrics
 - **Verification Pass Rate:** ${Math.round((validation.passed / Math.max(validation.total, 1)) * 100)}% (${validation.passed}/${validation.total} validations passed)
 - **NPM Verify Executed:** ${validation.npmVerifyExecuted} times
-- **Recent Validation Trend:** ${validation.recent.slice(-3).map(r => r.overall_result).join(' → ')}
+- **Recent Validation Trend:** ${validation.recent
+    .slice(-3)
+    .map((r) => r.overall_result)
+    .join(' → ')}
 
 ---
 
@@ -650,7 +666,7 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 |---------|-------|--------|------------|----------|-------------|
 `;
 
-  aggregated.inProgress.forEach(task => {
+  aggregated.inProgress.forEach((task) => {
     const progress = task.active_run ? 'Active' : 'Pending';
     const nextAction = task.status === 'needs_review' ? 'Human Review' : 'Continue Implementation';
     report += `| ${task.id} | ${task.title} | ${task.status} | ${task.updated_at} | ${progress} | ${nextAction} |\n`;
@@ -659,7 +675,7 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
   report += `
 ### Progress Details
 `;
-  aggregated.inProgress.forEach(task => {
+  aggregated.inProgress.forEach((task) => {
     report += `- **${task.id}:** ${task.title} (${task.status})\n`;
   });
 
@@ -673,15 +689,16 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 |---------|-------|--------|-------------------|----------|
 `;
 
-  aggregated.needsReview.forEach(task => {
-    const reviewType = task.status === 'needs_review' ? 'Completion Review' : 'Implementation Review';
+  aggregated.needsReview.forEach((task) => {
+    const reviewType =
+      task.status === 'needs_review' ? 'Completion Review' : 'Implementation Review';
     report += `| ${task.id} | ${task.title} | ${task.status} | ${reviewType} | ${task.priority} |\n`;
   });
 
   report += `
 ### Review Actions Required
 `;
-  aggregated.needsReview.forEach(task => {
+  aggregated.needsReview.forEach((task) => {
     report += `- [ ] **${task.id}:** Review ${task.title} completion\n`;
   });
 
@@ -695,15 +712,16 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 |---------|-------|----------------|-------------------|-----|
 `;
 
-  aggregated.blocked.forEach(task => {
-    const blockingReason = task.status === 'failed' ? 'Implementation Failed' : 'Dependencies Missing';
+  aggregated.blocked.forEach((task) => {
+    const blockingReason =
+      task.status === 'failed' ? 'Implementation Failed' : 'Dependencies Missing';
     report += `| ${task.id} | ${task.title} | ${blockingReason} | Human Intervention | TBD |\n`;
   });
 
   report += `
 ### Blocking Resolution Actions
 `;
-  aggregated.blocked.forEach(task => {
+  aggregated.blocked.forEach((task) => {
     report += `- [ ] **${task.id}:** Resolve blocking issues for ${task.title}\n`;
   });
 
@@ -733,7 +751,7 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 ### Recent Validation Results
 `;
 
-  validation.recent.forEach(result => {
+  validation.recent.forEach((result) => {
     report += `- **${result.task_id}:** ${result.overall_result} (${result.timestamp})\n`;
   });
 
@@ -761,9 +779,9 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 ### High-Risk Items
 `;
 
-  const criticalIssues = issues.filter(i => i.severity === 'critical');
+  const criticalIssues = issues.filter((i) => i.severity === 'critical');
   if (criticalIssues.length > 0) {
-    criticalIssues.forEach(issue => {
+    criticalIssues.forEach((issue) => {
       report += `- **${issue.type}:** ${issue.description}\n`;
     });
   } else {
@@ -774,9 +792,9 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 ### Medium-Risk Items
 `;
 
-  const mediumIssues = issues.filter(i => i.severity === 'medium');
+  const mediumIssues = issues.filter((i) => i.severity === 'medium');
   if (mediumIssues.length > 0) {
-    mediumIssues.forEach(issue => {
+    mediumIssues.forEach((issue) => {
       report += `- **${issue.type}:** ${issue.description}\n`;
     });
   } else {
@@ -810,9 +828,9 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 ### Immediate Actions Required (Today)
 `;
 
-  const immediateActions = issues.filter(i => i.severity === 'critical');
+  const immediateActions = issues.filter((i) => i.severity === 'critical');
   if (immediateActions.length > 0) {
-    immediateActions.forEach(issue => {
+    immediateActions.forEach((issue) => {
       report += `- [ ] **${issue.type}:** ${issue.description}\n`;
     });
   } else {
@@ -889,15 +907,26 @@ function generateMarkdownReport(data, aggregated, validation, runs, handoffSumma
 /**
  * Generate JSON report
  */
-function generateJsonReport(data, aggregated, validation, runs, handoffSummary, issues, nextRun, options) {
+function generateJsonReport(
+  data,
+  aggregated,
+  validation,
+  runs,
+  handoffSummary,
+  issues,
+  nextRun,
+  options,
+) {
   const now = new Date();
-  const reviewPeriodStart = options.since ? parseRelativeTime(options.since) : new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
+  const reviewPeriodStart = options.since
+    ? parseRelativeTime(options.since)
+    : new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
   return {
     generated_at: now.toISOString(),
     review_period: {
       start: reviewPeriodStart.toISOString(),
-      end: now.toISOString()
+      end: now.toISOString(),
     },
     executive_summary: {
       completed_tasks: aggregated.completed.length,
@@ -905,50 +934,51 @@ function generateJsonReport(data, aggregated, validation, runs, handoffSummary, 
       needs_review_tasks: aggregated.needsReview.length,
       blocked_tasks: aggregated.blocked.length,
       failed_tasks: 0,
-      validation_status: validation.failed > 0 ? 'some_failed' : 'all_passed'
+      validation_status: validation.failed > 0 ? 'some_failed' : 'all_passed',
     },
-    completed_tasks: aggregated.completed.map(task => ({
+    completed_tasks: aggregated.completed.map((task) => ({
       id: task.id,
       title: task.title,
       completed_at: task.completion_event?.timestamp || task.updated_at,
-      validation_status: data.validationResults.find(v => v.task_id === task.id)?.overall_result || 'unknown'
+      validation_status:
+        data.validationResults.find((v) => v.task_id === task.id)?.overall_result || 'unknown',
     })),
-    in_progress_tasks: aggregated.inProgress.map(task => ({
+    in_progress_tasks: aggregated.inProgress.map((task) => ({
       id: task.id,
       title: task.title,
       status: task.status,
       started_at: task.updated_at,
-      has_active_run: !!task.active_run
+      has_active_run: !!task.active_run,
     })),
-    needs_review_tasks: aggregated.needsReview.map(task => ({
+    needs_review_tasks: aggregated.needsReview.map((task) => ({
       id: task.id,
       title: task.title,
       status: task.status,
-      priority: task.priority
+      priority: task.priority,
     })),
-    blocked_tasks: aggregated.blocked.map(task => ({
+    blocked_tasks: aggregated.blocked.map((task) => ({
       id: task.id,
       title: task.title,
       status: task.status,
-      blocking_reason: task.status === 'failed' ? 'Implementation Failed' : 'Dependencies Missing'
+      blocking_reason: task.status === 'failed' ? 'Implementation Failed' : 'Dependencies Missing',
     })),
     validation_summary: {
       total_validations: validation.total,
       passed: validation.passed,
       failed: validation.failed,
       npm_verify_executed: validation.npmVerifyExecuted,
-      pass_rate: Math.round((validation.passed / Math.max(validation.total, 1)) * 100)
+      pass_rate: Math.round((validation.passed / Math.max(validation.total, 1)) * 100),
     },
     run_summary: {
       current_run: runs.current,
       recent_runs: runs.recent.length,
       completed_runs: runs.completed,
-      failed_runs: runs.failed
+      failed_runs: runs.failed,
     },
     handoff_summary: handoffSummary,
     issues: issues,
     warnings: data.warnings,
-    blocking_items: issues.filter(issue => issue.severity === 'critical'),
+    blocking_items: issues.filter((issue) => issue.severity === 'critical'),
     suggested_next_run: nextRun,
     write_performed: options.write,
     data_sources: {
@@ -956,15 +986,20 @@ function generateJsonReport(data, aggregated, validation, runs, handoffSummary, 
       task_history: { path: options.taskHistory, events: data.taskHistory.length },
       current_run: { path: options.currentRun, loaded: !!data.currentRun },
       run_history: { path: options.runHistory, events: data.runHistory.length },
-      validation_results: { path: options.validationResults, events: data.validationResults.length },
-      handoff: { path: options.handoff, loaded: !!data.handoff }
+      validation_results: {
+        path: options.validationResults,
+        events: data.validationResults.length,
+      },
+      handoff: { path: options.handoff, loaded: !!data.handoff },
     },
     metadata: {
       ralph_loop_version: data.loopConfig?.metadata?.ralph_loop_version || '0.1.0-alpha',
       generator_version: '1.0.0',
       generation_time: now.toISOString(),
-      next_review_scheduled: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    }
+      next_review_scheduled: new Date(now.getTime() + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0],
+    },
   };
 }
 
@@ -974,13 +1009,13 @@ function generateJsonReport(data, aggregated, validation, runs, handoffSummary, 
 function writeReport(content, outputPath) {
   try {
     const fullPath = validateOutputPath(outputPath);
-    
+
     // Ensure directory exists
     const dir = path.dirname(fullPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    
+
     fs.writeFileSync(fullPath, content, 'utf8');
     return fullPath;
   } catch (error) {
@@ -994,7 +1029,7 @@ function writeReport(content, outputPath) {
 function main() {
   try {
     const options = parseArgs();
-    
+
     if (options.help) {
       showHelp();
       process.exit(EXIT_CODES.SUCCESS);
@@ -1007,7 +1042,7 @@ function main() {
 
     // Load all data
     const data = loadData(options);
-    
+
     // Aggregate data
     const aggregated = aggregateTasks(data, options);
     const validation = aggregateValidation(data, options);
@@ -1018,18 +1053,39 @@ function main() {
 
     if (options.json) {
       // Generate JSON report
-      const jsonReport = generateJsonReport(data, aggregated, validation, runs, handoffSummary, issues, nextRun, options);
-      
+      const jsonReport = generateJsonReport(
+        data,
+        aggregated,
+        validation,
+        runs,
+        handoffSummary,
+        issues,
+        nextRun,
+        options,
+      );
+
       if (options.write) {
-        const writtenPath = writeReport(JSON.stringify(jsonReport, null, 2), options.output.replace('.md', '.json'));
+        const writtenPath = writeReport(
+          JSON.stringify(jsonReport, null, 2),
+          options.output.replace('.md', '.json'),
+        );
         console.log(`JSON report written to: ${writtenPath}`);
       } else {
         console.log(JSON.stringify(jsonReport, null, 2));
       }
     } else {
       // Generate markdown report
-      const markdownReport = generateMarkdownReport(data, aggregated, validation, runs, handoffSummary, issues, nextRun, options);
-      
+      const markdownReport = generateMarkdownReport(
+        data,
+        aggregated,
+        validation,
+        runs,
+        handoffSummary,
+        issues,
+        nextRun,
+        options,
+      );
+
       if (options.write) {
         const writtenPath = writeReport(markdownReport, options.output);
         console.log(`Morning review report written to: ${writtenPath}`);
@@ -1041,16 +1097,15 @@ function main() {
     // Show warnings if any
     if (data.warnings.length > 0) {
       console.error('\nWarnings:');
-      data.warnings.forEach(warning => {
+      data.warnings.forEach((warning) => {
         console.error(`  - ${warning}`);
       });
     }
 
     process.exit(EXIT_CODES.SUCCESS);
-    
   } catch (error) {
     console.error(`ERROR: ${error.message}`);
-    
+
     if (error.message.includes('Output path must be under reports/')) {
       process.exit(EXIT_CODES.SAFETY_VIOLATION);
     } else if (error.message.includes('Required file not found')) {

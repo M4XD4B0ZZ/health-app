@@ -21,7 +21,7 @@ const EXIT_CODES = {
   OK: 0,
   VALIDATION_FAILURE: 1,
   CREATION_FAILURE: 2,
-  NO_ELIGIBLE_TASKS: 3
+  NO_ELIGIBLE_TASKS: 3,
 };
 
 const PATHS = {
@@ -29,7 +29,7 @@ const PATHS = {
   taskState: 'tasks/task-state.json',
   taskStateTemp: 'tasks/task-state.json.tmp',
   reconciler: 'scripts/agent/reconcile-roadmap-task-state.mjs',
-  validator: 'scripts/agent/validate-ralph-state.mjs'
+  validator: 'scripts/agent/validate-ralph-state.mjs',
 };
 
 function parseArgs(argv) {
@@ -39,7 +39,7 @@ function parseArgs(argv) {
     json: false,
     help: false,
     skipWorkingTreeCheck: false,
-    projectRoot: process.env.RALPH_PROJECT_ROOT || DEFAULT_PROJECT_ROOT
+    projectRoot: process.env.RALPH_PROJECT_ROOT || DEFAULT_PROJECT_ROOT,
   };
 
   for (const arg of argv.slice(2)) {
@@ -125,7 +125,7 @@ function runCommand(projectRoot, command, args) {
     exit_code: typeof result.status === 'number' ? result.status : 1,
     stdout: result.stdout || '',
     stderr: result.stderr || '',
-    error: result.error?.message || null
+    error: result.error?.message || null,
   };
 }
 
@@ -137,13 +137,17 @@ function runWorkingTreeCheck(projectRoot, skipWorkingTreeCheck) {
     status: result.exit_code === 0 && changes === '' ? 'clean' : 'failed',
     passed: result.exit_code === 0 && changes === '',
     changes,
-    exit_code: result.exit_code
+    exit_code: result.exit_code,
   };
 }
 
 function runScriptCheck(projectRoot, scriptPath) {
   const result = runCommand(projectRoot, process.execPath, [scriptPath, '--json']);
-  return { status: result.exit_code === 0 ? 'passed' : 'failed', passed: result.exit_code === 0, exit_code: result.exit_code };
+  return {
+    status: result.exit_code === 0 ? 'passed' : 'failed',
+    passed: result.exit_code === 0,
+    exit_code: result.exit_code,
+  };
 }
 
 function buildSafetyChecks(projectRoot, { includeWorkingTree, skipWorkingTreeCheck }) {
@@ -152,7 +156,11 @@ function buildSafetyChecks(projectRoot, { includeWorkingTree, skipWorkingTreeChe
   try {
     const taskState = readJson(projectRoot, PATHS.taskState);
     const shape = validateTaskStateShape(taskState);
-    checks.task_state_json = { status: shape.valid ? 'passed' : 'failed', passed: shape.valid, error: shape.error || null };
+    checks.task_state_json = {
+      status: shape.valid ? 'passed' : 'failed',
+      passed: shape.valid,
+      error: shape.error || null,
+    };
   } catch (error) {
     checks.task_state_json = { status: 'failed', passed: false, error: error.message };
   }
@@ -160,7 +168,8 @@ function buildSafetyChecks(projectRoot, { includeWorkingTree, skipWorkingTreeChe
   checks.reconciler = runScriptCheck(projectRoot, PATHS.reconciler);
   checks.validator = runScriptCheck(projectRoot, PATHS.validator);
 
-  if (includeWorkingTree) checks.working_tree = runWorkingTreeCheck(projectRoot, skipWorkingTreeCheck);
+  if (includeWorkingTree)
+    checks.working_tree = runWorkingTreeCheck(projectRoot, skipWorkingTreeCheck);
 
   return checks;
 }
@@ -199,7 +208,7 @@ export function generateRuntimeTask(roadmapTask, timestamp = nowIso()) {
     updated_at: timestamp,
     attempt_count: 0,
     max_attempts: 3,
-    requires_human_review: true
+    requires_human_review: true,
   };
 }
 
@@ -213,7 +222,7 @@ function validateGeneratedTask(task) {
     roadmap_status: 'todo',
     attempt_count: 0,
     max_attempts: 3,
-    requires_human_review: true
+    requires_human_review: true,
   };
 
   for (const field of ['id', 'title', 'created_at', 'updated_at']) {
@@ -221,9 +230,11 @@ function validateGeneratedTask(task) {
       return { valid: false, error: `Generated task missing string field: ${field}` };
     }
   }
-  if (typeof task.roadmap_line !== 'number') return { valid: false, error: 'Generated task missing numeric roadmap_line' };
+  if (typeof task.roadmap_line !== 'number')
+    return { valid: false, error: 'Generated task missing numeric roadmap_line' };
   for (const [field, value] of Object.entries(expected)) {
-    if (task[field] !== value) return { valid: false, error: `Generated task has invalid ${field}` };
+    if (task[field] !== value)
+      return { valid: false, error: `Generated task has invalid ${field}` };
   }
   return { valid: true };
 }
@@ -236,13 +247,15 @@ function writeTaskStateAtomically(projectRoot, nextTaskState, originalContent) {
     fs.writeFileSync(tempPath, `${JSON.stringify(nextTaskState, null, 2)}\n`, 'utf8');
     const tempState = JSON.parse(fs.readFileSync(tempPath, 'utf8'));
     const tempValidation = validateTaskStateShape(tempState);
-    if (!tempValidation.valid) throw new Error(`Temp task-state validation failed: ${tempValidation.error}`);
+    if (!tempValidation.valid)
+      throw new Error(`Temp task-state validation failed: ${tempValidation.error}`);
 
     fs.renameSync(tempPath, targetPath);
 
     const writtenState = JSON.parse(fs.readFileSync(targetPath, 'utf8'));
     const writtenValidation = validateTaskStateShape(writtenState);
-    if (!writtenValidation.valid) throw new Error(`Written task-state validation failed: ${writtenValidation.error}`);
+    if (!writtenValidation.valid)
+      throw new Error(`Written task-state validation failed: ${writtenValidation.error}`);
 
     return { success: true };
   } catch (error) {
@@ -250,7 +263,10 @@ function writeTaskStateAtomically(projectRoot, nextTaskState, originalContent) {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
       fs.writeFileSync(targetPath, originalContent, 'utf8');
     } catch (rollbackError) {
-      return { success: false, error: `${error.message}; rollback failed: ${rollbackError.message}` };
+      return {
+        success: false,
+        error: `${error.message}; rollback failed: ${rollbackError.message}`,
+      };
     }
     return { success: false, error: error.message };
   }
@@ -291,7 +307,9 @@ export function formatHuman(result) {
   }
 
   if (typeof result.eligible_task_count === 'number') {
-    lines.push(`ELIGIBLE TASKS: Found ${result.eligible_task_count} eligible ROADMAP task(s) with status 'todo'`);
+    lines.push(
+      `ELIGIBLE TASKS: Found ${result.eligible_task_count} eligible ROADMAP task(s) with status 'todo'`,
+    );
     lines.push('');
   }
 
@@ -312,7 +330,8 @@ export function formatHuman(result) {
   }
 
   if (result.error) lines.push(`ERROR: ${result.error}`);
-  else if (result.mode === 'dry_run') lines.push('DRY-RUN: No changes made. Use --write --confirm-write to create task.');
+  else if (result.mode === 'dry_run')
+    lines.push('DRY-RUN: No changes made. Use --write --confirm-write to create task.');
   else lines.push('WRITE: Task created successfully.');
 
   return lines.join('\n');
@@ -323,7 +342,11 @@ async function main() {
   try {
     options = parseArgs(process.argv);
   } catch (error) {
-    const result = { timestamp: nowIso(), error: error.message, exit_code: EXIT_CODES.VALIDATION_FAILURE };
+    const result = {
+      timestamp: nowIso(),
+      error: error.message,
+      exit_code: EXIT_CODES.VALIDATION_FAILURE,
+    };
     outputResult(result, process.argv.includes('--json'));
     process.exit(EXIT_CODES.VALIDATION_FAILURE);
   }
@@ -334,8 +357,15 @@ async function main() {
   }
 
   if (options.write !== options.confirmWrite) {
-    const error = options.write ? '--write requires --confirm-write' : '--confirm-write requires --write';
-    const result = { timestamp: nowIso(), mode: 'invalid', error, exit_code: EXIT_CODES.VALIDATION_FAILURE };
+    const error = options.write
+      ? '--write requires --confirm-write'
+      : '--confirm-write requires --write';
+    const result = {
+      timestamp: nowIso(),
+      mode: 'invalid',
+      error,
+      exit_code: EXIT_CODES.VALIDATION_FAILURE,
+    };
     outputResult(result, options.json);
     process.exit(EXIT_CODES.VALIDATION_FAILURE);
   }
@@ -379,7 +409,7 @@ async function main() {
       title: selection.selectedTask.title,
       roadmap_status: selection.selectedTask.status,
       roadmap_section: selection.selectedTask.section,
-      roadmap_line: selection.selectedTask.line
+      roadmap_line: selection.selectedTask.line,
     };
     result.generated_task = generatedTask;
 
@@ -392,7 +422,7 @@ async function main() {
 
     const preWriteChecks = buildSafetyChecks(options.projectRoot, {
       includeWorkingTree: true,
-      skipWorkingTreeCheck: options.skipWorkingTreeCheck
+      skipWorkingTreeCheck: options.skipWorkingTreeCheck,
     });
     result.safety_checks = preWriteChecks;
     if (!allChecksPassed(preWriteChecks)) {
@@ -412,7 +442,11 @@ async function main() {
       process.exit(EXIT_CODES.CREATION_FAILURE);
     }
 
-    const writeResult = writeTaskStateAtomically(options.projectRoot, nextTaskState, originalContent);
+    const writeResult = writeTaskStateAtomically(
+      options.projectRoot,
+      nextTaskState,
+      originalContent,
+    );
     result.write_result = writeResult;
     if (!writeResult.success) {
       result.error = `Write failed: ${writeResult.error}`;
@@ -423,7 +457,7 @@ async function main() {
 
     const postWriteChecks = buildSafetyChecks(options.projectRoot, {
       includeWorkingTree: false,
-      skipWorkingTreeCheck: options.skipWorkingTreeCheck
+      skipWorkingTreeCheck: options.skipWorkingTreeCheck,
     });
     result.post_write_checks = postWriteChecks;
     if (!allChecksPassed(postWriteChecks)) {

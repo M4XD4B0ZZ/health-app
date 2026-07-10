@@ -182,10 +182,7 @@ describe('bls-sample-generator pure helpers', () => {
     assert.equal(mapped.record.provenance.componentColumns.kcal.componentCode, 'ENERCC');
     assert.equal(mapped.record.provenance.componentColumns.kcal.valueColumnNumber, 4);
     assert.equal(mapped.record.provenance.componentColumns.carbs.reference, 'ref-carbs');
-    assert.equal(
-      mapped.record.provenance.tier2ComponentColumns.fiberG.componentCode,
-      'FIBT',
-    );
+    assert.equal(mapped.record.provenance.tier2ComponentColumns.fiberG.componentCode, 'FIBT');
   });
 
   it('keeps Tier 2 optional when columns are absent', () => {

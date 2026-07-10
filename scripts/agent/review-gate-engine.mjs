@@ -20,7 +20,7 @@ import {
   ENGINE_ID,
   loadCanonicalHandoffJson,
   resolveProjectPath,
-  SCHEMA_VERSION
+  SCHEMA_VERSION,
 } from './lib/review-gate-core.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,22 +39,23 @@ function parseArgs(argv) {
   const options = {
     dryRun: false,
     json: false,
-    help: false
+    help: false,
   };
 
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') options.help = true;
-    else if (arg === '--input') options.input = requireValue(args, i += 1, arg);
-    else if (arg === '--output') options.output = requireValue(args, i += 1, arg);
+    else if (arg === '--input') options.input = requireValue(args, (i += 1), arg);
+    else if (arg === '--output') options.output = requireValue(args, (i += 1), arg);
     else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--json') options.json = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
 
   if (!options.help) {
-    if (!options.input || options.input.trim() === '') throw new Error('Missing required argument: --input <handoff.json>');
+    if (!options.input || options.input.trim() === '')
+      throw new Error('Missing required argument: --input <handoff.json>');
     if (options.dryRun && options.output) throw new Error('--output cannot be used with --dry-run');
   }
 
@@ -112,15 +113,25 @@ async function main() {
       return;
     }
 
-    const handoff = loadCanonicalHandoffJson(options.input, { readLabel: 'Unable to read input handoff' });
-    const decision = buildNormalizedReviewDecision(handoff, { invalidResultMessage: 'Invalid review result' });
+    const handoff = loadCanonicalHandoffJson(options.input, {
+      readLabel: 'Unable to read input handoff',
+    });
+    const decision = buildNormalizedReviewDecision(handoff, {
+      invalidResultMessage: 'Invalid review result',
+    });
     const target = outputPathFor(options);
     const writeResult = writeDecision(target, decision, options.dryRun);
 
     if (options.dryRun || options.json) {
       process.stdout.write(`${JSON.stringify(decision, null, 2)}\n`);
     } else {
-      console.log(JSON.stringify({ schema_version: SCHEMA_VERSION, engine: ENGINE_ID, target, write_result: writeResult }, null, 2));
+      console.log(
+        JSON.stringify(
+          { schema_version: SCHEMA_VERSION, engine: ENGINE_ID, target, write_result: writeResult },
+          null,
+          2,
+        ),
+      );
     }
   } catch (error) {
     console.error(`Ralph review gate engine error: ${error.message}`);

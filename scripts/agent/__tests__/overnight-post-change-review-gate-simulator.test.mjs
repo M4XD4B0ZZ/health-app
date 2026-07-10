@@ -5,7 +5,7 @@ import {
   buildPostChangeReviewGateSimulation,
   evaluateSafetyInvariants,
   formatPostChangeReviewGateSimulationPretty,
-  validateChangeDiffSimulationInput
+  validateChangeDiffSimulationInput,
 } from '../lib/overnight-post-change-review-gate-simulator.mjs';
 import { parseArgs } from '../overnight-post-change-review-gate-simulator.mjs';
 
@@ -24,14 +24,16 @@ function sourceSimulation(overrides = {}) {
       total_changes: 1,
       validation_categories: ['governance-script-only'],
       blocking_files: 0,
-      review_required_files: 0
+      review_required_files: 0,
     },
-    file_evaluations: [{ normalized_path: 'scripts/agent/example.mjs', severity: 'info', reason_codes: [] }],
+    file_evaluations: [
+      { normalized_path: 'scripts/agent/example.mjs', severity: 'info', reason_codes: [] },
+    ],
     threshold_evaluation: { threshold_exceeded: false, review_policy_large_diff_trigger: false },
     scope_evaluation: {
       scope_violation_detected: false,
       forbidden_file_violation_detected: false,
-      protected_file_violation_detected: false
+      protected_file_violation_detected: false,
     },
     review_gate_simulation: {
       manual_review_required: true,
@@ -39,9 +41,12 @@ function sourceSimulation(overrides = {}) {
       review_triggers: [],
       blocking_review_reasons: [],
       review_gate_disposition: 'manual_review_required_for_future_worker_changes',
-      not_review_evidence: true
+      not_review_evidence: true,
     },
-    validation_category_simulation: { not_validation_evidence: true, validation_execution_authorized: false },
+    validation_category_simulation: {
+      not_validation_evidence: true,
+      validation_execution_authorized: false,
+    },
     execution_plan: {
       queued_tasks_executed: 0,
       worker_invocations: 0,
@@ -57,7 +62,7 @@ function sourceSimulation(overrides = {}) {
       files_written: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -80,10 +85,10 @@ function sourceSimulation(overrides = {}) {
       writes_by_default: false,
       non_authorizing_output: true,
       not_review_evidence: true,
-      not_validation_evidence: true
+      not_validation_evidence: true,
     },
     non_authorization_statement: 'source non-authorization',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -104,19 +109,29 @@ test('valid RALPH-034L would_pass input produces would_be_reviewable without aut
 });
 
 test('source would_require_review produces would_require_human_review', () => {
-  const simulation = buildPostChangeReviewGateSimulation(sourceSimulation({ disposition: 'would_require_review', reason_codes: ['review_policy_trigger'], summary: { ...sourceSimulation().summary, review_required_files: 1 } }));
+  const simulation = buildPostChangeReviewGateSimulation(
+    sourceSimulation({
+      disposition: 'would_require_review',
+      reason_codes: ['review_policy_trigger'],
+      summary: { ...sourceSimulation().summary, review_required_files: 1 },
+    }),
+  );
   assert.equal(simulation.review_gate_disposition, 'would_require_human_review');
   assert.ok(simulation.reason_codes.includes('review_policy_trigger'));
 });
 
 test('source would_block produces would_reject_before_review', () => {
-  const simulation = buildPostChangeReviewGateSimulation(sourceSimulation({ disposition: 'would_block', reason_codes: ['scope_violation'] }));
+  const simulation = buildPostChangeReviewGateSimulation(
+    sourceSimulation({ disposition: 'would_block', reason_codes: ['scope_violation'] }),
+  );
   assert.equal(simulation.review_gate_disposition, 'would_reject_before_review');
   assert.ok(simulation.reason_codes.includes('scope_violation'));
 });
 
 test('invalid phase or mode produces invalid_input', () => {
-  const simulation = buildPostChangeReviewGateSimulation(sourceSimulation({ phase: 'RALPH-034K', mode: 'worker_adapter_simulation_only' }));
+  const simulation = buildPostChangeReviewGateSimulation(
+    sourceSimulation({ phase: 'RALPH-034K', mode: 'worker_adapter_simulation_only' }),
+  );
   assert.equal(simulation.review_gate_disposition, 'invalid_input');
   assert.ok(simulation.reason_codes.includes('invalid_source_phase'));
   assert.ok(simulation.reason_codes.includes('invalid_source_mode'));
@@ -126,28 +141,46 @@ test('protected, forbidden, scope, and threshold findings block before review', 
   for (const [field, reason] of [
     ['protected_file_violation_detected', 'protected_file'],
     ['forbidden_file_violation_detected', 'forbidden_file'],
-    ['scope_violation_detected', 'scope_violation']
+    ['scope_violation_detected', 'scope_violation'],
   ]) {
-    const simulation = buildPostChangeReviewGateSimulation(sourceSimulation({ scope_evaluation: { ...sourceSimulation().scope_evaluation, [field]: true } }));
+    const simulation = buildPostChangeReviewGateSimulation(
+      sourceSimulation({
+        scope_evaluation: { ...sourceSimulation().scope_evaluation, [field]: true },
+      }),
+    );
     assert.equal(simulation.review_gate_disposition, 'would_reject_before_review');
     assert.ok(simulation.reason_codes.includes(reason));
   }
-  const threshold = buildPostChangeReviewGateSimulation(sourceSimulation({ threshold_evaluation: { threshold_exceeded: true, review_policy_large_diff_trigger: false } }));
+  const threshold = buildPostChangeReviewGateSimulation(
+    sourceSimulation({
+      threshold_evaluation: { threshold_exceeded: true, review_policy_large_diff_trigger: false },
+    }),
+  );
   assert.equal(threshold.review_gate_disposition, 'would_reject_before_review');
   assert.ok(threshold.reason_codes.includes('threshold_exceeded'));
 });
 
 test('category escalation requires human review when no hard blocker exists', () => {
-  const simulation = buildPostChangeReviewGateSimulation(sourceSimulation({ reason_codes: ['category_escalation'] }));
+  const simulation = buildPostChangeReviewGateSimulation(
+    sourceSimulation({ reason_codes: ['category_escalation'] }),
+  );
   assert.equal(simulation.review_gate_disposition, 'would_require_human_review');
   assert.ok(simulation.reason_codes.includes('category_escalation'));
 });
 
 test('safety counter or missing safety flag blocks', () => {
-  const nonzero = buildPostChangeReviewGateSimulation(sourceSimulation({ execution_plan: { ...sourceSimulation().execution_plan, worker_invocations: 1 } }));
+  const nonzero = buildPostChangeReviewGateSimulation(
+    sourceSimulation({
+      execution_plan: { ...sourceSimulation().execution_plan, worker_invocations: 1 },
+    }),
+  );
   assert.equal(nonzero.review_gate_disposition, 'would_reject_before_review');
   assert.ok(nonzero.reason_codes.includes('nonzero_execution_counter'));
-  const missingFlag = buildPostChangeReviewGateSimulation(sourceSimulation({ safety_summary: { ...sourceSimulation().safety_summary, planning_only: false } }));
+  const missingFlag = buildPostChangeReviewGateSimulation(
+    sourceSimulation({
+      safety_summary: { ...sourceSimulation().safety_summary, planning_only: false },
+    }),
+  );
   assert.equal(missingFlag.review_gate_disposition, 'would_reject_before_review');
   assert.ok(missingFlag.reason_codes.includes('missing_or_false_safety_flag'));
 });
@@ -162,13 +195,40 @@ test('helper validation and safety evaluation are deterministic', () => {
 });
 
 test('CLI parser rejects execution, review, evidence, write, git, and worker flags', () => {
-  for (const flag of ['--execute', '--worker', '--run-worker', '--invoke-worker', '--adapter', '--invoke-adapter', '--provider', '--model', '--execute-prompt', '--apply-diff', '--write-changes', '--validate', '--run-validation', '--review', '--accept-review', '--write-review-evidence', '--append-review', '--write-validation-evidence', '--write-report', '--write-run-log', '--output', '--commit', '--push', '--stage']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-worker',
+    '--invoke-worker',
+    '--adapter',
+    '--invoke-adapter',
+    '--provider',
+    '--model',
+    '--execute-prompt',
+    '--apply-diff',
+    '--write-changes',
+    '--validate',
+    '--run-validation',
+    '--review',
+    '--accept-review',
+    '--write-review-evidence',
+    '--append-review',
+    '--write-validation-evidence',
+    '--write-report',
+    '--write-run-log',
+    '--output',
+    '--commit',
+    '--push',
+    '--stage',
+  ]) {
     assert.throws(() => parseArgs(['node', 'cli', 'ralph-034l.json', flag]), /forbidden/, flag);
   }
 });
 
 test('pretty output contains non-authorization language', () => {
-  const pretty = formatPostChangeReviewGateSimulationPretty(buildPostChangeReviewGateSimulation(sourceSimulation()));
+  const pretty = formatPostChangeReviewGateSimulationPretty(
+    buildPostChangeReviewGateSimulation(sourceSimulation()),
+  );
   assert.match(pretty, /planning-only post-change review-gate simulation/);
   assert.match(pretty, /no review acceptance/);
   assert.match(pretty, /no review evidence writes/);

@@ -5,17 +5,17 @@ import { GetReminderSettingsUseCase } from '../application/usecases/GetReminderS
 import { GetReminderDecisionUseCase } from '../application/usecases/GetReminderDecisionUseCase';
 import { GetDailySummaryUseCase } from '../application/usecases/GetDailySummaryUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
-import { GoalsRepository } from '../application/ports/GoalsRepository';
-import { UserGoals } from '../domain/goals/UserGoals';
+import { EffectiveGoalsRepository } from '../../goals/application/ports';
+import { EffectiveGoals } from '../../goals/domain/models/GoalsTypes';
 import { FoodEntry } from '../domain/models/NutritionTypes';
 import { getDateISOInTimezone } from '../domain/reminders/ReminderDecisionEngine';
 
-class InMemoryGoalsRepository implements GoalsRepository {
-  async getGoals(): Promise<UserGoals | null> {
+class InMemoryGoalsRepository implements EffectiveGoalsRepository {
+  async get(): Promise<EffectiveGoals | null> {
     return null;
   }
 
-  async setGoals(): Promise<void> {}
+  async upsert(): Promise<void> {}
 }
 
 describe('Reminder system v1', () => {

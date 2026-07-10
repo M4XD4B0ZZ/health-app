@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const EXIT_CODES = Object.freeze({
   OK: 0,
   INVALID_INPUT: 1,
-  COMMAND_NOT_PASSED: 2
+  COMMAND_NOT_PASSED: 2,
 });
 
 function parseArgs(argv) {
@@ -55,7 +55,9 @@ function formatPretty(result) {
   lines.push(`Stderr truncated: ${result.stderr_truncated}`);
   lines.push(`Safety findings: ${result.safety_findings.length}`);
   lines.push('');
-  lines.push('Execution safety: no queue execution; no worker invocation; no runtime state mutation; no file writes by default.');
+  lines.push(
+    'Execution safety: no queue execution; no worker invocation; no runtime state mutation; no file writes by default.',
+  );
   if (result.combined_output_preview) {
     lines.push('');
     lines.push('Output preview:');
@@ -69,7 +71,11 @@ async function main() {
   try {
     options = parseArgs(process.argv);
   } catch (error) {
-    const failure = { status: 'blocked', error: error.message, safety_findings: [{ severity: 'critical', code: 'invalid_cli_args', message: error.message }] };
+    const failure = {
+      status: 'blocked',
+      error: error.message,
+      safety_findings: [{ severity: 'critical', code: 'invalid_cli_args', message: error.message }],
+    };
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);
   }
@@ -79,7 +85,9 @@ async function main() {
     process.exit(options.help ? EXIT_CODES.OK : EXIT_CODES.INVALID_INPUT);
   }
 
-  const result = await runAllowedCommand(options.commandId, { runner: 'overnight-command-smoke.mjs' });
+  const result = await runAllowedCommand(options.commandId, {
+    runner: 'overnight-command-smoke.mjs',
+  });
   if (options.pretty) console.log(formatPretty(result));
   else console.log(JSON.stringify(result, null, 2));
   process.exit(result.status === 'passed' ? EXIT_CODES.OK : EXIT_CODES.COMMAND_NOT_PASSED);

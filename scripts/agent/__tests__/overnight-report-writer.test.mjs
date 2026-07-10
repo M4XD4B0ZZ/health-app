@@ -12,7 +12,7 @@ import {
   formatOvernightReportMarkdown,
   resolveOvernightReportPaths,
   sanitizeReportQueueId,
-  writeOvernightReportBundle
+  writeOvernightReportBundle,
 } from '../lib/overnight-report-writer.mjs';
 
 const GENERATED_AT = '2026-06-02T07:55:00.000Z';
@@ -51,14 +51,14 @@ function executorOutput(overrides = {}) {
       unmapped_checks: 0,
       blocked_checks: 0,
       ready_for_validation_execution: true,
-      validation_command_ids: ['validate_ralph_state']
+      validation_command_ids: ['validate_ralph_state'],
     },
     preflight: {
       working_tree_clean_before: true,
       working_tree_clean_after: true,
       critical_findings: [],
       git_status_before: commandResult('git_status_short'),
-      git_status_after: commandResult('git_status_short')
+      git_status_after: commandResult('git_status_short'),
     },
     command_execution: {
       total: 1,
@@ -66,7 +66,7 @@ function executorOutput(overrides = {}) {
       failed: 0,
       timed_out: 0,
       blocked: 0,
-      results: [commandResult('validate_ralph_state')]
+      results: [commandResult('validate_ralph_state')],
     },
     execution_plan: {
       queued_tasks_executed: 0,
@@ -76,7 +76,7 @@ function executorOutput(overrides = {}) {
       task_commands_executed: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       no_task_execution: true,
@@ -85,10 +85,12 @@ function executorOutput(overrides = {}) {
       no_product_work: true,
       no_commit: true,
       no_push: true,
-      no_log_write_by_default: true
+      no_log_write_by_default: true,
     },
-    recommended_human_actions: ['Review validation-only command results before any further automation.'],
-    ...overrides
+    recommended_human_actions: [
+      'Review validation-only command results before any further automation.',
+    ],
+    ...overrides,
   };
 }
 
@@ -119,7 +121,7 @@ function commandResult(commandId, overrides = {}) {
     runtime_state_mutation: 'not_performed',
     writes_performed: false,
     runner: 'test-fixture',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -139,7 +141,9 @@ test('formatter builds JSON payload with required top-level fields', () => {
 });
 
 test('markdown formatter contains required morning-review sections', () => {
-  const markdown = formatOvernightReportMarkdown(buildOvernightReportPayload(executorOutput(), { generatedAt: GENERATED_AT }));
+  const markdown = formatOvernightReportMarkdown(
+    buildOvernightReportPayload(executorOutput(), { generatedAt: GENERATED_AT }),
+  );
 
   for (const heading of [
     '# RALPH Overnight Validation Report',
@@ -153,7 +157,7 @@ test('markdown formatter contains required morning-review sections', () => {
     '## Files Written',
     '## Human Decisions Required',
     '## Recommended Next Action',
-    '## Explicit Boundary'
+    '## Explicit Boundary',
   ]) {
     assert.match(markdown, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
@@ -173,29 +177,44 @@ test('formatter functions do not write files', (t) => {
 
 test('writer writes JSON and Markdown under fixed reports directory only when called', (t) => {
   const root = tempProjectRoot(t);
-  const bundle = writeOvernightReportBundle(executorOutput(), { projectRoot: root, generatedAt: GENERATED_AT });
+  const bundle = writeOvernightReportBundle(executorOutput(), {
+    projectRoot: root,
+    generatedAt: GENERATED_AT,
+  });
 
   assert.deepEqual(bundle.files_written.map((file) => file.relative_path).sort(), [
     '.agent/overnight/reports/2026-06-02T07-55-00.000Z_queue_ralph_034e_fixture.json',
-    '.agent/overnight/reports/2026-06-02T07-55-00.000Z_queue_ralph_034e_fixture.md'
+    '.agent/overnight/reports/2026-06-02T07-55-00.000Z_queue_ralph_034e_fixture.md',
   ]);
-  assert.deepEqual(listFiles(root).sort(), bundle.files_written.map((file) => file.relative_path).sort());
+  assert.deepEqual(
+    listFiles(root).sort(),
+    bundle.files_written.map((file) => file.relative_path).sort(),
+  );
 });
 
 test('path traversal in queue_id cannot escape reports directory', (t) => {
   const root = tempProjectRoot(t);
   const output = executorOutput({ queue_id: '../../tasks/task-state.json' });
-  const bundle = writeOvernightReportBundle(output, { projectRoot: root, generatedAt: GENERATED_AT });
+  const bundle = writeOvernightReportBundle(output, {
+    projectRoot: root,
+    generatedAt: GENERATED_AT,
+  });
 
   for (const file of bundle.files_written) {
     assert.ok(file.relative_path.startsWith(`${REPORT_BASE_DIR}/`));
     assert.ok(!file.relative_path.includes('..'));
   }
-  assert.deepEqual(listFiles(root).sort(), bundle.files_written.map((file) => file.relative_path).sort());
+  assert.deepEqual(
+    listFiles(root).sort(),
+    bundle.files_written.map((file) => file.relative_path).sort(),
+  );
 });
 
 test('unsafe queue IDs are sanitized and empty IDs fall back', () => {
-  assert.equal(sanitizeReportQueueId('Queue / With: Unsafe ** Characters'), 'Queue-With-Unsafe-Characters');
+  assert.equal(
+    sanitizeReportQueueId('Queue / With: Unsafe ** Characters'),
+    'Queue-With-Unsafe-Characters',
+  );
   assert.equal(sanitizeReportQueueId('////'), 'unknown-queue');
 });
 
@@ -204,20 +223,40 @@ test('existing report files are not overwritten', (t) => {
   writeOvernightReportBundle(executorOutput(), { projectRoot: root, generatedAt: GENERATED_AT });
 
   assert.throws(
-    () => writeOvernightReportBundle(executorOutput(), { projectRoot: root, generatedAt: GENERATED_AT }),
-    /Refusing to overwrite existing overnight report/
+    () =>
+      writeOvernightReportBundle(executorOutput(), {
+        projectRoot: root,
+        generatedAt: GENERATED_AT,
+      }),
+    /Refusing to overwrite existing overnight report/,
   );
 });
 
 test('failed or aborted executor result can still produce a report', (t) => {
   const root = tempProjectRoot(t);
-  const failed = commandResult('validate_ralph_state', { status: 'failed', exit_code: 1, stderr: 'failure' });
+  const failed = commandResult('validate_ralph_state', {
+    status: 'failed',
+    exit_code: 1,
+    stderr: 'failure',
+  });
   const output = executorOutput({
     valid: false,
-    command_execution: { total: 1, passed: 0, failed: 1, timed_out: 0, blocked: 0, results: [failed] },
-    recommended_human_actions: ['Resolve critical findings or failed validation commands before proceeding.']
+    command_execution: {
+      total: 1,
+      passed: 0,
+      failed: 1,
+      timed_out: 0,
+      blocked: 0,
+      results: [failed],
+    },
+    recommended_human_actions: [
+      'Resolve critical findings or failed validation commands before proceeding.',
+    ],
   });
-  const bundle = writeOvernightReportBundle(output, { projectRoot: root, generatedAt: GENERATED_AT });
+  const bundle = writeOvernightReportBundle(output, {
+    projectRoot: root,
+    generatedAt: GENERATED_AT,
+  });
 
   assert.equal(bundle.report.valid, false);
   assert.equal(bundle.report.failed_timed_out_or_blocked_commands.length, 1);
@@ -232,10 +271,19 @@ test('stdout and stderr are bounded previews with truncation metadata preserved'
       failed: 0,
       timed_out: 0,
       blocked: 0,
-      results: [commandResult('validate_ralph_state', { stdout: longText, stderr: longText, stdout_truncated: true })]
-    }
+      results: [
+        commandResult('validate_ralph_state', {
+          stdout: longText,
+          stderr: longText,
+          stdout_truncated: true,
+        }),
+      ],
+    },
   });
-  const payload = buildOvernightReportPayload(output, { generatedAt: GENERATED_AT, previewChars: 5 });
+  const payload = buildOvernightReportPayload(output, {
+    generatedAt: GENERATED_AT,
+    previewChars: 5,
+  });
   const command = payload.command_results[0];
 
   assert.match(command.stdout_preview, /\.\.\.\[truncated\]/);
@@ -253,16 +301,19 @@ test('command results preserve status, exit code, duration, timeout, and safety 
       failed: 0,
       timed_out: 0,
       blocked: 1,
-      results: [commandResult('validate_ralph_state', {
-        status: 'blocked',
-        exit_code: null,
-        duration_ms: 42,
-        timeout_ms: 1234,
-        safety_findings: [{ severity: 'critical', code: 'blocked', message: 'blocked' }]
-      })]
-    }
+      results: [
+        commandResult('validate_ralph_state', {
+          status: 'blocked',
+          exit_code: null,
+          duration_ms: 42,
+          timeout_ms: 1234,
+          safety_findings: [{ severity: 'critical', code: 'blocked', message: 'blocked' }],
+        }),
+      ],
+    },
   });
-  const command = buildOvernightReportPayload(output, { generatedAt: GENERATED_AT }).command_results[0];
+  const command = buildOvernightReportPayload(output, { generatedAt: GENERATED_AT })
+    .command_results[0];
 
   assert.equal(command.status, 'blocked');
   assert.equal(command.exit_code, null);
@@ -292,7 +343,7 @@ test('runtime, evidence, and product files are not touched by writer', (t) => {
     'runs/run-history.jsonl',
     'validation/validation-results.jsonl',
     'review/review-results.jsonl',
-    'src/domain/product.ts'
+    'src/domain/product.ts',
   ];
   for (const file of protectedFiles) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
@@ -309,7 +360,12 @@ test('runtime, evidence, and product files are not touched by writer', (t) => {
 test('unsupported report format fails closed', (t) => {
   const root = tempProjectRoot(t);
   assert.throws(
-    () => writeOvernightReportBundle(executorOutput(), { projectRoot: root, generatedAt: GENERATED_AT, formats: 'json,txt' }),
-    /Unsupported report format: txt/
+    () =>
+      writeOvernightReportBundle(executorOutput(), {
+        projectRoot: root,
+        generatedAt: GENERATED_AT,
+        formats: 'json,txt',
+      }),
+    /Unsupported report format: txt/,
   );
 });

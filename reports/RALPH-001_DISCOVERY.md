@@ -461,14 +461,14 @@ Observed stop conditions include:
 
 # Autonomous Readiness Assessment
 
-| Capability | Readiness | Rationale |
-| --- | ---: | --- |
-| Task selection | 60% | Structured selector is solid for `tasks/task-state.json`, but legacy selection uses ROADMAP; no unified selector or dependency resolver. |
-| Execution | 45% | OpenCode worker wrapper is strong, and `agent:auto` runs one task, but execution is prompt-based, external-tool-dependent, and not tightly scoped by structured allowed_files at runtime. |
-| Review | 55% | Review policy and gates are strong, but review outcomes are manual and not machine-recorded as approvals/rejections that control next steps. |
-| Verification | 45% | Full verify runner exists, but category-aware VERIFY.md enforcement and validation-results synchronization are missing. Current repo has known full-verify formatting blocker from product work. |
-| Commit safety | 20% | Scripts intentionally do not commit/push. There is no safe auto-commit workflow with staged-file allowlists, secret scanning, diff review, and rollback. This is safe but not autonomous. |
-| Overnight readiness | 25% | Milestone skeleton exists, but state divergence, human-review-after-each-task, no commit safety, weak state transactionality, and validation blockers prevent safe overnight multi-task automation. |
+| Capability          | Readiness | Rationale                                                                                                                                                                                           |
+| ------------------- | --------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task selection      |       60% | Structured selector is solid for `tasks/task-state.json`, but legacy selection uses ROADMAP; no unified selector or dependency resolver.                                                            |
+| Execution           |       45% | OpenCode worker wrapper is strong, and `agent:auto` runs one task, but execution is prompt-based, external-tool-dependent, and not tightly scoped by structured allowed_files at runtime.           |
+| Review              |       55% | Review policy and gates are strong, but review outcomes are manual and not machine-recorded as approvals/rejections that control next steps.                                                        |
+| Verification        |       45% | Full verify runner exists, but category-aware VERIFY.md enforcement and validation-results synchronization are missing. Current repo has known full-verify formatting blocker from product work.    |
+| Commit safety       |       20% | Scripts intentionally do not commit/push. There is no safe auto-commit workflow with staged-file allowlists, secret scanning, diff review, and rollback. This is safe but not autonomous.           |
+| Overnight readiness |       25% | Milestone skeleton exists, but state divergence, human-review-after-each-task, no commit safety, weak state transactionality, and validation blockers prevent safe overnight multi-task automation. |
 
 Overall:
 
@@ -570,11 +570,13 @@ Recommended components:
    - Supports explicit human approval/rejection/revision records before next task can start.
 
 10. **Commit Gate**
-   - Initially manual only.
-   - Later optional auto-commit after human approval with staged allowlist, secret scan, diff summary, and no push.
+
+- Initially manual only.
+- Later optional auto-commit after human approval with staged allowlist, secret scan, diff summary, and no push.
 
 11. **Morning Review / Dashboard**
-   - Reuse `generate-morning-review.mjs` but feed it normalized state and review outcomes.
+
+- Reuse `generate-morning-review.mjs` but feed it normalized state and review outcomes.
 
 ## Minimal viable orchestration flow
 

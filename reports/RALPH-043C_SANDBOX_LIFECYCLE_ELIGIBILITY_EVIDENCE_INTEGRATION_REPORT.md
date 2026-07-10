@@ -49,6 +49,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Fixture:**
+
 ```json
 {
   "sandbox": true,
@@ -64,6 +65,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Result:**
+
 - Decision: `eligible_for_human_consideration`
 - Eligible: `true`
 - Blocked: `false`
@@ -77,6 +79,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Fixture:**
+
 ```json
 {
   "sandbox": true,
@@ -93,6 +96,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Result:**
+
 - Decision: `blocked_canonical_scope`
 - Eligible: `false`
 - Blocked: `true`
@@ -106,6 +110,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Fixture:**
+
 ```json
 {
   "sandbox": true,
@@ -122,6 +127,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Result:**
+
 - Decision: `blocked_forbidden_claim`
 - Eligible: `false`
 - Blocked: `true`
@@ -135,6 +141,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Fixture:**
+
 ```json
 {
   "sandbox": true,
@@ -150,6 +157,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Result:**
+
 - Decision: `blocked_invalid_lifecycle`
 - Eligible: `false`
 - Blocked: `true`
@@ -163,6 +171,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Fixture:**
+
 ```json
 {
   "sandbox": true,
@@ -177,6 +186,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Result:**
+
 - Decision: `blocked_missing_evidence`
 - Eligible: `false`
 - Blocked: `true`
@@ -190,6 +200,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Fixture:**
+
 ```json
 {
   "sandbox": true,
@@ -204,6 +215,7 @@ node scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs --input-file temp-
 ```
 
 **Result:**
+
 - Markdown output successfully generated
 - Decision: `eligible_for_human_consideration`
 - All sections present: Decision, Artifact Summary, Lifecycle Summary, Authority Flags, Metadata, Non-Authoritative Statement, Non-Authorization Statement
@@ -237,6 +249,7 @@ All five decision outcomes were successfully captured:
 ## Output Format Evidence
 
 ### JSON Output Format
+
 - ✅ Schema version: `1.0.0`
 - ✅ Evaluator ID: `sandbox-lifecycle-eligibility-evaluator`
 - ✅ Mode: `read_only_stdout`
@@ -253,6 +266,7 @@ All five decision outcomes were successfully captured:
 - ✅ Non-authorization statement present
 
 ### Markdown Output Format
+
 - ✅ Human-readable formatting
 - ✅ All sections present
 - ✅ Decision clearly marked
@@ -265,6 +279,7 @@ All five decision outcomes were successfully captured:
 **Decision:** Temporary JSON fixtures were created and used for all evaluations.
 
 **Rationale:**
+
 - PowerShell `--input-json` inline JSON escaping proved unreliable (spaces in strings caused positional argument errors)
 - Temporary fixture files provided reliable input mechanism
 - Fixtures were created in repository root (not under protected paths)
@@ -299,6 +314,7 @@ All evaluations returned identical authority flags:
 ## Writes Performed Verification
 
 All evaluations returned:
+
 ```json
 {
   "writes_performed": false
@@ -310,6 +326,7 @@ All evaluations returned:
 ## Stdout Only Verification
 
 All evaluations returned:
+
 ```json
 {
   "stdout_only": true
@@ -321,17 +338,21 @@ All evaluations returned:
 ## Changed-File Reconciliation
 
 ### Before Evaluator Execution
+
 - Working tree: clean
 - Staged files: none
 - Modified tracked files: none
 
 ### After Evaluator Execution
+
 - Working tree: 6 untracked temporary fixture files
 - Staged files: none
 - Modified tracked files: none
 
 ### Expected Final Changed Files
+
 After report creation and ROADMAP status update:
+
 - `reports/RALPH-043C_SANDBOX_LIFECYCLE_ELIGIBILITY_EVIDENCE_INTEGRATION_REPORT.md` (NEW)
 - `ROADMAP.md` (status update: `todo` → `done`)
 
@@ -340,6 +361,7 @@ Temporary fixtures will be removed before final readbacks.
 ## Protected/Canonical Scope Status
 
 ### Paths Verified Unchanged
+
 - ✅ `tasks/**` - no writes
 - ✅ `runs/**` - no writes
 - ✅ `validation/**` - no writes
@@ -382,14 +404,17 @@ Confirmed for RALPH-043C:
 All evaluations included:
 
 **Non-Authoritative Statement:**
+
 > "This sandbox lifecycle probe is non-authoritative advisory metadata only."
 
 **Non-Authorization Statement:**
+
 > "This eligibility evaluation does not authorize queue execution, worker execution, task execution, lifecycle execution, runtime behavior, review acceptance, validation authority, task completion, commit readiness, canonical queue admission, or canonical state mutation."
 
 ## Verification Results
 
 ### Evaluator Behavior
+
 ✅ All five decision outcomes captured  
 ✅ JSON output format verified  
 ✅ Markdown output format verified  
@@ -401,6 +426,7 @@ All evaluations included:
 ✅ Non-authorization statements present in all results
 
 ### Repository State
+
 ✅ No tracked files modified by evaluator  
 ✅ No files staged by evaluator  
 ✅ No commits created by evaluator  
@@ -412,6 +438,7 @@ All evaluations included:
 ✅ No governance files modified
 
 ### Safety Boundaries
+
 ✅ No runtime execution introduced  
 ✅ No lifecycle execution introduced  
 ✅ No queue execution introduced  
@@ -427,6 +454,7 @@ All evaluations included:
 **PASS** ✅
 
 All verification requirements met:
+
 - Git evidence commands executed and documented
 - Eligibility evaluator invoked with representative fixtures
 - JSON output format captured

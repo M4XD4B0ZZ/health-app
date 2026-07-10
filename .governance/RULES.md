@@ -61,6 +61,7 @@
 ## Agent Handoff Rules
 
 **Canonical ownership (normative):**
+
 - Handoff schema owner: [`RULES.md`](RULES.md)
 - Review evaluation owner: [`REVIEW_POLICY.md`](REVIEW_POLICY.md)
 - Verification disclosure owner: [`../VERIFY.md`](../VERIFY.md)

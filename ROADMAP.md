@@ -230,6 +230,7 @@ Implement the smallest possible supervised sandbox runtime-state write proving t
 ---
 
 ### RALPH-035C Sandbox Runtime-State Smoke Execution
+
 Status: `done`
 
 Perform the first supervised real sandbox runtime-state write using the RALPH-035B writer, creating exactly one non-authoritative sandbox JSON artifact in the repository for human review.
@@ -259,7 +260,6 @@ Perform the first supervised real sandbox runtime-state write using the RALPH-03
 - No staging, commit, push, deploy, dependency install, formatter, fixer, or external mutation is performed by the smoke task.
 
 ---
-
 
 ### RALPH-036A Controlled Command Capability Planning
 
@@ -293,6 +293,7 @@ Plan the first safe command-execution capability for the Ralph-Loop / Overnight 
 ---
 
 ### RALPH-036B Minimal Read-Only Command Sandbox
+
 Status: `done`
 
 Implement the first tightly bounded read-only command sandbox for the Ralph-Loop / Overnight Worker workflow without enabling arbitrary shell execution or mutation-capable commands.
@@ -329,6 +330,7 @@ Implement the first tightly bounded read-only command sandbox for the Ralph-Loop
 ---
 
 ### RALPH-036C Read-Only Command Smoke Execution
+
 Status: `done`
 
 Perform the first supervised real execution of the RALPH-036B read-only command sandbox using only the existing approved allowlist.
@@ -391,6 +393,7 @@ Plan a standardized review-evidence bundle for future Ralph-Loop / Overnight Wor
 ---
 
 ### RALPH-037B Minimal Review Evidence Bundle Generator
+
 Status: `done`
 
 Implement the smallest safe review-evidence bundle generator so future Ralph-Loop tasks can produce consistent, bounded evidence for human review without relying on agent summaries.
@@ -473,6 +476,7 @@ Plan the first controlled mutation capability for the Ralph-Loop / Overnight Wor
 ---
 
 ### RALPH-038B Minimal Controlled Report Mutation Smoke
+
 Status: `done`
 
 Implement the first controlled Ralph mutation capability as a tightly bounded, human-reviewable, create-only report artifact mutation. This task proves Ralph can perform one explicit, non-authoritative, single-file write under `reports/` without authorizing product, runtime, governance, evidence, package, Git, deployment, or arbitrary file mutation.
@@ -587,11 +591,11 @@ Plan the task-admission model that determines which future tasks may enter the R
   - `.governance/REVIEW_POLICY.md`
   - `.agent/config/protected-files.json`
 - Relevant prior Ralph tasks were inspected:
-  - RALPH-034*
-  - RALPH-035*
-  - RALPH-036*
-  - RALPH-037*
-  - RALPH-038*
+  - RALPH-034\*
+  - RALPH-035\*
+  - RALPH-036\*
+  - RALPH-037\*
+  - RALPH-038\*
 - Admission classes, criteria, escalation rules, rejection rules, evidence requirements, and minimum metadata were defined.
 - RALPH-039B implementation boundaries are defined.
 - No implementation or file modification was performed.
@@ -665,6 +669,7 @@ Implement a read-only deterministic task-admission classifier that evaluates tas
 ---
 
 ### RALPH-039C Task Admission Smoke Evaluation
+
 Status: `done`
 
 Validate the RALPH-039B task-admission classifier against representative task metadata fixtures before integrating admission decisions into any queue or worker flow.
@@ -2702,7 +2707,7 @@ references Food Catalog entries rather than owning food properties itself; never
 evaluations ("gut"/"schlecht"). Food Catalog remains fachlich part of the Journal Domain
 per Product Bible Abschnitt 9/11 — **not** a fifth Tier-1 domain. The Product Bible
 describes the factual architecture (Food Catalog → Journal → Evaluation Engine); this
-section only refines the *implementation sequence* within the Journal Domain, per Decision
+section only refines the _implementation sequence_ within the Journal Domain, per Decision
 Record 1's implementation order:
 
 1. **Food Catalog Identity Cleanup** (J-001)
@@ -2804,7 +2809,7 @@ fields.
 **Scope / betroffene Dateien:**
 
 - `src/features/nutrition/domain/models/NutritionTypes.ts` — add `nutritionSnapshot: {
-  kcal, protein, carbs, fat }` (explicit grouping of the existing top-level macro fields)
+kcal, protein, carbs, fat }` (explicit grouping of the existing top-level macro fields)
   and optional `foodCatalogRef?: { source, sourceId, displayName, confidence }`.
 - `src/features/nutrition/infrastructure/repositories/PersistedFoodEntryRepository.ts` —
   extend `SerializedFoodEntry` + `serializeEntry`/`deserializeEntry` for both new fields,
@@ -2965,7 +2970,7 @@ deterministic search, AI-mapper-then-catalog-lookup) now populate `foodCatalogRe
 branch's own confidence value; the two `canonicalFood: null` branches (no match at all)
 naturally leave it unset by never reaching the helper.
 On investigating the "AI-fallback/manual-entry with no catalog match leaves it unset" test
-scenario: in this codebase's current architecture that scenario can't produce a *persisted*
+scenario: in this codebase's current architecture that scenario can't produce a _persisted_
 entry to assert an unset field on. `LogFoodFromRawInputUseCase`'s resolver dependency is
 mandatory (constructor throws without one), so a `canonicalFood: null` result always means
 zero macros, which the pre-existing P0-004 Zero-Macro Blocker rejects before save. The
@@ -3113,28 +3118,1177 @@ mass-reformat.
 
 ### Saved Meals Domain
 
-Status: `todo`
+Status: `done`
 
-Ready for decomposition into concrete tasks (not yet decomposed). Reusable meal templates
-— a logging-speed aid, explicitly not an evaluation object (Product Bible Abschnitt 6).
-Must function identically regardless of the active Evaluation Profile.
+All six decomposed tasks (SM-001–SM-006 below) are `done`. Unlike the Journal Domain, this
+is **not** greenfield: an application/domain/infrastructure-layer implementation already
+exists (`SavedMealTemplate`/`SavedMealItem` in
+[`SavedMealTypes.ts`](src/features/nutrition/domain/models/SavedMealTypes.ts),
+`CreateSavedMealFromDateUseCase`, `LogSavedMealToDateUseCase`,
+`InMemorySavedMealRepository`, covered by
+[`SavedMeals.test.ts`](src/features/nutrition/__tests__/SavedMeals.test.ts)) but it predates
+the Journal Domain's J-001–J-006 overhaul and was never wired into the app. Concretely:
+
+- `LogSavedMealToDateUseCase` builds each `FoodEntry` by hand (a direct `NutritionLookup`
+  call), bypassing `LogFoodFromRawInputUseCase`'s resolver pipeline entirely — entries it
+  creates never carry `nutritionSnapshot`/`foodCatalogRef` (J-002/J-004) and re-resolve the
+  food by name string every time instead of reusing the identity captured at template
+  creation, which is exactly what the Future Compatibility Principle and Decision Record 1
+  Entscheidung 3/4 established `foodCatalogRef` to avoid.
+- `SavedMealRepository` has `delete()`/`list()` methods that are exercised only by tests —
+  no use case ever calls them, and there is no rename/update use case at all.
+- Only an `InMemorySavedMealRepository` exists (no persisted counterpart, unlike
+  `PersistedFoodEntryRepository`); templates do not survive an app restart.
+- Nothing is registered in [`src/infrastructure/di/container.ts`](src/infrastructure/di/container.ts)
+  and there is no presentation-layer code anywhere (`src/presentation/features/` has no
+  `savedMeals` directory) — the feature is entirely inaccessible from the app today.
+
+**Scope boundary (Product Bible Abschnitt 6, unchanged):** "eine gespeicherte Mahlzeit ist
+eine Logging-Beschleunigung, kein Bewertungsobjekt" — must function identically regardless
+of the active Evaluation Profile. No task below may add profile/evaluation awareness to
+this domain; that stays confined to Goals & Evaluation / Dashboard & Insights.
+
+Implementation order:
+
+1. **Food Catalog Reference on Template Items** (SM-001)
+2. **Deterministic, Journal-Model-Aligned Logging** (SM-002)
+3. **Template Management Use Cases** (SM-003)
+4. **Persisted Repository** (SM-004)
+5. **Presentation Layer + DI Wiring** (SM-005)
+
+Cross-cutting: **SM-006** (regression coverage across SM-001–SM-005).
+
+No dedicated migration task is planned: SM-001's new field is additive/optional, so
+existing in-memory templates (there is no persisted store yet to migrate) remain valid.
+
+---
+
+#### SM-001: Food Catalog Reference on Saved Meal Items
+
+Status: `done`
+Depends on: none
+
+**Implementation notes:** `SavedMealItem.foodCatalogRef` added as an additive optional
+field (identical shape to `FoodEntry.foodCatalogRef`). `CreateSavedMealFromDateUseCase`
+spreads it in conditionally so items without one keep the field absent (not `undefined`-
+valued) rather than present-but-undefined. New test in `SavedMeals.test.ts` covers both the
+copy and the absence case. Full suite (92 suites / 745 tests, +1), `tsc --noEmit`, and
+`eslint` pass clean.
+
+**Ziel:** `SavedMealItem` captures the `foodCatalogRef` of the source `FoodEntry` (if any)
+at template-creation time, so a later log-back can reuse the exact same Food Catalog
+identity instead of re-resolving the food by name string — the same guarantee J-002/J-004
+established for the Journal Model itself.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/domain/models/SavedMealTypes.ts` — add optional
+  `foodCatalogRef?: { source, sourceId, displayName, confidence }` to `SavedMealItem`
+  (same shape as `FoodEntry.foodCatalogRef`).
+- `src/features/nutrition/application/usecases/CreateSavedMealFromDateUseCase.ts` — copy
+  `entry.foodCatalogRef` onto the created `SavedMealItem` when present; absent when the
+  source entry predates J-004 or has none (e.g. pure AI fallback).
+
+**Risiken:** Low — additive optional field, no existing read site depends on its absence.
+
+**Tests:** Template creation from entries with and without `foodCatalogRef` produces items
+with/without the copied field respectively.
+
+**Akzeptanzkriterien (DoD):**
+
+- `SavedMealItem` optionally carries `foodCatalogRef`.
+- `CreateSavedMealFromDateUseCase` populates it whenever the source `FoodEntry` has one.
+- No behavior change to existing fields; full suite stays green.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### SM-002: Deterministic, Journal-Model-Aligned Logging
+
+Status: `done`
+Depends on: SM-001
+
+**Ziel:** `LogSavedMealToDateUseCase` produces `FoodEntry` rows indistinguishable in shape
+from ones logged through `LogFoodFromRawInputUseCase` — carrying `nutritionSnapshot` and,
+where available, `foodCatalogRef` — deterministically, without a fresh by-name lookup.
+
+**Scope / betroffene Dateien (revised during implementation — see notes below):**
+
+- `src/features/nutrition/application/usecases/LogSavedMealToDateUseCase.ts` — for each
+  item: if `item.per100g` is present, compute macros via
+  `engine.calculateFromPer100g(item.per100g, item.quantityGrams)` (deterministic, no
+  re-resolution), set `sourceType: 'cache'`, and carry `item.foodCatalogRef` forward onto
+  the entry when present; otherwise fall back to the existing `NutritionLookup`-by-name
+  path unchanged (legacy/pre-SM-002 templates). Always set `nutritionSnapshot` alongside
+  the top-level macro fields, matching J-002's convention, regardless of which branch ran.
+- `src/features/nutrition/domain/models/SavedMealTypes.ts` — add optional
+  `per100g?: NutritionPer100g` to `SavedMealItem`.
+- `src/features/nutrition/application/usecases/CreateSavedMealFromDateUseCase.ts` — derive
+  `per100g` from the source entry (`macros * 100 / quantityGrams`) when `calories > 0`.
+
+**Implementation notes (deviation from original plan above):** investigation during
+implementation found `FoodCatalog.getById(id)` is keyed by the _legacy, single-source_
+`InMemoryFoodCatalog`'s own id space — it has no relationship to `foodCatalogRef.sourceId`
+for BLS/OFF/USDA-sourced refs (those come from `SequentialFoodCatalogResolver`'s source
+objects, which are not stored in `InMemoryFoodCatalog` and have no "fetch by ref" port at
+all). Re-fetching macros by `foodCatalogRef` as originally planned would therefore silently
+break for exactly the sources J-004 was built to support. Instead, `SavedMealItem` carries
+its own frozen `per100g` snapshot (mirroring the Journal Model's
+`FoodEntry.nutritionSnapshot` frozen-snapshot philosophy) captured once at
+template-creation time — this is source-agnostic, always available, and needs no catalog
+dependency injected into `LogSavedMealToDateUseCase` at all. `foodCatalogRef` (SM-001) is
+retained for display/traceability and is carried forward onto the logged entry, but macro
+determinism comes from `per100g`, not a live re-fetch.
+
+**Risiken:** Medium — touches the one existing write path for this domain; must not
+regress the Zero-Macro Blocker (P0-004) or existing confidence-scoring behavior for the
+by-name fallback branch.
+
+**Tests:** New scenarios: (1) item with `per100g` logs an entry whose macros/
+`nutritionSnapshot` are computed from that snapshot and whose `foodCatalogRef` is carried
+forward, without calling `NutritionLookup`; (2) item without `per100g` falls back to
+today's by-name behavior unchanged; (3) Zero-Macro Blocker still fires when neither
+`per100g` nor by-name lookup produce macros.
+
+**Akzeptanzkriterien (DoD):**
+
+- Entries logged from a saved meal always carry `nutritionSnapshot`, and `foodCatalogRef`
+  when the originating item has one.
+- No re-resolution by name occurs when `per100g` is available on the item.
+- Existing by-name fallback behavior is unchanged for items without `per100g`.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+Full suite (92 suites / 748 tests, +4 new), `tsc --noEmit`, and `eslint` pass clean.
+
+---
+
+#### SM-003: Template Management Use Cases
+
+Status: `done`
+Depends on: none (parallel to SM-001/SM-002)
+
+**Ziel:** Close the gap between what `SavedMealRepository` already supports
+(`list`/`getById`/`delete`) and what the application layer actually exposes — today only
+`create` (via `CreateSavedMealFromDateUseCase`) has a use case.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/nutrition/application/usecases/ListSavedMealTemplatesUseCase.ts`.
+- New `src/features/nutrition/application/usecases/DeleteSavedMealTemplateUseCase.ts`.
+- New `src/features/nutrition/application/usecases/RenameSavedMealTemplateUseCase.ts` —
+  `SavedMealRepository` has no `update`; add one (mirrors `create`'s signature) alongside
+  the use case.
+- `src/features/nutrition/application/ports/SavedMealRepository.ts` — add `update()`.
+- `src/features/nutrition/infrastructure/repositories/InMemorySavedMealRepository.ts` —
+  implement `update()`.
+
+**Risiken:** Low — new, additive use cases and one new repository method; no existing
+behavior changes.
+
+**Tests:** One test per new use case (list returns all templates, delete removes by id and
+is a no-op for unknown id, rename updates `name`/`updatedAt` and rejects unknown id).
+
+**Akzeptanzkriterien (DoD):**
+
+- List/Delete/Rename use cases exist, are exported from `application/usecases/index.ts`,
+  and are covered by tests.
+- `SavedMealRepository.update()` exists and is implemented in-memory.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `update()` throws for an unknown id (consistent with
+`RenameSavedMealTemplateUseCase` surfacing a clear error rather than silently creating a
+new record); `delete()` keeps its existing silent no-op behavior for unknown ids, matching
+the DoD. Full suite (92 suites / 754 tests, +6 new), `tsc --noEmit`, and `eslint` pass
+clean.
+
+---
+
+#### SM-004: Persisted Saved Meal Repository
+
+Status: `done`
+Depends on: SM-003 (needs the final `SavedMealRepository` port shape, incl. `update()`)
+
+**Ziel:** Give `SavedMealTemplate`s the same durable-storage treatment `FoodEntry` already
+has — templates currently live only in `InMemorySavedMealRepository` and vanish on
+restart.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/nutrition/infrastructure/repositories/PersistedSavedMealRepository.ts`,
+  mirroring `PersistedFoodEntryRepository.ts`'s `KeyValueStore`-backed
+  serialize/deserialize pattern.
+- `src/infrastructure/di/container.ts` — register the persisted repository (this domain has
+  no container entry at all today).
+
+**Risiken:** Low — same established pattern as `PersistedFoodEntryRepository`; main risk is
+an incomplete serialize/deserialize round-trip for the `foodCatalogRef` field added in
+SM-001.
+
+**Tests:** Serialization round-trip tests (with and without `foodCatalogRef` per item),
+mirroring `PersistedFoodEntryRepository.test.ts`'s structure.
+
+**Akzeptanzkriterien (DoD):**
+
+- Templates persist across a simulated restart (repository re-instantiated over the same
+  `KeyValueStore`).
+- Registered in the DI container.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `container.ts` registers only the repository itself in this task
+(`_savedMealRepository`, exposed via a `savedMealRepository` getter) — wiring the SM-002/
+SM-003 use cases through the container is SM-005's job, once a presentation layer exists to
+consume them. `getById`/`list` return copies (`{ ...template }`), matching
+`PersistedFoodEntryRepository`'s external-mutation-safety convention. Full suite (93 suites
+/ 764 tests, +10 new), `tsc --noEmit`, and `eslint` pass clean.
+
+---
+
+#### SM-005: Presentation Layer + DI Wiring
+
+Status: `done`
+Depends on: SM-002, SM-003, SM-004
+
+**Ziel:** Make Saved Meals reachable from the app at all — today there is zero
+presentation-layer code for this domain. Minimal UI: create a template from a date's
+entries, list templates, log a template to the current date, rename, delete.
+
+**Scope / betroffene Dateien:**
+
+- New `src/presentation/features/savedMeals/SavedMealsScreen.tsx` (list + log + delete +
+  rename), following `JournalScreen.tsx`'s existing presentation conventions.
+- `src/presentation/navigation/AppNavigator.tsx` — add a navigation entry.
+- Entry point from `JournalScreen`/`NutritionScreen` to create a template from the current
+  date's entries (`CreateSavedMealFromDateUseCase`).
+- `src/infrastructure/di/container.ts` — wire the use cases from SM-002/SM-003 for
+  presentation-layer consumption.
+
+**Risiken:** Medium — first UI surface for this domain; must stay profile-independent per
+the scope boundary (no evaluation/goal display in this screen).
+
+**Tests:** Presentation-layer logic tests where feasible (e.g. list ordering, empty state);
+full visual/interaction verification is out of reach in this headless agent environment —
+must be logged in `docs/MANUAL_TESTING_GAPS.md` per AGENTS.md's binding rule, same as J-005.
+
+**Akzeptanzkriterien (DoD):**
+
+- A user can create, view, log, rename, and delete Saved Meal templates from the app.
+- Screen shows no profile/evaluation-derived information.
+- Manual testing gap logged for the new UI.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`; manual Expo verification
+tracked as an open gap.
+
+**Implementation notes:** Added as a new bottom tab ("Vorlagen", `SavedMeals`) rather than a
+stack-modal route like `VoiceScreen` — `VoiceScreen`'s stack route is never actually
+triggered anywhere in the app today (`useNavigation` is imported but commented out in
+`JournalScreen.tsx`), so a tab keeps the new feature genuinely reachable rather than
+repeating that pre-existing orphaned-route gap. Only supports creating/logging against
+_today's_ date (no calendar/date-picker component exists in this codebase to reuse, and
+`JournalScreen` itself only ever operates on `today` — consistent with existing
+conventions, not a regression). The per100g-based total-calorie display
+(`templateTotalCalories`, extracted to `savedMealsDisplay.ts` for unit testing, mirroring
+`journalEntryDisplay.ts`) is purely factual (sum of frozen per-100g snapshots × grams) — no
+evaluation or goal data is read or shown, preserving the Product Bible Abschnitt 6 boundary.
+`application/index.ts` was also updated to export the SM-003 use cases (`List`/`Delete`/
+`RenameSavedMealTemplateUseCase`) — they existed only on the deeper `usecases/index.ts`
+barrel before this task, so `container.ts` could not import them from the feature's public
+entry point. Manual testing gap logged in `docs/MANUAL_TESTING_GAPS.md`. Full suite (94
+suites / 768 tests, +4 new), `tsc --noEmit`, and `eslint` pass clean.
+
+---
+
+#### SM-006: Saved Meals Domain Regression Coverage
+
+Status: `done`
+Depends on: SM-001–SM-005
+
+**Ziel:** Consolidated regression pass across the full Saved Meals change set, mirroring
+J-006: prove SM-001–SM-005 hold together end-to-end, not just individually.
+
+**Scope / betroffene Dateien:** New
+`src/features/nutrition/__tests__/SavedMealsDomainRegressionCoverage.test.ts` (or extend
+`SavedMeals.test.ts`), exercising: create template from a date with a `foodCatalogRef`'d
+entry → log template to a new date → resulting entry has matching `foodCatalogRef`/
+`nutritionSnapshot` → soft-delete that entry (existing `DeleteFoodEntryUseCase`) → excluded
+from `listEntriesForDate` → rename the template → delete the template → confirm it's gone
+from `list()`.
+
+**Risiken:** Low — read-only regression proof, no new production code.
+
+**Tests:** As described above; existing P0–P1/Journal Domain regression suites are not
+duplicated here (already covered by their own test files, per J-006's precedent).
+
+**Akzeptanzkriterien (DoD):**
+
+- Full suite green including the new cross-cutting scenario.
+- `tsc --noEmit` and `eslint` pass clean.
+
+**Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+**Implementation notes:** Built the scenario against the actual durable repositories
+(`PersistedFoodEntryRepository` + `PersistedSavedMealRepository` over a shared
+`FakeKeyValueStore`), not in-memory test doubles, and re-instantiates fresh repository
+instances mid-test at two points to prove durability across a simulated restart —
+strengthening the DoD's "hold together end-to-end" beyond what the plan literally asked
+for. Full suite (95 suites / 770 tests, +2 new), `tsc --noEmit`, and `eslint` (both scoped
+and full-repo `npm run lint`) pass clean.
+
+**Saved Meals Domain: all six tasks (SM-001–SM-006) done.** The domain is now: aligned with
+the Journal Model (frozen `per100g`/`foodCatalogRef` snapshots, `nutritionSnapshot` on every
+logged entry), fully round-trippable through template management (list/rename/delete),
+durably persisted, reachable from the app via a dedicated tab, and covered end-to-end by a
+cross-cutting regression test. As with J-001–J-005, `npm run verify`'s `format:check` step
+still surfaces the same pre-existing, unrelated repo-wide Prettier debt first identified in
+J-001 — all files touched across SM-001–SM-006 are confirmed individually Prettier-clean.
+
+---
 
 ### Goals & Evaluation
 
-Status: `todo`
+Status: `done` (GE-001–GE-007 done; GE-008 explicitly deferred, see its own section)
 
-Ready for decomposition into concrete tasks (not yet decomposed). Target
-configuration/progress — driven entirely by the active Evaluation Profile (Product Bible
-Abschnitt 7), not a fixed schema. Depends on Journal Domain (reads journal data) and the
-Evaluation Profile contract (Product Bible Abschnitt 4).
+All five decomposed tasks (GE-001–GE-005 below) are `done`, plus follow-ups GE-006/GE-007
+(done) and GE-008 (deferred). Like Saved Meals, this is
+**not** greenfield: there is already substantial, partially-overlapping goal-tracking code,
+but **no** Evaluation Profile/Rule concept (Product Bible §4/4a: Origin, swappable
+Preset/User profiles, stateless Food-Catalog+Journal+Profile→Bewertung formula) exists
+anywhere yet — what exists is a single, fixed calorie/macro-target scheme, which is exactly
+what Product Bible §9 says must be replaced ("Goals wird zur Zielkonfiguration/-anzeige
+innerhalb eines Profiles, statt eines einzelnen festen Zielschemas"). Concretely, code
+inspection found **two separate, competing goal-target systems already live in the app**:
+
+1. `src/features/goals/` (`MetabolismProfile` → `EffectiveGoals` — `mode: 'suggested' |
+'manual'`, via `MetabolismCalculator`/`GoalsSuggestionCalculator`/`ProgressCalculator`) —
+   wired to the actual `GoalsScreen.tsx` tab, and read by
+   `src/features/journal/application/usecases/ComputeProgressForDateUseCase.ts`.
+2. `src/features/nutrition/domain/goals/` (`UserGoals` — `source: 'manual' | 'calculated'`,
+   via `GoalsRepository`/`PersistedGoalsRepository`) — read by
+   `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase` (the Journal's daily/monthly
+   totals).
+
+Both are live simultaneously. Worse: `JournalScreen.tsx` calls **both** —
+`getDailySummaryUseCase` (system 2, whose `DailySummary.progress`/`.remaining` fields are
+never read) and `computeProgressForDateUseCase` (system 1) whose result is discarded into
+an unused destructured state slot (`const [, setProgress] = useState<DailyProgressSnapshot
+| null>(null)`, `journal/JournalScreen.tsx:72`). So today, **no goal-vs-consumed progress is
+shown anywhere in the app**, despite two backend systems fully capable of computing it —
+and per Product Bible §6/§7 (Journal-Anzeige must stay profile-independent; progress
+display is profile-dependent Evaluation Engine output), `JournalScreen` computing progress
+at all may itself be a boundary violation once a real Evaluation Profile exists, not just
+dead code. Reconciling/removing one of the two systems and deciding where progress display
+belongs (Dashboard & Insights, not Journal) are real, separate decisions — **not** solved by
+GE-001–GE-005 below; see GE-005's closing notes for explicit follow-up-task stubs instead of
+silently ignoring these findings.
+
+Given that risk profile, GE-001–GE-005 stay additive-first (mirroring J-001's "narrow,
+mechanical, no behavior change" precedent): introduce the Evaluation Profile/Rule contract,
+adapt the _already-screen-wired_ `src/features/goals` system (not the unused-by-UI one)
+behind it as the first concrete Preset, prove swappability with a second Preset, and leave
+existing `GoalsScreen`/`JournalScreen` behavior otherwise unchanged.
+
+Implementation order:
+
+1. **Evaluation Profile & Rule Domain Contract** (GE-001)
+2. **Evidence-based Standard Profile** — first concrete implementation (GE-002)
+3. **Active Profile Registry + Persistence** (GE-003)
+4. **Second Preset Profile (Weight Loss)** — proves swappability / Variante B (GE-004)
+
+Cross-cutting: **GE-005** (regression coverage across GE-001–GE-004, plus follow-up stubs
+for the findings above).
+
+Depends on Journal Domain (reads journal data, done) and the Evaluation Profile contract
+this decomposition itself introduces (Product Bible Abschnitt 4).
+
+---
+
+#### GE-001: Evaluation Profile & Rule Domain Contract
+
+Status: `done`
+Depends on: none
+
+**Ziel:** Introduce the Evaluation Profile/Rule domain contract from Product Bible §4/4a as
+plain TypeScript interfaces — no implementation, no wiring, no behavior change. Establishes
+the stateless Ein-/Ausgabe formula (`Food Catalog + Journal + Benutzerprofil +
+Profileinstellungen → Bewertung + Insights + Warnungen + Empfehlungen + Zielerreichung`) as
+an explicit, checkable type contract instead of only prose.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/domain/models/EvaluationProfile.ts` — `EvaluationProfile {
+id, name, origin: 'preset' | 'user' | 'professional' | 'community' | 'ai', ruleIds:
+string[], metadata: { motivation?, maturity? } }` (Product Bible §4 "Profil-Metadaten").
+- New `src/features/evaluation/domain/models/Rule.ts` — `Rule { id, name, description,
+dataRequirements?: string[], evaluate(input: EvaluationInput): RuleResult }` (§4a);
+  `evaluate` is a pure function signature only in this task (no real rule bodies yet).
+- New `src/features/evaluation/domain/models/EvaluationContract.ts` — `EvaluationInput {
+foodCatalogReads, journalReadsForPeriod, userProfileBasics?, profileSettings }` and
+  `EvaluationOutput { assessment, insights: string[], warnings: string[], recommendations:
+string[], goalProgress }` (§4's exact input/output lists).
+- New `src/features/evaluation/index.ts` barrel (new feature directory — this is the first
+  code under an explicit "Evaluation Engine" module, distinct from `features/goals`).
+
+**Risiken:** Low — additive-only domain types, zero call sites, zero behavior change.
+Main risk is modeling the contract too rigidly before GE-002 proves it against real code;
+mitigated by keeping `EvaluationInput`/`Output` fields loosely typed (e.g. `unknown`/generic
+placeholders) where GE-002 hasn't yet determined the concrete shape.
+
+**Tests:** Type-level only (compiles); no runtime behavior to unit test yet.
+
+**Akzeptanzkriterien (DoD):**
+
+- `EvaluationProfile`, `Rule`, `EvaluationInput`, `EvaluationOutput` exist and match Product
+  Bible §4/§4a's documented fields exactly (Origin taxonomy, Ein-/Ausgabe lists).
+- Zero existing files modified; zero behavior change; full suite stays green.
+- Both duplicate goal systems and the `JournalScreen` dead-state findings above are
+  reproduced in this task's implementation notes (not just the preamble) so they're
+  discoverable from the task itself.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** New `src/features/evaluation/` feature (domain layer only —
+`EvaluationProfile`, `EvaluationProfileOrigin`, `EvaluationProfileMetadata`, `Rule`,
+`RuleResult` (= `EvaluationOutput`), `EvaluationInput`, `EvaluationOutput`,
+`EvaluationGoalProgress`). `EvaluationInput.foodCatalogReads`/`journalReadsForPeriod` are
+concretely typed against `nutrition`'s existing `CanonicalFood`/`FoodEntry` (not `unknown`)
+since those shapes are already stable; `userProfileBasics`/`profileSettings` stay
+`Record<string, unknown>` since their shape genuinely varies per Rule (e.g. a
+cholesterol-limit parameter vs. a macro-strategy string), per this task's own risk note.
+`EvaluationOutput`/`EvaluationGoalProgress` are defined fresh in this feature rather than
+importing `features/goals`' `DailyGoals`/`DailyProgress` — deliberate: the Evaluation Engine
+is the layer `features/goals` gets adapted _behind_ (GE-002), so the dependency should not
+run the other way. `Rule.evaluate` is synchronous by design: all repository reads happen
+when assembling `EvaluationInput` (a future orchestrator's job, GE-003), not inside a Rule
+itself, keeping Rules trivially pure-function-testable. `EvaluationProfile` intentionally has
+no `evaluate` method of its own (§4a: "kein eigener Algorithmus") — merging its Rules'
+`RuleResult`s into one `EvaluationOutput` is implementation, deferred to GE-002.
+
+Reproduces the preamble's findings directly in this task, as required by its own DoD: (1)
+two competing goal-target systems (`features/goals`'s `EffectiveGoals`, screen-wired, vs.
+`nutrition/domain/goals`'s `UserGoals`, read by `GetDailySummaryUseCase`/
+`GetCalendarMonthSummaryUseCase`) exist simultaneously; (2) `JournalScreen.tsx` calls both
+`getDailySummaryUseCase` and `computeProgressForDateUseCase` and displays neither result
+(`const [, setProgress] = useState<DailyProgressSnapshot | null>(null)`,
+`journal/JournalScreen.tsx:72`) — no goal-vs-consumed progress is shown anywhere in the app
+today. Neither is touched by this task; see GE-005 for explicit follow-up stubs.
+
+Full suite (96 suites / 772 tests, +2 new), `tsc --noEmit`, and `eslint` pass clean. Zero
+existing files modified.
+
+---
+
+#### GE-002: Evidence-based Standard Profile
+
+Status: `done`
+Depends on: GE-001
+
+**Ziel:** First concrete `EvaluationProfile` implementation — adapts the _already
+screen-wired_ `src/features/goals` system (`MetabolismProfile`/`EffectiveGoals`/
+`ProgressCalculator`), not the unused-by-UI `nutrition/domain/goals` one, behind the GE-001
+contract as the Default-Profile (Origin: `preset`), per Product Bible §5 "Evidence-based
+Standard". No behavior change to `GoalsScreen.tsx` or `ComputeProgressForDateUseCase`.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/profiles/EvidenceBasedStandardProfile.ts` — an
+  adapter implementing GE-001's `EvaluationProfile`/`Rule` shape by delegating to the
+  existing `ComputeMetabolismResultUseCase`/`SuggestGoalsUseCase`/`calculateDailyProgress`
+  (`src/features/goals/application/*`), read-only, no new persistence.
+- New `src/features/evaluation/application/rules/CalorieMacroCorridorRule.ts` — wraps
+  `calculateDailyProgress` (`src/features/goals/application/calculators/ProgressCalculator.ts`)
+  as a `Rule`, producing an `EvaluationOutput` from the same inputs
+  `ComputeProgressForDateUseCase` already computes today.
+
+**Risiken:** Low-medium — first real implementation against the GE-001 contract; may
+surface contract gaps (fixed in this task, since GE-001 has no other call sites to break).
+No existing use case is modified — this is a parallel adapter, proving the contract fits
+without touching the live `GoalsScreen`/`ComputeProgressForDateUseCase` path yet.
+
+**Tests:** `EvidenceBasedStandardProfile`/`CalorieMacroCorridorRule` produce an
+`EvaluationOutput` equivalent (same consumed/target/status) to today's
+`ComputeProgressForDateUseCase` output for the same fixture inputs.
+
+**Akzeptanzkriterien (DoD):**
+
+- A concrete `EvaluationProfile` exists and is unit-tested against fixture Journal/goals data.
+- No behavior change to any existing screen or use case.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `CalorieMacroCorridorRule.evaluate()` reads its target goals from
+`EvaluationInput.profileSettings` (cast to a small local `CalorieMacroCorridorSettings {
+goals: DailyGoals }` interface — `profileSettings` stays `Record<string, unknown>` in the
+contract per GE-001, since its shape is genuinely rule-specific), aggregates
+`journalReadsForPeriod` via the existing (unmodified) `aggregateConsumed`, and calls the
+existing (unmodified) `calculateDailyProgress` — this task adds a reshaping layer only, no
+new calculation logic. Test proves numeric equivalence (not just structural plausibility)
+against `ComputeProgressForDateUseCase` for identical fixture Journal entries/goals, plus a
+second case proving the over-calories warning fires correctly. `EvidenceBasedStandardProfile`
+is the plain `EvaluationProfile` metadata object (Origin `preset`, one rule id) — no
+orchestrator runs it yet; mapping `ruleIds` to actual `Rule` instances and merging their
+`RuleResult`s is GE-003's job. Neither `GoalsScreen.tsx` nor `ComputeProgressForDateUseCase`
+was modified — confirmed by running the full suite unchanged. Full suite (97 suites / 775
+tests, +5 new), `tsc --noEmit`, and `eslint` pass clean.
+
+---
+
+#### GE-003: Active Profile Registry + Persistence
+
+Status: `done`
+Depends on: GE-002
+
+**Ziel:** Introduce a persisted "active Evaluation Profile" selection, defaulting to
+GE-002's Evidence-based Standard, as a pure read-context (Product Bible §2a Variante B: a
+profile switch is never a data migration).
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/ports/EvaluationProfileRegistry.ts` — `list():
+EvaluationProfile[]`, `getActiveProfileId(): Promise<string>`,
+  `setActiveProfileId(id): Promise<void>`.
+- New `src/features/evaluation/infrastructure/PersistedActiveProfileRepository.ts` —
+  `KeyValueStore`-backed (reuses the nutrition feature's `KeyValueStore` port/
+  `AsyncStorageKeyValueStore`, mirroring SM-004's pattern), defaulting to GE-002's profile id
+  when unset.
+- New `src/features/evaluation/application/usecases/GetActiveEvaluationOutputUseCase.ts` —
+  resolves the active profile id, looks it up in the (currently single-entry) registry, and
+  runs it — the first real "swap the interpretation without touching Journal/Food Catalog"
+  code path, but not yet wired into any screen.
+
+**Risiken:** Low — additive; no existing screen calls this yet, so nothing regresses.
+
+**Tests:** Defaults to GE-002's profile when nothing is set; persists and reflects an
+explicit selection across a fresh repository instance (durability, mirroring SM-004's test
+pattern).
+
+**Akzeptanzkriterien (DoD):**
+
+- Active profile selection persists and defaults correctly.
+- No Journal or Food Catalog writes occur on a profile switch (explicit test).
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `PersistedActiveProfileRepository` takes `knownProfiles:
+EvaluationProfile[]` as a constructor argument rather than hardcoding
+`EvidenceBasedStandardProfile` — GE-004's second Preset only needs a longer array at the
+composition root, not a change to this class. Defaults to `knownProfiles[0]` both when
+nothing is stored _and_ when a stored id no longer matches any known profile (defensive —
+never throws for "nothing set yet"); rejects `setActiveProfileId` for an unknown id.
+`GetActiveEvaluationOutputUseCase` resolves the active profile, maps its `ruleIds` through
+an injected `knownRules: Rule[]` array (same "inject, don't hardcode" reasoning), and merges
+each `Rule`'s `RuleResult` via a new `mergeRuleResults()` helper (generic over any number of
+rules, not just today's one-rule-per-profile case). "No Journal/Food Catalog writes on a
+profile switch" is proven by an explicit test spying on `InMemoryFoodEntryRepository`'s
+write methods across two `setActiveProfileId` calls, not just by the class's structural
+inability to reach those repositories. Nothing wired into any screen yet, per this task's
+own scope. Full suite (99 suites / 784 tests, +9 new), `tsc --noEmit`, and `eslint` pass
+clean.
+
+---
+
+#### GE-004: Second Preset Profile (Weight Loss) — Proves Swappability
+
+Status: `done`
+Depends on: GE-003
+
+**Ziel:** Implement a second concrete `EvaluationProfile` (Product Bible §5 "Weight Loss":
+Kaloriendefizit + Proteinerhalt) and prove — with a real regression test, not just
+assertion-by-design — that switching the active profile reinterprets the _same_ Journal day
+differently, with zero Journal/Food-Catalog mutation (Variante B, §2a).
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/profiles/WeightLossProfile.ts` + a
+  `ProteinPreservingDeficitRule` alongside `CalorieMacroCorridorRule` (reuses
+  `MetabolismCalculator`'s TDEE with a deficit adjustment, not a new metabolism model).
+
+**Risiken:** Low — additive second implementation of an already-proven (GE-002) contract.
+
+**Tests:** For one fixed Journal day + goals input, `GetActiveEvaluationOutputUseCase`
+returns a different `EvaluationOutput.assessment`/`goalProgress` under
+`EvidenceBasedStandardProfile` vs. `WeightLossProfile`, with no calls to any Journal/Food
+Catalog write path in either branch (spy/assert no writes).
+
+**Akzeptanzkriterien (DoD):**
+
+- Two swappable profiles exist and produce demonstrably different output for identical
+  underlying data.
+- Variante B (no data migration on switch) is proven by test, not just by design.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** Extracted the goalProgress-array/warning/assessment reshaping
+logic shared by both rules into `dailyProgressToEvaluationOutput.ts` (refactored
+`CalorieMacroCorridorRule` to use it too — GE-002's equivalence test still passes
+unchanged, confirming no behavior change). `ProteinPreservingDeficitRule` reuses the
+existing, unmodified `suggestDailyGoals(..., 'high_protein')` macro split against a
+20%-below-TDEE calorie target (`WEIGHT_LOSS_DEFICIT_MULTIPLIER = 0.8`) rather than
+introducing new macro math — genuinely "Kaloriendefizit + Proteinerhalt" per Product Bible
+§5, not a relabeled copy of the Evidence-based Standard rule. `ProfileSwappability.test.ts`
+proves the core claim with concrete fixture numbers (same 2000 kcal/100g protein/250g
+carbs/60g fat consumed day: `on-track` under a 2500 kcal Evidence-based Standard target,
+`over` under a 1440 kcal Weight Loss deficit target) plus a spy on
+`InMemoryFoodEntryRepository`'s write methods across both profile evaluations and the
+switch itself. Full suite (101 suites / 788 tests, +10 new), `tsc --noEmit`, and `eslint`
+pass clean.
+
+---
+
+#### GE-005: Goals & Evaluation Domain Regression Coverage
+
+Status: `done`
+Depends on: GE-001–GE-004
+
+**Ziel:** Consolidated regression pass across GE-001–GE-004, mirroring J-006/SM-006, plus
+explicit follow-up-task stubs for the findings documented in this section's preamble that
+are deliberately **out of scope** here.
+
+**Scope / betroffene Dateien:** New
+`src/features/evaluation/__tests__/EvaluationDomainRegressionCoverage.test.ts`: set active
+profile to Evidence-based Standard → get output for a fixture day → switch active profile
+to Weight Loss (GE-003/GE-004) → get output for the _same_ fixture day → assert different
+assessment, zero Journal/Food-Catalog writes across the whole flow, and that
+`EvaluationProfileRegistry.list()` includes both.
+
+**Risiken:** Low — read-only regression proof, no new production code beyond the test file
+and (if needed) a `ROADMAP.md` update adding the follow-up task stubs below.
+
+**Tests:** As described above.
+
+**Akzeptanzkriterien (DoD):**
+
+- Full suite green including the new cross-cutting scenario.
+- `tsc --noEmit` and `eslint` pass clean.
+- `ROADMAP.md` gains explicit `todo` follow-up task stubs (not implemented by GE-005 itself)
+  for: (a) reconciling/retiring the duplicate `nutrition/domain/goals`/`GetDailySummaryUseCase`
+  goal-target system now that GE-002 establishes the real one; (b) resolving
+  `JournalScreen.tsx`'s discarded `computeProgressForDateUseCase` call and whether
+  progress display belongs there at all (Product Bible §6/§7 boundary) or only in Dashboard
+  & Insights; (c) `GoalsScreen.tsx`'s eventual move to a Product-Bible-§4b-compliant "Ziel
+  wählen" (profile-picker) surface once more than one profile should be user-selectable —
+  none of these are mechanical enough to fold into GE-001–GE-005's additive scope.
+
+**Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+**Implementation notes:** `ProfileSwappability.test.ts` (GE-004) already proved the
+single-session switch/compare/zero-writes scenario, so this task's own test file focuses on
+what wasn't yet covered: durability of the active-profile selection across a _simulated app
+restart_ (fresh `PersistedActiveProfileRepository`/`GetActiveEvaluationOutputUseCase`
+instances over the same `KeyValueStore`, mirroring SM-006's restart-proof technique) — a
+switch made in one "session" is still active, and still reinterprets the same fixture day
+correctly, in a brand-new "session". A closing sentinel test documents where GE-001–GE-004's
+own coverage lives rather than duplicating it. Full suite (102 suites / 790 tests, +2 new),
+`tsc --noEmit`, `eslint` (scoped and full-repo), and `npx prettier -c .` all pass clean —
+the pre-existing, unrelated 238-file Prettier debt (first identified in J-001) is unchanged;
+three of this session's own new files were initially not Prettier-clean and were reformatted
+in place before this task closed, not left as new debt.
+
+**Goals & Evaluation: all five tasks (GE-001–GE-005) done.** A real Evaluation Profile/Rule
+contract now exists (Product Bible §4/§4a), with two swappable, demonstrably-different
+Presets (Evidence-based Standard, Weight Loss) proving Variante B (§2a) end-to-end,
+including across a simulated app restart. As planned, this was deliberately additive-first:
+`GoalsScreen.tsx` and `ComputeProgressForDateUseCase` are untouched, and nothing from
+`src/features/evaluation` is wired into the app yet. See GE-006–GE-008 below for the
+explicit, deliberately-deferred follow-up work this decomposition's own preamble
+identified — none of it is mechanical enough to have been folded into GE-001–GE-005.
+
+---
+
+#### GE-006: Reconcile the Duplicate Goal-Target Systems
+
+Status: `done`
+Depends on: GE-002 (establishes which system is "the real one")
+
+**Ziel:** Now that GE-002 established `src/features/goals`
+(`MetabolismProfile`/`EffectiveGoals`) as the Evaluation Engine's substrate, decide and
+execute how to retire or reconcile the still-live `nutrition/domain/goals`
+(`UserGoals`/`GoalsRepository`) system — currently read by
+`GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`, which are on the Journal's hot
+path (`JournalScreen.tsx`'s `getDailySummaryUseCase` call, plus the calendar month view).
+
+**Why not folded into GE-001–GE-005:** touches live, working read paths for two existing
+screens/use cases; requires deciding whether `GetDailySummaryUseCase`/
+`GetCalendarMonthSummaryUseCase` should read from the new Evaluation Engine instead, keep
+`nutrition/domain/goals` as a deliberately-separate concept, or something else — a design
+decision, not a mechanical refactor.
+
+**Verify (once scoped):** `npm run typecheck`, `npm run test`, `npm run lint`; no regression
+in `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`'s existing test coverage.
+
+**Decision (via `AskUserQuestion`):** migrate — `GetDailySummaryUseCase`/
+`GetCalendarMonthSummaryUseCase` now read from `EffectiveGoalsRepository`
+(`src/features/goals`), a single source of truth for goal targets.
+
+**Implementation notes:** Investigation before migrating found the _entire_
+`nutrition/domain/goals`/`GoalsRepository`/`PersistedGoalsRepository` system — plus
+`nutrition/domain/metabolism` (a **third**, independent metabolism/TDEE calculator, used
+only by `CalculateGoalsFromMetabolismInputsUseCase`) and the `GetGoalsUseCase`/
+`SetManualGoalsUseCase`/`CalculateGoalsFromMetabolismInputsUseCase` use cases — had **zero**
+callers anywhere in presentation code; they were wired into `container.ts` and exercised
+only by their own tests. Given that, this task did the complete reconciliation rather than
+a partial migration:
+
+- `DailySummaryCalculator.buildDailySummary()` now takes `DailyGoals` (`features/goals`,
+  just `{calories, protein, carbs, fat}`) instead of `UserGoals` — it never read
+  `UserGoals`'s other fields (`activityLevel`/`updatedAt`/`source`) anyway.
+- `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase` now depend on
+  `EffectiveGoalsRepository` and unwrap `effectiveGoals?.goals ?? null`.
+- Deleted entirely (dead code, zero remaining references, confirmed by a full-repo grep
+  after removal): `nutrition/domain/goals/*`, `nutrition/domain/metabolism/*`,
+  `nutrition/application/ports/GoalsRepository.ts`,
+  `nutrition/infrastructure/repositories/PersistedGoalsRepository.ts`,
+  `GetGoalsUseCase.ts`/`SetManualGoalsUseCase.ts`/
+  `CalculateGoalsFromMetabolismInputsUseCase.ts` and their test files
+  (`GoalsUseCases.test.ts`, `MetabolismCalculator.test.ts`, `PersistedGoalsRepository.test.ts`),
+  plus their `container.ts` wiring/getters and all barrel-export lines.
+- Four test files that fixture-implemented the old `GoalsRepository` port purely to satisfy
+  `GetDailySummaryUseCase`'s constructor (`GetDailySummaryUseCase.test.ts`,
+  `GetCalendarMonthSummaryUseCase.test.ts`, `ReminderSystem.test.ts`,
+  `JournalDomainRegressionCoverage.test.ts`) were updated to fixture/use
+  `EffectiveGoalsRepository`/`InMemoryEffectiveGoalsRepository` instead — none of them
+  depended on the deleted type's other fields, so this was a mechanical swap.
+
+Full suite (107 suites / 813 tests — down from 110/819 due to the three deleted dead-code
+test files, no coverage lost), `tsc --noEmit`, `eslint` (scoped and full-repo), and `npx
+prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean. A full-repo grep
+for every deleted symbol confirms zero remaining references.
+
+---
+
+#### GE-007: Resolve JournalScreen's Discarded Progress Computation
+
+Status: `done`
+Depends on: none (independent of GE-006, but informed by it)
+
+**Ziel:** `JournalScreen.tsx:72` calls `computeProgressForDateUseCase.execute(today)` and
+discards the result (`const [, setProgress] = useState<DailyProgressSnapshot | null>(null)`)
+— decide whether goal-vs-consumed progress display belongs in `JournalScreen` at all.
+Product Bible §6/§7: Journal-Anzeige must stay profile-independent; progress is
+profile-dependent Evaluation Engine output, so this likely belongs in **Dashboard &
+Insights** instead, not Journal — but that's a product-surface decision, not this task's to
+assume silently.
+
+**Why not folded into GE-001–GE-005:** a product-UX/architecture-boundary decision
+(where does progress display belong?), not a mechanical code change — call this out via
+`AskUserQuestion` (or an equivalent human review gate) rather than deciding unilaterally.
+
+**Verify (once scoped):** depends entirely on the decision — either delete the dead call
+(if progress belongs solely in Dashboard & Insights) or wire it to something real.
+
+**Decision (via `AskUserQuestion`):** delete the dead call — progress now lives solely in
+`EvaluationSummaryScreen` (DI-002), per Product Bible §6/§7's Journal-stays-profile-
+independent boundary.
+
+**Implementation notes:** Removed the `computeProgressForDateUseCase` call, the discarded
+`const [, setProgress] = useState<DailyProgressSnapshot | null>(null)` state, and the now-
+unused `DailyProgressSnapshot` import from `JournalScreen.tsx`. `ComputeProgressForDateUseCase`
+itself and its `container.ts` wiring are left in place (untouched, still tested) — this task
+was scoped to the dead call site, not to retiring the use case itself. Full suite (110
+suites / 819 tests, unchanged count — no tests removed or added, since this only deleted
+unreachable production code), `tsc --noEmit`, `eslint`, and `npx prettier -c` (scoped) pass
+clean.
+
+---
+
+#### GE-008: GoalsScreen "Ziel wählen" Surface
+
+Status: `todo`
+Depends on: GE-004 (needs at least two selectable profiles to be meaningful)
+
+**Ziel:** Product Bible §4b: "Evaluation Profile", "Preset", "Origin" etc. must never
+appear literally in the product surface — users choose a **Ziel** (goal/focus), not a
+"Profil". Once more than one Preset should be user-selectable, `GoalsScreen.tsx` (currently
+a metabolism-profile + macro-strategy form, 762 lines) needs a profile-picker UI wired to
+GE-003's `EvaluationProfileRegistry`, using §4b's internal→product-surface vocabulary
+mapping (e.g. "vorgeschlagenes Ziel" for a Preset-origin profile).
+
+**Why not folded into GE-001–GE-005:** the highest-risk, most user-visible change of
+everything found in this decomposition — a substantial rewrite of an existing, working
+762-line screen, not an additive parallel path like GE-001–GE-005 stayed. Deserves its own
+scoped task (and likely UI/UX input) rather than being squeezed into an additive-first epic.
+
+**Verify (once scoped):** manual Expo verification required (this is a UI task); typecheck/
+test/lint as a floor, not a substitute.
+
+**Decision (via `AskUserQuestion`):** deferred — remains `todo`, no code change.
+`EvaluationSummaryScreen` (DI-002) already has a minimal profile picker, so this is not
+blocking; `GoalsScreen.tsx` stays as-is until this task is explicitly picked up.
+
+---
 
 ### Dashboard & Insights
 
-Status: `todo`
+Status: `done`
 
-Ready for decomposition into concrete tasks (not yet decomposed). Summary/progress view —
-driven entirely by the active Evaluation Profile, not a fixed generic calorie/macro
-screen. Depends on Journal Domain and Goals & Evaluation.
+All four decomposed tasks (DI-001–DI-004 below) are `done`, plus follow-ups DI-005/DI-006
+(done). Like Saved Meals and Goals & Evaluation, this is **not** greenfield, but the
+existing code was worse than either: the
+live "Dashboard" tab (`src/presentation/features/dashboard/DashboardScreen.tsx`, via the
+legacy `src/application/usecases/GetDashboardSummary.ts`) reads from
+`MockNutritionRepository`/`MockRecoveryRepository` — entirely fabricated, hardcoded
+7-day preset data ("Frühstück"/"Mittagessen"/"Abendessen" with fixed macro numbers), with
+**zero connection** to anything the user actually logs in Journal. The Dashboard tab has
+never shown real user data. `GetDashboardSummary` also hardcodes
+`DEFAULT_CALORIE_GOAL = 2000` — exactly the "fixed, generic calorie/macro screen" Product
+Bible §9 says Dashboard must stop being.
+
+**Scope boundary:** the legacy Dashboard also mixes in Recovery data (sleep/steps/resting
+heart rate) — a different, unrelated vertical not part of Product Bible's four Tier-1
+domains at all. DI-001–DI-004 address only the **nutrition/evaluation** portion (a new
+screen surfacing GE-001–GE-005's Evaluation Engine against real Journal data); the legacy
+`DashboardScreen`/`GetDashboardSummary`/Mock repositories are **not modified** — replacing
+them (retiring the mock data, deciding whether Recovery gets its own screen) is out of this
+decomposition's additive-first scope; see DI-004's closing notes for an explicit follow-up
+stub, mirroring GE-006–GE-008.
+
+The other concrete gap this decomposition must close: GE-001–GE-005 built a working
+Evaluation Engine, but no code exists yet that assembles a real `EvaluationInput` from
+actual repositories (Journal entries, `EffectiveGoals`, `MetabolismProfile`/TDEE) — GE-004's
+own tests hand-built `profileSettings` bags in fixtures. Different Profiles need different
+`profileSettings` shapes (Evidence-based Standard needs `{ goals }`, Weight Loss needs
+`{ tdee }`), so a generic assembler can't hardcode per-profile knowledge — DI-001 solves
+this via a per-profile "settings provider" the assembler delegates to, not a big
+if/else per profile id.
+
+Implementation order:
+
+1. **EvaluationInput Assembly (Profile Settings Providers)** (DI-001)
+2. **Evaluation Summary Screen** — first real consumer of the Evaluation Engine (DI-002)
+3. **Rule-Level Insights & Recommendations** — fills in the `insights`/`recommendations`
+   arrays both existing Rules currently always leave empty (DI-003)
+
+Cross-cutting: **DI-004** (regression coverage across DI-001–DI-003, plus a follow-up stub
+for reconciling/retiring the legacy mock Dashboard).
+
+---
+
+#### DI-001: EvaluationInput Assembly (Profile Settings Providers)
+
+Status: `done`
+Depends on: GE-003 (registry), GE-002/GE-004 (the two profiles needing settings)
+
+**Ziel:** Assemble a real `EvaluationInput` for a given date from actual repositories —
+`journalReadsForPeriod` from `FoodEntryRepository`, and `profileSettings` from a per-profile
+provider (not a generic orchestrator that would need to know every profile's settings
+shape).
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/ports/ProfileSettingsProvider.ts` —
+  `ProfileSettingsProvider { profileId: string; build(dateISO: string):
+Promise<Record<string, unknown>> }`.
+- New `src/features/evaluation/application/settingsProviders/EvidenceBasedStandardSettingsProvider.ts`
+  — reads `EffectiveGoalsRepository.get()` (`src/features/goals`), builds `{ goals }`.
+- New `src/features/evaluation/application/settingsProviders/WeightLossSettingsProvider.ts`
+  — reads `MetabolismProfileRepository` via the existing (unmodified)
+  `ComputeMetabolismResultUseCase`, builds `{ tdee }`.
+- New `src/features/evaluation/application/usecases/BuildEvaluationInputForDateUseCase.ts`
+  — takes `FoodEntryRepository` + the active profile id + a `ProfileSettingsProvider[]`,
+  looks up the matching provider, and assembles the full `EvaluationInput`
+  (`foodCatalogReads` stays `[]` — no current Rule declares a `dataRequirements` need for
+  it).
+
+**Risiken:** Low-medium — new orchestration code, but purely additive (no existing use case
+modified) and read-only.
+
+**Tests:** Each settings provider builds the expected shape from fixture repository data;
+`BuildEvaluationInputForDateUseCase` produces an `EvaluationInput` that
+`GetActiveEvaluationOutputUseCase` (GE-003) can run without error for both profiles;
+missing-goals/missing-metabolism-profile cases surface a clear error rather than silently
+defaulting.
+
+**Akzeptanzkriterien (DoD):**
+
+- A real `EvaluationInput` can be built for "today" from actual repository state, for
+  either registered profile, without any hardcoded per-profile branching in the assembler.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** Each provider's `build()` is declared to return
+`Promise<Record<string, unknown>>` (matching the port exactly) rather than its Rule's own
+narrower settings interface (`CalorieMacroCorridorSettings`/`ProteinPreservingDeficitSettings`)
+— TypeScript's interface-implementation check rejected the narrower return type directly
+(a named type without an index signature isn't structurally assignable to
+`Record<string, unknown>` in a method-override position), so the narrowing happens on the
+Rule's read side (the existing `as unknown as ...Settings` cast), not the provider's write
+side. Both providers reuse existing, unmodified error types
+(`GoalsNotFoundError`/`ProfileNotFoundError` from `src/features/goals`) rather than
+introducing new ones for the same "nothing set yet" condition.
+`BuildEvaluationInputForDateUseCase` is tested end-to-end through
+`GetActiveEvaluationOutputUseCase` for both profiles using real `InMemory*` repositories
+(not hand-built `EvaluationInput` fixtures), closing the gap GE-004's tests left open. Full
+suite (105 suites / 797 tests, +10 new), `tsc --noEmit`, `eslint`, and `npx prettier -c
+src/features/evaluation/` pass clean.
+
+---
+
+#### DI-002: Evaluation Summary Screen
+
+Status: `done`
+Depends on: DI-001
+
+**Ziel:** First real consumer of the Evaluation Engine — a new screen showing the active
+profile's `EvaluationOutput` (assessment, goal progress, warnings) for today, sourced from
+real Journal data via DI-001 + GE-003. Explicitly nutrition-only (see this section's scope
+boundary) — does not touch or replace the legacy `DashboardScreen`.
+
+**Scope / betroffene Dateien:**
+
+- New `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — mirrors
+  `SavedMealsScreen.tsx`'s presentation conventions (container DI, `ScreenContainer`,
+  `AppText`, etc.); shows assessment + per-macro goal progress + warnings for today.
+- `src/presentation/navigation/AppNavigator.tsx` — new tab (mirrors SM-005's precedent of
+  adding a new tab rather than mutating an existing screen).
+- `src/infrastructure/di/container.ts` — wire DI-001/GE-003's use cases + a fixed
+  `knownProfiles`/`knownRules`/`ProfileSettingsProvider[]` composition.
+
+**Risiken:** Medium — first UI surface for this domain, same class of risk as SM-005.
+
+**Tests:** Presentation-layer logic tests where feasible (mirrors SM-005's
+`savedMealsDisplay.ts` extraction pattern); manual Expo verification logged as an open gap
+in `docs/MANUAL_TESTING_GAPS.md` per AGENTS.md's binding rule.
+
+**Akzeptanzkriterien (DoD):**
+
+- A user can see the active profile's evaluation output for today, computed from their real
+  Journal entries.
+- Legacy `DashboardScreen`/`GetDashboardSummary` untouched.
+- Manual testing gap logged for the new UI.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`; manual Expo verification
+tracked as an open gap.
+
+**Implementation notes:** Added as a new bottom tab ("Auswertung", `EvaluationSummary`,
+icon `analytics`/`analytics-outline`), mirroring SM-005's precedent rather than mutating
+`DashboardScreen`. `container.ts` wires a fixed, code-defined composition — `knownProfiles =
+[EvidenceBasedStandardProfile, WeightLossProfile]`, `knownRules =
+[CalorieMacroCorridorRule, ProteinPreservingDeficitRule]`, and both DI-001 settings
+providers — as three arrays that a future profile only needs to extend, not restructure.
+The screen includes a minimal profile picker (one button per registered profile, labeled by
+`profile.name` — never the word "Profil" itself, per Product Bible §4b) that calls
+`evaluationProfileRegistry.setActiveProfileId()` and reloads, making GE-004's swappability
+proof tangible in the real app, not just in tests. `formatGoalProgressLabel`/
+`formatAssessment` extracted to `evaluationSummaryDisplay.ts` (mirrors SM-005's
+`savedMealsDisplay.ts` pattern) with unit tests, since no React Native component testing
+library exists in this project. `GoalsNotFoundError`/`ProfileNotFoundError` (both existing,
+unmodified, from `features/goals`) are caught and shown as actionable German messages
+pointing at the Ziele tab, rather than a generic error. Manual testing gap logged in
+`docs/MANUAL_TESTING_GAPS.md`. Full suite (106 suites / 801 tests, +4 new), `tsc --noEmit`,
+`eslint`, and `npx prettier -c` (scoped) pass clean.
+
+---
+
+#### DI-003: Rule-Level Insights & Recommendations
+
+Status: `done`
+Depends on: DI-002 (so there's a screen to show them on; can implement in parallel)
+
+**Ziel:** Both existing Rules (`CalorieMacroCorridorRule`, `ProteinPreservingDeficitRule`)
+always return empty `insights`/`recommendations` arrays — only `warnings` has real content.
+Add at least one genuine insight and one genuine recommendation per rule, so "Dashboard &
+**Insights**" has actual insight content to show, not just progress numbers.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/evaluation/application/rules/dailyProgressToEvaluationOutput.ts` (or a
+  small addition alongside it) — e.g. an insight when a macro is significantly under target
+  ("Noch X g Protein übrig"), a recommendation when calories are under target with protein
+  already met.
+- `src/features/evaluation/application/rules/ProteinPreservingDeficitRule.ts` — a
+  deficit-specific insight (e.g. pace-of-loss framing), distinct from the generic corridor
+  insight, so the two Presets are demonstrably different in _Insights_ output too, not just
+  in target numbers.
+
+**Risiken:** Low — additive content within already-tested rules; must not change existing
+`assessment`/`goalProgress`/`warnings` behavior (regression-tested).
+
+**Tests:** New scenarios per rule proving specific insight/recommendation text appears
+under specific input conditions; existing GE-002/GE-004 tests continue to pass unchanged.
+
+**Akzeptanzkriterien (DoD):**
+
+- Both rules produce non-empty `insights` and `recommendations` under at least one
+  documented condition each.
+- No change to existing `assessment`/`goalProgress`/`warnings` test expectations.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** Kept `dailyProgressToEvaluationOutput()` itself unchanged (still
+returns empty `insights`/`recommendations`, still shared by both rules) — each Rule now
+appends its own content on top of that base result, rather than the shared helper growing
+per-profile branching. `CalorieMacroCorridorRule`: a protein-remaining insight when protein
+is under target, a "calorie-richer meal is possible" recommendation when calories are under
+but protein is already met. `ProteinPreservingDeficitRule`: a deficit-pace insight (kcal
+below TDEE) when not over the deficit target, a protein-priority recommendation when
+protein is under target — genuinely distinct wording from the other rule for the same
+underlying facts, proven by an explicit `not.toEqual` test. Full suite (107 suites / 808
+tests, +7 new), `tsc --noEmit`, `eslint`, and `npx prettier -c` (scoped) pass clean; no
+change to any existing `assessment`/`goalProgress`/`warnings` test expectations.
+
+---
+
+#### DI-004: Dashboard & Insights Domain Regression Coverage
+
+Status: `done`
+Depends on: DI-001–DI-003
+
+**Ziel:** Consolidated regression pass across DI-001–DI-003, mirroring J-006/SM-006/GE-005,
+plus an explicit follow-up-task stub for the legacy mock Dashboard finding documented in
+this section's preamble.
+
+**Scope / betroffene Dateien:** New
+`src/features/evaluation/__tests__/DashboardInsightsDomainRegressionCoverage.test.ts` (or
+similarly named): seed real Journal entries + real `EffectiveGoals`/`MetabolismProfile` via
+their actual repositories → `BuildEvaluationInputForDateUseCase` → `
+GetActiveEvaluationOutputUseCase` → assert the resulting `EvaluationOutput` reflects the
+seeded data end-to-end (not fixture-constructed `EvaluationInput` objects, unlike GE-002–
+GE-005's tests) — the first test in this whole Evaluation Engine effort exercising the full
+real-repository path, not hand-built fixtures.
+
+**Risiken:** Low — read-only regression proof, no new production code beyond the test file
+and a `ROADMAP.md` follow-up stub.
+
+**Tests:** As described above.
+
+**Akzeptanzkriterien (DoD):**
+
+- Full suite green including the new end-to-end scenario.
+- `tsc --noEmit` and `eslint` pass clean.
+- `ROADMAP.md` gains an explicit `todo` follow-up task stub (DI-005, not implemented here)
+  for reconciling/retiring `GetDashboardSummary`/`MockNutritionRepository`/
+  `MockRecoveryRepository` and deciding Recovery's fate (own screen? dropped? out of
+  Zera's scope entirely?) — a product decision, not mechanical enough for DI-001–DI-004.
+
+**Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+**Implementation notes:** Seeds one real Journal day via `PersistedFoodEntryRepository`
+(`KeyValueStore`-backed, the actual class the app uses) plus real `EffectiveGoals`/
+`MetabolismProfile` via their real, unmodified use cases
+(`SetEffectiveGoalsUseCase`/`UpsertMetabolismProfileUseCase`), then runs the _exact_ wiring
+shape `container.ts` uses (same fixed `knownProfiles`/`knownRules`/settings-provider arrays)
+end-to-end for both profiles — closing the gap DI-001's own tests left open (those exercised
+one profile at a time against `InMemory*` repositories; this proves both together, plus
+DI-003's insight-content divergence, against the real repository classes). Confirms the
+seeded Journal day itself is never mutated by any evaluation/profile-switch call (Variante
+B). Full suite (108 suites / 810 tests, +2 new), `tsc --noEmit`, `eslint` (scoped and
+full-repo), and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass
+clean.
+
+Writing this test surfaced one more concrete gap, beyond what the preamble already
+identified: `container.ts` constructs `EffectiveGoalsRepository`/`MetabolismProfileRepository`
+as `InMemoryEffectiveGoalsRepository`/`InMemoryMetabolismProfileRepository` — **not**
+`KeyValueStore`-backed like every other repository in this app (`PersistedFoodEntryRepository`,
+`PersistedSavedMealRepository`, `PersistedActiveProfileRepository`, ...). A user's
+`GoalsScreen` metabolism profile and goals are lost on every app restart today. Added as
+DI-006 below, alongside DI-005.
+
+**Dashboard & Insights: all four tasks (DI-001–DI-004) done.** The Evaluation Engine
+(GE-001–GE-005) now has a real data path into it (DI-001), a real UI surface consuming it
+(DI-002, new "Auswertung" tab, legacy `DashboardScreen` untouched), and genuine per-profile
+insight content (DI-003), all proven end-to-end against real repositories (DI-004). See
+DI-005/DI-006 below for the explicit, deliberately-deferred follow-up work this
+decomposition's preamble and this task's own testing identified.
+
+---
+
+#### DI-005: Reconcile/Retire the Legacy Mock Dashboard
+
+Status: `done`
+Depends on: DI-002 (there must be a real replacement surface first)
+
+**Ziel:** Decide and execute what happens to `DashboardScreen.tsx`/`GetDashboardSummary`/
+`MockNutritionRepository`/`MockRecoveryRepository` now that `EvaluationSummaryScreen` (DI-002)
+provides a real, nutrition-evaluation-driven alternative. Options include: retire the
+Dashboard tab entirely in favor of the new one, keep Dashboard for Recovery only (splitting
+out the currently-conflated nutrition mock data), or something else.
+
+**Why not folded into DI-001–DI-004:** the highest-risk, most user-visible change
+identified in this whole decomposition — removing or rewriting a live, working (if
+mock-backed) screen, and deciding Recovery's product fate, which this decomposition's
+Product Bible scope says nothing about. A design decision, not a mechanical refactor.
+
+**Verify (once scoped):** manual Expo verification required (UI task); typecheck/test/lint
+as a floor, not a substitute.
+
+**Decision (via `AskUserQuestion`):** remove the Dashboard tab entirely — the nutrition
+portion is superseded by `EvaluationSummaryScreen`; Recovery's fate is explicitly a separate
+question, not decided by this task.
+
+**Implementation notes:** Investigation before removing found `DashboardScreen`/
+`GetDashboardSummary` were the _only_ consumers of the combined recovery+nutrition mock
+summary — `RecoveryScreen.tsx` (still-active "Erholung" tab) uses `GetRecoverySummary`/
+`RecoveryRepository`/`MockRecoveryRepository` directly, and `NutritionScreen.tsx`
+(still-active "Ernährung" tab) uses `GetNutritionSummary`/`NutritionRepository`/
+`MockNutritionRepository` directly — neither depends on `GetDashboardSummary` itself. So
+only `GetDashboardSummary`, `DashboardScreen.tsx`, and its tab registration were removed;
+`MockRecoveryRepository`/`MockNutritionRepository`/`RecoveryRepository`/`NutritionRepository`/
+`GetRecoverySummary`/`GetNutritionSummary` and the domain models they use (`Sleep`, `Steps`,
+`NutritionEntry`, `HeartRate`, `TimeRange`) are **untouched** — their fate (real Recovery
+data source? retire Nutrition tab too, since Journal is now the real nutrition surface?) is
+explicitly out of this task's scope, per the decision above.
+
+Also removed `Apptest.tsx` (a root-level Supabase edge-function health-check dev utility)
+and its `tsconfig.json` include entry — its only caller was `DashboardScreen`'s "USDA Health
+Check" debug button, so it became fully orphaned by this change; a full-repo grep confirmed
+zero other references before deletion. Updated `EvaluationSummaryScreen.tsx`'s doc comment,
+which referenced the now-removed `DashboardScreen`/`GetDashboardSummary`.
+
+Full suite (107 suites / 813 tests — no dedicated Dashboard/GetDashboardSummary tests
+existed to lose), `tsc --noEmit`, `eslint` (scoped and full-repo), and `npx prettier -c .`
+(238-file pre-existing baseline, unchanged) all pass clean. A full-repo grep for
+`DashboardScreen`/`GetDashboardSummary`/`Apptest` confirms zero remaining references.
+
+**Goals & Evaluation / Dashboard & Insights follow-ups: GE-006, GE-007, and DI-005 done;
+GE-008 explicitly deferred (see its own section).** All six original follow-up stubs from
+the Goals & Evaluation / Dashboard & Insights decompositions have now been either resolved
+or explicitly deferred by user decision.
+
+---
+
+#### DI-006: Persist EffectiveGoals/MetabolismProfile
+
+Status: `done`
+Depends on: none
+
+**Ziel:** `container.ts` wires `EffectiveGoalsRepository`/`MetabolismProfileRepository`
+(`src/features/goals`) as pure in-memory repositories — unlike every other repository in
+this app. A user's metabolism profile and goals (`GoalsScreen`) are silently lost on every
+app restart today. Add `KeyValueStore`-backed persisted implementations (mirroring
+`PersistedSavedMealRepository`'s/`PersistedActiveProfileRepository`'s pattern) and wire them
+into `container.ts` in place of the `InMemory*` versions.
+
+**Why not folded into DI-001–DI-004:** discovered while writing DI-004's own regression
+test, after DI-001–DI-004's scope was already fixed; a pre-existing bug in `features/goals`
+infrastructure, not something DI-001–DI-004 introduced or is responsible for fixing as a
+side effect.
+
+**Verify (once scoped):** `npm run typecheck`, `npm run test`, `npm run lint`; a durability
+test (repository re-instantiated over the same `KeyValueStore`, mirroring SM-004's/GE-003's
+pattern) proving goals/metabolism profile survive a simulated restart.
+
+**Implementation notes:** Both `MetabolismProfile` and `EffectiveGoals` turned out to be
+fully JSON-serializable already (`createdAt`/`updatedAt`/`suggestionSnapshot.createdAt` are
+already ISO strings, not `Date` objects), so `PersistedMetabolismProfileRepository`/
+`PersistedEffectiveGoalsRepository` need no serialize/deserialize transformation beyond
+`JSON.stringify`/`JSON.parse` — simpler than `PersistedSavedMealRepository`'s pattern, not
+more complex. `container.ts`'s `_metabolismProfileRepository`/`_effectiveGoalsRepository`
+fields and their public getters were retyped from the concrete `InMemory*` classes to their
+port interfaces (`MetabolismProfileRepository`/`EffectiveGoalsRepository`) — confirmed
+nothing outside the container called an `InMemory*`-only method (e.g. the test-only
+`.clear()` helper) through the container getters before making this change. Full suite (110
+suites / 819 tests, +9 new), `tsc --noEmit`, `eslint` (scoped and full-repo), and `npx
+prettier -c` (scoped and full-repo, 238-file pre-existing baseline unchanged) all pass
+clean.
 
 ---
 

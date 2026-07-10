@@ -41,7 +41,9 @@ Successfully implemented a read-only, stdout-only sandbox lifecycle eligibility 
 The evaluator returns exactly one of five decisions, prioritized in this order:
 
 ### 1. `blocked_canonical_scope` (Highest Priority)
+
 Triggered when input references canonical or protected paths:
+
 - `tasks/`, `runs/`, `validation/`, `review/`, `handoffs/`
 - `.agent/overnight/`
 - `src/`, `supabase/`
@@ -51,14 +53,18 @@ Triggered when input references canonical or protected paths:
 - `SSOK.md`, `AGENTS.md`, `VERIFY.md`, `.governance/`
 
 ### 2. `blocked_forbidden_claim`
+
 Triggered when input contains forbidden authority claims:
+
 - `queue_execution`, `worker_execution`, `task_execution`
 - `runtime_authority`, `evidence_mutation`, `review_acceptance`
 - `validation_pass`, `task_completion`, `staging`, `commit`, `push`, `deploy`
 - `dependency_install`, `network`, `product_work`, `canonical_queue_admission`
 
 ### 3. `blocked_invalid_lifecycle`
+
 Triggered when lifecycle validation fails:
+
 - Forbidden lifecycle states (queued, executing, committed, pushed, deployed, etc.)
 - Unknown lifecycle states
 - Invalid lifecycle transitions
@@ -67,7 +73,9 @@ Triggered when lifecycle validation fails:
 - Non-authoritative statement contains authority terms
 
 ### 4. `blocked_missing_evidence`
+
 Triggered when required markers or evidence are missing:
+
 - Missing `sandbox: true` marker
 - Missing `non_authoritative: true` marker
 - Missing `task_id` or `queue_entry_id`
@@ -75,11 +83,13 @@ Triggered when required markers or evidence are missing:
 - Missing evidence markers (no `evidence_bundled: true` flag and lifecycle state not in `evidence_bundled` or `awaiting_human_review`)
 
 ### 5. `eligible_for_human_consideration` (Default Success)
+
 Returned when all validation passes and no blocking conditions detected.
 
 ## Protected/Canonical Scope Behavior
 
 The evaluator scans the following input fields for canonical/protected scope references:
+
 - `path`, `artifact_path`, `target_path`, `evidence_path`, `evidence_paths`
 - `expected_changed_files`, `allowed_files`, `target_paths`, `referenced_paths`
 
@@ -88,20 +98,25 @@ Both string values and arrays of strings are scanned. Path normalization handles
 ## Verification Results
 
 ### Syntax Validation
+
 ✅ `node --check scripts/agent/lib/sandbox-queue-entry-lifecycle.mjs` - PASS  
 ✅ `node --check scripts/agent/lib/sandbox-lifecycle-eligibility-evaluator.mjs` - PASS  
 ✅ `node --check scripts/agent/evaluate-sandbox-lifecycle-eligibility.mjs` - PASS
 
 ### Test Execution
-✅ `node --test scripts/agent/__tests__/sandbox-queue-entry-lifecycle.test.mjs` - PASS  
+
+✅ `node --test scripts/agent/__tests__/sandbox-queue-entry-lifecycle.test.mjs` - PASS
+
 - 14 tests, 14 passed, 0 failed
 
-✅ `node --test scripts/agent/__tests__/sandbox-lifecycle-eligibility-evaluator.test.mjs` - PASS  
+✅ `node --test scripts/agent/__tests__/sandbox-lifecycle-eligibility-evaluator.test.mjs` - PASS
+
 - 27 tests, 27 passed, 0 failed
 
 ## Test Coverage Summary
 
 ### Decision Path Coverage
+
 - ✅ `eligible_for_human_consideration` for valid artifacts
 - ✅ `eligible_for_human_consideration` for `awaiting_human_review` state
 - ✅ `blocked_missing_evidence` for missing sandbox/non_authoritative markers
@@ -113,6 +128,7 @@ Both string values and arrays of strings are scanned. Path normalization handles
 - ✅ Decision priority: canonical_scope > forbidden_claim
 
 ### Safety Coverage
+
 - ✅ All authority flags remain false
 - ✅ `writes_performed: false` guaranteed
 - ✅ `stdout_only: true` guaranteed
@@ -124,6 +140,7 @@ Both string values and arrays of strings are scanned. Path normalization handles
 ## No-Authority Assertions
 
 The evaluator explicitly asserts it does NOT authorize:
+
 - ❌ Queue execution
 - ❌ Worker execution
 - ❌ Task execution
@@ -159,6 +176,7 @@ All authority flags in result objects are hardcoded to `false`.
 **PASS** ✅
 
 All verification commands passed:
+
 - Syntax validation: 3/3 passed
 - Test execution: 41/41 tests passed (14 lifecycle + 27 eligibility)
 - No file writes performed

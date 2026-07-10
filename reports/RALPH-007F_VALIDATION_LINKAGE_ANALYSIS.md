@@ -43,9 +43,14 @@ for (const task of taskState.tasks) {
   if (task?.status !== 'done') continue;
   const taskValidation = hasPassingValidation(validationRecords, task.id, null);
   if (!taskValidation) {
-    createFinding(findings.errors, 'critical', 'done_without_validation_evidence', 
-      `Task ${task.id} is done without passing validation evidence`, PATHS.taskState, 
-      { task_id: task.id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'done_without_validation_evidence',
+      `Task ${task.id} is done without passing validation evidence`,
+      PATHS.taskState,
+      { task_id: task.id },
+    );
   }
   // ... review evidence check ...
 }
@@ -82,6 +87,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ### tasks/task-history.jsonl (RALPH-006A events)
 
 **Line 10:** Task started
+
 ```json
 {
   "timestamp": "2026-05-19T09:45:00Z",
@@ -95,6 +101,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ```
 
 **Line 11:** Bugfix completed (RALPH-006A-FIX)
+
 ```json
 {
   "timestamp": "2026-05-19T13:59:00Z",
@@ -108,6 +115,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ```
 
 **Line 12:** Task completed (RALPH-006A)
+
 ```json
 {
   "timestamp": "2026-05-19T13:59:00Z",
@@ -121,6 +129,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ```
 
 **Timeline:**
+
 1. RALPH-006A started at 09:45:00Z
 2. RALPH-006A-FIX completed at 13:59:00Z (bugfix)
 3. RALPH-006A completed at 13:59:00Z (same timestamp)
@@ -128,6 +137,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ### runs/run-history.jsonl (RALPH-006A runs)
 
 **Line 5:** RALPH-006A run started
+
 ```json
 {
   "timestamp": "2026-05-19T09:45:00Z",
@@ -142,6 +152,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ```
 
 **Line 6:** RALPH-006A-FIX bugfix completed
+
 ```json
 {
   "timestamp": "2026-05-19T13:59:00Z",
@@ -152,7 +163,11 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
   "mode": "code",
   "status": "completed",
   "summary": "Completed RALPH-006A-FIX: Fixed critical execution bugs in Ralph task selector...",
-  "files_modified": ["scripts/agent/select-next-ralph-task.mjs", "runs/current-run.json", "validation/validation-results.jsonl"],
+  "files_modified": [
+    "scripts/agent/select-next-ralph-task.mjs",
+    "runs/current-run.json",
+    "validation/validation-results.jsonl"
+  ],
   "safety_level": "governance_script_bugfix",
   "validation_result": "passed"
 }
@@ -179,19 +194,44 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
   "status": "governance_script_bugfix_passed",
   "validation_level": "governance_script_only",
   "checks_performed": {
-    "cli_execution_flow_check": {"status": "passed", "details": "All CLI commands (--help, --dry-run, --json, --write) now produce visible output"},
-    "json_output_mode_check": {"status": "passed", "details": "JSON output mode produces valid JSON with all required fields"},
-    "text_output_mode_check": {"status": "passed", "details": "Text output mode produces human-readable markdown format"},
-    "write_mode_check": {"status": "passed", "details": "Write mode updates only runs/current-run.json as expected"},
-    "stale_active_run_handling_check": {"status": "passed", "details": "Stale active run detection works with both task_id and selected_task_id field names"},
-    "json_syntax_validation": {"status": "passed", "details": "All JSON files parse successfully after fixes"},
-    "no_forbidden_files_modified": {"status": "passed", "details": "Only allowed files modified: scripts/agent/select-next-ralph-task.mjs, runs/current-run.json"}
+    "cli_execution_flow_check": {
+      "status": "passed",
+      "details": "All CLI commands (--help, --dry-run, --json, --write) now produce visible output"
+    },
+    "json_output_mode_check": {
+      "status": "passed",
+      "details": "JSON output mode produces valid JSON with all required fields"
+    },
+    "text_output_mode_check": {
+      "status": "passed",
+      "details": "Text output mode produces human-readable markdown format"
+    },
+    "write_mode_check": {
+      "status": "passed",
+      "details": "Write mode updates only runs/current-run.json as expected"
+    },
+    "stale_active_run_handling_check": {
+      "status": "passed",
+      "details": "Stale active run detection works with both task_id and selected_task_id field names"
+    },
+    "json_syntax_validation": {
+      "status": "passed",
+      "details": "All JSON files parse successfully after fixes"
+    },
+    "no_forbidden_files_modified": {
+      "status": "passed",
+      "details": "Only allowed files modified: scripts/agent/select-next-ralph-task.mjs, runs/current-run.json"
+    }
   },
   "npm_verify_executed": false,
   "npm_verify_required": false,
   "explanation": "RALPH-006A-FIX was a governance script bugfix task. Fixed critical execution bugs in the Ralph task selector without changing product app behavior. No npm verify required as this is governance script maintenance.",
   "files_created": [],
-  "files_modified": ["scripts/agent/select-next-ralph-task.mjs", "runs/current-run.json", "validation/validation-results.jsonl"],
+  "files_modified": [
+    "scripts/agent/select-next-ralph-task.mjs",
+    "runs/current-run.json",
+    "validation/validation-results.jsonl"
+  ],
   "files_deleted": [],
   "overall_result": "passed",
   "notes": "Successfully fixed all critical bugs in Ralph task selector. CLI execution flow restored, JSON/text output modes functional, write mode working correctly, stale run detection improved."
@@ -199,6 +239,7 @@ The validator checks for exact `task_id` match between `tasks/task-state.json` a
 ```
 
 **Validation evidence summary:**
+
 - ✅ Validation record exists for `RALPH-006A-FIX`
 - ✅ All checks passed
 - ✅ `overall_result: "passed"`
@@ -249,12 +290,12 @@ review/review-results.jsonl
 
 ### Validator Expectation vs. Reality
 
-| Validator Check | Expected | Actual | Match? |
-|----------------|----------|--------|--------|
-| Task exists in task-state.json | `RALPH-006A` | `RALPH-006A` | ✅ |
-| Task status is `done` | `done` | `done` | ✅ |
-| Validation record exists for task_id | `RALPH-006A` | `RALPH-006A-FIX` | ❌ |
-| Review record exists for task_id | `RALPH-006A` | `RALPH-006A` | ✅ |
+| Validator Check                      | Expected     | Actual           | Match? |
+| ------------------------------------ | ------------ | ---------------- | ------ |
+| Task exists in task-state.json       | `RALPH-006A` | `RALPH-006A`     | ✅     |
+| Task status is `done`                | `done`       | `done`           | ✅     |
+| Validation record exists for task_id | `RALPH-006A` | `RALPH-006A-FIX` | ❌     |
+| Review record exists for task_id     | `RALPH-006A` | `RALPH-006A`     | ✅     |
 
 **Mismatch:** Validator expects validation evidence for `RALPH-006A`, but only `RALPH-006A-FIX` has validation evidence.
 
@@ -278,12 +319,14 @@ During RALPH-006A implementation, the following workflow occurred:
 **Hypothesis 1: Pre-normalized validation workflow**
 
 The validation evidence writer (`scripts/agent/ralph-write-validation-evidence.mjs`) was created in RALPH-007 (after RALPH-006A). During RALPH-006A, validation evidence was written manually or via an earlier workflow that:
+
 - Correctly validated the bugfix work (RALPH-006A-FIX)
 - Did not create a separate validation record for the parent task (RALPH-006A)
 
 **Hypothesis 2: Bugfix-as-completion pattern**
 
 The workflow treated the bugfix completion as the validation event for the original task, but:
+
 - The bugfix task ID (`RALPH-006A-FIX`) was used in the validation record
 - The original task ID (`RALPH-006A`) was not linked to validation evidence
 - The task-history correctly shows both tasks, but validation evidence only exists for the bugfix
@@ -291,6 +334,7 @@ The workflow treated the bugfix completion as the validation event for the origi
 **Hypothesis 3: Task identity normalization gap**
 
 The validator uses exact `task_id` matching without suffix normalization. The validator does not treat `RALPH-006A-FIX` as validation evidence for `RALPH-006A`, even though:
+
 - The bugfix is semantically part of RALPH-006A completion
 - The task-history shows RALPH-006A completed immediately after RALPH-006A-FIX
 - The review evidence (backfilled later) correctly acknowledges this relationship
@@ -315,6 +359,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 4. **Semantic correctness:** The bugfix task was a distinct unit of work with its own validation requirements
 
 **However:** The bugfix validation evidence **semantically validates** RALPH-006A completion because:
+
 - The bugfix was required for RALPH-006A to be considered complete
 - The original task notes state "Completed with bugfix"
 - The task-history shows RALPH-006A completion immediately after bugfix completion
@@ -338,14 +383,14 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 
 ### Detailed Classification
 
-| Classification | Applies? | Explanation |
-|---------------|----------|-------------|
-| **Data issue** | ✅ Yes | RALPH-006A is marked `done` without its own validation record |
-| **Validator issue** | ❌ No | Validator correctly enforces exact task_id matching per V2 spec |
-| **Naming issue** | ✅ Yes | Bugfix task ID (`RALPH-006A-FIX`) does not match parent task ID (`RALPH-006A`) |
-| **Migration artifact** | ❌ No | This occurred during active RALPH-006A work, not during migration |
-| **Workflow gap** | ✅ Yes | Bugfix workflow did not create validation evidence for parent task |
-| **Schema issue** | ❌ No | Both validation records follow correct V2 schema |
+| Classification         | Applies? | Explanation                                                                    |
+| ---------------------- | -------- | ------------------------------------------------------------------------------ |
+| **Data issue**         | ✅ Yes   | RALPH-006A is marked `done` without its own validation record                  |
+| **Validator issue**    | ❌ No    | Validator correctly enforces exact task_id matching per V2 spec                |
+| **Naming issue**       | ✅ Yes   | Bugfix task ID (`RALPH-006A-FIX`) does not match parent task ID (`RALPH-006A`) |
+| **Migration artifact** | ❌ No    | This occurred during active RALPH-006A work, not during migration              |
+| **Workflow gap**       | ✅ Yes   | Bugfix workflow did not create validation evidence for parent task             |
+| **Schema issue**       | ❌ No    | Both validation records follow correct V2 schema                               |
 
 ---
 
@@ -379,6 +424,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Description:** Write a new validation record for `task_id: "RALPH-006A"` that references the bugfix validation as supporting evidence.
 
 **Implementation:**
+
 1. Create validation record with `task_id: "RALPH-006A"`
 2. Reference `run_id: "run_2026-05-19_ralph-006a"` (original run)
 3. Set `validation_level: "governance_script_with_bugfix"`
@@ -391,7 +437,8 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 
 **Risk:** Low - Creates new evidence without modifying existing records
 
-**Impact:** 
+**Impact:**
+
 - ✅ Resolves validator finding
 - ✅ Maintains audit trail
 - ✅ Documents bugfix workflow relationship
@@ -406,6 +453,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Description:** Create a canonical reconciliation event that maps RALPH-006A-FIX validation to RALPH-006A.
 
 **Implementation:**
+
 1. Create new event type: `validation.linked` or `validation.reconciled`
 2. Append to `validation/validation-results.jsonl`:
    ```json
@@ -427,6 +475,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Risk:** Medium - Requires validator changes and introduces new event type
 
 **Impact:**
+
 - ✅ Resolves validator finding
 - ✅ Documents linkage relationship explicitly
 - ⚠️ Requires validator enhancement
@@ -441,6 +490,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Description:** Enhance validator to treat `RALPH-006A-FIX` as validation evidence for `RALPH-006A` by stripping suffixes.
 
 **Implementation:**
+
 1. Add suffix normalization to `hasPassingValidation()` function
 2. Recognize patterns: `-FIX`, `-REPAIR`, `-BUGFIX`, `-CLOSEOUT`
 3. Match validation records by normalized task ID
@@ -448,6 +498,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Risk:** High - Changes validator behavior, may create false positives
 
 **Impact:**
+
 - ✅ Resolves validator finding
 - ❌ Weakens strict task identity enforcement
 - ❌ May hide legitimate validation gaps
@@ -462,6 +513,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Description:** Retroactively change RALPH-006A-FIX from a separate task to a repair event within RALPH-006A.
 
 **Implementation:**
+
 1. Rewrite task-history to use `task.repaired` event type instead of `bugfix_completed`
 2. Rewrite run-history to use `run.repair_completed` instead of `bugfix_completed`
 3. Update validation record to use `task_id: "RALPH-006A"` instead of `RALPH-006A-FIX`
@@ -469,6 +521,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Risk:** Very High - Rewrites historical evidence, violates append-only principle
 
 **Impact:**
+
 - ✅ Resolves validator finding
 - ❌ Violates append-only evidence principle
 - ❌ Rewrites historical records
@@ -484,6 +537,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Description:** Create a human-approved waiver event that explicitly acknowledges the validation linkage issue and approves RALPH-006A completion.
 
 **Implementation:**
+
 1. Create new event type: `validation.waived` or `validation.human_approved`
 2. Append to `validation/validation-results.jsonl`:
    ```json
@@ -506,6 +560,7 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 **Risk:** Medium - Requires validator changes, introduces waiver concept
 
 **Impact:**
+
 - ✅ Resolves validator finding
 - ✅ Documents human approval explicitly
 - ⚠️ Requires validator enhancement
@@ -518,13 +573,13 @@ The validator uses exact `task_id` matching without suffix normalization. The va
 
 ## Recommended Fix Options Summary
 
-| Option | Description | Risk | Preferred | Reason |
-|--------|-------------|------|-----------|--------|
-| **1. Create Validation Evidence** | Write new validation record for RALPH-006A | Low | ✅ Yes | Cleanest, maintains integrity, no validator changes |
-| **2. Add Linkage Event** | Create validation.linked event | Medium | ❌ No | More complex, requires validator changes |
-| **3. Normalize Task IDs** | Strip suffixes in validator | High | ❌ No | Weakens data integrity |
-| **4. Reclassify as Repair** | Rewrite historical records | Very High | ❌ No | Violates append-only principle |
-| **5. Add Human Waiver** | Create validation.waived event | Medium | ❌ No | Option 1 is cleaner |
+| Option                            | Description                                | Risk      | Preferred | Reason                                              |
+| --------------------------------- | ------------------------------------------ | --------- | --------- | --------------------------------------------------- |
+| **1. Create Validation Evidence** | Write new validation record for RALPH-006A | Low       | ✅ Yes    | Cleanest, maintains integrity, no validator changes |
+| **2. Add Linkage Event**          | Create validation.linked event             | Medium    | ❌ No     | More complex, requires validator changes            |
+| **3. Normalize Task IDs**         | Strip suffixes in validator                | High      | ❌ No     | Weakens data integrity                              |
+| **4. Reclassify as Repair**       | Rewrite historical records                 | Very High | ❌ No     | Violates append-only principle                      |
+| **5. Add Human Waiver**           | Create validation.waived event             | Medium    | ❌ No     | Option 1 is cleaner                                 |
 
 ---
 

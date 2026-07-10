@@ -4,14 +4,27 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatQueueSimulationPretty, simulateOvernightQueueAcceptance } from './lib/overnight-queue-simulator.mjs';
+import {
+  formatQueueSimulationPretty,
+  simulateOvernightQueueAcceptance,
+} from './lib/overnight-queue-simulator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
 
 const EXIT_CODES = Object.freeze({ OK: 0, INVALID_INPUT: 1 });
-const REJECTED_FLAGS = new Set(['--execute', '--worker', '--run-queue', '--commit', '--push', '--output', '--overwrite', '--write-report', '--write-run-log']);
+const REJECTED_FLAGS = new Set([
+  '--execute',
+  '--worker',
+  '--run-queue',
+  '--commit',
+  '--push',
+  '--output',
+  '--overwrite',
+  '--write-report',
+  '--write-run-log',
+]);
 
 function usage() {
   return `RALPH-034H Queue Acceptance Simulator
@@ -34,7 +47,8 @@ function parseArgs(argv) {
   for (const arg of args) {
     if (arg === '--pretty') options.pretty = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
-    else if (REJECTED_FLAGS.has(arg)) throw new Error(`Execution-like flag is forbidden for simulator: ${arg}`);
+    else if (REJECTED_FLAGS.has(arg))
+      throw new Error(`Execution-like flag is forbidden for simulator: ${arg}`);
     else if (arg.startsWith('--')) throw new Error(`Unknown argument: ${arg}`);
     else if (!options.queuePath) options.queuePath = arg;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -79,7 +93,11 @@ async function main() {
       phase: 'RALPH-034H',
       mode: 'worker_acceptance_simulation',
       valid: false,
-      error: { code: 'queue_read_or_parse_failed', message: error.message, queue_path: options.queuePath },
+      error: {
+        code: 'queue_read_or_parse_failed',
+        message: error.message,
+        queue_path: options.queuePath,
+      },
       execution_plan: {
         queued_tasks_executed: 0,
         worker_invocations: 0,
@@ -88,8 +106,8 @@ async function main() {
         task_commands_executed: 0,
         product_work: 0,
         commits: false,
-        push: false
-      }
+        push: false,
+      },
     };
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);

@@ -28,7 +28,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 const EXIT_CODES = {
   OK: 0,
   CRITICAL_FINDINGS: 1,
-  EXECUTION_ERROR: 2
+  EXECUTION_ERROR: 2,
 };
 
 const OWNERSHIP_CLASSES = {
@@ -37,12 +37,12 @@ const OWNERSHIP_CLASSES = {
   ROADMAP_ONLY: 'roadmap_only',
   HISTORICAL: 'historical',
   LEGACY: 'legacy',
-  UNCLASSIFIED: 'unclassified'
+  UNCLASSIFIED: 'unclassified',
 };
 
 const PATHS = {
   roadmap: 'ROADMAP.md',
-  taskState: 'tasks/task-state.json'
+  taskState: 'tasks/task-state.json',
 };
 
 const ROADMAP_STATUSES = new Set(['todo', 'in_progress', 'blocked', 'done']);
@@ -55,7 +55,7 @@ const TASK_STATE_STATUSES = new Set([
   'failed',
   'done',
   'skipped',
-  'cancelled'
+  'cancelled',
 ]);
 const ACTIVE_RUNTIME_STATUSES = new Set(['in_progress', 'needs_validation', 'needs_review']);
 
@@ -107,8 +107,16 @@ function readJson(relativePath) {
 }
 
 function addFinding(findings, severity, code, message, file, details = {}, ownershipClass = null) {
-  const ownership_class = ownershipClass || details.ownership_class || OWNERSHIP_CLASSES.UNCLASSIFIED;
-  findings.push({ severity, code, ownership_class, message, file, details: { ...details, ownership_class } });
+  const ownership_class =
+    ownershipClass || details.ownership_class || OWNERSHIP_CLASSES.UNCLASSIFIED;
+  findings.push({
+    severity,
+    code,
+    ownership_class,
+    message,
+    file,
+    details: { ...details, ownership_class },
+  });
 }
 
 function parseTaskState(taskState) {
@@ -121,7 +129,7 @@ function parseTaskState(taskState) {
     risk_level: task.risk_level || null,
     source: task.source || null,
     runtime_only: task.runtime_only || false,
-    order: index + 1
+    order: index + 1,
   }));
 }
 
@@ -135,11 +143,15 @@ function groupById(tasks) {
 }
 
 function classifyRoadmapTask(taskId, runtimeById) {
-  return runtimeById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.ROADMAP_ONLY;
+  return runtimeById.has(taskId)
+    ? OWNERSHIP_CLASSES.ROADMAP_BACKED
+    : OWNERSHIP_CLASSES.ROADMAP_ONLY;
 }
 
 function classifyRuntimeTask(taskId, roadmapById) {
-  return roadmapById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.RUNTIME_ONLY;
+  return roadmapById.has(taskId)
+    ? OWNERSHIP_CLASSES.ROADMAP_BACKED
+    : OWNERSHIP_CLASSES.RUNTIME_ONLY;
 }
 
 function annotateOwnership(roadmapTasks, runtimeTasks) {
@@ -151,7 +163,7 @@ function annotateOwnership(roadmapTasks, runtimeTasks) {
     return {
       ...task,
       ownership_class: classifyRoadmapTask(task.id, runtimeById),
-      has_runtime_state: hasRuntimeState
+      has_runtime_state: hasRuntimeState,
     };
   });
 
@@ -161,7 +173,7 @@ function annotateOwnership(roadmapTasks, runtimeTasks) {
       ...task,
       ownership_class: classifyRuntimeTask(task.id, roadmapById),
       has_roadmap_entry: hasRoadmapEntry,
-      ownership_explicit: task.runtime_only === true
+      ownership_explicit: task.runtime_only === true,
     };
   });
 
@@ -178,7 +190,7 @@ function buildOwnershipSummary(roadmapTasks, runtimeTasks) {
     roadmap_only_count: 0,
     historical_count: 0,
     legacy_count: 0,
-    unclassified_count: 0
+    unclassified_count: 0,
   };
 
   for (const taskId of taskIds) {
@@ -221,63 +233,111 @@ function compareStates(roadmapTasks, runtimeTasks) {
 
   for (const [taskId, entries] of roadmapById.entries()) {
     if (entries.length > 1) {
-      addFinding(findings, 'critical', 'duplicate_roadmap_task_id', `Duplicate ROADMAP task ID: ${taskId}`, PATHS.roadmap, {
-        task_id: taskId,
-        lines: entries.map((entry) => entry.line)
-      }, runtimeById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.ROADMAP_ONLY);
+      addFinding(
+        findings,
+        'critical',
+        'duplicate_roadmap_task_id',
+        `Duplicate ROADMAP task ID: ${taskId}`,
+        PATHS.roadmap,
+        {
+          task_id: taskId,
+          lines: entries.map((entry) => entry.line),
+        },
+        runtimeById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.ROADMAP_ONLY,
+      );
     }
   }
 
   for (const [taskId, entries] of runtimeById.entries()) {
     if (entries.length > 1) {
-      addFinding(findings, 'critical', 'duplicate_task_state_id', `Duplicate task-state task ID: ${taskId}`, PATHS.taskState, {
-        task_id: taskId,
-        orders: entries.map((entry) => entry.order)
-      }, roadmapById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.RUNTIME_ONLY);
+      addFinding(
+        findings,
+        'critical',
+        'duplicate_task_state_id',
+        `Duplicate task-state task ID: ${taskId}`,
+        PATHS.taskState,
+        {
+          task_id: taskId,
+          orders: entries.map((entry) => entry.order),
+        },
+        roadmapById.has(taskId) ? OWNERSHIP_CLASSES.ROADMAP_BACKED : OWNERSHIP_CLASSES.RUNTIME_ONLY,
+      );
     }
   }
 
   for (const task of roadmapTasks) {
     if (!task.status || !ROADMAP_STATUSES.has(task.status)) {
-      addFinding(findings, 'warning', 'unknown_roadmap_status', `Unknown or missing ROADMAP status for ${task.id}`, PATHS.roadmap, {
-        task_id: task.id,
-        status: task.status,
-        line: task.line
-      }, task.ownership_class);
+      addFinding(
+        findings,
+        'warning',
+        'unknown_roadmap_status',
+        `Unknown or missing ROADMAP status for ${task.id}`,
+        PATHS.roadmap,
+        {
+          task_id: task.id,
+          status: task.status,
+          line: task.line,
+        },
+        task.ownership_class,
+      );
     }
 
     if (!runtimeById.has(task.id)) {
-      addFinding(findings, severityForMissingRuntime(task), 'roadmap_task_missing_from_task_state', `ROADMAP task ${task.id} is missing from task-state`, PATHS.roadmap, {
-        task_id: task.id,
-        roadmap_status: task.status,
-        title: task.title,
-        line: task.line,
-        order: task.order,
-        section: task.section
-      }, OWNERSHIP_CLASSES.ROADMAP_ONLY);
+      addFinding(
+        findings,
+        severityForMissingRuntime(task),
+        'roadmap_task_missing_from_task_state',
+        `ROADMAP task ${task.id} is missing from task-state`,
+        PATHS.roadmap,
+        {
+          task_id: task.id,
+          roadmap_status: task.status,
+          title: task.title,
+          line: task.line,
+          order: task.order,
+          section: task.section,
+        },
+        OWNERSHIP_CLASSES.ROADMAP_ONLY,
+      );
     }
   }
 
   for (const task of runtimeTasks) {
     if (!task.status || !TASK_STATE_STATUSES.has(task.status)) {
-      addFinding(findings, 'warning', 'unknown_task_state_status', `Unknown or missing task-state status for ${task.id}`, PATHS.taskState, {
-        task_id: task.id,
-        status: task.status,
-        order: task.order
-      }, task.ownership_class);
+      addFinding(
+        findings,
+        'warning',
+        'unknown_task_state_status',
+        `Unknown or missing task-state status for ${task.id}`,
+        PATHS.taskState,
+        {
+          task_id: task.id,
+          status: task.status,
+          order: task.order,
+        },
+        task.ownership_class,
+      );
     }
 
     if (!roadmapById.has(task.id)) {
-      addFinding(findings, severityForRuntimeMissingRoadmap(task), 'runtime_task_missing_from_roadmap', `Runtime task ${task.id} is missing from ROADMAP`, PATHS.taskState, {
-        task_id: task.id,
-        runtime_status: task.status,
-        runtime_only: task.runtime_only,
-        ownership_explicit: task.ownership_explicit,
-        source: task.source,
-        title: task.title,
-        priority: task.priority,
-        risk_level: task.risk_level
-      }, OWNERSHIP_CLASSES.RUNTIME_ONLY);
+      addFinding(
+        findings,
+        severityForRuntimeMissingRoadmap(task),
+        'runtime_task_missing_from_roadmap',
+        `Runtime task ${task.id} is missing from ROADMAP`,
+        PATHS.taskState,
+        {
+          task_id: task.id,
+          runtime_status: task.status,
+          runtime_only: task.runtime_only,
+          ownership_explicit: task.ownership_explicit,
+          source: task.source,
+          title: task.title,
+          priority: task.priority,
+          risk_level: task.risk_level,
+        },
+        OWNERSHIP_CLASSES.RUNTIME_ONLY,
+      );
     }
   }
 
@@ -287,25 +347,53 @@ function compareStates(roadmapTasks, runtimeTasks) {
     const roadmapTask = roadmapEntries[0];
     const runtimeTask = runtimeEntries[0];
     if (roadmapTask.status === 'done' && ACTIVE_RUNTIME_STATUSES.has(runtimeTask.status)) {
-      addFinding(findings, 'critical', 'roadmap_done_runtime_active', `ROADMAP marks ${taskId} done while runtime is ${runtimeTask.status}`, PATHS.roadmap, {
-        task_id: taskId,
-        roadmap_status: roadmapTask.status,
-        runtime_status: runtimeTask.status
-      }, OWNERSHIP_CLASSES.ROADMAP_BACKED);
+      addFinding(
+        findings,
+        'critical',
+        'roadmap_done_runtime_active',
+        `ROADMAP marks ${taskId} done while runtime is ${runtimeTask.status}`,
+        PATHS.roadmap,
+        {
+          task_id: taskId,
+          roadmap_status: roadmapTask.status,
+          runtime_status: runtimeTask.status,
+        },
+        OWNERSHIP_CLASSES.ROADMAP_BACKED,
+      );
     }
     if (runtimeTask.status === 'done' && roadmapTask.status !== 'done') {
-      addFinding(findings, 'critical', 'runtime_done_roadmap_not_done', `Runtime marks ${taskId} done while ROADMAP is ${roadmapTask.status || 'unknown'}`, PATHS.taskState, {
-        task_id: taskId,
-        roadmap_status: roadmapTask.status,
-        runtime_status: runtimeTask.status
-      }, OWNERSHIP_CLASSES.ROADMAP_BACKED);
+      addFinding(
+        findings,
+        'critical',
+        'runtime_done_roadmap_not_done',
+        `Runtime marks ${taskId} done while ROADMAP is ${roadmapTask.status || 'unknown'}`,
+        PATHS.taskState,
+        {
+          task_id: taskId,
+          roadmap_status: roadmapTask.status,
+          runtime_status: runtimeTask.status,
+        },
+        OWNERSHIP_CLASSES.ROADMAP_BACKED,
+      );
     }
-    if (roadmapTask.status && runtimeTask.status && !isStatusMappingAllowed(roadmapTask.status, runtimeTask.status)) {
-      addFinding(findings, 'warning', 'roadmap_status_differs_from_task_state', `ROADMAP status for ${taskId} (${roadmapTask.status}) differs from task-state (${runtimeTask.status})`, PATHS.taskState, {
-        task_id: taskId,
-        roadmap_status: roadmapTask.status,
-        runtime_status: runtimeTask.status
-      }, OWNERSHIP_CLASSES.ROADMAP_BACKED);
+    if (
+      roadmapTask.status &&
+      runtimeTask.status &&
+      !isStatusMappingAllowed(roadmapTask.status, runtimeTask.status)
+    ) {
+      addFinding(
+        findings,
+        'warning',
+        'roadmap_status_differs_from_task_state',
+        `ROADMAP status for ${taskId} (${roadmapTask.status}) differs from task-state (${runtimeTask.status})`,
+        PATHS.taskState,
+        {
+          task_id: taskId,
+          roadmap_status: roadmapTask.status,
+          runtime_status: runtimeTask.status,
+        },
+        OWNERSHIP_CLASSES.ROADMAP_BACKED,
+      );
     }
   }
 
@@ -336,13 +424,13 @@ export function buildResultFromInputs(roadmapContent, taskState) {
       info_count: infoCount,
       files_read: [PATHS.roadmap, PATHS.taskState],
       read_only: true,
-      exit_code: criticalCount > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK
+      exit_code: criticalCount > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK,
     },
     ownership_summary: buildOwnershipSummary(annotated.roadmapTasks, annotated.runtimeTasks),
     roadmap_tasks: annotated.roadmapTasks,
     task_references: taskReferences,
     task_state_tasks: annotated.runtimeTasks,
-    findings
+    findings,
   };
 }
 
@@ -405,9 +493,9 @@ async function main() {
       summary: {
         generated_at: nowIso(),
         status: 'reconciler_execution_error',
-        exit_code: EXIT_CODES.EXECUTION_ERROR
+        exit_code: EXIT_CODES.EXECUTION_ERROR,
       },
-      error: error.message
+      error: error.message,
     };
     if (process.argv.includes('--json')) console.error(JSON.stringify(payload, null, 2));
     else console.error(`Reconciler execution error: ${error.message}`);

@@ -9,14 +9,20 @@ import test from 'node:test';
 import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
 import {
   buildWorkerInvocationContractSimulation,
-  formatWorkerInvocationContractSimulationPretty
+  formatWorkerInvocationContractSimulationPretty,
 } from '../lib/overnight-worker-invocation-contract-simulator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../../..');
-const CLI = path.join(projectRoot, 'scripts/agent/overnight-worker-invocation-contract-simulator.mjs');
-const LIB = path.join(projectRoot, 'scripts/agent/lib/overnight-worker-invocation-contract-simulator.mjs');
+const CLI = path.join(
+  projectRoot,
+  'scripts/agent/overnight-worker-invocation-contract-simulator.mjs',
+);
+const LIB = path.join(
+  projectRoot,
+  'scripts/agent/lib/overnight-worker-invocation-contract-simulator.mjs',
+);
 
 function validTask(overrides = {}) {
   return {
@@ -29,7 +35,11 @@ function validTask(overrides = {}) {
     max_files_changed: 1,
     max_diff_lines: 80,
     allowed_commands: ['node scripts/agent/validate-ralph-state.mjs'],
-    forbidden_commands: ['dependency changes are forbidden', 'push operations are forbidden', 'external invocation is forbidden'],
+    forbidden_commands: [
+      'dependency changes are forbidden',
+      'push operations are forbidden',
+      'external invocation is forbidden',
+    ],
     required_checks: ['validate_ralph_state'],
     timeout_minutes: 5,
     max_attempts: 0,
@@ -40,7 +50,7 @@ function validTask(overrides = {}) {
     handoff_required: true,
     review_required: false,
     notes: 'Fixture only.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -52,7 +62,7 @@ function validQueue(overrides = {}) {
     created_by: 'human-operator',
     mode: 'dry_run',
     tasks: [validTask()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -69,7 +79,10 @@ function writeQueue(root, queue) {
 }
 
 function snapshot(root) {
-  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+  return fs
+    .readdirSync(root)
+    .sort()
+    .map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
 }
 
 function runCli(args = []) {
@@ -87,12 +100,16 @@ test('creates invocation contracts only for envelope_created entries', () => {
 });
 
 test('does not create contracts for non-created envelopes and non-accepted tasks', () => {
-  const simulation = buildWorkerInvocationContractSimulation(validQueue({ tasks: [
-    validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
-    validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
-    validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
-    validTask({ task_id: 'FORBID', class: 'FORBIDDEN' })
-  ] }));
+  const simulation = buildWorkerInvocationContractSimulation(
+    validQueue({
+      tasks: [
+        validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
+        validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
+        validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
+        validTask({ task_id: 'FORBID', class: 'FORBIDDEN' }),
+      ],
+    }),
+  );
   assert.equal(simulation.summary.contracts_created, 0);
   assert.equal(simulation.summary.not_eligible, 4);
   for (const entry of simulation.task_contracts) assert.equal(entry.contract_created, false);
@@ -127,7 +144,7 @@ test('created contract contains mandatory payload and safety fields', () => {
     'non_authorization_statement',
     'execution_authorized',
     'worker_invocation_authorized',
-    'prompt_execution_authorized'
+    'prompt_execution_authorized',
   ]) {
     assert.ok(Object.hasOwn(contract, field), field);
   }
@@ -197,14 +214,39 @@ test('CLI writes no files and JSON output is parseable', (t) => {
 test('CLI rejects execution, write, provider, model, adapter, prompt, and diff flags', (t) => {
   const root = tempDir(t);
   const queuePath = writeQueue(root, validQueue());
-  for (const flag of ['--execute', '--worker', '--run-queue', '--run-worker', '--invoke-worker', '--commit', '--push', '--output', '--overwrite', '--write-report', '--write-run-log', '--report-dir', '--run-log-path', '--execute-prompt', '--prompt-execute', '--invoke-model', '--provider', '--model', '--adapter', '--adapter-command', '--apply-diff', '--write-changes']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-queue',
+    '--run-worker',
+    '--invoke-worker',
+    '--commit',
+    '--push',
+    '--output',
+    '--overwrite',
+    '--write-report',
+    '--write-run-log',
+    '--report-dir',
+    '--run-log-path',
+    '--execute-prompt',
+    '--prompt-execute',
+    '--invoke-model',
+    '--provider',
+    '--model',
+    '--adapter',
+    '--adapter-command',
+    '--apply-diff',
+    '--write-changes',
+  ]) {
     const result = runCli([queuePath, flag]);
     assert.equal(result.status, 1, flag);
   }
 });
 
 test('pretty output includes no execution, no prompt execution, no validation commands, no worker invocation, and no runtime mutation', () => {
-  const pretty = formatWorkerInvocationContractSimulationPretty(buildWorkerInvocationContractSimulation(validQueue()));
+  const pretty = formatWorkerInvocationContractSimulationPretty(
+    buildWorkerInvocationContractSimulation(validQueue()),
+  );
   assert.match(pretty, /no queued task execution/);
   assert.match(pretty, /no prompt execution/);
   assert.match(pretty, /no validation commands/);

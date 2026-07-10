@@ -37,10 +37,7 @@ describe('Unit Portion Fix - Integration Test', () => {
 
     expect(explicitEiGrams).toBe(200);
     expect(explicitEggGrams).toBe(150);
-    expect(computeTotals(eggMacrosPer100g, explicitEiGrams, 1).totals.calories).toBeCloseTo(
-      286,
-      1,
-    );
+    expect(computeTotals(eggMacrosPer100g, explicitEiGrams, 1).totals.calories).toBeCloseTo(286, 1);
   });
 
   it('uses seed hints for other canonical foods and blocks unknown counts', async () => {

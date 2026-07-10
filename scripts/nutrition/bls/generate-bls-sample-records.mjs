@@ -62,7 +62,8 @@ export function parseArgs(argv) {
       options.help = true;
     } else if (arg === '--limit') {
       const value = args[index + 1];
-      if (!value || value.startsWith('-')) throw new Error('--limit requires a positive integer value');
+      if (!value || value.startsWith('-'))
+        throw new Error('--limit requires a positive integer value');
       options.limit = parseLimitValue(value);
       index += 1;
     } else if (arg.startsWith('--limit=')) {
@@ -110,7 +111,9 @@ function relaunchWithLargerHeapIfNeeded() {
   if (result.error) {
     console.error(
       JSON.stringify(
-        errorPayload(`Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`),
+        errorPayload(
+          `Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`,
+        ),
         null,
         2,
       ),
@@ -129,7 +132,8 @@ function sha256File(filePath) {
 
 function assertWorkbookExists() {
   const absolutePath = path.join(REPO_ROOT, DATA_WORKBOOK_PATH);
-  if (!fs.existsSync(absolutePath)) throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
+  if (!fs.existsSync(absolutePath))
+    throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
   return absolutePath;
 }
 
@@ -172,7 +176,8 @@ async function main() {
           sha256: workbook.sha256,
           sheetSelection: {
             selector: 1,
-            limitation: 'The first worksheet is read explicitly to avoid loading all workbook sheets.',
+            limitation:
+              'The first worksheet is read explicitly to avoid loading all workbook sheets.',
           },
           workbookRows: workbook.rows.length,
           dataRowsAvailable: workbook.rows.length - sample.mapping.headerRowNumber,

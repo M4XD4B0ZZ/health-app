@@ -7,14 +7,14 @@ import {
   DEFAULT_ARTIFACT_PATH,
   PREVIEW_DECISIONS,
   formatExecutionPlanPreviewSummary,
-  generateExecutionPlanPreview
+  generateExecutionPlanPreview,
 } from './lib/execution-plan-preview.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const FORBIDDEN_FLAG_PATTERNS = [
   /^--(?:out|output|write|execute|dequeue|ack|acknowledge|reserve|lock|retry|schedule|stage|commit|push|deploy|fix|format|consume|admit|mutate)(?:$|=)/,
-  /^-(?:o|w|x)$/
+  /^-(?:o|w|x)$/,
 ];
 
 export function parseArgs(argv) {
@@ -26,7 +26,8 @@ export function parseArgs(argv) {
     else if (arg === '--pretty') options.pretty = true;
     else if (arg === '--input-file') {
       const value = args[index + 1];
-      if (!value || value.startsWith('-')) throw new Error('--input-file requires a safe relative JSON path');
+      if (!value || value.startsWith('-'))
+        throw new Error('--input-file requires a safe relative JSON path');
       options.inputPath = value;
       index += 1;
     } else if (arg.startsWith('--input-file=')) {
@@ -76,7 +77,21 @@ async function main() {
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.decision === PREVIEW_DECISIONS.PREVIEW_ONLY_NON_EXECUTABLE ? 0 : 2);
   } catch (error) {
-    console.error(JSON.stringify({ status: 'blocked', preview_only: true, stdout_only: true, writes_performed: false, non_authoritative: true, executable: false, error: error.message }, null, 2));
+    console.error(
+      JSON.stringify(
+        {
+          status: 'blocked',
+          preview_only: true,
+          stdout_only: true,
+          writes_performed: false,
+          non_authoritative: true,
+          executable: false,
+          error: error.message,
+        },
+        null,
+        2,
+      ),
+    );
     process.exit(1);
   }
 }

@@ -27,13 +27,13 @@ Classifier smoke commands:
 
 ## Fixture Results
 
-| Fixture | Expected classification | Actual classification | admission_allowed | reason_codes | Pass/Fail |
-| --- | --- | --- | --- | --- | --- |
-| Docs/report-only task | `SAFE_AUTONOMOUS` | `SAFE_AUTONOMOUS` | `true` | `(none)` | PASS |
-| Agent tooling task touching `scripts/agent/**` | `REVIEW_REQUIRED` | `REVIEW_REQUIRED` | `false` | `agent_tooling_task_type`, `verification_requires_review` | PASS |
-| Product-code task touching `src/**` | `HUMAN_ONLY` | `HUMAN_ONLY` | `false` | `product_code_signal`, `verification_requires_human` | PASS |
-| `.env` or secret-touching task | `FORBIDDEN` | `FORBIDDEN` | `false` | `forbidden_action_match`, `protected_file_match`, `secret_or_env_path_signal` | PASS |
-| Package/dependency task touching `package.json` | not `SAFE_AUTONOMOUS` | `REVIEW_REQUIRED` | `false` | `approval_required_file_match`, `medium_risk_signal`, `verification_requires_review` | PASS |
+| Fixture                                         | Expected classification | Actual classification | admission_allowed | reason_codes                                                                         | Pass/Fail |
+| ----------------------------------------------- | ----------------------- | --------------------- | ----------------- | ------------------------------------------------------------------------------------ | --------- |
+| Docs/report-only task                           | `SAFE_AUTONOMOUS`       | `SAFE_AUTONOMOUS`     | `true`            | `(none)`                                                                             | PASS      |
+| Agent tooling task touching `scripts/agent/**`  | `REVIEW_REQUIRED`       | `REVIEW_REQUIRED`     | `false`           | `agent_tooling_task_type`, `verification_requires_review`                            | PASS      |
+| Product-code task touching `src/**`             | `HUMAN_ONLY`            | `HUMAN_ONLY`          | `false`           | `product_code_signal`, `verification_requires_human`                                 | PASS      |
+| `.env` or secret-touching task                  | `FORBIDDEN`             | `FORBIDDEN`           | `false`           | `forbidden_action_match`, `protected_file_match`, `secret_or_env_path_signal`        | PASS      |
+| Package/dependency task touching `package.json` | not `SAFE_AUTONOMOUS`   | `REVIEW_REQUIRED`     | `false`           | `approval_required_file_match`, `medium_risk_signal`, `verification_requires_review` | PASS      |
 
 ## Overall Result
 

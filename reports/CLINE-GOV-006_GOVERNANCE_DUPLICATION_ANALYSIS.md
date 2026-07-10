@@ -15,24 +15,24 @@ No governance source files were modified in this task. This is analysis-only, as
 
 # Governance Ownership Matrix
 
-| Rule domain | Canonical owner | Canonical reason |
-|---|---|---|
-| A) Authority hierarchy | `SSOK.md` (+ aligned in `AGENTS.md`) | Constitutional hierarchy and conflict ordering are now formalized (GOV-005). |
-| B) Verification rules | `VERIFY.md` | Explicit canonical decision table + category resolution rules (GOV-003). |
-| C) Safety rules | `.governance/SAFETY.md` | Central safety policy and stop/violation rules. |
-| D) Protected file rules | `.governance/SAFETY.md` + `.agent/config/protected-files.json` (enforcement list) | Policy in SAFETY, technical matcher list in protected-files config. |
-| E) Task execution rules | `.governance/RULES.md` + `.governance/SYSTEM.md` | One-task-per-run and Ralph lifecycle mechanics are operational policy. |
-| F) Runtime contract rules | `SSOK.md` / `AGENTS.md` (formal contract ownership) + runtime files as execution state | GOV-005 formalized ownership boundaries; runtime files execute, not redefine authority. |
-| G) Terminal safety rules | `.agent/adapters/cline.md` | Tool-specific PowerShell/terminal behavior is adapter-level policy. |
-| H) Dependency safety rules | `VERIFY.md` + `AGENTS.md` | Root governance now holds CLINE-OPS-003 normative rule text. |
-| I) Handoff requirements | `.governance/RULES.md` + `.governance/REVIEW_POLICY.md` | Ralph execution/review policy defines mandatory handoff expectation. |
-| J) Review-gate requirements | `.governance/REVIEW_POLICY.md` + `.governance/SYSTEM.md` | Human-review gate and stop-for-review are operationally canonical. |
+| Rule domain                 | Canonical owner                                                                        | Canonical reason                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| A) Authority hierarchy      | `SSOK.md` (+ aligned in `AGENTS.md`)                                                   | Constitutional hierarchy and conflict ordering are now formalized (GOV-005).            |
+| B) Verification rules       | `VERIFY.md`                                                                            | Explicit canonical decision table + category resolution rules (GOV-003).                |
+| C) Safety rules             | `.governance/SAFETY.md`                                                                | Central safety policy and stop/violation rules.                                         |
+| D) Protected file rules     | `.governance/SAFETY.md` + `.agent/config/protected-files.json` (enforcement list)      | Policy in SAFETY, technical matcher list in protected-files config.                     |
+| E) Task execution rules     | `.governance/RULES.md` + `.governance/SYSTEM.md`                                       | One-task-per-run and Ralph lifecycle mechanics are operational policy.                  |
+| F) Runtime contract rules   | `SSOK.md` / `AGENTS.md` (formal contract ownership) + runtime files as execution state | GOV-005 formalized ownership boundaries; runtime files execute, not redefine authority. |
+| G) Terminal safety rules    | `.agent/adapters/cline.md`                                                             | Tool-specific PowerShell/terminal behavior is adapter-level policy.                     |
+| H) Dependency safety rules  | `VERIFY.md` + `AGENTS.md`                                                              | Root governance now holds CLINE-OPS-003 normative rule text.                            |
+| I) Handoff requirements     | `.governance/RULES.md` + `.governance/REVIEW_POLICY.md`                                | Ralph execution/review policy defines mandatory handoff expectation.                    |
+| J) Review-gate requirements | `.governance/REVIEW_POLICY.md` + `.governance/SYSTEM.md`                               | Human-review gate and stop-for-review are operationally canonical.                      |
 
 # Duplication Inventory
 
 ## Cross-Surface Special Analysis (Required)
 
-### 1) Rules duplicated across SSOK / AGENTS / VERIFY / .governance/* / Cline docs
+### 1) Rules duplicated across SSOK / AGENTS / VERIFY / .governance/\* / Cline docs
 
 - **Authority hierarchy and conflict resolution:** appears in `SSOK.md`, `AGENTS.md`, `.governance/SYSTEM.md`, and Cline docs references.
 - **Verification behavior:** canonical in `VERIFY.md`, echoed in `AGENTS.md`, `.governance/RULES.md`, adapter/docs.
@@ -144,18 +144,18 @@ No governance source files were modified in this task. This is analysis-only, as
 
 # Duplication Risk Matrix
 
-| Rule domain | Canonical source | Duplicate source(s) | Risk level | Recommended action |
-|---|---|---|---|---|
-| A) Authority hierarchy | `SSOK.md` (+ `AGENTS.md`) | legacy sections in `SSOK.md`, `.governance/SYSTEM.md`, Cline docs | **High** | Consolidate active hierarchy wording; mark legacy Roo wording historical-only; convert docs to references. |
-| B) Verification rules | `VERIFY.md` | `AGENTS.md`, `.governance/*`, adapter/docs | **Medium** | Keep only decision semantics in VERIFY; reference elsewhere. |
-| C) Safety rules | `.governance/SAFETY.md` | `AGENTS.md`, adapter/docs | **Medium** | Keep detailed policy in SAFETY; shorten secondary copies. |
-| D) Protected file rules | `.governance/SAFETY.md` + `.agent/config/protected-files.json` | `AGENTS.md`, adapter/docs/checklist | **Medium-High** | Single normative list + single technical list; convert others to pointers. |
-| E) Task execution rules | `.governance/RULES.md` + `.governance/SYSTEM.md` | `AGENTS.md`, adapter/docs | **Low-Medium** | Keep high-level duplication; trim procedural redundancy. |
-| F) Runtime contract rules | `SSOK.md`/`AGENTS.md` formalized contract | `.governance/SYSTEM.md`, docs, reports | **Low-Medium** | Keep formal owner text in SSOK/AGENTS; make others reference-oriented. |
-| G) Terminal safety rules | `.agent/adapters/cline.md` | `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md` | **High** | Convert docs to concise onboarding references; avoid verbatim policy copies. |
-| H) Dependency safety rules | `VERIFY.md` + `AGENTS.md` | adapter/docs | **Medium** | Retain root normative text; adapter/docs summarize + link only. |
-| I) Handoff requirements | `.governance/RULES.md` + `.governance/REVIEW_POLICY.md` | `SSOK.md`, `AGENTS.md`, adapter/docs | **Medium** | Consolidate detailed schema in one place; others reference or provide non-normative template. |
-| J) Review-gate requirements | `.governance/REVIEW_POLICY.md` + `.governance/SYSTEM.md` | `AGENTS.md`, adapter/docs/checklist | **Medium** | Keep gate authority in Ralph governance; reduce repeated normative prose. |
+| Rule domain                 | Canonical source                                               | Duplicate source(s)                                                         | Risk level      | Recommended action                                                                                         |
+| --------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
+| A) Authority hierarchy      | `SSOK.md` (+ `AGENTS.md`)                                      | legacy sections in `SSOK.md`, `.governance/SYSTEM.md`, Cline docs           | **High**        | Consolidate active hierarchy wording; mark legacy Roo wording historical-only; convert docs to references. |
+| B) Verification rules       | `VERIFY.md`                                                    | `AGENTS.md`, `.governance/*`, adapter/docs                                  | **Medium**      | Keep only decision semantics in VERIFY; reference elsewhere.                                               |
+| C) Safety rules             | `.governance/SAFETY.md`                                        | `AGENTS.md`, adapter/docs                                                   | **Medium**      | Keep detailed policy in SAFETY; shorten secondary copies.                                                  |
+| D) Protected file rules     | `.governance/SAFETY.md` + `.agent/config/protected-files.json` | `AGENTS.md`, adapter/docs/checklist                                         | **Medium-High** | Single normative list + single technical list; convert others to pointers.                                 |
+| E) Task execution rules     | `.governance/RULES.md` + `.governance/SYSTEM.md`               | `AGENTS.md`, adapter/docs                                                   | **Low-Medium**  | Keep high-level duplication; trim procedural redundancy.                                                   |
+| F) Runtime contract rules   | `SSOK.md`/`AGENTS.md` formalized contract                      | `.governance/SYSTEM.md`, docs, reports                                      | **Low-Medium**  | Keep formal owner text in SSOK/AGENTS; make others reference-oriented.                                     |
+| G) Terminal safety rules    | `.agent/adapters/cline.md`                                     | `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md` | **High**        | Convert docs to concise onboarding references; avoid verbatim policy copies.                               |
+| H) Dependency safety rules  | `VERIFY.md` + `AGENTS.md`                                      | adapter/docs                                                                | **Medium**      | Retain root normative text; adapter/docs summarize + link only.                                            |
+| I) Handoff requirements     | `.governance/RULES.md` + `.governance/REVIEW_POLICY.md`        | `SSOK.md`, `AGENTS.md`, adapter/docs                                        | **Medium**      | Consolidate detailed schema in one place; others reference or provide non-normative template.              |
+| J) Review-gate requirements | `.governance/REVIEW_POLICY.md` + `.governance/SYSTEM.md`       | `AGENTS.md`, adapter/docs/checklist                                         | **Medium**      | Keep gate authority in Ralph governance; reduce repeated normative prose.                                  |
 
 # Intentional Duplications
 
@@ -177,7 +177,7 @@ Primary drift-risk areas:
    - `.agent/adapters/cline.md`
    - `docs/CLINE_RALPH_WORKER_SETUP.md`
    - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-   
+
    Near-verbatim policy blocks increase divergence risk when one copy changes.
 
 2. **Dependency safety block duplication (H):**

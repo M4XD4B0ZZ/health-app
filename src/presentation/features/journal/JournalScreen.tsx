@@ -6,7 +6,6 @@ import { View, StyleSheet, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { FoodEntry, DailyNutritionSummary } from '../../../features/nutrition';
-import { DailyProgressSnapshot } from '../../../features/journal';
 
 // UI Components
 import { tokens } from '../../../ui/theme';
@@ -69,7 +68,6 @@ const JournalScreen: React.FC = () => {
 
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
-  const [, setProgress] = useState<DailyProgressSnapshot | null>(null);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
@@ -92,15 +90,6 @@ const JournalScreen: React.FC = () => {
       const summaryData = await container.getDailySummaryUseCase.execute(today);
       setSummary(summaryData);
       setEntries(summaryData.entries);
-
-      // Try to load progress (may fail if no goals set)
-      try {
-        const progressData = await container.computeProgressForDateUseCase.execute(today);
-        setProgress(progressData);
-      } catch {
-        // No goals set yet
-        setProgress(null);
-      }
     } catch (err) {
       // log and continue
       console.error('Failed to load journal data:', err);

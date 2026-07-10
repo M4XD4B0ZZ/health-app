@@ -6,15 +6,13 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import {
-  BASELINE_FORBIDDEN_FILES
-} from '../lib/overnight-queue-schema.mjs';
+import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
 
 import {
   KNOWN_CHECK_MAPPINGS,
   normalizeCheckString,
   mapRequiredCheck,
-  buildOvernightValidationPlan
+  buildOvernightValidationPlan,
 } from '../lib/overnight-validation-plan.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,7 +42,7 @@ function validTask(overrides = {}) {
     handoff_required: true,
     review_required: true,
     notes: 'Fixture only.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -56,7 +54,7 @@ function validQueue(overrides = {}) {
     created_by: 'human-operator',
     mode: 'dry_run',
     tasks: [validTask()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -73,13 +71,16 @@ function writeQueue(root, queue) {
 }
 
 function snapshot(root) {
-  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+  return fs
+    .readdirSync(root)
+    .sort()
+    .map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
 }
 
 function runCli(queuePath, args = []) {
   return spawnSync(process.execPath, [SCRIPT, queuePath, ...args], {
     cwd: projectRoot,
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
 }
 
@@ -116,7 +117,9 @@ test('mapRequiredCheck reports unknown check as unmapped', () => {
 });
 
 test('buildOvernightValidationPlan maps valid queue with known checks', () => {
-  const queue = validQueue({ tasks: [validTask({ required_checks: ['validate_ralph_state', 'git_status_short'] })] });
+  const queue = validQueue({
+    tasks: [validTask({ required_checks: ['validate_ralph_state', 'git_status_short'] })],
+  });
   const plan = buildOvernightValidationPlan(queue);
 
   assert.equal(plan.valid, true);
@@ -129,7 +132,9 @@ test('buildOvernightValidationPlan maps valid queue with known checks', () => {
 });
 
 test('buildOvernightValidationPlan reports unmapped checks and blocks execution readiness', () => {
-  const queue = validQueue({ tasks: [validTask({ required_checks: ['validate_ralph_state', 'unknown_check'] })] });
+  const queue = validQueue({
+    tasks: [validTask({ required_checks: ['validate_ralph_state', 'unknown_check'] })],
+  });
   const plan = buildOvernightValidationPlan(queue);
 
   assert.equal(plan.valid, true);
@@ -137,7 +142,9 @@ test('buildOvernightValidationPlan reports unmapped checks and blocks execution 
   assert.equal(plan.check_mapping.mapped_checks, 1);
   assert.equal(plan.check_mapping.unmapped_checks, 1);
   assert.equal(plan.execution_readiness.ready_for_validation_execution, false);
-  assert.ok(plan.execution_readiness.blocking_reasons.some((reason) => reason.includes('unmapped')));
+  assert.ok(
+    plan.execution_readiness.blocking_reasons.some((reason) => reason.includes('unmapped')),
+  );
 });
 
 test('buildOvernightValidationPlan produces queued_tasks_executed: 0', () => {
@@ -162,7 +169,9 @@ test('buildOvernightValidationPlan produces validation_commands_executed: 0', ()
 });
 
 test('buildOvernightValidationPlan marks all mapped checks as not executable', () => {
-  const queue = validQueue({ tasks: [validTask({ required_checks: ['validate_ralph_state', 'git_status_short'] })] });
+  const queue = validQueue({
+    tasks: [validTask({ required_checks: ['validate_ralph_state', 'git_status_short'] })],
+  });
   const plan = buildOvernightValidationPlan(queue);
 
   for (const mapping of plan.check_mapping.mappings) {
@@ -210,7 +219,10 @@ test('CLI exits non-zero for invalid queue', (t) => {
 
 test('CLI exits non-zero for queue with unmapped checks', (t) => {
   const root = tempDir(t);
-  const queuePath = writeQueue(root, validQueue({ tasks: [validTask({ required_checks: ['unknown_check'] })] }));
+  const queuePath = writeQueue(
+    root,
+    validQueue({ tasks: [validTask({ required_checks: ['unknown_check'] })] }),
+  );
   const result = runCli(queuePath);
   const json = JSON.parse(result.stdout);
 
@@ -232,8 +244,14 @@ test('CLI validation planner does not write files', (t) => {
 });
 
 test('multiple tasks with multiple checks map correctly', () => {
-  const task1 = validTask({ task_id: 'TASK-1', required_checks: ['validate_ralph_state', 'git_status_short'] });
-  const task2 = validTask({ task_id: 'TASK-2', required_checks: ['reconcile_roadmap_task_state', 'git_status_sb'] });
+  const task1 = validTask({
+    task_id: 'TASK-1',
+    required_checks: ['validate_ralph_state', 'git_status_short'],
+  });
+  const task2 = validTask({
+    task_id: 'TASK-2',
+    required_checks: ['reconcile_roadmap_task_state', 'git_status_sb'],
+  });
   const queue = validQueue({ tasks: [task1, task2] });
   const plan = buildOvernightValidationPlan(queue);
 
@@ -266,7 +284,10 @@ test('blocked checks block execution readiness', () => {
 
 test('KNOWN_CHECK_MAPPINGS includes expected mappings', () => {
   assert.equal(KNOWN_CHECK_MAPPINGS['validate_ralph_state'], 'validate_ralph_state');
-  assert.equal(KNOWN_CHECK_MAPPINGS['node scripts/agent/validate-ralph-state.mjs'], 'validate_ralph_state');
+  assert.equal(
+    KNOWN_CHECK_MAPPINGS['node scripts/agent/validate-ralph-state.mjs'],
+    'validate_ralph_state',
+  );
   assert.equal(KNOWN_CHECK_MAPPINGS['git_status_short'], 'git_status_short');
   assert.equal(KNOWN_CHECK_MAPPINGS['git --no-pager status --short'], 'git_status_short');
 });

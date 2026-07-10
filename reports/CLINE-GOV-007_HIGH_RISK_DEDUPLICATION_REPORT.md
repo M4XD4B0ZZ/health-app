@@ -26,17 +26,20 @@ No product code, runtime logic, scripts, roadmap status changes, or push operati
 ## A) Terminal Safety Deduplication — Performed
 
 ### Canonical owner used
+
 - `.agent/adapters/cline.md`
 
 ### Changes made
+
 - Retained full terminal safety policy in `.agent/adapters/cline.md` as canonical owner.
 - Replaced duplicated, near-verbatim terminal safety blocks in:
   - `docs/CLINE_RALPH_WORKER_SETUP.md`
   - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
-  with concise operator summaries.
+    with concise operator summaries.
 - Added explicit canonical-owner pointers in both onboarding docs to `.agent/adapters/cline.md`.
 
 ### Result
+
 - Onboarding usability preserved.
 - Drift risk reduced by removing parallel full policy copies.
 
@@ -45,9 +48,11 @@ No product code, runtime logic, scripts, roadmap status changes, or push operati
 ## B) Legacy Authority Cleanup — Performed
 
 ### Canonical owner used
+
 - `SSOK.md`
 
 ### Changes made
+
 - Added explicit boundary header in `SSOK.md`:
   - `Historical Context / Legacy Workflow (Non-Authoritative)`
 - Labeled legacy Roo-first sections as historical/non-authoritative.
@@ -55,6 +60,7 @@ No product code, runtime logic, scripts, roadmap status changes, or push operati
 - Did **not** alter the GOV-005 canonical hierarchy/conflict/runtime-contract formalization at the top of `SSOK.md`.
 
 ### Result
+
 - Legacy context preserved.
 - Active authority remains unambiguous.
 
@@ -63,15 +69,18 @@ No product code, runtime logic, scripts, roadmap status changes, or push operati
 ## C) Protected File Reference Cleanup — Performed
 
 ### Canonical owners used
+
 - `.governance/SAFETY.md`
 - `.agent/config/protected-files.json`
 
 ### Changes made
+
 - Removed repeated explicit protected-file lists from onboarding secondary docs where safe.
 - Replaced list-style duplication with concise references to canonical policy and enforcement owners.
 - Updated relevant sections in both Cline onboarding docs to point to canonical sources.
 
 ### Result
+
 - Reduced risk of list drift across secondary docs.
 - Enforcement behavior unchanged.
 

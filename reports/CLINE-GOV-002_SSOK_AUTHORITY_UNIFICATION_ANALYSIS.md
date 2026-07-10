@@ -14,9 +14,9 @@ Recommended outcome:
    - then adapter execution rules.
 
 Safest hierarchy principle: **policy authority and runtime authority must be separated**.
+
 - Policy answers “what is allowed and required.”
 - Runtime state answers “what is currently assigned/selected/executed.”
-
 
 # Current Authority Sources
 
@@ -52,18 +52,16 @@ Safest hierarchy principle: **policy authority and runtime authority must be sep
 - `runs/run-history.jsonl`
 - `validation/validation-rules.json`
 
-
 # Authority Conflict Matrix
 
-| Area | Current authority claims | Conflict | Risk |
-|---|---|---|---|
-| Repository governance | `SSOK.md` transition says repository-first emerging; legacy section says “Roo ist die operative SSOK” | Dual top-level authority in one canonical file | High |
-| Task planning | `ROADMAP.md` says SSOK for tasks/decisions; Ralph runtime references `tasks/task-state.json` and `runs/current-run.json` for operational execution | Planning SSOK vs runtime selection source not explicitly unified | High |
-| Runtime execution state | `.governance/*`, `AGENTS.md`, adapter docs point to runtime files for selected/current run | No contradiction on existence; contradiction on precedence against ROADMAP when mismatch occurs | Medium-High |
-| Verification decisions | `VERIFY.md` canonical; `AGENTS.md` repeats strict sequence; adapter docs add docs-only guidance | Minor semantic drift (“never skip” vs docs-only minimal checks) | Medium |
-| Safety decisions | `.governance/SAFETY.md` explicit policy; `AGENTS.md` references SAFETY + protected-files; adapter/setup restate restrictions | Mostly aligned; duplication can drift | Medium |
-| Tool authority | `.governance/RULES.md`, `AGENTS.md`, `SSOK.md` transition: tools are adapters | Legacy Roo-first wording in `SSOK.md` can be read as conflicting | High |
-
+| Area                    | Current authority claims                                                                                                                           | Conflict                                                                                        | Risk        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------- |
+| Repository governance   | `SSOK.md` transition says repository-first emerging; legacy section says “Roo ist die operative SSOK”                                              | Dual top-level authority in one canonical file                                                  | High        |
+| Task planning           | `ROADMAP.md` says SSOK for tasks/decisions; Ralph runtime references `tasks/task-state.json` and `runs/current-run.json` for operational execution | Planning SSOK vs runtime selection source not explicitly unified                                | High        |
+| Runtime execution state | `.governance/*`, `AGENTS.md`, adapter docs point to runtime files for selected/current run                                                         | No contradiction on existence; contradiction on precedence against ROADMAP when mismatch occurs | Medium-High |
+| Verification decisions  | `VERIFY.md` canonical; `AGENTS.md` repeats strict sequence; adapter docs add docs-only guidance                                                    | Minor semantic drift (“never skip” vs docs-only minimal checks)                                 | Medium      |
+| Safety decisions        | `.governance/SAFETY.md` explicit policy; `AGENTS.md` references SAFETY + protected-files; adapter/setup restate restrictions                       | Mostly aligned; duplication can drift                                                           | Medium      |
+| Tool authority          | `.governance/RULES.md`, `AGENTS.md`, `SSOK.md` transition: tools are adapters                                                                      | Legacy Roo-first wording in `SSOK.md` can be read as conflicting                                | High        |
 
 # Recommended Authority Hierarchy
 
@@ -87,7 +85,6 @@ Recommended canonical hierarchy for Ralph-governed execution:
    - `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`
 6. **Legacy Roo Artifacts (Scoped Legacy Authority)**
    - `.roo/`, `.roomodes` only where explicitly declared during transition and only when not in conflict with Ralph-governed task policy.
-
 
 # Repository Governance Authority
 
@@ -118,7 +115,6 @@ Recommended canonical hierarchy for Ralph-governed execution:
 - Preserves one clear top authority for audit/review.
 - Enables migration without policy ambiguity.
 
-
 # Task Authority
 
 ## 1) Current authority chain
@@ -145,7 +141,6 @@ Recommended canonical hierarchy for Ralph-governed execution:
 - Allows deterministic runtime execution without replacing planning SSOK.
 - Avoids silent drift between “planned” and “executed.”
 
-
 # Runtime Authority
 
 ## 1) Current authority chain
@@ -168,7 +163,6 @@ Recommended canonical hierarchy for Ralph-governed execution:
 
 - Supports deterministic one-task-per-run behavior.
 - Keeps runtime fast and machine-usable while preserving strategic governance guardrails.
-
 
 # Verification Authority
 
@@ -195,7 +189,6 @@ Recommended canonical hierarchy for Ralph-governed execution:
 - Centralizes verification evolution in one file.
 - Minimizes policy drift across duplicated operational docs.
 
-
 # Safety Authority
 
 ## 1) Current authority chain
@@ -221,7 +214,6 @@ Recommended canonical hierarchy for Ralph-governed execution:
 - Reduces accidental relaxations in secondary docs.
 - Makes safety review deterministic and auditable.
 
-
 # Proposed Conflict Resolution Rules
 
 When governance sources disagree, apply this deterministic resolution order:
@@ -246,10 +238,9 @@ When governance sources disagree, apply this deterministic resolution order:
 Tie-break meta-rule:
 
 - If two same-level sources conflict, prefer:
-  1) newest explicitly versioned governance decision,
-  2) then stricter safety-preserving interpretation,
-  3) then stop and request human review.
-
+  1. newest explicitly versioned governance decision,
+  2. then stricter safety-preserving interpretation,
+  3. then stop and request human review.
 
 # Migration Impact
 
@@ -270,7 +261,6 @@ Tie-break meta-rule:
 
 - High-risk ambiguity in `SSOK.md` dual model is neutralized by explicit hierarchy.
 - Governance drift across many duplicated docs is controlled by canonical ownership.
-
 
 # Recommended GOV-003 Inputs
 

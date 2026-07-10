@@ -3,7 +3,8 @@ import { simulateOvernightQueueAcceptance } from './overnight-queue-simulator.mj
 export const WORKER_ENVELOPE_SCHEMA_VERSION = '1.0.0';
 export const WORKER_ENVELOPE_PHASE = 'RALPH-034I';
 
-const NON_AUTHORIZATION_STATEMENT = 'This envelope is a planning artifact only. It does not authorize worker invocation, task execution, validation execution, commits, pushes, runtime mutation, evidence mutation, report writing, run-log writing, dependency changes, or product work.';
+const NON_AUTHORIZATION_STATEMENT =
+  'This envelope is a planning artifact only. It does not authorize worker invocation, task execution, validation execution, commits, pushes, runtime mutation, evidence mutation, report writing, run-log writing, dependency changes, or product work.';
 
 const FORBIDDEN_EXECUTION_FLAGS = Object.freeze([
   '--execute',
@@ -18,7 +19,7 @@ const FORBIDDEN_EXECUTION_FLAGS = Object.freeze([
   '--write-report',
   '--write-run-log',
   '--report-dir',
-  '--run-log-path'
+  '--run-log-path',
 ]);
 
 const PROHIBITED_ACTIONS = Object.freeze([
@@ -31,7 +32,7 @@ const PROHIBITED_ACTIONS = Object.freeze([
   'Do not modify product code.',
   'Do not change dependencies.',
   'Do not commit.',
-  'Do not push.'
+  'Do not push.',
 ]);
 
 function asArray(value) {
@@ -59,7 +60,7 @@ function sourceSnapshot(task) {
     commit_policy: task?.commit_policy || null,
     push_policy: task?.push_policy || null,
     handoff_required: task?.handoff_required === true,
-    review_required: task?.review_required === true
+    review_required: task?.review_required === true,
   };
 }
 
@@ -67,7 +68,7 @@ function buildVerificationExpectations(task) {
   return asArray(task?.required_checks).map((check) => ({
     check,
     expected: 'must be reviewed and run only by a future separately authorized validation layer',
-    execution_authorized_by_this_envelope: false
+    execution_authorized_by_this_envelope: false,
   }));
 }
 
@@ -80,7 +81,7 @@ function buildAbortConditions(task) {
     'Abort if any forbidden command or execution-like flag is required.',
     'Abort if validation, runtime, evidence, report, run-log, commit, or push mutation is required.',
     'Abort if worker/model invocation is attempted without separate human authorization.',
-    'Abort if final human review is unavailable.'
+    'Abort if final human review is unavailable.',
   ];
 }
 
@@ -103,14 +104,16 @@ function renderPromptProposal(envelope) {
     '- Push policy: never',
     '',
     'REQUIRED CHECKS:',
-    ...(envelope.required_checks.length > 0 ? envelope.required_checks.map((check) => `- ${check}`) : ['- (none)']),
+    ...(envelope.required_checks.length > 0
+      ? envelope.required_checks.map((check) => `- ${check}`)
+      : ['- (none)']),
     '',
     'STOP / ABORT CONDITIONS:',
     ...envelope.abort_conditions.map((condition) => `- ${condition}`),
     '',
     'FINAL REVIEW:',
     '- Human review is required before any future worker invocation.',
-    '- This prompt proposal must not be executed by RALPH-034I.'
+    '- This prompt proposal must not be executed by RALPH-034I.',
   ].join('\n');
 }
 
@@ -143,7 +146,7 @@ export function buildWorkerEnvelopeForAcceptedTask(task, context = {}) {
     forbidden_execution_flags: [...FORBIDDEN_EXECUTION_FLAGS],
     prohibited_actions: [...PROHIBITED_ACTIONS],
     non_authorization_statement: NON_AUTHORIZATION_STATEMENT,
-    source_queue_task_snapshot: sourceSnapshot(task)
+    source_queue_task_snapshot: sourceSnapshot(task),
   };
 
   return {
@@ -154,12 +157,12 @@ export function buildWorkerEnvelopeForAcceptedTask(task, context = {}) {
       source_phase: 'RALPH-034H',
       source_runner: 'overnight-queue-simulator.mjs',
       source_disposition: sourceSimulation.disposition,
-      reason_codes: asArray(sourceSimulation.reason_codes)
+      reason_codes: asArray(sourceSimulation.reason_codes),
     },
     worker_envelope: envelope,
     prompt_proposal: renderPromptProposal(envelope),
     execution_authorized: false,
-    worker_invocation_authorized: false
+    worker_invocation_authorized: false,
   };
 }
 
@@ -172,7 +175,7 @@ function buildNonAcceptedEnvelopeResult(taskSimulation) {
     reason_codes: asArray(taskSimulation?.reason_codes),
     human_explanation: 'No worker envelope created because task is not classified would_accept.',
     execution_authorized: false,
-    worker_invocation_authorized: false
+    worker_invocation_authorized: false,
   };
 }
 
@@ -180,15 +183,18 @@ function summarizeTaskEnvelopes(taskEnvelopes) {
   return {
     total_tasks: taskEnvelopes.length,
     envelopes_created: taskEnvelopes.filter((entry) => entry.envelope_created === true).length,
-    not_eligible: taskEnvelopes.filter((entry) => entry.envelope_created !== true).length
+    not_eligible: taskEnvelopes.filter((entry) => entry.envelope_created !== true).length,
   };
 }
 
 export function buildWorkerEnvelopePlan(queue, options = {}) {
   const simulation = options.simulation || simulateOvernightQueueAcceptance(queue, options);
   const taskEnvelopes = asArray(simulation.task_simulations).map((taskSimulation) => {
-    if (taskSimulation.disposition !== 'would_accept') return buildNonAcceptedEnvelopeResult(taskSimulation);
-    return buildWorkerEnvelopeForAcceptedTask(findTask(queue, taskSimulation.task_id), { sourceSimulation: taskSimulation });
+    if (taskSimulation.disposition !== 'would_accept')
+      return buildNonAcceptedEnvelopeResult(taskSimulation);
+    return buildWorkerEnvelopeForAcceptedTask(findTask(queue, taskSimulation.task_id), {
+      sourceSimulation: taskSimulation,
+    });
   });
   const summary = summarizeTaskEnvelopes(taskEnvelopes);
 
@@ -202,7 +208,7 @@ export function buildWorkerEnvelopePlan(queue, options = {}) {
     source_simulation: {
       runner: simulation.runner,
       phase: simulation.phase,
-      mode: simulation.mode
+      mode: simulation.mode,
     },
     summary,
     task_envelopes: taskEnvelopes,
@@ -214,7 +220,7 @@ export function buildWorkerEnvelopePlan(queue, options = {}) {
       task_commands_executed: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -227,11 +233,16 @@ export function buildWorkerEnvelopePlan(queue, options = {}) {
       no_commit: true,
       no_push: true,
       writes_by_default: false,
-      non_authorizing_output: true
+      non_authorizing_output: true,
     },
-    recommended_human_actions: summary.envelopes_created > 0
-      ? ['Review worker envelope proposals manually. Do not invoke workers without a future separately approved task.']
-      : ['No worker envelopes created. Review simulator dispositions before any future worker design.']
+    recommended_human_actions:
+      summary.envelopes_created > 0
+        ? [
+            'Review worker envelope proposals manually. Do not invoke workers without a future separately approved task.',
+          ]
+        : [
+            'No worker envelopes created. Review simulator dispositions before any future worker design.',
+          ],
   };
 }
 
@@ -242,7 +253,9 @@ export function formatWorkerEnvelopePlanPretty(plan) {
   lines.push(`Queue: ${plan.queue_id || '(missing)'}`);
   lines.push(`Mode: ${plan.mode}`);
   lines.push(`Valid: ${plan.valid}`);
-  lines.push('Execution: planning-only; no queued task execution; no validation commands; no worker invocation; no runtime mutation; no commit; no push.');
+  lines.push(
+    'Execution: planning-only; no queued task execution; no validation commands; no worker invocation; no runtime mutation; no commit; no push.',
+  );
   lines.push('');
   lines.push('Summary:');
   lines.push(`- total_tasks: ${plan.summary.total_tasks}`);
@@ -254,7 +267,9 @@ export function formatWorkerEnvelopePlanPretty(plan) {
     lines.push(`- ${entry.task_id || '(missing)'} envelope_created=${entry.envelope_created}`);
   }
   lines.push('');
-  lines.push('Non-authorization: envelope proposals do not authorize worker invocation or task execution.');
+  lines.push(
+    'Non-authorization: envelope proposals do not authorize worker invocation or task execution.',
+  );
   lines.push('Recommended Human Actions:');
   for (const action of plan.recommended_human_actions) lines.push(`- ${action}`);
   return lines.join('\n');

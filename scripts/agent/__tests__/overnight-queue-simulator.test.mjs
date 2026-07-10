@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
-import { formatQueueSimulationPretty, simulateOvernightQueueAcceptance } from '../lib/overnight-queue-simulator.mjs';
+import {
+  formatQueueSimulationPretty,
+  simulateOvernightQueueAcceptance,
+} from '../lib/overnight-queue-simulator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +39,7 @@ function validTask(overrides = {}) {
     handoff_required: true,
     review_required: false,
     notes: 'Fixture only.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -48,7 +51,7 @@ function validQueue(overrides = {}) {
     created_by: 'human-operator',
     mode: 'dry_run',
     tasks: [validTask()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -69,7 +72,10 @@ function writeQueue(root, queue) {
 }
 
 function snapshot(root) {
-  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+  return fs
+    .readdirSync(root)
+    .sort()
+    .map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
 }
 
 function runCli(args = []) {
@@ -83,15 +89,24 @@ test('SAFE_AUTONOMOUS valid task with mapped checks becomes would_accept', () =>
 });
 
 test('REVIEW_REQUIRED becomes would_require_review', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ class: 'REVIEW_REQUIRED' })] })), 'would_require_review');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ class: 'REVIEW_REQUIRED' })] })),
+    'would_require_review',
+  );
 });
 
 test('HUMAN_ONLY becomes human_only', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ class: 'HUMAN_ONLY' })] })), 'human_only');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ class: 'HUMAN_ONLY' })] })),
+    'human_only',
+  );
 });
 
 test('FORBIDDEN becomes forbidden', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ class: 'FORBIDDEN' })] })), 'forbidden');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ class: 'FORBIDDEN' })] })),
+    'forbidden',
+  );
 });
 
 test('invalid missing required task data becomes would_reject', () => {
@@ -101,19 +116,39 @@ test('invalid missing required task data becomes would_reject', () => {
 });
 
 test('broad allowed_files becomes would_reject', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ allowed_files: ['**/*'] })] })), 'would_reject');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ allowed_files: ['**/*'] })] })),
+    'would_reject',
+  );
 });
 
 test('product scope while paused becomes would_reject', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ allowed_files: ['src/features/example.ts'] })] })), 'would_reject');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ allowed_files: ['src/features/example.ts'] })] })),
+    'would_reject',
+  );
 });
 
 test('missing baseline forbidden file becomes would_reject', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ forbidden_files: BASELINE_FORBIDDEN_FILES.filter((item) => item !== '.env') })] })), 'would_reject');
+  assert.equal(
+    disposition(
+      validQueue({
+        tasks: [
+          validTask({
+            forbidden_files: BASELINE_FORBIDDEN_FILES.filter((item) => item !== '.env'),
+          }),
+        ],
+      }),
+    ),
+    'would_reject',
+  );
 });
 
 test('unmapped required check becomes would_reject', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ required_checks: ['unknown_check'] })] })), 'would_reject');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ required_checks: ['unknown_check'] })] })),
+    'would_reject',
+  );
 });
 
 test('blocked required check becomes would_reject', () => {
@@ -122,12 +157,23 @@ test('blocked required check becomes would_reject', () => {
 });
 
 test('unsafe allowed command or worker invocation intent becomes forbidden', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ allowed_commands: ['git push'] })] })), 'forbidden');
-  assert.equal(disposition(validQueue({ tasks: [validTask({ objective: 'Invoke OpenCode worker for this task' })] })), 'forbidden');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ allowed_commands: ['git push'] })] })),
+    'forbidden',
+  );
+  assert.equal(
+    disposition(
+      validQueue({ tasks: [validTask({ objective: 'Invoke OpenCode worker for this task' })] }),
+    ),
+    'forbidden',
+  );
 });
 
 test('non-never push policy becomes forbidden', () => {
-  assert.equal(disposition(validQueue({ tasks: [validTask({ push_policy: 'allowed' })] })), 'forbidden');
+  assert.equal(
+    disposition(validQueue({ tasks: [validTask({ push_policy: 'allowed' })] })),
+    'forbidden',
+  );
 });
 
 test('simulator never invokes command runner or validation executor and keeps safety counters zero', () => {
@@ -164,7 +210,17 @@ test('CLI writes no files by default and JSON output is parseable for invalid qu
 test('CLI rejects execution-like flags', (t) => {
   const root = tempDir(t);
   const queuePath = writeQueue(root, validQueue());
-  for (const flag of ['--execute', '--worker', '--run-queue', '--commit', '--push', '--output', '--overwrite', '--write-report', '--write-run-log']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-queue',
+    '--commit',
+    '--push',
+    '--output',
+    '--overwrite',
+    '--write-report',
+    '--write-run-log',
+  ]) {
     const result = runCli([queuePath, flag]);
     assert.equal(result.status, 1, flag);
   }
@@ -178,20 +234,24 @@ test('pretty output includes no execution, no worker invocation, and no runtime 
 });
 
 test('queue-level summary counts all five dispositions', () => {
-  const simulation = simulateOvernightQueueAcceptance(validQueue({ tasks: [
-    validTask({ task_id: 'ACCEPT' }),
-    validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
-    validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
-    validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
-    validTask({ task_id: 'FORBID', class: 'FORBIDDEN' })
-  ] }));
+  const simulation = simulateOvernightQueueAcceptance(
+    validQueue({
+      tasks: [
+        validTask({ task_id: 'ACCEPT' }),
+        validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
+        validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
+        validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
+        validTask({ task_id: 'FORBID', class: 'FORBIDDEN' }),
+      ],
+    }),
+  );
   assert.deepEqual(simulation.simulation_summary, {
     total_tasks: 5,
     would_accept_count: 1,
     would_require_review_count: 1,
     human_only_count: 1,
     would_reject_count: 1,
-    forbidden_count: 1
+    forbidden_count: 1,
   });
 });
 

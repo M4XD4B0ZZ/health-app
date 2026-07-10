@@ -2,7 +2,6 @@ import { RecoveryRepository } from '../../domain/repositories/RecoveryRepository
 import { NutritionRepository } from '../../domain/repositories/NutritionRepository';
 import { MockRecoveryRepository } from '../mocks/MockRecoveryRepository';
 import { MockNutritionRepository } from '../mocks/MockNutritionRepository';
-import { GetDashboardSummary } from '../../application/usecases/GetDashboardSummary';
 import { GetNutritionSummary } from '../../application/usecases/GetNutritionSummary';
 import { GetRecoverySummary } from '../../application/usecases/GetRecoverySummary';
 
@@ -26,10 +25,6 @@ import {
   EditFoodEntryFromNaturalLanguageUseCase,
   DeleteFoodEntryUseCase,
   EnrichFoodEntryMacrosUseCase,
-  PersistedGoalsRepository,
-  GetGoalsUseCase,
-  SetManualGoalsUseCase,
-  CalculateGoalsFromMetabolismInputsUseCase,
   PersistedReminderSettingsRepository,
   PersistedPortionHintRepository,
   GetReminderSettingsUseCase,
@@ -37,6 +32,12 @@ import {
   GetReminderDecisionUseCase,
   GetCalendarMonthSummaryUseCase,
   UndoAutoMergeUseCase,
+  PersistedSavedMealRepository,
+  CreateSavedMealFromDateUseCase,
+  LogSavedMealToDateUseCase,
+  ListSavedMealTemplatesUseCase,
+  DeleteSavedMealTemplateUseCase,
+  RenameSavedMealTemplateUseCase,
 } from '../../features/nutrition';
 import { PortionKnowledgeService } from '../../features/nutrition/domain/portion/PortionKnowledgeService';
 import { SEED_PORTION_HINTS } from '../../features/nutrition/domain/portion/seedPortionHints';
@@ -64,16 +65,18 @@ import {
 import {
   FoodAliasRepository,
   FoodEntryRepository,
-  GoalsRepository,
   KeyValueStore,
   ReminderSettingsRepository,
+  SavedMealRepository,
 } from '../../features/nutrition/application/ports';
 import { FoodCatalogSource } from '../../features/nutrition/domain/catalog/FoodCatalogSource';
 
 // Goals Feature
 import {
-  InMemoryMetabolismProfileRepository,
-  InMemoryEffectiveGoalsRepository,
+  PersistedMetabolismProfileRepository,
+  PersistedEffectiveGoalsRepository,
+  MetabolismProfileRepository,
+  EffectiveGoalsRepository,
   SystemClock as GoalsSystemClock,
   RandomIdGenerator as GoalsRandomIdGenerator,
   UpsertMetabolismProfileUseCase,
@@ -88,6 +91,20 @@ import {
   ComputeProgressForDateUseCase,
 } from '../../features/journal';
 
+// Evaluation Feature
+import {
+  EvaluationProfileRegistry,
+  PersistedActiveProfileRepository,
+  EvidenceBasedStandardProfile,
+  WeightLossProfile,
+  CalorieMacroCorridorRule,
+  ProteinPreservingDeficitRule,
+  EvidenceBasedStandardSettingsProvider,
+  WeightLossSettingsProvider,
+  BuildEvaluationInputForDateUseCase,
+  GetActiveEvaluationOutputUseCase,
+} from '../../features/evaluation';
+
 /**
  * Dependency Container für die Anwendung
  * Stellt alle Repositories, Services und Use Cases bereit
@@ -101,7 +118,6 @@ class Container {
   private _nutritionRepository: NutritionRepository;
 
   // Legacy Usecases
-  private _getDashboardSummary: GetDashboardSummary;
   private _getNutritionSummary: GetNutritionSummary;
   private _getRecoverySummary: GetRecoverySummary;
 
@@ -118,13 +134,13 @@ class Container {
   private _foodParser: DeterministicFoodParser;
   private _aiMealParser: FakeAiMealParser;
   private _authRepository: AuthRepository;
-  private _nutritionGoalsRepository: GoalsRepository;
   private _reminderSettingsRepository: ReminderSettingsRepository;
   private _portionKnowledgeService: PortionKnowledgeService;
+  private _savedMealRepository: SavedMealRepository;
 
   // Goals Feature - Infrastructure
-  private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
-  private _effectiveGoalsRepository: InMemoryEffectiveGoalsRepository;
+  private _metabolismProfileRepository: MetabolismProfileRepository;
+  private _effectiveGoalsRepository: EffectiveGoalsRepository;
   private _goalsClock: GoalsSystemClock;
   private _goalsIdGenerator: GoalsRandomIdGenerator;
 
@@ -140,9 +156,6 @@ class Container {
   private _deleteFoodEntryUseCase: DeleteFoodEntryUseCase;
   private _undoAutoMergeUseCase: UndoAutoMergeUseCase;
   private _enrichFoodEntryMacrosUseCase: EnrichFoodEntryMacrosUseCase;
-  private _getGoalsUseCase: GetGoalsUseCase;
-  private _setManualGoalsUseCase: SetManualGoalsUseCase;
-  private _calculateGoalsFromMetabolismInputsUseCase: CalculateGoalsFromMetabolismInputsUseCase;
   private _getReminderSettingsUseCase: GetReminderSettingsUseCase;
   private _setReminderSettingsUseCase: SetReminderSettingsUseCase;
   private _getReminderDecisionUseCase: GetReminderDecisionUseCase;
@@ -154,9 +167,21 @@ class Container {
   private _suggestGoalsUseCase: SuggestGoalsUseCase;
   private _setEffectiveGoalsUseCase: SetEffectiveGoalsUseCase;
 
+  // Saved Meal Use Cases
+  private _createSavedMealFromDateUseCase: CreateSavedMealFromDateUseCase;
+  private _logSavedMealToDateUseCase: LogSavedMealToDateUseCase;
+  private _listSavedMealTemplatesUseCase: ListSavedMealTemplatesUseCase;
+  private _deleteSavedMealTemplateUseCase: DeleteSavedMealTemplateUseCase;
+  private _renameSavedMealTemplateUseCase: RenameSavedMealTemplateUseCase;
+
   // Journal Use Cases
   private _computeProgressForDateUseCase: ComputeProgressForDateUseCase;
   private _registeredResolverSourceLabels: ResolverSourceLabel[] = [];
+
+  // Evaluation Feature
+  private _evaluationProfileRegistry: EvaluationProfileRegistry;
+  private _buildEvaluationInputForDateUseCase: BuildEvaluationInputForDateUseCase;
+  private _getActiveEvaluationOutputUseCase: GetActiveEvaluationOutputUseCase;
 
   constructor() {
     // Legacy repositories
@@ -176,15 +201,41 @@ class Container {
     this._foodParser = new DeterministicFoodParser();
     this._aiMealParser = new FakeAiMealParser();
     this._authRepository = new SupabaseAuthRepository();
-    this._nutritionGoalsRepository = new PersistedGoalsRepository(this._keyValueStore);
     this._reminderSettingsRepository = new PersistedReminderSettingsRepository(this._keyValueStore);
     this._portionKnowledgeService = new PortionKnowledgeService(
       new PersistedPortionHintRepository(this._keyValueStore, SEED_PORTION_HINTS),
     );
+    this._savedMealRepository = new PersistedSavedMealRepository(this._keyValueStore);
+
+    this._createSavedMealFromDateUseCase = new CreateSavedMealFromDateUseCase(
+      this._foodEntryRepository,
+      this._savedMealRepository,
+      this._nutritionClock,
+      this._nutritionIdGenerator,
+    );
+    this._logSavedMealToDateUseCase = new LogSavedMealToDateUseCase(
+      this._savedMealRepository,
+      this._foodEntryRepository,
+      this._nutritionClock,
+      this._nutritionIdGenerator,
+      this._nutritionLookup,
+    );
+    this._listSavedMealTemplatesUseCase = new ListSavedMealTemplatesUseCase(
+      this._savedMealRepository,
+    );
+    this._deleteSavedMealTemplateUseCase = new DeleteSavedMealTemplateUseCase(
+      this._savedMealRepository,
+    );
+    this._renameSavedMealTemplateUseCase = new RenameSavedMealTemplateUseCase(
+      this._savedMealRepository,
+      this._nutritionClock,
+    );
 
     // Goals infrastructure
-    this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
-    this._effectiveGoalsRepository = new InMemoryEffectiveGoalsRepository();
+    this._metabolismProfileRepository = new PersistedMetabolismProfileRepository(
+      this._keyValueStore,
+    );
+    this._effectiveGoalsRepository = new PersistedEffectiveGoalsRepository(this._keyValueStore);
     this._goalsClock = new GoalsSystemClock();
     this._goalsIdGenerator = new GoalsRandomIdGenerator();
 
@@ -270,7 +321,7 @@ class Container {
 
     this._getDailySummaryUseCase = new GetDailySummaryUseCase(
       this._foodEntryRepository,
-      this._nutritionGoalsRepository,
+      this._effectiveGoalsRepository,
     );
 
     this._applyNaturalLanguageEditUseCase = new ApplyNaturalLanguageEditUseCase(
@@ -299,10 +350,6 @@ class Container {
       this._foodEntryRepository,
       this._nutritionLookup,
     );
-    this._getGoalsUseCase = new GetGoalsUseCase(this._nutritionGoalsRepository);
-    this._setManualGoalsUseCase = new SetManualGoalsUseCase(this._nutritionGoalsRepository);
-    this._calculateGoalsFromMetabolismInputsUseCase =
-      new CalculateGoalsFromMetabolismInputsUseCase();
     this._getReminderSettingsUseCase = new GetReminderSettingsUseCase(
       this._reminderSettingsRepository,
     );
@@ -316,7 +363,7 @@ class Container {
     );
     this._getCalendarMonthSummaryUseCase = new GetCalendarMonthSummaryUseCase(
       this._foodEntryRepository,
-      this._nutritionGoalsRepository,
+      this._effectiveGoalsRepository,
       'Europe/Berlin',
     );
 
@@ -344,12 +391,26 @@ class Container {
       this._effectiveGoalsRepository,
     );
 
-    // Legacy usecases
-    this._getDashboardSummary = new GetDashboardSummary(
-      this._recoveryRepository,
-      this._nutritionRepository,
+    // Evaluation Engine (DI-001/DI-002): known profiles/rules/settings-providers are a
+    // fixed, code-defined composition today (Presets, per Product Bible SS4/SS5) -- adding a
+    // future profile means extending these three arrays, not changing the wiring shape.
+    this._evaluationProfileRegistry = new PersistedActiveProfileRepository(this._keyValueStore, [
+      EvidenceBasedStandardProfile,
+      WeightLossProfile,
+    ]);
+    this._buildEvaluationInputForDateUseCase = new BuildEvaluationInputForDateUseCase(
+      this._foodEntryRepository,
+      [
+        new EvidenceBasedStandardSettingsProvider(this._effectiveGoalsRepository),
+        new WeightLossSettingsProvider(this._computeMetabolismResultUseCase),
+      ],
+    );
+    this._getActiveEvaluationOutputUseCase = new GetActiveEvaluationOutputUseCase(
+      this._evaluationProfileRegistry,
+      [CalorieMacroCorridorRule, ProteinPreservingDeficitRule],
     );
 
+    // Legacy usecases
     this._getNutritionSummary = new GetNutritionSummary(this._nutritionRepository);
 
     this._getRecoverySummary = new GetRecoverySummary(this._recoveryRepository);
@@ -365,10 +426,6 @@ class Container {
   }
 
   // Legacy Usecases
-  get getDashboardSummary(): GetDashboardSummary {
-    return this._getDashboardSummary;
-  }
-
   get getNutritionSummary(): GetNutritionSummary {
     return this._getNutritionSummary;
   }
@@ -398,12 +455,37 @@ class Container {
     return this._portionKnowledgeService;
   }
 
+  get savedMealRepository(): SavedMealRepository {
+    return this._savedMealRepository;
+  }
+
+  // Saved Meal Use Cases
+  get createSavedMealFromDateUseCase(): CreateSavedMealFromDateUseCase {
+    return this._createSavedMealFromDateUseCase;
+  }
+
+  get logSavedMealToDateUseCase(): LogSavedMealToDateUseCase {
+    return this._logSavedMealToDateUseCase;
+  }
+
+  get listSavedMealTemplatesUseCase(): ListSavedMealTemplatesUseCase {
+    return this._listSavedMealTemplatesUseCase;
+  }
+
+  get deleteSavedMealTemplateUseCase(): DeleteSavedMealTemplateUseCase {
+    return this._deleteSavedMealTemplateUseCase;
+  }
+
+  get renameSavedMealTemplateUseCase(): RenameSavedMealTemplateUseCase {
+    return this._renameSavedMealTemplateUseCase;
+  }
+
   // Goals Infrastructure
-  get metabolismProfileRepository(): InMemoryMetabolismProfileRepository {
+  get metabolismProfileRepository(): MetabolismProfileRepository {
     return this._metabolismProfileRepository;
   }
 
-  get effectiveGoalsRepository(): InMemoryEffectiveGoalsRepository {
+  get effectiveGoalsRepository(): EffectiveGoalsRepository {
     return this._effectiveGoalsRepository;
   }
 
@@ -438,18 +520,6 @@ class Container {
 
   get enrichFoodEntryMacrosUseCase(): EnrichFoodEntryMacrosUseCase {
     return this._enrichFoodEntryMacrosUseCase;
-  }
-
-  get getGoalsUseCase(): GetGoalsUseCase {
-    return this._getGoalsUseCase;
-  }
-
-  get setManualGoalsUseCase(): SetManualGoalsUseCase {
-    return this._setManualGoalsUseCase;
-  }
-
-  get calculateGoalsFromMetabolismInputsUseCase(): CalculateGoalsFromMetabolismInputsUseCase {
-    return this._calculateGoalsFromMetabolismInputsUseCase;
   }
 
   get getReminderSettingsUseCase(): GetReminderSettingsUseCase {
@@ -488,6 +558,19 @@ class Container {
   // Journal Use Cases
   get computeProgressForDateUseCase(): ComputeProgressForDateUseCase {
     return this._computeProgressForDateUseCase;
+  }
+
+  // Evaluation Engine
+  get evaluationProfileRegistry(): EvaluationProfileRegistry {
+    return this._evaluationProfileRegistry;
+  }
+
+  get buildEvaluationInputForDateUseCase(): BuildEvaluationInputForDateUseCase {
+    return this._buildEvaluationInputForDateUseCase;
+  }
+
+  get getActiveEvaluationOutputUseCase(): GetActiveEvaluationOutputUseCase {
+    return this._getActiveEvaluationOutputUseCase;
   }
 
   getRegisteredResolverSourceLabelsForDiagnostics(): ResolverSourceLabel[] {

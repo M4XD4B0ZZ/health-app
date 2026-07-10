@@ -1,5 +1,5 @@
 import { FoodEntry } from '../models/NutritionTypes';
-import { UserGoals } from '../goals/UserGoals';
+import { DailyGoals } from '../../../goals/domain/models/GoalsTypes';
 import { DailySummary, DailyTotals, ProgressMetric } from './DailySummaryTypes';
 
 function roundKcal(value: number): number {
@@ -60,7 +60,7 @@ export function computeProgress(consumed: number, target: number): ProgressMetri
 export function buildDailySummary(
   dateISO: string,
   entries: FoodEntry[],
-  goals: UserGoals | null,
+  goals: DailyGoals | null,
 ): DailySummary {
   const totals = sumEntriesToDailyTotals(entries);
 
@@ -90,10 +90,10 @@ export function buildDailySummary(
     };
   }
 
-  const caloriesProgress = computeProgress(totals.caloriesKcal, goals.caloriesTargetKcal);
-  const proteinProgress = computeProgress(totals.proteinG, goals.proteinTargetG);
-  const carbsProgress = computeProgress(totals.carbsG, goals.carbsTargetG);
-  const fatProgress = computeProgress(totals.fatG, goals.fatTargetG);
+  const caloriesProgress = computeProgress(totals.caloriesKcal, goals.calories);
+  const proteinProgress = computeProgress(totals.proteinG, goals.protein);
+  const carbsProgress = computeProgress(totals.carbsG, goals.carbs);
+  const fatProgress = computeProgress(totals.fatG, goals.fat);
 
   return {
     dateISO,

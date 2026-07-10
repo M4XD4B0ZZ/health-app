@@ -77,12 +77,12 @@ Severity classification implemented:
 
 Status mapping follows `plans/RALPH-002_STATE_MODEL_UNIFICATION_PLAN.md`:
 
-| ROADMAP status | Allowed runtime status |
-| --- | --- |
-| `todo` | `not_started` |
-| `in_progress` | `in_progress`, `needs_validation`, `needs_review` |
-| `blocked` | `blocked` |
-| `done` | `done` |
+| ROADMAP status | Allowed runtime status                            |
+| -------------- | ------------------------------------------------- |
+| `todo`         | `not_started`                                     |
+| `in_progress`  | `in_progress`, `needs_validation`, `needs_review` |
+| `blocked`      | `blocked`                                         |
+| `done`         | `done`                                            |
 
 ## Output Modes
 

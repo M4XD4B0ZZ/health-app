@@ -12,6 +12,7 @@
 RALPH-007B successfully implements a Ralph V2 Review Evidence Recorder that converts structured review decision objects into normalized review events. The implementation follows the validation evidence writer pattern established in RALPH-007 and addresses the critical review evidence gap identified in RALPH-007A.
 
 **Key deliverables:**
+
 - `scripts/agent/ralph-write-review-evidence.mjs` — Review evidence recorder with dry-run default
 - `.agent/out/sample-review-result.json` — Sample review input for testing
 - This implementation report
@@ -28,10 +29,12 @@ RALPH-007B successfully implements a Ralph V2 Review Evidence Recorder that conv
 Convert one structured review decision into one normalized review event.
 
 **Input modes:**
+
 - `--input <path>` — Read from file
 - `--stdin` — Read from stdin
 
 **Required input fields:**
+
 - `review_id`
 - `task_id`
 - `reviewer`
@@ -39,6 +42,7 @@ Convert one structured review decision into one normalized review event.
 - `review_required`
 
 **Supported review results:**
+
 - `accepted` → `review.accepted`
 - `rejected` → `review.rejected`
 - `needs_changes` → `review.needs_changes`
@@ -50,6 +54,7 @@ Dry-run only. Prints planned event to stdout. No files written.
 Requires BOTH `--append` AND `--confirm-append` flags. Appends exactly one JSONL line to `review/review-results.jsonl` using `appendJsonlEvent()` from `ralph-state-transitions.mjs`.
 
 **Safety guarantees:**
+
 - Rejects missing required fields
 - Rejects invalid `review_result` values
 - Never executes commands
@@ -87,11 +92,11 @@ Generated events follow Ralph V2 normalized event schema from `plans/RALPH-002_S
 
 ### Event Mapping
 
-| Input `review_result` | Output `event_type` |
-|---|---|
-| `accepted` | `review.accepted` |
-| `rejected` | `review.rejected` |
-| `needs_changes` | `review.needs_changes` |
+| Input `review_result` | Output `event_type`    |
+| --------------------- | ---------------------- |
+| `accepted`            | `review.accepted`      |
+| `rejected`            | `review.rejected`      |
+| `needs_changes`       | `review.needs_changes` |
 
 All other values are rejected with a clear error message.
 
@@ -121,11 +126,13 @@ Created `.agent/out/sample-review-result.json`:
 Per `VERIFY.md` canonical decision table, Category 2 (Governance-only):
 
 **Required checks:**
+
 - `git --no-pager status --short`
 - `git --no-pager diff --stat`
 - `git --no-pager diff --name-only`
 
 **Optional checks:**
+
 - `npm run verify` (not required for governance-only tasks)
 
 ### Verification Results
@@ -146,6 +153,7 @@ node scripts/agent/ralph-write-review-evidence.mjs --help
 
 **Result:** ✅ Passed  
 Help text displays correctly with all required sections:
+
 - Usage examples
 - Options
 - Default behavior
@@ -162,6 +170,7 @@ node scripts/agent/ralph-write-review-evidence.mjs --input .agent/out/sample-rev
 
 **Result:** ✅ Passed  
 Output structure:
+
 - `dry_run: true`
 - `writes_performed: false`
 - `planned_event` contains normalized V2 review event
@@ -176,7 +185,8 @@ Output structure:
 node scripts/agent/validate-ralph-state.mjs
 ```
 
-**Result:** ✅ Passed (expected findings)  
+**Result:** ✅ Passed (expected findings)
+
 - 8 critical findings (pre-existing review evidence gaps)
 - 43 warnings (legacy artifacts, expected)
 - No new findings introduced by this implementation
@@ -188,7 +198,8 @@ node scripts/agent/validate-ralph-state.mjs
 git --no-pager status --short
 ```
 
-**Result:** ✅ Passed  
+**Result:** ✅ Passed
+
 ```
 ? scripts/agent/ralph-write-review-evidence.mjs
 ```
@@ -220,6 +231,7 @@ No output (no tracked files modified).
 ### 1. Pattern Consistency
 
 The implementation mirrors `ralph-write-validation-evidence.mjs` for consistency:
+
 - Same CLI argument structure
 - Same dry-run default behavior
 - Same append safety (requires both `--append` and `--confirm-append`)
@@ -229,6 +241,7 @@ The implementation mirrors `ralph-write-validation-evidence.mjs` for consistency
 ### 2. Review Result Vocabulary
 
 Limited to three canonical review results per RALPH-002 plan:
+
 - `accepted` — Review passed, task may proceed to done
 - `rejected` — Review failed, task should not be marked done
 - `needs_changes` — Revision requested, task returns to in_progress
@@ -238,6 +251,7 @@ This vocabulary aligns with the task transition model in `plans/RALPH-002_STATE_
 ### 3. Actor Normalization
 
 The `reviewer` field is preserved as a string identifier, while `actor` is normalized to:
+
 ```json
 {
   "type": "reviewer",
@@ -266,11 +280,12 @@ Per task constraints, append mode was implemented but NOT executed during RALPH-
 ✅ **No runtime repairs** — Script is dry-run by default  
 ✅ **No commits** — Files created but not committed  
 ✅ **No push** — No remote operations  
-✅ **No append execution** — Append mode implemented but not used  
+✅ **No append execution** — Append mode implemented but not used
 
 ### Protected Files
 
 ✅ No modifications to:
+
 - `src/`
 - `supabase/`
 - `package.json`
@@ -283,12 +298,14 @@ Per task constraints, append mode was implemented but NOT executed during RALPH-
 ### Safety
 
 ✅ Script rejects:
+
 - Missing `review_id`
 - Missing `task_id`
 - Missing `review_result`
 - Invalid `review_result` values
 
 ✅ Script never:
+
 - Executes commands
 - Performs repairs
 - Modifies existing evidence files in dry-run mode
@@ -297,11 +314,11 @@ Per task constraints, append mode was implemented but NOT executed during RALPH-
 
 ## Files Created
 
-| Path | Purpose | Size |
-|---|---|---|
-| `scripts/agent/ralph-write-review-evidence.mjs` | Review evidence recorder | 8.5 KB |
-| `.agent/out/sample-review-result.json` | Sample review input | 0.4 KB |
-| `reports/RALPH-007B_REVIEW_EVIDENCE_RECORDER_REPORT.md` | This report | ~6 KB |
+| Path                                                    | Purpose                  | Size   |
+| ------------------------------------------------------- | ------------------------ | ------ |
+| `scripts/agent/ralph-write-review-evidence.mjs`         | Review evidence recorder | 8.5 KB |
+| `.agent/out/sample-review-result.json`                  | Sample review input      | 0.4 KB |
+| `reports/RALPH-007B_REVIEW_EVIDENCE_RECORDER_REPORT.md` | This report              | ~6 KB  |
 
 ---
 
@@ -315,6 +332,7 @@ Per task constraints, append mode was implemented but NOT executed during RALPH-
 ### Future Integration
 
 This recorder is designed to be called by:
+
 1. **Human review workflow** — Manual review acceptance/rejection
 2. **RALPH-005 transition module** — Automated review gate enforcement
 3. **Future review backfill tool** — Legacy review evidence migration
@@ -348,6 +366,7 @@ If `correlation_id` is not provided in the input, the recorder generates one. Th
 **Review Evidence Backfill Plan**
 
 Create a read-only analysis and human-approved backfill plan for the 7 critical review evidence gaps identified in RALPH-007A:
+
 - `RALPH-002A`
 - `RALPH-003A`
 - `RALPH-004A`
@@ -357,6 +376,7 @@ Create a read-only analysis and human-approved backfill plan for the 7 critical 
 - `RALPH-010A`
 
 **Scope:**
+
 1. Read-only review of handoff evidence for each task
 2. Propose review acceptance events with human-provided review notes
 3. Dry-run generation of backfill events

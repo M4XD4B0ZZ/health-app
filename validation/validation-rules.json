@@ -29,7 +29,7 @@
           "condition": "requires_explicit_dependency_task"
         },
         {
-          "pattern": "package-lock.json", 
+          "pattern": "package-lock.json",
           "condition": "requires_explicit_dependency_task"
         },
         {
@@ -46,7 +46,7 @@
       "applies_to": "all_tasks",
       "required_sections": [
         "Run Summary",
-        "Current Task", 
+        "Current Task",
         "Completed Work",
         "Changed Files",
         "Validation Status",
@@ -92,7 +92,7 @@
       "file_patterns": ["supabase/functions/**/*"],
       "validation_commands": [
         "npm run verify:supabase:link",
-        "npm run verify:schema", 
+        "npm run verify:schema",
         "npm run verify:edge"
       ],
       "requirements": [
@@ -118,7 +118,7 @@
       ],
       "compliance_checks": [
         "no_early_translation",
-        "source_native_queries", 
+        "source_native_queries",
         "multi_source_candidates",
         "fusion_layer_functional",
         "knowledge_persistence",
@@ -129,10 +129,7 @@
   "validation_levels": {
     "documentation_only": {
       "description": "For documentation-only changes with no runtime impact",
-      "required_checks": [
-        "protected_files_check",
-        "required_handoff_sections_check"
-      ],
+      "required_checks": ["protected_files_check", "required_handoff_sections_check"],
       "npm_verify_required": false
     },
     "static_foundation_only": {
@@ -149,7 +146,7 @@
       "description": "Standard validation for code changes",
       "required_checks": [
         "protected_files_check",
-        "json_syntax_check", 
+        "json_syntax_check",
         "no_done_without_validation_check",
         "output_paths_check",
         "required_handoff_sections_check"
@@ -162,7 +159,7 @@
       "required_checks": [
         "protected_files_check",
         "json_syntax_check",
-        "no_done_without_validation_check", 
+        "no_done_without_validation_check",
         "output_paths_check",
         "required_handoff_sections_check"
       ],
@@ -176,17 +173,9 @@
     },
     "dry_run_only": {
       "description": "Validation for dry-run tasks with no product code changes",
-      "required_checks": [
-        "protected_files_check",
-        "no_product_code_changes",
-        "documentation_only"
-      ],
+      "required_checks": ["protected_files_check", "no_product_code_changes", "documentation_only"],
       "npm_verify_required": false,
-      "forbidden_patterns": [
-        "src/**/*",
-        "package.json",
-        "supabase/**/*"
-      ]
+      "forbidden_patterns": ["src/**/*", "package.json", "supabase/**/*"]
     }
   },
   "enforcement": {

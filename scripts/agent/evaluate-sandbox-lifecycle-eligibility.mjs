@@ -4,7 +4,7 @@ import {
   evaluateSandboxLifecycleEligibility,
   parseEligibilityJson,
   readEligibilityInputFile,
-  ELIGIBILITY_DECISIONS
+  ELIGIBILITY_DECISIONS,
 } from './lib/sandbox-lifecycle-eligibility-evaluator.mjs';
 
 function parseArgs(argv) {
@@ -13,7 +13,7 @@ function parseArgs(argv) {
     inputFile: null,
     format: 'json',
     unknownFlags: [],
-    positionalArgs: []
+    positionalArgs: [],
   };
 
   for (let i = 2; i < argv.length; i++) {
@@ -61,7 +61,9 @@ function formatMarkdown(result) {
   lines.push('## Decision');
   lines.push('');
   lines.push(`**Decision:** \`${result.decision}\``);
-  lines.push(`**Eligible for Human Consideration:** ${result.eligible_for_human_consideration ? '✅ Yes' : '❌ No'}`);
+  lines.push(
+    `**Eligible for Human Consideration:** ${result.eligible_for_human_consideration ? '✅ Yes' : '❌ No'}`,
+  );
   lines.push(`**Blocked:** ${result.blocked ? '⚠️ Yes' : '✅ No'}`);
   lines.push('');
 

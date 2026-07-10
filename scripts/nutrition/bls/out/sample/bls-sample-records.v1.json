@@ -476,20 +476,8 @@
         "en": "Oat whole grain, raw"
       },
       "normalizedName": "hafer ganzes korn roh",
-      "aliases": [
-        "hafer ganzes korn roh",
-        "oat whole grain raw"
-      ],
-      "tokens": [
-        "hafer",
-        "ganzes",
-        "korn",
-        "roh",
-        "oat",
-        "whole",
-        "grain",
-        "raw"
-      ],
+      "aliases": ["hafer ganzes korn roh", "oat whole grain raw"],
+      "tokens": ["hafer", "ganzes", "korn", "roh", "oat", "whole", "grain", "raw"],
       "macrosPer100g": {
         "kcal": 343,
         "protein": 11.375,
@@ -687,16 +675,8 @@
         "en": "Oat flakes"
       },
       "normalizedName": "hafer flocken",
-      "aliases": [
-        "hafer flocken",
-        "oat flakes"
-      ],
-      "tokens": [
-        "hafer",
-        "flocken",
-        "oat",
-        "flakes"
-      ],
+      "aliases": ["hafer flocken", "oat flakes"],
+      "tokens": ["hafer", "flocken", "oat", "flakes"],
       "macrosPer100g": {
         "kcal": 348,
         "protein": 13.22,
@@ -894,20 +874,8 @@
         "en": "Barley whole grain, raw"
       },
       "normalizedName": "gerste ganzes korn roh",
-      "aliases": [
-        "gerste ganzes korn roh",
-        "barley whole grain raw"
-      ],
-      "tokens": [
-        "gerste",
-        "ganzes",
-        "korn",
-        "roh",
-        "barley",
-        "whole",
-        "grain",
-        "raw"
-      ],
+      "aliases": ["gerste ganzes korn roh", "barley whole grain raw"],
+      "tokens": ["gerste", "ganzes", "korn", "roh", "barley", "whole", "grain", "raw"],
       "macrosPer100g": {
         "kcal": 332,
         "protein": 11.244,
@@ -1105,16 +1073,8 @@
         "en": "Barley flour"
       },
       "normalizedName": "gerste mehl",
-      "aliases": [
-        "gerste mehl",
-        "barley flour"
-      ],
-      "tokens": [
-        "gerste",
-        "mehl",
-        "barley",
-        "flour"
-      ],
+      "aliases": ["gerste mehl", "barley flour"],
+      "tokens": ["gerste", "mehl", "barley", "flour"],
       "macrosPer100g": {
         "kcal": 340,
         "protein": 11.3,
@@ -1303,16 +1263,8 @@
         "en": "Maize raw"
       },
       "normalizedName": "mais roh",
-      "aliases": [
-        "mais roh",
-        "maize raw"
-      ],
-      "tokens": [
-        "mais",
-        "roh",
-        "maize",
-        "raw"
-      ],
+      "aliases": ["mais roh", "maize raw"],
+      "tokens": ["mais", "roh", "maize", "raw"],
       "macrosPer100g": {
         "kcal": 336,
         "protein": 8.656,
@@ -1510,16 +1462,8 @@
         "en": "Maize flour"
       },
       "normalizedName": "mais mehl",
-      "aliases": [
-        "mais mehl",
-        "maize flour"
-      ],
-      "tokens": [
-        "mais",
-        "mehl",
-        "maize",
-        "flour"
-      ],
+      "aliases": ["mais mehl", "maize flour"],
+      "tokens": ["mais", "mehl", "maize", "flour"],
       "macrosPer100g": {
         "kcal": 330,
         "protein": 8.663,
@@ -1717,18 +1661,8 @@
         "en": "White rice raw"
       },
       "normalizedName": "reis poliert roh",
-      "aliases": [
-        "reis poliert roh",
-        "white rice raw"
-      ],
-      "tokens": [
-        "reis",
-        "poliert",
-        "roh",
-        "white",
-        "rice",
-        "raw"
-      ],
+      "aliases": ["reis poliert roh", "white rice raw"],
+      "tokens": ["reis", "poliert", "roh", "white", "rice", "raw"],
       "macrosPer100g": {
         "kcal": 351,
         "protein": 7.931,
@@ -1926,18 +1860,8 @@
         "en": "Rice parboiled, raw"
       },
       "normalizedName": "reis parboiled poliert roh",
-      "aliases": [
-        "reis parboiled poliert roh",
-        "rice parboiled raw"
-      ],
-      "tokens": [
-        "reis",
-        "parboiled",
-        "poliert",
-        "roh",
-        "rice",
-        "raw"
-      ],
+      "aliases": ["reis parboiled poliert roh", "rice parboiled raw"],
+      "tokens": ["reis", "parboiled", "poliert", "roh", "rice", "raw"],
       "macrosPer100g": {
         "kcal": 333,
         "protein": 8.125,
@@ -2117,19 +2041,8 @@
         "en": "Pasta egg-free, raw"
       },
       "normalizedName": "teigwaren eifrei roh",
-      "aliases": [
-        "teigwaren eifrei roh",
-        "pasta egg free raw"
-      ],
-      "tokens": [
-        "teigwaren",
-        "eifrei",
-        "roh",
-        "pasta",
-        "egg",
-        "free",
-        "raw"
-      ],
+      "aliases": ["teigwaren eifrei roh", "pasta egg free raw"],
+      "tokens": ["teigwaren", "eifrei", "roh", "pasta", "egg", "free", "raw"],
       "macrosPer100g": {
         "kcal": 346,
         "protein": 12.4,
@@ -2318,20 +2231,8 @@
         "en": "Wholemeal pasta egg-free, raw"
       },
       "normalizedName": "vollkornteigwaren eifrei roh",
-      "aliases": [
-        "vollkornteigwaren eifrei roh",
-        "wholemeal pasta egg free raw"
-      ],
-      "tokens": [
-        "vollkornteigwaren",
-        "eifrei",
-        "roh",
-        "wholemeal",
-        "pasta",
-        "egg",
-        "free",
-        "raw"
-      ],
+      "aliases": ["vollkornteigwaren eifrei roh", "wholemeal pasta egg free raw"],
+      "tokens": ["vollkornteigwaren", "eifrei", "roh", "wholemeal", "pasta", "egg", "free", "raw"],
       "macrosPer100g": {
         "kcal": 356,
         "protein": 14.3,
@@ -2529,16 +2430,8 @@
         "en": "Strawberry raw"
       },
       "normalizedName": "erdbeere roh",
-      "aliases": [
-        "erdbeere roh",
-        "strawberry raw"
-      ],
-      "tokens": [
-        "erdbeere",
-        "roh",
-        "strawberry",
-        "raw"
-      ],
+      "aliases": ["erdbeere roh", "strawberry raw"],
+      "tokens": ["erdbeere", "roh", "strawberry", "raw"],
       "macrosPer100g": {
         "kcal": 38,
         "protein": 0.82,
@@ -2727,16 +2620,8 @@
         "en": "Raspberry raw"
       },
       "normalizedName": "himbeere roh",
-      "aliases": [
-        "himbeere roh",
-        "raspberry raw"
-      ],
-      "tokens": [
-        "himbeere",
-        "roh",
-        "raspberry",
-        "raw"
-      ],
+      "aliases": ["himbeere roh", "raspberry raw"],
+      "tokens": ["himbeere", "roh", "raspberry", "raw"],
       "macrosPer100g": {
         "kcal": 43,
         "protein": 1,
@@ -2925,16 +2810,8 @@
         "en": "Mulberry raw"
       },
       "normalizedName": "maulbeere roh",
-      "aliases": [
-        "maulbeere roh",
-        "mulberry raw"
-      ],
-      "tokens": [
-        "maulbeere",
-        "roh",
-        "mulberry",
-        "raw"
-      ],
+      "aliases": ["maulbeere roh", "mulberry raw"],
+      "tokens": ["maulbeere", "roh", "mulberry", "raw"],
       "macrosPer100g": {
         "kcal": 51,
         "protein": 1.37,
@@ -3123,16 +3000,8 @@
         "en": "Rocket raw"
       },
       "normalizedName": "rucola roh",
-      "aliases": [
-        "rucola roh",
-        "rocket raw"
-      ],
-      "tokens": [
-        "rucola",
-        "roh",
-        "rocket",
-        "raw"
-      ],
+      "aliases": ["rucola roh", "rocket raw"],
+      "tokens": ["rucola", "roh", "rocket", "raw"],
       "macrosPer100g": {
         "kcal": 21,
         "protein": 3.6,
@@ -3321,19 +3190,8 @@
         "en": "Turnip tops/greens, raw"
       },
       "normalizedName": "stielmus ruebstiel roh",
-      "aliases": [
-        "stielmus ruebstiel roh",
-        "turnip tops greens raw"
-      ],
-      "tokens": [
-        "stielmus",
-        "ruebstiel",
-        "roh",
-        "turnip",
-        "tops",
-        "greens",
-        "raw"
-      ],
+      "aliases": ["stielmus ruebstiel roh", "turnip tops greens raw"],
+      "tokens": ["stielmus", "ruebstiel", "roh", "turnip", "tops", "greens", "raw"],
       "macrosPer100g": {
         "kcal": 18,
         "protein": 1.5,
@@ -3513,19 +3371,8 @@
         "en": "Sweet pepper green, raw"
       },
       "normalizedName": "gemuesepaprika gruen roh",
-      "aliases": [
-        "gemuesepaprika gruen roh",
-        "sweet pepper green raw"
-      ],
-      "tokens": [
-        "gemuesepaprika",
-        "gruen",
-        "roh",
-        "sweet",
-        "pepper",
-        "green",
-        "raw"
-      ],
+      "aliases": ["gemuesepaprika gruen roh", "sweet pepper green raw"],
+      "tokens": ["gemuesepaprika", "gruen", "roh", "sweet", "pepper", "green", "raw"],
       "macrosPer100g": {
         "kcal": 38,
         "protein": 1.08,
@@ -3723,19 +3570,8 @@
         "en": "Sweet pepper red, raw"
       },
       "normalizedName": "gemuesepaprika rot roh",
-      "aliases": [
-        "gemuesepaprika rot roh",
-        "sweet pepper red raw"
-      ],
-      "tokens": [
-        "gemuesepaprika",
-        "rot",
-        "roh",
-        "sweet",
-        "pepper",
-        "red",
-        "raw"
-      ],
+      "aliases": ["gemuesepaprika rot roh", "sweet pepper red raw"],
+      "tokens": ["gemuesepaprika", "rot", "roh", "sweet", "pepper", "red", "raw"],
       "macrosPer100g": {
         "kcal": 36,
         "protein": 1.025,
@@ -3924,17 +3760,8 @@
         "en": "Swede raw"
       },
       "normalizedName": "kohlruebe steckruebe roh",
-      "aliases": [
-        "kohlruebe steckruebe roh",
-        "swede raw"
-      ],
-      "tokens": [
-        "kohlruebe",
-        "steckruebe",
-        "roh",
-        "swede",
-        "raw"
-      ],
+      "aliases": ["kohlruebe steckruebe roh", "swede raw"],
+      "tokens": ["kohlruebe", "steckruebe", "roh", "swede", "raw"],
       "macrosPer100g": {
         "kcal": 22,
         "protein": 1.25,
@@ -4132,16 +3959,8 @@
         "en": "Celeriac raw"
       },
       "normalizedName": "knollensellerie roh",
-      "aliases": [
-        "knollensellerie roh",
-        "celeriac raw"
-      ],
-      "tokens": [
-        "knollensellerie",
-        "roh",
-        "celeriac",
-        "raw"
-      ],
+      "aliases": ["knollensellerie roh", "celeriac raw"],
+      "tokens": ["knollensellerie", "roh", "celeriac", "raw"],
       "macrosPer100g": {
         "kcal": 30,
         "protein": 1.55,
@@ -4339,19 +4158,8 @@
         "en": "Turnip raw"
       },
       "normalizedName": "weisse ruebe wasserruebe herbstruebe roh",
-      "aliases": [
-        "weisse ruebe wasserruebe herbstruebe roh",
-        "turnip raw"
-      ],
-      "tokens": [
-        "weisse",
-        "ruebe",
-        "wasserruebe",
-        "herbstruebe",
-        "roh",
-        "turnip",
-        "raw"
-      ],
+      "aliases": ["weisse ruebe wasserruebe herbstruebe roh", "turnip raw"],
+      "tokens": ["weisse", "ruebe", "wasserruebe", "herbstruebe", "roh", "turnip", "raw"],
       "macrosPer100g": {
         "kcal": 40,
         "protein": 0.99,

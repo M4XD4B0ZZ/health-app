@@ -3,3 +3,7 @@ dist
 build
 .expo
 supabase/functions
+
+# Intentionally minified (JSON.stringify without indentation) runtime data blob --
+# pretty-printing would bloat the bundle and defeat the point of "compact" in its name.
+src/features/nutrition/infrastructure/catalog/sources/bls/generated/bls-runtime-compact.v1.json

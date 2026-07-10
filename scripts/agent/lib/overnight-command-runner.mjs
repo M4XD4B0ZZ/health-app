@@ -13,12 +13,21 @@ const DEFAULT_MAX_OUTPUT_BYTES = 64_000;
 const DEFAULT_PREVIEW_BYTES = 2_000;
 const TIMEOUT_KILL_GRACE_MS = 500;
 
-const FORBIDDEN_EXECUTABLES = new Set(['cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'sh', 'bash']);
+const FORBIDDEN_EXECUTABLES = new Set([
+  'cmd',
+  'cmd.exe',
+  'powershell',
+  'powershell.exe',
+  'pwsh',
+  'pwsh.exe',
+  'sh',
+  'bash',
+]);
 
 const FORBIDDEN_SCRIPT_PATHS = Object.freeze([
   'scripts/agent/run-auto-task.mjs',
   'scripts/agent/run-opencode-worker.mjs',
-  'scripts/agent/run-agent-loop.mjs'
+  'scripts/agent/run-agent-loop.mjs',
 ]);
 
 export const FORBIDDEN_ARG_PATTERNS = Object.freeze([
@@ -28,7 +37,10 @@ export const FORBIDDEN_ARG_PATTERNS = Object.freeze([
   { code: 'npm_audit_fix_arg_forbidden', pattern: /\bnpm\s+audit\s+fix\b|\baudit\s+fix\b/i },
   { code: 'git_push_arg_forbidden', pattern: /\bgit\s+push\b|\bpush\b/i },
   { code: 'git_reset_hard_arg_forbidden', pattern: /\bgit\s+reset\s+--hard\b|\breset\s+--hard\b/i },
-  { code: 'worker_script_forbidden', pattern: /scripts[\\/]agent[\\/](run-auto-task|run-opencode-worker|run-agent-loop)\.mjs/i }
+  {
+    code: 'worker_script_forbidden',
+    pattern: /scripts[\\/]agent[\\/](run-auto-task|run-opencode-worker|run-agent-loop)\.mjs/i,
+  },
 ]);
 
 export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
@@ -39,7 +51,7 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['--check', 'scripts/agent/lib/overnight-queue-schema.mjs'],
     cwd: '.',
     timeout_ms: 30_000,
-    allow_nonzero: false
+    allow_nonzero: false,
   }),
   node_check_overnight_dry_run_plan: Object.freeze({
     id: 'node_check_overnight_dry_run_plan',
@@ -48,7 +60,7 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['--check', 'scripts/agent/overnight-dry-run-plan.mjs'],
     cwd: '.',
     timeout_ms: 30_000,
-    allow_nonzero: false
+    allow_nonzero: false,
   }),
   test_overnight_dry_run_plan: Object.freeze({
     id: 'test_overnight_dry_run_plan',
@@ -57,7 +69,7 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['--test', 'scripts/agent/__tests__/overnight-dry-run-plan.test.mjs'],
     cwd: '.',
     timeout_ms: 120_000,
-    allow_nonzero: false
+    allow_nonzero: false,
   }),
   validate_ralph_state: Object.freeze({
     id: 'validate_ralph_state',
@@ -66,7 +78,7 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['scripts/agent/validate-ralph-state.mjs'],
     cwd: '.',
     timeout_ms: 60_000,
-    allow_nonzero: false
+    allow_nonzero: false,
   }),
   reconcile_roadmap_task_state: Object.freeze({
     id: 'reconcile_roadmap_task_state',
@@ -75,7 +87,7 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['scripts/agent/reconcile-roadmap-task-state.mjs'],
     cwd: '.',
     timeout_ms: 60_000,
-    allow_nonzero: false
+    allow_nonzero: false,
   }),
   git_status_short: Object.freeze({
     id: 'git_status_short',
@@ -84,7 +96,7 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['--no-pager', 'status', '--short'],
     cwd: '.',
     timeout_ms: 30_000,
-    allow_nonzero: false
+    allow_nonzero: false,
   }),
   git_status_sb: Object.freeze({
     id: 'git_status_sb',
@@ -93,8 +105,8 @@ export const DEFAULT_ALLOWED_COMMANDS = Object.freeze({
     args: ['--no-pager', 'status', '-sb'],
     cwd: '.',
     timeout_ms: 30_000,
-    allow_nonzero: false
-  })
+    allow_nonzero: false,
+  }),
 });
 
 function finding(code, message, details = {}) {
@@ -114,7 +126,9 @@ function normalizePathText(value) {
 }
 
 function commandText(spec) {
-  return [spec?.cmd, ...(Array.isArray(spec?.args) ? spec.args : [])].map((part) => String(part || '')).join(' ');
+  return [spec?.cmd, ...(Array.isArray(spec?.args) ? spec.args : [])]
+    .map((part) => String(part || ''))
+    .join(' ');
 }
 
 function byteLength(value) {
@@ -151,7 +165,7 @@ function cloneSpec(spec) {
     args: [...spec.args],
     cwd: spec.cwd,
     timeout_ms: spec.timeout_ms,
-    allow_nonzero: spec.allow_nonzero === true
+    allow_nonzero: spec.allow_nonzero === true,
   };
 }
 
@@ -161,7 +175,11 @@ export function createCommandAllowlist(overrides = {}) {
     allowlist.set(spec.id, cloneSpec(spec));
   }
   for (const spec of Object.values(overrides || {})) {
-    if (spec?.id) allowlist.set(spec.id, { ...spec, args: Array.isArray(spec.args) ? [...spec.args] : spec.args });
+    if (spec?.id)
+      allowlist.set(spec.id, {
+        ...spec,
+        args: Array.isArray(spec.args) ? [...spec.args] : spec.args,
+      });
   }
   return allowlist;
 }
@@ -176,7 +194,11 @@ export function validateCommandSpec(commandSpec, options = {}) {
   const requiredStrings = ['id', 'label', 'cmd', 'cwd'];
   for (const field of requiredStrings) {
     if (typeof commandSpec[field] !== 'string' || commandSpec[field].trim() === '') {
-      safety_findings.push(finding('missing_command_field', `Command spec missing non-empty string field: ${field}`, { field }));
+      safety_findings.push(
+        finding('missing_command_field', `Command spec missing non-empty string field: ${field}`, {
+          field,
+        }),
+      );
     }
   }
 
@@ -187,7 +209,9 @@ export function validateCommandSpec(commandSpec, options = {}) {
   }
 
   if (!Number.isInteger(commandSpec.timeout_ms) || commandSpec.timeout_ms <= 0) {
-    safety_findings.push(finding('timeout_required', 'Every command requires a positive integer timeout_ms'));
+    safety_findings.push(
+      finding('timeout_required', 'Every command requires a positive integer timeout_ms'),
+    );
   }
 
   if (commandSpec.shell === true || options.shell === true) {
@@ -196,20 +220,34 @@ export function validateCommandSpec(commandSpec, options = {}) {
 
   const executable = normalizeExecutable(commandSpec.cmd);
   if (FORBIDDEN_EXECUTABLES.has(executable)) {
-    safety_findings.push(finding('shell_wrapper_forbidden', `Shell wrapper executable is forbidden: ${commandSpec.cmd}`, { cmd: commandSpec.cmd }));
+    safety_findings.push(
+      finding(
+        'shell_wrapper_forbidden',
+        `Shell wrapper executable is forbidden: ${commandSpec.cmd}`,
+        { cmd: commandSpec.cmd },
+      ),
+    );
   }
 
   const text = commandText(commandSpec);
   for (const entry of FORBIDDEN_ARG_PATTERNS) {
     if (entry.pattern.test(text)) {
-      safety_findings.push(finding(entry.code, `Forbidden command pattern detected: ${text}`, { command: text }));
+      safety_findings.push(
+        finding(entry.code, `Forbidden command pattern detected: ${text}`, { command: text }),
+      );
     }
   }
 
-  const normalizedArgs = Array.isArray(commandSpec.args) ? commandSpec.args.map(normalizePathText) : [];
+  const normalizedArgs = Array.isArray(commandSpec.args)
+    ? commandSpec.args.map(normalizePathText)
+    : [];
   for (const scriptPath of FORBIDDEN_SCRIPT_PATHS) {
     if (normalizedArgs.includes(scriptPath)) {
-      safety_findings.push(finding('worker_script_forbidden', `Worker script is forbidden: ${scriptPath}`, { script: scriptPath }));
+      safety_findings.push(
+        finding('worker_script_forbidden', `Worker script is forbidden: ${scriptPath}`, {
+          script: scriptPath,
+        }),
+      );
     }
   }
 
@@ -243,7 +281,7 @@ function blockedResult(commandId, commandSpec, safety_findings, options = {}) {
     worker_invocation: 'not_invoked',
     runtime_state_mutation: 'not_performed',
     writes_performed: false,
-    runner: options.runner || 'overnight-command-runner.mjs'
+    runner: options.runner || 'overnight-command-runner.mjs',
   };
 }
 
@@ -251,14 +289,24 @@ export async function runAllowedCommand(commandId, options = {}) {
   const allowlist = options.allowlist || createCommandAllowlist(options.allowlistOverrides || {});
   const commandSpec = allowlist instanceof Map ? allowlist.get(commandId) : allowlist?.[commandId];
   if (!commandSpec) {
-    return blockedResult(commandId, null, [finding('command_not_allowlisted', `Command ID is not allowlisted: ${commandId}`, { command_id: commandId })], options);
+    return blockedResult(
+      commandId,
+      null,
+      [
+        finding('command_not_allowlisted', `Command ID is not allowlisted: ${commandId}`, {
+          command_id: commandId,
+        }),
+      ],
+      options,
+    );
   }
   return runCommandSpec(commandSpec, options);
 }
 
 export async function runCommandSpec(commandSpec, options = {}) {
   const validation = validateCommandSpec(commandSpec, options);
-  if (!validation.valid) return blockedResult(commandSpec?.id || null, commandSpec, validation.safety_findings, options);
+  if (!validation.valid)
+    return blockedResult(commandSpec?.id || null, commandSpec, validation.safety_findings, options);
 
   const projectRoot = options.projectRoot || DEFAULT_PROJECT_ROOT;
   const cwd = path.resolve(projectRoot, commandSpec.cwd || '.');
@@ -283,7 +331,11 @@ export async function runCommandSpec(commandSpec, options = {}) {
       settled = true;
       clearTimeout(timeout);
       const endedAtMs = Date.now();
-      const status = timedOut ? 'timed_out' : exitCode === 0 || commandSpec.allow_nonzero === true ? 'passed' : 'failed';
+      const status = timedOut
+        ? 'timed_out'
+        : exitCode === 0 || commandSpec.allow_nonzero === true
+          ? 'passed'
+          : 'failed';
       const combined = [`STDOUT:\n${stdout}`, `STDERR:\n${stderr}`].join('\n');
       resolve({
         command_id: commandSpec.id,
@@ -310,7 +362,7 @@ export async function runCommandSpec(commandSpec, options = {}) {
         worker_invocation: 'not_invoked',
         runtime_state_mutation: 'not_performed',
         writes_performed: false,
-        runner: options.runner || 'overnight-command-runner.mjs'
+        runner: options.runner || 'overnight-command-runner.mjs',
       });
     };
 
@@ -327,7 +379,7 @@ export async function runCommandSpec(commandSpec, options = {}) {
         cwd,
         shell: false,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: options.env || process.env
+        env: options.env || process.env,
       });
     } catch (error) {
       finish(null, null, [finding('spawn_failed', error.message)]);

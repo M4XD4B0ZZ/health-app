@@ -3,24 +3,42 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatReviewEvidenceBundleMarkdown, generateReviewEvidenceBundle } from './lib/review-evidence-bundle.mjs';
+import {
+  formatReviewEvidenceBundleMarkdown,
+  generateReviewEvidenceBundle,
+} from './lib/review-evidence-bundle.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
 function parseArgs(argv) {
-  const options = { format: 'json', taskId: null, taskTitle: null, claimedChangedFiles: [], help: false };
+  const options = {
+    format: 'json',
+    taskId: null,
+    taskTitle: null,
+    claimedChangedFiles: [],
+    help: false,
+  };
   const args = argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     const next = args[index + 1];
     if (arg === '--help' || arg === '-h') options.help = true;
-    else if (arg === '--format') { options.format = next; index += 1; }
-    else if (arg === '--task-id') { options.taskId = next; index += 1; }
-    else if (arg === '--task-title') { options.taskTitle = next; index += 1; }
-    else if (arg === '--claimed-file') { options.claimedChangedFiles.push(next); index += 1; }
-    else throw new Error(`Unknown argument: ${arg}`);
+    else if (arg === '--format') {
+      options.format = next;
+      index += 1;
+    } else if (arg === '--task-id') {
+      options.taskId = next;
+      index += 1;
+    } else if (arg === '--task-title') {
+      options.taskTitle = next;
+      index += 1;
+    } else if (arg === '--claimed-file') {
+      options.claimedChangedFiles.push(next);
+      index += 1;
+    } else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (!['json', 'markdown'].includes(options.format)) throw new Error(`Unsupported format: ${options.format}`);
+  if (!['json', 'markdown'].includes(options.format))
+    throw new Error(`Unsupported format: ${options.format}`);
   return options;
 }
 

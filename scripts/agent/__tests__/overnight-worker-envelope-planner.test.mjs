@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { BASELINE_FORBIDDEN_FILES } from '../lib/overnight-queue-schema.mjs';
-import { buildWorkerEnvelopePlan, formatWorkerEnvelopePlanPretty } from '../lib/overnight-worker-envelope-planner.mjs';
+import {
+  buildWorkerEnvelopePlan,
+  formatWorkerEnvelopePlanPretty,
+} from '../lib/overnight-worker-envelope-planner.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +28,11 @@ function validTask(overrides = {}) {
     max_files_changed: 1,
     max_diff_lines: 80,
     allowed_commands: ['node scripts/agent/validate-ralph-state.mjs'],
-    forbidden_commands: ['dependency changes are forbidden', 'push operations are forbidden', 'external invocation is forbidden'],
+    forbidden_commands: [
+      'dependency changes are forbidden',
+      'push operations are forbidden',
+      'external invocation is forbidden',
+    ],
     required_checks: ['validate_ralph_state'],
     timeout_minutes: 5,
     max_attempts: 0,
@@ -36,7 +43,7 @@ function validTask(overrides = {}) {
     handoff_required: true,
     review_required: false,
     notes: 'Fixture only.',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -48,7 +55,7 @@ function validQueue(overrides = {}) {
     created_by: 'human-operator',
     mode: 'dry_run',
     tasks: [validTask()],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -65,7 +72,10 @@ function writeQueue(root, queue) {
 }
 
 function snapshot(root) {
-  return fs.readdirSync(root).sort().map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
+  return fs
+    .readdirSync(root)
+    .sort()
+    .map((entry) => [entry, fs.readFileSync(path.join(root, entry), 'utf8')]);
 }
 
 function runCli(args = []) {
@@ -83,12 +93,16 @@ test('creates envelope for would_accept tasks only', () => {
 });
 
 test('does not create envelopes for non-accepted dispositions', () => {
-  const plan = buildWorkerEnvelopePlan(validQueue({ tasks: [
-    validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
-    validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
-    validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
-    validTask({ task_id: 'FORBID', class: 'FORBIDDEN' })
-  ] }));
+  const plan = buildWorkerEnvelopePlan(
+    validQueue({
+      tasks: [
+        validTask({ task_id: 'REVIEW', class: 'REVIEW_REQUIRED' }),
+        validTask({ task_id: 'HUMAN', class: 'HUMAN_ONLY' }),
+        validTask({ task_id: 'REJECT', required_checks: ['unknown_check'] }),
+        validTask({ task_id: 'FORBID', class: 'FORBIDDEN' }),
+      ],
+    }),
+  );
   assert.equal(plan.summary.envelopes_created, 0);
   assert.equal(plan.summary.not_eligible, 4);
   for (const entry of plan.task_envelopes) assert.equal(entry.envelope_created, false);
@@ -112,7 +126,7 @@ test('created envelope contains mandatory safety fields', () => {
     'execution_authorized',
     'worker_invocation_authorized',
     'non_authorization_statement',
-    'human_review_required'
+    'human_review_required',
   ]) {
     assert.ok(Object.hasOwn(envelope, field), field);
   }
@@ -175,7 +189,21 @@ test('CLI writes no files and JSON output is parseable', (t) => {
 test('CLI rejects execution-like and write-like flags', (t) => {
   const root = tempDir(t);
   const queuePath = writeQueue(root, validQueue());
-  for (const flag of ['--execute', '--worker', '--run-queue', '--run-worker', '--invoke-worker', '--commit', '--push', '--output', '--overwrite', '--write-report', '--write-run-log', '--report-dir', '--run-log-path']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-queue',
+    '--run-worker',
+    '--invoke-worker',
+    '--commit',
+    '--push',
+    '--output',
+    '--overwrite',
+    '--write-report',
+    '--write-run-log',
+    '--report-dir',
+    '--run-log-path',
+  ]) {
     const result = runCli([queuePath, flag]);
     assert.equal(result.status, 1, flag);
   }

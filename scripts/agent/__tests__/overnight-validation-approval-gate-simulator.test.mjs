@@ -6,7 +6,7 @@ import {
   buildValidationApprovalGateSimulation,
   evaluateSourceSafetyInvariants,
   formatValidationApprovalGateSimulationPretty,
-  validatePostChangeReviewGateInput
+  validatePostChangeReviewGateInput,
 } from '../lib/overnight-validation-approval-gate-simulator.mjs';
 import { parseArgs } from '../overnight-validation-approval-gate-simulator.mjs';
 
@@ -28,7 +28,7 @@ function sourceSimulation(overrides = {}) {
       total_changes: 1,
       blocking_files: 0,
       review_required_files: 0,
-      validation_categories: ['governance-script-only']
+      validation_categories: ['governance-script-only'],
     },
     review_authorization: {
       review_acceptance_authorized: false,
@@ -39,7 +39,7 @@ function sourceSimulation(overrides = {}) {
       push_authorized: false,
       human_review_required: true,
       not_review_evidence: true,
-      not_validation_evidence: true
+      not_validation_evidence: true,
     },
     review_acceptance_authorized: false,
     review_evidence_authorized: false,
@@ -70,7 +70,7 @@ function sourceSimulation(overrides = {}) {
       run_logs_written: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -98,10 +98,10 @@ function sourceSimulation(overrides = {}) {
       no_push: true,
       writes_by_default: false,
       not_review_evidence: true,
-      not_validation_evidence: true
+      not_validation_evidence: true,
     },
     non_authorization_statement: 'source non-authorization',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -122,35 +122,59 @@ test('valid would_be_reviewable input identifies validation requirements without
 });
 
 test('would_require_human_review input still identifies requirements', () => {
-  const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ review_gate_disposition: 'would_require_human_review', reason_codes: ['review_policy_trigger'] }));
+  const simulation = buildValidationApprovalGateSimulation(
+    sourceSimulation({
+      review_gate_disposition: 'would_require_human_review',
+      reason_codes: ['review_policy_trigger'],
+    }),
+  );
   assert.equal(simulation.approval_gate_disposition, 'validation_requirements_identified');
   assert.equal(simulation.approval_consideration.human_review_required, true);
   assert.equal(simulation.approval_consideration.review_acceptance_authorized, false);
 });
 
 test('would_reject_before_review blocks before validation', () => {
-  const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ review_gate_disposition: 'would_reject_before_review', reason_codes: ['scope_violation'] }));
+  const simulation = buildValidationApprovalGateSimulation(
+    sourceSimulation({
+      review_gate_disposition: 'would_reject_before_review',
+      reason_codes: ['scope_violation'],
+    }),
+  );
   assert.equal(simulation.approval_gate_disposition, 'blocked_before_validation');
-  assert.equal(simulation.approval_consideration.future_approval_could_be_considered_after_requirements, false);
+  assert.equal(
+    simulation.approval_consideration.future_approval_could_be_considered_after_requirements,
+    false,
+  );
 });
 
 test('invalid phase or mode produces invalid_input', () => {
-  const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ phase: 'RALPH-034L', mode: 'change_diff_monitoring_simulation_only' }));
+  const simulation = buildValidationApprovalGateSimulation(
+    sourceSimulation({ phase: 'RALPH-034L', mode: 'change_diff_monitoring_simulation_only' }),
+  );
   assert.equal(simulation.approval_gate_disposition, 'invalid_input');
   assert.ok(simulation.reason_codes.includes('invalid_source_phase'));
   assert.ok(simulation.reason_codes.includes('invalid_source_mode'));
 });
 
 test('product runtime category maps to npm run verify requirement without execution', () => {
-  const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ summary: { ...sourceSimulation().summary, validation_categories: ['product-runtime-code'] } }));
-  const requirement = simulation.hypothetical_validation_requirements.find((entry) => entry.requirement_id === 'verify_category_product_runtime_code');
+  const simulation = buildValidationApprovalGateSimulation(
+    sourceSimulation({
+      summary: { ...sourceSimulation().summary, validation_categories: ['product-runtime-code'] },
+    }),
+  );
+  const requirement = simulation.hypothetical_validation_requirements.find(
+    (entry) => entry.requirement_id === 'verify_category_product_runtime_code',
+  );
   assert.deepEqual(requirement.required_checks, ['npm run verify']);
   assert.equal(requirement.executed, false);
   assert.equal(requirement.passed, null);
 });
 
 test('documentation and governance categories map to VERIFY readback checks', () => {
-  const requirements = buildHypotheticalValidationRequirements(['documentation-only', 'governance-only']);
+  const requirements = buildHypotheticalValidationRequirements([
+    'documentation-only',
+    'governance-only',
+  ]);
   for (const entry of requirements.filter((item) => item.category)) {
     assert.ok(entry.required_checks.includes('git --no-pager status --short'));
     assert.ok(entry.required_checks.includes('git --no-pager diff --stat'));
@@ -159,8 +183,14 @@ test('documentation and governance categories map to VERIFY readback checks', ()
 });
 
 test('edge category maps to edge checks without executing them', () => {
-  const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ summary: { ...sourceSimulation().summary, validation_categories: ['edge-supabase'] } }));
-  const requirement = simulation.hypothetical_validation_requirements.find((entry) => entry.requirement_id === 'verify_category_edge_supabase');
+  const simulation = buildValidationApprovalGateSimulation(
+    sourceSimulation({
+      summary: { ...sourceSimulation().summary, validation_categories: ['edge-supabase'] },
+    }),
+  );
+  const requirement = simulation.hypothetical_validation_requirements.find(
+    (entry) => entry.requirement_id === 'verify_category_edge_supabase',
+  );
   assert.ok(requirement.required_checks.includes('npm run verify:supabase:link'));
   assert.ok(requirement.required_checks.includes('npm run verify:schema'));
   assert.ok(requirement.required_checks.includes('npm run verify:edge'));
@@ -168,15 +198,25 @@ test('edge category maps to edge checks without executing them', () => {
 });
 
 test('protected and runtime evidence categories fail closed', () => {
-  for (const category of ['protected_secret_or_env', 'runtime-or-evidence-state', 'unknown-or-product-runtime-code']) {
-    const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ summary: { ...sourceSimulation().summary, validation_categories: [category] } }));
+  for (const category of [
+    'protected_secret_or_env',
+    'runtime-or-evidence-state',
+    'unknown-or-product-runtime-code',
+  ]) {
+    const simulation = buildValidationApprovalGateSimulation(
+      sourceSimulation({
+        summary: { ...sourceSimulation().summary, validation_categories: [category] },
+      }),
+    );
     assert.equal(simulation.approval_gate_disposition, 'blocked_before_validation');
     assert.ok(simulation.reason_codes.includes(`blocked_validation_category_${category}`));
   }
 });
 
 test('source authorization claim produces no_future_approval_consideration', () => {
-  const simulation = buildValidationApprovalGateSimulation(sourceSimulation({ validation_execution_authorized: true }));
+  const simulation = buildValidationApprovalGateSimulation(
+    sourceSimulation({ validation_execution_authorized: true }),
+  );
   assert.equal(simulation.approval_gate_disposition, 'no_future_approval_consideration');
   assert.ok(simulation.reason_codes.includes('source_claims_authorization'));
 });
@@ -195,13 +235,43 @@ test('safety counters remain zero and helper validation is deterministic', () =>
 });
 
 test('CLI parser rejects execution, validation, review, evidence, write, git, and worker flags', () => {
-  for (const flag of ['--execute', '--worker', '--run-worker', '--invoke-worker', '--adapter', '--invoke-adapter', '--provider', '--model', '--invoke-model', '--execute-prompt', '--prompt-execute', '--apply-diff', '--write-changes', '--validate', '--run-validation', '--review', '--approve', '--accept-review', '--write-review-evidence', '--append-review', '--write-validation-evidence', '--write-report', '--write-run-log', '--output', '--commit', '--push', '--stage']) {
+  for (const flag of [
+    '--execute',
+    '--worker',
+    '--run-worker',
+    '--invoke-worker',
+    '--adapter',
+    '--invoke-adapter',
+    '--provider',
+    '--model',
+    '--invoke-model',
+    '--execute-prompt',
+    '--prompt-execute',
+    '--apply-diff',
+    '--write-changes',
+    '--validate',
+    '--run-validation',
+    '--review',
+    '--approve',
+    '--accept-review',
+    '--write-review-evidence',
+    '--append-review',
+    '--write-validation-evidence',
+    '--write-report',
+    '--write-run-log',
+    '--output',
+    '--commit',
+    '--push',
+    '--stage',
+  ]) {
     assert.throws(() => parseArgs(['node', 'cli', 'ralph-034m.json', flag]), /forbidden/, flag);
   }
 });
 
 test('pretty output contains non-authorization language', () => {
-  const pretty = formatValidationApprovalGateSimulationPretty(buildValidationApprovalGateSimulation(sourceSimulation()));
+  const pretty = formatValidationApprovalGateSimulationPretty(
+    buildValidationApprovalGateSimulation(sourceSimulation()),
+  );
   assert.match(pretty, /planning-only validation approval gate simulation/);
   assert.match(pretty, /no validation commands/);
   assert.match(pretty, /no validation evidence writes/);

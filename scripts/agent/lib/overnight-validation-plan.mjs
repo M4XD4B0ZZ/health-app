@@ -3,29 +3,32 @@ import { DEFAULT_ALLOWED_COMMANDS } from './overnight-command-runner.mjs';
 
 export const KNOWN_CHECK_MAPPINGS = Object.freeze({
   'node scripts/agent/validate-ralph-state.mjs': 'validate_ralph_state',
-  'validate_ralph_state': 'validate_ralph_state',
+  validate_ralph_state: 'validate_ralph_state',
   'node scripts/agent/reconcile-roadmap-task-state.mjs': 'reconcile_roadmap_task_state',
-  'reconcile_roadmap_task_state': 'reconcile_roadmap_task_state',
+  reconcile_roadmap_task_state: 'reconcile_roadmap_task_state',
   'git --no-pager status --short': 'git_status_short',
-  'git_status_short': 'git_status_short',
+  git_status_short: 'git_status_short',
   'git --no-pager status -sb': 'git_status_sb',
-  'git_status_sb': 'git_status_sb',
+  git_status_sb: 'git_status_sb',
   'node --check scripts/agent/lib/overnight-queue-schema.mjs': 'node_check_overnight_queue_schema',
-  'node_check_overnight_queue_schema': 'node_check_overnight_queue_schema',
+  node_check_overnight_queue_schema: 'node_check_overnight_queue_schema',
   'node --check scripts/agent/overnight-dry-run-plan.mjs': 'node_check_overnight_dry_run_plan',
-  'node_check_overnight_dry_run_plan': 'node_check_overnight_dry_run_plan',
-  'node --test scripts/agent/__tests__/overnight-dry-run-plan.test.mjs': 'test_overnight_dry_run_plan',
-  'test_overnight_dry_run_plan': 'test_overnight_dry_run_plan'
+  node_check_overnight_dry_run_plan: 'node_check_overnight_dry_run_plan',
+  'node --test scripts/agent/__tests__/overnight-dry-run-plan.test.mjs':
+    'test_overnight_dry_run_plan',
+  test_overnight_dry_run_plan: 'test_overnight_dry_run_plan',
 });
 
 export function normalizeCheckString(check) {
-  return String(check || '').trim().replace(/\s+/g, ' ');
+  return String(check || '')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 export function mapRequiredCheck(check, options = {}) {
   const normalized = normalizeCheckString(check);
   const commandId = KNOWN_CHECK_MAPPINGS[normalized] || null;
-  
+
   if (!commandId) {
     return {
       check_string: check,
@@ -34,12 +37,13 @@ export function mapRequiredCheck(check, options = {}) {
       status: 'unmapped',
       executable: false,
       execution_deferred: true,
-      reason: 'Unknown check string; no mapping to allowlisted command ID'
+      reason: 'Unknown check string; no mapping to allowlisted command ID',
     };
   }
 
   const allowlist = options.allowlist || DEFAULT_ALLOWED_COMMANDS;
-  const commandExists = allowlist instanceof Map ? allowlist.has(commandId) : Object.hasOwn(allowlist, commandId);
+  const commandExists =
+    allowlist instanceof Map ? allowlist.has(commandId) : Object.hasOwn(allowlist, commandId);
 
   if (!commandExists) {
     return {
@@ -49,7 +53,7 @@ export function mapRequiredCheck(check, options = {}) {
       status: 'blocked',
       executable: false,
       execution_deferred: true,
-      reason: 'Mapped command ID not found in allowlist'
+      reason: 'Mapped command ID not found in allowlist',
     };
   }
 
@@ -60,19 +64,19 @@ export function mapRequiredCheck(check, options = {}) {
     status: 'mapped',
     executable: false,
     execution_deferred: true,
-    reason: 'RALPH-034C is plan-only; validation execution deferred to future task'
+    reason: 'RALPH-034C is plan-only; validation execution deferred to future task',
   };
 }
 
 export function buildOvernightValidationPlan(queue, options = {}) {
   const validation = validateOvernightQueue(queue, options);
   const tasks = Array.isArray(queue?.tasks) ? queue.tasks : [];
-  
+
   const classDistribution = {
     SAFE_AUTONOMOUS: 0,
     REVIEW_REQUIRED: 0,
     HUMAN_ONLY: 0,
-    FORBIDDEN: 0
+    FORBIDDEN: 0,
   };
 
   const taskSummaries = [];
@@ -99,7 +103,7 @@ export function buildOvernightValidationPlan(queue, options = {}) {
       required_checks_count: requiredChecks.length,
       mapped_count: 0,
       unmapped_count: 0,
-      blocked_count: 0
+      blocked_count: 0,
     };
 
     for (const check of requiredChecks) {
@@ -152,7 +156,9 @@ export function buildOvernightValidationPlan(queue, options = {}) {
   }
   if (readyForValidationExecution) {
     recommendedActions.push('Queue validation plan is ready');
-    recommendedActions.push('Validation command execution requires separate task (likely RALPH-034D)');
+    recommendedActions.push(
+      'Validation command execution requires separate task (likely RALPH-034D)',
+    );
     recommendedActions.push('Human review required before implementing validation executor');
   }
 
@@ -168,7 +174,7 @@ export function buildOvernightValidationPlan(queue, options = {}) {
       mapped_checks: mappedChecks,
       unmapped_checks: unmappedChecks,
       blocked_checks: blockedChecks,
-      mappings: allMappings
+      mappings: allMappings,
     },
     task_summaries: taskSummaries,
     class_distribution: classDistribution,
@@ -178,7 +184,7 @@ export function buildOvernightValidationPlan(queue, options = {}) {
       unmapped_check_count: unmappedChecks,
       blocked_check_count: blockedChecks,
       ready_for_validation_execution: readyForValidationExecution,
-      blocking_reasons: blockingReasons
+      blocking_reasons: blockingReasons,
     },
     execution_plan: {
       mode: 'validation_plan',
@@ -188,7 +194,7 @@ export function buildOvernightValidationPlan(queue, options = {}) {
       validation_commands_executed: 0,
       message: readyForValidationExecution
         ? 'Validation plan ready. No commands executed in RALPH-034C. Validation execution deferred to future task.'
-        : 'Validation plan not ready for execution. Resolve blocking reasons before proceeding.'
+        : 'Validation plan not ready for execution. Resolve blocking reasons before proceeding.',
     },
     safety_summary: {
       no_execution: true,
@@ -196,8 +202,8 @@ export function buildOvernightValidationPlan(queue, options = {}) {
       no_runtime_state_mutation: true,
       no_product_work: true,
       no_commit: true,
-      no_push: true
+      no_push: true,
     },
-    recommended_human_actions: recommendedActions
+    recommended_human_actions: recommendedActions,
   };
 }

@@ -18,12 +18,14 @@ export const OVERNIGHT_LIFECYCLE_STATES = Object.freeze([
   'validation_failed',
   'report_written',
   'completed',
-  'aborted'
+  'aborted',
 ]);
 
-export const OVERNIGHT_LIFECYCLE_EVENTS = Object.freeze(Object.fromEntries(
-  OVERNIGHT_LIFECYCLE_STATES.map((state) => [state, `overnight.lifecycle.${state}`])
-));
+export const OVERNIGHT_LIFECYCLE_EVENTS = Object.freeze(
+  Object.fromEntries(
+    OVERNIGHT_LIFECYCLE_STATES.map((state) => [state, `overnight.lifecycle.${state}`]),
+  ),
+);
 
 const STATE_SET = new Set(OVERNIGHT_LIFECYCLE_STATES);
 const TERMINAL_STATES = new Set(['completed', 'aborted']);
@@ -36,7 +38,7 @@ const ALLOWED_TRANSITIONS = new Set([
   'validation_passed->report_written',
   'validation_passed->completed',
   'report_written->completed',
-  'validation_failed->aborted'
+  'validation_failed->aborted',
 ]);
 
 function nowIso(options = {}) {
@@ -45,7 +47,10 @@ function nowIso(options = {}) {
 }
 
 function timestampForId(timestamp) {
-  return String(timestamp).replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z').replace(/[^A-Za-z0-9TZ]/g, '');
+  return String(timestamp)
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z')
+    .replace(/[^A-Za-z0-9TZ]/g, '');
 }
 
 function randomHex(options = {}) {
@@ -84,18 +89,24 @@ function baseSafetySummary(overrides = {}) {
     does_not_update_runs_run_history: true,
     does_not_update_tasks_task_state: true,
     does_not_update_tasks_task_history: true,
-    ...overrides
+    ...overrides,
   };
 }
 
 function summarizeEvent(state, queueId) {
   const queue = queueId || '(missing queue)';
-  if (state === 'planned') return `Non-authoritative overnight validation lifecycle planned for queue ${queue}.`;
-  if (state === 'validation_started') return `Validation-only overnight run started for queue ${queue}.`;
-  if (state === 'validation_passed') return `Validation-only overnight run passed for queue ${queue}.`;
-  if (state === 'validation_failed') return `Validation-only overnight run failed for queue ${queue}.`;
-  if (state === 'report_written') return `Non-authoritative overnight report was written for queue ${queue}.`;
-  if (state === 'completed') return `Non-authoritative overnight validation lifecycle completed for queue ${queue}.`;
+  if (state === 'planned')
+    return `Non-authoritative overnight validation lifecycle planned for queue ${queue}.`;
+  if (state === 'validation_started')
+    return `Validation-only overnight run started for queue ${queue}.`;
+  if (state === 'validation_passed')
+    return `Validation-only overnight run passed for queue ${queue}.`;
+  if (state === 'validation_failed')
+    return `Validation-only overnight run failed for queue ${queue}.`;
+  if (state === 'report_written')
+    return `Non-authoritative overnight report was written for queue ${queue}.`;
+  if (state === 'completed')
+    return `Non-authoritative overnight validation lifecycle completed for queue ${queue}.`;
   return `Non-authoritative overnight validation lifecycle aborted for queue ${queue}.`;
 }
 
@@ -109,11 +120,15 @@ export function validateOvernightLifecycleTransition(previousState, nextState) {
   const from = previousState === null || previousState === undefined ? null : String(previousState);
   const to = String(nextState || '');
 
-  if (!STATE_SET.has(to)) return { valid: false, error: `Unknown overnight lifecycle state: ${to}` };
-  if (from !== null && !STATE_SET.has(from)) return { valid: false, error: `Unknown previous overnight lifecycle state: ${from}` };
-  if (from !== null && TERMINAL_STATES.has(from)) return { valid: false, error: `Terminal overnight lifecycle state cannot transition: ${from}` };
+  if (!STATE_SET.has(to))
+    return { valid: false, error: `Unknown overnight lifecycle state: ${to}` };
+  if (from !== null && !STATE_SET.has(from))
+    return { valid: false, error: `Unknown previous overnight lifecycle state: ${from}` };
+  if (from !== null && TERMINAL_STATES.has(from))
+    return { valid: false, error: `Terminal overnight lifecycle state cannot transition: ${from}` };
   const key = `${from === null ? 'null' : from}->${to}`;
-  if (!ALLOWED_TRANSITIONS.has(key)) return { valid: false, error: `Invalid overnight lifecycle transition: ${key}` };
+  if (!ALLOWED_TRANSITIONS.has(key))
+    return { valid: false, error: `Invalid overnight lifecycle transition: ${key}` };
   return { valid: true };
 }
 
@@ -125,8 +140,10 @@ export function createOvernightLifecycleEvent(input = {}, options = {}) {
 
   const timestamp = nowIso({ ...options, timestamp: input.timestamp || options.timestamp });
   const queueId = input.queue_id || input.queueId || null;
-  const runId = input.run_id || input.runId || createOvernightRunId(queueId, { ...options, timestamp });
-  if (!String(runId).startsWith('ovr_')) throw new Error('Overnight run_id must use ovr_ prefix and must not use canonical run_ prefix');
+  const runId =
+    input.run_id || input.runId || createOvernightRunId(queueId, { ...options, timestamp });
+  if (!String(runId).startsWith('ovr_'))
+    throw new Error('Overnight run_id must use ovr_ prefix and must not use canonical run_ prefix');
 
   return {
     schema_version: RUN_LOG_SCHEMA_VERSION,
@@ -141,7 +158,7 @@ export function createOvernightLifecycleEvent(input = {}, options = {}) {
     source: {
       runner: 'overnight-validation-executor.mjs',
       phase: 'RALPH-034F',
-      ...(input.source || {})
+      ...(input.source || {}),
     },
     authority: RUN_LOG_AUTHORITY,
     not_runtime_authority: true,
@@ -153,7 +170,7 @@ export function createOvernightLifecycleEvent(input = {}, options = {}) {
     does_not_update_tasks_task_history: true,
     summary: input.summary || summarizeEvent(state, queueId),
     safety_summary: baseSafetySummary(input.safety_summary || input.safetySummary || {}),
-    details: input.details || {}
+    details: input.details || {},
   };
 }
 
@@ -169,14 +186,17 @@ export function resolveOvernightRunLogPath(options = {}) {
     projectRoot,
     overnightDir,
     absolutePath,
-    relativePath: RUN_LOG_RELATIVE_PATH
+    relativePath: RUN_LOG_RELATIVE_PATH,
   };
 }
 
 export function appendOvernightRunLogEvent(event, options = {}) {
-  if (!event || event.authority !== RUN_LOG_AUTHORITY) throw new Error('Refusing to append invalid overnight run-log event authority');
-  if (!STATE_SET.has(event.state)) throw new Error(`Refusing to append unknown overnight lifecycle state: ${event.state}`);
-  if (!String(event.run_id || '').startsWith('ovr_')) throw new Error('Refusing to append overnight run-log event without ovr_ run_id');
+  if (!event || event.authority !== RUN_LOG_AUTHORITY)
+    throw new Error('Refusing to append invalid overnight run-log event authority');
+  if (!STATE_SET.has(event.state))
+    throw new Error(`Refusing to append unknown overnight lifecycle state: ${event.state}`);
+  if (!String(event.run_id || '').startsWith('ovr_'))
+    throw new Error('Refusing to append overnight run-log event without ovr_ run_id');
 
   const resolved = resolveOvernightRunLogPath(options);
   fs.mkdirSync(path.dirname(resolved.absolutePath), { recursive: true });
@@ -190,8 +210,12 @@ export function buildLifecycleEventsForExecutorResult(executorOutput = {}, optio
   const timestamp = nowIso(options);
   const queueId = executorOutput.queue_id || options.queueId || null;
   const runId = options.runId || createOvernightRunId(queueId, { ...options, timestamp });
-  const reportFiles = Array.isArray(executorOutput.report_bundle?.files_written) ? executorOutput.report_bundle.files_written : [];
-  const validationCommandIds = Array.isArray(executorOutput.validation_plan_summary?.validation_command_ids)
+  const reportFiles = Array.isArray(executorOutput.report_bundle?.files_written)
+    ? executorOutput.report_bundle.files_written
+    : [];
+  const validationCommandIds = Array.isArray(
+    executorOutput.validation_plan_summary?.validation_command_ids,
+  )
     ? executorOutput.validation_plan_summary.validation_command_ids
     : [];
   const details = {
@@ -203,20 +227,25 @@ export function buildLifecycleEventsForExecutorResult(executorOutput = {}, optio
       passed: executorOutput.command_execution?.passed || 0,
       failed: executorOutput.command_execution?.failed || 0,
       timed_out: executorOutput.command_execution?.timed_out || 0,
-      blocked: executorOutput.command_execution?.blocked || 0
-    }
+      blocked: executorOutput.command_execution?.blocked || 0,
+    },
   };
 
   const events = [];
   const add = (state, previousState, extraDetails = {}) => {
-    events.push(createOvernightLifecycleEvent({
-      state,
-      previous_state: previousState,
-      run_id: runId,
-      queue_id: queueId,
-      timestamp,
-      details: { ...details, ...extraDetails }
-    }, options));
+    events.push(
+      createOvernightLifecycleEvent(
+        {
+          state,
+          previous_state: previousState,
+          run_id: runId,
+          queue_id: queueId,
+          timestamp,
+          details: { ...details, ...extraDetails },
+        },
+        options,
+      ),
+    );
   };
 
   add('planned', null);

@@ -22,16 +22,16 @@
 
 ## Fixture Results
 
-| Fixture | Expected decision | Actual decision | admission_allowed | reason_codes | queue_entry_preview.queue_entry_id | Result |
-|---|---|---|---:|---|---|---|
-| SAFE_AUTONOMOUS | `admissible` | `admissible` | `true` | `(none)` | `preview-ralph-040c` | PASS |
-| REVIEW_REQUIRED | `requires_review_before_queue` | `requires_review_before_queue` | `false` | `(none)` | `preview-ralph-040c` | PASS |
-| HUMAN_ONLY | `human_only` | `human_only` | `false` | `(none)` | `preview-ralph-040c` | PASS |
-| FORBIDDEN | `rejected` | `rejected` | `false` | `(none)` | `preview-ralph-040c` | PASS |
-| Dirty-tree signal | `rejected` | `rejected` | `false` | `dirty_tree_blocks_queue_admission` | `preview-ralph-040c` | PASS |
-| Staged-files signal | `rejected` | `rejected` | `false` | `staged_files_block_queue_admission` | `preview-ralph-040c` | PASS |
-| Protected-file match | `rejected` | `rejected` | `false` | `protected_file_match_blocks_queue_admission` | `preview-ralph-040c` | PASS |
-| Queue-entry collision | `rejected` | `rejected` | `false` | `queue_entry_collision_blocks_queue_admission` | `preview-ralph-040c` | PASS |
+| Fixture               | Expected decision              | Actual decision                | admission_allowed | reason_codes                                   | queue_entry_preview.queue_entry_id | Result |
+| --------------------- | ------------------------------ | ------------------------------ | ----------------: | ---------------------------------------------- | ---------------------------------- | ------ |
+| SAFE_AUTONOMOUS       | `admissible`                   | `admissible`                   |            `true` | `(none)`                                       | `preview-ralph-040c`               | PASS   |
+| REVIEW_REQUIRED       | `requires_review_before_queue` | `requires_review_before_queue` |           `false` | `(none)`                                       | `preview-ralph-040c`               | PASS   |
+| HUMAN_ONLY            | `human_only`                   | `human_only`                   |           `false` | `(none)`                                       | `preview-ralph-040c`               | PASS   |
+| FORBIDDEN             | `rejected`                     | `rejected`                     |           `false` | `(none)`                                       | `preview-ralph-040c`               | PASS   |
+| Dirty-tree signal     | `rejected`                     | `rejected`                     |           `false` | `dirty_tree_blocks_queue_admission`            | `preview-ralph-040c`               | PASS   |
+| Staged-files signal   | `rejected`                     | `rejected`                     |           `false` | `staged_files_block_queue_admission`           | `preview-ralph-040c`               | PASS   |
+| Protected-file match  | `rejected`                     | `rejected`                     |           `false` | `protected_file_match_blocks_queue_admission`  | `preview-ralph-040c`               | PASS   |
+| Queue-entry collision | `rejected`                     | `rejected`                     |           `false` | `queue_entry_collision_blocks_queue_admission` | `preview-ralph-040c`               | PASS   |
 
 ## Smoke Summary
 

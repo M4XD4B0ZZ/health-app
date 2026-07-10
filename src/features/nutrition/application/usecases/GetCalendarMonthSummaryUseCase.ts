@@ -1,5 +1,5 @@
 import { FoodEntryRepository } from '../ports/FoodEntryRepository';
-import { GoalsRepository } from '../ports/GoalsRepository';
+import { EffectiveGoalsRepository } from '../../../goals/application/ports';
 import { buildDailySummary } from '../../domain/summary/DailySummaryCalculator';
 import { buildCalendarMonthSummary } from '../../domain/calendar/CalendarMonthBuilder';
 import { CalendarMonthSummary } from '../../domain/calendar/CalendarTypes';
@@ -20,20 +20,26 @@ function getDateRangeForMonth(monthISO: string): {
   };
 }
 
+/**
+ * GE-006: reads goals from the real, screen-wired `EffectiveGoalsRepository`
+ * (`src/features/goals`) — the single source of truth for goal targets, replacing the
+ * previously-separate, unused-by-UI `GoalsRepository`/`UserGoals` system.
+ */
 export class GetCalendarMonthSummaryUseCase {
   constructor(
     private readonly foodEntryRepository: FoodEntryRepository,
-    private readonly goalsRepository: GoalsRepository,
+    private readonly effectiveGoalsRepository: EffectiveGoalsRepository,
     private readonly defaultTimezone: string = 'Europe/Berlin',
   ) {}
 
   async execute(monthISO: string, timezone?: string): Promise<CalendarMonthSummary> {
     const zone = timezone ?? this.defaultTimezone;
     const { startDateISO, endDateISO, days } = getDateRangeForMonth(monthISO);
-    const [entries, goals] = await Promise.all([
+    const [entries, effectiveGoals] = await Promise.all([
       this.foodEntryRepository.listByDateRange(startDateISO, endDateISO),
-      this.goalsRepository.getGoals(),
+      this.effectiveGoalsRepository.get(),
     ]);
+    const goals = effectiveGoals?.goals ?? null;
 
     const byDate = new Map<string, FoodEntry[]>();
     for (const entry of entries) {

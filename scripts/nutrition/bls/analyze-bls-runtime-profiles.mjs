@@ -10,7 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { readSheet } from 'read-excel-file/node';
 
 import { DATA_WORKBOOK_PATH } from './lib/bls-sample-generator.mjs';
-import { TOOL_ID, parseBenchmarkArgs, runBlsRuntimeProfileBenchmark } from './lib/bls-runtime-profile-size-analysis.mjs';
+import {
+  TOOL_ID,
+  parseBenchmarkArgs,
+  runBlsRuntimeProfileBenchmark,
+} from './lib/bls-runtime-profile-size-analysis.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = process.cwd();
@@ -51,7 +55,8 @@ function sha256File(filePath) {
 
 function workbookPath() {
   const absolutePath = path.join(REPO_ROOT, DATA_WORKBOOK_PATH);
-  if (!fs.existsSync(absolutePath)) throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
+  if (!fs.existsSync(absolutePath))
+    throw new Error(`Missing required workbook: ${DATA_WORKBOOK_PATH}`);
   return absolutePath;
 }
 
@@ -59,16 +64,22 @@ function relaunchWithLargerHeapIfNeeded() {
   const hasHeapFlag = process.execArgv.some((arg) => arg.startsWith('--max-old-space-size='));
   if (hasHeapFlag || process.env[RELAUNCH_ENV] === '1') return;
 
-  const result = spawnSync(process.execPath, [`--max-old-space-size=${REQUIRED_HEAP_MB}`, ...process.argv.slice(1)], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, [RELAUNCH_ENV]: '1' },
-    stdio: 'inherit',
-  });
+  const result = spawnSync(
+    process.execPath,
+    [`--max-old-space-size=${REQUIRED_HEAP_MB}`, ...process.argv.slice(1)],
+    {
+      cwd: REPO_ROOT,
+      env: { ...process.env, [RELAUNCH_ENV]: '1' },
+      stdio: 'inherit',
+    },
+  );
 
   if (result.error) {
     console.error(
       JSON.stringify(
-        errorPayload(`Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`),
+        errorPayload(
+          `Failed to relaunch Node with --max-old-space-size=${REQUIRED_HEAP_MB}: ${result.error.message}`,
+        ),
         null,
         2,
       ),

@@ -10,7 +10,7 @@ import {
   createCommandAllowlist,
   runAllowedCommand,
   runCommandSpec,
-  validateCommandSpec
+  validateCommandSpec,
 } from '../lib/overnight-command-runner.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,7 +40,7 @@ function spec(root, id, script, overrides = {}) {
     cwd: '.',
     timeout_ms: 5_000,
     allow_nonzero: false,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -62,7 +62,9 @@ function snapshot(root) {
 test('captures stdout and exit code for safe allowlisted command', async (t) => {
   const root = tempProject(t);
   const script = writeFixture(root, 'stdout.mjs', "console.log('hello stdout');\n");
-  const allowlist = createCommandAllowlist({ stdout_fixture: spec(root, 'stdout_fixture', script) });
+  const allowlist = createCommandAllowlist({
+    stdout_fixture: spec(root, 'stdout_fixture', script),
+  });
 
   const result = await runAllowedCommand('stdout_fixture', { projectRoot: root, allowlist });
 
@@ -76,8 +78,14 @@ test('captures stdout and exit code for safe allowlisted command', async (t) => 
 
 test('captures stderr and non-zero exit as failed', async (t) => {
   const root = tempProject(t);
-  const script = writeFixture(root, 'stderr-fail.mjs', "console.error('bad stderr');\nprocess.exit(7);\n");
-  const allowlist = createCommandAllowlist({ stderr_fixture: spec(root, 'stderr_fixture', script) });
+  const script = writeFixture(
+    root,
+    'stderr-fail.mjs',
+    "console.error('bad stderr');\nprocess.exit(7);\n",
+  );
+  const allowlist = createCommandAllowlist({
+    stderr_fixture: spec(root, 'stderr_fixture', script),
+  });
 
   const result = await runAllowedCommand('stderr_fixture', { projectRoot: root, allowlist });
 
@@ -88,8 +96,10 @@ test('captures stderr and non-zero exit as failed', async (t) => {
 
 test('timeout kills command and marks timed_out', async (t) => {
   const root = tempProject(t);
-  const script = writeFixture(root, 'hang.mjs', "setInterval(() => {}, 1000);\n");
-  const allowlist = createCommandAllowlist({ hang_fixture: spec(root, 'hang_fixture', script, { timeout_ms: 100 }) });
+  const script = writeFixture(root, 'hang.mjs', 'setInterval(() => {}, 1000);\n');
+  const allowlist = createCommandAllowlist({
+    hang_fixture: spec(root, 'hang_fixture', script, { timeout_ms: 100 }),
+  });
 
   const result = await runAllowedCommand('hang_fixture', { projectRoot: root, allowlist });
 
@@ -100,10 +110,19 @@ test('timeout kills command and marks timed_out', async (t) => {
 
 test('output truncation works for stdout and stderr', async (t) => {
   const root = tempProject(t);
-  const script = writeFixture(root, 'large-output.mjs', "console.log('A'.repeat(200));\nconsole.error('B'.repeat(200));\n");
+  const script = writeFixture(
+    root,
+    'large-output.mjs',
+    "console.log('A'.repeat(200));\nconsole.error('B'.repeat(200));\n",
+  );
   const allowlist = createCommandAllowlist({ large_fixture: spec(root, 'large_fixture', script) });
 
-  const result = await runAllowedCommand('large_fixture', { projectRoot: root, allowlist, maxStdoutBytes: 50, maxStderrBytes: 50 });
+  const result = await runAllowedCommand('large_fixture', {
+    projectRoot: root,
+    allowlist,
+    maxStdoutBytes: 50,
+    maxStderrBytes: 50,
+  });
 
   assert.equal(result.status, 'passed');
   assert.equal(result.stdout_truncated, true);
@@ -113,7 +132,9 @@ test('output truncation works for stdout and stderr', async (t) => {
 });
 
 test('rejects unknown command ID', async () => {
-  const result = await runAllowedCommand('missing_command', { allowlist: createCommandAllowlist({}) });
+  const result = await runAllowedCommand('missing_command', {
+    allowlist: createCommandAllowlist({}),
+  });
 
   assert.equal(result.status, 'blocked');
   assert.ok(result.safety_findings.some((finding) => finding.code === 'command_not_allowlisted'));
@@ -126,11 +147,13 @@ test('rejects shell strings and shell metacharacters', () => {
     cmd: 'git',
     args: ['status', '&&', 'git', 'diff'],
     cwd: '.',
-    timeout_ms: 1_000
+    timeout_ms: 1_000,
   });
 
   assert.equal(invalid.valid, false);
-  assert.ok(invalid.safety_findings.some((finding) => finding.code === 'command_chaining_forbidden'));
+  assert.ok(
+    invalid.safety_findings.some((finding) => finding.code === 'command_chaining_forbidden'),
+  );
 });
 
 test('rejects forbidden args for package, push, and destructive git operations', () => {
@@ -138,11 +161,16 @@ test('rejects forbidden args for package, push, and destructive git operations',
     { id: 'install', cmd: 'npm', args: ['install'] },
     { id: 'audit_fix', cmd: 'npm', args: ['audit', 'fix'] },
     { id: 'push', cmd: 'git', args: ['push'] },
-    { id: 'reset_hard', cmd: 'git', args: ['reset', '--hard'] }
+    { id: 'reset_hard', cmd: 'git', args: ['reset', '--hard'] },
   ];
 
   for (const command of commands) {
-    const result = validateCommandSpec({ label: command.id, cwd: '.', timeout_ms: 1_000, ...command });
+    const result = validateCommandSpec({
+      label: command.id,
+      cwd: '.',
+      timeout_ms: 1_000,
+      ...command,
+    });
     assert.equal(result.valid, false, command.id);
   }
 });
@@ -150,7 +178,9 @@ test('rejects forbidden args for package, push, and destructive git operations',
 test('does not write files by default', async (t) => {
   const root = tempProject(t);
   const script = writeFixture(root, 'readonly.mjs', "console.log('readonly');\n");
-  const allowlist = createCommandAllowlist({ readonly_fixture: spec(root, 'readonly_fixture', script) });
+  const allowlist = createCommandAllowlist({
+    readonly_fixture: spec(root, 'readonly_fixture', script),
+  });
   const before = snapshot(root);
 
   const result = await runAllowedCommand('readonly_fixture', { projectRoot: root, allowlist });
@@ -162,7 +192,10 @@ test('does not write files by default', async (t) => {
 });
 
 test('CLI smoke harness produces structured JSON result', () => {
-  const result = spawnSync(process.execPath, [CLI, 'git_status_short'], { cwd: projectRoot, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [CLI, 'git_status_short'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+  });
   const json = JSON.parse(result.stdout);
 
   assert.equal(result.status, 0);
@@ -172,7 +205,10 @@ test('CLI smoke harness produces structured JSON result', () => {
 });
 
 test('CLI exits non-zero for blocked command', () => {
-  const result = spawnSync(process.execPath, [CLI, 'not_allowlisted'], { cwd: projectRoot, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [CLI, 'not_allowlisted'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+  });
   const json = JSON.parse(result.stdout);
 
   assert.equal(result.status, 2);
@@ -182,7 +218,9 @@ test('CLI exits non-zero for blocked command', () => {
 test('queue execution is not performed by runner results', async (t) => {
   const root = tempProject(t);
   const script = writeFixture(root, 'no-queue.mjs', "console.log('no queue');\n");
-  const result = await runCommandSpec(spec(root, 'no_queue_fixture', script), { projectRoot: root });
+  const result = await runCommandSpec(spec(root, 'no_queue_fixture', script), {
+    projectRoot: root,
+  });
 
   assert.equal(result.status, 'passed');
   assert.equal(result.queue_execution, 'not_performed');
@@ -196,7 +234,7 @@ test('worker scripts are rejected', () => {
     cmd: process.execPath,
     args: ['scripts/agent/run-opencode-worker.mjs'],
     cwd: '.',
-    timeout_ms: 1_000
+    timeout_ms: 1_000,
   });
 
   assert.equal(result.valid, false);
@@ -204,8 +242,23 @@ test('worker scripts are rejected', () => {
 });
 
 test('shell true and shell wrappers are blocked', () => {
-  const shellTrue = validateCommandSpec({ id: 'shell_true', label: 'shell true', cmd: 'git', args: ['status'], cwd: '.', timeout_ms: 1_000, shell: true });
-  const wrapper = validateCommandSpec({ id: 'wrapper', label: 'wrapper', cmd: 'powershell.exe', args: ['-Command', 'git status'], cwd: '.', timeout_ms: 1_000 });
+  const shellTrue = validateCommandSpec({
+    id: 'shell_true',
+    label: 'shell true',
+    cmd: 'git',
+    args: ['status'],
+    cwd: '.',
+    timeout_ms: 1_000,
+    shell: true,
+  });
+  const wrapper = validateCommandSpec({
+    id: 'wrapper',
+    label: 'wrapper',
+    cmd: 'powershell.exe',
+    args: ['-Command', 'git status'],
+    cwd: '.',
+    timeout_ms: 1_000,
+  });
 
   assert.equal(shellTrue.valid, false);
   assert.ok(shellTrue.safety_findings.some((finding) => finding.code === 'shell_true_forbidden'));
@@ -215,7 +268,11 @@ test('shell true and shell wrappers are blocked', () => {
 
 test('stdin is ignored and non-interactive command completes', async (t) => {
   const root = tempProject(t);
-  const script = writeFixture(root, 'stdin-ignored.mjs', "process.stdin.on('data', () => process.exit(9));\nsetTimeout(() => { console.log('no stdin'); }, 10);\n");
+  const script = writeFixture(
+    root,
+    'stdin-ignored.mjs',
+    "process.stdin.on('data', () => process.exit(9));\nsetTimeout(() => { console.log('no stdin'); }, 10);\n",
+  );
   const allowlist = createCommandAllowlist({ stdin_fixture: spec(root, 'stdin_fixture', script) });
 
   const result = await runAllowedCommand('stdin_fixture', { projectRoot: root, allowlist });

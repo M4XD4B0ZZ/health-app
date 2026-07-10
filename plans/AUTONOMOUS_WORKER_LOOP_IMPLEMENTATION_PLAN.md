@@ -3,7 +3,7 @@
 **Erstellt:** 2026-05-16T20:09:00.000Z  
 **Autor:** Roo Architect  
 **Status:** Ready for Implementation  
-**Priorität:** P1 - Core Infrastructure  
+**Priorität:** P1 - Core Infrastructure
 
 ---
 
@@ -20,12 +20,14 @@ Dieser Plan definiert die Implementierung eines sicheren autonomen Worker-Loops 
 ### 1.1 Vorhandene Komponenten (Bereits implementiert)
 
 #### **Governance-Layer**
+
 - ✅ **SSOK.md** - Übergeordnete Governance-Struktur
 - ✅ **ROADMAP.md** - Single Source of Knowledge für Tasks
 - ✅ **VERIFY.md** - Definition of Done und Verify-Pipeline
 - ✅ **AGENTS.md** - Agent-Governance und Arbeitsregeln
 
 #### **Agent-Script-System (Phasen A-E)**
+
 - ✅ **Phase A:** [`select-next-task.mjs`](scripts/agent/select-next-task.mjs) - Task-Auswahl mit robustem Parser
 - ✅ **Phase B:** [`run-agent-loop.mjs`](scripts/agent/run-agent-loop.mjs) - State-Management und Gates
 - ✅ **Phase C:** [`run-opencode-worker.mjs`](scripts/agent/run-opencode-worker.mjs) - OpenCode-Integration mit Timeout/Observability
@@ -33,6 +35,7 @@ Dieser Plan definiert die Implementierung eines sicheren autonomen Worker-Loops 
 - ✅ **Phase E:** [`run-milestone.mjs`](scripts/agent/run-milestone.mjs) - Multi-Task-Runner mit Gates
 
 #### **Unterstützende Systeme**
+
 - ✅ **ROADMAP-Parser:** [`roadmap-parser.mjs`](scripts/agent/roadmap-parser.mjs) - Multi-Format Task-Parsing
 - ✅ **Verify-Pipeline:** [`run-verify.mjs`](scripts/agent/run-verify.mjs) - Strukturierte Verification
 - ✅ **Model-Selection:** [`select-model.mjs`](scripts/agent/select-model.mjs) - LLM-Router mit Registry
@@ -40,6 +43,7 @@ Dieser Plan definiert die Implementierung eines sicheren autonomen Worker-Loops 
 - ✅ **Monitoring:** [`watch-agent.mjs`](scripts/agent/watch-agent.mjs) - Live-Dashboard
 
 #### **Sicherheitsgrenzen (Bereits implementiert)**
+
 - ✅ Keine .env-Manipulation
 - ✅ Keine automatischen Commits/Pushes
 - ✅ Keine Dependency-Installation
@@ -50,6 +54,7 @@ Dieser Plan definiert die Implementierung eines sicheren autonomen Worker-Loops 
 ### 1.2 Identifizierte Lücken
 
 #### **Fehlende Komponenten für echten Autonomous Loop**
+
 - ❌ **Task-Klassifikation** - Intelligente Sicherheitsbewertung
 - ❌ **Automatisierte Commits** - Sichere Commit-Automation
 - ❌ **Enhanced Recovery** - Robuste Failure-Handling
@@ -94,26 +99,26 @@ graph LR
         SC[Safety Classifier]
         LM[Lock Manager]
     end
-    
+
     subgraph "Execution Layer"
         MS[Model Selection]
         OW[OpenCode Worker]
         VG[Verify Gate]
     end
-    
+
     subgraph "Safety Layer"
         DG[Diff Guard]
         CG[Commit Guard]
         RG[Recovery Gate]
         HG[Human Gate]
     end
-    
+
     subgraph "State Management"
         SM[State Manager]
         RM[Recovery Manager]
         LG[Logger]
     end
-    
+
     WL --> TQ
     TQ --> SC
     SC --> MS
@@ -137,11 +142,11 @@ flowchart TD
     C -->|Score 0-30| D[SAFE_AUTONOMOUS]
     C -->|Score 31-70| E[REVIEW_REQUIRED]
     C -->|Score 71-100| F[HUMAN_ONLY]
-    
+
     D --> G[Auto-Execute + Auto-Commit]
     E --> H[Auto-Execute + Human Review]
     F --> I[Block Execution]
-    
+
     subgraph "Risk Factors"
         R1[File Count > 8]
         R2[Architecture Keywords]
@@ -160,7 +165,9 @@ flowchart TD
 ### 3.1 Task-Klassifikation Heuristiken
 
 #### **SAFE_AUTONOMOUS (Score: 0-30)**
+
 **Kriterien:**
+
 - Einzelne Datei-Änderungen (< 5 Dateien)
 - Reine Code-Fixes ohne Architektur-Änderungen
 - Test-Ergänzungen
@@ -169,15 +176,19 @@ flowchart TD
 - Kleine Bug-Fixes mit klarem Scope
 
 **Keywords (niedrige Risiko-Scores):**
+
 - "fix", "test", "docs", "lint", "format", "typo", "comment"
 
 **Automatisierung:**
+
 - ✅ Auto-Execute
 - ✅ Auto-Commit (bei Verify PASS + Small Diff)
 - ✅ Auto-ROADMAP-Update
 
 #### **REVIEW_REQUIRED (Score: 31-70)**
+
 **Kriterien:**
+
 - Mehrere Datei-Änderungen (5-15 Dateien)
 - Neue Features mit begrenztem Scope
 - Refactoring innerhalb eines Moduls
@@ -185,15 +196,19 @@ flowchart TD
 - Performance-Optimierungen
 
 **Keywords (mittlere Risiko-Scores):**
+
 - "feature", "refactor", "optimize", "improve", "enhance"
 
 **Automatisierung:**
+
 - ✅ Auto-Execute
 - ❌ Auto-Commit (Human Review Gate)
 - ❌ Auto-ROADMAP-Update
 
 #### **HUMAN_ONLY (Score: 71-100)**
+
 **Kriterien:**
+
 - Architektur-Änderungen
 - Database-Schema-Änderungen
 - Security-relevante Änderungen
@@ -202,9 +217,11 @@ flowchart TD
 - Große Refactorings (> 15 Dateien)
 
 **Keywords (hohe Risiko-Scores):**
+
 - "migration", "security", "auth", "breaking", "architecture", "schema"
 
 **Automatisierung:**
+
 - ❌ Auto-Execute (Block)
 - ❌ Auto-Commit
 - ❌ Auto-ROADMAP-Update
@@ -212,6 +229,7 @@ flowchart TD
 ### 3.2 Sicherheits-Gates
 
 #### **Pre-Execution Gates**
+
 1. **Git Working Tree Clean Check**
 2. **Task Safety Classification**
 3. **ROADMAP Task Status Validation**
@@ -219,12 +237,14 @@ flowchart TD
 5. **Model Risk Assessment**
 
 #### **Execution Gates**
+
 1. **Worker Timeout Monitoring** (15 min default)
 2. **Live Diff Size Monitoring**
 3. **Heartbeat Monitoring** (30s intervals)
 4. **Inactivity Timeout** (90s no output)
 
 #### **Post-Execution Gates**
+
 1. **Verify Success Requirement** (npm run verify)
 2. **Diff Size Guard** (max. 500 Zeilen, 8 Dateien)
 3. **File Type Validation** (keine .env, secrets)
@@ -239,14 +259,14 @@ const DIFF_LIMITS = {
     maxFiles: 5,
     maxLines: 200,
     allowedFileTypes: ['.ts', '.tsx', '.js', '.jsx', '.md', '.json'],
-    forbiddenFiles: ['.env', 'package.json', 'package-lock.json']
+    forbiddenFiles: ['.env', 'package.json', 'package-lock.json'],
   },
   REVIEW_REQUIRED: {
     maxFiles: 15,
     maxLines: 500,
     allowedFileTypes: ['.ts', '.tsx', '.js', '.jsx', '.md', '.json'],
-    forbiddenFiles: ['.env', 'package.json', 'package-lock.json']
-  }
+    forbiddenFiles: ['.env', 'package.json', 'package-lock.json'],
+  },
 };
 ```
 
@@ -269,12 +289,12 @@ flowchart TD
     I --> J[Update ROADMAP Status to 'done']
     J --> K[Log Success]
     K --> L[Continue to Next Task]
-    
+
     C --> M[Fix Attempt]
     M --> N{Fix Successful?}
     N -->|Yes| B
     N -->|No| O[Human Intervention Required]
-    
+
     E --> P[Log Review Required]
     F --> P
     O --> P
@@ -296,6 +316,7 @@ Lines-Changed: <count>
 ```
 
 **Beispiel:**
+
 ```
 fix(nutrition): resolve zero-macro blocker in resolver
 
@@ -313,6 +334,7 @@ Lines-Changed: 45
 ### 4.3 Commit-Sicherheitsregeln
 
 #### **Auto-Commit erlaubt wenn:**
+
 - ✅ Task-Klassifikation: SAFE_AUTONOMOUS
 - ✅ Verify Status: PASSED
 - ✅ Diff Size: Innerhalb Limits
@@ -320,6 +342,7 @@ Lines-Changed: 45
 - ✅ No Forbidden Files: Keine .env, package.json, etc.
 
 #### **Human Review erforderlich wenn:**
+
 - ❌ Task-Klassifikation: REVIEW_REQUIRED oder HUMAN_ONLY
 - ❌ Verify Status: FAILED
 - ❌ Diff Size: Über Limits
@@ -333,6 +356,7 @@ Lines-Changed: 45
 ### 5.1 Failure Types & Recovery Strategies
 
 #### **Verify Failure**
+
 ```mermaid
 graph TD
     A[Verify Failed] --> B{Fix Attempt Available?}
@@ -346,12 +370,14 @@ graph TD
 ```
 
 **Recovery Actions:**
+
 1. Generiere Fix-Prompt basierend auf Verify-Errors
 2. Ein Fix-Versuch mit OpenCode Worker
 3. Re-run Verify Pipeline
 4. Bei erneutem Fehler: Human Review Gate
 
 #### **Worker Timeout**
+
 ```mermaid
 graph TD
     A[Worker Timeout] --> B[Kill Worker Process]
@@ -362,12 +388,14 @@ graph TD
 ```
 
 **Recovery Actions:**
+
 1. Graceful Worker Termination (SIGTERM → SIGKILL)
 2. State Preservation in `.agent/recovery/`
 3. Detailed Logging für Human Analysis
 4. Stop Loop → Human Intervention
 
 #### **Large Diff**
+
 ```mermaid
 graph TD
     A[Large Diff Detected] --> B[Log Diff Statistics]
@@ -377,11 +405,13 @@ graph TD
 ```
 
 **Recovery Actions:**
+
 1. Diff-Statistiken loggen
 2. Review-Prompt für Human generieren
 3. Stop Loop → Human Review
 
 #### **Git Conflicts**
+
 ```mermaid
 graph TD
     A[Git Conflict] --> B[Preserve Working State]
@@ -391,6 +421,7 @@ graph TD
 ```
 
 **Recovery Actions:**
+
 1. Working Tree State preservieren
 2. Conflict Details loggen
 3. Stop Loop → Human Resolution
@@ -398,6 +429,7 @@ graph TD
 ### 5.2 Recovery State Management
 
 #### **Recovery State Schema**
+
 ```json
 {
   "recoveryState": {
@@ -425,6 +457,7 @@ graph TD
 ```
 
 #### **Recovery Persistence**
+
 - **Location:** `.agent/recovery/recovery-state.json`
 - **Backup:** `.agent/recovery/recovery-<timestamp>.json`
 - **Cleanup:** Automatische Bereinigung nach 7 Tagen
@@ -440,6 +473,7 @@ graph TD
 #### **Tasks:**
 
 ##### **1.1 Erweitere run-milestone.mjs um echten Loop**
+
 - **File:** [`scripts/agent/run-milestone.mjs`](scripts/agent/run-milestone.mjs)
 - **Changes:**
   - Entferne `maxTasks` Limitation
@@ -448,6 +482,7 @@ graph TD
   - Verbessere Error-Handling
 
 ##### **1.2 Implementiere Task-Classifier**
+
 - **New File:** `scripts/agent/task-classifier.mjs`
 - **Functionality:**
   - Heuristische Task-Analyse
@@ -456,6 +491,7 @@ graph TD
   - Integration mit ROADMAP-Parser
 
 ##### **1.3 Erweitere Diff-Guard**
+
 - **New File:** `scripts/agent/diff-guard.mjs`
 - **Functionality:**
   - Git diff Analyse
@@ -464,6 +500,7 @@ graph TD
   - Forbidden-File Detection
 
 ##### **1.4 Implementiere Lock-Manager**
+
 - **New File:** `scripts/agent/lock-manager.mjs`
 - **Functionality:**
   - Process-Lock für Worker-Loop
@@ -472,12 +509,14 @@ graph TD
   - Stale-Lock Detection
 
 #### **Deliverables:**
+
 - ✅ Funktionierender Multi-Task-Loop
 - ✅ Task-Klassifikation mit SAFE_AUTONOMOUS
 - ✅ Enhanced Diff-Guards
 - ✅ Concurrency-Schutz
 
 #### **Testing:**
+
 - Unit Tests für Task-Classifier
 - Integration Tests mit SAFE_AUTONOMOUS Tasks
 - Lock-Manager Concurrency Tests
@@ -489,6 +528,7 @@ graph TD
 #### **Tasks:**
 
 ##### **2.1 Implementiere Commit-Manager**
+
 - **New File:** `scripts/agent/commit-manager.mjs`
 - **Functionality:**
   - Automatisierte Commit-Message-Generierung
@@ -497,6 +537,7 @@ graph TD
   - Commit-Validation
 
 ##### **2.2 Erweitere Recovery-Manager**
+
 - **New File:** `scripts/agent/recovery-manager.mjs`
 - **Functionality:**
   - Failure-Type Detection
@@ -505,6 +546,7 @@ graph TD
   - Human-Handoff Preparation
 
 ##### **2.3 Implementiere Safety-Gates**
+
 - **New File:** `scripts/agent/safety-gates.mjs`
 - **Functionality:**
   - Zentrale Gate-Logik
@@ -513,6 +555,7 @@ graph TD
   - Gate-Bypass Prevention
 
 ##### **2.4 Enhanced State-Management**
+
 - **Extend:** `.agent/state.json` Schema
 - **New:** `.agent/config/autonomous.json`
 - **Functionality:**
@@ -521,12 +564,14 @@ graph TD
   - State-Validation
 
 #### **Deliverables:**
+
 - ✅ Automatisierte Commits für SAFE_AUTONOMOUS
 - ✅ Robuste Recovery-Mechanismen
 - ✅ Comprehensive Safety-Gates
 - ✅ Enhanced Configuration
 
 #### **Testing:**
+
 - Commit-Manager Integration Tests
 - Recovery-Scenario Tests
 - Safety-Gate Bypass Tests
@@ -539,6 +584,7 @@ graph TD
 #### **Tasks:**
 
 ##### **3.1 Enhanced Monitoring**
+
 - **Extend:** [`scripts/agent/watch-agent.mjs`](scripts/agent/watch-agent.mjs)
 - **New:** `scripts/agent/worker-monitor.mjs`
 - **Functionality:**
@@ -548,6 +594,7 @@ graph TD
   - Dashboard Enhancements
 
 ##### **3.2 Structured Logging**
+
 - **New:** `.agent/logs/` Directory Structure
 - **New:** `scripts/agent/logger.mjs`
 - **Functionality:**
@@ -557,6 +604,7 @@ graph TD
   - Error Aggregation
 
 ##### **3.3 Human-Review Interface**
+
 - **New:** `scripts/agent/review-interface.mjs`
 - **Functionality:**
   - CLI-based Review Interface
@@ -565,6 +613,7 @@ graph TD
   - Review History
 
 ##### **3.4 Configuration Management**
+
 - **New:** `.agent/config/task-classification.json`
 - **New:** `.agent/config/safety-limits.json`
 - **Functionality:**
@@ -574,12 +623,14 @@ graph TD
   - Schema Validation
 
 #### **Deliverables:**
+
 - ✅ Production-Ready Monitoring
 - ✅ Comprehensive Logging
 - ✅ Human-Review Interface
 - ✅ Flexible Configuration
 
 #### **Testing:**
+
 - Load Testing (100+ Tasks)
 - Stress Testing (Failure Scenarios)
 - User Acceptance Testing
@@ -592,6 +643,7 @@ graph TD
 #### **Tasks:**
 
 ##### **4.1 ML-basierte Task-Klassifikation (Optional)**
+
 - **New:** `scripts/agent/ml-classifier.mjs`
 - **Functionality:**
   - Machine Learning Model
@@ -600,6 +652,7 @@ graph TD
   - Human-Feedback Integration
 
 ##### **4.2 Adaptive Thresholds**
+
 - **Extend:** Task-Classifier
 - **Functionality:**
   - Learning from Human-Feedback
@@ -608,6 +661,7 @@ graph TD
   - Risk-Calibration
 
 ##### **4.3 Cross-Task Dependencies**
+
 - **New:** `scripts/agent/dependency-analyzer.mjs`
 - **Functionality:**
   - Task-Dependency Detection
@@ -616,6 +670,7 @@ graph TD
   - Dependency-Graph Visualization
 
 ##### **4.4 Performance Optimization**
+
 - **Optimize:** All Core Components
 - **Functionality:**
   - Caching Strategies
@@ -624,6 +679,7 @@ graph TD
   - Startup Time Reduction
 
 #### **Deliverables:**
+
 - ✅ Intelligent Task-Classification
 - ✅ Adaptive System Behavior
 - ✅ Optimized Performance
@@ -699,9 +755,11 @@ scripts/agent/
 ### 8.1 Hohe Risiken
 
 #### **8.1.1 Ungewollte Commits**
+
 **Risiko:** Automatische Commits von fehlerhaftem oder unsicherem Code
 
 **Mitigation:**
+
 - ✅ Strenge Task-Klassifikation (nur SAFE_AUTONOMOUS)
 - ✅ Mandatory Verify-Pipeline (npm run verify)
 - ✅ Diff-Guards (Größe, File-Types)
@@ -709,9 +767,11 @@ scripts/agent/
 - ✅ Human Review Gates für REVIEW_REQUIRED
 
 #### **8.1.2 Endlosschleifen**
+
 **Risiko:** Worker-Loop läuft endlos ohne Fortschritt
 
 **Mitigation:**
+
 - ✅ Max-Iterations Limit (default: 10 Tasks)
 - ✅ Timeout-Systeme (15 min per Task)
 - ✅ Heartbeat-Monitoring (30s intervals)
@@ -719,9 +779,11 @@ scripts/agent/
 - ✅ Lock-Manager (verhindert parallele Loops)
 
 #### **8.1.3 Falsche Task-Klassifikation**
+
 **Risiko:** Gefährliche Tasks als SAFE_AUTONOMOUS klassifiziert
 
 **Mitigation:**
+
 - ✅ Conservative Defaults (bei Unsicherheit → HUMAN_ONLY)
 - ✅ Keyword-basierte Blacklists
 - ✅ Human-Feedback Learning (Sprint 4)
@@ -729,9 +791,11 @@ scripts/agent/
 - ✅ Audit-Logs für alle Klassifikationen
 
 #### **8.1.4 State-Corruption**
+
 **Risiko:** Korrupte State-Dateien führen zu unvorhersagbarem Verhalten
 
 **Mitigation:**
+
 - ✅ Atomic State Updates (write-temp-rename)
 - ✅ State-Schema Validation
 - ✅ State-Backups vor kritischen Operationen
@@ -739,9 +803,11 @@ scripts/agent/
 - ✅ State-Integrity Checks
 
 #### **8.1.5 Resource-Konflikte**
+
 **Risiko:** Parallele Worker-Instanzen interferieren miteinander
 
 **Mitigation:**
+
 - ✅ Lock-Manager mit PID-basiertem Locking
 - ✅ Stale-Lock Detection und Cleanup
 - ✅ Graceful Shutdown Handling
@@ -750,27 +816,33 @@ scripts/agent/
 ### 8.2 Mittlere Risiken
 
 #### **8.2.1 Worker-Hänger**
+
 **Risiko:** OpenCode Worker hängt ohne Fortschritt
 
 **Mitigation:**
+
 - ✅ Worker-Timeout (15 min)
 - ✅ Inactivity-Timeout (90s)
 - ✅ Heartbeat-System
 - ✅ Forced Termination (SIGTERM → SIGKILL)
 
 #### **8.2.2 Verify-False-Positives**
+
 **Risiko:** Verify-Pipeline meldet fälschlicherweise Erfolg
 
 **Mitigation:**
+
 - ✅ Multiple Verify-Checks (typecheck, lint, test)
 - ✅ Exit-Code Validation
 - ✅ Output-Pattern Detection
 - ✅ Human Review Gates als Fallback
 
 #### **8.2.3 Git-Konflikte**
+
 **Risiko:** Git-Merge-Konflikte blockieren Automation
 
 **Mitigation:**
+
 - ✅ Clean Working Tree Requirement
 - ✅ Git-Status Checks vor Task-Start
 - ✅ Conflict Detection und Stop
@@ -779,18 +851,22 @@ scripts/agent/
 ### 8.3 Niedrige Risiken
 
 #### **8.3.1 Log-Overflow**
+
 **Risiko:** Log-Dateien werden zu groß
 
 **Mitigation:**
+
 - ✅ Log-Rotation (daily, max 10 files)
 - ✅ Log-Level Configuration
 - ✅ Structured JSON Logging
 - ✅ Automatic Cleanup (7 days)
 
 #### **8.3.2 Config-Drift**
+
 **Risiko:** Konfigurationsdateien werden inkonsistent
 
 **Mitigation:**
+
 - ✅ Schema-Validation für alle Configs
 - ✅ Default-Value Fallbacks
 - ✅ Config-Integrity Checks
@@ -803,13 +879,14 @@ scripts/agent/
 ### 9.1 Unit Tests
 
 #### **Task-Classifier Tests**
+
 ```javascript
 describe('TaskClassifier', () => {
   test('classifies simple fix as SAFE_AUTONOMOUS', () => {
     const task = { title: 'Fix typo in documentation', description: 'Simple typo fix' };
     expect(classifier.classify(task)).toBe('SAFE_AUTONOMOUS');
   });
-  
+
   test('classifies migration as HUMAN_ONLY', () => {
     const task = { title: 'Database migration for user schema' };
     expect(classifier.classify(task)).toBe('HUMAN_ONLY');
@@ -818,18 +895,19 @@ describe('TaskClassifier', () => {
 ```
 
 #### **Diff-Guard Tests**
+
 ```javascript
 describe('DiffGuard', () => {
   test('allows small diff within limits', () => {
     const diff = { filesChanged: 3, linesChanged: 50 };
     expect(diffGuard.isAllowed(diff, 'SAFE_AUTONOMOUS')).toBe(true);
   });
-  
+
   test('blocks large diff over limits', () => {
     const diff = { filesChanged: 10, linesChanged: 600 };
     expect(diffGuard.isAllowed(diff, 'SAFE_AUTONOMOUS')).toBe(false);
   });
-  
+
   test('blocks forbidden files', () => {
     const diff = { filesChanged: 1, linesChanged: 5, files: ['.env'] };
     expect(diffGuard.isAllowed(diff, 'SAFE_AUTONOMOUS')).toBe(false);
@@ -838,13 +916,14 @@ describe('DiffGuard', () => {
 ```
 
 #### **Commit-Manager Tests**
+
 ```javascript
 describe('CommitManager', () => {
   test('generates proper commit message', () => {
     const task = { id: 'P1-003', title: 'Fix zero-macro blocker' };
     const diff = { filesChanged: 3, linesChanged: 45 };
     const message = commitManager.generateMessage(task, diff);
-    
+
     expect(message).toContain('fix(nutrition): resolve zero-macro blocker');
     expect(message).toContain('Task-ID: P1-003');
     expect(message).toContain('Files-Changed: 3');
@@ -855,26 +934,27 @@ describe('CommitManager', () => {
 ### 9.2 Integration Tests
 
 #### **End-to-End Autonomous Loop Tests**
+
 ```javascript
 describe('AutonomousLoop Integration', () => {
   test('processes SAFE_AUTONOMOUS task completely', async () => {
     // Setup: Create test task in ROADMAP
     const testTask = createTestTask('SAFE_AUTONOMOUS');
-    
+
     // Execute: Run autonomous loop
     const result = await autonomousLoop.processSingleTask();
-    
+
     // Verify: Task completed and committed
     expect(result.status).toBe('completed');
     expect(result.committed).toBe(true);
     expect(getRoadmapTaskStatus(testTask.id)).toBe('done');
   });
-  
+
   test('stops at human review gate for REVIEW_REQUIRED', async () => {
     const testTask = createTestTask('REVIEW_REQUIRED');
-    
+
     const result = await autonomousLoop.processSingleTask();
-    
+
     expect(result.status).toBe('human_review_required');
     expect(result.committed).toBe(false);
     expect(getRoadmapTaskStatus(testTask.id)).toBe('in_progress');
@@ -885,15 +965,16 @@ describe('AutonomousLoop Integration', () => {
 ### 9.3 Load Testing
 
 #### **Multi-Task Performance Tests**
+
 ```javascript
 describe('Performance Tests', () => {
   test('processes 50 SAFE_AUTONOMOUS tasks within time limit', async () => {
     const tasks = createTestTasks(50, 'SAFE_AUTONOMOUS');
     const startTime = Date.now();
-    
+
     const results = await autonomousLoop.processMultipleTasks(tasks);
     const elapsedTime = Date.now() - startTime;
-    
+
     expect(results.completed).toBe(50);
     expect(results.failed).toBe(0);
     expect(elapsedTime).toBeLessThan(30 * 60 * 1000); // 30 minutes max
@@ -904,22 +985,23 @@ describe('Performance Tests', () => {
 ### 9.4 Failure Scenario Tests
 
 #### **Recovery Tests**
+
 ```javascript
 describe('Recovery Scenarios', () => {
   test('recovers from verify failure with fix attempt', async () => {
     const testTask = createFailingTask('verify_failure');
-    
+
     const result = await autonomousLoop.processSingleTask();
-    
+
     expect(result.fixAttempted).toBe(true);
     expect(result.recoveryState).toBeDefined();
   });
-  
+
   test('handles worker timeout gracefully', async () => {
     const testTask = createHangingTask();
-    
+
     const result = await autonomousLoop.processSingleTask();
-    
+
     expect(result.status).toBe('worker_timeout');
     expect(result.workerKilled).toBe(true);
     expect(result.statePreserved).toBe(true);
@@ -934,6 +1016,7 @@ describe('Recovery Scenarios', () => {
 ### 10.1 Key Performance Indicators (KPIs)
 
 #### **Operational Metrics**
+
 - **Task Throughput:** Tasks/hour processed
 - **Success Rate:** % of tasks completed without human intervention
 - **Classification Accuracy:** % of correctly classified tasks
@@ -941,12 +1024,14 @@ describe('Recovery Scenarios', () => {
 - **Average Task Duration:** Mean time per task completion
 
 #### **Safety Metrics**
+
 - **False Positive Rate:** % of SAFE_AUTONOMOUS tasks requiring human intervention
 - **False Negative Rate:** % of HUMAN_ONLY tasks incorrectly auto-executed
 - **Commit Accuracy:** % of commits requiring manual reversion
 - **Gate Effectiveness:** % of dangerous operations blocked by gates
 
 #### **System Health Metrics**
+
 - **Worker Uptime:** % time autonomous loop is operational
 - **Lock Contention:** Frequency of lock conflicts
 - **Memory Usage:** Peak/average memory consumption
@@ -955,12 +1040,14 @@ describe('Recovery Scenarios', () => {
 ### 10.2 Alerting System
 
 #### **Critical Alerts**
+
 - **False Negative Classification:** HUMAN_ONLY task auto-executed
 - **Commit Reversion Required:** Auto-commit caused issues
 - **Worker Loop Crash:** Unexpected termination
 - **Lock Deadlock:** Lock manager failure
 
 #### **Warning Alerts**
+
 - **High False Positive Rate:** > 20% SAFE_AUTONOMOUS requiring review
 - **Recovery Failure Rate:** > 10% recovery attempts failing
 - **Performance Degradation:** > 50% increase in task duration
@@ -969,6 +1056,7 @@ describe('Recovery Scenarios', () => {
 ### 10.3 Dashboard Components
 
 #### **Real-time Status Dashboard**
+
 ```
 ┌─ Autonomous Worker Loop Status ─────────────────────────┐
 │ Status: RUNNING                    Uptime: 2h 34m      │
@@ -995,24 +1083,28 @@ describe('Recovery Scenarios', () => {
 ### 11.1 Phased Rollout
 
 #### **Phase 1: Internal Testing (Woche 1-2)**
+
 - **Scope:** Development Environment only
 - **Tasks:** Only documentation and test tasks
 - **Limits:** Max 5 tasks per run, human review required
 - **Goal:** Validate core functionality and safety gates
 
 #### **Phase 2: Limited Production (Woche 3-4)**
+
 - **Scope:** Production environment, limited task types
 - **Tasks:** Only SAFE_AUTONOMOUS with strict limits
 - **Limits:** Max 3 tasks per run, enhanced monitoring
 - **Goal:** Validate production stability and performance
 
 #### **Phase 3: Expanded Scope (Woche 5-6)**
+
 - **Scope:** Full SAFE_AUTONOMOUS task types
 - **Tasks:** All classified SAFE_AUTONOMOUS tasks
 - **Limits:** Max 10 tasks per run, standard monitoring
 - **Goal:** Achieve operational efficiency targets
 
 #### **Phase 4: Full Deployment (Woche 7-8)**
+
 - **Scope:** Complete autonomous operation
 - **Tasks:** SAFE_AUTONOMOUS + REVIEW_REQUIRED (with gates)
 - **Limits:** Production limits, full feature set
@@ -1021,12 +1113,14 @@ describe('Recovery Scenarios', () => {
 ### 11.2 Rollback Strategy
 
 #### **Rollback Triggers**
+
 - **Safety Incident:** Any auto-commit requiring manual reversion
 - **High Error Rate:** > 15% task failure rate for 2+ hours
 - **Performance Degradation:** > 100% increase in task duration
 - **System Instability:** Repeated crashes or lock failures
 
 #### **Rollback Procedure**
+
 1. **Immediate Stop:** Kill autonomous loop with `agent:autonomous:stop`
 2. **State Preservation:** Backup current state and logs
 3. **Revert to Manual:** Switch to manual `agent:auto` mode
@@ -1036,24 +1130,28 @@ describe('Recovery Scenarios', () => {
 ### 11.3 Success Criteria
 
 #### **Sprint 1 Success Criteria**
+
 - ✅ Multi-task loop processes 10+ SAFE_AUTONOMOUS tasks
 - ✅ Task classification accuracy > 90%
 - ✅ No false negatives (HUMAN_ONLY auto-executed)
 - ✅ All safety gates functional
 
 #### **Sprint 2 Success Criteria**
+
 - ✅ Auto-commit functionality working for SAFE_AUTONOMOUS
 - ✅ Recovery system handles 95% of verify failures
 - ✅ No unintended commits to repository
 - ✅ Human review gates prevent dangerous operations
 
 #### **Sprint 3 Success Criteria**
+
 - ✅ System processes 50+ tasks without intervention
 - ✅ Performance meets targets (< 5min average per task)
 - ✅ Monitoring and alerting fully operational
 - ✅ Human review interface functional
 
 #### **Sprint 4 Success Criteria**
+
 - ✅ Classification accuracy > 95% with ML enhancement
 - ✅ System adapts to feedback and improves over time
 - ✅ Performance optimized for production workloads
@@ -1066,18 +1164,21 @@ describe('Recovery Scenarios', () => {
 ### 12.1 Operational Runbooks
 
 #### **Daily Operations**
+
 - **Morning Check:** Verify autonomous loop status and overnight results
 - **Log Review:** Check error logs and performance metrics
 - **Task Queue:** Review pending tasks and classifications
 - **Human Reviews:** Process any tasks requiring manual review
 
 #### **Weekly Operations**
+
 - **Performance Analysis:** Review KPIs and trends
 - **Classification Tuning:** Adjust thresholds based on feedback
 - **Log Cleanup:** Archive old logs and clear disk space
 - **Backup Verification:** Ensure state backups are functional
 
 #### **Monthly Operations**
+
 - **Security Review:** Audit auto-commits and safety gate effectiveness
 - **Performance Optimization:** Identify and address bottlenecks
 - **Configuration Updates:** Update classification rules and limits
@@ -1088,21 +1189,25 @@ describe('Recovery Scenarios', () => {
 #### **Common Issues**
 
 ##### **Issue: High False Positive Rate**
+
 **Symptoms:** Many SAFE_AUTONOMOUS tasks requiring human review
 **Diagnosis:** Check classification logs and task patterns
 **Resolution:** Adjust classification thresholds or add new keywords
 
 ##### **Issue: Worker Timeouts**
+
 **Symptoms:** Frequent worker timeout errors
 **Diagnosis:** Check worker logs and system resources
 **Resolution:** Increase timeout limits or optimize worker performance
 
 ##### **Issue: Lock Conflicts**
+
 **Symptoms:** Multiple "lock acquisition failed" errors
 **Diagnosis:** Check for stale locks or parallel executions
 **Resolution:** Clean stale locks and verify single instance
 
 ##### **Issue: Verify Failures**
+
 **Symptoms:** High rate of verify pipeline failures
 **Diagnosis:** Check verify reports and code quality
 **Resolution:** Improve fix-prompt generation or adjust verify thresholds
@@ -1110,6 +1215,7 @@ describe('Recovery Scenarios', () => {
 ### 12.3 Continuous Improvement
 
 #### **Feedback Loop**
+
 1. **Data Collection:** Gather metrics on classification accuracy and human feedback
 2. **Analysis:** Identify patterns in misclassifications and failures
 3. **Optimization:** Adjust algorithms and thresholds
@@ -1117,6 +1223,7 @@ describe('Recovery Scenarios', () => {
 5. **Deployment:** Roll out improvements with monitoring
 
 #### **Feature Evolution**
+
 - **Quarter 1:** Basic autonomous loop with safety gates
 - **Quarter 2:** ML-enhanced classification and adaptive thresholds
 - **Quarter 3:** Cross-repository support and advanced dependencies
@@ -1139,18 +1246,21 @@ Dieser technische Implementierungsplan definiert eine umfassende Lösung für ei
 ### 13.2 Key Benefits
 
 #### **Für Entwickler**
+
 - **Reduzierte manuelle Arbeit** bei repetitiven Tasks
 - **Schnellere Task-Durchführung** durch Automation
 - **Konsistente Code-Qualität** durch automatisierte Verify-Pipeline
 - **Fokus auf komplexe Aufgaben** statt einfacher Fixes
 
 #### **Für das Projekt**
+
 - **Erhöhte Produktivität** durch 24/7 Task-Processing
 - **Verbesserte Code-Qualität** durch systematische Verify-Gates
 - **Reduzierte Fehlerrate** durch automatisierte Safety-Checks
 - **Skalierbare Entwicklung** mit wachsender Task-Komplexität
 
 #### **Für die Organisation**
+
 - **Kosteneinsparungen** durch Automation repetitiver Aufgaben
 - **Schnellere Time-to-Market** durch beschleunigte Entwicklung
 - **Höhere Entwicklerzufriedenheit** durch Fokus auf kreative Arbeit
@@ -1166,12 +1276,14 @@ Dieser technische Implementierungsplan definiert eine umfassende Lösung für ei
 ### 13.4 Success Metrics
 
 **6-Monats-Ziele:**
+
 - **80% Task-Automation-Rate** für SAFE_AUTONOMOUS Tasks
 - **95% Classification-Accuracy** mit ML-Enhancement
 - **< 2% False-Negative-Rate** für Sicherheits-kritische Tasks
 - **50% Reduktion** in manueller Task-Bearbeitung
 
 **12-Monats-Vision:**
+
 - **Vollständig autonomer Multi-Repository-Worker**
 - **Predictive Task-Scheduling** basierend auf Dependencies
 - **Self-Improving Classification** durch kontinuierliches Learning
@@ -1181,4 +1293,4 @@ Dieser technische Implementierungsplan definiert eine umfassende Lösung für ei
 
 **Ende des Technischen Implementierungsplans**
 
-*Dieser Plan folgt der SSOK-Definition in [`SSOK.md`](SSOK.md) und respektiert alle bestehenden Governance-Strukturen in [`ROADMAP.md`](ROADMAP.md), [`VERIFY.md`](VERIFY.md), und [`AGENTS.md`](AGENTS.md).*
+_Dieser Plan folgt der SSOK-Definition in [`SSOK.md`](SSOK.md) und respektiert alle bestehenden Governance-Strukturen in [`ROADMAP.md`](ROADMAP.md), [`VERIFY.md`](VERIFY.md), und [`AGENTS.md`](AGENTS.md)._

@@ -66,29 +66,29 @@ Per `SSOK.md` and `AGENTS.md`:
 
 ### 2.2 Current execution authority vs. task lifecycle authority
 
-| Concern | Current authority | Notes |
-|---|---|---|
-| Which run is currently selected/executing | `runs/current-run.json` | Current mutable run pointer and run lifecycle status. |
-| Which task is currently executing / task lifecycle status | `tasks/task-state.json` | Current task lifecycle state, attempt count, scope, review requirement, and eligibility. |
-| Planning priority / task existence at roadmap level | `ROADMAP.md` | Runtime state never overrides roadmap planning authority. |
-| Verification completion gate | `VERIFY.md` | Required checks and done-claim authority. |
-| Safety stop policy | `.governance/SAFETY.md` | Safety wins first on conflicts. |
-| Lifecycle gate ordering | `.governance/SYSTEM.md` | Owns lifecycle gate order and stop-for-review placement. |
-| Handoff schema | `.governance/RULES.md` | Normative handoff schema owner. |
-| Review acceptance | `.governance/REVIEW_POLICY.md` | Human review acceptance/revision/rejection policy. |
-| Evidence of past events | JSONL files | Evidence supports reconciliation; it does not override current state. |
+| Concern                                                   | Current authority              | Notes                                                                                    |
+| --------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
+| Which run is currently selected/executing                 | `runs/current-run.json`        | Current mutable run pointer and run lifecycle status.                                    |
+| Which task is currently executing / task lifecycle status | `tasks/task-state.json`        | Current task lifecycle state, attempt count, scope, review requirement, and eligibility. |
+| Planning priority / task existence at roadmap level       | `ROADMAP.md`                   | Runtime state never overrides roadmap planning authority.                                |
+| Verification completion gate                              | `VERIFY.md`                    | Required checks and done-claim authority.                                                |
+| Safety stop policy                                        | `.governance/SAFETY.md`        | Safety wins first on conflicts.                                                          |
+| Lifecycle gate ordering                                   | `.governance/SYSTEM.md`        | Owns lifecycle gate order and stop-for-review placement.                                 |
+| Handoff schema                                            | `.governance/RULES.md`         | Normative handoff schema owner.                                                          |
+| Review acceptance                                         | `.governance/REVIEW_POLICY.md` | Human review acceptance/revision/rejection policy.                                       |
+| Evidence of past events                                   | JSONL files                    | Evidence supports reconciliation; it does not override current state.                    |
 
 ### 2.3 Conflict classification
 
 Run/task conflicts should be classified as runtime consistency findings, not planning conflicts, unless they contradict `ROADMAP.md`.
 
-| Conflict type | Classification | Authority to inspect | Recovery owner |
-|---|---|---|---|
-| Run status and task status are inconsistent but parseable | Runtime lifecycle inconsistency | `current-run` + `task-state` + history | Future lifecycle consistency checker; human recovery if ambiguity exists. |
-| History evidence contradicts current run/task state | Evidence/current-state mismatch | Current state first, evidence second | Human recovery unless a deterministic repair rule exists. |
-| Validation/review evidence missing for terminal success | Completion-gate inconsistency | `VERIFY.md`, validation/review JSONL | Human review; no automatic done claim. |
-| Safety/protected-file conflict | Safety violation | `.governance/SAFETY.md` | Immediate stop; human review required. |
-| ROADMAP status contradicts runtime task status | Planning/runtime drift | `ROADMAP.md` + `task-state` | `reconcile-roadmap-task-state.mjs` should report; human decision if destructive/ambiguous. |
+| Conflict type                                             | Classification                  | Authority to inspect                   | Recovery owner                                                                             |
+| --------------------------------------------------------- | ------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Run status and task status are inconsistent but parseable | Runtime lifecycle inconsistency | `current-run` + `task-state` + history | Future lifecycle consistency checker; human recovery if ambiguity exists.                  |
+| History evidence contradicts current run/task state       | Evidence/current-state mismatch | Current state first, evidence second   | Human recovery unless a deterministic repair rule exists.                                  |
+| Validation/review evidence missing for terminal success   | Completion-gate inconsistency   | `VERIFY.md`, validation/review JSONL   | Human review; no automatic done claim.                                                     |
+| Safety/protected-file conflict                            | Safety violation                | `.governance/SAFETY.md`                | Immediate stop; human review required.                                                     |
+| ROADMAP status contradicts runtime task status            | Planning/runtime drift          | `ROADMAP.md` + `task-state`            | `reconcile-roadmap-task-state.mjs` should report; human decision if destructive/ambiguous. |
 
 ### 2.4 Automatic repair policy
 
@@ -113,15 +113,15 @@ Legend:
 - **T** = transitional or recovery-only; may exist briefly during a guarded transaction or under explicit recovery handling
 
 | Run status \ Task status | not_started | in_progress | needs_validation | needs_review | done | failed | blocked | cancelled | skipped |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `planned` | V | T | I | I | I | I | T | T | I |
-| `active` | T | V | T | I | I | T | T | T | I |
-| `validating` | I | T | V | T | I | T | T | T | I |
-| `needs_review` | I | T | T | V | T | T | T | T | I |
-| `completed` | I | I | I | T | V | I | I | I | I |
-| `failed` | I | T | T | I | I | V | T | T | I |
-| `blocked` | T | T | T | T | I | T | V | T | I |
-| `cancelled` | T | T | I | T | I | T | T | V | T |
+| ------------------------ | ----------: | ----------: | ---------------: | -----------: | ---: | -----: | ------: | --------: | ------: |
+| `planned`                |           V |           T |                I |            I |    I |      I |       T |         T |       I |
+| `active`                 |           T |           V |                T |            I |    I |      T |       T |         T |       I |
+| `validating`             |           I |           T |                V |            T |    I |      T |       T |         T |       I |
+| `needs_review`           |           I |           T |                T |            V |    T |      T |       T |         T |       I |
+| `completed`              |           I |           I |                I |            T |    V |      I |       I |         I |       I |
+| `failed`                 |           I |           T |                T |            I |    I |      V |       T |         T |       I |
+| `blocked`                |           T |           T |                T |            T |    I |      T |       V |         T |       I |
+| `cancelled`              |           T |           T |                I |            T |    I |      T |       T |         V |       T |
 
 ### Matrix interpretation
 
@@ -142,73 +142,73 @@ Each transition must be treated as a lifecycle boundary and produce current-stat
 
 ### 4.1 `planned -> active`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | `runs/current-run.json.status = "active"`; set `started_at`, `updated_at`, worker adapter metadata, and envelope metadata. |
-| Required task update | `not_started -> in_progress`; increment `attempt_count` exactly once only after the complete transaction succeeds. |
-| Required history event | Append `run.started`; append `task.started`. |
-| Required evidence linkage | Both events include `run_id`, `task_id`, previous/new statuses, actor, source, timestamp, and envelope metadata link. |
-| Human review required? | Not before start if all gates pass; human review required later before completion/next task. Human recovery required if inconsistency is detected. |
+| Requirement               | Rule                                                                                                                                               |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Required run update       | `runs/current-run.json.status = "active"`; set `started_at`, `updated_at`, worker adapter metadata, and envelope metadata.                         |
+| Required task update      | `not_started -> in_progress`; increment `attempt_count` exactly once only after the complete transaction succeeds.                                 |
+| Required history event    | Append `run.started`; append `task.started`.                                                                                                       |
+| Required evidence linkage | Both events include `run_id`, `task_id`, previous/new statuses, actor, source, timestamp, and envelope metadata link.                              |
+| Human review required?    | Not before start if all gates pass; human review required later before completion/next task. Human recovery required if inconsistency is detected. |
 
 ### 4.2 `active -> validating`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | `status = "validating"`; set `updated_at`; optionally set validation start metadata. |
-| Required task update | `in_progress -> needs_validation`. |
-| Required history event | Append `run.validation_started`; append `task.validation_requested` or equivalent future canonical task event. |
+| Requirement               | Rule                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Required run update       | `status = "validating"`; set `updated_at`; optionally set validation start metadata.                               |
+| Required task update      | `in_progress -> needs_validation`.                                                                                 |
+| Required history event    | Append `run.validation_started`; append `task.validation_requested` or equivalent future canonical task event.     |
 | Required evidence linkage | Link validation command/category to `run_id` and `task_id`; no validation result required yet at transition start. |
-| Human review required? | No, unless worker output is incomplete, safety concerns exist, or validation cannot be run. |
+| Human review required?    | No, unless worker output is incomplete, safety concerns exist, or validation cannot be run.                        |
 
 ### 4.3 `validating -> needs_review`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | `status = "needs_review"`; set `updated_at`; include validation summary reference. |
-| Required task update | `needs_validation -> needs_review`. |
-| Required history event | Append `run.review_requested`; append `task.review_requested`. |
+| Requirement               | Rule                                                                                                                                    |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Required run update       | `status = "needs_review"`; set `updated_at`; include validation summary reference.                                                      |
+| Required task update      | `needs_validation -> needs_review`.                                                                                                     |
+| Required history event    | Append `run.review_requested`; append `task.review_requested`.                                                                          |
 | Required evidence linkage | A `validation.completed` evidence record with `overall_result: passed` or accepted equivalent must exist and link `run_id` + `task_id`. |
-| Human review required? | Yes. This transition is the explicit review gate. |
+| Human review required?    | Yes. This transition is the explicit review gate.                                                                                       |
 
 ### 4.4 `needs_review -> completed`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | `status = "completed"`; set `completed_at`, `updated_at`, and completion summary. |
-| Required task update | `needs_review -> done`. |
-| Required history event | Append `run.completed`; append `task.completed`. |
-| Required evidence linkage | Required validation evidence and required review acceptance evidence must link `run_id` and `task_id`. |
-| Human review required? | Yes. Completion is allowed only after required human review is accepted or task explicitly does not require review. |
+| Requirement               | Rule                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Required run update       | `status = "completed"`; set `completed_at`, `updated_at`, and completion summary.                                   |
+| Required task update      | `needs_review -> done`.                                                                                             |
+| Required history event    | Append `run.completed`; append `task.completed`.                                                                    |
+| Required evidence linkage | Required validation evidence and required review acceptance evidence must link `run_id` and `task_id`.              |
+| Human review required?    | Yes. Completion is allowed only after required human review is accepted or task explicitly does not require review. |
 
 ### 4.5 `active -> blocked / failed / cancelled`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | Set terminal/stop status; set `updated_at`; include `blocked_reason`, `failure_reason`, or `cancel_reason`. |
-| Required task update | `in_progress -> blocked`, `failed`, or `cancelled`. |
-| Required history event | Append `run.blocked`, `run.failed`, or `run.cancelled`; append matching task event. |
+| Requirement               | Rule                                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Required run update       | Set terminal/stop status; set `updated_at`; include `blocked_reason`, `failure_reason`, or `cancel_reason`.                        |
+| Required task update      | `in_progress -> blocked`, `failed`, or `cancelled`.                                                                                |
+| Required history event    | Append `run.blocked`, `run.failed`, or `run.cancelled`; append matching task event.                                                |
 | Required evidence linkage | Link blocker/failure/cancellation cause to `run_id` and `task_id`; include changed-files/verification disclosure if work occurred. |
-| Human review required? | Yes for blocked/failed/cancelled active work before retry or new run. |
+| Human review required?    | Yes for blocked/failed/cancelled active work before retry or new run.                                                              |
 
 ### 4.6 `validating -> failed / blocked`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | Set `failed` or `blocked`; include validation failure details or blocker. |
-| Required task update | `needs_validation -> failed` or `blocked`. |
-| Required history event | Append `run.failed` or `run.blocked`; append matching task event. |
-| Required evidence linkage | Link validation result or blocker to `run_id` and `task_id`. |
-| Human review required? | Yes when validation fails or cannot be resolved within scope. |
+| Requirement               | Rule                                                                      |
+| ------------------------- | ------------------------------------------------------------------------- |
+| Required run update       | Set `failed` or `blocked`; include validation failure details or blocker. |
+| Required task update      | `needs_validation -> failed` or `blocked`.                                |
+| Required history event    | Append `run.failed` or `run.blocked`; append matching task event.         |
+| Required evidence linkage | Link validation result or blocker to `run_id` and `task_id`.              |
+| Human review required?    | Yes when validation fails or cannot be resolved within scope.             |
 
 ### 4.7 `needs_review -> failed / blocked / cancelled`
 
-| Requirement | Rule |
-|---|---|
-| Required run update | Set `failed`, `blocked`, or `cancelled`; include review outcome/reason. |
-| Required task update | `needs_review -> failed`, `blocked`, or `cancelled`. |
-| Required history event | Append `run.failed`, `run.blocked`, or `run.cancelled`; append matching task event. |
-| Required evidence linkage | Link review rejection/revision/blocker evidence to `run_id` and `task_id`. |
-| Human review required? | Yes; this transition is driven by review outcome or human cancellation. |
+| Requirement               | Rule                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| Required run update       | Set `failed`, `blocked`, or `cancelled`; include review outcome/reason.             |
+| Required task update      | `needs_review -> failed`, `blocked`, or `cancelled`.                                |
+| Required history event    | Append `run.failed`, `run.blocked`, or `run.cancelled`; append matching task event. |
+| Required evidence linkage | Link review rejection/revision/blocker evidence to `run_id` and `task_id`.          |
+| Human review required?    | Yes; this transition is driven by review outcome or human cancellation.             |
 
 ---
 
@@ -286,16 +286,16 @@ However, this creates a known transitional state (`active` + `not_started`) and 
 
 ## 6. Partial Failure and Recovery States
 
-| Case | Severity | Recovery recommendation | Auto repair allowed? | Human review required? |
-|---|---|---|---:|---:|
-| `run.started` exists but task remains `not_started` | High | Do not retry normal start. Confirm current run status, verify no worker executed, then use future recovery CLI to either complete task start (`in_progress` + `task.started`) or cancel/block run with evidence. | No | Yes |
-| `current-run` active but no `run.started` event | High | Treat as partial start missing evidence. Do not append ad hoc repair in start command. Human decides whether to restore to `planned`, append recovery event, or block/cancel. | No | Yes |
-| Task `in_progress` but current-run `planned` | Medium/High | Determine whether task was started outside run lifecycle. If no `run.started`, either restore task to `not_started` or start run via recovery path. | No | Yes |
-| Task `done` but run `active` | Critical | Completion/current-run mismatch. Verify validation and review evidence. If evidence exists, recover run to `completed`; otherwise block and investigate false done claim. | No | Yes |
-| Run `completed` but task not `done` | Critical | Completion/task mismatch. Verify validation and review evidence. If task update failed after legitimate completion, recover task to `done`; otherwise downgrade/block run via recovery. | No | Yes |
-| Duplicate `run.started` events | Critical | Corrupt idempotency state. Block normal automation. Future recovery may mark duplicate as historical anomaly but must not rewrite JSONL. | No | Yes |
-| Missing `task.started` event | High | If task is `in_progress` and run has `run.started`, append-only repair may be possible only through explicit recovery CLI with human confirmation and `task.recovered`/`task.started_recovered` evidence. | Recovery CLI only | Yes |
-| `attempt_count` incremented but no started event | High | Attempt count is not valid without start evidence. Human must decide whether to decrement via state repair or append recovery evidence; do not do automatically in normal command. | No | Yes |
+| Case                                                | Severity    | Recovery recommendation                                                                                                                                                                                          | Auto repair allowed? | Human review required? |
+| --------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------: | ---------------------: |
+| `run.started` exists but task remains `not_started` | High        | Do not retry normal start. Confirm current run status, verify no worker executed, then use future recovery CLI to either complete task start (`in_progress` + `task.started`) or cancel/block run with evidence. |                   No |                    Yes |
+| `current-run` active but no `run.started` event     | High        | Treat as partial start missing evidence. Do not append ad hoc repair in start command. Human decides whether to restore to `planned`, append recovery event, or block/cancel.                                    |                   No |                    Yes |
+| Task `in_progress` but current-run `planned`        | Medium/High | Determine whether task was started outside run lifecycle. If no `run.started`, either restore task to `not_started` or start run via recovery path.                                                              |                   No |                    Yes |
+| Task `done` but run `active`                        | Critical    | Completion/current-run mismatch. Verify validation and review evidence. If evidence exists, recover run to `completed`; otherwise block and investigate false done claim.                                        |                   No |                    Yes |
+| Run `completed` but task not `done`                 | Critical    | Completion/task mismatch. Verify validation and review evidence. If task update failed after legitimate completion, recover task to `done`; otherwise downgrade/block run via recovery.                          |                   No |                    Yes |
+| Duplicate `run.started` events                      | Critical    | Corrupt idempotency state. Block normal automation. Future recovery may mark duplicate as historical anomaly but must not rewrite JSONL.                                                                         |                   No |                    Yes |
+| Missing `task.started` event                        | High        | If task is `in_progress` and run has `run.started`, append-only repair may be possible only through explicit recovery CLI with human confirmation and `task.recovered`/`task.started_recovered` evidence.        |    Recovery CLI only |                    Yes |
+| `attempt_count` incremented but no started event    | High        | Attempt count is not valid without start evidence. Human must decide whether to decrement via state repair or append recovery evidence; do not do automatically in normal command.                               |                   No |                    Yes |
 
 ---
 
@@ -415,34 +415,34 @@ RALPH-030 must:
 
 Minimum test set:
 
-| Area | Mandatory test |
-|---|---|
-| CLI | `--help` prints contract. |
-| Dry-run | Default dry-run writes nothing and prints envelope. |
-| JSON | `--json` output parses and includes envelope, would-change files, and no worker execution. |
-| Write guard | `--write` without `--confirm-write` fails. |
-| Write guard | `--confirm-write` without `--write` fails. |
-| Eligibility | Missing current run fails without writes. |
-| Eligibility | Non-`planned` run fails without writes. |
-| Eligibility | Missing task fails without writes. |
-| Eligibility | Task not `not_started` fails without writes. |
-| Attempt | Attempt capacity exhausted fails without writes. |
-| Idempotency | Existing one `run.started` aborts without writes. |
-| Idempotency | More than one `run.started` aborts as corrupt. |
-| Happy path | Planned run + eligible task transitions to `active` + `in_progress`. |
-| Attempt | Successful start increments `attempt_count` exactly once. |
-| Evidence | Successful start appends exactly one `run.started`. |
-| Evidence | Successful start appends exactly one `task.started` if task-state is updated. |
-| Retry | Retry after successful write does not append events or increment attempt count. |
-| Failure | Simulated current-run write failure restores/no append/no task mutation. |
-| Failure | Simulated task-state write failure restores/no history append where possible and reports partial failure if unavoidable. |
-| Failure | Simulated run-history append failure reports non-success and requires recovery. |
-| Failure | Simulated task-history append failure reports non-success and requires recovery. |
-| Safety | Dirty working tree blocks write mode. |
-| Safety | Reconciler failure blocks write mode. |
-| Safety | Validator failure blocks write mode. |
-| Worker safety | No worker process is spawned in any mode. |
-| Scope | Write mode changes only expected files. |
+| Area          | Mandatory test                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| CLI           | `--help` prints contract.                                                                                                |
+| Dry-run       | Default dry-run writes nothing and prints envelope.                                                                      |
+| JSON          | `--json` output parses and includes envelope, would-change files, and no worker execution.                               |
+| Write guard   | `--write` without `--confirm-write` fails.                                                                               |
+| Write guard   | `--confirm-write` without `--write` fails.                                                                               |
+| Eligibility   | Missing current run fails without writes.                                                                                |
+| Eligibility   | Non-`planned` run fails without writes.                                                                                  |
+| Eligibility   | Missing task fails without writes.                                                                                       |
+| Eligibility   | Task not `not_started` fails without writes.                                                                             |
+| Attempt       | Attempt capacity exhausted fails without writes.                                                                         |
+| Idempotency   | Existing one `run.started` aborts without writes.                                                                        |
+| Idempotency   | More than one `run.started` aborts as corrupt.                                                                           |
+| Happy path    | Planned run + eligible task transitions to `active` + `in_progress`.                                                     |
+| Attempt       | Successful start increments `attempt_count` exactly once.                                                                |
+| Evidence      | Successful start appends exactly one `run.started`.                                                                      |
+| Evidence      | Successful start appends exactly one `task.started` if task-state is updated.                                            |
+| Retry         | Retry after successful write does not append events or increment attempt count.                                          |
+| Failure       | Simulated current-run write failure restores/no append/no task mutation.                                                 |
+| Failure       | Simulated task-state write failure restores/no history append where possible and reports partial failure if unavoidable. |
+| Failure       | Simulated run-history append failure reports non-success and requires recovery.                                          |
+| Failure       | Simulated task-history append failure reports non-success and requires recovery.                                         |
+| Safety        | Dirty working tree blocks write mode.                                                                                    |
+| Safety        | Reconciler failure blocks write mode.                                                                                    |
+| Safety        | Validator failure blocks write mode.                                                                                     |
+| Worker safety | No worker process is spawned in any mode.                                                                                |
+| Scope         | Write mode changes only expected files.                                                                                  |
 
 ---
 

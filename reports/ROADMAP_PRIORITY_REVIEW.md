@@ -37,30 +37,30 @@ Recommended high-level order:
 
 ## Current open tasks and recommended timing
 
-| Task | User value | MVP relevance | Private-use relevance | Technical dependency level | Risk level | Recommended timing |
-| --- | --- | --- | --- | --- | --- | --- |
-| P1-003 Multi-Item Split | Very high: users naturally log meals with multiple foods | Very high | Very high | Medium | Medium | Now |
-| P2-001 Verify Environment Wiring | Medium: prevents confusing runtime failures | Medium | High | Low | Low | Now |
-| P2-002 Enforce Single Supabase Client | Medium: reduces integration drift | Medium | Medium | Medium | Medium | Next |
-| P2-003 Document Edge Functions Deploy Process | Low-to-medium direct user value | Low for private MVP | Medium | Low | Low | Later |
-| P2-007 Deploy & Verify Guardrails | Medium: safe remote operation | Medium | Medium if using remote edge functions | Medium | Medium | Later |
-| P2-008 Apple/Google Login via Supabase Auth | Low for private use, high later | Low now | Low | High | Medium | Much later |
-| P2-009 RevenueCat Entitlements | Low now | Low | Low | High | High | Much later |
-| P2-010 Paid-only Gating for AI Endpoints | Low now | Low | Low | High | Medium | Much later |
-| Phase 3 — Journal | Very high: editability and daily review create trust | Very high | Very high | Medium | Medium | Now |
-| Phase 3 — Goals | Medium: useful but not required for first logging loop | Medium | Medium | Medium | Medium | Next |
-| Phase 3 — Saved Meals | High: reduces repeated logging friction | High | High | Medium | Medium | Next |
-| Phase 3 — Reminders | Medium: retention support, not core accuracy | Medium | Medium | Medium | Medium | Later |
-| Phase 3 — Dashboard | Medium: feedback/progress loop | Medium | Medium | Medium | Medium | Next |
-| Phase 3 — Health Sync | Low for private MVP | Low | Low | High | High | Much later |
-| Phase 3 — Insights | Medium-to-high after enough data exists | Medium later | Medium | High | Medium | Later |
-| RESOLVER-V2-001 Remove Early Translation Layer | High: reduces DACH mismatch and trust loss | High | High | Medium | Medium | Now |
-| RESOLVER-V2-002 Implement Source-Native Query Adapters | High: DACH-first matching foundation | High | High | Medium | Medium | Now |
-| RESOLVER-V2-003 Implement Multi-Source Candidate Retrieval | High: better match quality | High | High | High | Medium-to-high | Next |
-| RESOLVER-V2-004 Build Candidate Fusion Layer | Very high: central trust/quality decisioning | High | High | High | High | Next |
-| RESOLVER-V2-005 Introduce Supabase Knowledge Layer Tables | Medium now, high later | Medium | Medium | High | High | Later |
-| RESOLVER-V2-006 Persist Resolution Decisions | Medium now, high later | Medium | Medium | High | Medium-to-high | Later |
-| RESOLVER-V2-007 AI-Assisted Re-Ranking | Low now due deterministic-first/private-use-first | Low | Low | High | High | Much later |
+| Task                                                       | User value                                               | MVP relevance       | Private-use relevance                 | Technical dependency level | Risk level     | Recommended timing |
+| ---------------------------------------------------------- | -------------------------------------------------------- | ------------------- | ------------------------------------- | -------------------------- | -------------- | ------------------ |
+| P1-003 Multi-Item Split                                    | Very high: users naturally log meals with multiple foods | Very high           | Very high                             | Medium                     | Medium         | Now                |
+| P2-001 Verify Environment Wiring                           | Medium: prevents confusing runtime failures              | Medium              | High                                  | Low                        | Low            | Now                |
+| P2-002 Enforce Single Supabase Client                      | Medium: reduces integration drift                        | Medium              | Medium                                | Medium                     | Medium         | Next               |
+| P2-003 Document Edge Functions Deploy Process              | Low-to-medium direct user value                          | Low for private MVP | Medium                                | Low                        | Low            | Later              |
+| P2-007 Deploy & Verify Guardrails                          | Medium: safe remote operation                            | Medium              | Medium if using remote edge functions | Medium                     | Medium         | Later              |
+| P2-008 Apple/Google Login via Supabase Auth                | Low for private use, high later                          | Low now             | Low                                   | High                       | Medium         | Much later         |
+| P2-009 RevenueCat Entitlements                             | Low now                                                  | Low                 | Low                                   | High                       | High           | Much later         |
+| P2-010 Paid-only Gating for AI Endpoints                   | Low now                                                  | Low                 | Low                                   | High                       | Medium         | Much later         |
+| Phase 3 — Journal                                          | Very high: editability and daily review create trust     | Very high           | Very high                             | Medium                     | Medium         | Now                |
+| Phase 3 — Goals                                            | Medium: useful but not required for first logging loop   | Medium              | Medium                                | Medium                     | Medium         | Next               |
+| Phase 3 — Saved Meals                                      | High: reduces repeated logging friction                  | High                | High                                  | Medium                     | Medium         | Next               |
+| Phase 3 — Reminders                                        | Medium: retention support, not core accuracy             | Medium              | Medium                                | Medium                     | Medium         | Later              |
+| Phase 3 — Dashboard                                        | Medium: feedback/progress loop                           | Medium              | Medium                                | Medium                     | Medium         | Next               |
+| Phase 3 — Health Sync                                      | Low for private MVP                                      | Low                 | Low                                   | High                       | High           | Much later         |
+| Phase 3 — Insights                                         | Medium-to-high after enough data exists                  | Medium later        | Medium                                | High                       | Medium         | Later              |
+| RESOLVER-V2-001 Remove Early Translation Layer             | High: reduces DACH mismatch and trust loss               | High                | High                                  | Medium                     | Medium         | Now                |
+| RESOLVER-V2-002 Implement Source-Native Query Adapters     | High: DACH-first matching foundation                     | High                | High                                  | Medium                     | Medium         | Now                |
+| RESOLVER-V2-003 Implement Multi-Source Candidate Retrieval | High: better match quality                               | High                | High                                  | High                       | Medium-to-high | Next               |
+| RESOLVER-V2-004 Build Candidate Fusion Layer               | Very high: central trust/quality decisioning             | High                | High                                  | High                       | High           | Next               |
+| RESOLVER-V2-005 Introduce Supabase Knowledge Layer Tables  | Medium now, high later                                   | Medium              | Medium                                | High                       | High           | Later              |
+| RESOLVER-V2-006 Persist Resolution Decisions               | Medium now, high later                                   | Medium              | Medium                                | High                       | Medium-to-high | Later              |
+| RESOLVER-V2-007 AI-Assisted Re-Ranking                     | Low now due deterministic-first/private-use-first        | Low                 | Low                                   | High                       | High           | Much later         |
 
 ## Tier grouping
 

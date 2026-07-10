@@ -8,6 +8,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["App.tsx", "Apptest.tsx", "index.ts", "src/**/*.ts", "src/**/*.tsx"],
+  "include": ["App.tsx", "index.ts", "src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "supabase/functions/**"]
 }

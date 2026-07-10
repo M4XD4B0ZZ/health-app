@@ -43,13 +43,110 @@ Rendering (iOS vs. Android vs. Web) oder echtes Gerätefeedback (Haptics, Permis
 
 ## Wie neue Einträge hinzugefügt werden
 
-Wenn eine Session/PR mit einem Hinweis wie *"Ich konnte die UI nicht visuell testen"* endet,
+Wenn eine Session/PR mit einem Hinweis wie _"Ich konnte die UI nicht visuell testen"_ endet,
 trage einen neuen Eintrag unten ein (neueste zuerst) und fülle die Checkliste aus dem passenden
 Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ---
 
 ## Log
+
+### 2026-07-10 — DI-005: Dashboard-Tab entfernt (AppNavigator/DashboardScreen)
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/navigation/AppNavigator.tsx` (Dashboard-Tab-
+  Registrierung entfernt, `RootTabParamList` ohne `Dashboard`, Icon-Branch entfernt),
+  `src/presentation/features/dashboard/DashboardScreen.tsx` (gelöscht, war mock-basiert).
+  Nutzerentscheidung: Dashboard-Tab komplett entfernt, da der Ernährungs-Teil durch den
+  Auswertung-Tab (DI-002) ersetzt ist; Recovery-/Nutrition-Tabs bleiben unangetastet (eigene,
+  separate Frage).
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (107
+  Suites / 813 Tests — keine dedizierten Dashboard-Tests vorhanden, also keine Testabdeckung
+  verloren). Vollständiger Grep nach `DashboardScreen`/`GetDashboardSummary`/`Apptest`
+  bestätigt keine verbleibenden Referenzen im Code.
+- **Nicht verifiziert (visuell):** Tab-Leiste mit einem Tab weniger (Layout/Abstände der
+  verbleibenden Tabs, insbesondere auf schmalen Bildschirmen), dass die App weiterhin korrekt
+  mit `initialRouteName="Journal"` startet, dass kein Navigations-State/Deep-Link mehr auf
+  `Dashboard` verweist.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 4 (Navigation &
+  State). Konkret: App starten, prüfen dass genau sechs Tabs sichtbar sind (Protokoll/
+  Ziele/Ernährung/Erholung/Vorlagen/Auswertung), kein "Dashboard"-Tab mehr vorhanden, keine
+  Crash-/Fehlerdialoge beim Start.
+
+### 2026-07-10 — GE-007: Toter Progress-Call in JournalScreen entfernt
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/features/journal/JournalScreen.tsx` (Entfernung
+  des `computeProgressForDateUseCase`-Aufrufs sowie des verworfenen, nie gerenderten
+  `progress`-States; kein neuer sichtbarer UI-Bestandteil, reine Entfernung von totem Code
+  gemäß Nutzerentscheidung).
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test`
+  (`JournalScreen.submitGuard.test.ts` weiterhin grün). Da nur unbenutzter State/Aufruf
+  entfernt wurde, ist kein Verhaltensunterschied im gerenderten Output zu erwarten.
+- **Nicht verifiziert (visuell):** Dass Journal-Screen-Rendering/-Verhalten (Eingabe,
+  Einträge-Liste, Summary-Bar) tatsächlich unverändert aussieht/funktioniert, insbesondere
+  dass durch den Wegfall des zweiten `try/catch`-Blocks in `loadJournalData()` keine
+  impliziten Timing-/Re-Render-Effekte entstanden sind.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 7
+  (Regressionscheck). Konkret: im Journal-Tab wie gewohnt Essen loggen, Einträge
+  bearbeiten/löschen, Summary-Bar prüfen — sollte sich identisch zum vorherigen Verhalten
+  anfühlen.
+
+### 2026-07-10 — DI-002: Neuer Auswertungs-Tab (EvaluationSummaryScreen)
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
+  (neu), `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Auswertung"/
+  `EvaluationSummary`, Icon `analytics`/`analytics-outline`). Erster echter Consumer der
+  Evaluation Engine (GE-001–GE-005 + DI-001): zeigt Bewertung, Zielfortschritt pro Makro und
+  Warnungen des aktiven Evaluation Profiles für heute, berechnet aus echten
+  Journal-/Ziel-/Metabolismus-Daten. Enthält einen einfachen Ziel-Umschalter (Buttons pro
+  registriertem Profil), der die aktive Auswertung live neu berechnet. Rührt die
+  bestehende, mock-basierte `DashboardScreen`/`GetDashboardSummary` nicht an.
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (106
+  Suites / 801 Tests, inkl. neuer `evaluationSummaryDisplay.test.ts` für die reine
+  Anzeigelogik). Die komplette Anwendungslogik dahinter (Profile/Rules/Settings-Provider/
+  Registry/Use-Cases) ist unit- und end-to-end-getestet (DI-001); nur das tatsächliche
+  Rendering/die Interaktion in der App ist ungetestet, da diese Umgebung headless ist (kein
+  Expo/Simulator, keine React-Native-Testing-Library im Projekt vorhanden).
+- **Nicht verifiziert (visuell):** Tab-Icon/-Reihenfolge in der Bottom-Navigation, Layout des
+  Ziel-Umschalters bei zwei (künftig mehr) Profilen auf schmalen Bildschirmen, Darstellung
+  der Fehlermeldungen (fehlende Ziele/fehlendes Metabolismus-Profil) im Vergleich zu
+  `GoalsScreen`s bestehenden Formularen, Keyboard-/Touch-Verhalten der Umschalt-Buttons.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 2 (Layout & Rendering)
+  und 3 (Interaktion & Eingabe). Konkret: im Ziele-Tab Metabolismus-Profil + Ziele setzen,
+  im Journal etwas loggen, zum "Auswertung"-Tab wechseln — Bewertung + Fortschritt sollten
+  die echten Journal-Daten widerspiegeln; auf "Weight Loss" umschalten und prüfen, dass sich
+  Bewertung/Zielwerte sofort ändern (ohne dass sich die Journal-Einträge ändern).
+
+### 2026-07-10 — SM-005: Neuer Saved-Meals-Tab (SavedMealsScreen)
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/features/savedMeals/SavedMealsScreen.tsx` (neu),
+  `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Vorlagen"/`SavedMeals`,
+  Icon `bookmark`/`bookmark-outline`). Erste UI-Oberfläche für die zuvor komplett
+  unerreichbare Saved-Meals-Domäne (Vorlage aus heutigen Einträgen erstellen, loggen,
+  umbenennen, löschen).
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (94 Suites
+  / 768 Tests, inkl. neuer `savedMealsDisplay.test.ts` für die reine Anzeigelogik
+  `templateTotalCalories`). Die komplette Anwendungslogik dahinter (Create/Log/List/Delete/
+  Rename-Use-Cases, DI-Wiring in `container.ts`) ist unit-getestet; nur das tatsächliche
+  Rendering/die Interaktion in der App ist ungetestet, da diese Umgebung headless ist (kein
+  Expo/Simulator, keine React-Native-Testing-Library im Projekt vorhanden).
+- **Nicht verifiziert (visuell):** Tab-Icon/-Reihenfolge in der Bottom-Navigation, Layout der
+  Template-Zeilen (Name/Zutatenzahl/Kalorien-Schätzung + drei Aktionen "Loggen"/Stift/
+  Papierkorb) auf schmalen Bildschirmen, Rename-Modal (gleiches Muster wie `JournalScreen`s
+  Edit-Modal), Keyboard-Verhalten bei den beiden Texteingaben (Vorlagenname), Verhalten bei
+  sehr vielen Vorlagen (kein Paging/Virtualisierung implementiert — bewusste MVP-Grenze).
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 2 (Layout & Rendering) und
+  3 (Interaktion & Eingabe). Konkret: im Journal-Tab etwas loggen, zum "Vorlagen"-Tab
+  wechseln, Vorlage aus heutigen Einträgen mit Namen erstellen, "Loggen" tippen und im
+  Journal-Tab prüfen, dass ein neuer Eintrag mit demselben Namen/derselben Menge erscheint;
+  Stift-Icon → umbenennen → Speichern; Papierkorb-Icon → Vorlage verschwindet aus der Liste.
 
 ### 2026-07-10 — J-005: Auto-Merge-Undo-Notification in JournalScreen
 
@@ -134,7 +231,7 @@ Gedächtnisstütze gedacht, nicht als persistenter Status (kein Tracking-Tool).
 ### 5. Netzwerk & Backend-Integration (Supabase Edge Functions)
 
 - [ ] Echte Requests gegen `food-off-search` / `food-usda-search` im Gerät/Simulator getestet
-  (nicht nur gemockt in Jest)
+      (nicht nur gemockt in Jest)
 - [ ] Fehlerzustände bei fehlender Internetverbindung sichtbar und verständlich
 - [ ] Ladezeiten/Latenz im echten Netzwerk gefühlt akzeptabel
 
@@ -147,7 +244,7 @@ Gedächtnisstütze gedacht, nicht als persistenter Status (kein Tracking-Tool).
 ### 7. Regressionscheck angrenzender Features
 
 - [ ] Mindestens 1-2 benachbarte, nicht direkt geänderte Screens stichprobenartig gegengeprüft
-  (typische Stelle für unbeabsichtigte Nebenwirkungen bei Shared Components/Theme)
+      (typische Stelle für unbeabsichtigte Nebenwirkungen bei Shared Components/Theme)
 
 ---
 

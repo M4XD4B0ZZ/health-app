@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildWorkerAdapterSimulation,
-  formatWorkerAdapterSimulationPretty
+  formatWorkerAdapterSimulationPretty,
 } from './lib/overnight-worker-adapter-simulator.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -35,7 +35,7 @@ const REJECTED_FLAGS = new Set([
   '--output',
   '--overwrite',
   '--commit',
-  '--push'
+  '--push',
 ]);
 
 function usage() {
@@ -62,7 +62,10 @@ function parseArgs(argv) {
   for (const arg of args) {
     if (arg === '--pretty') options.pretty = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
-    else if (REJECTED_FLAGS.has(arg)) throw new Error(`Execution, worker, adapter, provider, model, prompt, diff, write, commit, or push flag is forbidden for adapter simulator: ${arg}`);
+    else if (REJECTED_FLAGS.has(arg))
+      throw new Error(
+        `Execution, worker, adapter, provider, model, prompt, diff, write, commit, or push flag is forbidden for adapter simulator: ${arg}`,
+      );
     else if (arg.startsWith('--')) throw new Error(`Unknown argument: ${arg}`);
     else if (!options.queuePath) options.queuePath = arg;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -107,7 +110,11 @@ async function main() {
       phase: 'RALPH-034K',
       mode: 'worker_adapter_simulation_only',
       valid: false,
-      error: { code: 'queue_read_or_parse_failed', message: error.message, queue_path: options.queuePath },
+      error: {
+        code: 'queue_read_or_parse_failed',
+        message: error.message,
+        queue_path: options.queuePath,
+      },
       execution_plan: {
         queued_tasks_executed: 0,
         worker_invocations: 0,
@@ -122,8 +129,8 @@ async function main() {
         product_work: 0,
         files_written: 0,
         commits: false,
-        push: false
-      }
+        push: false,
+      },
     };
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);

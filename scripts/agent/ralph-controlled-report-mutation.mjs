@@ -3,7 +3,10 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { formatControlledMutationSummary, runControlledReportMutation } from './lib/ralph-controlled-report-mutation.mjs';
+import {
+  formatControlledMutationSummary,
+  runControlledReportMutation,
+} from './lib/ralph-controlled-report-mutation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 

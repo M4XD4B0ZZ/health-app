@@ -146,25 +146,25 @@ node scripts/agent/start-runtime-run.mjs --adapter cline --write --confirm-write
 node scripts/agent/start-runtime-run.mjs --help
 ```
 
-| Flag | Default | Purpose |
-| --- | ---: | --- |
-| `--adapter <name>` | `cline` | Select worker adapter overlay. |
-| `--json` | `false` | Emit machine-readable JSON result. |
-| `--write` | `false` | Enable state mutation. Requires `--confirm-write`. |
-| `--confirm-write` | `false` | Confirm explicit write intent. Requires `--write`. |
-| `--print-envelope` | `true` | Print envelope to stdout. No file write. |
+| Flag                        | Default | Purpose                                                                            |
+| --------------------------- | ------: | ---------------------------------------------------------------------------------- |
+| `--adapter <name>`          | `cline` | Select worker adapter overlay.                                                     |
+| `--json`                    | `false` | Emit machine-readable JSON result.                                                 |
+| `--write`                   | `false` | Enable state mutation. Requires `--confirm-write`.                                 |
+| `--confirm-write`           | `false` | Confirm explicit write intent. Requires `--write`.                                 |
+| `--print-envelope`          |  `true` | Print envelope to stdout. No file write.                                           |
 | `--skip-working-tree-check` | `false` | Test-only/internal fixture escape hatch. Must be documented as not for normal use. |
-| `--help`, `-h` | `false` | Print usage and exit. |
+| `--help`, `-h`              | `false` | Print usage and exit.                                                              |
 
 ### Exit Codes
 
-| Code | Name | Meaning |
-| ---: | --- | --- |
-| `0` | `OK` | Dry-run succeeded or write transaction fully completed. |
-| `1` | `VALIDATION_FAILURE` | Preflight, schema, idempotency, adapter, reconciler, validator, dirty tree, or safety gate failed. No attempted write should be considered successful. |
-| `2` | `START_FAILURE` | Write transaction failed or rollback was required. |
-| `3` | `INELIGIBLE_RUN_OR_TASK` | Current run/task missing, not planned, not eligible, or attempt capacity exhausted. |
-| `4` | `IDEMPOTENCY_FAILURE` | Duplicate `run.started` event or inconsistent already-started state detected. |
+| Code | Name                     | Meaning                                                                                                                                                |
+| ---: | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  `0` | `OK`                     | Dry-run succeeded or write transaction fully completed.                                                                                                |
+|  `1` | `VALIDATION_FAILURE`     | Preflight, schema, idempotency, adapter, reconciler, validator, dirty tree, or safety gate failed. No attempted write should be considered successful. |
+|  `2` | `START_FAILURE`          | Write transaction failed or rollback was required.                                                                                                     |
+|  `3` | `INELIGIBLE_RUN_OR_TASK` | Current run/task missing, not planned, not eligible, or attempt capacity exhausted.                                                                    |
+|  `4` | `IDEMPOTENCY_FAILURE`    | Duplicate `run.started` event or inconsistent already-started state detected.                                                                          |
 
 ### JSON Output Schema
 
@@ -449,11 +449,11 @@ record.event_type === "run.started"
 
 Behavior:
 
-| Count | Meaning | Action |
-| ---: | --- | --- |
-| `0` | Safe to start if all other gates pass. | Continue. |
-| `1` | Already started. | Abort as duplicate start. Do not mutate files. |
-| `>1` | Corrupt idempotency state. | Abort as idempotency failure. Require human recovery. |
+| Count | Meaning                                | Action                                                |
+| ----: | -------------------------------------- | ----------------------------------------------------- |
+|   `0` | Safe to start if all other gates pass. | Continue.                                             |
+|   `1` | Already started.                       | Abort as duplicate start. Do not mutate files.        |
+|  `>1` | Corrupt idempotency state.             | Abort as idempotency failure. Require human recovery. |
 
 Also abort if `current-run.json` has `status !== "planned"` or a non-null `started_at`, even if history is missing, unless a future explicit recovery mode exists.
 
@@ -501,20 +501,20 @@ The future implementation should validate:
 
 The future implementation must run gates in this order and abort at the first blocking failure unless JSON output is explicitly designed to collect all failures without mutation.
 
-| Order | Gate | Pass Criteria | Abort Behavior |
-| ---: | --- | --- | --- |
-| 1 | Current run exists | `runs/current-run.json` parses and contains `run_id`, `task_id` or compatible task ID, and `status`. | Exit `3`; no writes. |
-| 2 | Planned status | Run status is exactly `planned`; `started_at` is null or absent. | Exit `3`; no writes. |
-| 3 | Task exists | Matching task exists in `tasks/task-state.json`. | Exit `3`; no writes. |
-| 4 | Task eligible | Task status is `not_started`; task is runtime-eligible; task is not blocked/done/failed/cancelled. | Exit `3`; no writes. |
-| 5 | Attempt capacity | `attempt_count < max_attempts`; missing values use safe defaults only if validated by existing state schema. | Exit `3`; no writes. |
-| 6 | Idempotency precheck | Zero `run.started` events exist for the `run_id`; no inconsistent started state. | Exit `4`; no writes. |
-| 7 | Scope integrity | Allowed/forbidden arrays are present from task and/or run snapshots; protected-file conflicts are rejected. | Exit `1`; no writes. |
-| 8 | Clean working tree | Write mode requires clean `git status --porcelain`; dry-run may report but must not require clean tree unless strict mode is later added. | Exit `1`; no writes. |
-| 9 | Reconciler green | `node scripts/agent/reconcile-roadmap-task-state.mjs --json` exits `0`. | Exit `1`; no writes. |
-| 10 | Validator green | `node scripts/agent/validate-ralph-state.mjs --json` exits `0`. | Exit `1`; no writes. |
-| 11 | Adapter supported | Adapter has a known policy file, e.g. `.agent/adapters/cline.md`. | Exit `1`; no writes. |
-| 12 | Envelope generation succeeds | Envelope is generated in memory and passes schema checks. | Exit `2`; no writes. |
+| Order | Gate                         | Pass Criteria                                                                                                                             | Abort Behavior       |
+| ----: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+|     1 | Current run exists           | `runs/current-run.json` parses and contains `run_id`, `task_id` or compatible task ID, and `status`.                                      | Exit `3`; no writes. |
+|     2 | Planned status               | Run status is exactly `planned`; `started_at` is null or absent.                                                                          | Exit `3`; no writes. |
+|     3 | Task exists                  | Matching task exists in `tasks/task-state.json`.                                                                                          | Exit `3`; no writes. |
+|     4 | Task eligible                | Task status is `not_started`; task is runtime-eligible; task is not blocked/done/failed/cancelled.                                        | Exit `3`; no writes. |
+|     5 | Attempt capacity             | `attempt_count < max_attempts`; missing values use safe defaults only if validated by existing state schema.                              | Exit `3`; no writes. |
+|     6 | Idempotency precheck         | Zero `run.started` events exist for the `run_id`; no inconsistent started state.                                                          | Exit `4`; no writes. |
+|     7 | Scope integrity              | Allowed/forbidden arrays are present from task and/or run snapshots; protected-file conflicts are rejected.                               | Exit `1`; no writes. |
+|     8 | Clean working tree           | Write mode requires clean `git status --porcelain`; dry-run may report but must not require clean tree unless strict mode is later added. | Exit `1`; no writes. |
+|     9 | Reconciler green             | `node scripts/agent/reconcile-roadmap-task-state.mjs --json` exits `0`.                                                                   | Exit `1`; no writes. |
+|    10 | Validator green              | `node scripts/agent/validate-ralph-state.mjs --json` exits `0`.                                                                           | Exit `1`; no writes. |
+|    11 | Adapter supported            | Adapter has a known policy file, e.g. `.agent/adapters/cline.md`.                                                                         | Exit `1`; no writes. |
+|    12 | Envelope generation succeeds | Envelope is generated in memory and passes schema checks.                                                                                 | Exit `2`; no writes. |
 
 ### Write-Mode Guards
 
@@ -693,34 +693,34 @@ Required behavior:
 
 ## 10. Test Matrix
 
-| Area | Test | Expected Result |
-| --- | --- | --- |
-| Help | `--help` prints contract | Exit `0`; no writes. |
-| Dry-run | Default mode | Envelope printed; no files changed. |
-| Dry-run | `--json` | JSON parses; includes full envelope and would-change list. |
-| Happy path | Planned run, eligible task, no started event | Write mode transitions run to `active`, appends one `run.started`, updates task to `in_progress`, appends one `task.started`, attempt count increases by one after completion. |
-| Duplicate start | One existing `run.started` for run | Abort; no writes; attempt count unchanged. |
-| Duplicate corrupt | More than one `run.started` for run | Abort idempotency failure; no writes. |
-| Inconsistent state | `active` current run without `run.started` | Abort; no writes; human recovery required. |
-| Append failure | Simulated `run-history` append failure | Restore current-run; task state unchanged; attempt unchanged; exit non-zero. |
-| Write failure | Simulated current-run write failure | Restore/remove temp; no append; task unchanged; attempt unchanged. |
-| Task-state failure | Simulated task-state write failure | No task-history append; attempt not considered increased; partial failure reported if run-history already appended. |
-| Task-history failure | Simulated task-history append failure | Attempt rollback where possible; partial failure reported; no success claim. |
-| Gate failure | Missing current run | Abort; no writes. |
-| Gate failure | Non-planned run | Abort; no writes. |
-| Gate failure | Missing task | Abort; no writes. |
-| Gate failure | Task not `not_started` | Abort; no writes. |
-| Gate failure | Attempt capacity exhausted | Abort; no writes. |
-| Gate failure | Dirty working tree in write mode | Abort; no writes. |
-| Gate failure | Reconciler non-zero | Abort; no writes. |
-| Gate failure | Validator non-zero | Abort; no writes. |
-| Gate failure | Unsupported adapter | Abort; no writes. |
-| Envelope | Cline adapter selected | Envelope includes `.agent/adapters/cline.md` and PowerShell command-safety constraints. |
-| Attempt rule | Any failure before complete transaction | `attempt_count` unchanged. |
-| Attempt rule | Successful write transaction | `attempt_count` increments exactly once. |
-| Idempotency | Retry after successful write | Abort duplicate; no second `run.started`; no second attempt increment. |
-| Worker safety | Write mode | No worker process spawned. |
-| Scope safety | Generated result | Only expected runtime files would change in write mode. |
+| Area                 | Test                                         | Expected Result                                                                                                                                                                |
+| -------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Help                 | `--help` prints contract                     | Exit `0`; no writes.                                                                                                                                                           |
+| Dry-run              | Default mode                                 | Envelope printed; no files changed.                                                                                                                                            |
+| Dry-run              | `--json`                                     | JSON parses; includes full envelope and would-change list.                                                                                                                     |
+| Happy path           | Planned run, eligible task, no started event | Write mode transitions run to `active`, appends one `run.started`, updates task to `in_progress`, appends one `task.started`, attempt count increases by one after completion. |
+| Duplicate start      | One existing `run.started` for run           | Abort; no writes; attempt count unchanged.                                                                                                                                     |
+| Duplicate corrupt    | More than one `run.started` for run          | Abort idempotency failure; no writes.                                                                                                                                          |
+| Inconsistent state   | `active` current run without `run.started`   | Abort; no writes; human recovery required.                                                                                                                                     |
+| Append failure       | Simulated `run-history` append failure       | Restore current-run; task state unchanged; attempt unchanged; exit non-zero.                                                                                                   |
+| Write failure        | Simulated current-run write failure          | Restore/remove temp; no append; task unchanged; attempt unchanged.                                                                                                             |
+| Task-state failure   | Simulated task-state write failure           | No task-history append; attempt not considered increased; partial failure reported if run-history already appended.                                                            |
+| Task-history failure | Simulated task-history append failure        | Attempt rollback where possible; partial failure reported; no success claim.                                                                                                   |
+| Gate failure         | Missing current run                          | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Non-planned run                              | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Missing task                                 | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Task not `not_started`                       | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Attempt capacity exhausted                   | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Dirty working tree in write mode             | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Reconciler non-zero                          | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Validator non-zero                           | Abort; no writes.                                                                                                                                                              |
+| Gate failure         | Unsupported adapter                          | Abort; no writes.                                                                                                                                                              |
+| Envelope             | Cline adapter selected                       | Envelope includes `.agent/adapters/cline.md` and PowerShell command-safety constraints.                                                                                        |
+| Attempt rule         | Any failure before complete transaction      | `attempt_count` unchanged.                                                                                                                                                     |
+| Attempt rule         | Successful write transaction                 | `attempt_count` increments exactly once.                                                                                                                                       |
+| Idempotency          | Retry after successful write                 | Abort duplicate; no second `run.started`; no second attempt increment.                                                                                                         |
+| Worker safety        | Write mode                                   | No worker process spawned.                                                                                                                                                     |
+| Scope safety         | Generated result                             | Only expected runtime files would change in write mode.                                                                                                                        |
 
 ---
 

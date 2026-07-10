@@ -1,5 +1,8 @@
 import { CreateSavedMealFromDateUseCase } from '../application/usecases/CreateSavedMealFromDateUseCase';
 import { LogSavedMealToDateUseCase } from '../application/usecases/LogSavedMealToDateUseCase';
+import { ListSavedMealTemplatesUseCase } from '../application/usecases/ListSavedMealTemplatesUseCase';
+import { DeleteSavedMealTemplateUseCase } from '../application/usecases/DeleteSavedMealTemplateUseCase';
+import { RenameSavedMealTemplateUseCase } from '../application/usecases/RenameSavedMealTemplateUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
 import { InMemorySavedMealRepository } from '../infrastructure/repositories/InMemorySavedMealRepository';
 import { InMemoryNutritionLookup } from '../infrastructure/repositories/InMemoryNutritionLookup';
@@ -119,10 +122,12 @@ describe('Saved Meals System', () => {
       expect(template.items[0]).toEqual({
         parsedName: 'chicken',
         quantityGrams: 200,
+        per100g: { calories: 165, protein: 31, carbs: 0, fat: 3.5 },
       });
       expect(template.items[1]).toEqual({
         parsedName: 'rice',
         quantityGrams: 150,
+        per100g: { calories: 130, protein: 2.8, carbs: 28, fat: 0.3 },
       });
       expect(template.id).toBe('id-1');
       expect(template.createdAt).toEqual(clock.now());
@@ -171,6 +176,92 @@ describe('Saved Meals System', () => {
       // Assert: Only chicken should be included
       expect(template.items).toHaveLength(1);
       expect(template.items[0].parsedName).toBe('chicken');
+    });
+
+    it('should copy foodCatalogRef from source entries that have one (SM-001)', async () => {
+      // Arrange: one entry with a foodCatalogRef, one without
+      const dateISO = '2024-01-15';
+      const entries: FoodEntry[] = [
+        {
+          id: 'e1',
+          rawInput: '200g chicken',
+          parsedName: 'chicken',
+          quantityGrams: 200,
+          calories: 330,
+          protein: 62,
+          carbs: 0,
+          fat: 7,
+          confidenceScore: 0.9,
+          sourceType: 'branded',
+          createdAt: new Date(dateISO + 'T08:00:00Z'),
+          foodCatalogRef: {
+            source: 'off',
+            sourceId: 'off-123',
+            displayName: 'Chicken Breast',
+            confidence: 0.9,
+          },
+        },
+        {
+          id: 'e2',
+          rawInput: '150g rice',
+          parsedName: 'rice',
+          quantityGrams: 150,
+          calories: 195,
+          protein: 4.2,
+          carbs: 42,
+          fat: 0.45,
+          confidenceScore: 0.6,
+          sourceType: 'generic',
+          createdAt: new Date(dateISO + 'T08:00:00Z'),
+          // no foodCatalogRef
+        },
+      ];
+
+      for (const entry of entries) {
+        await foodEntryRepo.addEntry(entry);
+      }
+
+      // Act
+      const template = await createUseCase.execute(dateISO, 'My Lunch');
+
+      // Assert
+      expect(template.items[0].foodCatalogRef).toEqual({
+        source: 'off',
+        sourceId: 'off-123',
+        displayName: 'Chicken Breast',
+        confidence: 0.9,
+      });
+      expect(template.items[1].foodCatalogRef).toBeUndefined();
+    });
+
+    it('should derive a frozen per100g snapshot from source entry macros (SM-002)', async () => {
+      // Arrange: 200g chicken at 330 kcal/62 protein/0 carbs/7 fat -> per100g halves
+      const dateISO = '2024-01-15';
+      const entry: FoodEntry = {
+        id: 'e1',
+        rawInput: '200g chicken',
+        parsedName: 'chicken',
+        quantityGrams: 200,
+        calories: 330,
+        protein: 62,
+        carbs: 0,
+        fat: 7,
+        confidenceScore: 0.9,
+        sourceType: 'branded',
+        createdAt: new Date(dateISO + 'T08:00:00Z'),
+      };
+      await foodEntryRepo.addEntry(entry);
+
+      // Act
+      const template = await createUseCase.execute(dateISO, 'My Lunch');
+
+      // Assert
+      expect(template.items[0].per100g).toEqual({
+        calories: 165,
+        protein: 31,
+        carbs: 0,
+        fat: 3.5,
+      });
     });
 
     it('should persist template to repository', async () => {
@@ -326,6 +417,97 @@ describe('Saved Meals System', () => {
         'SavedMealTemplate with id non-existent-id not found',
       );
     });
+
+    it('should use the frozen per100g snapshot deterministically, without NutritionLookup (SM-002)', async () => {
+      // Arrange: template item carries a per100g snapshot + foodCatalogRef, and its name is
+      // deliberately NOT registered in `lookup`, so any fallback to NutritionLookup would
+      // throw ZERO_MACROS_BLOCKED instead of succeeding.
+      const template = {
+        id: 'template-1',
+        name: 'Snapshot Meal',
+        items: [
+          {
+            parsedName: 'unregistered-branded-food',
+            quantityGrams: 200,
+            per100g: { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+            foodCatalogRef: {
+              source: 'off' as const,
+              sourceId: 'off-999',
+              displayName: 'Branded Chicken',
+              confidence: 0.95,
+            },
+          },
+        ],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act
+      const entries = await logUseCase.execute('template-1', '2024-01-16');
+
+      // Assert: macros computed from the frozen snapshot (165 * 2 = 330 kcal, etc.)
+      expect(entries[0].calories).toBe(330);
+      expect(entries[0].protein).toBe(62);
+      expect(entries[0].carbs).toBe(0);
+      expect(entries[0].fat).toBe(7.2);
+      expect(entries[0].sourceType).toBe('cache');
+      expect(entries[0].confidenceScore).toBe(0.8); // cache confidence
+      expect(entries[0].foodCatalogRef).toEqual(template.items[0].foodCatalogRef);
+      expect(entries[0].nutritionSnapshot).toEqual({
+        kcal: 330,
+        protein: 62,
+        carbs: 0,
+        fat: 7.2,
+      });
+    });
+
+    it('should always set nutritionSnapshot, including on the by-name fallback path', async () => {
+      // Arrange: legacy template item without per100g (pre-SM-002)
+      const template = {
+        id: 'template-1',
+        name: 'Legacy Meal',
+        items: [{ parsedName: 'banana', quantityGrams: 100 }],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act
+      const entries = await logUseCase.execute('template-1', '2024-01-16');
+
+      // Assert
+      expect(entries[0].nutritionSnapshot).toEqual({
+        kcal: entries[0].calories,
+        protein: entries[0].protein,
+        carbs: entries[0].carbs,
+        fat: entries[0].fat,
+      });
+      expect(entries[0].foodCatalogRef).toBeUndefined();
+    });
+
+    it('should still block zero-macro entries when a per100g snapshot itself is zero', async () => {
+      // Arrange
+      const template = {
+        id: 'template-zero-per100g',
+        name: 'Zero Snapshot Meal',
+        items: [
+          {
+            parsedName: 'zero-snapshot-food',
+            quantityGrams: 100,
+            per100g: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          },
+        ],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act & Assert
+      await expect(logUseCase.execute('template-zero-per100g', '2024-01-17')).rejects.toThrow(
+        'ZERO_MACROS_BLOCKED for saved meal item: 100g zero-snapshot-food',
+      );
+    });
   });
 
   describe('Integration: Full workflow', () => {
@@ -415,6 +597,90 @@ describe('Saved Meals System', () => {
       // Verify: No entries were persisted
       const persistedEntries = await foodEntryRepo.listEntriesForDate('2024-01-17');
       expect(persistedEntries).toHaveLength(0);
+    });
+  });
+
+  describe('Template Management Use Cases (SM-003)', () => {
+    let listUseCase: ListSavedMealTemplatesUseCase;
+    let deleteUseCase: DeleteSavedMealTemplateUseCase;
+    let renameUseCase: RenameSavedMealTemplateUseCase;
+
+    beforeEach(() => {
+      listUseCase = new ListSavedMealTemplatesUseCase(savedMealRepo);
+      deleteUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepo);
+      renameUseCase = new RenameSavedMealTemplateUseCase(savedMealRepo, clock);
+    });
+
+    it('ListSavedMealTemplatesUseCase returns all templates', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await savedMealRepo.create({
+        id: 't2',
+        name: 'Dinner',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      const templates = await listUseCase.execute();
+
+      expect(templates).toHaveLength(2);
+      expect(templates.map((t) => t.name).sort()).toEqual(['Dinner', 'Lunch']);
+    });
+
+    it('ListSavedMealTemplatesUseCase returns an empty array when none exist', async () => {
+      expect(await listUseCase.execute()).toEqual([]);
+    });
+
+    it('DeleteSavedMealTemplateUseCase removes a template by id', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      await deleteUseCase.execute('t1');
+
+      expect(await savedMealRepo.getById('t1')).toBeNull();
+    });
+
+    it('DeleteSavedMealTemplateUseCase is a no-op for an unknown id', async () => {
+      await expect(deleteUseCase.execute('does-not-exist')).resolves.toBeUndefined();
+    });
+
+    it('RenameSavedMealTemplateUseCase updates name and updatedAt', async () => {
+      const createdAt = new Date('2024-01-10T10:00:00Z');
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Old Name',
+        items: [{ parsedName: 'chicken', quantityGrams: 200 }],
+        createdAt,
+        updatedAt: createdAt,
+      });
+
+      clock.setTime(new Date('2024-01-20T12:00:00Z'));
+      const updated = await renameUseCase.execute('t1', 'New Name');
+
+      expect(updated.name).toBe('New Name');
+      expect(updated.updatedAt).toEqual(new Date('2024-01-20T12:00:00Z'));
+      expect(updated.createdAt).toEqual(createdAt);
+      expect(updated.items).toEqual([{ parsedName: 'chicken', quantityGrams: 200 }]);
+
+      const persisted = await savedMealRepo.getById('t1');
+      expect(persisted?.name).toBe('New Name');
+    });
+
+    it('RenameSavedMealTemplateUseCase rejects an unknown id', async () => {
+      await expect(renameUseCase.execute('does-not-exist', 'New Name')).rejects.toThrow(
+        'SavedMealTemplate with id does-not-exist not found',
+      );
     });
   });
 });

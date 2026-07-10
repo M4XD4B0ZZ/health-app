@@ -8,5 +8,4 @@ export { FoodCatalog } from './FoodCatalog';
 export { FoodAliasRepository } from './FoodAliasRepository';
 export { AiFoodMapper } from './AiFoodMapper';
 export { KeyValueStore } from './KeyValueStore';
-export { GoalsRepository } from './GoalsRepository';
 export { ReminderSettingsRepository } from './ReminderSettingsRepository';

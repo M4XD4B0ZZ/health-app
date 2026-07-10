@@ -56,9 +56,15 @@ describe('PortionKnowledgeService', () => {
     expect(savedHint.visibility).not.toBe('global_verified');
 
     expect(
-      await service.lookup({ foodIdentityKey: 'canonical:carrot', unit: 'piece', userId: 'user-1' }),
+      await service.lookup({
+        foodIdentityKey: 'canonical:carrot',
+        unit: 'piece',
+        userId: 'user-1',
+      }),
     ).toMatchObject({ gramsPerUnit: 80, visibility: 'user_private' });
-    expect(await service.lookup({ foodIdentityKey: 'canonical:carrot', unit: 'piece' })).toMatchObject({
+    expect(
+      await service.lookup({ foodIdentityKey: 'canonical:carrot', unit: 'piece' }),
+    ).toMatchObject({
       gramsPerUnit: 60,
       source: 'seed',
     });
@@ -90,7 +96,9 @@ describe('PortionKnowledgeService', () => {
     ];
     const service = new PortionKnowledgeService(new InMemoryPortionHintRepository(hints));
 
-    expect(await service.lookup({ foodIdentityKey: 'canonical:banana', unit: 'piece' })).toMatchObject({
+    expect(
+      await service.lookup({ foodIdentityKey: 'canonical:banana', unit: 'piece' }),
+    ).toMatchObject({
       gramsPerUnit: 130,
       visibility: 'global_verified',
     });
@@ -104,7 +112,11 @@ describe('PortionKnowledgeService', () => {
     });
 
     expect(
-      await service.lookup({ foodIdentityKey: 'canonical:banana', unit: 'piece', userId: 'user-1' }),
+      await service.lookup({
+        foodIdentityKey: 'canonical:banana',
+        unit: 'piece',
+        userId: 'user-1',
+      }),
     ).toMatchObject({
       gramsPerUnit: 140,
       visibility: 'user_private',

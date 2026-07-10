@@ -6,14 +6,14 @@ import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_ARTIFACT_PATH,
   consumeCanonicalQueueEntryProbe,
-  formatCanonicalQueueConsumerProbeSummary
+  formatCanonicalQueueConsumerProbeSummary,
 } from './lib/canonical-queue-consumer-probe.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const FORBIDDEN_FLAG_PATTERNS = [
   /^--(?:out|output|write|execute|dequeue|ack|acknowledge|reserve|lock|retry|schedule|plan|execution-plan|stage|commit|push|deploy|fix|format)(?:$|=)/,
-  /^-(?:o|w)$/
+  /^-(?:o|w)$/,
 ];
 
 export function parseArgs(argv) {
@@ -25,7 +25,8 @@ export function parseArgs(argv) {
     else if (arg === '--pretty') options.pretty = true;
     else if (arg === '--input-file') {
       const value = args[index + 1];
-      if (!value || value.startsWith('-')) throw new Error('--input-file requires a safe relative JSON path');
+      if (!value || value.startsWith('-'))
+        throw new Error('--input-file requires a safe relative JSON path');
       options.artifactPath = value;
       index += 1;
     } else if (arg.startsWith('--input-file=')) {
@@ -35,7 +36,9 @@ export function parseArgs(argv) {
     } else if (arg.startsWith('-')) {
       throw new Error(`Unknown argument refused: ${arg}`);
     } else {
-      throw new Error(`Positional paths are refused; use --input-file with an allowed queue-entry artifact path: ${arg}`);
+      throw new Error(
+        `Positional paths are refused; use --input-file with an allowed queue-entry artifact path: ${arg}`,
+      );
     }
   }
   return options;
@@ -67,7 +70,13 @@ async function main() {
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.decision === 'inspectable_non_executable_probe' ? 0 : 2);
   } catch (error) {
-    console.error(JSON.stringify({ status: 'blocked', stdout_only: true, writes_performed: false, error: error.message }, null, 2));
+    console.error(
+      JSON.stringify(
+        { status: 'blocked', stdout_only: true, writes_performed: false, error: error.message },
+        null,
+        2,
+      ),
+    );
     process.exit(1);
   }
 }

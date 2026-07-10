@@ -79,7 +79,9 @@ export function asHeaderString(value) {
 }
 
 export function findHeaderRow(rows, requiredHeader = 'BLS Code') {
-  const index = rows.findIndex((row) => row.some((cell) => asHeaderString(cell) === requiredHeader));
+  const index = rows.findIndex((row) =>
+    row.some((cell) => asHeaderString(cell) === requiredHeader),
+  );
   if (index === -1) return { index: null, headers: [] };
   return { index, headers: rows[index].map(asHeaderString) };
 }
@@ -142,9 +144,7 @@ export function uniqueNonEmpty(values) {
 }
 
 export function tokenizeBlsNames(...values) {
-  return uniqueNonEmpty(
-    values.flatMap((value) => normalizeBlsName(value).split(' ')),
-  );
+  return uniqueNonEmpty(values.flatMap((value) => normalizeBlsName(value).split(' ')));
 }
 
 export function parseBlsNumber(value) {
@@ -204,7 +204,9 @@ function parseOptionalTier2Nutrients(row, columnMap) {
   for (const component of TIER_2_COMPONENTS) {
     const key = `tier2.${component.field}.value`;
     const column = columnMap[key];
-    const parsed = column?.found ? parseBlsNumber(row[column.columnIndex]) : { ok: false, reason: 'column_missing', raw: null };
+    const parsed = column?.found
+      ? parseBlsNumber(row[column.columnIndex])
+      : { ok: false, reason: 'column_missing', raw: null };
     parsedTier2[component.field] = parsed;
 
     if (parsed.ok) {
@@ -220,20 +222,22 @@ function parseOptionalTier2Nutrients(row, columnMap) {
 
 function tier2Provenance(row, columnMap, parsedTier2, options) {
   return Object.fromEntries(
-    TIER_2_COMPONENTS.filter(({ field }) => parsedTier2[field]?.ok).map(({ field, componentCode }) => {
-      const valueColumn = columnMap[`tier2.${field}.value`];
-      return [
-        field,
-        {
-          componentCode,
-          valueColumnHeader: valueColumn.detectedHeader,
-          valueColumnNumber: valueColumn.columnNumber,
-          valueColumnIndex: valueColumn.columnIndex,
-          rawValue: parsedTier2[field].raw ?? null,
-          sourceWorkbookSha256: options.sourceWorkbookSha256,
-        },
-      ];
-    }),
+    TIER_2_COMPONENTS.filter(({ field }) => parsedTier2[field]?.ok).map(
+      ({ field, componentCode }) => {
+        const valueColumn = columnMap[`tier2.${field}.value`];
+        return [
+          field,
+          {
+            componentCode,
+            valueColumnHeader: valueColumn.detectedHeader,
+            valueColumnNumber: valueColumn.columnNumber,
+            valueColumnIndex: valueColumn.columnIndex,
+            rawValue: parsedTier2[field].raw ?? null,
+            sourceWorkbookSha256: options.sourceWorkbookSha256,
+          },
+        ];
+      },
+    ),
   );
 }
 
@@ -267,21 +271,27 @@ export function mapBlsRowToSampleRecord(row, columnMap, options = {}) {
   if (!blsCode) return { ok: false, reason: 'missingBlsCode', sourceRowIndex, sourceRowNumber };
 
   const germanName = asHeaderString(cell(row, columnMap, 'germanName'));
-  if (!germanName) return { ok: false, reason: 'missingGermanName', sourceRowIndex, sourceRowNumber };
+  if (!germanName)
+    return { ok: false, reason: 'missingGermanName', sourceRowIndex, sourceRowNumber };
 
   const englishNameRaw = asHeaderString(cell(row, columnMap, 'englishName'));
   const englishName = englishNameRaw || null;
   const parsedMacros = Object.fromEntries(
-    Object.keys(MACRO_COMPONENTS).map((macro) => [macro, parseBlsNumber(cell(row, columnMap, `${macro}.value`))]),
+    Object.keys(MACRO_COMPONENTS).map((macro) => [
+      macro,
+      parseBlsNumber(cell(row, columnMap, `${macro}.value`)),
+    ]),
   );
 
-  const missingMacro = Object.values(parsedMacros).find((parsed) =>
-    parsed.ok === false && (parsed.reason === 'missing' || parsed.reason === 'dash'),
+  const missingMacro = Object.values(parsedMacros).find(
+    (parsed) => parsed.ok === false && (parsed.reason === 'missing' || parsed.reason === 'dash'),
   );
-  if (missingMacro) return { ok: false, reason: 'missingRequiredMacros', sourceRowIndex, sourceRowNumber };
+  if (missingMacro)
+    return { ok: false, reason: 'missingRequiredMacros', sourceRowIndex, sourceRowNumber };
 
   const invalidMacro = Object.values(parsedMacros).find((parsed) => parsed.ok === false);
-  if (invalidMacro) return { ok: false, reason: 'invalidRequiredMacros', sourceRowIndex, sourceRowNumber };
+  if (invalidMacro)
+    return { ok: false, reason: 'invalidRequiredMacros', sourceRowIndex, sourceRowNumber };
 
   const normalizedName = normalizeBlsName(germanName);
   const normalizedEnglishName = normalizeBlsName(englishName);
@@ -338,7 +348,9 @@ export function buildBlsSampleRecords(rows, options = {}) {
   const columnMap = buildColumnMap(header.headers);
   const missingColumns = validateRequiredColumns(columnMap);
   if (missingColumns.length > 0) {
-    throw new Error(`Missing required BLS columns: ${missingColumns.map((column) => column.key).join(', ')}`);
+    throw new Error(
+      `Missing required BLS columns: ${missingColumns.map((column) => column.key).join(', ')}`,
+    );
   }
 
   const records = [];

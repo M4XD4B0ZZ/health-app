@@ -1,29 +1,16 @@
 import { GetDailySummaryUseCase } from '../application/usecases/GetDailySummaryUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
 import { FoodEntry } from '../domain/models/NutritionTypes';
-import { GoalsRepository } from '../application/ports/GoalsRepository';
-import { UserGoals } from '../domain/goals/UserGoals';
-
-class InMemoryGoalsRepository implements GoalsRepository {
-  private goals: UserGoals | null = null;
-
-  async getGoals(): Promise<UserGoals | null> {
-    return this.goals;
-  }
-
-  async setGoals(goals: UserGoals): Promise<void> {
-    this.goals = goals;
-  }
-}
+import { InMemoryEffectiveGoalsRepository } from '../../goals/infrastructure/InMemoryEffectiveGoalsRepository';
 
 describe('GetDailySummaryUseCase', () => {
   let repository: InMemoryFoodEntryRepository;
-  let goalsRepository: InMemoryGoalsRepository;
+  let goalsRepository: InMemoryEffectiveGoalsRepository;
   let useCase: GetDailySummaryUseCase;
 
   beforeEach(() => {
     repository = new InMemoryFoodEntryRepository();
-    goalsRepository = new InMemoryGoalsRepository();
+    goalsRepository = new InMemoryEffectiveGoalsRepository();
     useCase = new GetDailySummaryUseCase(repository, goalsRepository);
   });
 
@@ -37,14 +24,9 @@ describe('GetDailySummaryUseCase', () => {
   });
 
   it('returns summary with goals and progress metrics', async () => {
-    await goalsRepository.setGoals({
-      caloriesTargetKcal: 2500,
-      proteinTargetG: 150,
-      carbsTargetG: 250,
-      fatTargetG: 80,
-      activityLevel: 'moderate',
-      source: 'manual',
-      updatedAt: new Date('2026-02-22T10:00:00Z').toISOString(),
+    await goalsRepository.upsert({
+      mode: 'manual',
+      goals: { calories: 2500, protein: 150, carbs: 250, fat: 80 },
     });
 
     const entries: FoodEntry[] = [

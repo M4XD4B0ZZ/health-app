@@ -27,7 +27,7 @@ function runtimeTask(id, overrides = {}) {
     allowed_files: ['scripts/fixture.mjs'],
     forbidden_files: ['src/**/*'],
     outputs: ['reports/fixture.md'],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -38,7 +38,7 @@ function currentRun(overrides = {}) {
     status: 'completed',
     created_at: '2026-05-30T00:00:00.000Z',
     completed_at: '2026-05-30T00:01:00.000Z',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -50,16 +50,42 @@ function statefulValidatorScript() {
   return `#!/usr/bin/env node\nimport fs from 'node:fs';\nconst run = JSON.parse(fs.readFileSync('runs/current-run.json', 'utf8'));\nconst exitCode = run.status === 'planned' ? 1 : 0;\nconsole.log(JSON.stringify({ summary: { status: exitCode === 0 ? 'validator' : 'validator_failed_after_write', exit_code: exitCode } }));\nprocess.exit(exitCode);\n`;
 }
 
-function tempProject(t, { state = taskState([runtimeTask('RALPH-027')]), run = currentRun(), history = '', reconcilerExit = 0, validatorExit = 0, validatorScript = null } = {}) {
+function tempProject(
+  t,
+  {
+    state = taskState([runtimeTask('RALPH-027')]),
+    run = currentRun(),
+    history = '',
+    reconcilerExit = 0,
+    validatorExit = 0,
+    validatorScript = null,
+  } = {},
+) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ralph-027-create-run-'));
   fs.mkdirSync(path.join(root, 'scripts/agent'), { recursive: true });
   fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
   fs.mkdirSync(path.join(root, 'runs'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(root, 'scripts/agent/create-runtime-run.mjs'));
-  fs.writeFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), stubScript(reconcilerExit, 'reconciler'), 'utf8');
-  fs.writeFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), validatorScript || stubScript(validatorExit, 'validator'), 'utf8');
-  fs.writeFileSync(path.join(root, 'tasks/task-state.json'), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  fs.writeFileSync(path.join(root, 'runs/current-run.json'), `${JSON.stringify(run, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'),
+    stubScript(reconcilerExit, 'reconciler'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(root, 'scripts/agent/validate-ralph-state.mjs'),
+    validatorScript || stubScript(validatorExit, 'validator'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(root, 'tasks/task-state.json'),
+    `${JSON.stringify(state, null, 2)}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(root, 'runs/current-run.json'),
+    `${JSON.stringify(run, null, 2)}\n`,
+    'utf8',
+  );
   fs.writeFileSync(path.join(root, 'runs/run-history.jsonl'), history, 'utf8');
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
@@ -69,7 +95,7 @@ function runCli(root, args = []) {
   return spawnSync(process.execPath, ['scripts/agent/create-runtime-run.mjs', ...args], {
     cwd: root,
     env: { ...process.env, RALPH_PROJECT_ROOT: root },
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
 }
 
@@ -84,7 +110,10 @@ function readCurrentRun(root) {
 }
 
 function readHistoryLines(root) {
-  return fs.readFileSync(path.join(root, 'runs/run-history.jsonl'), 'utf8').split(/\r?\n/).filter(Boolean);
+  return fs
+    .readFileSync(path.join(root, 'runs/run-history.jsonl'), 'utf8')
+    .split(/\r?\n/)
+    .filter(Boolean);
 }
 
 test('help prints CLI contract', (t) => {
@@ -133,7 +162,9 @@ test('confirm-write without write fails', (t) => {
 });
 
 test('explicit task-id selects requested eligible task', (t) => {
-  const root = tempProject(t, { state: taskState([runtimeTask('RALPH-026'), runtimeTask('RALPH-027')]) });
+  const root = tempProject(t, {
+    state: taskState([runtimeTask('RALPH-026'), runtimeTask('RALPH-027')]),
+  });
   const { result, json } = runJson(root, ['--task-id', 'RALPH-027']);
 
   assert.equal(result.status, 0);
@@ -150,7 +181,9 @@ test('unknown explicit task-id rejected with code 3', (t) => {
 });
 
 test('task not not_started rejected with code 3', (t) => {
-  const root = tempProject(t, { state: taskState([runtimeTask('RALPH-027', { status: 'in_progress' })]) });
+  const root = tempProject(t, {
+    state: taskState([runtimeTask('RALPH-027', { status: 'in_progress' })]),
+  });
   const { result, json } = runJson(root, ['--task-id', 'RALPH-027']);
 
   assert.equal(result.status, 3);
@@ -158,7 +191,9 @@ test('task not not_started rejected with code 3', (t) => {
 });
 
 test('additional ownership guard rejects tasks without runtime_only or roadmap_import source', (t) => {
-  const root = tempProject(t, { state: taskState([runtimeTask('RALPH-027', { runtime_only: false, source: 'manual' })]) });
+  const root = tempProject(t, {
+    state: taskState([runtimeTask('RALPH-027', { runtime_only: false, source: 'manual' })]),
+  });
   const { result, json } = runJson(root, ['--task-id', 'RALPH-027']);
 
   assert.equal(result.status, 3);
@@ -166,7 +201,9 @@ test('additional ownership guard rejects tasks without runtime_only or roadmap_i
 });
 
 test('roadmap_import task is eligible when not_started', (t) => {
-  const root = tempProject(t, { state: taskState([runtimeTask('P1-003', { runtime_only: false, source: 'roadmap_import' })]) });
+  const root = tempProject(t, {
+    state: taskState([runtimeTask('P1-003', { runtime_only: false, source: 'roadmap_import' })]),
+  });
   const { result, json } = runJson(root, ['--task-id', 'P1-003']);
 
   assert.equal(result.status, 0);
@@ -175,7 +212,11 @@ test('roadmap_import task is eligible when not_started', (t) => {
 
 test('completed current run allows new planned run in write mode', (t) => {
   const root = tempProject(t);
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
   const run = readCurrentRun(root);
   const historyLines = readHistoryLines(root);
 
@@ -194,7 +235,11 @@ test('completed current run allows new planned run in write mode', (t) => {
 
 test('active current run blocks new run', (t) => {
   const root = tempProject(t, { run: currentRun({ status: 'planned' }) });
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
 
   assert.equal(result.status, 1);
   assert.match(json.error, /Active-like current run/);
@@ -222,21 +267,37 @@ test('generated run has required fields and run_id pattern', (t) => {
 test('write modifies only run files in temp fixture', (t) => {
   const root = tempProject(t);
   const beforeTaskState = fs.readFileSync(path.join(root, 'tasks/task-state.json'), 'utf8');
-  const beforeReconciler = fs.readFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), 'utf8');
-  const beforeValidator = fs.readFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), 'utf8');
+  const beforeReconciler = fs.readFileSync(
+    path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'),
+    'utf8',
+  );
+  const beforeValidator = fs.readFileSync(
+    path.join(root, 'scripts/agent/validate-ralph-state.mjs'),
+    'utf8',
+  );
 
   const { result } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
 
   assert.equal(result.status, 0);
   assert.equal(fs.readFileSync(path.join(root, 'tasks/task-state.json'), 'utf8'), beforeTaskState);
-  assert.equal(fs.readFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), 'utf8'), beforeReconciler);
-  assert.equal(fs.readFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), 'utf8'), beforeValidator);
+  assert.equal(
+    fs.readFileSync(path.join(root, 'scripts/agent/reconcile-roadmap-task-state.mjs'), 'utf8'),
+    beforeReconciler,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(root, 'scripts/agent/validate-ralph-state.mjs'), 'utf8'),
+    beforeValidator,
+  );
   assert.equal(fs.existsSync(path.join(root, 'runs/current-run.json.tmp')), false);
 });
 
 test('reconciler and validator remain green in write result', (t) => {
   const root = tempProject(t);
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
 
   assert.equal(result.status, 0);
   assert.equal(json.safety_checks.reconciler.status, 'passed');
@@ -248,7 +309,11 @@ test('reconciler and validator remain green in write result', (t) => {
 test('validator failure blocks write before mutation', (t) => {
   const root = tempProject(t, { validatorExit: 1 });
   const beforeRun = fs.readFileSync(path.join(root, 'runs/current-run.json'), 'utf8');
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
 
   assert.equal(result.status, 1);
   assert.match(json.error, /Pre-write safety checks failed/);
@@ -260,7 +325,11 @@ test('post-write validator failure restores current run and does not append hist
   const root = tempProject(t, { validatorScript: statefulValidatorScript() });
   const beforeRun = fs.readFileSync(path.join(root, 'runs/current-run.json'), 'utf8');
   const beforeHistory = fs.readFileSync(path.join(root, 'runs/run-history.jsonl'), 'utf8');
-  const { result, json } = runJson(root, ['--write', '--confirm-write', '--skip-working-tree-check']);
+  const { result, json } = runJson(root, [
+    '--write',
+    '--confirm-write',
+    '--skip-working-tree-check',
+  ]);
 
   assert.equal(result.status, 1);
   assert.match(json.error, /Post-write reconciler or validator failed/);

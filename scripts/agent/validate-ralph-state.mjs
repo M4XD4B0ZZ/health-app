@@ -27,7 +27,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 const EXIT_CODES = {
   OK: 0,
   CRITICAL_FINDINGS: 1,
-  EXECUTION_ERROR: 2
+  EXECUTION_ERROR: 2,
 };
 
 const PATHS = {
@@ -43,11 +43,18 @@ const PATHS = {
   agentState: '.agent/state.json',
   selectedTask: '.agent/out/selected-task.json',
   verifyReport: '.agent/out/verify-report.md',
-  handoffTemplate: '.agent/out/handoff-template.md'
+  handoffTemplate: '.agent/out/handoff-template.md',
 };
 
 const ACTIVE_TASK_STATUSES = new Set(['in_progress', 'needs_validation', 'needs_review']);
-const ACTIVE_RUN_STATUSES = new Set(['planned', 'active', 'validating', 'needs_review', 'running', 'in_progress']);
+const ACTIVE_RUN_STATUSES = new Set([
+  'planned',
+  'active',
+  'validating',
+  'needs_review',
+  'running',
+  'in_progress',
+]);
 const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'blocked', 'cancelled']);
 const SUCCESS_VALIDATION_RESULTS = new Set(['passed', 'success', 'successful']);
 const LEGACY_TASK_EVENT_TYPES = new Set([
@@ -55,7 +62,7 @@ const LEGACY_TASK_EVENT_TYPES = new Set([
   'task_completed',
   'bugfix_completed',
   'state_repaired',
-  'completed'
+  'completed',
 ]);
 const LEGACY_RUN_EVENT_TYPES = new Set([
   'run_started',
@@ -63,7 +70,7 @@ const LEGACY_RUN_EVENT_TYPES = new Set([
   'smoke_test_completed',
   'runtime_review_completed',
   'bugfix_completed',
-  'state_repair_completed'
+  'state_repair_completed',
 ]);
 
 function parseArgs(argv) {
@@ -120,13 +127,25 @@ function readText(relativePath) {
 function readJson(relativePath, findings) {
   const text = readText(relativePath);
   if (!text.exists) {
-    createFinding(findings.errors, 'critical', 'missing_json_file', `Required JSON file is missing: ${relativePath}`, relativePath);
+    createFinding(
+      findings.errors,
+      'critical',
+      'missing_json_file',
+      `Required JSON file is missing: ${relativePath}`,
+      relativePath,
+    );
     return { exists: false, data: null };
   }
   try {
     return { exists: true, data: JSON.parse(text.content) };
   } catch (error) {
-    createFinding(findings.errors, 'critical', 'invalid_json', `Invalid JSON in ${relativePath}: ${error.message}`, relativePath);
+    createFinding(
+      findings.errors,
+      'critical',
+      'invalid_json',
+      `Invalid JSON in ${relativePath}: ${error.message}`,
+      relativePath,
+    );
     return { exists: true, data: null };
   }
 }
@@ -137,7 +156,13 @@ function readOptionalJson(relativePath, findings) {
   try {
     return { exists: true, data: JSON.parse(text.content) };
   } catch (error) {
-    createFinding(findings.errors, 'critical', 'invalid_json', `Invalid JSON in ${relativePath}: ${error.message}`, relativePath);
+    createFinding(
+      findings.errors,
+      'critical',
+      'invalid_json',
+      `Invalid JSON in ${relativePath}: ${error.message}`,
+      relativePath,
+    );
     return { exists: true, data: null };
   }
 }
@@ -146,7 +171,13 @@ function readJsonl(relativePath, findings, legacyTypes) {
   const text = readText(relativePath);
   const records = [];
   if (!text.exists) {
-    createFinding(findings.errors, 'critical', 'missing_jsonl_file', `Required JSONL file is missing: ${relativePath}`, relativePath);
+    createFinding(
+      findings.errors,
+      'critical',
+      'missing_jsonl_file',
+      `Required JSONL file is missing: ${relativePath}`,
+      relativePath,
+    );
     return { exists: false, records };
   }
 
@@ -165,7 +196,7 @@ function readJsonl(relativePath, findings, legacyTypes) {
           'legacy_jsonl_event_schema',
           `Legacy JSONL event schema tolerated at ${relativePath}:${index + 1} (${eventType})`,
           relativePath,
-          { line: index + 1, event_type: eventType }
+          { line: index + 1, event_type: eventType },
         );
       }
     } catch (error) {
@@ -175,7 +206,7 @@ function readJsonl(relativePath, findings, legacyTypes) {
         'invalid_jsonl_line',
         `Invalid JSONL line in ${relativePath}:${index + 1}: ${error.message}`,
         relativePath,
-        { line: index + 1 }
+        { line: index + 1 },
       );
     }
   });
@@ -210,9 +241,9 @@ function hasReviewEvidence(runRecords, reviewRecords, taskId, runId) {
     const reviewResult = String(data.review_result || '').toLowerCase();
     return eventType === 'review.accepted' || reviewResult === 'accepted';
   });
-  
+
   if (hasReviewAccepted) return true;
-  
+
   // Fallback: check runs/run-history.jsonl for legacy review evidence
   return runRecords.some(({ data }) => {
     if (normalizeTaskId(data.task_id) !== normalizeTaskId(taskId)) return false;
@@ -239,7 +270,13 @@ function parseRoadmapTasks(content) {
     const heading = line.match(/^#{2,6}\s+(?:[-*]\s+)?([A-Z]+[A-Z0-9-]*-\d+[A-Z0-9-]*):?\s*(.*)$/);
     if (heading) {
       current = heading[1];
-      if (!tasks.has(current)) tasks.set(current, { id: current, title: heading[2].trim(), line: index + 1, status: null });
+      if (!tasks.has(current))
+        tasks.set(current, {
+          id: current,
+          title: heading[2].trim(),
+          line: index + 1,
+          status: null,
+        });
       return;
     }
 
@@ -264,62 +301,152 @@ function hasNonEmptyString(value) {
 
 function validateReconstructedTask(task, taskHistoryRecords, runRecords, findings) {
   if (task.status !== 'done') {
-    createFinding(findings.errors, 'critical', 'reconstructed_task_not_done', `Reconstructed task ${task.id} must remain done`, PATHS.taskState, { task_id: task.id, status: task.status });
+    createFinding(
+      findings.errors,
+      'critical',
+      'reconstructed_task_not_done',
+      `Reconstructed task ${task.id} must remain done`,
+      PATHS.taskState,
+      { task_id: task.id, status: task.status },
+    );
   }
   if (task.runtime_only !== true) {
-    createFinding(findings.errors, 'critical', 'reconstructed_task_not_runtime_only', `Reconstructed task ${task.id} must be runtime_only`, PATHS.taskState, { task_id: task.id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'reconstructed_task_not_runtime_only',
+      `Reconstructed task ${task.id} must be runtime_only`,
+      PATHS.taskState,
+      { task_id: task.id },
+    );
   }
   if (!hasNonEmptyString(task.source?.commit_hash)) {
-    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_commit_hash', `Reconstructed task ${task.id} is missing source.commit_hash`, PATHS.taskState, { task_id: task.id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'reconstructed_task_missing_commit_hash',
+      `Reconstructed task ${task.id} is missing source.commit_hash`,
+      PATHS.taskState,
+      { task_id: task.id },
+    );
   }
   if (!Array.isArray(task.source?.changed_files) || task.source.changed_files.length === 0) {
-    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_changed_files', `Reconstructed task ${task.id} is missing source.changed_files`, PATHS.taskState, { task_id: task.id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'reconstructed_task_missing_changed_files',
+      `Reconstructed task ${task.id} is missing source.changed_files`,
+      PATHS.taskState,
+      { task_id: task.id },
+    );
   }
-  if (!Array.isArray(task.source?.report_or_handoff_refs) || task.source.report_or_handoff_refs.length === 0) {
-    createFinding(findings.warnings, 'warning', 'reconstructed_task_missing_report_or_handoff_refs', `Reconstructed task ${task.id} has no report_or_handoff_refs; commit and lineage evidence are authoritative`, PATHS.taskState, { task_id: task.id });
+  if (
+    !Array.isArray(task.source?.report_or_handoff_refs) ||
+    task.source.report_or_handoff_refs.length === 0
+  ) {
+    createFinding(
+      findings.warnings,
+      'warning',
+      'reconstructed_task_missing_report_or_handoff_refs',
+      `Reconstructed task ${task.id} has no report_or_handoff_refs; commit and lineage evidence are authoritative`,
+      PATHS.taskState,
+      { task_id: task.id },
+    );
   }
 
-  const reconstructedEvent = taskHistoryRecords.find(({ data }) => (
-    data?.event_type === 'task.reconstructed'
-    && normalizeTaskId(data.task_id) === normalizeTaskId(task.id)
-    && data?.source?.type === 'reconstructed_from_git'
-    && data?.source?.commit_hash === task.source?.commit_hash
-  ));
+  const reconstructedEvent = taskHistoryRecords.find(
+    ({ data }) =>
+      data?.event_type === 'task.reconstructed' &&
+      normalizeTaskId(data.task_id) === normalizeTaskId(task.id) &&
+      data?.source?.type === 'reconstructed_from_git' &&
+      data?.source?.commit_hash === task.source?.commit_hash,
+  );
 
   if (!reconstructedEvent) {
-    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_task_reconstructed_event', `Reconstructed task ${task.id} is missing matching task.reconstructed history evidence`, PATHS.taskHistory, { task_id: task.id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'reconstructed_task_missing_task_reconstructed_event',
+      `Reconstructed task ${task.id} is missing matching task.reconstructed history evidence`,
+      PATHS.taskHistory,
+      { task_id: task.id },
+    );
   }
 
-  const misplacedBackfill = taskHistoryRecords.find(({ data }) => data?.event_type === 'runtime_lineage.backfilled');
+  const misplacedBackfill = taskHistoryRecords.find(
+    ({ data }) => data?.event_type === 'runtime_lineage.backfilled',
+  );
   if (misplacedBackfill) {
-    createFinding(findings.errors, 'critical', 'runtime_lineage_backfilled_misplaced', `runtime_lineage.backfilled must be recorded in ${PATHS.runHistory}, not ${PATHS.taskHistory}`, PATHS.taskHistory, { task_id: task.id, line: misplacedBackfill.line });
+    createFinding(
+      findings.errors,
+      'critical',
+      'runtime_lineage_backfilled_misplaced',
+      `runtime_lineage.backfilled must be recorded in ${PATHS.runHistory}, not ${PATHS.taskHistory}`,
+      PATHS.taskHistory,
+      { task_id: task.id, line: misplacedBackfill.line },
+    );
   }
 
-  const lineageBackfill = runRecords.find(({ data }) => (
-    data?.event_type === 'runtime_lineage.backfilled'
-    && Array.isArray(data?.source?.included_tasks)
-    && data.source.included_tasks.map(normalizeTaskId).includes(normalizeTaskId(task.id))
-  ));
+  const lineageBackfill = runRecords.find(
+    ({ data }) =>
+      data?.event_type === 'runtime_lineage.backfilled' &&
+      Array.isArray(data?.source?.included_tasks) &&
+      data.source.included_tasks.map(normalizeTaskId).includes(normalizeTaskId(task.id)),
+  );
 
   if (!lineageBackfill) {
-    createFinding(findings.errors, 'critical', 'reconstructed_task_missing_runtime_lineage_backfill', `Reconstructed task ${task.id} is not included in runtime_lineage.backfilled run history evidence`, PATHS.runHistory, { task_id: task.id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'reconstructed_task_missing_runtime_lineage_backfill',
+      `Reconstructed task ${task.id} is not included in runtime_lineage.backfilled run history evidence`,
+      PATHS.runHistory,
+      { task_id: task.id },
+    );
   }
 }
 
-function validateTaskState(taskState, validationRecords, taskHistoryRecords, runRecords, reviewRecords, findings) {
+function validateTaskState(
+  taskState,
+  validationRecords,
+  taskHistoryRecords,
+  runRecords,
+  reviewRecords,
+  findings,
+) {
   const taskMap = new Map();
   if (!taskState?.tasks || !Array.isArray(taskState.tasks)) {
-    createFinding(findings.errors, 'critical', 'invalid_task_state_shape', 'tasks/task-state.json must contain a tasks array', PATHS.taskState);
+    createFinding(
+      findings.errors,
+      'critical',
+      'invalid_task_state_shape',
+      'tasks/task-state.json must contain a tasks array',
+      PATHS.taskState,
+    );
     return taskMap;
   }
 
   for (const task of taskState.tasks) {
     if (!task?.id) {
-      createFinding(findings.errors, 'critical', 'task_missing_id', 'Task entry is missing id', PATHS.taskState, { task });
+      createFinding(
+        findings.errors,
+        'critical',
+        'task_missing_id',
+        'Task entry is missing id',
+        PATHS.taskState,
+        { task },
+      );
       continue;
     }
     if (taskMap.has(task.id)) {
-      createFinding(findings.errors, 'critical', 'duplicate_task_id', `Duplicate task ID in task-state: ${task.id}`, PATHS.taskState, { task_id: task.id });
+      createFinding(
+        findings.errors,
+        'critical',
+        'duplicate_task_id',
+        `Duplicate task ID in task-state: ${task.id}`,
+        PATHS.taskState,
+        { task_id: task.id },
+      );
     }
     taskMap.set(task.id, task);
   }
@@ -332,10 +459,27 @@ function validateTaskState(taskState, validationRecords, taskHistoryRecords, run
     if (task?.status !== 'done') continue;
     const taskValidation = hasPassingValidation(validationRecords, task.id, null);
     if (!taskValidation) {
-      createFinding(findings.errors, 'critical', 'done_without_validation_evidence', `Task ${task.id} is done without passing validation evidence`, PATHS.taskState, { task_id: task.id });
+      createFinding(
+        findings.errors,
+        'critical',
+        'done_without_validation_evidence',
+        `Task ${task.id} is done without passing validation evidence`,
+        PATHS.taskState,
+        { task_id: task.id },
+      );
     }
-    if (task.requires_human_review === true && !hasReviewEvidence(runRecords, reviewRecords, task.id, null)) {
-      createFinding(findings.errors, 'critical', 'done_without_review_evidence', `Task ${task.id} requires human review but no review acceptance evidence was found`, PATHS.taskState, { task_id: task.id });
+    if (
+      task.requires_human_review === true &&
+      !hasReviewEvidence(runRecords, reviewRecords, task.id, null)
+    ) {
+      createFinding(
+        findings.errors,
+        'critical',
+        'done_without_review_evidence',
+        `Task ${task.id} requires human review but no review acceptance evidence was found`,
+        PATHS.taskState,
+        { task_id: task.id },
+      );
     }
   }
 
@@ -352,18 +496,45 @@ function validateCurrentRun(currentRun, taskMap, findings) {
   const lockActive = lock?.is_active === true;
 
   if (!runTaskId) {
-    createFinding(findings.errors, 'critical', 'current_run_missing_task_reference', 'current-run has no task_id or selected_task_id', PATHS.currentRun);
+    createFinding(
+      findings.errors,
+      'critical',
+      'current_run_missing_task_reference',
+      'current-run has no task_id or selected_task_id',
+      PATHS.currentRun,
+    );
   } else if (!task) {
-    createFinding(findings.errors, 'critical', 'current_run_references_missing_task', `current-run references missing task: ${runTaskId}`, PATHS.currentRun, { task_id: runTaskId });
+    createFinding(
+      findings.errors,
+      'critical',
+      'current_run_references_missing_task',
+      `current-run references missing task: ${runTaskId}`,
+      PATHS.currentRun,
+      { task_id: runTaskId },
+    );
   }
 
   if (lockActive && TERMINAL_RUN_STATUSES.has(status)) {
-    createFinding(findings.errors, 'critical', 'completed_current_run_with_active_lock', `Terminal current-run status ${status} has active lock`, PATHS.currentRun, { run_id: currentRun.run_id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'completed_current_run_with_active_lock',
+      `Terminal current-run status ${status} has active lock`,
+      PATHS.currentRun,
+      { run_id: currentRun.run_id },
+    );
   }
 
   if (ACTIVE_RUN_STATUSES.has(status) || lockActive) {
     if (task && !ACTIVE_TASK_STATUSES.has(task.status)) {
-      createFinding(findings.errors, 'critical', 'active_run_conflict', `Active-like run references task ${task.id} with incompatible status ${task.status}`, PATHS.currentRun, { task_id: task.id, task_status: task.status, run_status: status });
+      createFinding(
+        findings.errors,
+        'critical',
+        'active_run_conflict',
+        `Active-like run references task ${task.id} with incompatible status ${task.status}`,
+        PATHS.currentRun,
+        { task_id: task.id, task_status: task.status, run_status: status },
+      );
     }
   }
 
@@ -373,11 +544,32 @@ function validateCurrentRun(currentRun, taskMap, findings) {
   const now = Date.now();
 
   if (lockActive && Number.isFinite(expiresAt) && now > expiresAt) {
-    createFinding(findings.errors, 'critical', 'stale_active_run', `Active run lock expired at ${lock.expires_at}`, PATHS.currentRun, { run_id: currentRun.run_id });
+    createFinding(
+      findings.errors,
+      'critical',
+      'stale_active_run',
+      `Active run lock expired at ${lock.expires_at}`,
+      PATHS.currentRun,
+      { run_id: currentRun.run_id },
+    );
   }
-  if ((status === 'active' || status === 'validating' || status === 'running' || status === 'in_progress') && Number.isFinite(heartbeatAt) && Number.isFinite(ttlMinutes)) {
+  if (
+    (status === 'active' ||
+      status === 'validating' ||
+      status === 'running' ||
+      status === 'in_progress') &&
+    Number.isFinite(heartbeatAt) &&
+    Number.isFinite(ttlMinutes)
+  ) {
     if (now - heartbeatAt > ttlMinutes * 60 * 1000) {
-      createFinding(findings.errors, 'critical', 'stale_active_run', `Active-like run heartbeat is older than ttl_minutes`, PATHS.currentRun, { run_id: currentRun.run_id, heartbeat_at: lock.heartbeat_at, ttl_minutes: ttlMinutes });
+      createFinding(
+        findings.errors,
+        'critical',
+        'stale_active_run',
+        `Active-like run heartbeat is older than ttl_minutes`,
+        PATHS.currentRun,
+        { run_id: currentRun.run_id, heartbeat_at: lock.heartbeat_at, ttl_minutes: ttlMinutes },
+      );
     }
   }
 }
@@ -387,80 +579,191 @@ function validateRoadmapRuntime(roadmapTasks, taskMap, findings) {
     const roadmapTask = roadmapTasks.get(taskId);
     if (!roadmapTask) continue;
     if (roadmapTask.status === 'done' && ACTIVE_TASK_STATUSES.has(task.status)) {
-      createFinding(findings.errors, 'critical', 'roadmap_done_runtime_active', `ROADMAP marks ${taskId} done while runtime is ${task.status}`, PATHS.roadmap, { task_id: taskId, roadmap_status: roadmapTask.status, runtime_status: task.status });
+      createFinding(
+        findings.errors,
+        'critical',
+        'roadmap_done_runtime_active',
+        `ROADMAP marks ${taskId} done while runtime is ${task.status}`,
+        PATHS.roadmap,
+        { task_id: taskId, roadmap_status: roadmapTask.status, runtime_status: task.status },
+      );
     }
     if (task.status === 'done' && roadmapTask.status && roadmapTask.status !== 'done') {
-      createFinding(findings.errors, 'critical', 'runtime_done_roadmap_not_done', `Runtime marks ${taskId} done while ROADMAP is ${roadmapTask.status}`, PATHS.taskState, { task_id: taskId, roadmap_status: roadmapTask.status, runtime_status: task.status });
+      createFinding(
+        findings.errors,
+        'critical',
+        'runtime_done_roadmap_not_done',
+        `Runtime marks ${taskId} done while ROADMAP is ${roadmapTask.status}`,
+        PATHS.taskState,
+        { task_id: taskId, roadmap_status: roadmapTask.status, runtime_status: task.status },
+      );
     }
   }
 }
 
 function validateHandoff(handoffText, currentRun, findings) {
   if (!handoffText.exists) {
-    createFinding(findings.errors, 'critical', 'latest_handoff_missing', 'latest handoff is missing', PATHS.handoff);
+    createFinding(
+      findings.errors,
+      'critical',
+      'latest_handoff_missing',
+      'latest handoff is missing',
+      PATHS.handoff,
+    );
     return;
   }
 
   const content = handoffText.content;
   const requiredConcepts = [
     ['run_task_identity_status', /run\/task identity|task|task id/i],
-    ['what_changed', /what changed|was wurde geändert|implementation summary|completed work|files changed/i],
+    [
+      'what_changed',
+      /what changed|was wurde geändert|implementation summary|completed work|files changed/i,
+    ],
     ['why_changed', /why changed|warum|problemstellung|scope/i],
     ['changed_files', /changed files|files changed|dateien/i],
     ['validation_executed', /validation executed|verification executed|checks|ausgeführte/i],
     ['validation_result', /validation result|result|status|ergebnis/i],
     ['known_issues_risks', /known issues|risks|risiken|blockers|limitations/i],
-    ['human_review_status', /human review|human-review|review status/i]
+    ['human_review_status', /human review|human-review|review status/i],
   ];
 
   for (const [code, pattern] of requiredConcepts) {
     if (!pattern.test(content)) {
-      createFinding(findings.errors, 'critical', 'latest_handoff_missing_required_section', `latest handoff missing required section/concept: ${code}`, PATHS.handoff, { section: code });
+      createFinding(
+        findings.errors,
+        'critical',
+        'latest_handoff_missing_required_section',
+        `latest handoff missing required section/concept: ${code}`,
+        PATHS.handoff,
+        { section: code },
+      );
     }
   }
 
   const runTaskId = getTaskIdFromRun(currentRun);
-  const handoffTask = content.match(/Task ID:\*?\s*([A-Z]+[A-Z0-9-]*-\d+[A-Z0-9-]*)/i)?.[1]
-    || content.match(/\*\*Task:\*\*\s*([A-Z]+[A-Z0-9-]*-\d+[A-Z0-9-]*)/i)?.[1];
+  const handoffTask =
+    content.match(/Task ID:\*?\s*([A-Z]+[A-Z0-9-]*-\d+[A-Z0-9-]*)/i)?.[1] ||
+    content.match(/\*\*Task:\*\*\s*([A-Z]+[A-Z0-9-]*-\d+[A-Z0-9-]*)/i)?.[1];
   const runId = currentRun?.run_id;
 
   if (runTaskId && handoffTask && normalizeTaskId(runTaskId) !== normalizeTaskId(handoffTask)) {
-    createFinding(findings.warnings, 'warning', 'handoff_task_run_mismatch', `latest handoff task ${handoffTask} differs from current-run task ${runTaskId}`, PATHS.handoff, { handoff_task_id: handoffTask, current_run_task_id: runTaskId });
+    createFinding(
+      findings.warnings,
+      'warning',
+      'handoff_task_run_mismatch',
+      `latest handoff task ${handoffTask} differs from current-run task ${runTaskId}`,
+      PATHS.handoff,
+      { handoff_task_id: handoffTask, current_run_task_id: runTaskId },
+    );
   }
   if (runId && !content.includes(runId)) {
-    createFinding(findings.warnings, 'warning', 'handoff_run_mismatch_or_missing', `latest handoff does not mention current run_id ${runId}`, PATHS.handoff, { run_id: runId });
+    createFinding(
+      findings.warnings,
+      'warning',
+      'handoff_run_mismatch_or_missing',
+      `latest handoff does not mention current run_id ${runId}`,
+      PATHS.handoff,
+      { run_id: runId },
+    );
   }
 }
 
-function validateLegacyArtifacts(agentState, selectedTask, verifyReport, handoffTemplate, roadmapTasks, currentRun, findings) {
+function validateLegacyArtifacts(
+  agentState,
+  selectedTask,
+  verifyReport,
+  handoffTemplate,
+  roadmapTasks,
+  currentRun,
+  findings,
+) {
   if (agentState.exists) {
     const legacyTaskId = agentState.data?.currentTaskId;
     const currentTaskId = getTaskIdFromRun(currentRun);
-    const lastUpdated = agentState.data?.lastUpdated ? Date.parse(agentState.data.lastUpdated) : NaN;
-    const staleByTask = legacyTaskId && currentTaskId && normalizeTaskId(legacyTaskId) !== normalizeTaskId(currentTaskId);
-    const staleByRoadmap = legacyTaskId && roadmapTasks.has(legacyTaskId) && roadmapTasks.get(legacyTaskId).status !== 'in_progress';
-    const staleByAge = Number.isFinite(lastUpdated) && Date.now() - lastUpdated > 24 * 60 * 60 * 1000;
+    const lastUpdated = agentState.data?.lastUpdated
+      ? Date.parse(agentState.data.lastUpdated)
+      : NaN;
+    const staleByTask =
+      legacyTaskId &&
+      currentTaskId &&
+      normalizeTaskId(legacyTaskId) !== normalizeTaskId(currentTaskId);
+    const staleByRoadmap =
+      legacyTaskId &&
+      roadmapTasks.has(legacyTaskId) &&
+      roadmapTasks.get(legacyTaskId).status !== 'in_progress';
+    const staleByAge =
+      Number.isFinite(lastUpdated) && Date.now() - lastUpdated > 24 * 60 * 60 * 1000;
     if (staleByTask || staleByRoadmap || staleByAge) {
-      createFinding(findings.warnings, 'warning', 'stale_agent_state', '.agent/state.json appears stale and is non-authoritative', PATHS.agentState, { currentTaskId: legacyTaskId, status: agentState.data?.status, lastUpdated: agentState.data?.lastUpdated });
+      createFinding(
+        findings.warnings,
+        'warning',
+        'stale_agent_state',
+        '.agent/state.json appears stale and is non-authoritative',
+        PATHS.agentState,
+        {
+          currentTaskId: legacyTaskId,
+          status: agentState.data?.status,
+          lastUpdated: agentState.data?.lastUpdated,
+        },
+      );
     }
-    createFinding(findings.warnings, 'warning', 'legacy_artifact_present_non_authoritative', 'Legacy .agent/state.json is present and non-authoritative for Ralph V2', PATHS.agentState);
+    createFinding(
+      findings.warnings,
+      'warning',
+      'legacy_artifact_present_non_authoritative',
+      'Legacy .agent/state.json is present and non-authoritative for Ralph V2',
+      PATHS.agentState,
+    );
   }
 
   if (selectedTask.exists) {
-    const selectedId = selectedTask.data?.result?.selected?.id || selectedTask.data?.selected?.id || selectedTask.data?.task_id;
+    const selectedId =
+      selectedTask.data?.result?.selected?.id ||
+      selectedTask.data?.selected?.id ||
+      selectedTask.data?.task_id;
     const currentTaskId = getTaskIdFromRun(currentRun);
-    if (selectedId && currentTaskId && normalizeTaskId(selectedId) !== normalizeTaskId(currentTaskId)) {
-      createFinding(findings.warnings, 'warning', 'stale_selected_task', '.agent/out/selected-task.json appears stale relative to current-run', PATHS.selectedTask, { selected_task_id: selectedId, current_run_task_id: currentTaskId });
+    if (
+      selectedId &&
+      currentTaskId &&
+      normalizeTaskId(selectedId) !== normalizeTaskId(currentTaskId)
+    ) {
+      createFinding(
+        findings.warnings,
+        'warning',
+        'stale_selected_task',
+        '.agent/out/selected-task.json appears stale relative to current-run',
+        PATHS.selectedTask,
+        { selected_task_id: selectedId, current_run_task_id: currentTaskId },
+      );
     }
-    createFinding(findings.warnings, 'warning', 'legacy_artifact_present_non_authoritative', 'Legacy selected-task.json is present and non-authoritative for Ralph V2', PATHS.selectedTask);
+    createFinding(
+      findings.warnings,
+      'warning',
+      'legacy_artifact_present_non_authoritative',
+      'Legacy selected-task.json is present and non-authoritative for Ralph V2',
+      PATHS.selectedTask,
+    );
   }
 
   if (verifyReport.exists) {
-    createFinding(findings.warnings, 'warning', 'legacy_artifact_present_non_authoritative', 'Legacy verify-report.md is present and non-authoritative for Ralph V2 validation evidence', PATHS.verifyReport);
+    createFinding(
+      findings.warnings,
+      'warning',
+      'legacy_artifact_present_non_authoritative',
+      'Legacy verify-report.md is present and non-authoritative for Ralph V2 validation evidence',
+      PATHS.verifyReport,
+    );
   }
 
   if (handoffTemplate.exists) {
-    createFinding(findings.warnings, 'warning', 'legacy_artifact_present_non_authoritative', 'Legacy handoff-template.md is present and non-authoritative for canonical handoff evidence', PATHS.handoffTemplate);
+    createFinding(
+      findings.warnings,
+      'warning',
+      'legacy_artifact_present_non_authoritative',
+      'Legacy handoff-template.md is present and non-authoritative for canonical handoff evidence',
+      PATHS.handoffTemplate,
+    );
   }
 }
 
@@ -470,7 +773,14 @@ function validateDuplicateEvidenceIds(records, field, file, findings) {
     const id = data?.[field];
     if (!id) continue;
     if (seen.has(id)) {
-      createFinding(findings.errors, 'critical', `duplicate_${field}`, `Duplicate ${field} in ${file}: ${id}`, file, { id, first_line: seen.get(id), duplicate_line: line });
+      createFinding(
+        findings.errors,
+        'critical',
+        `duplicate_${field}`,
+        `Duplicate ${field} in ${file}: ${id}`,
+        file,
+        { id, first_line: seen.get(id), duplicate_line: line },
+      );
     } else {
       seen.set(id, line);
     }
@@ -478,7 +788,11 @@ function validateDuplicateEvidenceIds(records, field, file, findings) {
 }
 
 function runValidation() {
-  const findings = { errors: [], warnings: [], reviewEvidence: { found: [], missing: [], rejected: [], needsChanges: [] } };
+  const findings = {
+    errors: [],
+    warnings: [],
+    reviewEvidence: { found: [], missing: [], rejected: [], needsChanges: [] },
+  };
   const generatedAt = nowIso();
 
   const taskState = readJson(PATHS.taskState, findings);
@@ -491,7 +805,13 @@ function runValidation() {
   const reviewResults = readJsonl(PATHS.reviewResults, findings, new Set());
   const roadmap = readText(PATHS.roadmap);
   if (!roadmap.exists) {
-    createFinding(findings.errors, 'critical', 'roadmap_missing', 'ROADMAP.md is missing', PATHS.roadmap);
+    createFinding(
+      findings.errors,
+      'critical',
+      'roadmap_missing',
+      'ROADMAP.md is missing',
+      PATHS.roadmap,
+    );
   }
   const handoff = readText(PATHS.handoff);
 
@@ -501,36 +821,70 @@ function runValidation() {
   const handoffTemplate = readText(PATHS.handoffTemplate);
 
   const roadmapTasks = roadmap.exists ? parseRoadmapTasks(roadmap.content) : new Map();
-  const taskMap = taskState.data ? validateTaskState(taskState.data, validationResults.records, taskHistory.records, runHistory.records, reviewResults.records, findings) : new Map();
+  const taskMap = taskState.data
+    ? validateTaskState(
+        taskState.data,
+        validationResults.records,
+        taskHistory.records,
+        runHistory.records,
+        reviewResults.records,
+        findings,
+      )
+    : new Map();
 
   validateCurrentRun(currentRun.data, taskMap, findings);
   validateRoadmapRuntime(roadmapTasks, taskMap, findings);
   validateHandoff(handoff, currentRun.data, findings);
-  validateLegacyArtifacts(agentState, selectedTask, verifyReport, handoffTemplate, roadmapTasks, currentRun.data, findings);
+  validateLegacyArtifacts(
+    agentState,
+    selectedTask,
+    verifyReport,
+    handoffTemplate,
+    roadmapTasks,
+    currentRun.data,
+    findings,
+  );
   validateDuplicateEvidenceIds(taskHistory.records, 'event_id', PATHS.taskHistory, findings);
   validateDuplicateEvidenceIds(runHistory.records, 'event_id', PATHS.runHistory, findings);
-  validateDuplicateEvidenceIds(validationResults.records, 'validation_id', PATHS.validationResults, findings);
+  validateDuplicateEvidenceIds(
+    validationResults.records,
+    'validation_id',
+    PATHS.validationResults,
+    findings,
+  );
   validateDuplicateEvidenceIds(reviewResults.records, 'review_id', PATHS.reviewResults, findings);
 
   // Collect review evidence statistics
   if (taskState.data?.tasks) {
     for (const task of taskState.data.tasks) {
       if (task.requires_human_review === true) {
-        const reviewEvidence = reviewResults.records.filter(({ data }) => 
-          normalizeTaskId(data.task_id) === normalizeTaskId(task.id)
+        const reviewEvidence = reviewResults.records.filter(
+          ({ data }) => normalizeTaskId(data.task_id) === normalizeTaskId(task.id),
         );
-        
+
         if (reviewEvidence.length > 0) {
           const latestReview = reviewEvidence[reviewEvidence.length - 1].data;
           const eventType = String(latestReview.event_type || '').toLowerCase();
           const reviewResult = String(latestReview.review_result || '').toLowerCase();
-          
+
           if (eventType === 'review.accepted' || reviewResult === 'accepted') {
-            findings.reviewEvidence.found.push({ task_id: task.id, review_result: 'accepted', event_type: latestReview.event_type });
+            findings.reviewEvidence.found.push({
+              task_id: task.id,
+              review_result: 'accepted',
+              event_type: latestReview.event_type,
+            });
           } else if (eventType === 'review.rejected' || reviewResult === 'rejected') {
-            findings.reviewEvidence.rejected.push({ task_id: task.id, review_result: 'rejected', event_type: latestReview.event_type });
+            findings.reviewEvidence.rejected.push({
+              task_id: task.id,
+              review_result: 'rejected',
+              event_type: latestReview.event_type,
+            });
           } else if (eventType === 'review.needs_changes' || reviewResult === 'needs_changes') {
-            findings.reviewEvidence.needsChanges.push({ task_id: task.id, review_result: 'needs_changes', event_type: latestReview.event_type });
+            findings.reviewEvidence.needsChanges.push({
+              task_id: task.id,
+              review_result: 'needs_changes',
+              event_type: latestReview.event_type,
+            });
           }
         } else if (task.status === 'done' && !isReconstructedFromGit(task)) {
           // Only report missing if task is done (already reported as critical finding)
@@ -550,10 +904,15 @@ function runValidation() {
     review_evidence_rejected: findings.reviewEvidence.rejected.length,
     review_evidence_needs_changes: findings.reviewEvidence.needsChanges.length,
     files_read: Object.values(PATHS),
-    exit_code: findings.errors.length > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK
+    exit_code: findings.errors.length > 0 ? EXIT_CODES.CRITICAL_FINDINGS : EXIT_CODES.OK,
   };
 
-  return { summary, errors: findings.errors, warnings: findings.warnings, reviewEvidence: findings.reviewEvidence };
+  return {
+    summary,
+    errors: findings.errors,
+    warnings: findings.warnings,
+    reviewEvidence: findings.reviewEvidence,
+  };
 }
 
 function formatHuman(result) {
@@ -636,9 +995,9 @@ async function main() {
       summary: {
         generated_at: nowIso(),
         status: 'validator_execution_error',
-        exit_code: EXIT_CODES.EXECUTION_ERROR
+        exit_code: EXIT_CODES.EXECUTION_ERROR,
       },
-      error: error.message
+      error: error.message,
     };
     if (process.argv.includes('--json')) console.error(JSON.stringify(payload, null, 2));
     else console.error(`Validator execution error: ${error.message}`);

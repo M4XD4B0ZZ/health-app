@@ -8,18 +8,24 @@ import {
   formatSandboxPromotionProposalWriterProbeSummary,
   parseProposalJson,
   readProposalInputFileSync,
-  runSandboxPromotionProposalWriterProbe
+  runSandboxPromotionProposalWriterProbe,
 } from './lib/sandbox-promotion-proposal-writer-probe.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
 const FORBIDDEN_FLAG_PATTERNS = [
   /^--(?:out|output|path|target|target-path|payload|content|append|truncate|delete|rename|move|stage|commit|push|deploy)(?:$|=)/,
-  /^-(?:o|p)$/
+  /^-(?:o|p)$/,
 ];
 
 export function parseArgs(argv) {
-  const options = { execute: false, pretty: false, help: false, proposalJson: null, proposalFile: null };
+  const options = {
+    execute: false,
+    pretty: false,
+    help: false,
+    proposalJson: null,
+    proposalFile: null,
+  };
   const args = argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -28,7 +34,8 @@ export function parseArgs(argv) {
     else if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg === '--proposal-json') options.proposalJson = args[++index];
     else if (arg === '--proposal-file') options.proposalFile = args[++index];
-    else if (FORBIDDEN_FLAG_PATTERNS.some((pattern) => pattern.test(arg))) throw new Error(`Forbidden argument refused: ${arg}`);
+    else if (FORBIDDEN_FLAG_PATTERNS.some((pattern) => pattern.test(arg)))
+      throw new Error(`Forbidden argument refused: ${arg}`);
     else if (arg.startsWith('-')) throw new Error(`Unknown argument refused: ${arg}`);
     else throw new Error(`Positional output paths/content are refused: ${arg}`);
   }
@@ -51,8 +58,11 @@ SAFETY:
 }
 
 function readProposal(options) {
-  const supplied = [options.proposalJson, options.proposalFile].filter((value) => value !== null && value !== undefined);
-  if (supplied.length !== 1) throw new Error('Specify exactly one of --proposal-json or --proposal-file');
+  const supplied = [options.proposalJson, options.proposalFile].filter(
+    (value) => value !== null && value !== undefined,
+  );
+  if (supplied.length !== 1)
+    throw new Error('Specify exactly one of --proposal-json or --proposal-file');
   if (options.proposalJson) return parseProposalJson(options.proposalJson);
   return readProposalInputFileSync(options.proposalFile);
 }
@@ -66,7 +76,10 @@ async function main() {
       process.exit(0);
     }
     const proposal = readProposal(options);
-    const result = await runSandboxPromotionProposalWriterProbe({ execute: options.execute, proposal });
+    const result = await runSandboxPromotionProposalWriterProbe({
+      execute: options.execute,
+      proposal,
+    });
     if (options.pretty) console.log(formatSandboxPromotionProposalWriterProbeSummary(result));
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.status === 'blocked' && options.execute ? 1 : 0);

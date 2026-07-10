@@ -114,8 +114,8 @@ File: `src/features/nutrition/application/utils/InputComplexity.ts`.
 Current capabilities:
 
 - returns true for German connector tokens:
-  - ` mit `
-  - ` und `
+  - `mit`
+  - `und`
 - returns true for:
   - `+`
   - `&`
@@ -131,8 +131,8 @@ File: `src/features/nutrition/infrastructure/ai/FakeAiMealParser.ts`.
 Current capabilities:
 
 - detects connectors:
-  - ` mit `
-  - ` und `
+  - `mit`
+  - `und`
   - `+`
   - `&`
   - `,`
@@ -179,7 +179,7 @@ Specific limitations:
 
 Likely current behavior through `LogMealFromRawInputUseCase`:
 
-- `isComplexMealInput` does not detect English ` and `.
+- `isComplexMealInput` does not detect English `and`.
 - The input falls back to single-item flow.
 - `DeterministicFoodParser` sees leading count `2` and returns approximately:
   - `quantityCount = 2`

@@ -7,13 +7,17 @@ import { validateQueueAdmission } from '../lib/queue-admission-validator.mjs';
 const protectedFixture = {
   protected_patterns: {
     absolute_protection: { patterns: ['.env', '.env.*', 'secrets/**'] },
-    conditional_protection: { patterns: [{ pattern: 'package.json', condition: 'dependency_task', approval_required: true }] }
+    conditional_protection: {
+      patterns: [
+        { pattern: 'package.json', condition: 'dependency_task', approval_required: true },
+      ],
+    },
   },
   approval_required_patterns: { patterns: ['package.json', 'supabase/migrations/**', 'app.json'] },
   forbidden_actions: {
     never_allowed: { actions: ['push', 'deploy', 'dependency_install'] },
-    approval_required: { actions: ['dependency_update', 'configuration_change'] }
-  }
+    approval_required: { actions: ['dependency_update', 'configuration_change'] },
+  },
 };
 
 function metadata(overrides = {}) {
@@ -30,12 +34,13 @@ function metadata(overrides = {}) {
     commit_policy: 'no_commit',
     push_policy: 'no_push',
     stop_conditions: ['validation failure'],
-    non_authoritative_statement: 'This queue-entry preview is non-authoritative and does not authorize execution or mutation.',
+    non_authoritative_statement:
+      'This queue-entry preview is non-authoritative and does not authorize execution or mutation.',
     dirty_tree: false,
     staged_files: [],
     existing_queue_entry_ids: [],
     approval_required_resolved: false,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -50,19 +55,31 @@ test('SAFE_AUTONOMOUS maps to admissible', () => {
 });
 
 test('REVIEW_REQUIRED maps to requires_review_before_queue', () => {
-  const result = validate({ classification: 'REVIEW_REQUIRED', admission_decision: 'requires_review_before_queue', review_requirement: true });
+  const result = validate({
+    classification: 'REVIEW_REQUIRED',
+    admission_decision: 'requires_review_before_queue',
+    review_requirement: true,
+  });
   assert.equal(result.admission_decision, 'requires_review_before_queue');
   assert.equal(result.admission_allowed, false);
 });
 
 test('HUMAN_ONLY maps to human_only', () => {
-  const result = validate({ classification: 'HUMAN_ONLY', admission_decision: 'human_only', review_requirement: true });
+  const result = validate({
+    classification: 'HUMAN_ONLY',
+    admission_decision: 'human_only',
+    review_requirement: true,
+  });
   assert.equal(result.admission_decision, 'human_only');
   assert.equal(result.admission_allowed, false);
 });
 
 test('FORBIDDEN maps to rejected', () => {
-  const result = validate({ classification: 'FORBIDDEN', admission_decision: 'rejected', review_requirement: true });
+  const result = validate({
+    classification: 'FORBIDDEN',
+    admission_decision: 'rejected',
+    review_requirement: true,
+  });
   assert.equal(result.admission_decision, 'rejected');
   assert.equal(result.admission_allowed, false);
 });
@@ -82,7 +99,10 @@ test('protected file is rejected', () => {
 });
 
 test('approval-required unresolved match is blocked', () => {
-  const result = validate({ allowed_files: ['package.json'], expected_changed_files: ['package.json'] });
+  const result = validate({
+    allowed_files: ['package.json'],
+    expected_changed_files: ['package.json'],
+  });
   assert.equal(result.admission_decision, 'requires_review_before_queue');
   assert.equal(result.admission_allowed, false);
   assert.ok(result.reason_codes.includes('approval_required_unresolved_blocks_queue_admission'));
@@ -121,8 +141,18 @@ test('non-authoritative statement is preserved', () => {
 });
 
 test('CLI rejects unsafe metadata-file paths', () => {
-  for (const unsafePath of ['../metadata.json', '..\\metadata.json', 'foo\\..\\metadata.json', 'C:/metadata.json', '/tmp/metadata.json']) {
-    const result = spawnSync(process.execPath, ['scripts/agent/queue-admission-validator.mjs', '--metadata-file', unsafePath], { encoding: 'utf8' });
+  for (const unsafePath of [
+    '../metadata.json',
+    '..\\metadata.json',
+    'foo\\..\\metadata.json',
+    'C:/metadata.json',
+    '/tmp/metadata.json',
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/agent/queue-admission-validator.mjs', '--metadata-file', unsafePath],
+      { encoding: 'utf8' },
+    );
     assert.notEqual(result.status, 0, unsafePath);
     assert.match(result.stderr, /Unsafe metadata-file path/, unsafePath);
   }

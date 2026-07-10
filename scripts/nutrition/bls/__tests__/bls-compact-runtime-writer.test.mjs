@@ -84,7 +84,11 @@ function row(overrides = {}) {
 }
 
 function fixtureRows() {
-  return [HEADERS, row(), row({ blsCode: 'B314000', germanName: 'Weizentoastbrot', englishName: 'Wheat toast' })];
+  return [
+    HEADERS,
+    row(),
+    row({ blsCode: 'B314000', germanName: 'Weizentoastbrot', englishName: 'Wheat toast' }),
+  ];
 }
 
 function collectKeys(value, keys = []) {
@@ -106,7 +110,14 @@ describe('compact runtime writer CLI parsing', () => {
     assert.equal(parseArgs(['node', 'cli', '--dry-run']).dryRun, true);
     assert.equal(parseArgs(['node', 'cli', '--write']).write, true);
 
-    for (const args of [['--output', 'test.json'], ['--output=test.json'], ['-o'], ['test.json'], ['--force'], ['--format']]) {
+    for (const args of [
+      ['--output', 'test.json'],
+      ['--output=test.json'],
+      ['-o'],
+      ['test.json'],
+      ['--force'],
+      ['--format'],
+    ]) {
       assert.throws(() => parseArgs(['node', 'cli', ...args]), /refused|fixed/);
     }
   });
@@ -122,15 +133,30 @@ describe('compact runtime writer CLI parsing', () => {
 
 describe('compact runtime artifact schema and determinism', () => {
   it('builds the exact selected compact object-runtime schema', () => {
-    const artifact = buildBlsCompactRuntimeArtifact(fixtureRows(), { sourceWorkbookSha256: 'sha-fixture' });
+    const artifact = buildBlsCompactRuntimeArtifact(fixtureRows(), {
+      sourceWorkbookSha256: 'sha-fixture',
+    });
     const payload = artifact.payload;
     const first = payload.records[0];
 
     assert.equal(payload.schemaVersion, SCHEMA_VERSION);
     assert.deepEqual(Object.keys(payload), ['schemaVersion', 'artifact', 'source', 'records']);
     assert.deepEqual(Object.keys(payload.artifact), ['kind', 'recordCount', 'contentSha256']);
-    assert.deepEqual(Object.keys(payload.source), ['kind', 'version', 'locale', 'dataWorkbookPath', 'sourceWorkbookSha256', 'validRecordCount']);
-    assert.deepEqual(Object.keys(first), ['id', 'sourceId', 'displayName', 'macrosPer100g', 'nutrientsPer100g']);
+    assert.deepEqual(Object.keys(payload.source), [
+      'kind',
+      'version',
+      'locale',
+      'dataWorkbookPath',
+      'sourceWorkbookSha256',
+      'validRecordCount',
+    ]);
+    assert.deepEqual(Object.keys(first), [
+      'id',
+      'sourceId',
+      'displayName',
+      'macrosPer100g',
+      'nutrientsPer100g',
+    ]);
     assert.equal(first.id, 'bls:M713100');
     assert.equal(first.sourceId, 'M713100');
     assert.equal(first.displayName, 'Speisequark, Magerstufe');
@@ -143,16 +169,30 @@ describe('compact runtime artifact schema and determinism', () => {
   });
 
   it('does not serialize tokens, aliases, normalizedName, provenance, names, search indexes, or timestamps', () => {
-    const artifact = buildBlsCompactRuntimeArtifact(fixtureRows(), { sourceWorkbookSha256: 'sha-fixture' });
+    const artifact = buildBlsCompactRuntimeArtifact(fixtureRows(), {
+      sourceWorkbookSha256: 'sha-fixture',
+    });
     const keys = collectKeys(artifact.payload);
-    for (const forbidden of ['tokens', 'aliases', 'normalizedName', 'provenance', 'names', 'searchIndex', 'generatedAt']) {
+    for (const forbidden of [
+      'tokens',
+      'aliases',
+      'normalizedName',
+      'provenance',
+      'names',
+      'searchIndex',
+      'generatedAt',
+    ]) {
       assert.equal(keys.includes(forbidden), false, `${forbidden} must be absent`);
     }
   });
 
   it('generates byte-identical minified JSON with one trailing newline', () => {
-    const first = buildBlsCompactRuntimeArtifact(fixtureRows(), { sourceWorkbookSha256: 'sha-fixture' });
-    const second = buildBlsCompactRuntimeArtifact(fixtureRows(), { sourceWorkbookSha256: 'sha-fixture' });
+    const first = buildBlsCompactRuntimeArtifact(fixtureRows(), {
+      sourceWorkbookSha256: 'sha-fixture',
+    });
+    const second = buildBlsCompactRuntimeArtifact(fixtureRows(), {
+      sourceWorkbookSha256: 'sha-fixture',
+    });
 
     assert.equal(first.bytes, second.bytes);
     assert.equal(first.sha256, second.sha256);
@@ -165,7 +205,9 @@ describe('compact runtime artifact schema and determinism', () => {
 describe('compact runtime artifact write safety', () => {
   it('dry-run writes no file, write creates fixed target, and same content is unchanged', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bls-compact-runtime-writer-'));
-    const artifact = buildBlsCompactRuntimeArtifact(fixtureRows(), { sourceWorkbookSha256: 'sha-fixture' });
+    const artifact = buildBlsCompactRuntimeArtifact(fixtureRows(), {
+      sourceWorkbookSha256: 'sha-fixture',
+    });
     const target = path.join(repoRoot, TARGET_ARTIFACT_PATH);
 
     const dryRun = writeBlsCompactRuntimeArtifact({ repoRoot, artifact, write: false });

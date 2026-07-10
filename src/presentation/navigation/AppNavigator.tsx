@@ -4,20 +4,22 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 // Screen-Komponenten importieren
-import DashboardScreen from '../features/dashboard/DashboardScreen';
 import JournalScreen from '../features/journal/JournalScreen';
 import GoalsScreen from '../features/goals/GoalsScreen';
 import NutritionScreen from '../features/nutrition/NutritionScreen';
 import RecoveryScreen from '../features/recovery/RecoveryScreen';
 import VoiceScreen from '../features/voice/VoiceScreen';
+import SavedMealsScreen from '../features/savedMeals/SavedMealsScreen';
+import EvaluationSummaryScreen from '../features/evaluationSummary/EvaluationSummaryScreen';
 
 // Typdefinition für die Tab-Parameter
 export type RootTabParamList = {
-  Dashboard: undefined;
   Journal: undefined;
   Goals: undefined;
   Nutrition: undefined;
   Recovery: undefined;
+  SavedMeals: undefined;
+  EvaluationSummary: undefined;
 };
 
 // Typdefinition für die Stack-Parameter
@@ -36,9 +38,7 @@ const TabNavigator: React.FC = () => {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
-          if (route.name === 'Dashboard') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Journal') {
+          if (route.name === 'Journal') {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'Goals') {
             iconName = focused ? 'trophy' : 'trophy-outline';
@@ -46,6 +46,10 @@ const TabNavigator: React.FC = () => {
             iconName = focused ? 'restaurant' : 'restaurant-outline';
           } else if (route.name === 'Recovery') {
             iconName = focused ? 'bed' : 'bed-outline';
+          } else if (route.name === 'SavedMeals') {
+            iconName = focused ? 'bookmark' : 'bookmark-outline';
+          } else if (route.name === 'EvaluationSummary') {
+            iconName = focused ? 'analytics' : 'analytics-outline';
           } else {
             iconName = 'help-circle';
           }
@@ -66,14 +70,6 @@ const TabNavigator: React.FC = () => {
         }}
       />
       <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{
-          title: 'Dashboard',
-        }}
-      />
-
-      <Tab.Screen
         name="Goals"
         component={GoalsScreen}
         options={{
@@ -92,6 +88,20 @@ const TabNavigator: React.FC = () => {
         component={RecoveryScreen}
         options={{
           title: 'Erholung',
+        }}
+      />
+      <Tab.Screen
+        name="SavedMeals"
+        component={SavedMealsScreen}
+        options={{
+          title: 'Vorlagen',
+        }}
+      />
+      <Tab.Screen
+        name="EvaluationSummary"
+        component={EvaluationSummaryScreen}
+        options={{
+          title: 'Auswertung',
         }}
       />
     </Tab.Navigator>

@@ -6,7 +6,7 @@ import {
   classifyFilePath,
   evaluateSourceSafetyInvariants,
   formatExecutionCapabilityGateSimulationPretty,
-  validateApprovalReadinessInput
+  validateApprovalReadinessInput,
 } from '../lib/overnight-execution-capability-gate-simulator.mjs';
 import { parseArgs } from '../overnight-execution-capability-gate-simulator.mjs';
 
@@ -24,7 +24,7 @@ function sourceSimulation(overrides = {}) {
     hypothetical_task_scope: {
       task_id: 'RALPH-034R-FIXTURE',
       intended_changed_files: ['docs/example.md'],
-      change_kind: 'documentation_only'
+      change_kind: 'documentation_only',
     },
     reason_codes: ['hypothetical_approval_readiness_prerequisites_present'],
     blocking_findings: [],
@@ -52,7 +52,7 @@ function sourceSimulation(overrides = {}) {
       not_approval_evidence: true,
       not_review_evidence: true,
       not_validation_evidence: true,
-      not_runtime_state: true
+      not_runtime_state: true,
     },
     execution_plan: {
       queued_tasks_executed: 0,
@@ -80,7 +80,7 @@ function sourceSimulation(overrides = {}) {
       staged_files: 0,
       product_work: 0,
       commits: false,
-      push: false
+      push: false,
     },
     safety_summary: {
       planning_only: true,
@@ -119,16 +119,22 @@ function sourceSimulation(overrides = {}) {
       not_approval_evidence: true,
       not_runtime_state: true,
       not_validation_evidence: true,
-      not_review_evidence: true
+      not_review_evidence: true,
     },
     non_authorization_statement: 'source non-authorization',
     recommended_human_actions: ['review manually'],
-    ...overrides
+    ...overrides,
   };
 }
 
 function withFiles(files) {
-  return sourceSimulation({ hypothetical_task_scope: { task_id: 'RALPH-034R-FIXTURE', intended_changed_files: files, change_kind: 'documentation_only' } });
+  return sourceSimulation({
+    hypothetical_task_scope: {
+      task_id: 'RALPH-034R-FIXTURE',
+      intended_changed_files: files,
+      change_kind: 'documentation_only',
+    },
+  });
 }
 
 test('invalid input produces invalid_input', () => {
@@ -138,26 +144,39 @@ test('invalid input produces invalid_input', () => {
 });
 
 test('wrong phase produces invalid_input', () => {
-  const simulation = buildExecutionCapabilityGateSimulation(sourceSimulation({ phase: 'RALPH-034P' }));
+  const simulation = buildExecutionCapabilityGateSimulation(
+    sourceSimulation({ phase: 'RALPH-034P' }),
+  );
   assert.equal(simulation.execution_capability_disposition, 'invalid_input');
   assert.ok(simulation.reason_codes.includes('invalid_source_phase'));
 });
 
 test('wrong mode produces invalid_input', () => {
-  const simulation = buildExecutionCapabilityGateSimulation(sourceSimulation({ mode: 'human_approval_checkpoint_simulation_only' }));
+  const simulation = buildExecutionCapabilityGateSimulation(
+    sourceSimulation({ mode: 'human_approval_checkpoint_simulation_only' }),
+  );
   assert.equal(simulation.execution_capability_disposition, 'invalid_input');
   assert.ok(simulation.reason_codes.includes('invalid_source_mode'));
 });
 
 test('source not approval-ready is blocked_for_execution', () => {
-  const simulation = buildExecutionCapabilityGateSimulation(sourceSimulation({ approval_readiness_disposition: 'not_approval_ready_missing_prerequisites' }));
+  const simulation = buildExecutionCapabilityGateSimulation(
+    sourceSimulation({
+      approval_readiness_disposition: 'not_approval_ready_missing_prerequisites',
+    }),
+  );
   assert.equal(simulation.execution_capability_disposition, 'blocked_for_execution');
   assert.ok(simulation.reason_codes.includes('source_not_approval_ready'));
 });
 
 test('source claims execution authorization true is blocked_for_execution', () => {
-  const readiness_authorization = { ...sourceSimulation().readiness_authorization, execution_authorized: true };
-  const simulation = buildExecutionCapabilityGateSimulation(sourceSimulation({ readiness_authorization }));
+  const readiness_authorization = {
+    ...sourceSimulation().readiness_authorization,
+    execution_authorized: true,
+  };
+  const simulation = buildExecutionCapabilityGateSimulation(
+    sourceSimulation({ readiness_authorization }),
+  );
   assert.equal(simulation.execution_capability_disposition, 'blocked_for_execution');
   assert.ok(simulation.reason_codes.includes('source_claims_authorization'));
 });
@@ -172,14 +191,26 @@ test('source has nonzero execution counters is blocked_for_execution', () => {
 test('direct docs/plans/reports markdown files are eligible', () => {
   for (const file of ['docs/example.md', 'plans/example.md', 'reports/example.md']) {
     const simulation = buildExecutionCapabilityGateSimulation(withFiles([file]));
-    assert.equal(simulation.execution_capability_disposition, 'eligible_for_docs_only_execution', file);
+    assert.equal(
+      simulation.execution_capability_disposition,
+      'eligible_for_docs_only_execution',
+      file,
+    );
     assert.equal(simulation.execution_authorization.execution_authorized, false);
     assert.equal(simulation.execution_plan.files_written, 0);
   }
 });
 
 test('high-authority markdown requires higher capability', () => {
-  for (const file of ['README.md', 'AGENTS.md', 'ROADMAP.md', 'VERIFY.md', 'SSOK.md', '.governance/SAFETY.md', '.agent/overnight/README.md']) {
+  for (const file of [
+    'README.md',
+    'AGENTS.md',
+    'ROADMAP.md',
+    'VERIFY.md',
+    'SSOK.md',
+    '.governance/SAFETY.md',
+    '.agent/overnight/README.md',
+  ]) {
     const simulation = buildExecutionCapabilityGateSimulation(withFiles([file]));
     assert.equal(simulation.execution_capability_disposition, 'requires_higher_capability', file);
     assert.equal(simulation.capability_classification.requires_higher_capability, true);
@@ -187,10 +218,26 @@ test('high-authority markdown requires higher capability', () => {
 });
 
 test('explicit forbidden scopes are blocked_for_execution', () => {
-  for (const file of ['handoffs/latest-handoff.md', 'src/App.tsx', 'scripts/agent/foo.mjs', 'tasks/task-state.json', 'runs/current-run.json', 'validation/validation-results.jsonl', 'review/review-results.jsonl', 'package.json', 'package-lock.json', '.env', '.git/config']) {
+  for (const file of [
+    'handoffs/latest-handoff.md',
+    'src/App.tsx',
+    'scripts/agent/foo.mjs',
+    'tasks/task-state.json',
+    'runs/current-run.json',
+    'validation/validation-results.jsonl',
+    'review/review-results.jsonl',
+    'package.json',
+    'package-lock.json',
+    '.env',
+    '.git/config',
+  ]) {
     const simulation = buildExecutionCapabilityGateSimulation(withFiles([file]));
     assert.equal(simulation.execution_capability_disposition, 'blocked_for_execution', file);
-    assert.ok(simulation.reason_codes.includes('forbidden_execution_scope_present') || simulation.reason_codes.includes('forbidden_secret_or_env_scope'), file);
+    assert.ok(
+      simulation.reason_codes.includes('forbidden_execution_scope_present') ||
+        simulation.reason_codes.includes('forbidden_secret_or_env_scope'),
+      file,
+    );
   }
 });
 
@@ -206,17 +253,23 @@ test('path traversal is invalid_input', () => {
 });
 
 test('mixed eligible and high authority requires higher capability', () => {
-  const simulation = buildExecutionCapabilityGateSimulation(withFiles(['docs/example.md', 'README.md']));
+  const simulation = buildExecutionCapabilityGateSimulation(
+    withFiles(['docs/example.md', 'README.md']),
+  );
   assert.equal(simulation.execution_capability_disposition, 'requires_higher_capability');
 });
 
 test('mixed eligible and forbidden is blocked_for_execution', () => {
-  const simulation = buildExecutionCapabilityGateSimulation(withFiles(['docs/example.md', 'src/App.tsx']));
+  const simulation = buildExecutionCapabilityGateSimulation(
+    withFiles(['docs/example.md', 'src/App.tsx']),
+  );
   assert.equal(simulation.execution_capability_disposition, 'blocked_for_execution');
 });
 
 test('missing intended changed files is invalid_input', () => {
-  const simulation = buildExecutionCapabilityGateSimulation(sourceSimulation({ hypothetical_task_scope: { task_id: 'RALPH-034R-FIXTURE' } }));
+  const simulation = buildExecutionCapabilityGateSimulation(
+    sourceSimulation({ hypothetical_task_scope: { task_id: 'RALPH-034R-FIXTURE' } }),
+  );
   assert.equal(simulation.execution_capability_disposition, 'invalid_input');
   assert.ok(simulation.reason_codes.includes('missing_intended_changed_files'));
 });
@@ -240,11 +293,30 @@ test('helpers remain deterministic and non-authorizing', () => {
 });
 
 test('CLI parser rejects forbidden execution and mutation flags', () => {
-  for (const flag of ['--execute', '--run', '--worker', '--adapter', '--provider', '--model', '--prompt', '--validate', '--review', '--approve', '--write', '--output', '--stage', '--commit', '--push']) assert.throws(() => parseArgs(['node', 'cli', 'ralph-034q.json', flag]), /forbidden/, flag);
+  for (const flag of [
+    '--execute',
+    '--run',
+    '--worker',
+    '--adapter',
+    '--provider',
+    '--model',
+    '--prompt',
+    '--validate',
+    '--review',
+    '--approve',
+    '--write',
+    '--output',
+    '--stage',
+    '--commit',
+    '--push',
+  ])
+    assert.throws(() => parseArgs(['node', 'cli', 'ralph-034q.json', flag]), /forbidden/, flag);
 });
 
 test('pretty output contains non-authorization language', () => {
-  const pretty = formatExecutionCapabilityGateSimulationPretty(buildExecutionCapabilityGateSimulation(sourceSimulation()));
+  const pretty = formatExecutionCapabilityGateSimulationPretty(
+    buildExecutionCapabilityGateSimulation(sourceSimulation()),
+  );
   assert.match(pretty, /planning-only capability gate simulation/);
   assert.match(pretty, /no execution capability granted/);
   assert.match(pretty, /no file writes/);

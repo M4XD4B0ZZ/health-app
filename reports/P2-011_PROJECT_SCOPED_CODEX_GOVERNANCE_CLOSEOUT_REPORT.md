@@ -29,12 +29,12 @@ Finalize repo-local Codex governance by verifying that the project-scoped Codex 
 
 ## Codex Files Verified
 
-| File | Result | Notes |
-| --- | --- | --- |
-| `.codex/config.toml` | Present | References repo-local governance sources and role files. |
-| `.codex/roles/analysis.md` | Present | Defines read-heavy investigation/planning behavior scoped to repo governance. |
+| File                             | Result  | Notes                                                                                                    |
+| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `.codex/config.toml`             | Present | References repo-local governance sources and role files.                                                 |
+| `.codex/roles/analysis.md`       | Present | Defines read-heavy investigation/planning behavior scoped to repo governance.                            |
 | `.codex/roles/implementation.md` | Present | Defines scoped implementation behavior, minimal deterministic edits, and verification before completion. |
-| `.codex/roles/review.md` | Present | Defines diff/review behavior focused on risks, regressions, architecture, and verification evidence. |
+| `.codex/roles/review.md`         | Present | Defines diff/review behavior focused on risks, regressions, architecture, and verification evidence.     |
 
 ---
 

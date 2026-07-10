@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 import { executeOvernightValidationQueue } from './lib/overnight-validation-executor.mjs';
 import { writeOvernightReportBundle } from './lib/overnight-report-writer.mjs';
-import { appendOvernightRunLogEvent, buildLifecycleEventsForExecutorResult } from './lib/overnight-run-log.mjs';
+import {
+  appendOvernightRunLogEvent,
+  buildLifecycleEventsForExecutorResult,
+} from './lib/overnight-run-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,12 +21,19 @@ const EXIT_CODES = Object.freeze({
   NOT_READY: 2,
   COMMAND_FAILED: 3,
   REPORT_WRITE_FAILED: 4,
-  RUN_LOG_WRITE_FAILED: 5
+  RUN_LOG_WRITE_FAILED: 5,
 });
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const options = { queuePath: null, pretty: false, help: false, writeReport: false, reportFormat: 'json,md', writeRunLog: false };
+  const options = {
+    queuePath: null,
+    pretty: false,
+    help: false,
+    writeReport: false,
+    reportFormat: 'json,md',
+    writeRunLog: false,
+  };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--pretty') options.pretty = true;
@@ -33,8 +43,8 @@ function parseArgs(argv) {
       if (index + 1 >= args.length) throw new Error('--report-format requires a value');
       options.reportFormat = args[index + 1];
       index += 1;
-    }
-    else if (arg.startsWith('--report-format=')) options.reportFormat = arg.slice('--report-format='.length);
+    } else if (arg.startsWith('--report-format='))
+      options.reportFormat = arg.slice('--report-format='.length);
     else if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg.startsWith('--')) throw new Error(`Unknown argument: ${arg}`);
     else if (!options.queuePath) options.queuePath = arg;
@@ -46,7 +56,10 @@ function parseArgs(argv) {
 
 function validateReportFormatOption(value) {
   const allowed = new Set(['json', 'md']);
-  const formats = String(value || '').split(',').map((format) => format.trim().toLowerCase()).filter(Boolean);
+  const formats = String(value || '')
+    .split(',')
+    .map((format) => format.trim().toLowerCase())
+    .filter(Boolean);
   if (formats.length === 0) throw new Error('At least one report format is required');
   for (const format of formats) {
     if (!allowed.has(format)) throw new Error(`Unsupported report format: ${format}`);
@@ -93,7 +106,9 @@ function formatPretty(output) {
   lines.push(`Timed out: ${output.command_execution.timed_out}`);
   lines.push(`Blocked: ${output.command_execution.blocked}`);
   lines.push('');
-  lines.push('Safety: no queued task execution; no queue allowed_commands execution; no worker invocation; no runtime mutation; no product work; no commit; no push; no log write by default.');
+  lines.push(
+    'Safety: no queued task execution; no queue allowed_commands execution; no worker invocation; no runtime mutation; no product work; no commit; no push; no log write by default.',
+  );
   if (output.report_bundle?.files_written?.length > 0) {
     lines.push('');
     lines.push('Report files written:');
@@ -107,7 +122,8 @@ function formatPretty(output) {
   if (output.preflight.critical_findings.length > 0) {
     lines.push('');
     lines.push('Critical Findings:');
-    for (const finding of output.preflight.critical_findings) lines.push(`- [${finding.code}] ${finding.message}`);
+    for (const finding of output.preflight.critical_findings)
+      lines.push(`- [${finding.code}] ${finding.message}`);
   }
   return lines.join('\n');
 }
@@ -139,7 +155,14 @@ async function main() {
       preflight: {
         working_tree_clean_before: false,
         working_tree_clean_after: false,
-        critical_findings: [{ severity: 'critical', code: 'queue_read_or_parse_failed', message: error.message, details: { queue_path: options.queuePath } }]
+        critical_findings: [
+          {
+            severity: 'critical',
+            code: 'queue_read_or_parse_failed',
+            message: error.message,
+            details: { queue_path: options.queuePath },
+          },
+        ],
       },
       execution_plan: {
         queued_tasks_executed: 0,
@@ -149,8 +172,8 @@ async function main() {
         task_commands_executed: 0,
         product_work: 0,
         commits: false,
-        push: false
-      }
+        push: false,
+      },
     };
     console.error(JSON.stringify(failure, null, 2));
     process.exit(EXIT_CODES.INVALID_INPUT);
@@ -159,13 +182,16 @@ async function main() {
   const output = await executeOvernightValidationQueue(queue);
   if (options.writeReport) {
     try {
-      const bundle = writeOvernightReportBundle(output, { projectRoot, formats: options.reportFormat });
+      const bundle = writeOvernightReportBundle(output, {
+        projectRoot,
+        formats: options.reportFormat,
+      });
       output.report_bundle = {
         report_authority: bundle.report.report_authority,
         files_written: bundle.files_written.map((file) => file.relative_path),
         write_performed: true,
         arbitrary_output_paths_allowed: false,
-        overwrite_allowed: false
+        overwrite_allowed: false,
       };
     } catch (error) {
       const failure = {
@@ -183,8 +209,8 @@ async function main() {
           no_commit: true,
           no_push: true,
           no_arbitrary_output_paths: true,
-          no_overwrite_by_default: true
-        }
+          no_overwrite_by_default: true,
+        },
       };
       console.error(JSON.stringify(failure, null, 2));
       process.exit(EXIT_CODES.REPORT_WRITE_FAILED);
@@ -199,18 +225,20 @@ async function main() {
     arbitrary_output_paths_allowed: false,
     overwrite_or_truncate_allowed: false,
     event_states_preview: lifecycleEvents.map((event) => event.state),
-    run_id: lifecycleEvents[0]?.run_id || null
+    run_id: lifecycleEvents[0]?.run_id || null,
   };
 
   if (options.writeRunLog) {
     try {
-      const writes = lifecycleEvents.map((event) => appendOvernightRunLogEvent(event, { projectRoot }));
+      const writes = lifecycleEvents.map((event) =>
+        appendOvernightRunLogEvent(event, { projectRoot }),
+      );
       output.run_log = {
         ...output.run_log,
         write_performed: true,
         default_no_write: false,
         files_written: [...new Set(writes.map((write) => write.relativePath))],
-        events_written: lifecycleEvents.map((event) => event.state)
+        events_written: lifecycleEvents.map((event) => event.state),
       };
     } catch (error) {
       const failure = {
@@ -229,8 +257,8 @@ async function main() {
           no_push: true,
           no_arbitrary_output_paths: true,
           no_overwrite_or_truncate: true,
-          run_log_is_non_authoritative: true
-        }
+          run_log_is_non_authoritative: true,
+        },
       };
       console.error(JSON.stringify(failure, null, 2));
       process.exit(EXIT_CODES.RUN_LOG_WRITE_FAILED);
@@ -240,10 +268,13 @@ async function main() {
   else console.log(JSON.stringify(output, null, 2));
 
   if (output.valid) process.exit(EXIT_CODES.OK);
-  const commandProblem = output.command_execution.failed > 0
-    || output.command_execution.timed_out > 0
-    || output.command_execution.blocked > 0
-    || output.preflight.critical_findings.some((finding) => finding.code === 'working_tree_dirty_after_execution');
+  const commandProblem =
+    output.command_execution.failed > 0 ||
+    output.command_execution.timed_out > 0 ||
+    output.command_execution.blocked > 0 ||
+    output.preflight.critical_findings.some(
+      (finding) => finding.code === 'working_tree_dirty_after_execution',
+    );
   process.exit(commandProblem ? EXIT_CODES.COMMAND_FAILED : EXIT_CODES.NOT_READY);
 }
 

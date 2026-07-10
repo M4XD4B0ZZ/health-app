@@ -7,6 +7,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 **Current phase:** RALPH-034T — Supervised Docs-Only Executor
 
 **What this system does:**
+
 - Validates human-authored overnight queues
 - Executes only mapped validation/check commands
 - Produces non-authoritative operational reports and run logs
@@ -24,6 +25,7 @@ This guide explains how to safely operate the RALPH Autonomous Overnight Worker 
 - Executes the first supervised docs-only create capability only when an explicit RALPH-034T input is supplied and `--write-docs-only` is passed; dry-run remains the default
 
 **What this system does NOT do:**
+
 - Execute queued task objectives
 - Execute queue `allowed_commands`
 - Execute validation commands during queue acceptance simulation
@@ -65,16 +67,19 @@ This CLI combines all RALPH-034A through RALPH-034F components into one safe ope
 **Use case:** Decide which queued tasks a hypothetical future worker would accept, require review for, keep human-only, reject, or forbid at intake.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-queue-simulator.mjs <queue.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-queue-simulator.mjs <queue.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads the supplied human-authored queue JSON file
 - Reuses queue validation and validation-plan/check mapping
 - Classifies each queued task into one of five dispositions
@@ -85,6 +90,7 @@ node scripts/agent/overnight-queue-simulator.mjs <queue.json> --pretty
 - **Writes no files**
 
 **Dispositions:**
+
 - `would_accept` — passes future worker intake simulation only; does not authorize execution
 - `would_require_review` — may be theoretically executable later but requires human review/approval first
 - `human_only` — must remain human-only and must not be autonomously executed
@@ -98,16 +104,19 @@ node scripts/agent/overnight-queue-simulator.mjs <queue.json> --pretty
 **Use case:** Review the exact bounded envelope that would constrain a future worker if a `would_accept` task were ever separately authorized for supervised invocation.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-worker-envelope-planner.mjs <queue.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-worker-envelope-planner.mjs <queue.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads the supplied human-authored queue JSON file
 - Reuses RALPH-034H queue acceptance simulation
 - Creates worker envelope proposals only for `would_accept` tasks
@@ -120,6 +129,7 @@ node scripts/agent/overnight-worker-envelope-planner.mjs <queue.json> --pretty
 - **Writes no files**
 
 **Created envelope fields include:**
+
 - `task_id`
 - accepted disposition source
 - `allowed_files`
@@ -148,16 +158,19 @@ node scripts/agent/overnight-worker-envelope-planner.mjs <queue.json> --pretty
 **Use case:** Review the exact structured payload preview that would be passed to a future worker adapter if a created RALPH-034I envelope were ever separately approved for supervised invocation.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-worker-invocation-contract-simulator.mjs <queue.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-worker-invocation-contract-simulator.mjs <queue.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads the supplied human-authored queue JSON file
 - Reuses RALPH-034I worker envelope planning
 - Creates invocation contract previews only for entries with `envelope_created: true`
@@ -170,6 +183,7 @@ node scripts/agent/overnight-worker-invocation-contract-simulator.mjs <queue.jso
 - **Writes no files**
 
 **Created contract fields include:**
+
 - `contract_id`
 - source task, queue, and synthesized envelope IDs
 - accepted disposition source
@@ -204,16 +218,19 @@ node scripts/agent/overnight-worker-invocation-contract-simulator.mjs <queue.jso
 **Use case:** Review how a future adapter routing layer would classify created RALPH-034J invocation contracts without selecting or invoking any real adapter, provider, model, prompt, task, validation command, or network endpoint.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads the supplied human-authored queue JSON file
 - Reuses RALPH-034J worker invocation contract simulation
 - Creates adapter route simulations only for entries with `contract_created: true`
@@ -228,6 +245,7 @@ node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json> --pretty
 - **Writes no files**
 
 **Created adapter route fields include:**
+
 - `route_id`
 - `source_contract_id`
 - `source_task_id`
@@ -255,16 +273,19 @@ node scripts/agent/overnight-worker-adapter-simulator.mjs <queue.json> --pretty
 **Use case:** Review how RALPH would classify a hypothetical future worker change-set against allowed files, forbidden files, protected files, file-count thresholds, diff-line thresholds, review triggers, and validation-category implications without executing a worker or reading a real git diff.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads only the supplied hypothetical change-set JSON file
 - Evaluates allowed-file compliance
 - Evaluates forbidden/protected-file violations
@@ -282,11 +303,13 @@ node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json> --prett
 - **Writes no files**
 
 **Top-level dispositions:**
+
 - `would_pass` — hypothetical change-set stays within monitoring constraints; still does not authorize execution or review acceptance
 - `would_require_review` — no blocking violation detected, but review triggers or category escalation require manual review
 - `would_block` — invalid input, scope violation, forbidden/protected file, or threshold violation blocks the hypothetical change-set
 
 **Reason codes include:**
+
 - `scope_violation`
 - `forbidden_file`
 - `protected_file`
@@ -304,16 +327,19 @@ node scripts/agent/overnight-change-diff-simulator.mjs <change-set.json> --prett
 **Use case:** Review how RALPH would classify a hypothetical RALPH-034L change/diff simulation at the post-change review gate without accepting review, recording evidence, running validation, invoking workers/adapters/providers/models/prompts, applying changes, or reading a real git diff.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-simulation.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-simulation.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads only the supplied RALPH-034L change/diff simulation JSON file
 - Evaluates source simulation validity and RALPH-034L disposition
 - Propagates blocking and review reason codes
@@ -330,12 +356,14 @@ node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-s
 - **Writes no files**
 
 **Top-level dispositions:**
+
 - `would_reject_before_review` — hard blocker detected before any future review could proceed
 - `would_require_human_review` — no hard blocker detected, but manual human review would be required
 - `would_be_reviewable` — low-risk hypothetical result could proceed to human review only; it is not accepted
 - `invalid_input` — supplied JSON is not a valid RALPH-034L change/diff simulation object
 
 **Always false / non-authorizing fields include:**
+
 - `review_acceptance_authorized: false`
 - `review_evidence_authorized: false`
 - `validation_execution_authorized: false`
@@ -355,16 +383,19 @@ node scripts/agent/overnight-post-change-review-gate-simulator.mjs <ralph-034l-s
 **Use case:** Review what hypothetical validation requirements would need to be satisfied before any future approval could be considered, based only on RALPH-034M post-change review-gate simulator output.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-validation-approval-gate-simulator.mjs <ralph-034m-simulation.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-validation-approval-gate-simulator.mjs <ralph-034m-simulation.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads only the supplied RALPH-034M post-change review-gate simulation JSON file
 - Evaluates source simulation validity, source safety invariants, and source non-authorization claims
 - Maps propagated validation categories to hypothetical VERIFY.md validation requirements
@@ -382,12 +413,14 @@ node scripts/agent/overnight-validation-approval-gate-simulator.mjs <ralph-034m-
 - **Does not stage, commit, or push**
 
 **Top-level dispositions:**
+
 - `invalid_input` — supplied JSON is not a valid RALPH-034M post-change review-gate simulation object
 - `blocked_before_validation` — upstream review-gate or validation category findings block before validation consideration
 - `validation_requirements_identified` — hypothetical validation requirements were identified; none were executed or satisfied here
 - `no_future_approval_consideration` — source safety/authorization claims fail closed before approval consideration
 
 **Requirement entries always include:**
+
 - `execution_authorized: false`
 - `executed: false`
 - `passed: null`
@@ -403,16 +436,19 @@ node scripts/agent/overnight-validation-approval-gate-simulator.mjs <ralph-034m-
 **Use case:** Review what hypothetical runtime state transitions and evidence state transitions would be required before any future approved workflow could proceed, based only on RALPH-034N validation approval-gate simulator output.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-runtime-evidence-transition-simulator.mjs <ralph-034n-simulation.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-runtime-evidence-transition-simulator.mjs <ralph-034n-simulation.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads only the supplied RALPH-034N validation approval-gate simulation JSON file
 - Evaluates source simulation validity, source safety invariants, and source non-authorization claims
 - Identifies hypothetical runtime state transitions and evidence state transitions only
@@ -432,12 +468,14 @@ node scripts/agent/overnight-runtime-evidence-transition-simulator.mjs <ralph-03
 - **Does not stage, commit, or push**
 
 **Top-level dispositions:**
+
 - `invalid_input` — supplied JSON is not a valid RALPH-034N validation approval-gate simulation object
 - `blocked_before_transition_planning` — upstream validation approval-gate findings or blocked categories prevent transition planning
 - `no_future_workflow_consideration` — source safety/authorization claims fail closed before workflow consideration
 - `transitions_identified` — hypothetical runtime/evidence transition requirements were identified; none were authorized or performed
 
 **Transition entries always include:**
+
 - `simulated_only: true`
 - `mutation_authorized: false` or `evidence_authorized: false`
 - `mutation_performed: false` or `evidence_written: false`
@@ -453,16 +491,19 @@ node scripts/agent/overnight-runtime-evidence-transition-simulator.mjs <ralph-03
 **Use case:** Review whether a future supervised workflow could even be considered approval-ready and identify missing approval prerequisites, based only on a hypothetical RALPH-034P human approval checkpoint simulator output.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simulation.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simulation.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads only the supplied RALPH-034P human approval checkpoint simulation JSON file
 - Evaluates source simulation validity, source safety invariants, checkpoint authority claims, and source non-authorization claims
 - Determines hypothetical approval readiness consideration only
@@ -482,6 +523,7 @@ node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simula
 - **Does not stage, commit, or push**
 
 **Top-level dispositions:**
+
 - `invalid_input` — supplied JSON is not a valid RALPH-034P human approval checkpoint simulation object
 - `blocked_before_readiness_assessment` — upstream approval-checkpoint findings prevent readiness assessment
 - `no_future_approval_readiness_consideration` — source safety, authorization, approval, or evidence claims fail closed before readiness consideration
@@ -489,6 +531,7 @@ node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simula
 - `hypothetically_approval_ready_for_human_consideration` — all required prerequisites are represented as present in the hypothetical input; this still grants no approval and records no approval
 
 **Missing prerequisite entries always include:**
+
 - `required_before_approval_readiness: true`
 - `present_in_source_simulation: false`
 - `satisfied_by_this_simulation: false`
@@ -505,16 +548,19 @@ node scripts/agent/overnight-approval-readiness-simulator.mjs <ralph-034p-simula
 **Use case:** Review whether a hypothetically approval-ready task is eligible for the first future supervised docs-only execution capability, based only on RALPH-034Q approval readiness output.
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q-simulation.json>
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q-simulation.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads only the supplied RALPH-034Q approval readiness simulation JSON file
 - Requires source phase `RALPH-034Q`, mode `approval_readiness_simulation_only`, and disposition `hypothetically_approval_ready_for_human_consideration`
 - Requires clean source safety/non-authorization invariants
@@ -531,6 +577,7 @@ node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q
 - **Does not stage, commit, or push**
 
 **Top-level dispositions:**
+
 - `invalid_input` — supplied JSON or intended changed-file scope is invalid
 - `blocked_for_execution` — source readiness/safety or forbidden scope blocks future execution capability consideration
 - `requires_higher_capability` — high-authority Markdown or non-first-capability Markdown scope requires a later higher capability
@@ -545,21 +592,25 @@ node scripts/agent/overnight-execution-capability-gate-simulator.mjs <ralph-034q
 **Use case:** Create exactly one direct low-authority Markdown file after a human has supplied an explicit operation JSON and a RALPH-034R source object with `eligible_for_docs_only_execution`.
 
 **Dry-run command:**
+
 ```powershell
 node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json>
 ```
 
 **Explicit write command:**
+
 ```powershell
 node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json> --write-docs-only
 ```
 
 **Pretty output:**
+
 ```powershell
 node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json> --pretty
 ```
 
 **Behavior:**
+
 - Reads one explicitly supplied JSON input file
 - Requires embedded or supplied RALPH-034R source with phase `RALPH-034R`, mode `execution_capability_gate_simulation_only`, `valid: true`, and disposition `eligible_for_docs_only_execution`
 - Requires clean RALPH-034R safety/non-authorization invariants
@@ -581,11 +632,13 @@ node scripts/agent/overnight-docs-only-executor.mjs <docs-only-operation.json> -
 **Use case:** Manual verification, debugging, testing
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs <queue.json>
 ```
 
 **Behavior:**
+
 - Validates queue using RALPH-034A logic
 - Maps checks using RALPH-034C logic
 - Executes only mapped validation commands using RALPH-034D logic
@@ -596,6 +649,7 @@ node scripts/agent/overnight-validation-executor.mjs <queue.json>
 **Output:** JSON with orchestration metadata, validation results, safety counters
 
 **Example:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 ```
@@ -607,11 +661,13 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 **Use case:** Quick operator review
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs <queue.json> --pretty
 ```
 
 **Behavior:**
+
 - Same as Mode 1
 - Outputs human-readable summary instead of JSON
 - **Writes no files**
@@ -619,6 +675,7 @@ node scripts/agent/overnight-validation-executor.mjs <queue.json> --pretty
 **Output:** Compact text summary with validation status, command results, safety invariants
 
 **Example:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --pretty
 ```
@@ -630,11 +687,13 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 **Use case:** Persistent operational tracking, morning review
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs <queue.json> --write-report
 ```
 
 **Behavior:**
+
 - Same as Mode 1
 - **Additionally writes non-authoritative operational report** under `.agent/overnight/reports/`
 - Report includes JSON and Markdown formats by default
@@ -648,11 +707,13 @@ node scripts/agent/overnight-validation-executor.mjs <queue.json> --write-report
 **Report authority:** Non-authoritative operational output (not runtime evidence)
 
 **Example:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report
 ```
 
 **Custom report format:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report --report-format json
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report --report-format md
@@ -666,11 +727,13 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 **Use case:** Operational lifecycle tracking, audit trail
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs <queue.json> --write-run-log
 ```
 
 **Behavior:**
+
 - Same as Mode 1
 - **Additionally appends non-authoritative lifecycle events** to `.agent/overnight/run-log.jsonl`
 - Run log uses `ovr_` prefixed run IDs (not canonical `run_` IDs)
@@ -686,6 +749,7 @@ node scripts/agent/overnight-validation-executor.mjs <queue.json> --write-run-lo
 **Lifecycle states:** `planned`, `validation_started`, `validation_passed`, `validation_failed`, `report_written`, `completed`, `aborted`
 
 **Example:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-run-log
 ```
@@ -697,11 +761,13 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 **Use case:** Full operational tracking with persistent artifacts
 
 **Command:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs <queue.json> --write-report --write-run-log
 ```
 
 **Behavior:**
+
 - Same as Mode 1
 - **Writes both operational report and run-log lifecycle events**
 - Both outputs are non-authoritative
@@ -710,6 +776,7 @@ node scripts/agent/overnight-validation-executor.mjs <queue.json> --write-report
 **Output:** JSON to stdout + report files + run-log events
 
 **Example:**
+
 ```powershell
 node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json --write-report --write-run-log --pretty
 ```
@@ -721,6 +788,7 @@ node scripts/agent/overnight-validation-executor.mjs .agent/overnight/queue.json
 ### Hard Invariants (Always Enforced)
 
 The orchestrator **never** performs:
+
 - Queued task execution
 - Queue objective execution
 - Queue `allowed_commands` execution
@@ -746,6 +814,7 @@ The orchestrator **never** performs:
 ### Execution Constraints
 
 The orchestrator **only** executes:
+
 - Mapped validation/check command IDs from the validation-only allowlist
 - Through the RALPH-034B command harness (Node spawn with `shell:false`)
 - With preflight/final git status cleanliness checks
@@ -753,6 +822,7 @@ The orchestrator **only** executes:
 - With structured output capture
 
 **Current validation-only allowlist:**
+
 - `validate_ralph_state`
 - `reconcile_roadmap_task_state`
 - `node_check_overnight_queue_schema`
@@ -762,6 +832,7 @@ The orchestrator **only** executes:
 ### Output Constraints
 
 The orchestrator **only** writes:
+
 - Reports under `.agent/overnight/reports/` (with `--write-report`)
 - Run logs to `.agent/overnight/run-log.jsonl` (with `--write-run-log`)
 - **No arbitrary output paths accepted**
@@ -770,23 +841,27 @@ The orchestrator **only** writes:
 ### Forbidden Flags
 
 The orchestrator **rejects** these flags:
+
 - `--execute`, `--run-queue`, `--worker`
 - `--commit`, `--push`
 - `--output`, `--report-dir`, `--run-log-path`, `--log-dir`
 - `--overwrite`
 
 The worker invocation contract simulator additionally rejects provider/model/adapter/prompt/diff flags such as:
+
 - `--execute-prompt`, `--prompt-execute`, `--invoke-model`
 - `--provider`, `--model`, `--adapter`, `--adapter-command`
 - `--apply-diff`, `--write-changes`
 
 The worker adapter simulator additionally rejects adapter/provider/model/prompt/diff flags such as:
+
 - `--invoke-adapter`, `--adapter`, `--adapter-command`, `--adapter-endpoint`
 - `--provider`, `--model`, `--invoke-model`
 - `--execute-prompt`, `--prompt-execute`
 - `--apply-diff`, `--write-changes`
 
 The change/diff monitoring simulator rejects execution/write/validation/git-action flags such as:
+
 - `--execute`, `--worker`, `--run-worker`, `--invoke-worker`
 - `--adapter`, `--invoke-adapter`, `--provider`, `--model`
 - `--execute-prompt`, `--apply-diff`, `--write-changes`
@@ -794,6 +869,7 @@ The change/diff monitoring simulator rejects execution/write/validation/git-acti
 - `--output`, `--commit`, `--push`, `--stage`
 
 The docs-only executor rejects unsafe flags such as:
+
 - `--worker`, `--adapter`, `--provider`, `--model`, `--prompt`
 - `--validate`, `--review`, `--approve`
 - `--stage`, `--commit`, `--push`, `--output`
@@ -806,11 +882,13 @@ The docs-only executor rejects unsafe flags such as:
 ### Queue Source
 
 Queues must be:
+
 - **Human-authored** (not auto-generated)
 - **Explicitly supplied** by file path
 - **Validated** before any execution
 
 The orchestrator **never**:
+
 - Selects tasks automatically from `ROADMAP.md`
 - Infers product work from backlog state
 - Generates queues autonomously
@@ -818,6 +896,7 @@ The orchestrator **never**:
 ### Queue Schema
 
 Every queue must include:
+
 - `schema_version: "1.0.0"`
 - `queue_id: "..."`
 - `created_at: "..."`
@@ -830,6 +909,7 @@ Every task must include all required fields (see `.agent/overnight/README.md` fo
 ### Queue Validation
 
 The orchestrator validates:
+
 - Queue structure and required fields
 - Task classes (`SAFE_AUTONOMOUS`, `REVIEW_REQUIRED`, `HUMAN_ONLY`, `FORBIDDEN`)
 - Commit/push policies (must be `never` for v1)
@@ -846,6 +926,7 @@ Invalid queues **fail closed** and execute nothing.
 ### Orchestration Metadata
 
 Every output includes:
+
 ```json
 {
   "schema_version": "1.0.0",
@@ -871,6 +952,7 @@ Every output includes:
 ### Safety Counters
 
 Every output includes safety counters that **must remain zero/false**:
+
 ```json
 {
   "execution_plan": {
@@ -890,6 +972,7 @@ Every output includes safety counters that **must remain zero/false**:
 ### Validation Results
 
 The output includes:
+
 - `queue_validation_summary`: Queue validation findings
 - `validation_plan_summary`: Check mapping results
 - `preflight`: Working tree cleanliness before/after
@@ -915,6 +998,7 @@ The output includes:
 **Goal:** Verify a queue is valid and ready for validation execution
 
 **Steps:**
+
 1. Create human-authored queue JSON file
 2. Run stdout-only dry-run:
    ```powershell
@@ -935,6 +1019,7 @@ The output includes:
 **Goal:** Execute validation checks overnight and produce morning review report
 
 **Steps:**
+
 1. Create human-authored queue JSON file
 2. Run complete overnight dry-run:
    ```powershell
@@ -959,6 +1044,7 @@ The output includes:
 **Goal:** Understand why validation failed
 
 **Steps:**
+
 1. Run stdout-only dry-run:
    ```powershell
    node scripts/agent/overnight-validation-executor.mjs <queue.json>
@@ -986,6 +1072,7 @@ The output includes:
 **Purpose:** Human review, operational tracking, morning review
 
 **Not suitable for:**
+
 - Canonical runtime evidence
 - Canonical validation evidence
 - Canonical review evidence
@@ -1006,6 +1093,7 @@ The output includes:
 **Purpose:** Operational audit trail, lifecycle tracking
 
 **Not suitable for:**
+
 - Canonical runtime evidence
 - Canonical validation evidence
 - Canonical review evidence
@@ -1026,6 +1114,7 @@ The output includes:
 The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 
 ### Not Implemented
+
 - Real queued task execution
 - Queue objective execution
 - Queue `allowed_commands` execution
@@ -1046,6 +1135,7 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 - Deploys
 
 ### Future Work
+
 - Autonomous queued-task executor (requires separate planning task)
 - Worker invocation (requires separate planning task)
 - Worker adapter implementation (requires separate planning task)
@@ -1066,6 +1156,7 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** `valid: false`, `preflight.critical_findings` present
 
 **Causes:**
+
 - Missing required queue fields
 - Invalid task class
 - `commit_policy` or `push_policy` not `never`
@@ -1083,10 +1174,12 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** `validation_plan_summary.unmapped_checks > 0`, `ready_for_validation_execution: false`
 
 **Causes:**
+
 - Queue `required_checks` contain unknown check strings
 - Check strings not in `KNOWN_CHECK_MAPPINGS`
 
 **Resolution:**
+
 - Review unmapped checks in output
 - Update `scripts/agent/lib/overnight-validation-plan.mjs` `KNOWN_CHECK_MAPPINGS` if safe
 - Or repair queue to use known check strings
@@ -1098,10 +1191,12 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** `validation_plan_summary.blocked_checks > 0`, `ready_for_validation_execution: false`
 
 **Causes:**
+
 - Mapped command ID not in command runner allowlist
 - Command ID not in validation-only allowlist
 
 **Resolution:**
+
 - Review blocked checks in output
 - Update command runner allowlist if safe
 - Update validation-only allowlist if safe
@@ -1114,10 +1209,12 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** `preflight.critical_findings` includes `working_tree_dirty_before_execution`
 
 **Causes:**
+
 - Uncommitted changes in working tree
 - Untracked files
 
 **Resolution:**
+
 - Commit or stash changes
 - Clean working tree
 - Retry
@@ -1129,11 +1226,13 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** `command_execution.failed > 0`, `valid: false`
 
 **Causes:**
+
 - Validation command returned non-zero exit code
 - Validation command timed out
 - Validation command blocked by safety checks
 
 **Resolution:**
+
 - Review command result details in output
 - Inspect `stdout_preview`, `stderr_preview`
 - Fix underlying validation issue
@@ -1146,11 +1245,13 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** Exit code 4, `report_write_failed: true`
 
 **Causes:**
+
 - Report file already exists (refuses overwrite)
 - Filesystem permissions
 - Disk space
 
 **Resolution:**
+
 - Remove existing report files
 - Check filesystem permissions
 - Check disk space
@@ -1163,11 +1264,13 @@ The following are **explicitly out of scope** for RALPH Overnight Worker v1:
 **Symptom:** Exit code 5, `run_log_write_failed: true`
 
 **Causes:**
+
 - Filesystem permissions
 - Disk space
 - Invalid run-log event
 
 **Resolution:**
+
 - Check filesystem permissions
 - Check disk space
 - Review run-log event structure
@@ -1211,6 +1314,7 @@ After running the orchestrator, verify:
 ## Support
 
 For questions or issues:
+
 1. Review this operator guide
 2. Review `.agent/overnight/README.md` for technical details
 3. Review existing test files for usage examples

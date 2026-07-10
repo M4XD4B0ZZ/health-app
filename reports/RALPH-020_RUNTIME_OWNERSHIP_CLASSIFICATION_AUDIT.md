@@ -22,6 +22,7 @@ This report audits all 10 runtime tasks in `tasks/task-state.json` to determine 
 ### 2.1 Data Sources
 
 **Primary sources:**
+
 - `tasks/task-state.json` (10 runtime tasks)
 - `ROADMAP.md` (27 product tasks, 0 RALPH-XXX tasks)
 - `validation/validation-results.jsonl` (14 validation entries)
@@ -29,6 +30,7 @@ This report audits all 10 runtime tasks in `tasks/task-state.json` to determine 
 - `runs/current-run.json` (latest run state)
 
 **Governance sources:**
+
 - `reports/RALPH-015_RECONCILIATION_OWNERSHIP_CLASSIFICATION.md`
 - `reports/RALPH-019_OWNERSHIP_AWARE_SEVERITY_ALIGNMENT_PLAN.md`
 - `SSOK.md`, `AGENTS.md`, `VERIFY.md`
@@ -47,12 +49,14 @@ For each runtime task, determine:
 ### 2.3 Classification Rules (from RALPH-015)
 
 **`runtime_only: true`** when:
+
 - Task is explicitly Ralph-Loop migration/governance work
 - Task is not product/planning work
 - Task should not be in ROADMAP.md
 - Validation and review evidence exist (when required)
 
 **`runtime_only: false`** when:
+
 - Task represents product/planning work
 - Task should have ROADMAP authority
 - Task is not explicitly runtime-only
@@ -63,200 +67,201 @@ For each runtime task, determine:
 
 ### 3.1 RALPH-001A — Minimal agent-neutral governance foundation
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-001A |
-| **Title** | Minimal agent-neutral governance foundation |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-001a`, status: `documentation_only_passed`) |
-| **Review Evidence** | No (review not required for `safe_autonomous` risk level) |
-| **Task Nature** | Ralph-Loop governance foundation (created `.governance/` files) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop governance work. Created agent-neutral governance foundation files. Not product work. Should not be in ROADMAP.md. Validation evidence exists. |
+| Field                            | Value                                                                                                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-001A                                                                                                                                                           |
+| **Title**                        | Minimal agent-neutral governance foundation                                                                                                                          |
+| **Current Status**               | `done`                                                                                                                                                               |
+| **Current `runtime_only`**       | `false`                                                                                                                                                              |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                    |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                               |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-001a`, status: `documentation_only_passed`)                                                                                               |
+| **Review Evidence**              | No (review not required for `safe_autonomous` risk level)                                                                                                            |
+| **Task Nature**                  | Ralph-Loop governance foundation (created `.governance/` files)                                                                                                      |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                           |
+| **Justification**                | Explicitly Ralph-Loop governance work. Created agent-neutral governance foundation files. Not product work. Should not be in ROADMAP.md. Validation evidence exists. |
 
 ---
 
 ### 3.2 RALPH-002A — Minimal runtime-state and handoff foundation
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-002A |
-| **Title** | Minimal runtime-state and handoff foundation |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-002a`, status: `documentation_state_foundation_passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-002a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop runtime state foundation (created `tasks/`, `runs/`, `validation/`, `handoffs/` files) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop runtime state foundation work. Created runtime state management files. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
+| Field                            | Value                                                                                                                                                                             |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-002A                                                                                                                                                                        |
+| **Title**                        | Minimal runtime-state and handoff foundation                                                                                                                                      |
+| **Current Status**               | `done`                                                                                                                                                                            |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                           |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                 |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                            |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-002a`, status: `documentation_state_foundation_passed`)                                                                                                |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-002a_backfill`, result: `accepted`)                                                                                                                      |
+| **Task Nature**                  | Ralph-Loop runtime state foundation (created `tasks/`, `runs/`, `validation/`, `handoffs/` files)                                                                                 |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                        |
+| **Justification**                | Explicitly Ralph-Loop runtime state foundation work. Created runtime state management files. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
 
 ---
 
 ### 3.3 RALPH-003A — Minimal agent prompt and adapter contracts
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-003A |
-| **Title** | Minimal agent prompt and adapter contracts |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-003a`, status: `static_prompt_adapter_contracts_passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-003a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop adapter contracts (created `.agent/prompts/` and `.agent/adapters/` files) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop adapter contracts work. Created prompt templates and adapter documentation. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
+| Field                            | Value                                                                                                                                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-003A                                                                                                                                                                             |
+| **Title**                        | Minimal agent prompt and adapter contracts                                                                                                                                             |
+| **Current Status**               | `done`                                                                                                                                                                                 |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                                |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                      |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                                 |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-003a`, status: `static_prompt_adapter_contracts_passed`)                                                                                                    |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-003a_backfill`, result: `accepted`)                                                                                                                           |
+| **Task Nature**                  | Ralph-Loop adapter contracts (created `.agent/prompts/` and `.agent/adapters/` files)                                                                                                  |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                             |
+| **Justification**                | Explicitly Ralph-Loop adapter contracts work. Created prompt templates and adapter documentation. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
 
 ---
 
 ### 3.4 RALPH-004A — Root governance transition notes
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-004A |
-| **Title** | Root governance transition notes |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-004a`, status: `root_governance_transition_notes_passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-004a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop governance transition documentation (updated `SSOK.md`, `AGENTS.md`, created `docs/RALPH_LOOP_TRANSITION_NOTES.md`) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop governance transition work. Added transition notes to root governance files. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
+| Field                            | Value                                                                                                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-004A                                                                                                                                                                              |
+| **Title**                        | Root governance transition notes                                                                                                                                                        |
+| **Current Status**               | `done`                                                                                                                                                                                  |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                                 |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                       |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                                  |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-004a`, status: `root_governance_transition_notes_passed`)                                                                                                    |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-004a_backfill`, result: `accepted`)                                                                                                                            |
+| **Task Nature**                  | Ralph-Loop governance transition documentation (updated `SSOK.md`, `AGENTS.md`, created `docs/RALPH_LOOP_TRANSITION_NOTES.md`)                                                          |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                              |
+| **Justification**                | Explicitly Ralph-Loop governance transition work. Added transition notes to root governance files. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
 
 ---
 
 ### 3.5 RALPH-005A — Dry-run task selector plan
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-005A |
-| **Title** | Dry-run task selector plan |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-005a`, status: `dry_run_selector_plan_passed`) |
-| **Review Evidence** | No (review not required for `safe_autonomous` risk level) |
-| **Task Nature** | Ralph-Loop planning (created `plans/RALPH_DRY_RUN_SELECTOR_PLAN.md`) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop planning work. Created implementation plan for Ralph task selector. Not product work. Should not be in ROADMAP.md. Validation evidence exists. |
+| Field                            | Value                                                                                                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-005A                                                                                                                                                           |
+| **Title**                        | Dry-run task selector plan                                                                                                                                           |
+| **Current Status**               | `done`                                                                                                                                                               |
+| **Current `runtime_only`**       | `false`                                                                                                                                                              |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                    |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                               |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-005a`, status: `dry_run_selector_plan_passed`)                                                                                            |
+| **Review Evidence**              | No (review not required for `safe_autonomous` risk level)                                                                                                            |
+| **Task Nature**                  | Ralph-Loop planning (created `plans/RALPH_DRY_RUN_SELECTOR_PLAN.md`)                                                                                                 |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                           |
+| **Justification**                | Explicitly Ralph-Loop planning work. Created implementation plan for Ralph task selector. Not product work. Should not be in ROADMAP.md. Validation evidence exists. |
 
 ---
 
 ### 3.6 RALPH-006A — Dry-run task selector implementation
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-006A |
-| **Title** | Dry-run task selector implementation |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-006a-fix`, status: `governance_script_bugfix_passed`; also `val_2026-05-22_ralph-006a-backfill`, status: `passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-006a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop tooling (created `scripts/agent/select-next-ralph-task.mjs`) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop tooling work. Created first executable Ralph-Loop component (task selector). Not product work. Should not be in ROADMAP.md. Validation and review evidence exist (including bugfix validation). |
+| Field                            | Value                                                                                                                                                                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-006A                                                                                                                                                                                                            |
+| **Title**                        | Dry-run task selector implementation                                                                                                                                                                                  |
+| **Current Status**               | `done`                                                                                                                                                                                                                |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                                                               |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                                                     |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                                                                |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-006a-fix`, status: `governance_script_bugfix_passed`; also `val_2026-05-22_ralph-006a-backfill`, status: `passed`)                                                                         |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-006a_backfill`, result: `accepted`)                                                                                                                                                          |
+| **Task Nature**                  | Ralph-Loop tooling (created `scripts/agent/select-next-ralph-task.mjs`)                                                                                                                                               |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                                                            |
+| **Justification**                | Explicitly Ralph-Loop tooling work. Created first executable Ralph-Loop component (task selector). Not product work. Should not be in ROADMAP.md. Validation and review evidence exist (including bugfix validation). |
 
 ---
 
 ### 3.7 RALPH-007A — Morning review generator plan
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-007A |
-| **Title** | Morning review generator plan |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-007a`, status: `morning_review_generator_plan_passed`) |
-| **Review Evidence** | No (review not required for `safe_autonomous` risk level) |
-| **Task Nature** | Ralph-Loop planning (created `plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md`) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop planning work. Created implementation plan for morning review generator. Not product work. Should not be in ROADMAP.md. Validation evidence exists. |
+| Field                            | Value                                                                                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-007A                                                                                                                                                                |
+| **Title**                        | Morning review generator plan                                                                                                                                             |
+| **Current Status**               | `done`                                                                                                                                                                    |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                   |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                         |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                    |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-007a`, status: `morning_review_generator_plan_passed`)                                                                                         |
+| **Review Evidence**              | No (review not required for `safe_autonomous` risk level)                                                                                                                 |
+| **Task Nature**                  | Ralph-Loop planning (created `plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md`)                                                                                              |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                |
+| **Justification**                | Explicitly Ralph-Loop planning work. Created implementation plan for morning review generator. Not product work. Should not be in ROADMAP.md. Validation evidence exists. |
 
 ---
 
 ### 3.8 RALPH-008A — Morning Review Generator Implementation
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-008A |
-| **Title** | Morning Review Generator Implementation |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-008a`, status: `morning_review_generator_passed`; also `val_2026-05-19_ralph-008a-smoke`, status: `morning_review_generator_smoke_passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-008a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop tooling (created `scripts/agent/generate-morning-review.mjs`) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop tooling work. Created second executable Ralph-Loop component (morning review generator). Not product work. Should not be in ROADMAP.md. Validation and review evidence exist (including smoke test validation). |
+| Field                            | Value                                                                                                                                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-008A                                                                                                                                                                                                                            |
+| **Title**                        | Morning Review Generator Implementation                                                                                                                                                                                               |
+| **Current Status**               | `done`                                                                                                                                                                                                                                |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                                                                               |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                                                                     |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                                                                                |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-008a`, status: `morning_review_generator_passed`; also `val_2026-05-19_ralph-008a-smoke`, status: `morning_review_generator_smoke_passed`)                                                                 |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-008a_backfill`, result: `accepted`)                                                                                                                                                                          |
+| **Task Nature**                  | Ralph-Loop tooling (created `scripts/agent/generate-morning-review.mjs`)                                                                                                                                                              |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                                                                            |
+| **Justification**                | Explicitly Ralph-Loop tooling work. Created second executable Ralph-Loop component (morning review generator). Not product work. Should not be in ROADMAP.md. Validation and review evidence exist (including smoke test validation). |
 
 ---
 
 ### 3.9 RALPH-009A — Cline Worker Adapter Preparation
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-009A |
-| **Title** | Cline Worker Adapter Preparation |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-009a`, status: `cline_worker_adapter_preparation_passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-009a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop adapter preparation (created `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`, `plans/RALPH_CLINE_DRY_RUN_PLAN.md`) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop adapter preparation work. Created Cline setup documentation and dry-run plan. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
+| Field                            | Value                                                                                                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-009A                                                                                                                                                                               |
+| **Title**                        | Cline Worker Adapter Preparation                                                                                                                                                         |
+| **Current Status**               | `done`                                                                                                                                                                                   |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                                  |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                        |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                                   |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-009a`, status: `cline_worker_adapter_preparation_passed`)                                                                                                     |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-009a_backfill`, result: `accepted`)                                                                                                                             |
+| **Task Nature**                  | Ralph-Loop adapter preparation (created `docs/CLINE_RALPH_WORKER_SETUP.md`, `docs/CLINE_FIRST_DRY_RUN_CHECKLIST.md`, `plans/RALPH_CLINE_DRY_RUN_PLAN.md`)                                |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                               |
+| **Justification**                | Explicitly Ralph-Loop adapter preparation work. Created Cline setup documentation and dry-run plan. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
 
 ---
 
 ### 3.10 RALPH-010A — First controlled single-task loop
 
-| Field | Value |
-|---|---|
-| **Task ID** | RALPH-010A |
-| **Title** | First controlled single-task loop |
-| **Current Status** | `done` |
-| **Current `runtime_only`** | `false` |
-| **Current `ownership_explicit`** | `false` (derived) |
-| **ROADMAP Presence** | No (not in ROADMAP.md) |
-| **Validation Evidence** | Yes (`val_2026-05-19_ralph-010a-closeout`, status: `cline_dry_run_closeout_passed`) |
-| **Review Evidence** | Yes (`rev_20260522_ralph-010a_backfill`, result: `accepted`) |
-| **Task Nature** | Ralph-Loop dry run closeout (updated Cline adapter/setup/checklist docs with PowerShell command policy) |
-| **Recommended `runtime_only`** | **`true`** |
-| **Justification** | Explicitly Ralph-Loop dry run closeout work. Added PowerShell command policy to Cline documentation. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
+| Field                            | Value                                                                                                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Task ID**                      | RALPH-010A                                                                                                                                                                                |
+| **Title**                        | First controlled single-task loop                                                                                                                                                         |
+| **Current Status**               | `done`                                                                                                                                                                                    |
+| **Current `runtime_only`**       | `false`                                                                                                                                                                                   |
+| **Current `ownership_explicit`** | `false` (derived)                                                                                                                                                                         |
+| **ROADMAP Presence**             | No (not in ROADMAP.md)                                                                                                                                                                    |
+| **Validation Evidence**          | Yes (`val_2026-05-19_ralph-010a-closeout`, status: `cline_dry_run_closeout_passed`)                                                                                                       |
+| **Review Evidence**              | Yes (`rev_20260522_ralph-010a_backfill`, result: `accepted`)                                                                                                                              |
+| **Task Nature**                  | Ralph-Loop dry run closeout (updated Cline adapter/setup/checklist docs with PowerShell command policy)                                                                                   |
+| **Recommended `runtime_only`**   | **`true`**                                                                                                                                                                                |
+| **Justification**                | Explicitly Ralph-Loop dry run closeout work. Added PowerShell command policy to Cline documentation. Not product work. Should not be in ROADMAP.md. Validation and review evidence exist. |
 
 ---
 
 ## 4. Audit Summary Table
 
-| Task ID | Title | Status | ROADMAP? | Validation? | Review? | Current `runtime_only` | Recommended `runtime_only` | Justification |
-|---|---|---|---|---|---|---|---|---|
-| RALPH-001A | Minimal agent-neutral governance foundation | `done` | No | Yes | N/A | `false` | **`true`** | Ralph-Loop governance foundation |
-| RALPH-002A | Minimal runtime-state and handoff foundation | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop runtime state foundation |
-| RALPH-003A | Minimal agent prompt and adapter contracts | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop adapter contracts |
-| RALPH-004A | Root governance transition notes | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop governance transition |
-| RALPH-005A | Dry-run task selector plan | `done` | No | Yes | N/A | `false` | **`true`** | Ralph-Loop planning |
-| RALPH-006A | Dry-run task selector implementation | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop tooling |
-| RALPH-007A | Morning review generator plan | `done` | No | Yes | N/A | `false` | **`true`** | Ralph-Loop planning |
-| RALPH-008A | Morning Review Generator Implementation | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop tooling |
-| RALPH-009A | Cline Worker Adapter Preparation | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop adapter preparation |
-| RALPH-010A | First controlled single-task loop | `done` | No | Yes | Yes | `false` | **`true`** | Ralph-Loop dry run closeout |
+| Task ID    | Title                                        | Status | ROADMAP? | Validation? | Review? | Current `runtime_only` | Recommended `runtime_only` | Justification                       |
+| ---------- | -------------------------------------------- | ------ | -------- | ----------- | ------- | ---------------------- | -------------------------- | ----------------------------------- |
+| RALPH-001A | Minimal agent-neutral governance foundation  | `done` | No       | Yes         | N/A     | `false`                | **`true`**                 | Ralph-Loop governance foundation    |
+| RALPH-002A | Minimal runtime-state and handoff foundation | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop runtime state foundation |
+| RALPH-003A | Minimal agent prompt and adapter contracts   | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop adapter contracts        |
+| RALPH-004A | Root governance transition notes             | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop governance transition    |
+| RALPH-005A | Dry-run task selector plan                   | `done` | No       | Yes         | N/A     | `false`                | **`true`**                 | Ralph-Loop planning                 |
+| RALPH-006A | Dry-run task selector implementation         | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop tooling                  |
+| RALPH-007A | Morning review generator plan                | `done` | No       | Yes         | N/A     | `false`                | **`true`**                 | Ralph-Loop planning                 |
+| RALPH-008A | Morning Review Generator Implementation      | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop tooling                  |
+| RALPH-009A | Cline Worker Adapter Preparation             | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop adapter preparation      |
+| RALPH-010A | First controlled single-task loop            | `done` | No       | Yes         | Yes     | `false`                | **`true`**                 | Ralph-Loop dry run closeout         |
 
 **Summary:**
+
 - **Total runtime tasks:** 10
 - **Tasks with ROADMAP presence:** 0
 - **Tasks with validation evidence:** 10 (100%)
@@ -271,12 +276,14 @@ For each runtime task, determine:
 ### 5.1 Which runtime tasks are clearly governance-only?
 
 **All 10 tasks are governance-only:**
+
 - RALPH-001A: Governance foundation (`.governance/` files)
 - RALPH-004A: Governance transition notes (`SSOK.md`, `AGENTS.md`)
 
 ### 5.2 Which runtime tasks are clearly migration artifacts?
 
 **All 10 tasks are Ralph-Loop migration/foundation work:**
+
 - RALPH-002A: Runtime state foundation (`tasks/`, `runs/`, `validation/`, `handoffs/`)
 - RALPH-003A: Adapter contracts (`.agent/prompts/`, `.agent/adapters/`)
 - RALPH-005A: Task selector plan
@@ -293,6 +300,7 @@ For each runtime task, determine:
 ### 5.4 Which runtime tasks lack sufficient evidence?
 
 **None.** All 10 tasks have:
+
 - Validation evidence (100%)
 - Review evidence when required (7/7 `review_required` tasks have accepted review)
 
@@ -301,11 +309,13 @@ For each runtime task, determine:
 **Yes.** Setting `runtime_only: true` on all 10 tasks will change reconciler output:
 
 **Before (current state):**
+
 - 10 `runtime_task_missing_from_roadmap` findings with `severity: "warning"`
 - `warning_count: 11`
 - `info_count: 26`
 
 **After (with `runtime_only: true`):**
+
 - 10 `runtime_task_missing_from_roadmap` findings with `severity: "info"`
 - `warning_count: 1` (only P1-003 `in_progress` without runtime state)
 - `info_count: 36`
@@ -333,6 +343,7 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ### 6.1 Unanimous Recommendation: All 10 Tasks → `runtime_only: true`
 
 **Rationale:**
+
 1. **All tasks are Ralph-Loop work:** Every task is explicitly Ralph-Loop governance, migration, planning, tooling, or adapter work.
 2. **No product work:** None of the tasks modify product code (`src/`), product tests, or product behavior.
 3. **No ROADMAP presence:** None of the tasks exist in ROADMAP.md, and they should not be added.
@@ -348,6 +359,7 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ### 7.1 No Tasks Require Additional Human Review
 
 **All 10 tasks have already been reviewed:**
+
 - 7 tasks have accepted review evidence in `review/review-results.jsonl`
 - 3 tasks (`safe_autonomous` risk level) did not require human review per `.governance/REVIEW_POLICY.md`
 
@@ -360,6 +372,7 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ### 8.1 Before Change (Current State)
 
 **Reconciler output (2026-05-23T16:10:06Z):**
+
 ```json
 {
   "summary": {
@@ -381,6 +394,7 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ```
 
 **10 `runtime_task_missing_from_roadmap` findings:**
+
 - All have `severity: "warning"`
 - All have `ownership_class: "runtime_only"`
 - All have `ownership_explicit: false`
@@ -390,6 +404,7 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ### 8.2 After Change (Predicted State)
 
 **Reconciler output (predicted after RALPH-021):**
+
 ```json
 {
   "summary": {
@@ -411,24 +426,26 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ```
 
 **10 `runtime_task_missing_from_roadmap` findings:**
+
 - All have `severity: "info"`
 - All have `ownership_class: "runtime_only"`
 - All have `ownership_explicit: true`
 
 **1 remaining warning:**
+
 - `roadmap_task_missing_from_task_state` for P1-003 (`in_progress` without runtime state)
 
 ---
 
 ### 8.3 Impact Summary
 
-| Metric | Before | After | Change |
-|---|---|---|---|
-| `critical_count` | 0 | 0 | No change |
-| `warning_count` | 11 | 1 | -10 warnings |
-| `info_count` | 26 | 36 | +10 info |
-| `exit_code` | 0 | 0 | No change |
-| False-positive warnings | 10 | 0 | -10 false positives |
+| Metric                  | Before | After | Change              |
+| ----------------------- | ------ | ----- | ------------------- |
+| `critical_count`        | 0      | 0     | No change           |
+| `warning_count`         | 11     | 1     | -10 warnings        |
+| `info_count`            | 26     | 36    | +10 info            |
+| `exit_code`             | 0      | 0     | No change           |
+| False-positive warnings | 10     | 0     | -10 false positives |
 
 **Benefit:** Eliminates 10 false-positive warnings for legitimate Ralph-Loop work.
 
@@ -443,6 +460,7 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 **Change:** Set `runtime_only: true` on all RALPH-001A through RALPH-010A tasks.
 
 **Example change:**
+
 ```json
 {
   "id": "RALPH-001A",
@@ -462,26 +480,31 @@ Repeat for: RALPH-002A, RALPH-003A, RALPH-004A, RALPH-005A, RALPH-006A, RALPH-00
 ### 9.2 Validation Strategy
 
 **Pre-change validation:**
+
 ```bash
 node scripts/agent/reconcile-roadmap-task-state.mjs --json > before.json
 ```
 
 **Expected before state:**
+
 - `warning_count: 11`
 - `info_count: 26`
 - 10 `runtime_task_missing_from_roadmap` warnings
 
 **Post-change validation:**
+
 ```bash
 node scripts/agent/reconcile-roadmap-task-state.mjs --json > after.json
 ```
 
 **Expected after state:**
+
 - `warning_count: 1`
 - `info_count: 36`
 - 10 `runtime_task_missing_from_roadmap` info findings
 
 **Diff validation:**
+
 ```bash
 # Compare finding counts
 jq '.summary | {critical_count, warning_count, info_count}' before.json

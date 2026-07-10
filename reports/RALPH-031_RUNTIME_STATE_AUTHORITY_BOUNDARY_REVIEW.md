@@ -23,16 +23,16 @@ This report is intentionally documentation-only. It does not backfill runtime st
 
 ## 2. Current Authority Model
 
-| Artifact | Owns | Does not own |
-| --- | --- | --- |
-| `ROADMAP.md` | Planning authority: product/task priorities, planned work, roadmap statuses | Runtime execution state or evidence details |
-| `tasks/task-state.json` | Current runtime task execution state for tasks intentionally admitted into Ralph runtime | Planning truth; it must not create roadmap authority |
-| `runs/current-run.json` | Current/latest runtime run pointer and run lifecycle state | Historical truth beyond latest/current pointer |
-| `tasks/task-history.jsonl`, `runs/run-history.jsonl` | Append-only evidence of runtime lifecycle transitions | Current state or planning truth |
-| `validation/validation-results.jsonl` | Verification evidence | Planning/task selection authority |
-| `review/review-results.jsonl` | Human or automated review evidence | Planning/task selection authority |
-| Git commits | Durable implementation/change proof | Runtime lifecycle state by itself |
-| `reports/` | Analysis, design, review, and decision artifacts | Runtime execution state unless explicitly imported or backfilled |
+| Artifact                                             | Owns                                                                                     | Does not own                                                     |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ROADMAP.md`                                         | Planning authority: product/task priorities, planned work, roadmap statuses              | Runtime execution state or evidence details                      |
+| `tasks/task-state.json`                              | Current runtime task execution state for tasks intentionally admitted into Ralph runtime | Planning truth; it must not create roadmap authority             |
+| `runs/current-run.json`                              | Current/latest runtime run pointer and run lifecycle state                               | Historical truth beyond latest/current pointer                   |
+| `tasks/task-history.jsonl`, `runs/run-history.jsonl` | Append-only evidence of runtime lifecycle transitions                                    | Current state or planning truth                                  |
+| `validation/validation-results.jsonl`                | Verification evidence                                                                    | Planning/task selection authority                                |
+| `review/review-results.jsonl`                        | Human or automated review evidence                                                       | Planning/task selection authority                                |
+| Git commits                                          | Durable implementation/change proof                                                      | Runtime lifecycle state by itself                                |
+| `reports/`                                           | Analysis, design, review, and decision artifacts                                         | Runtime execution state unless explicitly imported or backfilled |
 
 Core rule from `SSOK.md`, `AGENTS.md`, and RALPH-015: runtime state is execution authority only after a task is intentionally admitted into the runtime system. Reports and git commits are valid evidence, but they do not automatically require runtime backfill.
 
@@ -40,17 +40,17 @@ Core rule from `SSOK.md`, `AGENTS.md`, and RALPH-015: runtime state is execution
 
 ## 3. Ralph Task Category Taxonomy
 
-| Category | Examples | Runtime-state policy |
-| --- | --- | --- |
-| Discovery / analysis | `RALPH-001`, investigations | Should be git/report-only unless assigned as runtime work |
-| Design report / plan | `RALPH-023`, `RALPH-024`, `RALPH-026`, `RALPH-028`, `RALPH-029` | Should be git/report-only by default |
-| Governance review | `RALPH-029A`, `RALPH-030A`, `RALPH-031` | Should be git/report-only by default |
-| Documentation-only hardening | Cline PowerShell docs, static guidance | May be runtime-tracked if executed as an assigned runtime task; otherwise git/report-only |
-| Script implementation | `create-runtime-task-from-roadmap`, `create-runtime-run`, `start-runtime-run` | Must be runtime-tracked going forward if part of Ralph runtime lifecycle/tooling |
-| Runtime-state mutation | task/run state writes, repair, closeout | Must be runtime-tracked |
-| Evidence backfill | validation/review backfill | Must be runtime-tracked if it mutates evidence/state |
-| Worker execution | future adapter-run work | Must be runtime-tracked |
-| Recovery / repair | stale run recovery, lifecycle repair | Must be runtime-tracked |
+| Category                     | Examples                                                                      | Runtime-state policy                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Discovery / analysis         | `RALPH-001`, investigations                                                   | Should be git/report-only unless assigned as runtime work                                 |
+| Design report / plan         | `RALPH-023`, `RALPH-024`, `RALPH-026`, `RALPH-028`, `RALPH-029`               | Should be git/report-only by default                                                      |
+| Governance review            | `RALPH-029A`, `RALPH-030A`, `RALPH-031`                                       | Should be git/report-only by default                                                      |
+| Documentation-only hardening | Cline PowerShell docs, static guidance                                        | May be runtime-tracked if executed as an assigned runtime task; otherwise git/report-only |
+| Script implementation        | `create-runtime-task-from-roadmap`, `create-runtime-run`, `start-runtime-run` | Must be runtime-tracked going forward if part of Ralph runtime lifecycle/tooling          |
+| Runtime-state mutation       | task/run state writes, repair, closeout                                       | Must be runtime-tracked                                                                   |
+| Evidence backfill            | validation/review backfill                                                    | Must be runtime-tracked if it mutates evidence/state                                      |
+| Worker execution             | future adapter-run work                                                       | Must be runtime-tracked                                                                   |
+| Recovery / repair            | stale run recovery, lifecycle repair                                          | Must be runtime-tracked                                                                   |
 
 ---
 
@@ -100,22 +100,22 @@ Backfill is forbidden when:
 
 ## 6. Application to Recent Ralph Tasks
 
-| Task | Category | Should appear in runtime state? | Recommendation |
-| --- | --- | ---: | --- |
-| `RALPH-023` | Runtime task creation plan/report | No by default | Keep git/report-only |
-| `RALPH-024` | Minimal runtime task creation plan | No by default | Keep git/report-only |
-| `RALPH-025` | Runtime task creation implementation (`create-runtime-task-from-roadmap`) | Yes | Backfill may be appropriate if not represented |
-| `RALPH-025A` | Likely implementation/review/patch variant | Depends on exact scope | Track only if script/runtime mutation occurred |
-| `RALPH-025B` | Likely implementation/review/patch variant | Depends on exact scope | Track only if script/runtime mutation occurred |
-| `RALPH-026` | Runtime run creation design report | No | Keep git/report-only |
-| `RALPH-027` | Runtime run creation implementation (`create-runtime-run`) | Yes | Backfill appropriate if missing/incomplete |
-| `RALPH-028` | Worker envelope design report | No | Keep git/report-only |
-| `RALPH-029` | Runtime run-start implementation plan | No | Keep git/report-only |
-| `RALPH-029A` | Lifecycle consistency review | No | Keep git/report-only |
-| `RALPH-030` | Guarded runtime run start implementation (`start-runtime-run`) | Yes | Backfill appropriate after approval |
-| `RALPH-030A` | Read-only audit | No | Chat/git-only unless report later approved |
-| `RALPH-031` | Authority-boundary review | No | This report is git/report-only unless later imported by explicit runtime task |
-| `RALPH-031A` | Planning/reconciliation review | No | Chat/report-only unless implementation follows |
+| Task         | Category                                                                  | Should appear in runtime state? | Recommendation                                                                |
+| ------------ | ------------------------------------------------------------------------- | ------------------------------: | ----------------------------------------------------------------------------- |
+| `RALPH-023`  | Runtime task creation plan/report                                         |                   No by default | Keep git/report-only                                                          |
+| `RALPH-024`  | Minimal runtime task creation plan                                        |                   No by default | Keep git/report-only                                                          |
+| `RALPH-025`  | Runtime task creation implementation (`create-runtime-task-from-roadmap`) |                             Yes | Backfill may be appropriate if not represented                                |
+| `RALPH-025A` | Likely implementation/review/patch variant                                |          Depends on exact scope | Track only if script/runtime mutation occurred                                |
+| `RALPH-025B` | Likely implementation/review/patch variant                                |          Depends on exact scope | Track only if script/runtime mutation occurred                                |
+| `RALPH-026`  | Runtime run creation design report                                        |                              No | Keep git/report-only                                                          |
+| `RALPH-027`  | Runtime run creation implementation (`create-runtime-run`)                |                             Yes | Backfill appropriate if missing/incomplete                                    |
+| `RALPH-028`  | Worker envelope design report                                             |                              No | Keep git/report-only                                                          |
+| `RALPH-029`  | Runtime run-start implementation plan                                     |                              No | Keep git/report-only                                                          |
+| `RALPH-029A` | Lifecycle consistency review                                              |                              No | Keep git/report-only                                                          |
+| `RALPH-030`  | Guarded runtime run start implementation (`start-runtime-run`)            |                             Yes | Backfill appropriate after approval                                           |
+| `RALPH-030A` | Read-only audit                                                           |                              No | Chat/git-only unless report later approved                                    |
+| `RALPH-031`  | Authority-boundary review                                                 |                              No | This report is git/report-only unless later imported by explicit runtime task |
+| `RALPH-031A` | Planning/reconciliation review                                            |                              No | Chat/report-only unless implementation follows                                |
 
 ---
 

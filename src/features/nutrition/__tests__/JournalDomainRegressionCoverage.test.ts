@@ -6,8 +6,8 @@ import { PersistedFoodEntryRepository } from '../infrastructure/repositories/Per
 import { InMemoryNutritionLookup } from '../infrastructure/repositories/InMemoryNutritionLookup';
 import { FakeKeyValueStore } from '../infrastructure/storage/FakeKeyValueStore';
 import { DeterministicFoodParser } from '../infrastructure/parsers/DeterministicFoodParser';
-import { GoalsRepository } from '../application/ports/GoalsRepository';
-import { UserGoals } from '../domain/goals/UserGoals';
+import { EffectiveGoalsRepository } from '../../goals/application/ports';
+import { EffectiveGoals } from '../../goals/domain/models/GoalsTypes';
 import { IdGenerator } from '../application/ports/IdGenerator';
 import { Clock } from '../application/ports/Clock';
 import { MockResolverBuilder } from './helpers/MockResolverBuilder';
@@ -20,11 +20,11 @@ class TestIdGenerator implements IdGenerator {
   }
 }
 
-class InMemoryGoalsRepository implements GoalsRepository {
-  async getGoals(): Promise<UserGoals | null> {
+class InMemoryGoalsRepository implements EffectiveGoalsRepository {
+  async get(): Promise<EffectiveGoals | null> {
     return null;
   }
-  async setGoals(): Promise<void> {}
+  async upsert(): Promise<void> {}
 }
 
 class MutableTestClock implements Clock {

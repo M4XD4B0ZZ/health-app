@@ -67,11 +67,9 @@ export interface DecisionInfo {
   reason:
     | 'early_return_user'
     | 'early_return_bls'
-    | 'early_return_off'
     | 'best_score'
     | 'no_candidates'
-    | 'cache_hit'
-    | 'early_return_off_blocked';
+    | 'cache_hit';
   status: 'accepted' | 'ambiguous' | 'rejected';
   reasonCodes: string[];
 }

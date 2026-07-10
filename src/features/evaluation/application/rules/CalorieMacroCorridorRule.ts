@@ -1,7 +1,8 @@
-import { Rule, RuleResult, EvaluationInput, EvaluationGoalProgress } from '../../domain/models';
+import { Rule, RuleResult, EvaluationInput } from '../../domain/models';
 import { DailyGoals } from '../../../goals/domain/models/GoalsTypes';
 import { calculateDailyProgress } from '../../../goals/application/calculators/ProgressCalculator';
 import { aggregateConsumed } from '../../../journal/application/calculators/ConsumedMacrosCalculator';
+import { dailyProgressToEvaluationOutput } from './dailyProgressToEvaluationOutput';
 
 /**
  * GE-002: this Rule's `profileSettings` shape — the Evidence-based Standard's only
@@ -9,19 +10,6 @@ import { aggregateConsumed } from '../../../journal/application/calculators/Cons
  */
 export interface CalorieMacroCorridorSettings {
   goals: DailyGoals;
-}
-
-function statusFor(consumed: number, target: number): 'under' | 'ontrack' | 'over' {
-  if (target <= 0) {
-    return 'under';
-  }
-  if (consumed > target * 1.05) {
-    return 'over';
-  }
-  if (consumed >= target * 0.95) {
-    return 'ontrack';
-  }
-  return 'under';
 }
 
 /**
@@ -40,48 +28,6 @@ export const CalorieMacroCorridorRule: Rule = {
     const consumed = aggregateConsumed(input.journalReadsForPeriod);
     const progress = calculateDailyProgress(consumed, goals);
 
-    const goalProgress: EvaluationGoalProgress[] = [
-      {
-        label: 'calories',
-        consumed: progress.consumedCalories,
-        target: goals.calories,
-        remaining: progress.remainingCalories,
-        status: statusFor(progress.consumedCalories, goals.calories),
-      },
-      {
-        label: 'protein',
-        consumed: progress.proteinConsumed,
-        target: goals.protein,
-        remaining: progress.proteinRemaining,
-        status: statusFor(progress.proteinConsumed, goals.protein),
-      },
-      {
-        label: 'carbs',
-        consumed: progress.carbsConsumed,
-        target: goals.carbs,
-        remaining: progress.carbsRemaining,
-        status: statusFor(progress.carbsConsumed, goals.carbs),
-      },
-      {
-        label: 'fat',
-        consumed: progress.fatConsumed,
-        target: goals.fat,
-        remaining: progress.fatRemaining,
-        status: statusFor(progress.fatConsumed, goals.fat),
-      },
-    ];
-
-    const warnings: string[] = [];
-    if (progress.isOverCalories) {
-      warnings.push('Kalorienziel überschritten.');
-    }
-
-    return {
-      assessment: goalProgress.some((g) => g.status === 'over') ? 'over' : 'on-track',
-      insights: [],
-      warnings,
-      recommendations: [],
-      goalProgress,
-    };
+    return dailyProgressToEvaluationOutput(progress, goals, 'Kalorienziel überschritten.');
   },
 };

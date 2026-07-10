@@ -3689,7 +3689,7 @@ clean.
 
 #### GE-004: Second Preset Profile (Weight Loss) — Proves Swappability
 
-Status: `todo`
+Status: `done`
 Depends on: GE-003
 
 **Ziel:** Implement a second concrete `EvaluationProfile` (Product Bible §5 "Weight Loss":
@@ -3718,6 +3718,21 @@ Catalog write path in either branch (spy/assert no writes).
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** Extracted the goalProgress-array/warning/assessment reshaping
+logic shared by both rules into `dailyProgressToEvaluationOutput.ts` (refactored
+`CalorieMacroCorridorRule` to use it too — GE-002's equivalence test still passes
+unchanged, confirming no behavior change). `ProteinPreservingDeficitRule` reuses the
+existing, unmodified `suggestDailyGoals(..., 'high_protein')` macro split against a
+20%-below-TDEE calorie target (`WEIGHT_LOSS_DEFICIT_MULTIPLIER = 0.8`) rather than
+introducing new macro math — genuinely "Kaloriendefizit + Proteinerhalt" per Product Bible
+§5, not a relabeled copy of the Evidence-based Standard rule. `ProfileSwappability.test.ts`
+proves the core claim with concrete fixture numbers (same 2000 kcal/100g protein/250g
+carbs/60g fat consumed day: `on-track` under a 2500 kcal Evidence-based Standard target,
+`over` under a 1440 kcal Weight Loss deficit target) plus a spy on
+`InMemoryFoodEntryRepository`'s write methods across both profile evaluations and the
+switch itself. Full suite (101 suites / 788 tests, +10 new), `tsc --noEmit`, and `eslint`
+pass clean.
 
 ---
 

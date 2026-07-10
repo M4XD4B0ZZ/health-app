@@ -3201,45 +3201,62 @@ with/without the copied field respectively.
 
 #### SM-002: Deterministic, Journal-Model-Aligned Logging
 
-Status: `todo`
+Status: `done`
 Depends on: SM-001
 
 **Ziel:** `LogSavedMealToDateUseCase` produces `FoodEntry` rows indistinguishable in shape
 from ones logged through `LogFoodFromRawInputUseCase` — carrying `nutritionSnapshot` and,
-where available, `foodCatalogRef` — and reuses the identity captured in SM-001 instead of a
-fresh by-name lookup.
+where available, `foodCatalogRef` — deterministically, without a fresh by-name lookup.
 
-**Scope / betroffene Dateien:**
+**Scope / betroffene Dateien (revised during implementation — see notes below):**
 
 - `src/features/nutrition/application/usecases/LogSavedMealToDateUseCase.ts` — for each
-  item: if `item.foodCatalogRef` is present, resolve macros via
-  `FoodCatalog.getById(item.foodCatalogRef.sourceId)` (deterministic, no re-resolution) and
-  stamp the resulting entry's `foodCatalogRef` accordingly; otherwise fall back to the
-  existing `NutritionLookup`-by-name path unchanged (legacy/pre-SM-001 templates). Always
-  set `nutritionSnapshot` alongside the top-level macro fields, matching J-002's
-  convention.
-- Constructor gains an optional `FoodCatalog` dependency (mirrors `LogFoodFromRawInputUseCase`'s
-  existing dependency), defaulting to the current by-name-only behavior when absent.
+  item: if `item.per100g` is present, compute macros via
+  `engine.calculateFromPer100g(item.per100g, item.quantityGrams)` (deterministic, no
+  re-resolution), set `sourceType: 'cache'`, and carry `item.foodCatalogRef` forward onto
+  the entry when present; otherwise fall back to the existing `NutritionLookup`-by-name
+  path unchanged (legacy/pre-SM-002 templates). Always set `nutritionSnapshot` alongside
+  the top-level macro fields, matching J-002's convention, regardless of which branch ran.
+- `src/features/nutrition/domain/models/SavedMealTypes.ts` — add optional
+  `per100g?: NutritionPer100g` to `SavedMealItem`.
+- `src/features/nutrition/application/usecases/CreateSavedMealFromDateUseCase.ts` — derive
+  `per100g` from the source entry (`macros * 100 / quantityGrams`) when `calories > 0`.
+
+**Implementation notes (deviation from original plan above):** investigation during
+implementation found `FoodCatalog.getById(id)` is keyed by the *legacy, single-source*
+`InMemoryFoodCatalog`'s own id space — it has no relationship to `foodCatalogRef.sourceId`
+for BLS/OFF/USDA-sourced refs (those come from `SequentialFoodCatalogResolver`'s source
+objects, which are not stored in `InMemoryFoodCatalog` and have no "fetch by ref" port at
+all). Re-fetching macros by `foodCatalogRef` as originally planned would therefore silently
+break for exactly the sources J-004 was built to support. Instead, `SavedMealItem` carries
+its own frozen `per100g` snapshot (mirroring the Journal Model's
+`FoodEntry.nutritionSnapshot` frozen-snapshot philosophy) captured once at
+template-creation time — this is source-agnostic, always available, and needs no catalog
+dependency injected into `LogSavedMealToDateUseCase` at all. `foodCatalogRef` (SM-001) is
+retained for display/traceability and is carried forward onto the logged entry, but macro
+determinism comes from `per100g`, not a live re-fetch.
 
 **Risiken:** Medium — touches the one existing write path for this domain; must not
 regress the Zero-Macro Blocker (P0-004) or existing confidence-scoring behavior for the
 by-name fallback branch.
 
-**Tests:** New scenarios: (1) item with `foodCatalogRef` logs an entry whose
-`foodCatalogRef`/`nutritionSnapshot` match the catalog entry, without calling
-`NutritionLookup`; (2) item without `foodCatalogRef` falls back to today's behavior
-unchanged; (3) Zero-Macro Blocker still fires when catalog lookup and by-name lookup both
-fail.
+**Tests:** New scenarios: (1) item with `per100g` logs an entry whose macros/
+`nutritionSnapshot` are computed from that snapshot and whose `foodCatalogRef` is carried
+forward, without calling `NutritionLookup`; (2) item without `per100g` falls back to
+today's by-name behavior unchanged; (3) Zero-Macro Blocker still fires when neither
+`per100g` nor by-name lookup produce macros.
 
 **Akzeptanzkriterien (DoD):**
 
-- Entries logged from a saved meal carry `nutritionSnapshot`, and `foodCatalogRef` when the
-  originating item has one.
-- No re-resolution by name occurs when a `foodCatalogRef` is available.
-- Existing by-name fallback behavior is unchanged for items without one.
+- Entries logged from a saved meal always carry `nutritionSnapshot`, and `foodCatalogRef`
+  when the originating item has one.
+- No re-resolution by name occurs when `per100g` is available on the item.
+- Existing by-name fallback behavior is unchanged for items without `per100g`.
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+Full suite (92 suites / 748 tests, +4 new), `tsc --noEmit`, and `eslint` pass clean.
 
 ---
 

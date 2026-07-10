@@ -119,10 +119,12 @@ describe('Saved Meals System', () => {
       expect(template.items[0]).toEqual({
         parsedName: 'chicken',
         quantityGrams: 200,
+        per100g: { calories: 165, protein: 31, carbs: 0, fat: 3.5 },
       });
       expect(template.items[1]).toEqual({
         parsedName: 'rice',
         quantityGrams: 150,
+        per100g: { calories: 130, protein: 2.8, carbs: 28, fat: 0.3 },
       });
       expect(template.id).toBe('id-1');
       expect(template.createdAt).toEqual(clock.now());
@@ -227,6 +229,36 @@ describe('Saved Meals System', () => {
         confidence: 0.9,
       });
       expect(template.items[1].foodCatalogRef).toBeUndefined();
+    });
+
+    it('should derive a frozen per100g snapshot from source entry macros (SM-002)', async () => {
+      // Arrange: 200g chicken at 330 kcal/62 protein/0 carbs/7 fat -> per100g halves
+      const dateISO = '2024-01-15';
+      const entry: FoodEntry = {
+        id: 'e1',
+        rawInput: '200g chicken',
+        parsedName: 'chicken',
+        quantityGrams: 200,
+        calories: 330,
+        protein: 62,
+        carbs: 0,
+        fat: 7,
+        confidenceScore: 0.9,
+        sourceType: 'branded',
+        createdAt: new Date(dateISO + 'T08:00:00Z'),
+      };
+      await foodEntryRepo.addEntry(entry);
+
+      // Act
+      const template = await createUseCase.execute(dateISO, 'My Lunch');
+
+      // Assert
+      expect(template.items[0].per100g).toEqual({
+        calories: 165,
+        protein: 31,
+        carbs: 0,
+        fat: 3.5,
+      });
     });
 
     it('should persist template to repository', async () => {
@@ -380,6 +412,97 @@ describe('Saved Meals System', () => {
       // Act & Assert
       await expect(logUseCase.execute('non-existent-id', '2024-01-16')).rejects.toThrow(
         'SavedMealTemplate with id non-existent-id not found',
+      );
+    });
+
+    it('should use the frozen per100g snapshot deterministically, without NutritionLookup (SM-002)', async () => {
+      // Arrange: template item carries a per100g snapshot + foodCatalogRef, and its name is
+      // deliberately NOT registered in `lookup`, so any fallback to NutritionLookup would
+      // throw ZERO_MACROS_BLOCKED instead of succeeding.
+      const template = {
+        id: 'template-1',
+        name: 'Snapshot Meal',
+        items: [
+          {
+            parsedName: 'unregistered-branded-food',
+            quantityGrams: 200,
+            per100g: { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+            foodCatalogRef: {
+              source: 'off' as const,
+              sourceId: 'off-999',
+              displayName: 'Branded Chicken',
+              confidence: 0.95,
+            },
+          },
+        ],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act
+      const entries = await logUseCase.execute('template-1', '2024-01-16');
+
+      // Assert: macros computed from the frozen snapshot (165 * 2 = 330 kcal, etc.)
+      expect(entries[0].calories).toBe(330);
+      expect(entries[0].protein).toBe(62);
+      expect(entries[0].carbs).toBe(0);
+      expect(entries[0].fat).toBe(7.2);
+      expect(entries[0].sourceType).toBe('cache');
+      expect(entries[0].confidenceScore).toBe(0.8); // cache confidence
+      expect(entries[0].foodCatalogRef).toEqual(template.items[0].foodCatalogRef);
+      expect(entries[0].nutritionSnapshot).toEqual({
+        kcal: 330,
+        protein: 62,
+        carbs: 0,
+        fat: 7.2,
+      });
+    });
+
+    it('should always set nutritionSnapshot, including on the by-name fallback path', async () => {
+      // Arrange: legacy template item without per100g (pre-SM-002)
+      const template = {
+        id: 'template-1',
+        name: 'Legacy Meal',
+        items: [{ parsedName: 'banana', quantityGrams: 100 }],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act
+      const entries = await logUseCase.execute('template-1', '2024-01-16');
+
+      // Assert
+      expect(entries[0].nutritionSnapshot).toEqual({
+        kcal: entries[0].calories,
+        protein: entries[0].protein,
+        carbs: entries[0].carbs,
+        fat: entries[0].fat,
+      });
+      expect(entries[0].foodCatalogRef).toBeUndefined();
+    });
+
+    it('should still block zero-macro entries when a per100g snapshot itself is zero', async () => {
+      // Arrange
+      const template = {
+        id: 'template-zero-per100g',
+        name: 'Zero Snapshot Meal',
+        items: [
+          {
+            parsedName: 'zero-snapshot-food',
+            quantityGrams: 100,
+            per100g: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          },
+        ],
+        createdAt: new Date('2024-01-10T10:00:00Z'),
+        updatedAt: new Date('2024-01-10T10:00:00Z'),
+      };
+      await savedMealRepo.create(template);
+
+      // Act & Assert
+      await expect(logUseCase.execute('template-zero-per100g', '2024-01-17')).rejects.toThrow(
+        'ZERO_MACROS_BLOCKED for saved meal item: 100g zero-snapshot-food',
       );
     });
   });

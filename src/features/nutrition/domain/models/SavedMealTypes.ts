@@ -1,4 +1,5 @@
 import { FoodSourceType } from '../catalog/FoodCatalogSource';
+import { NutritionPer100g } from './NutritionTypes';
 
 /**
  * SavedMealTemplate Domain Model
@@ -30,4 +31,13 @@ export interface SavedMealItem {
     displayName: string;
     confidence: number;
   };
+  /**
+   * SM-002: frozen per-100g macro snapshot derived from the source FoodEntry at
+   * template-creation time (`entry macros * 100 / entry.quantityGrams`). Lets logging this
+   * item later (SM-002) compute macros deterministically without re-resolving the food by
+   * name or depending on any Food Catalog source still being queryable by `foodCatalogRef` —
+   * mirrors the Journal Model's frozen-snapshot philosophy (`FoodEntry.nutritionSnapshot`).
+   * Absent only for templates created before this field existed.
+   */
+  per100g?: NutritionPer100g;
 }

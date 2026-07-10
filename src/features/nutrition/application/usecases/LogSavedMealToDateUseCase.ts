@@ -58,8 +58,24 @@ export class LogSavedMealToDateUseCase {
         createdAt: entryDate,
       };
 
-      // Try to enrich macros deterministically
-      if (this.nutritionLookup && item.quantityGrams > 0) {
+      // SM-002: prefer the frozen per100g snapshot captured at template-creation time —
+      // deterministic, no re-resolution by name, and carries the original Food Catalog
+      // identity forward (if any) unchanged.
+      if (item.per100g && item.quantityGrams > 0) {
+        const macros = this.engine.calculateFromPer100g(item.per100g, item.quantityGrams);
+
+        entry.sourceType = 'cache';
+        entry.calories = macros.calories;
+        entry.protein = macros.protein;
+        entry.carbs = macros.carbs;
+        entry.fat = macros.fat;
+        entry.confidenceScore = this.engine.confidenceForSource('cache');
+
+        if (item.foodCatalogRef) {
+          entry.foodCatalogRef = item.foodCatalogRef;
+        }
+      } else if (this.nutritionLookup && item.quantityGrams > 0) {
+        // Fallback for templates created before SM-002 (no per100g snapshot).
         const per100g = await this.nutritionLookup.getPer100gByName(item.parsedName);
 
         if (per100g) {
@@ -85,6 +101,14 @@ export class LogSavedMealToDateUseCase {
       if (!entry.calories || entry.calories <= 0) {
         throw new Error(`ZERO_MACROS_BLOCKED for saved meal item: ${rawInput}`);
       }
+
+      // J-002: explicit nutritionSnapshot grouping, matching every other write path.
+      entry.nutritionSnapshot = {
+        kcal: entry.calories,
+        protein: entry.protein,
+        carbs: entry.carbs,
+        fat: entry.fat,
+      };
 
       // Generate confidence metadata
       const metadata = this.engine.generateConfidenceMetadata(entry);

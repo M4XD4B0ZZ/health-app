@@ -4326,13 +4326,30 @@ and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass cle
 
 ### P2-002 Enforce Single Supabase Client
 
-Status: `todo`
+Status: `done`
 
 Prevent any creation of new `createClient` instances globally.
 `supabaseClient.ts` is the single source of truth.
 No manual `fetch` calls to `/functions/v1/` exist.
 
 **Verify:** `npm run lint` + global search for `fetch(` targeting Supabase URLs (must yield 0 results).
+
+**Implementation notes:** A repo-wide search confirmed only one real `createClient(...)` call
+in runtime code
+([`supabaseClient.ts`](src/infrastructure/supabase/supabaseClient.ts)) and zero `fetch(...)`
+calls targeting `/functions/v1/` anywhere in `src/**` (the only `/functions/v1/`-adjacent
+`fetch` calls live inside `supabase/functions/**`, which are server-side edge functions calling
+external APIs, not the app bypassing the shared client). The one stale reference was a
+`src/features/nutrition/infrastructure/catalog/README.md` code example showing a second
+`createClient(...)` call with the wrong env var names — updated to import the shared `supabase`
+singleton instead. To make single-client usage an enforced invariant rather than a
+point-in-time grep result, added two ESLint rules in
+[`.eslintrc.cjs`](.eslintrc.cjs): `no-restricted-imports` blocks importing `createClient` from
+`@supabase/supabase-js` anywhere except `supabaseClient.ts` (via a file override), and
+`no-restricted-syntax` blocks `fetch(...)` calls whose argument contains `functions/v1`. Both
+rules were sanity-checked against a throwaway violating file (removed after confirming the
+expected two lint errors). Full suite (108 suites / 819 tests), `tsc --noEmit`, `eslint`, and
+`npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean.
 
 ---
 

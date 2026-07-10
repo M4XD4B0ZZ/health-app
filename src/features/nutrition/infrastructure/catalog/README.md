@@ -21,7 +21,7 @@ Use Cases
 ## Dependency Injection Beispiel
 
 ```typescript
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../../infrastructure/supabase/supabaseClient';
 import {
   SupabaseEdgeOffProvider,
   SupabaseEdgeUsdaProvider,
@@ -30,10 +30,8 @@ import {
 } from './infrastructure';
 import { SequentialFoodCatalogResolver, DefaultConfidenceEngine } from './application';
 
-// 1. Supabase Client erstellen (App-Level)
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 1. Bestehenden App-weiten Supabase Client wiederverwenden (einzige Quelle der Wahrheit,
+//    siehe P2-002) statt einen weiteren `createClient`-Aufruf zu machen.
 
 // 2. Provider instanziieren
 const offProvider = new SupabaseEdgeOffProvider(supabase);

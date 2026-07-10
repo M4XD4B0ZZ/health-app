@@ -3115,9 +3115,264 @@ mass-reformat.
 
 Status: `todo`
 
-Ready for decomposition into concrete tasks (not yet decomposed). Reusable meal templates
-— a logging-speed aid, explicitly not an evaluation object (Product Bible Abschnitt 6).
-Must function identically regardless of the active Evaluation Profile.
+All six decomposed tasks (SM-001–SM-006 below) are `todo`. Unlike the Journal Domain, this
+is **not** greenfield: an application/domain/infrastructure-layer implementation already
+exists (`SavedMealTemplate`/`SavedMealItem` in
+[`SavedMealTypes.ts`](src/features/nutrition/domain/models/SavedMealTypes.ts),
+`CreateSavedMealFromDateUseCase`, `LogSavedMealToDateUseCase`,
+`InMemorySavedMealRepository`, covered by
+[`SavedMeals.test.ts`](src/features/nutrition/__tests__/SavedMeals.test.ts)) but it predates
+the Journal Domain's J-001–J-006 overhaul and was never wired into the app. Concretely:
+
+- `LogSavedMealToDateUseCase` builds each `FoodEntry` by hand (a direct `NutritionLookup`
+  call), bypassing `LogFoodFromRawInputUseCase`'s resolver pipeline entirely — entries it
+  creates never carry `nutritionSnapshot`/`foodCatalogRef` (J-002/J-004) and re-resolve the
+  food by name string every time instead of reusing the identity captured at template
+  creation, which is exactly what the Future Compatibility Principle and Decision Record 1
+  Entscheidung 3/4 established `foodCatalogRef` to avoid.
+- `SavedMealRepository` has `delete()`/`list()` methods that are exercised only by tests —
+  no use case ever calls them, and there is no rename/update use case at all.
+- Only an `InMemorySavedMealRepository` exists (no persisted counterpart, unlike
+  `PersistedFoodEntryRepository`); templates do not survive an app restart.
+- Nothing is registered in [`src/infrastructure/di/container.ts`](src/infrastructure/di/container.ts)
+  and there is no presentation-layer code anywhere (`src/presentation/features/` has no
+  `savedMeals` directory) — the feature is entirely inaccessible from the app today.
+
+**Scope boundary (Product Bible Abschnitt 6, unchanged):** "eine gespeicherte Mahlzeit ist
+eine Logging-Beschleunigung, kein Bewertungsobjekt" — must function identically regardless
+of the active Evaluation Profile. No task below may add profile/evaluation awareness to
+this domain; that stays confined to Goals & Evaluation / Dashboard & Insights.
+
+Implementation order:
+
+1. **Food Catalog Reference on Template Items** (SM-001)
+2. **Deterministic, Journal-Model-Aligned Logging** (SM-002)
+3. **Template Management Use Cases** (SM-003)
+4. **Persisted Repository** (SM-004)
+5. **Presentation Layer + DI Wiring** (SM-005)
+
+Cross-cutting: **SM-006** (regression coverage across SM-001–SM-005).
+
+No dedicated migration task is planned: SM-001's new field is additive/optional, so
+existing in-memory templates (there is no persisted store yet to migrate) remain valid.
+
+---
+
+#### SM-001: Food Catalog Reference on Saved Meal Items
+
+Status: `todo`
+Depends on: none
+
+**Ziel:** `SavedMealItem` captures the `foodCatalogRef` of the source `FoodEntry` (if any)
+at template-creation time, so a later log-back can reuse the exact same Food Catalog
+identity instead of re-resolving the food by name string — the same guarantee J-002/J-004
+established for the Journal Model itself.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/domain/models/SavedMealTypes.ts` — add optional
+  `foodCatalogRef?: { source, sourceId, displayName, confidence }` to `SavedMealItem`
+  (same shape as `FoodEntry.foodCatalogRef`).
+- `src/features/nutrition/application/usecases/CreateSavedMealFromDateUseCase.ts` — copy
+  `entry.foodCatalogRef` onto the created `SavedMealItem` when present; absent when the
+  source entry predates J-004 or has none (e.g. pure AI fallback).
+
+**Risiken:** Low — additive optional field, no existing read site depends on its absence.
+
+**Tests:** Template creation from entries with and without `foodCatalogRef` produces items
+with/without the copied field respectively.
+
+**Akzeptanzkriterien (DoD):**
+
+- `SavedMealItem` optionally carries `foodCatalogRef`.
+- `CreateSavedMealFromDateUseCase` populates it whenever the source `FoodEntry` has one.
+- No behavior change to existing fields; full suite stays green.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### SM-002: Deterministic, Journal-Model-Aligned Logging
+
+Status: `todo`
+Depends on: SM-001
+
+**Ziel:** `LogSavedMealToDateUseCase` produces `FoodEntry` rows indistinguishable in shape
+from ones logged through `LogFoodFromRawInputUseCase` — carrying `nutritionSnapshot` and,
+where available, `foodCatalogRef` — and reuses the identity captured in SM-001 instead of a
+fresh by-name lookup.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/LogSavedMealToDateUseCase.ts` — for each
+  item: if `item.foodCatalogRef` is present, resolve macros via
+  `FoodCatalog.getById(item.foodCatalogRef.sourceId)` (deterministic, no re-resolution) and
+  stamp the resulting entry's `foodCatalogRef` accordingly; otherwise fall back to the
+  existing `NutritionLookup`-by-name path unchanged (legacy/pre-SM-001 templates). Always
+  set `nutritionSnapshot` alongside the top-level macro fields, matching J-002's
+  convention.
+- Constructor gains an optional `FoodCatalog` dependency (mirrors `LogFoodFromRawInputUseCase`'s
+  existing dependency), defaulting to the current by-name-only behavior when absent.
+
+**Risiken:** Medium — touches the one existing write path for this domain; must not
+regress the Zero-Macro Blocker (P0-004) or existing confidence-scoring behavior for the
+by-name fallback branch.
+
+**Tests:** New scenarios: (1) item with `foodCatalogRef` logs an entry whose
+`foodCatalogRef`/`nutritionSnapshot` match the catalog entry, without calling
+`NutritionLookup`; (2) item without `foodCatalogRef` falls back to today's behavior
+unchanged; (3) Zero-Macro Blocker still fires when catalog lookup and by-name lookup both
+fail.
+
+**Akzeptanzkriterien (DoD):**
+
+- Entries logged from a saved meal carry `nutritionSnapshot`, and `foodCatalogRef` when the
+  originating item has one.
+- No re-resolution by name occurs when a `foodCatalogRef` is available.
+- Existing by-name fallback behavior is unchanged for items without one.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### SM-003: Template Management Use Cases
+
+Status: `todo`
+Depends on: none (parallel to SM-001/SM-002)
+
+**Ziel:** Close the gap between what `SavedMealRepository` already supports
+(`list`/`getById`/`delete`) and what the application layer actually exposes — today only
+`create` (via `CreateSavedMealFromDateUseCase`) has a use case.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/nutrition/application/usecases/ListSavedMealTemplatesUseCase.ts`.
+- New `src/features/nutrition/application/usecases/DeleteSavedMealTemplateUseCase.ts`.
+- New `src/features/nutrition/application/usecases/RenameSavedMealTemplateUseCase.ts` —
+  `SavedMealRepository` has no `update`; add one (mirrors `create`'s signature) alongside
+  the use case.
+- `src/features/nutrition/application/ports/SavedMealRepository.ts` — add `update()`.
+- `src/features/nutrition/infrastructure/repositories/InMemorySavedMealRepository.ts` —
+  implement `update()`.
+
+**Risiken:** Low — new, additive use cases and one new repository method; no existing
+behavior changes.
+
+**Tests:** One test per new use case (list returns all templates, delete removes by id and
+is a no-op for unknown id, rename updates `name`/`updatedAt` and rejects unknown id).
+
+**Akzeptanzkriterien (DoD):**
+
+- List/Delete/Rename use cases exist, are exported from `application/usecases/index.ts`,
+  and are covered by tests.
+- `SavedMealRepository.update()` exists and is implemented in-memory.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### SM-004: Persisted Saved Meal Repository
+
+Status: `todo`
+Depends on: SM-003 (needs the final `SavedMealRepository` port shape, incl. `update()`)
+
+**Ziel:** Give `SavedMealTemplate`s the same durable-storage treatment `FoodEntry` already
+has — templates currently live only in `InMemorySavedMealRepository` and vanish on
+restart.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/nutrition/infrastructure/repositories/PersistedSavedMealRepository.ts`,
+  mirroring `PersistedFoodEntryRepository.ts`'s `KeyValueStore`-backed
+  serialize/deserialize pattern.
+- `src/infrastructure/di/container.ts` — register the persisted repository (this domain has
+  no container entry at all today).
+
+**Risiken:** Low — same established pattern as `PersistedFoodEntryRepository`; main risk is
+an incomplete serialize/deserialize round-trip for the `foodCatalogRef` field added in
+SM-001.
+
+**Tests:** Serialization round-trip tests (with and without `foodCatalogRef` per item),
+mirroring `PersistedFoodEntryRepository.test.ts`'s structure.
+
+**Akzeptanzkriterien (DoD):**
+
+- Templates persist across a simulated restart (repository re-instantiated over the same
+  `KeyValueStore`).
+- Registered in the DI container.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### SM-005: Presentation Layer + DI Wiring
+
+Status: `todo`
+Depends on: SM-002, SM-003, SM-004
+
+**Ziel:** Make Saved Meals reachable from the app at all — today there is zero
+presentation-layer code for this domain. Minimal UI: create a template from a date's
+entries, list templates, log a template to the current date, rename, delete.
+
+**Scope / betroffene Dateien:**
+
+- New `src/presentation/features/savedMeals/SavedMealsScreen.tsx` (list + log + delete +
+  rename), following `JournalScreen.tsx`'s existing presentation conventions.
+- `src/presentation/navigation/AppNavigator.tsx` — add a navigation entry.
+- Entry point from `JournalScreen`/`NutritionScreen` to create a template from the current
+  date's entries (`CreateSavedMealFromDateUseCase`).
+- `src/infrastructure/di/container.ts` — wire the use cases from SM-002/SM-003 for
+  presentation-layer consumption.
+
+**Risiken:** Medium — first UI surface for this domain; must stay profile-independent per
+the scope boundary (no evaluation/goal display in this screen).
+
+**Tests:** Presentation-layer logic tests where feasible (e.g. list ordering, empty state);
+full visual/interaction verification is out of reach in this headless agent environment —
+must be logged in `docs/MANUAL_TESTING_GAPS.md` per AGENTS.md's binding rule, same as J-005.
+
+**Akzeptanzkriterien (DoD):**
+
+- A user can create, view, log, rename, and delete Saved Meal templates from the app.
+- Screen shows no profile/evaluation-derived information.
+- Manual testing gap logged for the new UI.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`; manual Expo verification
+tracked as an open gap.
+
+---
+
+#### SM-006: Saved Meals Domain Regression Coverage
+
+Status: `todo`
+Depends on: SM-001–SM-005
+
+**Ziel:** Consolidated regression pass across the full Saved Meals change set, mirroring
+J-006: prove SM-001–SM-005 hold together end-to-end, not just individually.
+
+**Scope / betroffene Dateien:** New
+`src/features/nutrition/__tests__/SavedMealsDomainRegressionCoverage.test.ts` (or extend
+`SavedMeals.test.ts`), exercising: create template from a date with a `foodCatalogRef`'d
+entry → log template to a new date → resulting entry has matching `foodCatalogRef`/
+`nutritionSnapshot` → soft-delete that entry (existing `DeleteFoodEntryUseCase`) → excluded
+from `listEntriesForDate` → rename the template → delete the template → confirm it's gone
+from `list()`.
+
+**Risiken:** Low — read-only regression proof, no new production code.
+
+**Tests:** As described above; existing P0–P1/Journal Domain regression suites are not
+duplicated here (already covered by their own test files, per J-006's precedent).
+
+**Akzeptanzkriterien (DoD):**
+
+- Full suite green including the new cross-cutting scenario.
+- `tsc --noEmit` and `eslint` pass clean.
+
+**Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+---
 
 ### Goals & Evaluation
 

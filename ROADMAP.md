@@ -4663,6 +4663,23 @@ Define schema for persistent knowledge accumulation.
 
 **Verify:** Schema documentation exists, tables accessible from Edge functions
 
+**Discovery (2026-07-10, human-approved scope — see
+[`reports/RESOLVER-V2-005_SCHEMA_DRIFT_2026-07-10_REPORT.md`](../reports/RESOLVER-V2-005_SCHEMA_DRIFT_2026-07-10_REPORT.md)):**
+Most of this DoD already exists live on the remote project, under different names, with no
+matching migration file — `food_catalog_items` ≈ `canonical_foods`, `user_food_aliases` ≈
+`food_aliases`, `food_resolver_runs` ≈ `query_logs` (plus an unused `food_sources` reference
+table and `food_query_cache_results` per-candidate ranking table). All four were undocumented
+schema drift (created directly against the DB, never committed as a migration). Per explicit
+direction, this task backfilled a migration
+([`supabase/migrations/20260710_document_existing_knowledge_layer_tables.sql`](../supabase/migrations/20260710_document_existing_knowledge_layer_tables.sql))
+documenting exactly what's live (idempotent, not applied to the remote project — it's already
+there) rather than designing a new/parallel schema under the DoD's literal table names.
+**Remaining before this can be marked `done`:** a `corrections` table (user feedback on
+decisions) doesn't exist anywhere yet and needs its own scoped design; and a decision on
+whether to keep the existing live names or rename them to match the DoD text. Persisting
+resolution decisions into `food_resolver_runs` (no app/edge code writes to it today) is
+RESOLVER-V2-006, tracked separately below.
+
 ---
 
 #### RESOLVER-V2-006: Persist Resolution Decisions

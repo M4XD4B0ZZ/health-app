@@ -1,23 +1,18 @@
 import { GetCalendarMonthSummaryUseCase } from '../application/usecases/GetCalendarMonthSummaryUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
-import { GoalsRepository } from '../application/ports/GoalsRepository';
-import { UserGoals } from '../domain/goals/UserGoals';
+import { EffectiveGoalsRepository } from '../../goals/application/ports';
+import { EffectiveGoals } from '../../goals/domain/models/GoalsTypes';
 import { FoodEntry } from '../domain/models/NutritionTypes';
 
-class InMemoryGoalsRepository implements GoalsRepository {
-  async getGoals(): Promise<UserGoals | null> {
+class InMemoryGoalsRepository implements EffectiveGoalsRepository {
+  async get(): Promise<EffectiveGoals | null> {
     return {
-      caloriesTargetKcal: 2000,
-      proteinTargetG: 150,
-      carbsTargetG: 250,
-      fatTargetG: 70,
-      activityLevel: 'moderate',
-      source: 'manual',
-      updatedAt: new Date('2026-02-22T00:00:00.000Z').toISOString(),
+      mode: 'manual',
+      goals: { calories: 2000, protein: 150, carbs: 250, fat: 70 },
     };
   }
 
-  async setGoals(): Promise<void> {}
+  async upsert(): Promise<void> {}
 }
 
 function createEntry(input: {

@@ -4,7 +4,6 @@ export { Clock } from './ports/Clock';
 export { IdGenerator } from './ports/IdGenerator';
 export { NutritionLookup } from './ports/NutritionLookup';
 export { SavedMealRepository } from './ports/SavedMealRepository';
-export { GoalsRepository } from './ports/GoalsRepository';
 
 // Use Cases
 export { LogFoodFromRawInputUseCase } from './usecases/LogFoodFromRawInputUseCase';
@@ -16,9 +15,6 @@ export { ApplyNaturalLanguageEditUseCase } from './usecases/ApplyNaturalLanguage
 export { EditFoodEntryFromNaturalLanguageUseCase } from './usecases/EditFoodEntryFromNaturalLanguageUseCase';
 export { CreateSavedMealFromDateUseCase } from './usecases/CreateSavedMealFromDateUseCase';
 export { LogSavedMealToDateUseCase } from './usecases/LogSavedMealToDateUseCase';
-export { GetGoalsUseCase } from './usecases/GetGoalsUseCase';
-export { SetManualGoalsUseCase } from './usecases/SetManualGoalsUseCase';
-export { CalculateGoalsFromMetabolismInputsUseCase } from './usecases/CalculateGoalsFromMetabolismInputsUseCase';
 export { GetReminderSettingsUseCase } from './usecases/GetReminderSettingsUseCase';
 export { SetReminderSettingsUseCase } from './usecases/SetReminderSettingsUseCase';
 export { GetReminderDecisionUseCase } from './usecases/GetReminderDecisionUseCase';

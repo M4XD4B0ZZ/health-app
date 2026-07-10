@@ -26,10 +26,6 @@ import {
   EditFoodEntryFromNaturalLanguageUseCase,
   DeleteFoodEntryUseCase,
   EnrichFoodEntryMacrosUseCase,
-  PersistedGoalsRepository,
-  GetGoalsUseCase,
-  SetManualGoalsUseCase,
-  CalculateGoalsFromMetabolismInputsUseCase,
   PersistedReminderSettingsRepository,
   PersistedPortionHintRepository,
   GetReminderSettingsUseCase,
@@ -70,7 +66,6 @@ import {
 import {
   FoodAliasRepository,
   FoodEntryRepository,
-  GoalsRepository,
   KeyValueStore,
   ReminderSettingsRepository,
   SavedMealRepository,
@@ -141,7 +136,6 @@ class Container {
   private _foodParser: DeterministicFoodParser;
   private _aiMealParser: FakeAiMealParser;
   private _authRepository: AuthRepository;
-  private _nutritionGoalsRepository: GoalsRepository;
   private _reminderSettingsRepository: ReminderSettingsRepository;
   private _portionKnowledgeService: PortionKnowledgeService;
   private _savedMealRepository: SavedMealRepository;
@@ -164,9 +158,6 @@ class Container {
   private _deleteFoodEntryUseCase: DeleteFoodEntryUseCase;
   private _undoAutoMergeUseCase: UndoAutoMergeUseCase;
   private _enrichFoodEntryMacrosUseCase: EnrichFoodEntryMacrosUseCase;
-  private _getGoalsUseCase: GetGoalsUseCase;
-  private _setManualGoalsUseCase: SetManualGoalsUseCase;
-  private _calculateGoalsFromMetabolismInputsUseCase: CalculateGoalsFromMetabolismInputsUseCase;
   private _getReminderSettingsUseCase: GetReminderSettingsUseCase;
   private _setReminderSettingsUseCase: SetReminderSettingsUseCase;
   private _getReminderDecisionUseCase: GetReminderDecisionUseCase;
@@ -212,7 +203,6 @@ class Container {
     this._foodParser = new DeterministicFoodParser();
     this._aiMealParser = new FakeAiMealParser();
     this._authRepository = new SupabaseAuthRepository();
-    this._nutritionGoalsRepository = new PersistedGoalsRepository(this._keyValueStore);
     this._reminderSettingsRepository = new PersistedReminderSettingsRepository(this._keyValueStore);
     this._portionKnowledgeService = new PortionKnowledgeService(
       new PersistedPortionHintRepository(this._keyValueStore, SEED_PORTION_HINTS),
@@ -333,7 +323,7 @@ class Container {
 
     this._getDailySummaryUseCase = new GetDailySummaryUseCase(
       this._foodEntryRepository,
-      this._nutritionGoalsRepository,
+      this._effectiveGoalsRepository,
     );
 
     this._applyNaturalLanguageEditUseCase = new ApplyNaturalLanguageEditUseCase(
@@ -362,10 +352,6 @@ class Container {
       this._foodEntryRepository,
       this._nutritionLookup,
     );
-    this._getGoalsUseCase = new GetGoalsUseCase(this._nutritionGoalsRepository);
-    this._setManualGoalsUseCase = new SetManualGoalsUseCase(this._nutritionGoalsRepository);
-    this._calculateGoalsFromMetabolismInputsUseCase =
-      new CalculateGoalsFromMetabolismInputsUseCase();
     this._getReminderSettingsUseCase = new GetReminderSettingsUseCase(
       this._reminderSettingsRepository,
     );
@@ -379,7 +365,7 @@ class Container {
     );
     this._getCalendarMonthSummaryUseCase = new GetCalendarMonthSummaryUseCase(
       this._foodEntryRepository,
-      this._nutritionGoalsRepository,
+      this._effectiveGoalsRepository,
       'Europe/Berlin',
     );
 
@@ -545,18 +531,6 @@ class Container {
 
   get enrichFoodEntryMacrosUseCase(): EnrichFoodEntryMacrosUseCase {
     return this._enrichFoodEntryMacrosUseCase;
-  }
-
-  get getGoalsUseCase(): GetGoalsUseCase {
-    return this._getGoalsUseCase;
-  }
-
-  get setManualGoalsUseCase(): SetManualGoalsUseCase {
-    return this._setManualGoalsUseCase;
-  }
-
-  get calculateGoalsFromMetabolismInputsUseCase(): CalculateGoalsFromMetabolismInputsUseCase {
-    return this._calculateGoalsFromMetabolismInputsUseCase;
   }
 
   get getReminderSettingsUseCase(): GetReminderSettingsUseCase {

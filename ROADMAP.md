@@ -3798,7 +3798,7 @@ identified — none of it is mechanical enough to have been folded into GE-001�
 
 #### GE-006: Reconcile the Duplicate Goal-Target Systems
 
-Status: `todo`
+Status: `done`
 Depends on: GE-002 (establishes which system is "the real one")
 
 **Ziel:** Now that GE-002 established `src/features/goals`
@@ -3816,6 +3816,44 @@ decision, not a mechanical refactor.
 
 **Verify (once scoped):** `npm run typecheck`, `npm run test`, `npm run lint`; no regression
 in `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`'s existing test coverage.
+
+**Decision (via `AskUserQuestion`):** migrate — `GetDailySummaryUseCase`/
+`GetCalendarMonthSummaryUseCase` now read from `EffectiveGoalsRepository`
+(`src/features/goals`), a single source of truth for goal targets.
+
+**Implementation notes:** Investigation before migrating found the *entire*
+`nutrition/domain/goals`/`GoalsRepository`/`PersistedGoalsRepository` system — plus
+`nutrition/domain/metabolism` (a **third**, independent metabolism/TDEE calculator, used
+only by `CalculateGoalsFromMetabolismInputsUseCase`) and the `GetGoalsUseCase`/
+`SetManualGoalsUseCase`/`CalculateGoalsFromMetabolismInputsUseCase` use cases — had **zero**
+callers anywhere in presentation code; they were wired into `container.ts` and exercised
+only by their own tests. Given that, this task did the complete reconciliation rather than
+a partial migration:
+
+- `DailySummaryCalculator.buildDailySummary()` now takes `DailyGoals` (`features/goals`,
+  just `{calories, protein, carbs, fat}`) instead of `UserGoals` — it never read
+  `UserGoals`'s other fields (`activityLevel`/`updatedAt`/`source`) anyway.
+- `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase` now depend on
+  `EffectiveGoalsRepository` and unwrap `effectiveGoals?.goals ?? null`.
+- Deleted entirely (dead code, zero remaining references, confirmed by a full-repo grep
+  after removal): `nutrition/domain/goals/*`, `nutrition/domain/metabolism/*`,
+  `nutrition/application/ports/GoalsRepository.ts`,
+  `nutrition/infrastructure/repositories/PersistedGoalsRepository.ts`,
+  `GetGoalsUseCase.ts`/`SetManualGoalsUseCase.ts`/
+  `CalculateGoalsFromMetabolismInputsUseCase.ts` and their test files
+  (`GoalsUseCases.test.ts`, `MetabolismCalculator.test.ts`, `PersistedGoalsRepository.test.ts`),
+  plus their `container.ts` wiring/getters and all barrel-export lines.
+- Four test files that fixture-implemented the old `GoalsRepository` port purely to satisfy
+  `GetDailySummaryUseCase`'s constructor (`GetDailySummaryUseCase.test.ts`,
+  `GetCalendarMonthSummaryUseCase.test.ts`, `ReminderSystem.test.ts`,
+  `JournalDomainRegressionCoverage.test.ts`) were updated to fixture/use
+  `EffectiveGoalsRepository`/`InMemoryEffectiveGoalsRepository` instead — none of them
+  depended on the deleted type's other fields, so this was a mechanical swap.
+
+Full suite (107 suites / 813 tests — down from 110/819 due to the three deleted dead-code
+test files, no coverage lost), `tsc --noEmit`, `eslint` (scoped and full-repo), and `npx
+prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean. A full-repo grep
+for every deleted symbol confirms zero remaining references.
 
 ---
 

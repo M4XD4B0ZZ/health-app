@@ -4629,7 +4629,7 @@ App calls remote endpoints anonymously without 401s.
 
 #### RESOLVER-V2-005: Introduce Supabase Knowledge Layer Tables
 
-Status: `todo`
+Status: `in_progress`
 
 **Description:**
 Define schema for persistent knowledge accumulation.
@@ -4649,6 +4649,38 @@ Define schema for persistent knowledge accumulation.
 - Edge functions can access tables
 
 **Verify:** Schema documentation exists, tables accessible from Edge functions
+
+**Progress notes (discovered during a Supabase concept review, see migration recovery
+commits):** The schema side of this task is already live on the "HealthDatabase" Supabase
+project and now tracked in `supabase/migrations/`, via a migration
+(`20260613145404_harden_food_catalog_and_resolver_schema.sql`) that predates this ROADMAP entry
+being picked up but was never reflected here:
+
+- `canonical_foods` → already covered by the pre-existing `food_catalog_items` table (predates
+  this task).
+- `food_aliases` → already covered by the pre-existing `user_food_aliases` table (predates this
+  task; its own creation migration was also recovered, see
+  `20260201000000_create_user_food_aliases.sql`).
+- `query_logs` → covered by the new `food_resolver_runs` table (normalized_query, locale,
+  user_id, winner_item_id/source/confidence, cache_hit, resolver_version, metadata jsonb).
+- A `food_sources` registry table (off/usda/bls/ai/user, with licensing/attribution metadata)
+  was added, and `food_catalog_items.source` now has a proper FK into it instead of a bare
+  `CHECK (source IN (...))`.
+- A `food_query_cache_results` table was added to normalize per-candidate ranked results
+  (query_cache_id, food_catalog_item_id, rank, score, source) instead of only the
+  `result_item_ids uuid[]` array on `food_query_cache`.
+- `food_source_items` (source-specific food mappings, distinct from `food_catalog_items`) and
+  `corrections` (user feedback on decisions) were **not** part of that migration and do not
+  exist yet — still outstanding.
+
+**Remaining for DoD completion:**
+
+- No application code (Edge Functions or `SequentialFoodCatalogResolver`) reads from or writes
+  to `food_resolver_runs` or `food_query_cache_results` yet — both are empty, unwired schema.
+  That wiring is RESOLVER-V2-006's job.
+- `corrections` (user feedback on decisions) has no schema at all yet.
+- Schema is not yet documented anywhere outside this ROADMAP note and the migration files
+  themselves (no dedicated schema doc).
 
 ---
 

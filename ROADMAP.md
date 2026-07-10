@@ -4597,7 +4597,7 @@ verified by inspection instead (valid TOML, section names match function directo
 
 ### P2-007 Deploy & Verify Guardrails
 
-Status: `todo`
+Status: `done`
 
 Deploy guardrails with correct `verify_jwt=false` properties.
 App calls remote endpoints anonymously without 401s.
@@ -4607,6 +4607,34 @@ App calls remote endpoints anonymously without 401s.
 1. `npm run verify:supabase:link` must pass.
 2. `npm run verify:schema` must pass.
 3. `npm run deploy:edge:verify` must pass.
+
+**Implementation notes:** Both guardrail functions were already deployed and live on the
+remote project (`kbplfcqluqqowmvchvhc`) — confirmed via the Supabase MCP connector (not the
+npm scripts, see verification-gap note below): `food-off-search` (v10) and `food-usda-search`
+(v11) both report `status: "ACTIVE"` and `verify_jwt: false`, matching
+[`supabase/config.toml`](supabase/config.toml) exactly. Fetched `food-off-search`'s deployed
+source via the MCP connector and spot-diffed it against the local repo's
+`supabase/functions/food-off-search/index.ts` / `_shared/guardrails.ts` — identical, so the
+live guardrail logic (query length 2–64, punctuation-only rejection, repeated-char rejection,
+30 req/min rate limit) matches what's in this repo, not a stale build. The two target tables
+`verify:schema` checks for (`food_query_cache`, `food_catalog_items`) both exist in the remote
+DB (confirmed via `mcp__Supabase__list_tables`).
+
+**Verification gap + false-positive finding (environment limitation, not routed around):**
+None of the three DoD npm scripts could be trusted to run in this sandbox. `verify:edge` fails
+outright — this environment's network egress policy doesn't allowlist
+`kbplfcqluqqowmvchvhc.supabase.co`, so the `fetch()` call never reaches Supabase; the agent
+proxy rejects the CONNECT tunnel with `403` before it leaves the sandbox
+(`gateway answered 403 to CONNECT`). More notably, **`verify:schema` reported a false PASS**
+under the same conditions: the script treats any `200`/`401`/`403` response as "table exists"
+(401/403 meaning "RLS correctly blocks anonymous reads"), but the sandbox's own network-block
+response is _also_ `403` with no way for the script to distinguish "Supabase said no" from "the
+network never let this request through." The genuine schema check above was done via the
+Supabase MCP connector instead, which isn't subject to this sandbox's HTTP egress allowlist.
+`verify:supabase:link` also can't run (no `.env`, and the `supabase` CLI binary itself isn't
+installed — same root cause as the P2-003 note: its postinstall download is blocked by network
+policy). Anyone re-running these DoD scripts from a network-restricted environment should be
+aware `verify:schema`'s pass/fail is not reliable there.
 
 ---
 

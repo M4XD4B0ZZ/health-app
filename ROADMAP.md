@@ -4562,13 +4562,34 @@ Focus: deployment repeatability, remote guardrail verification, long-term resolv
 
 ### P2-003 Document Edge Functions Deploy Process
 
-Status: `todo`
+Status: `done`
 
 Ensure `supabase/config.toml` is respected in deployment.
 `verify_jwt=false` safely applied.
 README section in `/supabase` on how to run `supabase functions deploy`.
 
 **Verify:** Local `supabase start` parses `config.toml` and allows anonymous invokes.
+
+**Implementation notes:** [`supabase/config.toml`](supabase/config.toml) already set
+`verify_jwt = false` for both deployed functions
+([`food-off-search`](supabase/functions/food-off-search),
+[`food-usda-search`](supabase/functions/food-usda-search)) — confirmed both config sections
+match a real function subdirectory, so the CLI has a valid target for each. The deployment
+workflow itself (link → verify schema → `deploy:edge:verify`) was already documented in
+[`supabase/functions/README.md`](supabase/functions/README.md)'s "Deployment" section from
+earlier work. What was missing was a `/supabase`-root README to orient someone browsing the
+directory before they find the functions-specific one — added
+[`supabase/README.md`](supabase/README.md) as a short index pointing to `config.toml`,
+`functions/README.md`, and `migrations/`.
+
+**Verification gap (environment limitation, not routed around):** The DoD's literal
+verification step — running `supabase start` locally and confirming `config.toml` is parsed
+with anonymous invokes allowed — could not be executed in this sandboxed session. Docker
+itself is available, but the `supabase` npm package's postinstall script (which downloads the
+actual `supabase` CLI binary from GitHub Releases) is blocked by this environment's network
+policy (`403` on the release download, same root cause as the dependency-hygiene report's
+finding #3), so `npx supabase` has no binary to run. `config.toml`'s syntax and structure were
+verified by inspection instead (valid TOML, section names match function directories 1:1).
 
 ---
 

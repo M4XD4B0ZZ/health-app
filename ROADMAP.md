@@ -4077,7 +4077,7 @@ change to any existing `assessment`/`goalProgress`/`warnings` test expectations.
 
 #### DI-004: Dashboard & Insights Domain Regression Coverage
 
-Status: `todo`
+Status: `done`
 Depends on: DI-001–DI-003
 
 **Ziel:** Consolidated regression pass across DI-001–DI-003, mirroring J-006/SM-006/GE-005,
@@ -4108,6 +4108,78 @@ and a `ROADMAP.md` follow-up stub.
   Zera's scope entirely?) — a product decision, not mechanical enough for DI-001–DI-004.
 
 **Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+**Implementation notes:** Seeds one real Journal day via `PersistedFoodEntryRepository`
+(`KeyValueStore`-backed, the actual class the app uses) plus real `EffectiveGoals`/
+`MetabolismProfile` via their real, unmodified use cases
+(`SetEffectiveGoalsUseCase`/`UpsertMetabolismProfileUseCase`), then runs the *exact* wiring
+shape `container.ts` uses (same fixed `knownProfiles`/`knownRules`/settings-provider arrays)
+end-to-end for both profiles — closing the gap DI-001's own tests left open (those exercised
+one profile at a time against `InMemory*` repositories; this proves both together, plus
+DI-003's insight-content divergence, against the real repository classes). Confirms the
+seeded Journal day itself is never mutated by any evaluation/profile-switch call (Variante
+B). Full suite (108 suites / 810 tests, +2 new), `tsc --noEmit`, `eslint` (scoped and
+full-repo), and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass
+clean.
+
+Writing this test surfaced one more concrete gap, beyond what the preamble already
+identified: `container.ts` constructs `EffectiveGoalsRepository`/`MetabolismProfileRepository`
+as `InMemoryEffectiveGoalsRepository`/`InMemoryMetabolismProfileRepository` — **not**
+`KeyValueStore`-backed like every other repository in this app (`PersistedFoodEntryRepository`,
+`PersistedSavedMealRepository`, `PersistedActiveProfileRepository`, ...). A user's
+`GoalsScreen` metabolism profile and goals are lost on every app restart today. Added as
+DI-006 below, alongside DI-005.
+
+**Dashboard & Insights: all four tasks (DI-001–DI-004) done.** The Evaluation Engine
+(GE-001–GE-005) now has a real data path into it (DI-001), a real UI surface consuming it
+(DI-002, new "Auswertung" tab, legacy `DashboardScreen` untouched), and genuine per-profile
+insight content (DI-003), all proven end-to-end against real repositories (DI-004). See
+DI-005/DI-006 below for the explicit, deliberately-deferred follow-up work this
+decomposition's preamble and this task's own testing identified.
+
+---
+
+#### DI-005: Reconcile/Retire the Legacy Mock Dashboard
+
+Status: `todo`
+Depends on: DI-002 (there must be a real replacement surface first)
+
+**Ziel:** Decide and execute what happens to `DashboardScreen.tsx`/`GetDashboardSummary`/
+`MockNutritionRepository`/`MockRecoveryRepository` now that `EvaluationSummaryScreen` (DI-002)
+provides a real, nutrition-evaluation-driven alternative. Options include: retire the
+Dashboard tab entirely in favor of the new one, keep Dashboard for Recovery only (splitting
+out the currently-conflated nutrition mock data), or something else.
+
+**Why not folded into DI-001–DI-004:** the highest-risk, most user-visible change
+identified in this whole decomposition — removing or rewriting a live, working (if
+mock-backed) screen, and deciding Recovery's product fate, which this decomposition's
+Product Bible scope says nothing about. A design decision, not a mechanical refactor.
+
+**Verify (once scoped):** manual Expo verification required (UI task); typecheck/test/lint
+as a floor, not a substitute.
+
+---
+
+#### DI-006: Persist EffectiveGoals/MetabolismProfile
+
+Status: `todo`
+Depends on: none
+
+**Ziel:** `container.ts` wires `EffectiveGoalsRepository`/`MetabolismProfileRepository`
+(`src/features/goals`) as pure in-memory repositories — unlike every other repository in
+this app. A user's metabolism profile and goals (`GoalsScreen`) are silently lost on every
+app restart today. Add `KeyValueStore`-backed persisted implementations (mirroring
+`PersistedSavedMealRepository`'s/`PersistedActiveProfileRepository`'s pattern) and wire them
+into `container.ts` in place of the `InMemory*` versions.
+
+**Why not folded into DI-001–DI-004:** discovered while writing DI-004's own regression
+test, after DI-001–DI-004's scope was already fixed; a pre-existing bug in `features/goals`
+infrastructure, not something DI-001–DI-004 introduced or is responsible for fixing as a
+side effect.
+
+**Verify (once scoped):** `npm run typecheck`, `npm run test`, `npm run lint`; a durability
+test (repository re-instantiated over the same `KeyValueStore`, mirroring SM-004's/GE-003's
+pattern) proving goals/metabolism profile survive a simulated restart.
 
 ---
 

@@ -3578,7 +3578,7 @@ existing files modified.
 
 #### GE-002: Evidence-based Standard Profile
 
-Status: `todo`
+Status: `done`
 Depends on: GE-001
 
 **Ziel:** First concrete `EvaluationProfile` implementation — adapts the *already
@@ -3614,6 +3614,21 @@ without touching the live `GoalsScreen`/`ComputeProgressForDateUseCase` path yet
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `CalorieMacroCorridorRule.evaluate()` reads its target goals from
+`EvaluationInput.profileSettings` (cast to a small local `CalorieMacroCorridorSettings {
+goals: DailyGoals }` interface — `profileSettings` stays `Record<string, unknown>` in the
+contract per GE-001, since its shape is genuinely rule-specific), aggregates
+`journalReadsForPeriod` via the existing (unmodified) `aggregateConsumed`, and calls the
+existing (unmodified) `calculateDailyProgress` — this task adds a reshaping layer only, no
+new calculation logic. Test proves numeric equivalence (not just structural plausibility)
+against `ComputeProgressForDateUseCase` for identical fixture Journal entries/goals, plus a
+second case proving the over-calories warning fires correctly. `EvidenceBasedStandardProfile`
+is the plain `EvaluationProfile` metadata object (Origin `preset`, one rule id) — no
+orchestrator runs it yet; mapping `ruleIds` to actual `Rule` instances and merging their
+`RuleResult`s is GE-003's job. Neither `GoalsScreen.tsx` nor `ComputeProgressForDateUseCase`
+was modified — confirmed by running the full suite unchanged. Full suite (97 suites / 775
+tests, +5 new), `tsc --noEmit`, and `eslint` pass clean.
 
 ---
 

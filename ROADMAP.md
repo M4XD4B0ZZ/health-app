@@ -3400,7 +3400,7 @@ suites / 768 tests, +4 new), `tsc --noEmit`, and `eslint` pass clean.
 
 #### SM-006: Saved Meals Domain Regression Coverage
 
-Status: `todo`
+Status: `done`
 Depends on: SM-001–SM-005
 
 **Ziel:** Consolidated regression pass across the full Saved Meals change set, mirroring
@@ -3425,6 +3425,22 @@ duplicated here (already covered by their own test files, per J-006's precedent)
 - `tsc --noEmit` and `eslint` pass clean.
 
 **Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+**Implementation notes:** Built the scenario against the actual durable repositories
+(`PersistedFoodEntryRepository` + `PersistedSavedMealRepository` over a shared
+`FakeKeyValueStore`), not in-memory test doubles, and re-instantiates fresh repository
+instances mid-test at two points to prove durability across a simulated restart —
+strengthening the DoD's "hold together end-to-end" beyond what the plan literally asked
+for. Full suite (95 suites / 770 tests, +2 new), `tsc --noEmit`, and `eslint` (both scoped
+and full-repo `npm run lint`) pass clean.
+
+**Saved Meals Domain: all six tasks (SM-001–SM-006) done.** The domain is now: aligned with
+the Journal Model (frozen `per100g`/`foodCatalogRef` snapshots, `nutritionSnapshot` on every
+logged entry), fully round-trippable through template management (list/rename/delete),
+durably persisted, reachable from the app via a dedicated tab, and covered end-to-end by a
+cross-cutting regression test. As with J-001–J-005, `npm run verify`'s `format:check` step
+still surfaces the same pre-existing, unrelated repo-wide Prettier debt first identified in
+J-001 — all files touched across SM-001–SM-006 are confirmed individually Prettier-clean.
 
 ---
 

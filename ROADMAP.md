@@ -3738,7 +3738,7 @@ pass clean.
 
 #### GE-005: Goals & Evaluation Domain Regression Coverage
 
-Status: `todo`
+Status: `done`
 Depends on: GE-001–GE-004
 
 **Ziel:** Consolidated regression pass across GE-001–GE-004, mirroring J-006/SM-006, plus
@@ -3771,6 +3771,97 @@ and (if needed) a `ROADMAP.md` update adding the follow-up task stubs below.
   none of these are mechanical enough to fold into GE-001–GE-005's additive scope.
 
 **Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
+
+**Implementation notes:** `ProfileSwappability.test.ts` (GE-004) already proved the
+single-session switch/compare/zero-writes scenario, so this task's own test file focuses on
+what wasn't yet covered: durability of the active-profile selection across a *simulated app
+restart* (fresh `PersistedActiveProfileRepository`/`GetActiveEvaluationOutputUseCase`
+instances over the same `KeyValueStore`, mirroring SM-006's restart-proof technique) — a
+switch made in one "session" is still active, and still reinterprets the same fixture day
+correctly, in a brand-new "session". A closing sentinel test documents where GE-001–GE-004's
+own coverage lives rather than duplicating it. Full suite (102 suites / 790 tests, +2 new),
+`tsc --noEmit`, `eslint` (scoped and full-repo), and `npx prettier -c .` all pass clean —
+the pre-existing, unrelated 238-file Prettier debt (first identified in J-001) is unchanged;
+three of this session's own new files were initially not Prettier-clean and were reformatted
+in place before this task closed, not left as new debt.
+
+**Goals & Evaluation: all five tasks (GE-001–GE-005) done.** A real Evaluation Profile/Rule
+contract now exists (Product Bible §4/§4a), with two swappable, demonstrably-different
+Presets (Evidence-based Standard, Weight Loss) proving Variante B (§2a) end-to-end,
+including across a simulated app restart. As planned, this was deliberately additive-first:
+`GoalsScreen.tsx` and `ComputeProgressForDateUseCase` are untouched, and nothing from
+`src/features/evaluation` is wired into the app yet. See GE-006–GE-008 below for the
+explicit, deliberately-deferred follow-up work this decomposition's own preamble
+identified — none of it is mechanical enough to have been folded into GE-001–GE-005.
+
+---
+
+#### GE-006: Reconcile the Duplicate Goal-Target Systems
+
+Status: `todo`
+Depends on: GE-002 (establishes which system is "the real one")
+
+**Ziel:** Now that GE-002 established `src/features/goals`
+(`MetabolismProfile`/`EffectiveGoals`) as the Evaluation Engine's substrate, decide and
+execute how to retire or reconcile the still-live `nutrition/domain/goals`
+(`UserGoals`/`GoalsRepository`) system — currently read by
+`GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`, which are on the Journal's hot
+path (`JournalScreen.tsx`'s `getDailySummaryUseCase` call, plus the calendar month view).
+
+**Why not folded into GE-001–GE-005:** touches live, working read paths for two existing
+screens/use cases; requires deciding whether `GetDailySummaryUseCase`/
+`GetCalendarMonthSummaryUseCase` should read from the new Evaluation Engine instead, keep
+`nutrition/domain/goals` as a deliberately-separate concept, or something else — a design
+decision, not a mechanical refactor.
+
+**Verify (once scoped):** `npm run typecheck`, `npm run test`, `npm run lint`; no regression
+in `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`'s existing test coverage.
+
+---
+
+#### GE-007: Resolve JournalScreen's Discarded Progress Computation
+
+Status: `todo`
+Depends on: none (independent of GE-006, but informed by it)
+
+**Ziel:** `JournalScreen.tsx:72` calls `computeProgressForDateUseCase.execute(today)` and
+discards the result (`const [, setProgress] = useState<DailyProgressSnapshot | null>(null)`)
+— decide whether goal-vs-consumed progress display belongs in `JournalScreen` at all.
+Product Bible §6/§7: Journal-Anzeige must stay profile-independent; progress is
+profile-dependent Evaluation Engine output, so this likely belongs in **Dashboard &
+Insights** instead, not Journal — but that's a product-surface decision, not this task's to
+assume silently.
+
+**Why not folded into GE-001–GE-005:** a product-UX/architecture-boundary decision
+(where does progress display belong?), not a mechanical code change — call this out via
+`AskUserQuestion` (or an equivalent human review gate) rather than deciding unilaterally.
+
+**Verify (once scoped):** depends entirely on the decision — either delete the dead call
+(if progress belongs solely in Dashboard & Insights) or wire it to something real.
+
+---
+
+#### GE-008: GoalsScreen "Ziel wählen" Surface
+
+Status: `todo`
+Depends on: GE-004 (needs at least two selectable profiles to be meaningful)
+
+**Ziel:** Product Bible §4b: "Evaluation Profile", "Preset", "Origin" etc. must never
+appear literally in the product surface — users choose a **Ziel** (goal/focus), not a
+"Profil". Once more than one Preset should be user-selectable, `GoalsScreen.tsx` (currently
+a metabolism-profile + macro-strategy form, 762 lines) needs a profile-picker UI wired to
+GE-003's `EvaluationProfileRegistry`, using §4b's internal→product-surface vocabulary
+mapping (e.g. "vorgeschlagenes Ziel" for a Preset-origin profile).
+
+**Why not folded into GE-001–GE-005:** the highest-risk, most user-visible change of
+everything found in this decomposition — a substantial rewrite of an existing, working
+762-line screen, not an additive parallel path like GE-001–GE-005 stayed. Deserves its own
+scoped task (and likely UI/UX input) rather than being squeezed into an additive-first epic.
+
+**Verify (once scoped):** manual Expo verification required (this is a UI task); typecheck/
+test/lint as a floor, not a substitute.
+
+---
 
 ### Dashboard & Insights
 

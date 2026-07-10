@@ -1,9 +1,4 @@
-import {
-  EvaluationProfile,
-  Rule,
-  EvaluationInput,
-  EvaluationOutput,
-} from '../domain/models';
+import { EvaluationProfile, Rule, EvaluationInput, EvaluationOutput } from '../domain/models';
 
 /**
  * GE-001: type-level regression for the Evaluation Profile & Rule contract — no real rule

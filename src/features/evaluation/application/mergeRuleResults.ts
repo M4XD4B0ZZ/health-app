@@ -7,7 +7,13 @@ import { RuleResult, EvaluationOutput } from '../domain/models';
  */
 export function mergeRuleResults(results: RuleResult[]): EvaluationOutput {
   if (results.length === 0) {
-    return { assessment: 'no-data', insights: [], warnings: [], recommendations: [], goalProgress: [] };
+    return {
+      assessment: 'no-data',
+      insights: [],
+      warnings: [],
+      recommendations: [],
+      goalProgress: [],
+    };
   }
 
   const assessment = results.some((r) => r.assessment === 'over')

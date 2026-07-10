@@ -37,10 +37,6 @@ export const ProteinPreservingDeficitRule: Rule = {
     const consumed = aggregateConsumed(input.journalReadsForPeriod);
     const progress = calculateDailyProgress(consumed, goals);
 
-    return dailyProgressToEvaluationOutput(
-      progress,
-      goals,
-      'Kaloriendefizit-Ziel überschritten.',
-    );
+    return dailyProgressToEvaluationOutput(progress, goals, 'Kaloriendefizit-Ziel überschritten.');
   },
 };

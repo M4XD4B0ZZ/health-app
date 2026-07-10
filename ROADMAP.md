@@ -3821,7 +3821,7 @@ in `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase`'s existing test cov
 
 #### GE-007: Resolve JournalScreen's Discarded Progress Computation
 
-Status: `todo`
+Status: `done`
 Depends on: none (independent of GE-006, but informed by it)
 
 **Ziel:** `JournalScreen.tsx:72` calls `computeProgressForDateUseCase.execute(today)` and
@@ -3838,6 +3838,19 @@ assume silently.
 
 **Verify (once scoped):** depends entirely on the decision — either delete the dead call
 (if progress belongs solely in Dashboard & Insights) or wire it to something real.
+
+**Decision (via `AskUserQuestion`):** delete the dead call — progress now lives solely in
+`EvaluationSummaryScreen` (DI-002), per Product Bible §6/§7's Journal-stays-profile-
+independent boundary.
+
+**Implementation notes:** Removed the `computeProgressForDateUseCase` call, the discarded
+`const [, setProgress] = useState<DailyProgressSnapshot | null>(null)` state, and the now-
+unused `DailyProgressSnapshot` import from `JournalScreen.tsx`. `ComputeProgressForDateUseCase`
+itself and its `container.ts` wiring are left in place (untouched, still tested) — this task
+was scoped to the dead call site, not to retiring the use case itself. Full suite (110
+suites / 819 tests, unchanged count — no tests removed or added, since this only deleted
+unreachable production code), `tsc --noEmit`, `eslint`, and `npx prettier -c` (scoped) pass
+clean.
 
 ---
 
@@ -3860,6 +3873,10 @@ scoped task (and likely UI/UX input) rather than being squeezed into an additive
 
 **Verify (once scoped):** manual Expo verification required (this is a UI task); typecheck/
 test/lint as a floor, not a substitute.
+
+**Decision (via `AskUserQuestion`):** deferred — remains `todo`, no code change.
+`EvaluationSummaryScreen` (DI-002) already has a minimal profile picker, so this is not
+blocking; `GoalsScreen.tsx` stays as-is until this task is explicitly picked up.
 
 ---
 

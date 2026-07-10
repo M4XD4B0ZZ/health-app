@@ -2791,7 +2791,7 @@ individually Prettier-clean.
 
 #### J-002: Journal Model — `nutritionSnapshot` + `foodCatalogRef`
 
-Status: `todo`
+Status: `done`
 Depends on: none (can proceed in parallel with J-001; J-004 depends on both)
 
 **Ziel:** Apply the accepted `FoodEntry` shape changes from Decision Record 1 Entscheidung 3
@@ -2824,6 +2824,28 @@ to avoid two sources of truth for the same numbers within this task.
 - No existing test regresses.
 
 **Verify:** `npm run typecheck`, `npm run test` (incl. new serialization round-trip tests).
+
+**Implementation notes — "which stays source of truth" decision (per Risiken above):** both
+new fields are **optional** on `FoodEntry`, and the existing top-level
+`calories/protein/carbs/fat` fields remain the sole source of truth for this task — no read
+site is migrated, and no write site is required to populate either field yet. This was the
+only option consistent with the task's own narrow 2-file scope and "Risiken: Low — purely
+additive": ~12 files across the codebase construct `FoodEntry` object literals (5 use cases,
+1 repository, 6 test files); making `nutritionSnapshot` non-optional would have forced edits
+to all of them, well beyond this task's stated scope and risk level. Populating
+`nutritionSnapshot`/`foodCatalogRef` at actual write time is deferred to J-004 (Food
+References) / J-005 (Logging), matching Decision Record 1's own implementation order and its
+explicit note that wiring `LogFoodFromRawInputUseCase.resolveCanonicalFood()` to stop
+discarding `id`/`source`/`sourceId` is a later, separate step. Since neither field is ever
+independently set by this task, there is no risk of divergence between them and the
+top-level macro fields — this task adds pure plumbing (type + serialize/deserialize),
+verified by two new round-trip tests: one persisting an entry with both fields populated and
+reloading it via a fresh repository instance, one deserializing a hand-written pre-J-002
+serialized entry (no `nutritionSnapshot`/`foodCatalogRef` keys at all) and confirming it
+loads without error with both fields `undefined`.
+Full suite (89 suites / 720 tests, +2 new), `tsc --noEmit`, `eslint`, and `prettier -c` on
+touched files pass clean. (Same pre-existing, unrelated repo-wide `format:check` gap noted
+in J-001 still applies to `npm run verify` as an aggregate command.)
 
 ---
 

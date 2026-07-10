@@ -5,6 +5,7 @@ import { AssumptionTag } from '../../domain/models/AssumptionTag';
 import { DecisionMeta } from '../../domain/models/DecisionMeta';
 import { ResolverDecisionSummary } from '../../domain/models/ResolverDecisionSummary';
 import { getDateISOInTimezone } from '../../domain/common/DateTimezone';
+import { FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
 
 /**
  * Serialisierbare Version von FoodEntry für JSON-Speicherung.
@@ -44,6 +45,18 @@ interface SerializedFoodEntry {
   lastModifiedAt?: string; // ISO string
   groupId?: string;
   groupLabel?: string;
+  nutritionSnapshot?: {
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  foodCatalogRef?: {
+    source: FoodSourceType;
+    sourceId: string;
+    displayName: string;
+    confidence: number;
+  };
 }
 
 /**
@@ -238,6 +251,8 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       lastModifiedAt: entry.lastModifiedAt?.toISOString(),
       groupId: entry.groupId,
       groupLabel: entry.groupLabel,
+      nutritionSnapshot: entry.nutritionSnapshot,
+      foodCatalogRef: entry.foodCatalogRef,
     };
   }
 
@@ -318,6 +333,14 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
 
     if (serialized.groupLabel !== undefined) {
       entry.groupLabel = serialized.groupLabel;
+    }
+
+    if (serialized.nutritionSnapshot !== undefined) {
+      entry.nutritionSnapshot = serialized.nutritionSnapshot;
+    }
+
+    if (serialized.foodCatalogRef !== undefined) {
+      entry.foodCatalogRef = serialized.foodCatalogRef;
     }
 
     return entry;

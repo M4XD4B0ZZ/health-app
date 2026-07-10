@@ -1,6 +1,7 @@
 import { AssumptionTag } from './AssumptionTag';
 import { DecisionMeta } from './DecisionMeta';
 import { ResolverDecisionSummary } from './ResolverDecisionSummary';
+import { FoodSourceType } from '../catalog/FoodCatalogSource';
 
 export type NutritionSourceType = 'user' | 'cache' | 'branded' | 'generic' | 'ai';
 
@@ -35,6 +36,29 @@ export interface FoodEntry {
   groupId?: string;
   /** P1-003C: the composite-dish head text (e.g. "Fruchtsalat"), never resolved as a standalone entry itself. */
   groupLabel?: string;
+  /**
+   * J-002 / Journal Decision Record 1 Entscheidung 3: explicit grouping of the frozen
+   * macro snapshot (same numbers as the top-level calories/protein/carbs/fat fields,
+   * which remain the source of truth for now — no read site is migrated by this task).
+   */
+  nutritionSnapshot?: {
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  /**
+   * J-002 / Journal Decision Record 1 Entscheidung 3: reference to the Food Catalog row
+   * the resolver actually matched, if any (absent for pure AI fallback or unmatched manual
+   * input). Points at a stable identity, not a Food Catalog version. Not yet populated by
+   * any write path — wiring belongs to J-004 (Food References).
+   */
+  foodCatalogRef?: {
+    source: FoodSourceType;
+    sourceId: string;
+    displayName: string;
+    confidence: number;
+  };
 }
 
 export interface DailyNutritionSummary {

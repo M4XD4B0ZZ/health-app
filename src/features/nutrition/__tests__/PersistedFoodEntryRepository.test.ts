@@ -343,6 +343,64 @@ describe('PersistedFoodEntryRepository', () => {
       expect(entries[0].lastModifiedAt).toBeUndefined();
     });
 
+    it('should round-trip nutritionSnapshot and foodCatalogRef when present', async () => {
+      const date = new Date('2024-01-15T10:00:00Z');
+      const entry: FoodEntry = {
+        id: 'entry-1',
+        rawInput: '100g Chicken',
+        parsedName: 'Chicken',
+        quantityGrams: 100,
+        calories: 165,
+        protein: 31,
+        carbs: 0,
+        fat: 3.6,
+        confidenceScore: 0.8,
+        sourceType: 'cache',
+        createdAt: date,
+        nutritionSnapshot: { kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
+        foodCatalogRef: {
+          source: 'usda',
+          sourceId: 'usda-171077',
+          displayName: 'Chicken breast',
+          confidence: 0.92,
+        },
+      };
+
+      await repository.addEntry(entry);
+
+      const newRepository = new PersistedFoodEntryRepository(keyValueStore);
+      const entries = await newRepository.listEntriesForDate('2024-01-15');
+
+      expect(entries[0]).toEqual(entry);
+    });
+
+    it('should deserialize pre-J-002 entries without nutritionSnapshot/foodCatalogRef', async () => {
+      // Simulates data persisted before this task: no nutritionSnapshot/foodCatalogRef keys at all.
+      const legacySerialized = [
+        {
+          id: 'entry-1',
+          rawInput: '100g Chicken',
+          parsedName: 'Chicken',
+          quantityGrams: 100,
+          calories: 165,
+          protein: 31,
+          carbs: 0,
+          fat: 3.6,
+          confidenceScore: 0.8,
+          sourceType: 'cache',
+          createdAt: new Date('2024-01-15T10:00:00Z').toISOString(),
+        },
+      ];
+      await keyValueStore.set('nutrition:entries', JSON.stringify(legacySerialized));
+
+      const entries = await repository.listEntriesForDate('2024-01-15');
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0].calories).toBe(165);
+      expect(entries[0].nutritionSnapshot).toBeUndefined();
+      expect(entries[0].foodCatalogRef).toBeUndefined();
+    });
+
     it('should handle corrupted storage gracefully', async () => {
       await keyValueStore.set('nutrition:entries', 'invalid json{');
 

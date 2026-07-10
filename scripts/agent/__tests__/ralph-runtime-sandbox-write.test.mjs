@@ -177,6 +177,14 @@ test('pretty output states sandbox boundaries and non-authorization language', (
   assert.match(pretty, /no deploy/);
 });
 
-test('normal test execution does not create repository sandbox artifact', () => {
-  assert.equal(fs.existsSync(path.resolve(SANDBOX_RUNTIME_STATE_PATH)), false);
+test('repository sandbox artifact from the RALPH-035C smoke execution is present with the expected payload', () => {
+  // RALPH-035C intentionally performed one real, supervised write of this fixed sandbox
+  // artifact and committed it as permanent evidence (ROADMAP.md's RALPH-035C DoD: "Git
+  // readbacks show only approved files changed: ROADMAP.md,
+  // .agent/runtime/sandbox/ralph-035b-simulated-state.json"). This test previously asserted
+  // the opposite (that the file must not exist), which held only before that smoke
+  // execution -- it was never updated afterward and has failed ever since.
+  const artifactPath = path.resolve(SANDBOX_RUNTIME_STATE_PATH);
+  assert.equal(fs.existsSync(artifactPath), true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(artifactPath, 'utf8')), { simulated: true });
 });

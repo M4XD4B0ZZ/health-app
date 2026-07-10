@@ -3634,7 +3634,7 @@ tests, +5 new), `tsc --noEmit`, and `eslint` pass clean.
 
 #### GE-003: Active Profile Registry + Persistence
 
-Status: `todo`
+Status: `done`
 Depends on: GE-002
 
 **Ziel:** Introduce a persisted "active Evaluation Profile" selection, defaulting to
@@ -3668,6 +3668,22 @@ pattern).
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `PersistedActiveProfileRepository` takes `knownProfiles:
+EvaluationProfile[]` as a constructor argument rather than hardcoding
+`EvidenceBasedStandardProfile` — GE-004's second Preset only needs a longer array at the
+composition root, not a change to this class. Defaults to `knownProfiles[0]` both when
+nothing is stored *and* when a stored id no longer matches any known profile (defensive —
+never throws for "nothing set yet"); rejects `setActiveProfileId` for an unknown id.
+`GetActiveEvaluationOutputUseCase` resolves the active profile, maps its `ruleIds` through
+an injected `knownRules: Rule[]` array (same "inject, don't hardcode" reasoning), and merges
+each `Rule`'s `RuleResult` via a new `mergeRuleResults()` helper (generic over any number of
+rules, not just today's one-rule-per-profile case). "No Journal/Food Catalog writes on a
+profile switch" is proven by an explicit test spying on `InMemoryFoodEntryRepository`'s
+write methods across two `setActiveProfileId` calls, not just by the class's structural
+inability to reach those repositories. Nothing wired into any screen yet, per this task's
+own scope. Full suite (99 suites / 784 tests, +9 new), `tsc --noEmit`, and `eslint` pass
+clean.
 
 ---
 

@@ -10,6 +10,7 @@ import GoalsScreen from '../features/goals/GoalsScreen';
 import NutritionScreen from '../features/nutrition/NutritionScreen';
 import RecoveryScreen from '../features/recovery/RecoveryScreen';
 import VoiceScreen from '../features/voice/VoiceScreen';
+import SavedMealsScreen from '../features/savedMeals/SavedMealsScreen';
 
 // Typdefinition für die Tab-Parameter
 export type RootTabParamList = {
@@ -18,6 +19,7 @@ export type RootTabParamList = {
   Goals: undefined;
   Nutrition: undefined;
   Recovery: undefined;
+  SavedMeals: undefined;
 };
 
 // Typdefinition für die Stack-Parameter
@@ -46,6 +48,8 @@ const TabNavigator: React.FC = () => {
             iconName = focused ? 'restaurant' : 'restaurant-outline';
           } else if (route.name === 'Recovery') {
             iconName = focused ? 'bed' : 'bed-outline';
+          } else if (route.name === 'SavedMeals') {
+            iconName = focused ? 'bookmark' : 'bookmark-outline';
           } else {
             iconName = 'help-circle';
           }
@@ -92,6 +96,13 @@ const TabNavigator: React.FC = () => {
         component={RecoveryScreen}
         options={{
           title: 'Erholung',
+        }}
+      />
+      <Tab.Screen
+        name="SavedMeals"
+        component={SavedMealsScreen}
+        options={{
+          title: 'Vorlagen',
         }}
       />
     </Tab.Navigator>

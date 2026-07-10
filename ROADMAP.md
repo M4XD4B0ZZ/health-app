@@ -3346,7 +3346,7 @@ consume them. `getById`/`list` return copies (`{ ...template }`), matching
 
 #### SM-005: Presentation Layer + DI Wiring
 
-Status: `todo`
+Status: `done`
 Depends on: SM-002, SM-003, SM-004
 
 **Ziel:** Make Saved Meals reachable from the app at all — today there is zero
@@ -3378,6 +3378,23 @@ must be logged in `docs/MANUAL_TESTING_GAPS.md` per AGENTS.md's binding rule, sa
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`; manual Expo verification
 tracked as an open gap.
+
+**Implementation notes:** Added as a new bottom tab ("Vorlagen", `SavedMeals`) rather than a
+stack-modal route like `VoiceScreen` — `VoiceScreen`'s stack route is never actually
+triggered anywhere in the app today (`useNavigation` is imported but commented out in
+`JournalScreen.tsx`), so a tab keeps the new feature genuinely reachable rather than
+repeating that pre-existing orphaned-route gap. Only supports creating/logging against
+*today's* date (no calendar/date-picker component exists in this codebase to reuse, and
+`JournalScreen` itself only ever operates on `today` — consistent with existing
+conventions, not a regression). The per100g-based total-calorie display
+(`templateTotalCalories`, extracted to `savedMealsDisplay.ts` for unit testing, mirroring
+`journalEntryDisplay.ts`) is purely factual (sum of frozen per-100g snapshots × grams) — no
+evaluation or goal data is read or shown, preserving the Product Bible Abschnitt 6 boundary.
+`application/index.ts` was also updated to export the SM-003 use cases (`List`/`Delete`/
+`RenameSavedMealTemplateUseCase`) — they existed only on the deeper `usecases/index.ts`
+barrel before this task, so `container.ts` could not import them from the feature's public
+entry point. Manual testing gap logged in `docs/MANUAL_TESTING_GAPS.md`. Full suite (94
+suites / 768 tests, +4 new), `tsc --noEmit`, and `eslint` pass clean.
 
 ---
 

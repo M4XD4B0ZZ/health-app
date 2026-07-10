@@ -51,6 +51,32 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-10 — SM-005: Neuer Saved-Meals-Tab (SavedMealsScreen)
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/features/savedMeals/SavedMealsScreen.tsx` (neu),
+  `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Vorlagen"/`SavedMeals`,
+  Icon `bookmark`/`bookmark-outline`). Erste UI-Oberfläche für die zuvor komplett
+  unerreichbare Saved-Meals-Domäne (Vorlage aus heutigen Einträgen erstellen, loggen,
+  umbenennen, löschen).
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (94 Suites
+  / 768 Tests, inkl. neuer `savedMealsDisplay.test.ts` für die reine Anzeigelogik
+  `templateTotalCalories`). Die komplette Anwendungslogik dahinter (Create/Log/List/Delete/
+  Rename-Use-Cases, DI-Wiring in `container.ts`) ist unit-getestet; nur das tatsächliche
+  Rendering/die Interaktion in der App ist ungetestet, da diese Umgebung headless ist (kein
+  Expo/Simulator, keine React-Native-Testing-Library im Projekt vorhanden).
+- **Nicht verifiziert (visuell):** Tab-Icon/-Reihenfolge in der Bottom-Navigation, Layout der
+  Template-Zeilen (Name/Zutatenzahl/Kalorien-Schätzung + drei Aktionen "Loggen"/Stift/
+  Papierkorb) auf schmalen Bildschirmen, Rename-Modal (gleiches Muster wie `JournalScreen`s
+  Edit-Modal), Keyboard-Verhalten bei den beiden Texteingaben (Vorlagenname), Verhalten bei
+  sehr vielen Vorlagen (kein Paging/Virtualisierung implementiert — bewusste MVP-Grenze).
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 2 (Layout & Rendering) und
+  3 (Interaktion & Eingabe). Konkret: im Journal-Tab etwas loggen, zum "Vorlagen"-Tab
+  wechseln, Vorlage aus heutigen Einträgen mit Namen erstellen, "Loggen" tippen und im
+  Journal-Tab prüfen, dass ein neuer Eintrag mit demselben Namen/derselben Menge erscheint;
+  Stift-Icon → umbenennen → Speichern; Papierkorb-Icon → Vorlage verschwindet aus der Liste.
+
 ### 2026-07-10 — J-005: Auto-Merge-Undo-Notification in JournalScreen
 
 - **Status:** ⏳ offen

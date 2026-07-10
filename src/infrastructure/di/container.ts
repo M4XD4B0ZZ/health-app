@@ -38,6 +38,11 @@ import {
   GetCalendarMonthSummaryUseCase,
   UndoAutoMergeUseCase,
   PersistedSavedMealRepository,
+  CreateSavedMealFromDateUseCase,
+  LogSavedMealToDateUseCase,
+  ListSavedMealTemplatesUseCase,
+  DeleteSavedMealTemplateUseCase,
+  RenameSavedMealTemplateUseCase,
 } from '../../features/nutrition';
 import { PortionKnowledgeService } from '../../features/nutrition/domain/portion/PortionKnowledgeService';
 import { SEED_PORTION_HINTS } from '../../features/nutrition/domain/portion/seedPortionHints';
@@ -157,6 +162,13 @@ class Container {
   private _suggestGoalsUseCase: SuggestGoalsUseCase;
   private _setEffectiveGoalsUseCase: SetEffectiveGoalsUseCase;
 
+  // Saved Meal Use Cases
+  private _createSavedMealFromDateUseCase: CreateSavedMealFromDateUseCase;
+  private _logSavedMealToDateUseCase: LogSavedMealToDateUseCase;
+  private _listSavedMealTemplatesUseCase: ListSavedMealTemplatesUseCase;
+  private _deleteSavedMealTemplateUseCase: DeleteSavedMealTemplateUseCase;
+  private _renameSavedMealTemplateUseCase: RenameSavedMealTemplateUseCase;
+
   // Journal Use Cases
   private _computeProgressForDateUseCase: ComputeProgressForDateUseCase;
   private _registeredResolverSourceLabels: ResolverSourceLabel[] = [];
@@ -185,6 +197,30 @@ class Container {
       new PersistedPortionHintRepository(this._keyValueStore, SEED_PORTION_HINTS),
     );
     this._savedMealRepository = new PersistedSavedMealRepository(this._keyValueStore);
+
+    this._createSavedMealFromDateUseCase = new CreateSavedMealFromDateUseCase(
+      this._foodEntryRepository,
+      this._savedMealRepository,
+      this._nutritionClock,
+      this._nutritionIdGenerator,
+    );
+    this._logSavedMealToDateUseCase = new LogSavedMealToDateUseCase(
+      this._savedMealRepository,
+      this._foodEntryRepository,
+      this._nutritionClock,
+      this._nutritionIdGenerator,
+      this._nutritionLookup,
+    );
+    this._listSavedMealTemplatesUseCase = new ListSavedMealTemplatesUseCase(
+      this._savedMealRepository,
+    );
+    this._deleteSavedMealTemplateUseCase = new DeleteSavedMealTemplateUseCase(
+      this._savedMealRepository,
+    );
+    this._renameSavedMealTemplateUseCase = new RenameSavedMealTemplateUseCase(
+      this._savedMealRepository,
+      this._nutritionClock,
+    );
 
     // Goals infrastructure
     this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
@@ -404,6 +440,27 @@ class Container {
 
   get savedMealRepository(): SavedMealRepository {
     return this._savedMealRepository;
+  }
+
+  // Saved Meal Use Cases
+  get createSavedMealFromDateUseCase(): CreateSavedMealFromDateUseCase {
+    return this._createSavedMealFromDateUseCase;
+  }
+
+  get logSavedMealToDateUseCase(): LogSavedMealToDateUseCase {
+    return this._logSavedMealToDateUseCase;
+  }
+
+  get listSavedMealTemplatesUseCase(): ListSavedMealTemplatesUseCase {
+    return this._listSavedMealTemplatesUseCase;
+  }
+
+  get deleteSavedMealTemplateUseCase(): DeleteSavedMealTemplateUseCase {
+    return this._deleteSavedMealTemplateUseCase;
+  }
+
+  get renameSavedMealTemplateUseCase(): RenameSavedMealTemplateUseCase {
+    return this._renameSavedMealTemplateUseCase;
   }
 
   // Goals Infrastructure

@@ -24,6 +24,9 @@ export { SetReminderSettingsUseCase } from './usecases/SetReminderSettingsUseCas
 export { GetReminderDecisionUseCase } from './usecases/GetReminderDecisionUseCase';
 export { GetCalendarMonthSummaryUseCase } from './usecases/GetCalendarMonthSummaryUseCase';
 export { UndoAutoMergeUseCase } from './usecases/UndoAutoMergeUseCase';
+export { ListSavedMealTemplatesUseCase } from './usecases/ListSavedMealTemplatesUseCase';
+export { DeleteSavedMealTemplateUseCase } from './usecases/DeleteSavedMealTemplateUseCase';
+export { RenameSavedMealTemplateUseCase } from './usecases/RenameSavedMealTemplateUseCase';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';

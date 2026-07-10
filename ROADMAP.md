@@ -4818,6 +4818,12 @@ The following module remains planned but not yet scoped into concrete implementa
 
 Focus: deferred monetization and paid AI gating after retention-critical product value is proven.
 
+> See [`plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md`](../plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md)
+> for the sub-task breakdown of P2-009/P2-010/RESOLVER-V2-007 — most of Tier 5 depends on
+> external accounts/credentials (RevenueCat, App Store/Play Store subscriptions, an AI
+> provider) that only the repo owner can provide; the plan marks which pieces can be
+> scaffolded without them.
+
 ## EPIC: Auth & Subscription (Later)
 
 ### P2-009 RevenueCat Entitlements
@@ -4827,6 +4833,11 @@ Status: `todo`
 Integrate RevenueCat to manage subscription states.
 `isPro` state synced from RevenueCat to Supabase `public.users` via Webhooks.
 
+**Sub-tasks (see plan linked above):** P2-009-A (entitlement schema — no external blocker),
+P2-009-B (webhook receiver — needs a RevenueCat account to finish/test), P2-009-C (client SDK —
+needs a RevenueCat API key + App Store/Play Store subscription products + npm dependency
+approval).
+
 ---
 
 ### P2-010 Paid-only Gating for AI Endpoints
@@ -4835,6 +4846,11 @@ Status: `todo`
 
 Map `isPro` tier to Edge Function authorization.
 AI structured log functions and premium insights return 403 for non-Pro users.
+
+**Sub-tasks (see plan linked above):** P2-010-A (audit — found no AI/premium edge function
+exists yet to gate; documentation-only fix), P2-010-B (authorization helper — scaffoldable once
+P2-009-A's schema exists, but has no real endpoint to apply to until RESOLVER-V2-007 or a future
+premium feature exists).
 
 ---
 
@@ -4854,6 +4870,11 @@ AI only for low-confidence cases. Must be traceable and rate-limited.
 - Never authoritative, always assistive
 
 **Verify:** AI usage logs exist, rate limiting works, confidence thresholds respected
+
+**Sub-tasks (see plan linked above):** RESOLVER-V2-007-A (port + rate-limit wrapper scaffold —
+no external blocker, mirrors the existing `AiFoodMapper` port pattern), RESOLVER-V2-007-B (real
+provider wiring — needs a provider decision + API key), RESOLVER-V2-007-C (usage logs + real
+rate limiting — depends on -A/-B).
 
 ---
 

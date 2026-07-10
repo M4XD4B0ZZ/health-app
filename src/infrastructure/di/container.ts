@@ -2,7 +2,6 @@ import { RecoveryRepository } from '../../domain/repositories/RecoveryRepository
 import { NutritionRepository } from '../../domain/repositories/NutritionRepository';
 import { MockRecoveryRepository } from '../mocks/MockRecoveryRepository';
 import { MockNutritionRepository } from '../mocks/MockNutritionRepository';
-import { GetDashboardSummary } from '../../application/usecases/GetDashboardSummary';
 import { GetNutritionSummary } from '../../application/usecases/GetNutritionSummary';
 import { GetRecoverySummary } from '../../application/usecases/GetRecoverySummary';
 
@@ -119,7 +118,6 @@ class Container {
   private _nutritionRepository: NutritionRepository;
 
   // Legacy Usecases
-  private _getDashboardSummary: GetDashboardSummary;
   private _getNutritionSummary: GetNutritionSummary;
   private _getRecoverySummary: GetRecoverySummary;
 
@@ -413,11 +411,6 @@ class Container {
     );
 
     // Legacy usecases
-    this._getDashboardSummary = new GetDashboardSummary(
-      this._recoveryRepository,
-      this._nutritionRepository,
-    );
-
     this._getNutritionSummary = new GetNutritionSummary(this._nutritionRepository);
 
     this._getRecoverySummary = new GetRecoverySummary(this._recoveryRepository);
@@ -433,10 +426,6 @@ class Container {
   }
 
   // Legacy Usecases
-  get getDashboardSummary(): GetDashboardSummary {
-    return this._getDashboardSummary;
-  }
-
   get getNutritionSummary(): GetNutritionSummary {
     return this._getNutritionSummary;
   }

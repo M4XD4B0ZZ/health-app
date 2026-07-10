@@ -14,8 +14,8 @@ import { formatGoalProgressLabel, formatAssessment } from './evaluationSummaryDi
 /**
  * DI-002: first real consumer of the Evaluation Engine (GE-001-GE-005 + DI-001) — shows
  * the active profile's evaluation output for today, computed from real Journal data.
- * Explicitly nutrition-only (Product Bible SS9); does not touch or replace the legacy
- * DashboardScreen/GetDashboardSummary (mock recovery/nutrition data).
+ * Explicitly nutrition-only (Product Bible §9); the legacy mock-data-backed Dashboard tab
+ * was retired in DI-005 once this screen existed as its replacement.
  */
 const EvaluationSummaryScreen: React.FC = () => {
   const [profiles, setProfiles] = useState<EvaluationProfile[]>([]);

@@ -4196,7 +4196,7 @@ decomposition's preamble and this task's own testing identified.
 
 #### DI-005: Reconcile/Retire the Legacy Mock Dashboard
 
-Status: `todo`
+Status: `done`
 Depends on: DI-002 (there must be a real replacement surface first)
 
 **Ziel:** Decide and execute what happens to `DashboardScreen.tsx`/`GetDashboardSummary`/
@@ -4212,6 +4212,39 @@ Product Bible scope says nothing about. A design decision, not a mechanical refa
 
 **Verify (once scoped):** manual Expo verification required (UI task); typecheck/test/lint
 as a floor, not a substitute.
+
+**Decision (via `AskUserQuestion`):** remove the Dashboard tab entirely — the nutrition
+portion is superseded by `EvaluationSummaryScreen`; Recovery's fate is explicitly a separate
+question, not decided by this task.
+
+**Implementation notes:** Investigation before removing found `DashboardScreen`/
+`GetDashboardSummary` were the *only* consumers of the combined recovery+nutrition mock
+summary — `RecoveryScreen.tsx` (still-active "Erholung" tab) uses `GetRecoverySummary`/
+`RecoveryRepository`/`MockRecoveryRepository` directly, and `NutritionScreen.tsx`
+(still-active "Ernährung" tab) uses `GetNutritionSummary`/`NutritionRepository`/
+`MockNutritionRepository` directly — neither depends on `GetDashboardSummary` itself. So
+only `GetDashboardSummary`, `DashboardScreen.tsx`, and its tab registration were removed;
+`MockRecoveryRepository`/`MockNutritionRepository`/`RecoveryRepository`/`NutritionRepository`/
+`GetRecoverySummary`/`GetNutritionSummary` and the domain models they use (`Sleep`, `Steps`,
+`NutritionEntry`, `HeartRate`, `TimeRange`) are **untouched** — their fate (real Recovery
+data source? retire Nutrition tab too, since Journal is now the real nutrition surface?) is
+explicitly out of this task's scope, per the decision above.
+
+Also removed `Apptest.tsx` (a root-level Supabase edge-function health-check dev utility)
+and its `tsconfig.json` include entry — its only caller was `DashboardScreen`'s "USDA Health
+Check" debug button, so it became fully orphaned by this change; a full-repo grep confirmed
+zero other references before deletion. Updated `EvaluationSummaryScreen.tsx`'s doc comment,
+which referenced the now-removed `DashboardScreen`/`GetDashboardSummary`.
+
+Full suite (107 suites / 813 tests — no dedicated Dashboard/GetDashboardSummary tests
+existed to lose), `tsc --noEmit`, `eslint` (scoped and full-repo), and `npx prettier -c .`
+(238-file pre-existing baseline, unchanged) all pass clean. A full-repo grep for
+`DashboardScreen`/`GetDashboardSummary`/`Apptest` confirms zero remaining references.
+
+**Goals & Evaluation / Dashboard & Insights follow-ups: GE-006, GE-007, and DI-005 done;
+GE-008 explicitly deferred (see its own section).** All six original follow-up stubs from
+the Goals & Evaluation / Dashboard & Insights decompositions have now been either resolved
+or explicitly deferred by user decision.
 
 ---
 

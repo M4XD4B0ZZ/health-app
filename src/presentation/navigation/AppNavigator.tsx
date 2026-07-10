@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 // Screen-Komponenten importieren
-import DashboardScreen from '../features/dashboard/DashboardScreen';
 import JournalScreen from '../features/journal/JournalScreen';
 import GoalsScreen from '../features/goals/GoalsScreen';
 import NutritionScreen from '../features/nutrition/NutritionScreen';
@@ -15,7 +14,6 @@ import EvaluationSummaryScreen from '../features/evaluationSummary/EvaluationSum
 
 // Typdefinition für die Tab-Parameter
 export type RootTabParamList = {
-  Dashboard: undefined;
   Journal: undefined;
   Goals: undefined;
   Nutrition: undefined;
@@ -40,9 +38,7 @@ const TabNavigator: React.FC = () => {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
-          if (route.name === 'Dashboard') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Journal') {
+          if (route.name === 'Journal') {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'Goals') {
             iconName = focused ? 'trophy' : 'trophy-outline';
@@ -73,14 +69,6 @@ const TabNavigator: React.FC = () => {
           title: 'Protokoll',
         }}
       />
-      <Tab.Screen
-        name="Dashboard"
-        component={DashboardScreen}
-        options={{
-          title: 'Dashboard',
-        }}
-      />
-
       <Tab.Screen
         name="Goals"
         component={GoalsScreen}

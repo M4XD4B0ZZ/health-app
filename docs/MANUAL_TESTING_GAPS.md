@@ -51,6 +51,32 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-10 — GE-008: GoalsScreen "Ziel wählen" Surface
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/ge-008-goals-screen-ziel-waehlen`
+- **Betroffene Bereiche:** `src/presentation/features/goals/GoalsScreen.tsx` (neue "Ziel
+  wählen"-Karte, direkt unterhalb des Headers, mit einer Liste anwählbarer registrierter
+  Evaluation Profiles aus `container.evaluationProfileRegistry`; Auswahl ruft
+  `setActiveProfileId` auf, kein Journal-/Food-Catalog-Schreibzugriff), neue
+  `src/presentation/features/goals/goalsDisplay.ts` (Origin→Produktoberflächen-Label gemäß
+  Product Bible §4b, z. B. `preset` → "Vorgeschlagenes Ziel"). Rührt die bestehende
+  Metabolismus-Profil-/Makro-Strategie-Sektion des Screens nicht an — reine Ergänzung.
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (113
+  Suiten / 854 Tests, +4 neue in `goalsDisplay.test.ts`, die u. a. prüfen, dass `originLabel`
+  nie "Profil"/"Preset"/"Origin" wörtlich zurückgibt), `npx prettier -c` (scoped).
+- **Nicht verifiziert (visuell):** Layout/Touch-Verhalten der neuen "Ziel wählen"-Karte
+  (Kartenabstände, Touch-Zielgröße der Options-Buttons, aktiver-Zustand-Hervorhebung),
+  dass ein Ziel-Wechsel die restliche Seite (Metabolismus-Profil, Tägliche Ziele) sichtbar
+  unverändert lässt, dass die Karte bei leerem `zielOptions` (sollte praktisch nie
+  vorkommen, da der Container immer mindestens `EvidenceBasedStandardProfile` registriert)
+  korrekt ausgeblendet bleibt.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 7
+  (Regressionscheck). Konkret: Ziele-Tab öffnen, "Ziel wählen"-Karte sehen, zwischen
+  "Evidence-based Standard" und "Weight Loss" wechseln, prüfen dass die Auswahl aktiv
+  bleibt (auch nach App-Neustart, da `PersistedActiveProfileRepository` persistiert), und
+  dass sich der Auswertung-Tab (DI-002) entsprechend der neuen Auswahl aktualisiert.
+
 ### 2026-07-10 — DI-005: Dashboard-Tab entfernt (AppNavigator/DashboardScreen)
 
 - **Status:** ⏳ offen

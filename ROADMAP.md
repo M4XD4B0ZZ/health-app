@@ -4920,6 +4920,28 @@ code path without benefit. Tests:
 (threshold gating, rate limiting, error/invalid-permutation fallback, usage logging). Full suite
 (112 suites / 850 tests, +7 new), `tsc --noEmit`, `eslint` all pass clean.
 
+**RESOLVER-V2-007-B provider selection (still `todo`, benchmark tooling added):** Provider
+pricing changes too often to hard-code into this roadmap. Added
+[`scripts/benchmark-ai-reranking-providers.mjs`](../scripts/benchmark-ai-reranking-providers.mjs)
+(+ `scripts/lib/ai-reranking-benchmark-{scoring,fixtures,providers}.mjs`) — a real-API-call
+benchmark harness that scores whichever of Claude Haiku 4.5 / GPT-5 Nano / GPT-5 Mini / Gemini
+Flash Lite have a configured API key (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`)
+against a fixed set of realistic DACH ambiguity cases
+(`scripts/lib/ai-reranking-benchmark-fixtures.mjs`: quark/schmand/curd, branded-vs-generic
+matches, etc.) for JSON/schema reliability, ranking accuracy, and latency; cost is computed
+from actual token usage. Provider adapters use raw `fetch()` (no new npm dependency) against
+each provider's plain REST API — model IDs are env-var-overridable since they drift. Pure
+scoring logic is unit-tested with `node:test`
+([`scripts/__tests__/ai-reranking-benchmark-scoring.test.mjs`](../scripts/__tests__/ai-reranking-benchmark-scoring.test.mjs),
+14 tests, run via `node --test scripts/__tests__/ai-reranking-benchmark-scoring.test.mjs`); the
+end-to-end harness itself needs real API keys to run and isn't part of the Jest suite. See
+[`plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md`](../plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md)
+for the evaluation criteria and
+[`reports/AI_RERANKING_PROVIDER_PRICING_2026-07-13_REPORT.md`](../reports/AI_RERANKING_PROVIDER_PRICING_2026-07-13_REPORT.md)
+for the (explicitly dated, non-authoritative) pricing research that motivated a benchmark
+instead of a hard-coded choice. RESOLVER-V2-007-B itself stays `todo` until the harness is
+actually run against real keys and a provider is picked.
+
 ---
 
 # COMPLETED / GOVERNANCE / LEGACY PHASE GROUPS

@@ -55,29 +55,63 @@ an actual AI endpoint to gate, even though it's numbered earlier in `ROADMAP.md`
 **Goal:** for low-confidence resolver decisions only, ask an AI model to re-rank candidates —
 never to invent macro data, always rate-limited and logged.
 
+### Two durable boundaries (do not soften these)
+
+- **AI never decides macro/nutrition data, only candidate order.** It answers "of these N
+  already-known candidates, which one is the best match?" — never "what are this food's
+  macros?". Enforced today in `RateLimitedAiReranker` (falls back to the original order on
+  any error, timeout, rate limit, or malformed response) and in `AiRerankingProvider`'s port
+  contract.
+- **A web-search-backed source (e.g. Perplexity, for foods missing from BLS/OFF/USDA
+  entirely) is a different feature, not part of RESOLVER-V2-007.** That would be a new
+  resolver _source_ — its own architecture/product decision, including whether it's
+  acceptable for AI+web to become a macro-data source at all. Not scoped here.
+
 | Sub-task                                            | What it is                                                                                                                                                                                                                                                                           | Can scaffold now?                                                                                                                           |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RESOLVER-V2-007-A** — Port + rate-limited wrapper | An `AiRerankingProvider`-style port (mirrors the existing `AiFoodMapper` port pattern already in `src/features/nutrition/application/ports/`), a `NoopAiRerankingProvider`/fake default, and a wrapper enforcing the confidence-threshold gate + rate limit before ever calling out. | **Yes** — this is the same pattern as `FakeAiFoodMapper`/`NoopResolverRunLogger` already in the codebase; no provider decision needed yet.  |
-| **RESOLVER-V2-007-B** — Real provider wiring        | Implement the port against a real AI API.                                                                                                                                                                                                                                            | **No** — needs your decision on provider (Claude / GPT / other) and an API key (new env var, possibly new npm dependency).                  |
+| **RESOLVER-V2-007-A** — Port + rate-limited wrapper | An `AiRerankingProvider`-style port (mirrors the existing `AiFoodMapper` port pattern already in `src/features/nutrition/application/ports/`), a `NoopAiRerankingProvider`/fake default, and a wrapper enforcing the confidence-threshold gate + rate limit before ever calling out. | **Done** — same pattern as `FakeAiFoodMapper`/`NoopResolverRunLogger` already in the codebase.                                              |
+| **RESOLVER-V2-007-B** — Real provider wiring        | Implement the port against a real AI API, once a provider is chosen.                                                                                                                                                                                                                 | **No** — needs a benchmark-driven provider choice (see below) and an API key.                                                               |
 | **RESOLVER-V2-007-C** — Usage logs + rate limiting  | Persist each AI call (query, before/after confidence, latency, cost) and enforce the limit for real (not just the in-process gate from -A).                                                                                                                                          | **Partially** — could reuse `food_resolver_runs.metadata` (RESOLVER-V2-006) or a dedicated table; needs a small design decision either way. |
 
-**What I need from you before RESOLVER-V2-007 can go further than the port scaffold:**
+### Provider selection: benchmark-driven, not pricing-driven
 
-1. Which AI provider/model to use for re-ranking (this repo already talks to Claude via
-   Claude Code, but that's a different concern from an in-app API call — needs its own key).
-2. Confirmation of the rate-limit budget (RevenueCat-style "requests per Pro user per day" is
-   a natural tie-in to P2-010, but that's a product decision, not a technical one).
+Provider/model pricing changes every few months; the evaluation criteria don't. The
+architecture already abstracts the provider behind `AiRerankingProvider`, so the choice is
+deferred until it's actually needed, and made by running
+[`scripts/benchmark-ai-reranking-providers.mjs`](../scripts/benchmark-ai-reranking-providers.mjs)
+against whichever provider API keys are available at the time, scored against:
+
+- **JSON/schema reliability** — does the provider reliably return a valid
+  `AiRerankingResult` (a true permutation of the input candidate ids), not just "usually"?
+- **Accuracy** — against a fixed set of realistic DACH ambiguity cases (quark vs. schmand,
+  branded vs. generic matches, etc. — see `scripts/lib/ai-reranking-benchmark-fixtures.mjs`),
+  does it pick the candidate a native speaker would mean?
+- **Latency** — acceptable for a synchronous resolver call.
+- **Cost** — at this task's actual token volume (a few hundred tokens per call), not in the
+  abstract.
+- **Provider-abstraction fit** — does it slot into `AiRerankingProvider` without needing a
+  new SDK dependency or awkward adapter code?
+
+A one-off pricing/competitor research snapshot that informed this section lives in
+[`reports/AI_RERANKING_PROVIDER_PRICING_2026-07-13_REPORT.md`](../reports/AI_RERANKING_PROVIDER_PRICING_2026-07-13_REPORT.md)
+— explicitly dated and non-authoritative, not duplicated here since it goes stale fast.
 
 ---
 
-## Suggested order (once you're back)
+## Status
 
-1. **RESOLVER-V2-007-A** (pure scaffold, zero external blockers) — gives Tier 5 a first real
-   commit without waiting on anything.
-2. **P2-009-A** (pure schema scaffold, zero external blockers).
-3. **P2-010-A** (a documentation fix, five minutes).
-4. Everything else waits on you: RevenueCat account + store subscription products (P2-009-B/C),
-   an AI provider decision (RESOLVER-V2-007-B/C), and then P2-010-B once both exist.
+**Done:** RESOLVER-V2-007-A (port + rate-limited wrapper), P2-009-A (entitlement schema),
+P2-010-A (gating audit), and the provider-selection benchmark harness
+(`scripts/benchmark-ai-reranking-providers.mjs`).
+
+**Waiting on you:**
+
+- RevenueCat account + App Store/Play Store subscription products (P2-009-B/C).
+- Running the benchmark harness with at least one provider API key, to pick a provider for
+  RESOLVER-V2-007-B (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` — any subset;
+  the script skips providers with no key configured).
+- P2-010-B waits on both P2-009-A (done) and an actual AI/premium endpoint existing
+  (RESOLVER-V2-007-B or a future premium feature).
 
 This plan itself makes no code changes — see the individual task tracker entries (P2-009-A/B/C,
 P2-010-A/B, RESOLVER-V2-007-A/B/C) for execution.

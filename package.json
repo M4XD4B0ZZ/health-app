@@ -20,6 +20,7 @@
     "verify:supabase:link": "node --env-file=.env scripts/verify-supabase-project.mjs",
     "verify:schema": "node --env-file=.env scripts/verify-remote-schema.mjs",
     "verify:edge": "node --env-file=.env scripts/verify-edge-functions.mjs",
+    "benchmark:ai-reranking": "node --env-file=.env scripts/benchmark-ai-reranking-providers.mjs",
     "supabase:link": "npx supabase link --project-ref kbplfcqluqqowmvchvhc",
     "deploy:edge": "npx supabase functions deploy food-off-search --no-verify-jwt && npx supabase functions deploy food-usda-search --no-verify-jwt",
     "deploy:edge:verify": "npm run deploy:edge && npm run verify:edge",

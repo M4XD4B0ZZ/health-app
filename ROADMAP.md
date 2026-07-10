@@ -4680,6 +4680,11 @@ whether to keep the existing live names or rename them to match the DoD text. Pe
 resolution decisions into `food_resolver_runs` (no app/edge code writes to it today) is
 RESOLVER-V2-006, tracked separately below.
 
+**Migration applied to remote (2026-07-10, via Supabase MCP):** The backfill migration was a
+no-op against `HealthDatabase` (`kbplfcqluqqowmvchvhc`) as expected — all four tables and
+their policies already existed live. `supabase/migrations/` is now confirmed in sync with the
+remote project for this task's scope.
+
 ---
 
 #### RESOLVER-V2-006: Persist Resolution Decisions
@@ -4736,6 +4741,12 @@ all pass clean.
 - Not applied to the remote project by this task, same as RESOLVER-V2-005's migration —
   applying it (`supabase db push` or the Supabase MCP's `apply_migration`) is a deliberate,
   separate follow-up.
+
+**Migration applied to remote (2026-07-10, via Supabase MCP):** The INSERT policy now exists
+on `food_resolver_runs` in `HealthDatabase` (`kbplfcqluqqowmvchvhc`) — authenticated resolver
+writes from `SupabaseResolverRunLogger` will no longer be silently rejected by RLS. This task
+still stays `todo` overall: the "user corrections update knowledge base" DoD line remains
+unimplemented pending the `corrections` table from RESOLVER-V2-005.
 
 ---
 
@@ -4843,10 +4854,15 @@ approval).
 — `public.user_entitlements` (`user_id` PK/FK to `auth.users`, `is_pro`, `product_id`,
 `expires_at`, `revenuecat_app_user_id`, timestamps), same shape as `food_catalog_items`'s RLS:
 users may `SELECT` their own row only, no client write policy — the P2-009-B webhook (once
-built) writes via the service role key, bypassing RLS. Not applied to the remote project by
-this task, same as the RESOLVER-V2-005/006 migrations — applying it is a deliberate follow-up
-once P2-009-B needs it to actually write. A partial index on `is_pro = true` keeps future
-"list Pro users" queries cheap without indexing the whole table.
+built) writes via the service role key, bypassing RLS. A partial index on `is_pro = true`
+keeps future "list Pro users" queries cheap without indexing the whole table.
+
+**Migration applied to remote (2026-07-10, via Supabase MCP):** `public.user_entitlements`
+now exists live in `HealthDatabase` (`kbplfcqluqqowmvchvhc`), RLS-enabled with the read-only
+own-row `SELECT` policy above. `get_advisors` (security) reports the same
+GraphQL-discoverability WARN already accepted for the other RLS-protected tables in this
+project (`food_catalog_items`, `food_resolver_runs`, etc.) — no new class of exposure, rows
+stay protected by RLS. P2-009-A is complete; P2-009 overall stays `todo` pending P2-009-B/C.
 
 ---
 

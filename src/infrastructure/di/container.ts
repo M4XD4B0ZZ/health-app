@@ -95,6 +95,20 @@ import {
   ComputeProgressForDateUseCase,
 } from '../../features/journal';
 
+// Evaluation Feature
+import {
+  EvaluationProfileRegistry,
+  PersistedActiveProfileRepository,
+  EvidenceBasedStandardProfile,
+  WeightLossProfile,
+  CalorieMacroCorridorRule,
+  ProteinPreservingDeficitRule,
+  EvidenceBasedStandardSettingsProvider,
+  WeightLossSettingsProvider,
+  BuildEvaluationInputForDateUseCase,
+  GetActiveEvaluationOutputUseCase,
+} from '../../features/evaluation';
+
 /**
  * Dependency Container für die Anwendung
  * Stellt alle Repositories, Services und Use Cases bereit
@@ -172,6 +186,11 @@ class Container {
   // Journal Use Cases
   private _computeProgressForDateUseCase: ComputeProgressForDateUseCase;
   private _registeredResolverSourceLabels: ResolverSourceLabel[] = [];
+
+  // Evaluation Feature
+  private _evaluationProfileRegistry: EvaluationProfileRegistry;
+  private _buildEvaluationInputForDateUseCase: BuildEvaluationInputForDateUseCase;
+  private _getActiveEvaluationOutputUseCase: GetActiveEvaluationOutputUseCase;
 
   constructor() {
     // Legacy repositories
@@ -384,6 +403,25 @@ class Container {
       this._effectiveGoalsRepository,
     );
 
+    // Evaluation Engine (DI-001/DI-002): known profiles/rules/settings-providers are a
+    // fixed, code-defined composition today (Presets, per Product Bible SS4/SS5) -- adding a
+    // future profile means extending these three arrays, not changing the wiring shape.
+    this._evaluationProfileRegistry = new PersistedActiveProfileRepository(this._keyValueStore, [
+      EvidenceBasedStandardProfile,
+      WeightLossProfile,
+    ]);
+    this._buildEvaluationInputForDateUseCase = new BuildEvaluationInputForDateUseCase(
+      this._foodEntryRepository,
+      [
+        new EvidenceBasedStandardSettingsProvider(this._effectiveGoalsRepository),
+        new WeightLossSettingsProvider(this._computeMetabolismResultUseCase),
+      ],
+    );
+    this._getActiveEvaluationOutputUseCase = new GetActiveEvaluationOutputUseCase(
+      this._evaluationProfileRegistry,
+      [CalorieMacroCorridorRule, ProteinPreservingDeficitRule],
+    );
+
     // Legacy usecases
     this._getDashboardSummary = new GetDashboardSummary(
       this._recoveryRepository,
@@ -553,6 +591,19 @@ class Container {
   // Journal Use Cases
   get computeProgressForDateUseCase(): ComputeProgressForDateUseCase {
     return this._computeProgressForDateUseCase;
+  }
+
+  // Evaluation Engine
+  get evaluationProfileRegistry(): EvaluationProfileRegistry {
+    return this._evaluationProfileRegistry;
+  }
+
+  get buildEvaluationInputForDateUseCase(): BuildEvaluationInputForDateUseCase {
+    return this._buildEvaluationInputForDateUseCase;
+  }
+
+  get getActiveEvaluationOutputUseCase(): GetActiveEvaluationOutputUseCase {
+    return this._getActiveEvaluationOutputUseCase;
   }
 
   getRegisteredResolverSourceLabelsForDiagnostics(): ResolverSourceLabel[] {

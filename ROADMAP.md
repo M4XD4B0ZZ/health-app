@@ -3971,7 +3971,7 @@ src/features/evaluation/` pass clean.
 
 #### DI-002: Evaluation Summary Screen
 
-Status: `todo`
+Status: `done`
 Depends on: DI-001
 
 **Ziel:** First real consumer of the Evaluation Engine — a new screen showing the active
@@ -4004,6 +4004,24 @@ in `docs/MANUAL_TESTING_GAPS.md` per AGENTS.md's binding rule.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`; manual Expo verification
 tracked as an open gap.
+
+**Implementation notes:** Added as a new bottom tab ("Auswertung", `EvaluationSummary`,
+icon `analytics`/`analytics-outline`), mirroring SM-005's precedent rather than mutating
+`DashboardScreen`. `container.ts` wires a fixed, code-defined composition — `knownProfiles =
+[EvidenceBasedStandardProfile, WeightLossProfile]`, `knownRules =
+[CalorieMacroCorridorRule, ProteinPreservingDeficitRule]`, and both DI-001 settings
+providers — as three arrays that a future profile only needs to extend, not restructure.
+The screen includes a minimal profile picker (one button per registered profile, labeled by
+`profile.name` — never the word "Profil" itself, per Product Bible §4b) that calls
+`evaluationProfileRegistry.setActiveProfileId()` and reloads, making GE-004's swappability
+proof tangible in the real app, not just in tests. `formatGoalProgressLabel`/
+`formatAssessment` extracted to `evaluationSummaryDisplay.ts` (mirrors SM-005's
+`savedMealsDisplay.ts` pattern) with unit tests, since no React Native component testing
+library exists in this project. `GoalsNotFoundError`/`ProfileNotFoundError` (both existing,
+unmodified, from `features/goals`) are caught and shown as actionable German messages
+pointing at the Ziele tab, rather than a generic error. Manual testing gap logged in
+`docs/MANUAL_TESTING_GAPS.md`. Full suite (106 suites / 801 tests, +4 new), `tsc --noEmit`,
+`eslint`, and `npx prettier -c` (scoped) pass clean.
 
 ---
 

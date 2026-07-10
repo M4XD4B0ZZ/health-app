@@ -1,0 +1,187 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import container from '../../../infrastructure/di/container';
+import { EvaluationProfile, EvaluationOutput } from '../../../features/evaluation';
+import { GoalsNotFoundError, ProfileNotFoundError } from '../../../features/goals';
+
+// UI Components
+import { tokens } from '../../../ui/theme';
+import { ScreenContainer } from '../../../ui/components/ScreenContainer';
+import { AppText } from '../../../ui/components/AppText';
+import { PrimaryButton } from '../../../ui/components/PrimaryButton';
+import { formatGoalProgressLabel, formatAssessment } from './evaluationSummaryDisplay';
+
+/**
+ * DI-002: first real consumer of the Evaluation Engine (GE-001-GE-005 + DI-001) — shows
+ * the active profile's evaluation output for today, computed from real Journal data.
+ * Explicitly nutrition-only (Product Bible SS9); does not touch or replace the legacy
+ * DashboardScreen/GetDashboardSummary (mock recovery/nutrition data).
+ */
+const EvaluationSummaryScreen: React.FC = () => {
+  const [profiles, setProfiles] = useState<EvaluationProfile[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [output, setOutput] = useState<EvaluationOutput | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const load = useCallback(async () => {
+    const profileList = container.evaluationProfileRegistry.list();
+    setProfiles(profileList);
+
+    const currentActiveId = await container.evaluationProfileRegistry.getActiveProfileId();
+    setActiveProfileId(currentActiveId);
+
+    try {
+      const input = await container.buildEvaluationInputForDateUseCase.execute(
+        today,
+        currentActiveId,
+      );
+      const result = await container.getActiveEvaluationOutputUseCase.execute(input);
+      setOutput(result);
+      setErrorMessage('');
+    } catch (err) {
+      setOutput(null);
+      if (err instanceof GoalsNotFoundError) {
+        setErrorMessage('Bitte zuerst im Ziele-Tab Ziele festlegen.');
+      } else if (err instanceof ProfileNotFoundError) {
+        setErrorMessage('Bitte zuerst im Ziele-Tab ein Metabolismus-Profil anlegen.');
+      } else {
+        console.error('Failed to load evaluation summary:', err);
+        setErrorMessage('Auswertung konnte nicht geladen werden.');
+      }
+    }
+  }, [today]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleSelectProfile = async (profileId: string) => {
+    if (switchingProfileId || profileId === activeProfileId) return;
+
+    setSwitchingProfileId(profileId);
+    try {
+      await container.evaluationProfileRegistry.setActiveProfileId(profileId);
+      await load();
+    } catch (err) {
+      console.error('Failed to switch active evaluation profile:', err);
+    } finally {
+      setSwitchingProfileId(null);
+    }
+  };
+
+  return (
+    <ScreenContainer scroll>
+      <View style={styles.container}>
+        <AppText variant="title" style={styles.title}>
+          Auswertung
+        </AppText>
+
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>Ziel</AppText>
+          <View style={styles.profilePicker}>
+            {profiles.map((profile) => (
+              <PrimaryButton
+                key={profile.id}
+                label={profile.name}
+                onPress={() => handleSelectProfile(profile.id)}
+                disabled={switchingProfileId !== null || profile.id === activeProfileId}
+                style={
+                  profile.id === activeProfileId ? styles.activeProfileButton : styles.profileButton
+                }
+              />
+            ))}
+          </View>
+        </View>
+
+        {!!errorMessage && (
+          <AppText tone="danger" style={styles.errorMessage}>
+            {errorMessage}
+          </AppText>
+        )}
+
+        {output && (
+          <>
+            <View style={styles.section}>
+              <AppText style={styles.sectionTitle}>Heutige Bewertung</AppText>
+              <AppText variant="body">{formatAssessment(output.assessment)}</AppText>
+            </View>
+
+            <View style={styles.section}>
+              <AppText style={styles.sectionTitle}>Fortschritt</AppText>
+              {output.goalProgress.map((progress) => (
+                <View key={progress.label} style={styles.progressRow}>
+                  <AppText variant="body">{formatGoalProgressLabel(progress.label)}</AppText>
+                  <AppText variant="meta" tone="muted">
+                    {Math.round(progress.consumed)} / {Math.round(progress.target)} (noch{' '}
+                    {Math.round(progress.remaining)})
+                  </AppText>
+                </View>
+              ))}
+            </View>
+
+            {output.warnings.length > 0 && (
+              <View style={styles.section}>
+                <AppText style={styles.sectionTitle}>Hinweise</AppText>
+                {output.warnings.map((warning) => (
+                  <AppText key={warning} tone="danger" style={styles.warningText}>
+                    {warning}
+                  </AppText>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </ScreenContainer>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: tokens.colors.background,
+  },
+  title: {
+    marginBottom: tokens.spacing.m,
+  },
+  section: {
+    marginTop: 16,
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  profilePicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: tokens.spacing.xs,
+  },
+  profileButton: {
+    flexGrow: 1,
+  },
+  activeProfileButton: {
+    flexGrow: 1,
+    backgroundColor: tokens.colors.surface,
+  },
+  errorMessage: {
+    marginTop: tokens.spacing.s,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: tokens.spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.divider,
+  },
+  warningText: {
+    marginTop: 4,
+  },
+});
+
+export default EvaluationSummaryScreen;

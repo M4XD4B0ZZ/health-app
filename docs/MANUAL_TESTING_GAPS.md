@@ -51,6 +51,34 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-10 — DI-002: Neuer Auswertungs-Tab (EvaluationSummaryScreen)
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
+  (neu), `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Auswertung"/
+  `EvaluationSummary`, Icon `analytics`/`analytics-outline`). Erster echter Consumer der
+  Evaluation Engine (GE-001–GE-005 + DI-001): zeigt Bewertung, Zielfortschritt pro Makro und
+  Warnungen des aktiven Evaluation Profiles für heute, berechnet aus echten
+  Journal-/Ziel-/Metabolismus-Daten. Enthält einen einfachen Ziel-Umschalter (Buttons pro
+  registriertem Profil), der die aktive Auswertung live neu berechnet. Rührt die
+  bestehende, mock-basierte `DashboardScreen`/`GetDashboardSummary` nicht an.
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (106
+  Suites / 801 Tests, inkl. neuer `evaluationSummaryDisplay.test.ts` für die reine
+  Anzeigelogik). Die komplette Anwendungslogik dahinter (Profile/Rules/Settings-Provider/
+  Registry/Use-Cases) ist unit- und end-to-end-getestet (DI-001); nur das tatsächliche
+  Rendering/die Interaktion in der App ist ungetestet, da diese Umgebung headless ist (kein
+  Expo/Simulator, keine React-Native-Testing-Library im Projekt vorhanden).
+- **Nicht verifiziert (visuell):** Tab-Icon/-Reihenfolge in der Bottom-Navigation, Layout des
+  Ziel-Umschalters bei zwei (künftig mehr) Profilen auf schmalen Bildschirmen, Darstellung
+  der Fehlermeldungen (fehlende Ziele/fehlendes Metabolismus-Profil) im Vergleich zu
+  `GoalsScreen`s bestehenden Formularen, Keyboard-/Touch-Verhalten der Umschalt-Buttons.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 2 (Layout & Rendering)
+  und 3 (Interaktion & Eingabe). Konkret: im Ziele-Tab Metabolismus-Profil + Ziele setzen,
+  im Journal etwas loggen, zum "Auswertung"-Tab wechseln — Bewertung + Fortschritt sollten
+  die echten Journal-Daten widerspiegeln; auf "Weight Loss" umschalten und prüfen, dass sich
+  Bewertung/Zielwerte sofort ändern (ohne dass sich die Journal-Einträge ändern).
+
 ### 2026-07-10 — SM-005: Neuer Saved-Meals-Tab (SavedMealsScreen)
 
 - **Status:** ⏳ offen

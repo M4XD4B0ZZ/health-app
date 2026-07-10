@@ -24,6 +24,13 @@ export class InMemorySavedMealRepository implements SavedMealRepository {
     this.templates.delete(id);
   }
 
+  async update(template: SavedMealTemplate): Promise<void> {
+    if (!this.templates.has(template.id)) {
+      throw new Error(`SavedMealTemplate with id ${template.id} not found`);
+    }
+    this.templates.set(template.id, template);
+  }
+
   /**
    * Test-Utility: Löscht alle Templates (nur für Tests).
    */

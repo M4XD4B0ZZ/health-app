@@ -1,5 +1,8 @@
 import { CreateSavedMealFromDateUseCase } from '../application/usecases/CreateSavedMealFromDateUseCase';
 import { LogSavedMealToDateUseCase } from '../application/usecases/LogSavedMealToDateUseCase';
+import { ListSavedMealTemplatesUseCase } from '../application/usecases/ListSavedMealTemplatesUseCase';
+import { DeleteSavedMealTemplateUseCase } from '../application/usecases/DeleteSavedMealTemplateUseCase';
+import { RenameSavedMealTemplateUseCase } from '../application/usecases/RenameSavedMealTemplateUseCase';
 import { InMemoryFoodEntryRepository } from '../infrastructure/repositories/InMemoryFoodEntryRepository';
 import { InMemorySavedMealRepository } from '../infrastructure/repositories/InMemorySavedMealRepository';
 import { InMemoryNutritionLookup } from '../infrastructure/repositories/InMemoryNutritionLookup';
@@ -594,6 +597,90 @@ describe('Saved Meals System', () => {
       // Verify: No entries were persisted
       const persistedEntries = await foodEntryRepo.listEntriesForDate('2024-01-17');
       expect(persistedEntries).toHaveLength(0);
+    });
+  });
+
+  describe('Template Management Use Cases (SM-003)', () => {
+    let listUseCase: ListSavedMealTemplatesUseCase;
+    let deleteUseCase: DeleteSavedMealTemplateUseCase;
+    let renameUseCase: RenameSavedMealTemplateUseCase;
+
+    beforeEach(() => {
+      listUseCase = new ListSavedMealTemplatesUseCase(savedMealRepo);
+      deleteUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepo);
+      renameUseCase = new RenameSavedMealTemplateUseCase(savedMealRepo, clock);
+    });
+
+    it('ListSavedMealTemplatesUseCase returns all templates', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await savedMealRepo.create({
+        id: 't2',
+        name: 'Dinner',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      const templates = await listUseCase.execute();
+
+      expect(templates).toHaveLength(2);
+      expect(templates.map((t) => t.name).sort()).toEqual(['Dinner', 'Lunch']);
+    });
+
+    it('ListSavedMealTemplatesUseCase returns an empty array when none exist', async () => {
+      expect(await listUseCase.execute()).toEqual([]);
+    });
+
+    it('DeleteSavedMealTemplateUseCase removes a template by id', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      await deleteUseCase.execute('t1');
+
+      expect(await savedMealRepo.getById('t1')).toBeNull();
+    });
+
+    it('DeleteSavedMealTemplateUseCase is a no-op for an unknown id', async () => {
+      await expect(deleteUseCase.execute('does-not-exist')).resolves.toBeUndefined();
+    });
+
+    it('RenameSavedMealTemplateUseCase updates name and updatedAt', async () => {
+      const createdAt = new Date('2024-01-10T10:00:00Z');
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Old Name',
+        items: [{ parsedName: 'chicken', quantityGrams: 200 }],
+        createdAt,
+        updatedAt: createdAt,
+      });
+
+      clock.setTime(new Date('2024-01-20T12:00:00Z'));
+      const updated = await renameUseCase.execute('t1', 'New Name');
+
+      expect(updated.name).toBe('New Name');
+      expect(updated.updatedAt).toEqual(new Date('2024-01-20T12:00:00Z'));
+      expect(updated.createdAt).toEqual(createdAt);
+      expect(updated.items).toEqual([{ parsedName: 'chicken', quantityGrams: 200 }]);
+
+      const persisted = await savedMealRepo.getById('t1');
+      expect(persisted?.name).toBe('New Name');
+    });
+
+    it('RenameSavedMealTemplateUseCase rejects an unknown id', async () => {
+      await expect(renameUseCase.execute('does-not-exist', 'New Name')).rejects.toThrow(
+        'SavedMealTemplate with id does-not-exist not found',
+      );
     });
   });
 });

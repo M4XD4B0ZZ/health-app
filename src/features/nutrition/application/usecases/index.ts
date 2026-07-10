@@ -15,3 +15,6 @@ export { SetReminderSettingsUseCase } from './SetReminderSettingsUseCase';
 export { GetReminderDecisionUseCase } from './GetReminderDecisionUseCase';
 export { GetCalendarMonthSummaryUseCase } from './GetCalendarMonthSummaryUseCase';
 export { UndoAutoMergeUseCase } from './UndoAutoMergeUseCase';
+export { ListSavedMealTemplatesUseCase } from './ListSavedMealTemplatesUseCase';
+export { DeleteSavedMealTemplateUseCase } from './DeleteSavedMealTemplateUseCase';
+export { RenameSavedMealTemplateUseCase } from './RenameSavedMealTemplateUseCase';

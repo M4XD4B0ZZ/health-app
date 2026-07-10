@@ -25,4 +25,10 @@ export interface SavedMealRepository {
    * Löscht eine Vorlage anhand ihrer ID.
    */
   delete(id: string): Promise<void>;
+
+  /**
+   * SM-003: Aktualisiert eine bestehende Vorlage (z.B. Umbenennen). Ersetzt den
+   * gespeicherten Stand vollständig anhand von `template.id`; kein Merge-Verhalten.
+   */
+  update(template: SavedMealTemplate): Promise<void>;
 }

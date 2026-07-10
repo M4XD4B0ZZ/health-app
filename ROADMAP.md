@@ -3262,7 +3262,7 @@ Full suite (92 suites / 748 tests, +4 new), `tsc --noEmit`, and `eslint` pass cl
 
 #### SM-003: Template Management Use Cases
 
-Status: `todo`
+Status: `done`
 Depends on: none (parallel to SM-001/SM-002)
 
 **Ziel:** Close the gap between what `SavedMealRepository` already supports
@@ -3293,6 +3293,12 @@ is a no-op for unknown id, rename updates `name`/`updatedAt` and rejects unknown
 - `SavedMealRepository.update()` exists and is implemented in-memory.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** `update()` throws for an unknown id (consistent with
+`RenameSavedMealTemplateUseCase` surfacing a clear error rather than silently creating a
+new record); `delete()` keeps its existing silent no-op behavior for unknown ids, matching
+the DoD. Full suite (92 suites / 754 tests, +6 new), `tsc --noEmit`, and `eslint` pass
+clean.
 
 ---
 

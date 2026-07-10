@@ -1380,4 +1380,70 @@ describe('SequentialFoodCatalogResolver', () => {
       consoleSpy.mockRestore();
     });
   });
+
+  describe('Resolver Run Logging (RESOLVER-V2-006)', () => {
+    const createQuery = (): FoodSearchQuery => ({
+      raw: 'apfel',
+      normalized: 'apfel',
+      locale: 'de',
+    });
+
+    it('logs a record with the winner and decision metadata after resolving', async () => {
+      const offSource = createMockOffSource([createCandidate('off', 1, 'apfel')]);
+      const usdaSource = createMockUsdaSource([]);
+      const resolverRunLogger = { log: jest.fn().mockResolvedValue(undefined) };
+
+      const resolver = new SequentialFoodCatalogResolver(
+        [offSource, usdaSource],
+        confidenceEngine,
+        undefined,
+        undefined,
+        resolverRunLogger,
+      );
+
+      const decision = await resolver.resolve(createQuery());
+
+      // Logging is fire-and-forget (not awaited by resolve()); flush microtasks.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(resolverRunLogger.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          normalizedQuery: decision.normalizedQuery,
+          locale: 'de',
+          winnerSource: decision.best?.source,
+          winnerConfidence: decision.best?.score,
+          status: decision.status,
+          reasonCodes: decision.reasonCodes,
+          candidateCount: decision.candidates.length,
+        }),
+      );
+    });
+
+    it('does not affect the returned decision when the logger rejects', async () => {
+      const offSource = createMockOffSource([createCandidate('off', 1, 'apfel')]);
+      const resolverRunLogger = { log: jest.fn().mockRejectedValue(new Error('log failed')) };
+
+      const resolver = new SequentialFoodCatalogResolver(
+        [offSource],
+        confidenceEngine,
+        undefined,
+        undefined,
+        resolverRunLogger,
+      );
+
+      const decision = await resolver.resolve(createQuery());
+
+      expect(decision.best?.source).toBe('OFF');
+    });
+
+    it('defaults to a no-op logger when none is provided (existing behavior unchanged)', async () => {
+      const offSource = createMockOffSource([createCandidate('off', 1, 'apfel')]);
+      const resolver = new SequentialFoodCatalogResolver([offSource], confidenceEngine);
+
+      const decision = await resolver.resolve(createQuery());
+
+      expect(decision.best?.source).toBe('OFF');
+    });
+  });
 });

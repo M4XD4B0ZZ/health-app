@@ -50,12 +50,15 @@ import { BlsStaticSource } from '../../features/nutrition/infrastructure/catalog
 import { SupabaseEdgeOffSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeOffSource';
 import { SupabaseEdgeUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeUsdaSource';
 import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
+import { SupabaseResolverRunLogger } from '../../features/nutrition/infrastructure/repositories/SupabaseResolverRunLogger';
+import { NoopResolverRunLogger } from '../../features/nutrition/application/ports/ResolverRunLogger';
 import { SupabaseEdgeOffProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeOffProvider';
 import { SupabaseEdgeUsdaProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeUsdaProvider';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
 import { supabase } from '../supabase/supabaseClient';
 import type { AuthRepository } from '../../features/auth/application/ports/AuthRepository';
 import { SupabaseAuthRepository } from '../../features/auth/infrastructure/SupabaseAuthRepository';
+import { SignInWithOAuthUseCase } from '../../features/auth/application/usecases/SignInWithOAuthUseCase';
 import { isProdBuild, envName } from '../config/appEnv';
 import {
   ResolverSourceLabel,
@@ -134,6 +137,7 @@ class Container {
   private _foodParser: DeterministicFoodParser;
   private _aiMealParser: FakeAiMealParser;
   private _authRepository: AuthRepository;
+  private _signInWithOAuthUseCase: SignInWithOAuthUseCase;
   private _reminderSettingsRepository: ReminderSettingsRepository;
   private _portionKnowledgeService: PortionKnowledgeService;
   private _savedMealRepository: SavedMealRepository;
@@ -201,6 +205,7 @@ class Container {
     this._foodParser = new DeterministicFoodParser();
     this._aiMealParser = new FakeAiMealParser();
     this._authRepository = new SupabaseAuthRepository();
+    this._signInWithOAuthUseCase = new SignInWithOAuthUseCase(this._authRepository);
     this._reminderSettingsRepository = new PersistedReminderSettingsRepository(this._keyValueStore);
     this._portionKnowledgeService = new PortionKnowledgeService(
       new PersistedPortionHintRepository(this._keyValueStore, SEED_PORTION_HINTS),
@@ -285,10 +290,18 @@ class Container {
     ];
     void _diagInMemoryReferences;
 
+    // RESOLVER-V2-006: real Supabase persistence outside test env only, so the test suite
+    // never triggers network calls for resolver-run logging (mirrors the allowMocks/test-env
+    // gate used for resolverSources above).
+    const resolverRunLogger =
+      envName() === 'test' ? new NoopResolverRunLogger() : new SupabaseResolverRunLogger(supabase);
+
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
       resolverSources,
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
+      undefined,
+      resolverRunLogger,
     );
     if (!foodCatalogResolver) throw new Error('DI_MISSING_FOOD_CATALOG_RESOLVER');
 
@@ -449,6 +462,10 @@ class Container {
 
   get authRepository(): AuthRepository {
     return this._authRepository;
+  }
+
+  get signInWithOAuthUseCase(): SignInWithOAuthUseCase {
+    return this._signInWithOAuthUseCase;
   }
 
   get portionKnowledgeService(): PortionKnowledgeService {

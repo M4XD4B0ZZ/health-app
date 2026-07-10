@@ -9,3 +9,4 @@ export { FoodAliasRepository } from './FoodAliasRepository';
 export { AiFoodMapper } from './AiFoodMapper';
 export { KeyValueStore } from './KeyValueStore';
 export { ReminderSettingsRepository } from './ReminderSettingsRepository';
+export { ResolverRunLogger, ResolverRunRecord, NoopResolverRunLogger } from './ResolverRunLogger';

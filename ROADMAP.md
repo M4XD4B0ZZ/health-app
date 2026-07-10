@@ -4562,7 +4562,7 @@ Focus: deployment repeatability, remote guardrail verification, long-term resolv
 
 ### P2-003 Document Edge Functions Deploy Process
 
-Status: `todo`
+Status: `done`
 
 Ensure `supabase/config.toml` is respected in deployment.
 `verify_jwt=false` safely applied.
@@ -4570,13 +4570,34 @@ README section in `/supabase` on how to run `supabase functions deploy`.
 
 **Verify:** Local `supabase start` parses `config.toml` and allows anonymous invokes.
 
+**Implementation notes:** [`supabase/config.toml`](supabase/config.toml) already set
+`verify_jwt = false` for both deployed functions
+([`food-off-search`](supabase/functions/food-off-search),
+[`food-usda-search`](supabase/functions/food-usda-search)) — confirmed both config sections
+match a real function subdirectory, so the CLI has a valid target for each. The deployment
+workflow itself (link → verify schema → `deploy:edge:verify`) was already documented in
+[`supabase/functions/README.md`](supabase/functions/README.md)'s "Deployment" section from
+earlier work. What was missing was a `/supabase`-root README to orient someone browsing the
+directory before they find the functions-specific one — added
+[`supabase/README.md`](supabase/README.md) as a short index pointing to `config.toml`,
+`functions/README.md`, and `migrations/`.
+
+**Verification gap (environment limitation, not routed around):** The DoD's literal
+verification step — running `supabase start` locally and confirming `config.toml` is parsed
+with anonymous invokes allowed — could not be executed in this sandboxed session. Docker
+itself is available, but the `supabase` npm package's postinstall script (which downloads the
+actual `supabase` CLI binary from GitHub Releases) is blocked by this environment's network
+policy (`403` on the release download, same root cause as the dependency-hygiene report's
+finding #3), so `npx supabase` has no binary to run. `config.toml`'s syntax and structure were
+verified by inspection instead (valid TOML, section names match function directories 1:1).
+
 ---
 
 ## EPIC: Edge Guardrails (Food Search)
 
 ### P2-007 Deploy & Verify Guardrails
 
-Status: `todo`
+Status: `done`
 
 Deploy guardrails with correct `verify_jwt=false` properties.
 App calls remote endpoints anonymously without 401s.
@@ -4586,6 +4607,34 @@ App calls remote endpoints anonymously without 401s.
 1. `npm run verify:supabase:link` must pass.
 2. `npm run verify:schema` must pass.
 3. `npm run deploy:edge:verify` must pass.
+
+**Implementation notes:** Both guardrail functions were already deployed and live on the
+remote project (`kbplfcqluqqowmvchvhc`) — confirmed via the Supabase MCP connector (not the
+npm scripts, see verification-gap note below): `food-off-search` (v10) and `food-usda-search`
+(v11) both report `status: "ACTIVE"` and `verify_jwt: false`, matching
+[`supabase/config.toml`](supabase/config.toml) exactly. Fetched `food-off-search`'s deployed
+source via the MCP connector and spot-diffed it against the local repo's
+`supabase/functions/food-off-search/index.ts` / `_shared/guardrails.ts` — identical, so the
+live guardrail logic (query length 2–64, punctuation-only rejection, repeated-char rejection,
+30 req/min rate limit) matches what's in this repo, not a stale build. The two target tables
+`verify:schema` checks for (`food_query_cache`, `food_catalog_items`) both exist in the remote
+DB (confirmed via `mcp__Supabase__list_tables`).
+
+**Verification gap + false-positive finding (environment limitation, not routed around):**
+None of the three DoD npm scripts could be trusted to run in this sandbox. `verify:edge` fails
+outright — this environment's network egress policy doesn't allowlist
+`kbplfcqluqqowmvchvhc.supabase.co`, so the `fetch()` call never reaches Supabase; the agent
+proxy rejects the CONNECT tunnel with `403` before it leaves the sandbox
+(`gateway answered 403 to CONNECT`). More notably, **`verify:schema` reported a false PASS**
+under the same conditions: the script treats any `200`/`401`/`403` response as "table exists"
+(401/403 meaning "RLS correctly blocks anonymous reads"), but the sandbox's own network-block
+response is _also_ `403` with no way for the script to distinguish "Supabase said no" from "the
+network never let this request through." The genuine schema check above was done via the
+Supabase MCP connector instead, which isn't subject to this sandbox's HTTP egress allowlist.
+`verify:supabase:link` also can't run (no `.env`, and the `supabase` CLI binary itself isn't
+installed — same root cause as the P2-003 note: its postinstall download is blocked by network
+policy). Anyone re-running these DoD scripts from a network-restricted environment should be
+aware `verify:schema`'s pass/fail is not reliable there.
 
 ---
 
@@ -4614,6 +4663,23 @@ Define schema for persistent knowledge accumulation.
 
 **Verify:** Schema documentation exists, tables accessible from Edge functions
 
+**Discovery (2026-07-10, human-approved scope — see
+[`reports/RESOLVER-V2-005_SCHEMA_DRIFT_2026-07-10_REPORT.md`](../reports/RESOLVER-V2-005_SCHEMA_DRIFT_2026-07-10_REPORT.md)):**
+Most of this DoD already exists live on the remote project, under different names, with no
+matching migration file — `food_catalog_items` ≈ `canonical_foods`, `user_food_aliases` ≈
+`food_aliases`, `food_resolver_runs` ≈ `query_logs` (plus an unused `food_sources` reference
+table and `food_query_cache_results` per-candidate ranking table). All four were undocumented
+schema drift (created directly against the DB, never committed as a migration). Per explicit
+direction, this task backfilled a migration
+([`supabase/migrations/20260710_document_existing_knowledge_layer_tables.sql`](../supabase/migrations/20260710_document_existing_knowledge_layer_tables.sql))
+documenting exactly what's live (idempotent, not applied to the remote project — it's already
+there) rather than designing a new/parallel schema under the DoD's literal table names.
+**Remaining before this can be marked `done`:** a `corrections` table (user feedback on
+decisions) doesn't exist anywhere yet and needs its own scoped design; and a decision on
+whether to keep the existing live names or rename them to match the DoD text. Persisting
+resolution decisions into `food_resolver_runs` (no app/edge code writes to it today) is
+RESOLVER-V2-006, tracked separately below.
+
 ---
 
 #### RESOLVER-V2-006: Persist Resolution Decisions
@@ -4630,6 +4696,46 @@ Store query → candidates → final decision chain for learning and debugging.
 - User corrections update knowledge base
 
 **Verify:** DB entries created per resolution, correction flow works
+
+**Implementation notes (human-approved scope, see conversation):** Implemented the first two
+DoD lines. [`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts)
+is now a thin wrapper around the previous method body (renamed to `resolveInternal()`) that
+fire-and-forgets a [`ResolverRunLogger`](src/features/nutrition/application/ports/ResolverRunLogger.ts)
+call after every decision — never awaited by the caller and never allowed to affect the
+returned decision (errors are swallowed inside the logger). The default is a
+[`NoopResolverRunLogger`](src/features/nutrition/application/ports/ResolverRunLogger.ts) (zero
+behavior change for the 108 pre-existing resolver test suites, which don't pass a logger); the
+DI container (`container.ts`) wires a real
+[`SupabaseResolverRunLogger`](src/features/nutrition/infrastructure/repositories/SupabaseResolverRunLogger.ts)
+outside test env, which inserts one row per decision into `food_resolver_runs` (mirroring
+`SupabaseUserAliasSource`'s pattern: requires an auth session, silently skips otherwise). Added
+[`supabase/migrations/20260711_add_resolver_run_insert_policy.sql`](supabase/migrations/20260711_add_resolver_run_insert_policy.sql)
+— the table previously only had a SELECT RLS policy, so authenticated inserts were silently
+rejected before this. New tests:
+[`SupabaseResolverRunLogger.test.ts`](src/features/nutrition/__tests__/SupabaseResolverRunLogger.test.ts)
+(session/insert/error-swallowing paths) and a new `describe('Resolver Run Logging
+(RESOLVER-V2-006)')` block in
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts).
+Full suite (109 suites / 833 tests, +5 new), `tsc --noEmit`, `eslint`, and `npx prettier -c .`
+all pass clean.
+
+**Known simplifications, left for follow-up:**
+
+- `winner_item_id` is intentionally left `NULL` on every insert. Not every winning candidate
+  (BLS static-source or user-alias fast-path winners, in particular) has a corresponding row
+  in `food_catalog_items`, and that column's FK constraint would reject the insert for those
+  cases; mapping winners to a real `food_catalog_items.id` needs its own task. The winner is
+  still fully captured via `winner_source`/`winner_confidence`/`metadata.winnerName`.
+- `cache_hit` is always recorded as `false`. The resolver's internal negative-cache
+  short-circuit (`metrics.cacheHit`) isn't threaded through `ResolverDecision` today, and
+  changing that return shape felt riskier than deferring it — not distinguished from a fresh
+  negative resolution in the persisted row yet.
+- **"User corrections update knowledge base" is not implemented** — there is no `corrections`
+  table yet (see RESOLVER-V2-005's discovery above), so this DoD line is out of scope until
+  that table exists.
+- Not applied to the remote project by this task, same as RESOLVER-V2-005's migration —
+  applying it (`supabase db push` or the Supabase MCP's `apply_migration`) is a deliberate,
+  separate follow-up.
 
 ---
 
@@ -4656,6 +4762,46 @@ Status: `todo`
 
 User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
 
+**Implementation notes (human-approved scope — scaffold only, see conversation):** A working
+OAuth login needs things this session cannot provide: registered Apple/Google OAuth
+applications (Apple Developer Program, Google Cloud Console) with real client credentials
+configured in the Supabase Auth dashboard, plus native config
+(`app.json` deep-link scheme/associated domains) and new dependencies (e.g.
+`expo-web-browser`, `expo-apple-authentication`) — both `app.json` and `package.json` are
+protected files requiring explicit approval per `.agent/config/protected-files.json`, and
+none of that can be tested without a real device/simulator anyway. Given that, this task
+prepared the application-layer scaffold only, with **no** `app.json`/`package.json` changes:
+
+- Extended [`AuthRepository`](src/features/auth/application/ports/AuthRepository.ts) with
+  `getCurrentSession()`, `signInWithOAuth(provider)`, and `signOut()` (`OAuthProvider =
+'apple' | 'google'`).
+- [`SupabaseAuthRepository`](src/features/auth/infrastructure/SupabaseAuthRepository.ts)
+  implements these via `@supabase/supabase-js`'s built-in `auth.signInWithOAuth()` (already a
+  dependency, no new package needed for this part) with `skipBrowserRedirect: true` — it
+  returns the provider's authorization URL rather than opening it.
+- Added [`SignInWithOAuthUseCase`](src/features/auth/application/usecases/SignInWithOAuthUseCase.ts)
+  and wired both into `container.ts` (`signInWithOAuthUseCase` getter).
+- Tests:
+  [`SupabaseAuthRepository.test.ts`](src/features/auth/__tests__/SupabaseAuthRepository.test.ts),
+  [`SignInWithOAuthUseCase.test.ts`](src/features/auth/__tests__/SignInWithOAuthUseCase.test.ts).
+  Full suite (111 suites / 843 tests, +10 new), `tsc --noEmit`, `eslint` all pass clean.
+
+**Still needed before this can be marked `done` (external prerequisites, not code):**
+
+1. Register an OAuth app with Apple (Apple Developer Program) and Google (Google Cloud
+   Console); configure both providers' client ID/secret in the Supabase project's Auth
+   dashboard.
+2. Add a URL scheme (and iOS Associated Domains, if using universal links) to `app.json` so
+   the OAuth redirect can return into the app.
+3. Add `expo-web-browser` (to actually open the URL `signInWithOAuth()` now returns and
+   capture the redirect) and, for a native Apple button/credential flow instead of a plain
+   web redirect, `expo-apple-authentication`.
+4. Build the presentation-layer login screen/button that calls
+   `container.signInWithOAuthUseCase`, opens the returned URL, and handles the redirect back
+   (session is then available via `getCurrentSession()`).
+5. Secure token storage beyond Supabase's own default (`AsyncStorage`-backed) session
+   persistence, if a stricter requirement exists (e.g. `expo-secure-store`).
+
 ---
 
 ## Tier 4 Planning Targets — Require Later Task Decomposition
@@ -4672,6 +4818,12 @@ The following module remains planned but not yet scoped into concrete implementa
 
 Focus: deferred monetization and paid AI gating after retention-critical product value is proven.
 
+> See [`plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md`](../plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md)
+> for the sub-task breakdown of P2-009/P2-010/RESOLVER-V2-007 — most of Tier 5 depends on
+> external accounts/credentials (RevenueCat, App Store/Play Store subscriptions, an AI
+> provider) that only the repo owner can provide; the plan marks which pieces can be
+> scaffolded without them.
+
 ## EPIC: Auth & Subscription (Later)
 
 ### P2-009 RevenueCat Entitlements
@@ -4681,6 +4833,21 @@ Status: `todo`
 Integrate RevenueCat to manage subscription states.
 `isPro` state synced from RevenueCat to Supabase `public.users` via Webhooks.
 
+**Sub-tasks (see plan linked above):** P2-009-A (entitlement schema — no external blocker),
+P2-009-B (webhook receiver — needs a RevenueCat account to finish/test), P2-009-C (client SDK —
+needs a RevenueCat API key + App Store/Play Store subscription products + npm dependency
+approval).
+
+**P2-009-A implementation notes:** Added
+[`supabase/migrations/20260712_add_user_entitlements_table.sql`](supabase/migrations/20260712_add_user_entitlements_table.sql)
+— `public.user_entitlements` (`user_id` PK/FK to `auth.users`, `is_pro`, `product_id`,
+`expires_at`, `revenuecat_app_user_id`, timestamps), same shape as `food_catalog_items`'s RLS:
+users may `SELECT` their own row only, no client write policy — the P2-009-B webhook (once
+built) writes via the service role key, bypassing RLS. Not applied to the remote project by
+this task, same as the RESOLVER-V2-005/006 migrations — applying it is a deliberate follow-up
+once P2-009-B needs it to actually write. A partial index on `is_pro = true` keeps future
+"list Pro users" queries cheap without indexing the whole table.
+
 ---
 
 ### P2-010 Paid-only Gating for AI Endpoints
@@ -4689,6 +4856,18 @@ Status: `todo`
 
 Map `isPro` tier to Edge Function authorization.
 AI structured log functions and premium insights return 403 for non-Pro users.
+
+**Sub-tasks (see plan linked above):** P2-010-A (audit — found no AI/premium edge function
+exists yet to gate; documentation-only fix), P2-010-B (authorization helper — scaffoldable once
+P2-009-A's schema exists, but has no real endpoint to apply to until RESOLVER-V2-007 or a future
+premium feature exists).
+
+**P2-010-A (audit, done 2026-07-12):** Re-verified `supabase/functions/` — still only
+`food-off-search` and `food-usda-search` exist, both intentionally free/anonymous per P2-007's
+guardrails (they are not "AI structured log functions" or "premium insights" in the DoD's
+sense). No `isPro`/authorization check exists anywhere in `supabase/functions/` today. P2-010
+has no concrete gating target until RESOLVER-V2-007 (or a future premium-insights feature)
+produces one — see P2-010-B, which stays a scaffold-only helper until then.
 
 ---
 
@@ -4708,6 +4887,60 @@ AI only for low-confidence cases. Must be traceable and rate-limited.
 - Never authoritative, always assistive
 
 **Verify:** AI usage logs exist, rate limiting works, confidence thresholds respected
+
+**Sub-tasks (see plan linked above):** RESOLVER-V2-007-A (port + rate-limit wrapper scaffold —
+no external blocker, mirrors the existing `AiFoodMapper` port pattern), RESOLVER-V2-007-B (real
+provider wiring — needs a provider decision + API key), RESOLVER-V2-007-C (usage logs + real
+rate limiting — depends on -A/-B).
+
+**RESOLVER-V2-007-A implementation notes:** Added
+[`AiRerankingProvider`](src/features/nutrition/application/ports/AiRerankingProvider.ts) (port +
+`NoopAiRerankingProvider` default, mirroring `FakeAiFoodMapper`'s existing pattern) and
+[`RateLimitedAiReranker`](src/features/nutrition/application/services/RateLimitedAiReranker.ts),
+which wraps any `AiRerankingProvider` and enforces all three DoD lines itself, independent of
+which real provider RESOLVER-V2-007-B eventually wires in:
+
+- **Confidence gate:** only calls the wrapped provider when the best candidate's score is
+  below `confidenceThreshold` (default `0.6`); otherwise returns the original order untouched.
+- **Rate limit:** a sliding window (`maxCallsPerWindow` per `windowMs`, default 20/min)
+  tracked in-memory; once exceeded, falls back to the original order instead of calling out.
+- **Never authoritative:** on a rate limit, a thrown/rejected provider call, _or_ the provider
+  returning a reordered id list that isn't a valid permutation of the input candidates (a
+  defensive check against a misbehaving AI response), it always falls back to the original
+  candidate order — it can only ever reorder existing, already-scored candidates, never
+  invent one or touch macro data.
+- **Usage logging seam:** takes an `AiRerankingUsageLogger` (default `NoopAiRerankingUsageLogger`)
+  and calls it for every triggered/skipped/rate-limited decision — RESOLVER-V2-007-C persists
+  this for real; -A only defines the interface and calls it.
+
+**Not yet wired into `SequentialFoodCatalogResolver`** — there's no real provider to call yet
+(RESOLVER-V2-007-B), so wiring this into the live resolution hot path now would add an unused
+code path without benefit. Tests:
+[`RateLimitedAiReranker.test.ts`](src/features/nutrition/__tests__/RateLimitedAiReranker.test.ts)
+(threshold gating, rate limiting, error/invalid-permutation fallback, usage logging). Full suite
+(112 suites / 850 tests, +7 new), `tsc --noEmit`, `eslint` all pass clean.
+
+**RESOLVER-V2-007-B provider selection (still `todo`, benchmark tooling added):** Provider
+pricing changes too often to hard-code into this roadmap. Added
+[`scripts/benchmark-ai-reranking-providers.mjs`](../scripts/benchmark-ai-reranking-providers.mjs)
+(+ `scripts/lib/ai-reranking-benchmark-{scoring,fixtures,providers}.mjs`) — a real-API-call
+benchmark harness that scores whichever of Claude Haiku 4.5 / GPT-5 Nano / GPT-5 Mini / Gemini
+Flash Lite have a configured API key (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`)
+against a fixed set of realistic DACH ambiguity cases
+(`scripts/lib/ai-reranking-benchmark-fixtures.mjs`: quark/schmand/curd, branded-vs-generic
+matches, etc.) for JSON/schema reliability, ranking accuracy, and latency; cost is computed
+from actual token usage. Provider adapters use raw `fetch()` (no new npm dependency) against
+each provider's plain REST API — model IDs are env-var-overridable since they drift. Pure
+scoring logic is unit-tested with `node:test`
+([`scripts/__tests__/ai-reranking-benchmark-scoring.test.mjs`](../scripts/__tests__/ai-reranking-benchmark-scoring.test.mjs),
+14 tests, run via `node --test scripts/__tests__/ai-reranking-benchmark-scoring.test.mjs`); the
+end-to-end harness itself needs real API keys to run and isn't part of the Jest suite. See
+[`plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md`](../plans/TIER5_MONETIZATION_TASK_BREAKDOWN_PLAN.md)
+for the evaluation criteria and
+[`reports/AI_RERANKING_PROVIDER_PRICING_2026-07-13_REPORT.md`](../reports/AI_RERANKING_PROVIDER_PRICING_2026-07-13_REPORT.md)
+for the (explicitly dated, non-authoritative) pricing research that motivated a benchmark
+instead of a hard-coded choice. RESOLVER-V2-007-B itself stays `todo` until the harness is
+actually run against real keys and a provider is picked.
 
 ---
 

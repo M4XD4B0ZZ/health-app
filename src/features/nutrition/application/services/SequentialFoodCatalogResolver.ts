@@ -24,6 +24,7 @@ import { detectCanonicalEntity, getSourceQuery } from '../../domain/catalog/Food
 import { ResolverDebugCollector, SourceCandidate, CandidateEvaluation } from './ResolverDebugTypes';
 import { InputConfidenceClassifier } from '../../domain/confidence/InputConfidenceClassifier';
 import { DefaultInputConfidenceClassifier } from './DefaultInputConfidenceClassifier';
+import { ResolverRunLogger, NoopResolverRunLogger } from '../ports/ResolverRunLogger';
 
 interface LookupMetrics {
   traceId?: string;
@@ -61,6 +62,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     private readonly _confidenceEngine: ConfidenceEngine,
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
     inputConfidenceClassifier?: InputConfidenceClassifier,
+    private readonly resolverRunLogger: ResolverRunLogger = new NoopResolverRunLogger(),
   ) {
     this.circuitBreaker = new CircuitBreakerManager(
       config.circuitBreaker.failureThreshold,
@@ -73,7 +75,33 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       inputConfidenceClassifier || new DefaultInputConfidenceClassifier();
   }
 
+  /**
+   * RESOLVER-V2-006: persists a fire-and-forget record of the decision after resolving.
+   * Logging never blocks or fails the actual resolution (see NoopResolverRunLogger /
+   * SupabaseResolverRunLogger's own error handling).
+   */
   async resolve(query: FoodSearchQuery, ctx?: { traceId?: string }): Promise<ResolverDecision> {
+    const decision = await this.resolveInternal(query, ctx);
+    void this.resolverRunLogger
+      .log({
+        normalizedQuery: decision.normalizedQuery,
+        locale: query.locale,
+        winnerSource: decision.best?.source ?? null,
+        winnerConfidence: decision.best?.score ?? null,
+        cacheHit: false,
+        status: decision.status,
+        reasonCodes: decision.reasonCodes,
+        candidateCount: decision.candidates.length,
+        winnerName: decision.best?.food.name,
+      })
+      .catch(() => {});
+    return decision;
+  }
+
+  private async resolveInternal(
+    query: FoodSearchQuery,
+    ctx?: { traceId?: string },
+  ): Promise<ResolverDecision> {
     const traceId =
       ctx?.traceId ||
       query.traceId ||

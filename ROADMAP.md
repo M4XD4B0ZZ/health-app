@@ -3867,9 +3867,201 @@ test/lint as a floor, not a substitute.
 
 Status: `todo`
 
-Ready for decomposition into concrete tasks (not yet decomposed). Summary/progress view —
-driven entirely by the active Evaluation Profile, not a fixed generic calorie/macro
-screen. Depends on Journal Domain and Goals & Evaluation.
+All four decomposed tasks (DI-001–DI-004 below) are `todo`. Like Saved Meals and Goals &
+Evaluation, this is **not** greenfield, but the existing code is worse than either: the
+live "Dashboard" tab (`src/presentation/features/dashboard/DashboardScreen.tsx`, via the
+legacy `src/application/usecases/GetDashboardSummary.ts`) reads from
+`MockNutritionRepository`/`MockRecoveryRepository` — entirely fabricated, hardcoded
+7-day preset data ("Frühstück"/"Mittagessen"/"Abendessen" with fixed macro numbers), with
+**zero connection** to anything the user actually logs in Journal. The Dashboard tab has
+never shown real user data. `GetDashboardSummary` also hardcodes
+`DEFAULT_CALORIE_GOAL = 2000` — exactly the "fixed, generic calorie/macro screen" Product
+Bible §9 says Dashboard must stop being.
+
+**Scope boundary:** the legacy Dashboard also mixes in Recovery data (sleep/steps/resting
+heart rate) — a different, unrelated vertical not part of Product Bible's four Tier-1
+domains at all. DI-001–DI-004 address only the **nutrition/evaluation** portion (a new
+screen surfacing GE-001–GE-005's Evaluation Engine against real Journal data); the legacy
+`DashboardScreen`/`GetDashboardSummary`/Mock repositories are **not modified** — replacing
+them (retiring the mock data, deciding whether Recovery gets its own screen) is out of this
+decomposition's additive-first scope; see DI-004's closing notes for an explicit follow-up
+stub, mirroring GE-006–GE-008.
+
+The other concrete gap this decomposition must close: GE-001–GE-005 built a working
+Evaluation Engine, but no code exists yet that assembles a real `EvaluationInput` from
+actual repositories (Journal entries, `EffectiveGoals`, `MetabolismProfile`/TDEE) — GE-004's
+own tests hand-built `profileSettings` bags in fixtures. Different Profiles need different
+`profileSettings` shapes (Evidence-based Standard needs `{ goals }`, Weight Loss needs
+`{ tdee }`), so a generic assembler can't hardcode per-profile knowledge — DI-001 solves
+this via a per-profile "settings provider" the assembler delegates to, not a big
+if/else per profile id.
+
+Implementation order:
+
+1. **EvaluationInput Assembly (Profile Settings Providers)** (DI-001)
+2. **Evaluation Summary Screen** — first real consumer of the Evaluation Engine (DI-002)
+3. **Rule-Level Insights & Recommendations** — fills in the `insights`/`recommendations`
+   arrays both existing Rules currently always leave empty (DI-003)
+
+Cross-cutting: **DI-004** (regression coverage across DI-001–DI-003, plus a follow-up stub
+for reconciling/retiring the legacy mock Dashboard).
+
+---
+
+#### DI-001: EvaluationInput Assembly (Profile Settings Providers)
+
+Status: `todo`
+Depends on: GE-003 (registry), GE-002/GE-004 (the two profiles needing settings)
+
+**Ziel:** Assemble a real `EvaluationInput` for a given date from actual repositories —
+`journalReadsForPeriod` from `FoodEntryRepository`, and `profileSettings` from a per-profile
+provider (not a generic orchestrator that would need to know every profile's settings
+shape).
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/ports/ProfileSettingsProvider.ts` —
+  `ProfileSettingsProvider { profileId: string; build(dateISO: string):
+  Promise<Record<string, unknown>> }`.
+- New `src/features/evaluation/application/settingsProviders/EvidenceBasedStandardSettingsProvider.ts`
+  — reads `EffectiveGoalsRepository.get()` (`src/features/goals`), builds `{ goals }`.
+- New `src/features/evaluation/application/settingsProviders/WeightLossSettingsProvider.ts`
+  — reads `MetabolismProfileRepository` via the existing (unmodified)
+  `ComputeMetabolismResultUseCase`, builds `{ tdee }`.
+- New `src/features/evaluation/application/usecases/BuildEvaluationInputForDateUseCase.ts`
+  — takes `FoodEntryRepository` + the active profile id + a `ProfileSettingsProvider[]`,
+  looks up the matching provider, and assembles the full `EvaluationInput`
+  (`foodCatalogReads` stays `[]` — no current Rule declares a `dataRequirements` need for
+  it).
+
+**Risiken:** Low-medium — new orchestration code, but purely additive (no existing use case
+modified) and read-only.
+
+**Tests:** Each settings provider builds the expected shape from fixture repository data;
+`BuildEvaluationInputForDateUseCase` produces an `EvaluationInput` that
+`GetActiveEvaluationOutputUseCase` (GE-003) can run without error for both profiles;
+missing-goals/missing-metabolism-profile cases surface a clear error rather than silently
+defaulting.
+
+**Akzeptanzkriterien (DoD):**
+
+- A real `EvaluationInput` can be built for "today" from actual repository state, for
+  either registered profile, without any hardcoded per-profile branching in the assembler.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### DI-002: Evaluation Summary Screen
+
+Status: `todo`
+Depends on: DI-001
+
+**Ziel:** First real consumer of the Evaluation Engine — a new screen showing the active
+profile's `EvaluationOutput` (assessment, goal progress, warnings) for today, sourced from
+real Journal data via DI-001 + GE-003. Explicitly nutrition-only (see this section's scope
+boundary) — does not touch or replace the legacy `DashboardScreen`.
+
+**Scope / betroffene Dateien:**
+
+- New `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — mirrors
+  `SavedMealsScreen.tsx`'s presentation conventions (container DI, `ScreenContainer`,
+  `AppText`, etc.); shows assessment + per-macro goal progress + warnings for today.
+- `src/presentation/navigation/AppNavigator.tsx` — new tab (mirrors SM-005's precedent of
+  adding a new tab rather than mutating an existing screen).
+- `src/infrastructure/di/container.ts` — wire DI-001/GE-003's use cases + a fixed
+  `knownProfiles`/`knownRules`/`ProfileSettingsProvider[]` composition.
+
+**Risiken:** Medium — first UI surface for this domain, same class of risk as SM-005.
+
+**Tests:** Presentation-layer logic tests where feasible (mirrors SM-005's
+`savedMealsDisplay.ts` extraction pattern); manual Expo verification logged as an open gap
+in `docs/MANUAL_TESTING_GAPS.md` per AGENTS.md's binding rule.
+
+**Akzeptanzkriterien (DoD):**
+
+- A user can see the active profile's evaluation output for today, computed from their real
+  Journal entries.
+- Legacy `DashboardScreen`/`GetDashboardSummary` untouched.
+- Manual testing gap logged for the new UI.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`; manual Expo verification
+tracked as an open gap.
+
+---
+
+#### DI-003: Rule-Level Insights & Recommendations
+
+Status: `todo`
+Depends on: DI-002 (so there's a screen to show them on; can implement in parallel)
+
+**Ziel:** Both existing Rules (`CalorieMacroCorridorRule`, `ProteinPreservingDeficitRule`)
+always return empty `insights`/`recommendations` arrays — only `warnings` has real content.
+Add at least one genuine insight and one genuine recommendation per rule, so "Dashboard &
+**Insights**" has actual insight content to show, not just progress numbers.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/evaluation/application/rules/dailyProgressToEvaluationOutput.ts` (or a
+  small addition alongside it) — e.g. an insight when a macro is significantly under target
+  ("Noch X g Protein übrig"), a recommendation when calories are under target with protein
+  already met.
+- `src/features/evaluation/application/rules/ProteinPreservingDeficitRule.ts` — a
+  deficit-specific insight (e.g. pace-of-loss framing), distinct from the generic corridor
+  insight, so the two Presets are demonstrably different in *Insights* output too, not just
+  in target numbers.
+
+**Risiken:** Low — additive content within already-tested rules; must not change existing
+`assessment`/`goalProgress`/`warnings` behavior (regression-tested).
+
+**Tests:** New scenarios per rule proving specific insight/recommendation text appears
+under specific input conditions; existing GE-002/GE-004 tests continue to pass unchanged.
+
+**Akzeptanzkriterien (DoD):**
+
+- Both rules produce non-empty `insights` and `recommendations` under at least one
+  documented condition each.
+- No change to existing `assessment`/`goalProgress`/`warnings` test expectations.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### DI-004: Dashboard & Insights Domain Regression Coverage
+
+Status: `todo`
+Depends on: DI-001–DI-003
+
+**Ziel:** Consolidated regression pass across DI-001–DI-003, mirroring J-006/SM-006/GE-005,
+plus an explicit follow-up-task stub for the legacy mock Dashboard finding documented in
+this section's preamble.
+
+**Scope / betroffene Dateien:** New
+`src/features/evaluation/__tests__/DashboardInsightsDomainRegressionCoverage.test.ts` (or
+similarly named): seed real Journal entries + real `EffectiveGoals`/`MetabolismProfile` via
+their actual repositories → `BuildEvaluationInputForDateUseCase` → `
+GetActiveEvaluationOutputUseCase` → assert the resulting `EvaluationOutput` reflects the
+seeded data end-to-end (not fixture-constructed `EvaluationInput` objects, unlike GE-002–
+GE-005's tests) — the first test in this whole Evaluation Engine effort exercising the full
+real-repository path, not hand-built fixtures.
+
+**Risiken:** Low — read-only regression proof, no new production code beyond the test file
+and a `ROADMAP.md` follow-up stub.
+
+**Tests:** As described above.
+
+**Akzeptanzkriterien (DoD):**
+
+- Full suite green including the new end-to-end scenario.
+- `tsc --noEmit` and `eslint` pass clean.
+- `ROADMAP.md` gains an explicit `todo` follow-up task stub (DI-005, not implemented here)
+  for reconciling/retiring `GetDashboardSummary`/`MockNutritionRepository`/
+  `MockRecoveryRepository` and deciding Recovery's fate (own screen? dropped? out of
+  Zera's scope entirely?) — a product decision, not mechanical enough for DI-001–DI-004.
+
+**Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
 
 ---
 

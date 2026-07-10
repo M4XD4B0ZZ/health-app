@@ -4697,6 +4697,46 @@ Store query → candidates → final decision chain for learning and debugging.
 
 **Verify:** DB entries created per resolution, correction flow works
 
+**Implementation notes (human-approved scope, see conversation):** Implemented the first two
+DoD lines. [`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts)
+is now a thin wrapper around the previous method body (renamed to `resolveInternal()`) that
+fire-and-forgets a [`ResolverRunLogger`](src/features/nutrition/application/ports/ResolverRunLogger.ts)
+call after every decision — never awaited by the caller and never allowed to affect the
+returned decision (errors are swallowed inside the logger). The default is a
+[`NoopResolverRunLogger`](src/features/nutrition/application/ports/ResolverRunLogger.ts) (zero
+behavior change for the 108 pre-existing resolver test suites, which don't pass a logger); the
+DI container (`container.ts`) wires a real
+[`SupabaseResolverRunLogger`](src/features/nutrition/infrastructure/repositories/SupabaseResolverRunLogger.ts)
+outside test env, which inserts one row per decision into `food_resolver_runs` (mirroring
+`SupabaseUserAliasSource`'s pattern: requires an auth session, silently skips otherwise). Added
+[`supabase/migrations/20260711_add_resolver_run_insert_policy.sql`](supabase/migrations/20260711_add_resolver_run_insert_policy.sql)
+— the table previously only had a SELECT RLS policy, so authenticated inserts were silently
+rejected before this. New tests:
+[`SupabaseResolverRunLogger.test.ts`](src/features/nutrition/__tests__/SupabaseResolverRunLogger.test.ts)
+(session/insert/error-swallowing paths) and a new `describe('Resolver Run Logging
+(RESOLVER-V2-006)')` block in
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts).
+Full suite (109 suites / 833 tests, +5 new), `tsc --noEmit`, `eslint`, and `npx prettier -c .`
+all pass clean.
+
+**Known simplifications, left for follow-up:**
+
+- `winner_item_id` is intentionally left `NULL` on every insert. Not every winning candidate
+  (BLS static-source or user-alias fast-path winners, in particular) has a corresponding row
+  in `food_catalog_items`, and that column's FK constraint would reject the insert for those
+  cases; mapping winners to a real `food_catalog_items.id` needs its own task. The winner is
+  still fully captured via `winner_source`/`winner_confidence`/`metadata.winnerName`.
+- `cache_hit` is always recorded as `false`. The resolver's internal negative-cache
+  short-circuit (`metrics.cacheHit`) isn't threaded through `ResolverDecision` today, and
+  changing that return shape felt riskier than deferring it — not distinguished from a fresh
+  negative resolution in the persisted row yet.
+- **"User corrections update knowledge base" is not implemented** — there is no `corrections`
+  table yet (see RESOLVER-V2-005's discovery above), so this DoD line is out of scope until
+  that table exists.
+- Not applied to the remote project by this task, same as RESOLVER-V2-005's migration —
+  applying it (`supabase db push` or the Supabase MCP's `apply_migration`) is a deliberate,
+  separate follow-up.
+
 ---
 
 ## Tier 3 Planning Targets — Require Later Task Decomposition

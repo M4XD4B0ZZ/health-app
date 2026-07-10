@@ -50,6 +50,8 @@ import { BlsStaticSource } from '../../features/nutrition/infrastructure/catalog
 import { SupabaseEdgeOffSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeOffSource';
 import { SupabaseEdgeUsdaSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseEdgeUsdaSource';
 import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
+import { SupabaseResolverRunLogger } from '../../features/nutrition/infrastructure/repositories/SupabaseResolverRunLogger';
+import { NoopResolverRunLogger } from '../../features/nutrition/application/ports/ResolverRunLogger';
 import { SupabaseEdgeOffProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeOffProvider';
 import { SupabaseEdgeUsdaProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeUsdaProvider';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
@@ -285,10 +287,18 @@ class Container {
     ];
     void _diagInMemoryReferences;
 
+    // RESOLVER-V2-006: real Supabase persistence outside test env only, so the test suite
+    // never triggers network calls for resolver-run logging (mirrors the allowMocks/test-env
+    // gate used for resolverSources above).
+    const resolverRunLogger =
+      envName() === 'test' ? new NoopResolverRunLogger() : new SupabaseResolverRunLogger(supabase);
+
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
       resolverSources,
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
+      undefined,
+      resolverRunLogger,
     );
     if (!foodCatalogResolver) throw new Error('DI_MISSING_FOOD_CATALOG_RESOLVER');
 

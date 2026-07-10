@@ -3448,10 +3448,254 @@ J-001 — all files touched across SM-001–SM-006 are confirmed individually Pr
 
 Status: `todo`
 
-Ready for decomposition into concrete tasks (not yet decomposed). Target
-configuration/progress — driven entirely by the active Evaluation Profile (Product Bible
-Abschnitt 7), not a fixed schema. Depends on Journal Domain (reads journal data) and the
-Evaluation Profile contract (Product Bible Abschnitt 4).
+All five decomposed tasks (GE-001–GE-005 below) are `todo`. Like Saved Meals, this is
+**not** greenfield: there is already substantial, partially-overlapping goal-tracking code,
+but **no** Evaluation Profile/Rule concept (Product Bible §4/4a: Origin, swappable
+Preset/User profiles, stateless Food-Catalog+Journal+Profile→Bewertung formula) exists
+anywhere yet — what exists is a single, fixed calorie/macro-target scheme, which is exactly
+what Product Bible §9 says must be replaced ("Goals wird zur Zielkonfiguration/-anzeige
+innerhalb eines Profiles, statt eines einzelnen festen Zielschemas"). Concretely, code
+inspection found **two separate, competing goal-target systems already live in the app**:
+
+1. `src/features/goals/` (`MetabolismProfile` → `EffectiveGoals` — `mode: 'suggested' |
+   'manual'`, via `MetabolismCalculator`/`GoalsSuggestionCalculator`/`ProgressCalculator`) —
+   wired to the actual `GoalsScreen.tsx` tab, and read by
+   `src/features/journal/application/usecases/ComputeProgressForDateUseCase.ts`.
+2. `src/features/nutrition/domain/goals/` (`UserGoals` — `source: 'manual' | 'calculated'`,
+   via `GoalsRepository`/`PersistedGoalsRepository`) — read by
+   `GetDailySummaryUseCase`/`GetCalendarMonthSummaryUseCase` (the Journal's daily/monthly
+   totals).
+
+Both are live simultaneously. Worse: `JournalScreen.tsx` calls **both** —
+`getDailySummaryUseCase` (system 2, whose `DailySummary.progress`/`.remaining` fields are
+never read) and `computeProgressForDateUseCase` (system 1) whose result is discarded into
+an unused destructured state slot (`const [, setProgress] = useState<DailyProgressSnapshot
+| null>(null)`, `journal/JournalScreen.tsx:72`). So today, **no goal-vs-consumed progress is
+shown anywhere in the app**, despite two backend systems fully capable of computing it —
+and per Product Bible §6/§7 (Journal-Anzeige must stay profile-independent; progress
+display is profile-dependent Evaluation Engine output), `JournalScreen` computing progress
+at all may itself be a boundary violation once a real Evaluation Profile exists, not just
+dead code. Reconciling/removing one of the two systems and deciding where progress display
+belongs (Dashboard & Insights, not Journal) are real, separate decisions — **not** solved by
+GE-001–GE-005 below; see GE-005's closing notes for explicit follow-up-task stubs instead of
+silently ignoring these findings.
+
+Given that risk profile, GE-001–GE-005 stay additive-first (mirroring J-001's "narrow,
+mechanical, no behavior change" precedent): introduce the Evaluation Profile/Rule contract,
+adapt the *already-screen-wired* `src/features/goals` system (not the unused-by-UI one)
+behind it as the first concrete Preset, prove swappability with a second Preset, and leave
+existing `GoalsScreen`/`JournalScreen` behavior otherwise unchanged.
+
+Implementation order:
+
+1. **Evaluation Profile & Rule Domain Contract** (GE-001)
+2. **Evidence-based Standard Profile** — first concrete implementation (GE-002)
+3. **Active Profile Registry + Persistence** (GE-003)
+4. **Second Preset Profile (Weight Loss)** — proves swappability / Variante B (GE-004)
+
+Cross-cutting: **GE-005** (regression coverage across GE-001–GE-004, plus follow-up stubs
+for the findings above).
+
+Depends on Journal Domain (reads journal data, done) and the Evaluation Profile contract
+this decomposition itself introduces (Product Bible Abschnitt 4).
+
+---
+
+#### GE-001: Evaluation Profile & Rule Domain Contract
+
+Status: `todo`
+Depends on: none
+
+**Ziel:** Introduce the Evaluation Profile/Rule domain contract from Product Bible §4/4a as
+plain TypeScript interfaces — no implementation, no wiring, no behavior change. Establishes
+the stateless Ein-/Ausgabe formula (`Food Catalog + Journal + Benutzerprofil +
+Profileinstellungen → Bewertung + Insights + Warnungen + Empfehlungen + Zielerreichung`) as
+an explicit, checkable type contract instead of only prose.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/domain/models/EvaluationProfile.ts` — `EvaluationProfile {
+  id, name, origin: 'preset' | 'user' | 'professional' | 'community' | 'ai', ruleIds:
+  string[], metadata: { motivation?, maturity? } }` (Product Bible §4 "Profil-Metadaten").
+- New `src/features/evaluation/domain/models/Rule.ts` — `Rule { id, name, description,
+  dataRequirements?: string[], evaluate(input: EvaluationInput): RuleResult }` (§4a);
+  `evaluate` is a pure function signature only in this task (no real rule bodies yet).
+- New `src/features/evaluation/domain/models/EvaluationContract.ts` — `EvaluationInput {
+  foodCatalogReads, journalReadsForPeriod, userProfileBasics?, profileSettings }` and
+  `EvaluationOutput { assessment, insights: string[], warnings: string[], recommendations:
+  string[], goalProgress }` (§4's exact input/output lists).
+- New `src/features/evaluation/index.ts` barrel (new feature directory — this is the first
+  code under an explicit "Evaluation Engine" module, distinct from `features/goals`).
+
+**Risiken:** Low — additive-only domain types, zero call sites, zero behavior change.
+Main risk is modeling the contract too rigidly before GE-002 proves it against real code;
+mitigated by keeping `EvaluationInput`/`Output` fields loosely typed (e.g. `unknown`/generic
+placeholders) where GE-002 hasn't yet determined the concrete shape.
+
+**Tests:** Type-level only (compiles); no runtime behavior to unit test yet.
+
+**Akzeptanzkriterien (DoD):**
+
+- `EvaluationProfile`, `Rule`, `EvaluationInput`, `EvaluationOutput` exist and match Product
+  Bible §4/§4a's documented fields exactly (Origin taxonomy, Ein-/Ausgabe lists).
+- Zero existing files modified; zero behavior change; full suite stays green.
+- Both duplicate goal systems and the `JournalScreen` dead-state findings above are
+  reproduced in this task's implementation notes (not just the preamble) so they're
+  discoverable from the task itself.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### GE-002: Evidence-based Standard Profile
+
+Status: `todo`
+Depends on: GE-001
+
+**Ziel:** First concrete `EvaluationProfile` implementation — adapts the *already
+screen-wired* `src/features/goals` system (`MetabolismProfile`/`EffectiveGoals`/
+`ProgressCalculator`), not the unused-by-UI `nutrition/domain/goals` one, behind the GE-001
+contract as the Default-Profile (Origin: `preset`), per Product Bible §5 "Evidence-based
+Standard". No behavior change to `GoalsScreen.tsx` or `ComputeProgressForDateUseCase`.
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/profiles/EvidenceBasedStandardProfile.ts` — an
+  adapter implementing GE-001's `EvaluationProfile`/`Rule` shape by delegating to the
+  existing `ComputeMetabolismResultUseCase`/`SuggestGoalsUseCase`/`calculateDailyProgress`
+  (`src/features/goals/application/*`), read-only, no new persistence.
+- New `src/features/evaluation/application/rules/CalorieMacroCorridorRule.ts` — wraps
+  `calculateDailyProgress` (`src/features/goals/application/calculators/ProgressCalculator.ts`)
+  as a `Rule`, producing an `EvaluationOutput` from the same inputs
+  `ComputeProgressForDateUseCase` already computes today.
+
+**Risiken:** Low-medium — first real implementation against the GE-001 contract; may
+surface contract gaps (fixed in this task, since GE-001 has no other call sites to break).
+No existing use case is modified — this is a parallel adapter, proving the contract fits
+without touching the live `GoalsScreen`/`ComputeProgressForDateUseCase` path yet.
+
+**Tests:** `EvidenceBasedStandardProfile`/`CalorieMacroCorridorRule` produce an
+`EvaluationOutput` equivalent (same consumed/target/status) to today's
+`ComputeProgressForDateUseCase` output for the same fixture inputs.
+
+**Akzeptanzkriterien (DoD):**
+
+- A concrete `EvaluationProfile` exists and is unit-tested against fixture Journal/goals data.
+- No behavior change to any existing screen or use case.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### GE-003: Active Profile Registry + Persistence
+
+Status: `todo`
+Depends on: GE-002
+
+**Ziel:** Introduce a persisted "active Evaluation Profile" selection, defaulting to
+GE-002's Evidence-based Standard, as a pure read-context (Product Bible §2a Variante B: a
+profile switch is never a data migration).
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/ports/EvaluationProfileRegistry.ts` — `list():
+  EvaluationProfile[]`, `getActiveProfileId(): Promise<string>`,
+  `setActiveProfileId(id): Promise<void>`.
+- New `src/features/evaluation/infrastructure/PersistedActiveProfileRepository.ts` —
+  `KeyValueStore`-backed (reuses the nutrition feature's `KeyValueStore` port/
+  `AsyncStorageKeyValueStore`, mirroring SM-004's pattern), defaulting to GE-002's profile id
+  when unset.
+- New `src/features/evaluation/application/usecases/GetActiveEvaluationOutputUseCase.ts` —
+  resolves the active profile id, looks it up in the (currently single-entry) registry, and
+  runs it — the first real "swap the interpretation without touching Journal/Food Catalog"
+  code path, but not yet wired into any screen.
+
+**Risiken:** Low — additive; no existing screen calls this yet, so nothing regresses.
+
+**Tests:** Defaults to GE-002's profile when nothing is set; persists and reflects an
+explicit selection across a fresh repository instance (durability, mirroring SM-004's test
+pattern).
+
+**Akzeptanzkriterien (DoD):**
+
+- Active profile selection persists and defaults correctly.
+- No Journal or Food Catalog writes occur on a profile switch (explicit test).
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### GE-004: Second Preset Profile (Weight Loss) — Proves Swappability
+
+Status: `todo`
+Depends on: GE-003
+
+**Ziel:** Implement a second concrete `EvaluationProfile` (Product Bible §5 "Weight Loss":
+Kaloriendefizit + Proteinerhalt) and prove — with a real regression test, not just
+assertion-by-design — that switching the active profile reinterprets the *same* Journal day
+differently, with zero Journal/Food-Catalog mutation (Variante B, §2a).
+
+**Scope / betroffene Dateien:**
+
+- New `src/features/evaluation/application/profiles/WeightLossProfile.ts` + a
+  `ProteinPreservingDeficitRule` alongside `CalorieMacroCorridorRule` (reuses
+  `MetabolismCalculator`'s TDEE with a deficit adjustment, not a new metabolism model).
+
+**Risiken:** Low — additive second implementation of an already-proven (GE-002) contract.
+
+**Tests:** For one fixed Journal day + goals input, `GetActiveEvaluationOutputUseCase`
+returns a different `EvaluationOutput.assessment`/`goalProgress` under
+`EvidenceBasedStandardProfile` vs. `WeightLossProfile`, with no calls to any Journal/Food
+Catalog write path in either branch (spy/assert no writes).
+
+**Akzeptanzkriterien (DoD):**
+
+- Two swappable profiles exist and produce demonstrably different output for identical
+  underlying data.
+- Variante B (no data migration on switch) is proven by test, not just by design.
+- Full suite, typecheck, lint pass clean.
+
+**Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+---
+
+#### GE-005: Goals & Evaluation Domain Regression Coverage
+
+Status: `todo`
+Depends on: GE-001–GE-004
+
+**Ziel:** Consolidated regression pass across GE-001–GE-004, mirroring J-006/SM-006, plus
+explicit follow-up-task stubs for the findings documented in this section's preamble that
+are deliberately **out of scope** here.
+
+**Scope / betroffene Dateien:** New
+`src/features/evaluation/__tests__/EvaluationDomainRegressionCoverage.test.ts`: set active
+profile to Evidence-based Standard → get output for a fixture day → switch active profile
+to Weight Loss (GE-003/GE-004) → get output for the *same* fixture day → assert different
+assessment, zero Journal/Food-Catalog writes across the whole flow, and that
+`EvaluationProfileRegistry.list()` includes both.
+
+**Risiken:** Low — read-only regression proof, no new production code beyond the test file
+and (if needed) a `ROADMAP.md` update adding the follow-up task stubs below.
+
+**Tests:** As described above.
+
+**Akzeptanzkriterien (DoD):**
+
+- Full suite green including the new cross-cutting scenario.
+- `tsc --noEmit` and `eslint` pass clean.
+- `ROADMAP.md` gains explicit `todo` follow-up task stubs (not implemented by GE-005 itself)
+  for: (a) reconciling/retiring the duplicate `nutrition/domain/goals`/`GetDailySummaryUseCase`
+  goal-target system now that GE-002 establishes the real one; (b) resolving
+  `JournalScreen.tsx`'s discarded `computeProgressForDateUseCase` call and whether
+  progress display belongs there at all (Product Bible §6/§7 boundary) or only in Dashboard
+  & Insights; (c) `GoalsScreen.tsx`'s eventual move to a Product-Bible-§4b-compliant "Ziel
+  wählen" (profile-picker) surface once more than one profile should be user-selectable —
+  none of these are mechanical enough to fold into GE-001–GE-005's additive scope.
+
+**Verify:** `npm run test`, `npm run typecheck`, `npm run lint`.
 
 ### Dashboard & Insights
 

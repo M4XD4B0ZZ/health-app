@@ -51,6 +51,49 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-10 — DI-005: Dashboard-Tab entfernt (AppNavigator/DashboardScreen)
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/navigation/AppNavigator.tsx` (Dashboard-Tab-
+  Registrierung entfernt, `RootTabParamList` ohne `Dashboard`, Icon-Branch entfernt),
+  `src/presentation/features/dashboard/DashboardScreen.tsx` (gelöscht, war mock-basiert).
+  Nutzerentscheidung: Dashboard-Tab komplett entfernt, da der Ernährungs-Teil durch den
+  Auswertung-Tab (DI-002) ersetzt ist; Recovery-/Nutrition-Tabs bleiben unangetastet (eigene,
+  separate Frage).
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (107
+  Suites / 813 Tests — keine dedizierten Dashboard-Tests vorhanden, also keine Testabdeckung
+  verloren). Vollständiger Grep nach `DashboardScreen`/`GetDashboardSummary`/`Apptest`
+  bestätigt keine verbleibenden Referenzen im Code.
+- **Nicht verifiziert (visuell):** Tab-Leiste mit einem Tab weniger (Layout/Abstände der
+  verbleibenden Tabs, insbesondere auf schmalen Bildschirmen), dass die App weiterhin korrekt
+  mit `initialRouteName="Journal"` startet, dass kein Navigations-State/Deep-Link mehr auf
+  `Dashboard` verweist.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 4 (Navigation &
+  State). Konkret: App starten, prüfen dass genau sechs Tabs sichtbar sind (Protokoll/
+  Ziele/Ernährung/Erholung/Vorlagen/Auswertung), kein "Dashboard"-Tab mehr vorhanden, keine
+  Crash-/Fehlerdialoge beim Start.
+
+### 2026-07-10 — GE-007: Toter Progress-Call in JournalScreen entfernt
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/continuation-esc10o`
+- **Betroffene Bereiche:** `src/presentation/features/journal/JournalScreen.tsx` (Entfernung
+  des `computeProgressForDateUseCase`-Aufrufs sowie des verworfenen, nie gerenderten
+  `progress`-States; kein neuer sichtbarer UI-Bestandteil, reine Entfernung von totem Code
+  gemäß Nutzerentscheidung).
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test`
+  (`JournalScreen.submitGuard.test.ts` weiterhin grün). Da nur unbenutzter State/Aufruf
+  entfernt wurde, ist kein Verhaltensunterschied im gerenderten Output zu erwarten.
+- **Nicht verifiziert (visuell):** Dass Journal-Screen-Rendering/-Verhalten (Eingabe,
+  Einträge-Liste, Summary-Bar) tatsächlich unverändert aussieht/funktioniert, insbesondere
+  dass durch den Wegfall des zweiten `try/catch`-Blocks in `loadJournalData()` keine
+  impliziten Timing-/Re-Render-Effekte entstanden sind.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 7
+  (Regressionscheck). Konkret: im Journal-Tab wie gewohnt Essen loggen, Einträge
+  bearbeiten/löschen, Summary-Bar prüfen — sollte sich identisch zum vorherigen Verhalten
+  anfühlen.
+
 ### 2026-07-10 — DI-002: Neuer Auswertungs-Tab (EvaluationSummaryScreen)
 
 - **Status:** ⏳ offen

@@ -79,8 +79,10 @@ import { FoodCatalogSource } from '../../features/nutrition/domain/catalog/FoodC
 
 // Goals Feature
 import {
-  InMemoryMetabolismProfileRepository,
-  InMemoryEffectiveGoalsRepository,
+  PersistedMetabolismProfileRepository,
+  PersistedEffectiveGoalsRepository,
+  MetabolismProfileRepository,
+  EffectiveGoalsRepository,
   SystemClock as GoalsSystemClock,
   RandomIdGenerator as GoalsRandomIdGenerator,
   UpsertMetabolismProfileUseCase,
@@ -145,8 +147,8 @@ class Container {
   private _savedMealRepository: SavedMealRepository;
 
   // Goals Feature - Infrastructure
-  private _metabolismProfileRepository: InMemoryMetabolismProfileRepository;
-  private _effectiveGoalsRepository: InMemoryEffectiveGoalsRepository;
+  private _metabolismProfileRepository: MetabolismProfileRepository;
+  private _effectiveGoalsRepository: EffectiveGoalsRepository;
   private _goalsClock: GoalsSystemClock;
   private _goalsIdGenerator: GoalsRandomIdGenerator;
 
@@ -242,8 +244,10 @@ class Container {
     );
 
     // Goals infrastructure
-    this._metabolismProfileRepository = new InMemoryMetabolismProfileRepository();
-    this._effectiveGoalsRepository = new InMemoryEffectiveGoalsRepository();
+    this._metabolismProfileRepository = new PersistedMetabolismProfileRepository(
+      this._keyValueStore,
+    );
+    this._effectiveGoalsRepository = new PersistedEffectiveGoalsRepository(this._keyValueStore);
     this._goalsClock = new GoalsSystemClock();
     this._goalsIdGenerator = new GoalsRandomIdGenerator();
 
@@ -502,11 +506,11 @@ class Container {
   }
 
   // Goals Infrastructure
-  get metabolismProfileRepository(): InMemoryMetabolismProfileRepository {
+  get metabolismProfileRepository(): MetabolismProfileRepository {
     return this._metabolismProfileRepository;
   }
 
-  get effectiveGoalsRepository(): InMemoryEffectiveGoalsRepository {
+  get effectiveGoalsRepository(): EffectiveGoalsRepository {
     return this._effectiveGoalsRepository;
   }
 

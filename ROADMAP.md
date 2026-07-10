@@ -4162,7 +4162,7 @@ as a floor, not a substitute.
 
 #### DI-006: Persist EffectiveGoals/MetabolismProfile
 
-Status: `todo`
+Status: `done`
 Depends on: none
 
 **Ziel:** `container.ts` wires `EffectiveGoalsRepository`/`MetabolismProfileRepository`
@@ -4180,6 +4180,20 @@ side effect.
 **Verify (once scoped):** `npm run typecheck`, `npm run test`, `npm run lint`; a durability
 test (repository re-instantiated over the same `KeyValueStore`, mirroring SM-004's/GE-003's
 pattern) proving goals/metabolism profile survive a simulated restart.
+
+**Implementation notes:** Both `MetabolismProfile` and `EffectiveGoals` turned out to be
+fully JSON-serializable already (`createdAt`/`updatedAt`/`suggestionSnapshot.createdAt` are
+already ISO strings, not `Date` objects), so `PersistedMetabolismProfileRepository`/
+`PersistedEffectiveGoalsRepository` need no serialize/deserialize transformation beyond
+`JSON.stringify`/`JSON.parse` — simpler than `PersistedSavedMealRepository`'s pattern, not
+more complex. `container.ts`'s `_metabolismProfileRepository`/`_effectiveGoalsRepository`
+fields and their public getters were retyped from the concrete `InMemory*` classes to their
+port interfaces (`MetabolismProfileRepository`/`EffectiveGoalsRepository`) — confirmed
+nothing outside the container called an `InMemory*`-only method (e.g. the test-only
+`.clear()` helper) through the container getters before making this change. Full suite (110
+suites / 819 tests, +9 new), `tsc --noEmit`, `eslint` (scoped and full-repo), and `npx
+prettier -c` (scoped and full-repo, 238-file pre-existing baseline unchanged) all pass
+clean.
 
 ---
 

@@ -7,6 +7,9 @@ export * from './rules';
 // Profiles
 export * from './profiles';
 
+// Settings Providers
+export * from './settingsProviders';
+
 // Use Cases
 export * from './usecases';
 

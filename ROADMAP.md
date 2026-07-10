@@ -3910,7 +3910,7 @@ for reconciling/retiring the legacy mock Dashboard).
 
 #### DI-001: EvaluationInput Assembly (Profile Settings Providers)
 
-Status: `todo`
+Status: `done`
 Depends on: GE-003 (registry), GE-002/GE-004 (the two profiles needing settings)
 
 **Ziel:** Assemble a real `EvaluationInput` for a given date from actual repositories —
@@ -3950,6 +3950,22 @@ defaulting.
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** Each provider's `build()` is declared to return
+`Promise<Record<string, unknown>>` (matching the port exactly) rather than its Rule's own
+narrower settings interface (`CalorieMacroCorridorSettings`/`ProteinPreservingDeficitSettings`)
+— TypeScript's interface-implementation check rejected the narrower return type directly
+(a named type without an index signature isn't structurally assignable to
+`Record<string, unknown>` in a method-override position), so the narrowing happens on the
+Rule's read side (the existing `as unknown as ...Settings` cast), not the provider's write
+side. Both providers reuse existing, unmodified error types
+(`GoalsNotFoundError`/`ProfileNotFoundError` from `src/features/goals`) rather than
+introducing new ones for the same "nothing set yet" condition.
+`BuildEvaluationInputForDateUseCase` is tested end-to-end through
+`GetActiveEvaluationOutputUseCase` for both profiles using real `InMemory*` repositories
+(not hand-built `EvaluationInput` fixtures), closing the gap GE-004's tests left open. Full
+suite (105 suites / 797 tests, +10 new), `tsc --noEmit`, `eslint`, and `npx prettier -c
+src/features/evaluation/` pass clean.
 
 ---
 

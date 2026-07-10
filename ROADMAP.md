@@ -4838,6 +4838,16 @@ P2-009-B (webhook receiver — needs a RevenueCat account to finish/test), P2-00
 needs a RevenueCat API key + App Store/Play Store subscription products + npm dependency
 approval).
 
+**P2-009-A implementation notes:** Added
+[`supabase/migrations/20260712_add_user_entitlements_table.sql`](supabase/migrations/20260712_add_user_entitlements_table.sql)
+— `public.user_entitlements` (`user_id` PK/FK to `auth.users`, `is_pro`, `product_id`,
+`expires_at`, `revenuecat_app_user_id`, timestamps), same shape as `food_catalog_items`'s RLS:
+users may `SELECT` their own row only, no client write policy — the P2-009-B webhook (once
+built) writes via the service role key, bypassing RLS. Not applied to the remote project by
+this task, same as the RESOLVER-V2-005/006 migrations — applying it is a deliberate follow-up
+once P2-009-B needs it to actually write. A partial index on `is_pro = true` keeps future
+"list Pro users" queries cheap without indexing the whole table.
+
 ---
 
 ### P2-010 Paid-only Gating for AI Endpoints

@@ -1,46 +1,10 @@
 # HealthApp 6 Master Roadmap (SSOK)
 
-# Phase C: OpenCode CLI Worker Integration
+Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
 
-# Ziel
-
-- OpenCode als optionaler CLI-Worker, ohne VS Code + Roo zu ersetzen
-- Übergabe vorbereiteten Prompts aus .agent/out/next-prompt.md an OpenCode
-- Ausgabe protokollieren und an Verify/Review-Gates stoppen
-
-# Umsetzung
-
-- Neue Datei: scripts/agent/run-opencode-worker.mjs
-- Neues Script in package.json: "agent:worker"
-- Robust Repo-Root Ermittlung
-- Prüfen auf .agent/out/next-prompt.md, Fehlermeldung falls nicht vorhanden
-- Safety-Header vor Prompt
-- OpenCode non-interactive starten (spawn, PowerShell-kompatibel)
-- Ausgabe in .agent/out/opencode-report.md
-- State in .agent/state.json aktualisieren
-- Fehlerbehandlung bei fehlendem OpenCode oder non-zero Exit
-- .gitignore anpassen für opencode-report.md
-- README scripts/agent/README.md um Phase C ergänzen
-
-# Nutzungsschritte
-
-1. npm run agent:run
-2. npm run agent:worker
-3. npm run agent:verify
-4. npm run agent:run
-
-# Hinweise
-
-- VS Code + Roo bleiben Cockpit
-- OpenCode ist optionaler Worker
-- Kein Multi-Task-Loop oder Commit/Push in Phase C
-
-Status: Active
-
-- [x] P0-002: Kerninputs Proof
-      Architecture: Clean Architecture + Feature-First + Deterministic-First Nutrition Engine
-
----
+> OpenCode CLI worker integration ("Phase C") is implemented and documented in
+> `scripts/agent/README.md` — it predates the Tier system below and is no longer
+> tracked here to avoid duplicate/stale planning content.
 
 ## DACH Data Strategy – Generic vs Branded Separation
 

@@ -59,6 +59,22 @@ export interface FoodEntry {
     displayName: string;
     confidence: number;
   };
+  /**
+   * J-003 / Journal Decision Record 1 Entscheidung 1: tombstone timestamp. Set instead of
+   * physically removing the entry on delete. Repositories filter tombstoned entries out of
+   * their normal read paths (listEntriesForDate/listByDateRange/getEntryById).
+   */
+  deletedAt?: Date;
+}
+
+/**
+ * J-003 / Journal Decision Record 1 Entscheidung 1: append-only audit record written on
+ * every edit and delete. Internal only — not exposed in any UI-facing read path.
+ */
+export interface CorrectionLogEntry {
+  timestamp: Date;
+  previousValues: FoodEntry;
+  triggeredBy: 'user' | 'system';
 }
 
 export interface DailyNutritionSummary {

@@ -257,4 +257,32 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(result.updatedEntry.calcBreakdown?.gramsUsed).toBe(300);
     expect(result.updatedEntry.calcBreakdown?.multiplier).toBe(1);
   });
+
+  it('appends a correction-log entry with the pre-edit values (J-003)', async () => {
+    const baseEntry: FoodEntry = {
+      id: 'entry-1',
+      rawInput: '100g banana',
+      parsedName: 'banana',
+      quantityGrams: 100,
+      grams: 100,
+      servingMultiplier: 1,
+      calories: 89,
+      protein: 1.1,
+      carbs: 22.8,
+      fat: 0.3,
+      confidenceScore: 0.6,
+      sourceType: 'generic',
+      createdAt: new Date('2026-02-15T10:00:00Z'),
+    };
+    await repository.addEntry(baseEntry);
+
+    await useCase.execute('entry-1', '200g');
+
+    const log = await repository.getCorrectionLog('entry-1');
+    expect(log).toHaveLength(1);
+    expect(log[0].triggeredBy).toBe('user');
+    expect(log[0].timestamp).toEqual(clock.now());
+    expect(log[0].previousValues).toEqual(baseEntry);
+    expect(log[0].previousValues.grams).toBe(100);
+  });
 });

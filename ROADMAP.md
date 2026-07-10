@@ -2851,7 +2851,7 @@ in J-001 still applies to `npm run verify` as an aggregate command.)
 
 #### J-003: Correction Log + Soft Delete
 
-Status: `todo`
+Status: `done`
 Depends on: J-002 (extends the same `FoodEntry`/repository surface)
 
 **Ziel:** Implement Decision Record 1 Entscheidung 1 — append-only correction log on every
@@ -2884,6 +2884,35 @@ exclude tombstoned entries.
 - No existing test regresses; new tests cover log-append and soft-delete filtering.
 
 **Verify:** `npm run typecheck`, `npm run test`.
+
+**Implementation notes:** `FoodEntry` gained `deletedAt?: Date` (tombstone) and a new
+`CorrectionLogEntry { timestamp, previousValues, triggeredBy: 'user' | 'system' }` type
+(`NutritionTypes.ts`). Read-path filtering happens once, at the repository boundary:
+`listEntriesForDate`/`listByDateRange`/`getEntryById` on both `PersistedFoodEntryRepository`
+and `InMemoryFoodEntryRepository` now exclude tombstoned rows — so `GetDailySummaryUseCase`,
+`GetCalendarMonthSummaryUseCase`, journal display, and `findCorrectionCandidate`'s auto-merge
+search all inherit the exclusion for free, with zero changes needed to those files (verified
+with new regression tests on the daily and calendar-month summary use cases). The
+`FoodEntryRepository` port gained `appendCorrectionLogEntry`/`getCorrectionLog` and
+`deleteEntry`'s signature grew a `deletedAt: Date` parameter (sourced from each use case's
+existing `Clock`, keeping the codebase's no-direct-`new Date()`-in-infra convention) — this
+propagated mechanically to all three port implementers (`PersistedFoodEntryRepository`,
+`InMemoryFoodEntryRepository`, and the private `StagedFoodEntryRepository` inside
+`LogMealFromRawInputUseCase.ts`), none of which were in the task's literal 4-file scope list
+but were structurally required by the interface change — same "many files, mechanical"
+pattern as J-001. `DeleteFoodEntryUseCase` gained a `Clock` constructor dependency (wired in
+`container.ts`); it now loads the entry first, logs the correction entry, then soft-deletes —
+an already-tombstoned or nonexistent id is a silent no-op (matches prior hard-delete
+behavior for missing ids). `EditFoodEntryFromNaturalLanguageUseCase`/
+`ApplyNaturalLanguageEditUseCase` log immediately before their existing persist call, using
+the untouched pre-edit entry object as `previousValues`; `ApplyNaturalLanguageEditUseCase`'s
+existing early-return-on-no-change path correctly appends no log entry. Correction log is
+persisted under its own storage key (`nutrition:correctionLog`), separate from
+`nutrition:entries`, and is only reachable via `getCorrectionLog()` — no UI-facing read path
+exists yet, satisfying the "internal only" DoD constraint.
+Full suite (89 suites / 732 tests, +12 new), `tsc --noEmit`, `eslint`, and `prettier -c` on
+touched files pass clean. (Same pre-existing, unrelated repo-wide `format:check` gap noted in
+J-001 still applies to `npm run verify` as an aggregate command.)
 
 ---
 

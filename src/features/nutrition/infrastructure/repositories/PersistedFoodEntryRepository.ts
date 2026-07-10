@@ -1,4 +1,4 @@
-import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { FoodEntry, CorrectionLogEntry } from '../../domain/models/NutritionTypes';
 import { FoodEntryRepository } from '../../application/ports/FoodEntryRepository';
 import { KeyValueStore } from '../../application/ports/KeyValueStore';
 import { AssumptionTag } from '../../domain/models/AssumptionTag';
@@ -57,6 +57,16 @@ interface SerializedFoodEntry {
     displayName: string;
     confidence: number;
   };
+  deletedAt?: string; // ISO string
+}
+
+/**
+ * Serialisierbare Version von CorrectionLogEntry für JSON-Speicherung.
+ */
+interface SerializedCorrectionLogEntry {
+  timestamp: string; // ISO string
+  previousValues: SerializedFoodEntry;
+  triggeredBy: 'user' | 'system';
 }
 
 /**
@@ -71,8 +81,10 @@ interface SerializedFoodEntry {
  */
 export class PersistedFoodEntryRepository implements FoodEntryRepository {
   private static readonly STORAGE_KEY = 'nutrition:entries';
+  private static readonly CORRECTION_LOG_STORAGE_KEY = 'nutrition:correctionLog';
 
   private entries: Map<string, FoodEntry[]> = new Map();
+  private correctionLog: Map<string, CorrectionLogEntry[]> = new Map();
   private isLoaded = false;
 
   constructor(private readonly keyValueStore: KeyValueStore) {}
@@ -92,7 +104,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     await this.ensureLoaded();
 
     const entries = this.entries.get(dateISO) || [];
-    return [...entries]; // Return copy to prevent external mutation
+    return entries.filter((entry) => !entry.deletedAt).map((entry) => ({ ...entry })); // Return copy to prevent external mutation
   }
 
   async listByDateRange(startDateISO: string, endDateISO: string): Promise<FoodEntry[]> {
@@ -101,6 +113,9 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     const results: FoodEntry[] = [];
     for (const entries of this.entries.values()) {
       for (const entry of entries) {
+        if (entry.deletedAt) {
+          continue;
+        }
         const dateISO = getDateISOInTimezone(entry.createdAt.toISOString(), 'Europe/Berlin');
         if (dateISO >= startDateISO && dateISO <= endDateISO) {
           results.push({ ...entry });
@@ -133,7 +148,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     await this.ensureLoaded();
 
     for (const entries of this.entries.values()) {
-      const found = entries.find((entry) => entry.id === id);
+      const found = entries.find((entry) => entry.id === id && !entry.deletedAt);
       if (found) {
         return { ...found };
       }
@@ -158,24 +173,38 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     throw new Error(`Entry with id ${entry.id} not found`);
   }
 
-  async deleteEntry(id: string): Promise<void> {
+  /** J-003: soft-delete — sets the tombstone (`deletedAt`) instead of removing the entry. */
+  async deleteEntry(id: string, deletedAt: Date): Promise<void> {
     await this.ensureLoaded();
 
-    for (const [dateISO, entries] of this.entries.entries()) {
-      const index = entries.findIndex((e) => e.id === id);
+    for (const entries of this.entries.values()) {
+      const index = entries.findIndex((e) => e.id === id && !e.deletedAt);
       if (index !== -1) {
-        entries.splice(index, 1);
-        if (entries.length === 0) {
-          this.entries.delete(dateISO);
-        }
+        entries[index] = { ...entries[index], deletedAt };
         await this.persist();
         return;
       }
     }
   }
 
+  async appendCorrectionLogEntry(entryId: string, logEntry: CorrectionLogEntry): Promise<void> {
+    await this.ensureLoaded();
+
+    const log = this.correctionLog.get(entryId) || [];
+    log.push(logEntry);
+    this.correctionLog.set(entryId, log);
+
+    await this.persistCorrectionLog();
+  }
+
+  async getCorrectionLog(entryId: string): Promise<CorrectionLogEntry[]> {
+    await this.ensureLoaded();
+
+    return [...(this.correctionLog.get(entryId) || [])];
+  }
+
   /**
-   * Lädt Einträge aus dem Storage (lazy loading).
+   * Lädt Einträge und Correction Log aus dem Storage (lazy loading).
    */
   private async ensureLoaded(): Promise<void> {
     if (this.isLoaded) {
@@ -195,6 +224,21 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       }
     }
 
+    const storedCorrectionLog = await this.keyValueStore.get(
+      PersistedFoodEntryRepository.CORRECTION_LOG_STORAGE_KEY,
+    );
+
+    if (storedCorrectionLog) {
+      try {
+        const serializedLog: Record<string, SerializedCorrectionLogEntry[]> =
+          JSON.parse(storedCorrectionLog);
+        this.correctionLog = this.deserializeCorrectionLog(serializedLog);
+      } catch (error) {
+        console.error('Failed to parse stored correction log:', error);
+        this.correctionLog = new Map();
+      }
+    }
+
     this.isLoaded = true;
   }
 
@@ -205,6 +249,42 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
     const serializedEntries = this.serializeEntries();
     const json = JSON.stringify(serializedEntries);
     await this.keyValueStore.set(PersistedFoodEntryRepository.STORAGE_KEY, json);
+  }
+
+  /**
+   * Persistiert den Correction Log in den Storage.
+   */
+  private async persistCorrectionLog(): Promise<void> {
+    const serialized: Record<string, SerializedCorrectionLogEntry[]> = {};
+    for (const [entryId, log] of this.correctionLog.entries()) {
+      serialized[entryId] = log.map((logEntry) => ({
+        timestamp: logEntry.timestamp.toISOString(),
+        previousValues: this.serializeEntry(logEntry.previousValues),
+        triggeredBy: logEntry.triggeredBy,
+      }));
+    }
+    const json = JSON.stringify(serialized);
+    await this.keyValueStore.set(PersistedFoodEntryRepository.CORRECTION_LOG_STORAGE_KEY, json);
+  }
+
+  /**
+   * Deserialisiert den Correction Log.
+   */
+  private deserializeCorrectionLog(
+    serialized: Record<string, SerializedCorrectionLogEntry[]>,
+  ): Map<string, CorrectionLogEntry[]> {
+    const log = new Map<string, CorrectionLogEntry[]>();
+    for (const [entryId, serializedEntries] of Object.entries(serialized)) {
+      log.set(
+        entryId,
+        serializedEntries.map((serializedEntry) => ({
+          timestamp: new Date(serializedEntry.timestamp),
+          previousValues: this.deserializeEntry(serializedEntry.previousValues),
+          triggeredBy: serializedEntry.triggeredBy,
+        })),
+      );
+    }
+    return log;
   }
 
   /**
@@ -253,6 +333,7 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       groupLabel: entry.groupLabel,
       nutritionSnapshot: entry.nutritionSnapshot,
       foodCatalogRef: entry.foodCatalogRef,
+      deletedAt: entry.deletedAt?.toISOString(),
     };
   }
 
@@ -343,6 +424,10 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       entry.foodCatalogRef = serialized.foodCatalogRef;
     }
 
+    if (serialized.deletedAt !== undefined) {
+      entry.deletedAt = new Date(serialized.deletedAt);
+    }
+
     return entry;
   }
 
@@ -365,7 +450,9 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
    */
   async clearAll(): Promise<void> {
     this.entries.clear();
+    this.correctionLog.clear();
     this.isLoaded = true;
     await this.persist();
+    await this.persistCorrectionLog();
   }
 }

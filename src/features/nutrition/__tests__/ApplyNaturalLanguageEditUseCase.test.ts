@@ -378,4 +378,53 @@ describe('ApplyNaturalLanguageEditUseCase', () => {
       expect(result.calories).toBe(89); // 89 * 1
     });
   });
+
+  describe('correction log (J-003)', () => {
+    it('appends a correction-log entry with the pre-edit values on an applied edit', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-14',
+        rawInput: '150g banana',
+        parsedName: 'banana',
+        quantityGrams: 150,
+        calories: 133.5,
+        protein: 1.65,
+        carbs: 34.2,
+        fat: 0.45,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      await useCase.execute('2024-01-15', 'entry-14', '200g');
+
+      const log = await repository.getCorrectionLog('entry-14');
+      expect(log).toHaveLength(1);
+      expect(log[0].triggeredBy).toBe('user');
+      expect(log[0].timestamp).toEqual(clock.now());
+      expect(log[0].previousValues).toEqual(baseEntry);
+    });
+
+    it('does not append a correction-log entry when no change is detected', async () => {
+      const baseEntry: FoodEntry = {
+        id: 'entry-15',
+        rawInput: '100g banana',
+        parsedName: 'banana',
+        quantityGrams: 100,
+        calories: 89,
+        protein: 1.1,
+        carbs: 22.8,
+        fat: 0.3,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date('2024-01-15T10:00:00Z'),
+      };
+      await repository.addEntry(baseEntry);
+
+      await useCase.execute('2024-01-15', 'entry-15', 'make it bigger');
+
+      const log = await repository.getCorrectionLog('entry-15');
+      expect(log).toEqual([]);
+    });
+  });
 });

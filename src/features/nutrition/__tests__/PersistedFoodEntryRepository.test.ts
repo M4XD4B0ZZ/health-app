@@ -201,7 +201,7 @@ describe('PersistedFoodEntryRepository', () => {
       const entry = createSampleEntry('entry-1', date);
 
       await repository.addEntry(entry);
-      await repository.deleteEntry('entry-1');
+      await repository.deleteEntry('entry-1', new Date('2024-01-15T11:00:00Z'));
 
       const entries = await repository.listEntriesForDate(dateISO);
       expect(entries).toHaveLength(0);
@@ -213,7 +213,7 @@ describe('PersistedFoodEntryRepository', () => {
       const entry = createSampleEntry('entry-1', date);
 
       await repository.addEntry(entry);
-      await repository.deleteEntry('entry-1');
+      await repository.deleteEntry('entry-1', new Date('2024-01-15T11:00:00Z'));
 
       // Create new instance and verify deletion was persisted
       const newRepository = new PersistedFoodEntryRepository(keyValueStore);
@@ -222,15 +222,34 @@ describe('PersistedFoodEntryRepository', () => {
       expect(entries).toHaveLength(0);
     });
 
-    it('should remove date key when last entry is deleted', async () => {
+    it('should soft-delete: set deletedAt tombstone instead of removing the row', async () => {
+      const date = new Date('2024-01-15T10:00:00Z');
+      const deletedAt = new Date('2024-01-15T11:00:00Z');
+      const entry = createSampleEntry('entry-1', date);
+
+      await repository.addEntry(entry);
+      await repository.deleteEntry('entry-1', deletedAt);
+
+      // Row still physically exists (test-utility read bypasses the tombstone filter)...
+      const allEntries = repository.getAllEntries();
+      const rawEntry = allEntries.get('2024-01-15')?.find((e) => e.id === 'entry-1');
+      expect(rawEntry).toBeDefined();
+      expect(rawEntry?.deletedAt).toEqual(deletedAt);
+
+      // ...but is excluded from normal reads.
+      const entries = await repository.listEntriesForDate('2024-01-15');
+      expect(entries).toHaveLength(0);
+    });
+
+    it('should exclude tombstoned entries from getEntryById and listByDateRange', async () => {
       const date = new Date('2024-01-15T10:00:00Z');
       const entry = createSampleEntry('entry-1', date);
 
       await repository.addEntry(entry);
-      await repository.deleteEntry('entry-1');
+      await repository.deleteEntry('entry-1', new Date('2024-01-15T11:00:00Z'));
 
-      const allEntries = repository.getAllEntries();
-      expect(allEntries.has('2024-01-15')).toBe(false);
+      expect(await repository.getEntryById('entry-1')).toBeNull();
+      expect(await repository.listByDateRange('2024-01-01', '2024-01-31')).toHaveLength(0);
     });
 
     it('should only delete specified entry', async () => {
@@ -240,7 +259,7 @@ describe('PersistedFoodEntryRepository', () => {
 
       await repository.addEntry(entry1);
       await repository.addEntry(entry2);
-      await repository.deleteEntry('entry-1');
+      await repository.deleteEntry('entry-1', new Date('2024-01-15T11:00:00Z'));
 
       const entries = await repository.listEntriesForDate('2024-01-15');
       expect(entries).toHaveLength(1);
@@ -248,7 +267,59 @@ describe('PersistedFoodEntryRepository', () => {
     });
 
     it('should handle deletion of non-existent entry gracefully', async () => {
-      await expect(repository.deleteEntry('non-existent')).resolves.not.toThrow();
+      await expect(
+        repository.deleteEntry('non-existent', new Date('2024-01-15T11:00:00Z')),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('correction log', () => {
+    it('should append and retrieve correction log entries keyed by entry id', async () => {
+      const date = new Date('2024-01-15T10:00:00Z');
+      const entry = createSampleEntry('entry-1', date);
+      await repository.addEntry(entry);
+
+      const timestamp = new Date('2024-01-15T10:05:00Z');
+      await repository.appendCorrectionLogEntry('entry-1', {
+        timestamp,
+        previousValues: entry,
+        triggeredBy: 'user',
+      });
+
+      const log = await repository.getCorrectionLog('entry-1');
+      expect(log).toHaveLength(1);
+      expect(log[0].timestamp).toEqual(timestamp);
+      expect(log[0].triggeredBy).toBe('user');
+      expect(log[0].previousValues).toEqual(entry);
+    });
+
+    it('should accumulate multiple entries in append order and survive reload', async () => {
+      const date = new Date('2024-01-15T10:00:00Z');
+      const entry = createSampleEntry('entry-1', date);
+      await repository.addEntry(entry);
+
+      await repository.appendCorrectionLogEntry('entry-1', {
+        timestamp: new Date('2024-01-15T10:05:00Z'),
+        previousValues: entry,
+        triggeredBy: 'user',
+      });
+      await repository.appendCorrectionLogEntry('entry-1', {
+        timestamp: new Date('2024-01-15T10:10:00Z'),
+        previousValues: { ...entry, calories: 200 },
+        triggeredBy: 'system',
+      });
+
+      const newRepository = new PersistedFoodEntryRepository(keyValueStore);
+      const log = await newRepository.getCorrectionLog('entry-1');
+
+      expect(log).toHaveLength(2);
+      expect(log[0].triggeredBy).toBe('user');
+      expect(log[1].triggeredBy).toBe('system');
+      expect(log[1].previousValues.calories).toBe(200);
+    });
+
+    it('should return empty array for entry with no correction log', async () => {
+      expect(await repository.getCorrectionLog('never-touched')).toEqual([]);
     });
   });
 

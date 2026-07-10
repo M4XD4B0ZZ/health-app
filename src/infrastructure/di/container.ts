@@ -283,7 +283,10 @@ class Container {
       this._nutritionClock,
     );
 
-    this._deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(this._foodEntryRepository);
+    this._deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(
+      this._foodEntryRepository,
+      this._nutritionClock,
+    );
 
     this._enrichFoodEntryMacrosUseCase = new EnrichFoodEntryMacrosUseCase(
       this._foodEntryRepository,

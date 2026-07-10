@@ -1,4 +1,4 @@
-import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { FoodEntry, CorrectionLogEntry } from '../../domain/models/NutritionTypes';
 import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 import { Clock } from '../ports/Clock';
 import { IdGenerator } from '../ports/IdGenerator';
@@ -451,17 +451,18 @@ export class LogMealFromRawInputUseCase {
 
 class StagedFoodEntryRepository implements FoodEntryRepository {
   private readonly entries: FoodEntry[] = [];
+  private readonly correctionLog: Map<string, CorrectionLogEntry[]> = new Map();
 
   async addEntry(entry: FoodEntry): Promise<void> {
     this.entries.push(entry);
   }
 
   async listEntriesForDate(): Promise<FoodEntry[]> {
-    return [...this.entries];
+    return this.entries.filter((entry) => !entry.deletedAt);
   }
 
   async listByDateRange(): Promise<FoodEntry[]> {
-    return [...this.entries];
+    return this.entries.filter((entry) => !entry.deletedAt);
   }
 
   async updateEntry(_dateISO: string, entry: FoodEntry): Promise<void> {
@@ -469,7 +470,7 @@ class StagedFoodEntryRepository implements FoodEntryRepository {
   }
 
   async getEntryById(id: string): Promise<FoodEntry | null> {
-    return this.entries.find((entry) => entry.id === id) ?? null;
+    return this.entries.find((entry) => entry.id === id && !entry.deletedAt) ?? null;
   }
 
   async updateEntryById(entry: FoodEntry): Promise<void> {
@@ -480,14 +481,25 @@ class StagedFoodEntryRepository implements FoodEntryRepository {
     this.entries[index] = entry;
   }
 
-  async deleteEntry(id: string): Promise<void> {
-    const index = this.entries.findIndex((entry) => entry.id === id);
+  async deleteEntry(id: string, deletedAt: Date): Promise<void> {
+    const index = this.entries.findIndex((entry) => entry.id === id && !entry.deletedAt);
     if (index !== -1) {
-      this.entries.splice(index, 1);
+      this.entries[index] = { ...this.entries[index], deletedAt };
     }
+  }
+
+  async appendCorrectionLogEntry(entryId: string, logEntry: CorrectionLogEntry): Promise<void> {
+    const log = this.correctionLog.get(entryId) || [];
+    log.push(logEntry);
+    this.correctionLog.set(entryId, log);
+  }
+
+  async getCorrectionLog(entryId: string): Promise<CorrectionLogEntry[]> {
+    return [...(this.correctionLog.get(entryId) || [])];
   }
 
   async clearAll(): Promise<void> {
     this.entries.length = 0;
+    this.correctionLog.clear();
   }
 }

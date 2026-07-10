@@ -45,7 +45,7 @@ describe('DeleteFoodEntryUseCase', () => {
       searchByName: async () => null,
     };
 
-    deleteUseCase = new DeleteFoodEntryUseCase(repository);
+    deleteUseCase = new DeleteFoodEntryUseCase(repository, clock);
     logFoodUseCase = new LogFoodFromRawInputUseCase(
       repository,
       clock,
@@ -94,5 +94,44 @@ describe('DeleteFoodEntryUseCase', () => {
 
     const entries = await repository.listEntriesForDate('2026-02-15');
     expect(entries).toHaveLength(1);
+  });
+
+  it('sollte einen Correction-Log-Eintrag mit den vorherigen Werten anlegen (J-003)', async () => {
+    const entry = await logFoodUseCase.execute({
+      rawText: '200g chicken',
+      rawInput: '200g chicken',
+    });
+
+    await deleteUseCase.execute(entry.id);
+
+    const log = await repository.getCorrectionLog(entry.id);
+    expect(log).toHaveLength(1);
+    expect(log[0].triggeredBy).toBe('user');
+    expect(log[0].previousValues).toEqual(entry);
+  });
+
+  it('sollte den Eintrag soft-deleten statt physisch zu entfernen (J-003)', async () => {
+    const entry = await logFoodUseCase.execute({
+      rawText: '200g chicken',
+      rawInput: '200g chicken',
+    });
+
+    await deleteUseCase.execute(entry.id);
+
+    // Excluded from the normal read path...
+    expect(await repository.getEntryById(entry.id)).toBeNull();
+
+    // ...but still physically present with a tombstone (test-utility read bypasses the filter).
+    const allEntries = repository.getAllEntries();
+    const rawEntry = [...allEntries.values()].flat().find((e) => e.id === entry.id);
+    expect(rawEntry).toBeDefined();
+    expect(rawEntry?.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('sollte keinen Correction-Log-Eintrag anlegen wenn ID nicht existiert', async () => {
+    await deleteUseCase.execute('non-existent-id');
+
+    const log = await repository.getCorrectionLog('non-existent-id');
+    expect(log).toEqual([]);
   });
 });

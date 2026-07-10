@@ -156,6 +156,12 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     }
 
     nextEntry.lastModifiedAt = this.clock.now();
+
+    await this.repository.appendCorrectionLogEntry(entry.id, {
+      timestamp: nextEntry.lastModifiedAt,
+      previousValues: entry,
+      triggeredBy: 'user',
+    });
     await this.repository.updateEntryById(nextEntry);
 
     return {

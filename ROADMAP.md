@@ -4442,7 +4442,7 @@ baseline, unchanged) all pass clean.
 
 #### RESOLVER-V2-002: Implement Source-Native Query Adapters
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Each source builds its own query from normalized input. No shared query string across sources.
@@ -4455,6 +4455,25 @@ Each source builds its own query from normalized input. No shared query string a
 - Logging shows different queries per source
 
 **Verify:** Debug logs show source-specific query adaptation
+
+**Implementation notes:**
+[`getSourceQuery()`](src/features/nutrition/domain/catalog/FoodAliasDictionary.ts:204) already
+implemented per-source query adaptation (RESOLVER-V2-001's audit confirmed the dispatch loop
+calls it once per source), but the `QUERY_MAP` debug log line in
+[`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:112)
+only surfaced `offQuery`/`usdaQuery`, silently omitting BLS. Added `blsQuery` to that log line so
+all three source-native queries (`bls`, `off`, `usda`) are visible together for the same
+resolve() call — since BLS/OFF both receive the untouched DE-native `normalizedQuery` and USDA
+receives the source-native EN mapping when a canonical match exists, the log now demonstrates
+"same input, source-specific adaptation" directly instead of only for two of three sources.
+Added a debug-logging test to
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts)
+that sets `APP_ENV=dev` + `EXPO_PUBLIC_RESOLVER_DEBUG=true` (Jest otherwise always resolves
+`envName()` to `test`, so debug logging is normally off in the suite), spies on `console.log`,
+and asserts the `QUERY_MAP` line contains `blsQuery="ei"`, `offQuery="ei"`, and
+`usdaQuery="egg"` for one `resolve()` call with `"ei"`. Full suite (108 suites / 822 tests, +1
+new), `tsc --noEmit`, `eslint`, and `npx prettier -c .` (238-file pre-existing baseline,
+unchanged) all pass clean.
 
 ---
 

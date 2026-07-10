@@ -110,6 +110,13 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         : null;
 
     if (isDebugLoggingEnabled() && traceId) {
+      const blsQuery = getSourceQuery({
+        sourceName: 'bls',
+        locale: query.locale,
+        normalizedQuery,
+        canonicalId,
+        traceId,
+      });
       const offQuery = getSourceQuery({
         sourceName: 'off',
         locale: query.locale,
@@ -125,7 +132,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         traceId,
       });
       console.log(
-        `[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`,
+        `[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" blsQuery="${blsQuery}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`,
       );
     }
 

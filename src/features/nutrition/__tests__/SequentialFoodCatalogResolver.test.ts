@@ -589,6 +589,55 @@ describe('SequentialFoodCatalogResolver', () => {
         expect.objectContaining({ normalized: 'hackbraten' }),
       );
     });
+
+    it('logs source-specific query adaptation for BLS, OFF, and USDA when debug logging is enabled', async () => {
+      const originalAppEnv = process.env.APP_ENV;
+      const originalResolverDebug = process.env.EXPO_PUBLIC_RESOLVER_DEBUG;
+      process.env.APP_ENV = 'dev';
+      process.env.EXPO_PUBLIC_RESOLVER_DEBUG = 'true';
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      try {
+        const blsSource: FoodCatalogSource = {
+          type: 'bls',
+          search: jest.fn().mockResolvedValue([]),
+        };
+        const offSource: FoodCatalogSource = {
+          type: 'off',
+          search: jest.fn().mockResolvedValue([]),
+        };
+        const usdaSource: FoodCatalogSource = {
+          type: 'usda',
+          search: jest.fn().mockResolvedValue([]),
+        };
+
+        const resolver = new SequentialFoodCatalogResolver(
+          [blsSource, offSource, usdaSource],
+          confidenceEngine,
+        );
+
+        await resolver.resolve({
+          raw: 'Ei',
+          normalized: 'ei',
+          locale: 'de',
+          inputType: 'generic',
+        });
+
+        const queryMapLog = consoleSpy.mock.calls
+          .map((call) => call[0])
+          .find((message) => typeof message === 'string' && message.includes('QUERY_MAP'));
+
+        expect(queryMapLog).toBeDefined();
+        expect(queryMapLog).toContain('blsQuery="ei"');
+        expect(queryMapLog).toContain('offQuery="ei"');
+        expect(queryMapLog).toContain('usdaQuery="egg"');
+      } finally {
+        consoleSpy.mockRestore();
+        process.env.APP_ENV = originalAppEnv;
+        process.env.EXPO_PUBLIC_RESOLVER_DEBUG = originalResolverDebug;
+      }
+    });
   });
 
   describe('Circuit Breaker', () => {

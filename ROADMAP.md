@@ -4862,6 +4862,13 @@ exists yet to gate; documentation-only fix), P2-010-B (authorization helper — 
 P2-009-A's schema exists, but has no real endpoint to apply to until RESOLVER-V2-007 or a future
 premium feature exists).
 
+**P2-010-A (audit, done 2026-07-12):** Re-verified `supabase/functions/` — still only
+`food-off-search` and `food-usda-search` exist, both intentionally free/anonymous per P2-007's
+guardrails (they are not "AI structured log functions" or "premium insights" in the DoD's
+sense). No `isPro`/authorization check exists anywhere in `supabase/functions/` today. P2-010
+has no concrete gating target until RESOLVER-V2-007 (or a future premium-insights feature)
+produces one — see P2-010-B, which stays a scaffold-only helper until then.
+
 ---
 
 ## Resolver V2 – Multi-Source Fusion Architecture

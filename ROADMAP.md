@@ -3503,7 +3503,7 @@ this decomposition itself introduces (Product Bible Abschnitt 4).
 
 #### GE-001: Evaluation Profile & Rule Domain Contract
 
-Status: `todo`
+Status: `done`
 Depends on: none
 
 **Ziel:** Introduce the Evaluation Profile/Rule domain contract from Product Bible §4/4a as
@@ -3544,6 +3544,35 @@ placeholders) where GE-002 hasn't yet determined the concrete shape.
   discoverable from the task itself.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** New `src/features/evaluation/` feature (domain layer only —
+`EvaluationProfile`, `EvaluationProfileOrigin`, `EvaluationProfileMetadata`, `Rule`,
+`RuleResult` (= `EvaluationOutput`), `EvaluationInput`, `EvaluationOutput`,
+`EvaluationGoalProgress`). `EvaluationInput.foodCatalogReads`/`journalReadsForPeriod` are
+concretely typed against `nutrition`'s existing `CanonicalFood`/`FoodEntry` (not `unknown`)
+since those shapes are already stable; `userProfileBasics`/`profileSettings` stay
+`Record<string, unknown>` since their shape genuinely varies per Rule (e.g. a
+cholesterol-limit parameter vs. a macro-strategy string), per this task's own risk note.
+`EvaluationOutput`/`EvaluationGoalProgress` are defined fresh in this feature rather than
+importing `features/goals`' `DailyGoals`/`DailyProgress` — deliberate: the Evaluation Engine
+is the layer `features/goals` gets adapted *behind* (GE-002), so the dependency should not
+run the other way. `Rule.evaluate` is synchronous by design: all repository reads happen
+when assembling `EvaluationInput` (a future orchestrator's job, GE-003), not inside a Rule
+itself, keeping Rules trivially pure-function-testable. `EvaluationProfile` intentionally has
+no `evaluate` method of its own (§4a: "kein eigener Algorithmus") — merging its Rules'
+`RuleResult`s into one `EvaluationOutput` is implementation, deferred to GE-002.
+
+Reproduces the preamble's findings directly in this task, as required by its own DoD: (1)
+two competing goal-target systems (`features/goals`'s `EffectiveGoals`, screen-wired, vs.
+`nutrition/domain/goals`'s `UserGoals`, read by `GetDailySummaryUseCase`/
+`GetCalendarMonthSummaryUseCase`) exist simultaneously; (2) `JournalScreen.tsx` calls both
+`getDailySummaryUseCase` and `computeProgressForDateUseCase` and displays neither result
+(`const [, setProgress] = useState<DailyProgressSnapshot | null>(null)`,
+`journal/JournalScreen.tsx:72`) — no goal-vs-consumed progress is shown anywhere in the app
+today. Neither is touched by this task; see GE-005 for explicit follow-up stubs.
+
+Full suite (96 suites / 772 tests, +2 new), `tsc --noEmit`, and `eslint` pass clean. Zero
+existing files modified.
 
 ---
 

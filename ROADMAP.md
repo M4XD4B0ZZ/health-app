@@ -4762,6 +4762,46 @@ Status: `todo`
 
 User can login via OAuth. App retrieves a valid Supabase JWT and stores it securely.
 
+**Implementation notes (human-approved scope — scaffold only, see conversation):** A working
+OAuth login needs things this session cannot provide: registered Apple/Google OAuth
+applications (Apple Developer Program, Google Cloud Console) with real client credentials
+configured in the Supabase Auth dashboard, plus native config
+(`app.json` deep-link scheme/associated domains) and new dependencies (e.g.
+`expo-web-browser`, `expo-apple-authentication`) — both `app.json` and `package.json` are
+protected files requiring explicit approval per `.agent/config/protected-files.json`, and
+none of that can be tested without a real device/simulator anyway. Given that, this task
+prepared the application-layer scaffold only, with **no** `app.json`/`package.json` changes:
+
+- Extended [`AuthRepository`](src/features/auth/application/ports/AuthRepository.ts) with
+  `getCurrentSession()`, `signInWithOAuth(provider)`, and `signOut()` (`OAuthProvider =
+'apple' | 'google'`).
+- [`SupabaseAuthRepository`](src/features/auth/infrastructure/SupabaseAuthRepository.ts)
+  implements these via `@supabase/supabase-js`'s built-in `auth.signInWithOAuth()` (already a
+  dependency, no new package needed for this part) with `skipBrowserRedirect: true` — it
+  returns the provider's authorization URL rather than opening it.
+- Added [`SignInWithOAuthUseCase`](src/features/auth/application/usecases/SignInWithOAuthUseCase.ts)
+  and wired both into `container.ts` (`signInWithOAuthUseCase` getter).
+- Tests:
+  [`SupabaseAuthRepository.test.ts`](src/features/auth/__tests__/SupabaseAuthRepository.test.ts),
+  [`SignInWithOAuthUseCase.test.ts`](src/features/auth/__tests__/SignInWithOAuthUseCase.test.ts).
+  Full suite (111 suites / 843 tests, +10 new), `tsc --noEmit`, `eslint` all pass clean.
+
+**Still needed before this can be marked `done` (external prerequisites, not code):**
+
+1. Register an OAuth app with Apple (Apple Developer Program) and Google (Google Cloud
+   Console); configure both providers' client ID/secret in the Supabase project's Auth
+   dashboard.
+2. Add a URL scheme (and iOS Associated Domains, if using universal links) to `app.json` so
+   the OAuth redirect can return into the app.
+3. Add `expo-web-browser` (to actually open the URL `signInWithOAuth()` now returns and
+   capture the redirect) and, for a native Apple button/credential flow instead of a plain
+   web redirect, `expo-apple-authentication`.
+4. Build the presentation-layer login screen/button that calls
+   `container.signInWithOAuthUseCase`, opens the returned URL, and handles the redirect back
+   (session is then available via `getCurrentSession()`).
+5. Secure token storage beyond Supabase's own default (`AsyncStorage`-backed) session
+   persistence, if a stricter requirement exists (e.g. `expo-secure-store`).
+
 ---
 
 ## Tier 4 Planning Targets — Require Later Task Decomposition

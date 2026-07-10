@@ -4300,12 +4300,27 @@ Focus: private-use stability, deterministic architecture hygiene, and DACH-first
 
 ### P2-001 Verify Environment Wiring
 
-Status: `todo`
+Status: `done`
 
 Ensure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are strictly verified.
 App throws fatal error on boot if variables are missing.
 
 **Verify:** `npm run typecheck` + `npm run test` validating environment checks.
+
+**Implementation notes:** [`supabaseClient.ts`](src/infrastructure/supabase/supabaseClient.ts)
+already threw on missing `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`, but this
+was untested and didn't reject blank/whitespace-only values or malformed URLs. Both env vars
+are now trimmed before the presence check, and the URL is additionally validated via `new
+URL(url)` so a non-empty-but-invalid value (e.g. `not-a-url`) fails fast with a clear error
+instead of reaching `createClient`. Since `App.tsx` imports `container.ts`, which imports
+`supabaseClient.ts` at module scope, these throws still happen synchronously during app boot
+as required. Added
+[`supabaseClient.test.ts`](src/infrastructure/supabase/__tests__/supabaseClient.test.ts) (6
+new tests) covering: missing URL, blank URL, invalid URL, missing anon key, blank anon key, and
+the happy path — using `jest.isolateModulesAsync` + dynamic `import()` to reload the module
+under different `process.env` states (same pattern as
+`container.security.test.ts`). Full suite (108 suites / 819 tests), `tsc --noEmit`, `eslint`,
+and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean.
 
 ---
 

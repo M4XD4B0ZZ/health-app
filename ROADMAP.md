@@ -2684,10 +2684,13 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `todo`
+Status: `done`
 
-Foundational question answered and decisions accepted — ready for concrete `ROADMAP.md`
-task decomposition (not yet decomposed). See
+All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
+Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
+cleanup, the `nutritionSnapshot`/`foodCatalogRef` model, correction log + soft delete,
+Food Catalog reference population, and the narrowed/visible/undoable auto-merge — plus
+cross-cutting regression coverage (J-006) proving they hold together. See
 [`docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md`](docs/domains/ZERA_JOURNAL_DOMAIN_MODEL.md)
 ("What is a journal entry in Zera?", `accepted`) and
 [`docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md`](docs/domains/ZERA_JOURNAL_DECISION_RECORD_1.md)
@@ -3057,7 +3060,7 @@ log.
 
 #### J-006: Journal Domain Regression Coverage
 
-Status: `todo`
+Status: `done`
 Depends on: J-001–J-005
 
 **Ziel:** Consolidated regression pass across the full Journal Domain change set, ensuring
@@ -3079,6 +3082,34 @@ together, not just individually.
 existing P1-001–P1-005 resolver behavior, portion knowledge, or composite-dish grouping.
 
 **Verify:** `npm run verify`.
+
+**Implementation notes:** New `JournalDomainRegressionCoverage.test.ts` (3 tests) covers the
+two DoD-mandated scenarios directly: (1) a single `PersistedFoodEntryRepository` instance
+driven through log → auto-merge (within the J-005 2-minute window) → manual edit (J-003) →
+soft-delete (J-003), asserting the correction log holds exactly 3 entries in order with the
+correct `triggeredBy`/`previousValues`/`timestamp` at each step, and that the deleted entry
+is excluded from `listEntriesForDate` while still physically present with a `deletedAt`
+tombstone; (2) a hand-written pre-J-002 serialized entry (no `nutritionSnapshot`/
+`foodCatalogRef`/`deletedAt` keys at all) deserializes cleanly and is then driven through the
+daily summary use case, an edit, and a soft-delete without error — proving the Future
+Compatibility Principle holds across the full read/write surface, not just at
+deserialization. P1-001–P1-005/portion-knowledge/composite-dish regression coverage is not
+duplicated here — it already lives in `SequentialFoodCatalogResolver.test.ts`,
+`deEnAliases.test.ts`, `CompositeDishPatterns.test.ts`, `splitMultiItemInput.test.ts`,
+`PortionKnowledgeService.test.ts`, `resolvePortionGrams.test.ts`, etc., all of which ran green
+alongside every J-001–J-006 commit in this sequence (continuously verified after each task,
+not just at the end).
+Full suite (92 suites / 743 tests, +3 new), `tsc --noEmit`, and `eslint` pass clean.
+**`npm run verify` is not fully green** — the DoD's literal wording — because its
+`format:check` step still surfaces the same pre-existing, unrelated repo-wide Prettier debt
+(governance docs, `scripts/agent/**`, `reports/**`, etc.) first identified and confirmed
+pre-existing (via `git stash` against the branch tip) in J-001, and re-confirmed unchanged by
+every task in this sequence. `tsc --noEmit`, `eslint`, and `prettier -c` all pass clean on
+every file touched across J-001–J-006. Fixing that debt is a separate, out-of-scope repo-wide
+cleanup task (see J-001's implementation notes for the same finding) — a future task should
+either fix it or scope `format:check`/`npm run verify`'s policy in `VERIFY.md` to changed
+files only, since as currently defined no task can ever satisfy it without that unrelated
+mass-reformat.
 
 ### Saved Meals Domain
 

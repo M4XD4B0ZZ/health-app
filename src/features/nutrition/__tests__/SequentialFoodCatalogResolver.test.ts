@@ -82,7 +82,7 @@ describe('SequentialFoodCatalogResolver', () => {
     expect(usdaSource.search).not.toHaveBeenCalled();
   });
 
-  it('returns OFF result with high confidence without checking USDA', async () => {
+  it('queries USDA even when OFF alone has high confidence (RESOLVER-V2-003: no OFF early return)', async () => {
     const config: FoodCatalogConfig = {
       offEarlyReturnMinConfidence: 0.7,
       enableDebugLogs: false,
@@ -98,8 +98,7 @@ describe('SequentialFoodCatalogResolver', () => {
     };
 
     // "raw" marks the candidate as a plain/generic match instead of falling into the
-    // OFF-only "unclassified -> branded_product" default, so its score legitimately
-    // clears the early-return threshold below.
+    // OFF-only "unclassified -> branded_product" default.
     const offCandidate = createCandidate('off', 1, 'test raw');
     const offSource = createMockOffSource([offCandidate]);
     const usdaSource = createMockUsdaSource([createCandidate('usda', 1, 'test raw')]);
@@ -113,11 +112,15 @@ describe('SequentialFoodCatalogResolver', () => {
     const query: FoodSearchQuery = { raw: 'test raw', normalized: 'test raw', locale: 'de' };
     const result = await resolver.resolve(query);
 
-    expect(result).not.toBeNull();
-    expect(result.best?.food.source).toBe('off');
-    expect(result.best?.score).toBeGreaterThanOrEqual(0.7);
+    // Both sources are always queried now — OFF's high confidence no longer skips USDA.
     expect(offSource.search).toHaveBeenCalled();
-    expect(usdaSource.search).not.toHaveBeenCalled();
+    expect(usdaSource.search).toHaveBeenCalled();
+
+    // With identical match quality between OFF and USDA, the tie is broken by source trust,
+    // which weighs USDA above OFF (see "returns USDA when match quality is tied..." below).
+    expect(result).not.toBeNull();
+    expect(result.best?.food.source).toBe('usda');
+    expect(result.best?.score).toBeGreaterThanOrEqual(0.7);
   });
 
   it('does not early-return processed OFF products for German generic carrot inputs', async () => {
@@ -544,6 +547,190 @@ describe('SequentialFoodCatalogResolver', () => {
 
     expect(result).not.toBeNull();
     expect(result.best?.food.source).toBe('usda');
+  });
+
+  describe('Source-Native Query Adaptation (RESOLVER-V2-001 / RESOLVER-V2-002)', () => {
+    it('sends the same DE-native normalized input to BLS/OFF and only source-adapts USDA', async () => {
+      const blsSource: FoodCatalogSource = { type: 'bls', search: jest.fn().mockResolvedValue([]) };
+      const offSource: FoodCatalogSource = { type: 'off', search: jest.fn().mockResolvedValue([]) };
+      const usdaSource: FoodCatalogSource = {
+        type: 'usda',
+        search: jest.fn().mockResolvedValue([]),
+      };
+
+      const resolver = new SequentialFoodCatalogResolver(
+        [blsSource, offSource, usdaSource],
+        confidenceEngine,
+      );
+
+      // "ei" is a known DE alias for the "egg" canonical entity: no global/early translation
+      // happens before dispatch, but the USDA source-native adapter still maps it to "egg".
+      await resolver.resolve({ raw: 'Ei', normalized: 'ei', locale: 'de', inputType: 'generic' });
+
+      expect(blsSource.search).toHaveBeenCalledWith(expect.objectContaining({ normalized: 'ei' }));
+      expect(offSource.search).toHaveBeenCalledWith(expect.objectContaining({ normalized: 'ei' }));
+      expect(usdaSource.search).toHaveBeenCalledWith(
+        expect.objectContaining({ normalized: 'egg' }),
+      );
+    });
+
+    it('reaches all sources unchanged (no translation) when no canonical entity is known', async () => {
+      const offSource: FoodCatalogSource = { type: 'off', search: jest.fn().mockResolvedValue([]) };
+      const usdaSource: FoodCatalogSource = {
+        type: 'usda',
+        search: jest.fn().mockResolvedValue([]),
+      };
+
+      const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
+
+      await resolver.resolve({ raw: 'Hackbraten', normalized: 'hackbraten', locale: 'de' });
+
+      expect(offSource.search).toHaveBeenCalledWith(
+        expect.objectContaining({ normalized: 'hackbraten' }),
+      );
+      expect(usdaSource.search).toHaveBeenCalledWith(
+        expect.objectContaining({ normalized: 'hackbraten' }),
+      );
+    });
+
+    it('logs source-specific query adaptation for BLS, OFF, and USDA when debug logging is enabled', async () => {
+      const originalAppEnv = process.env.APP_ENV;
+      const originalResolverDebug = process.env.EXPO_PUBLIC_RESOLVER_DEBUG;
+      process.env.APP_ENV = 'dev';
+      process.env.EXPO_PUBLIC_RESOLVER_DEBUG = 'true';
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      try {
+        const blsSource: FoodCatalogSource = {
+          type: 'bls',
+          search: jest.fn().mockResolvedValue([]),
+        };
+        const offSource: FoodCatalogSource = {
+          type: 'off',
+          search: jest.fn().mockResolvedValue([]),
+        };
+        const usdaSource: FoodCatalogSource = {
+          type: 'usda',
+          search: jest.fn().mockResolvedValue([]),
+        };
+
+        const resolver = new SequentialFoodCatalogResolver(
+          [blsSource, offSource, usdaSource],
+          confidenceEngine,
+        );
+
+        await resolver.resolve({
+          raw: 'Ei',
+          normalized: 'ei',
+          locale: 'de',
+          inputType: 'generic',
+        });
+
+        const queryMapLog = consoleSpy.mock.calls
+          .map((call) => call[0])
+          .find((message) => typeof message === 'string' && message.includes('QUERY_MAP'));
+
+        expect(queryMapLog).toBeDefined();
+        expect(queryMapLog).toContain('blsQuery="ei"');
+        expect(queryMapLog).toContain('offQuery="ei"');
+        expect(queryMapLog).toContain('usdaQuery="egg"');
+      } finally {
+        consoleSpy.mockRestore();
+        process.env.APP_ENV = originalAppEnv;
+        process.env.EXPO_PUBLIC_RESOLVER_DEBUG = originalResolverDebug;
+      }
+    });
+  });
+
+  describe('Multi-Source Candidate Retrieval (RESOLVER-V2-003)', () => {
+    it('collects candidates from OFF and USDA in the same decision instead of OFF pre-empting USDA', async () => {
+      const offCandidate = createCandidate('off', 0.9, 'off match');
+      const usdaCandidate = createCandidate('usda', 0.8, 'usda match');
+      const offSource = createMockOffSource([offCandidate]);
+      const usdaSource = createMockUsdaSource([usdaCandidate]);
+
+      const resolver = new SequentialFoodCatalogResolver([offSource, usdaSource], confidenceEngine);
+
+      const query: FoodSearchQuery = { raw: 'test', normalized: 'test', locale: 'en' };
+      const result = await resolver.resolve(query);
+
+      // Both sources are always queried (no OFF confidence-based early return)...
+      expect(offSource.search).toHaveBeenCalled();
+      expect(usdaSource.search).toHaveBeenCalled();
+
+      // ...and both sources' candidates are collected into the same decision for comparison,
+      // not just the first source that happened to clear a confidence threshold.
+      const collectedSources = result.candidates.map((candidate) => candidate.source);
+      expect(collectedSources).toEqual(expect.arrayContaining(['OFF', 'USDA']));
+    });
+
+    it('prioritizes BLS ahead of OFF for German locale even for ambiguous/unclassified input', async () => {
+      const blsSource: FoodCatalogSource = { type: 'bls', search: jest.fn().mockResolvedValue([]) };
+      const offSource: FoodCatalogSource = { type: 'off', search: jest.fn().mockResolvedValue([]) };
+      const usdaSource: FoodCatalogSource = {
+        type: 'usda',
+        search: jest.fn().mockResolvedValue([]),
+      };
+
+      const resolver = new SequentialFoodCatalogResolver(
+        [offSource, blsSource, usdaSource],
+        confidenceEngine,
+      );
+
+      // No inputType set (ambiguous/unclassified) — DACH users should still get BLS queried
+      // before OFF/USDA, since BLS is the trusted local source for the DACH launch market.
+      await resolver.resolve({
+        raw: 'unbekanntes essen',
+        normalized: 'unbekanntes essen',
+        locale: 'de',
+      });
+
+      const blsCallOrder = (blsSource.search as jest.Mock).mock.invocationCallOrder[0];
+      const offCallOrder = (offSource.search as jest.Mock).mock.invocationCallOrder[0];
+      expect(blsCallOrder).toBeLessThan(offCallOrder);
+    });
+  });
+
+  describe('Candidate Fusion Layer Ranking Log (RESOLVER-V2-004)', () => {
+    it('logs a cross-source ranking with per-candidate scores when a multi-source decision is made', async () => {
+      const originalAppEnv = process.env.APP_ENV;
+      const originalResolverDebug = process.env.EXPO_PUBLIC_RESOLVER_DEBUG;
+      process.env.APP_ENV = 'dev';
+      process.env.EXPO_PUBLIC_RESOLVER_DEBUG = 'true';
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      try {
+        const offCandidate = createCandidate('off', 0.9, 'ranked match');
+        const usdaCandidate = createCandidate('usda', 0.8, 'ranked match');
+        const offSource = createMockOffSource([offCandidate]);
+        const usdaSource = createMockUsdaSource([usdaCandidate]);
+
+        const resolver = new SequentialFoodCatalogResolver(
+          [offSource, usdaSource],
+          confidenceEngine,
+        );
+
+        await resolver.resolve({ raw: 'ranked match', normalized: 'ranked match', locale: 'en' });
+
+        const rankingLog = consoleSpy.mock.calls
+          .map((call) => call[0])
+          .find((message) => typeof message === 'string' && message.includes('RANKING'));
+
+        expect(rankingLog).toBeDefined();
+        // Cross-source comparison rationale: both sources' candidates and scores are visible
+        // together in one ranking log, not just the winner.
+        expect(rankingLog).toContain('source=OFF');
+        expect(rankingLog).toContain('source=USDA');
+        expect(rankingLog).toMatch(/#1 .*score=0\.\d+/);
+        expect(rankingLog).toMatch(/#2 .*score=0\.\d+/);
+      } finally {
+        consoleSpy.mockRestore();
+        process.env.APP_ENV = originalAppEnv;
+        process.env.EXPO_PUBLIC_RESOLVER_DEBUG = originalResolverDebug;
+      }
+    });
   });
 
   describe('Circuit Breaker', () => {
@@ -1050,8 +1237,8 @@ describe('SequentialFoodCatalogResolver', () => {
       };
 
       // "raw" marks the candidate as a plain/generic match instead of falling into the
-      // OFF-only "unclassified -> branded_product" default, so its score legitimately
-      // clears the early-return threshold and USDA is never queried.
+      // OFF-only "unclassified -> branded_product" default. USDA is still queried (no OFF
+      // early return per RESOLVER-V2-003) but contributes no candidates, so OFF still wins.
       const offSource = createMockOffSource([createCandidate('off', 0.9, 'test raw')]);
       const usdaSource = createMockUsdaSource([]);
 
@@ -1083,7 +1270,7 @@ describe('SequentialFoodCatalogResolver', () => {
       expect(summaryLog![1]).toHaveProperty('cacheSet');
 
       // Verify values
-      expect(summaryLog![1].sourcesTried).toEqual(['off']);
+      expect(summaryLog![1].sourcesTried).toEqual(['off', 'usda']);
       expect(summaryLog![1].winnerSource).toBe('OFF');
       expect(summaryLog![1].winnerConfidence).toBeGreaterThan(0);
       expect(summaryLog![1].cacheHit).toBe(false);

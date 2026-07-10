@@ -47,9 +47,6 @@ interface RawResolverCandidate {
 
 interface SourceRoutingStrategy {
   name: string;
-  offEarlyReturnDisabled: boolean;
-  blsEarlyReturnDisabled: boolean;
-  userEarlyReturnDisabled: boolean;
   sourcePriority: FoodCatalogSource['type'][];
 }
 
@@ -110,6 +107,13 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         : null;
 
     if (isDebugLoggingEnabled() && traceId) {
+      const blsQuery = getSourceQuery({
+        sourceName: 'bls',
+        locale: query.locale,
+        normalizedQuery,
+        canonicalId,
+        traceId,
+      });
       const offQuery = getSourceQuery({
         sourceName: 'off',
         locale: query.locale,
@@ -125,7 +129,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         traceId,
       });
       console.log(
-        `[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`,
+        `[${traceId}] QUERY_MAP original="${normalizedQuery}" canonicalId="${canonicalId ?? 'none'}" blsQuery="${blsQuery}" offQuery="${offQuery}" usdaQuery="${usdaQuery}"`,
       );
     }
 
@@ -340,72 +344,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           return this.buildDecision(normalizedQuery, scored);
         }
 
-        if (source.type === 'off' && mappedCandidates[0]?.source === RESOLVER_SOURCE_LABELS.OFF) {
-          const threshold = this.config.offEarlyReturnMinConfidence;
-          const confidenceCheck = best.score >= threshold;
-
-          // Block OFF early return for generic canonical foods to allow USDA comparison
-          const canonicalResult = detectCanonicalEntity(normalizedQuery, 'de');
-          const isGenericCanonical = canonicalResult.canonicalId !== null;
-
-          // DACH Data Strategy: Apply routing strategy to early return decision
-          const routingDisablesEarlyReturn = routingStrategy.offEarlyReturnDisabled;
-          const requiresExactOffEarlyReturn =
-            query.locale === 'de' && query.inputType !== 'branded';
-          const isExactOffMatch = best.food.normalizedName === normalizedQuery;
-          const earlyReturn =
-            confidenceCheck &&
-            !isGenericCanonical &&
-            !routingDisablesEarlyReturn &&
-            (!requiresExactOffEarlyReturn || isExactOffMatch);
-
-          if (this.config.enableDebugLogs) {
-            console.debug('[SequentialFoodCatalogResolver] OFF evaluation', {
-              traceId,
-              confidence: best.score,
-              threshold,
-              confidenceCheck,
-              isGenericCanonical,
-              canonicalId: canonicalResult.canonicalId,
-              routingDisablesEarlyReturn,
-              routingStrategy: routingStrategy.name,
-              requiresExactOffEarlyReturn,
-              isExactOffMatch,
-              earlyReturn,
-              foodName: best.food.name,
-            });
-          }
-
-          if (earlyReturn) {
-            metrics.totalElapsedMs = Date.now() - resolverStartTime;
-            metrics.winnerSource = best.source;
-            metrics.winnerConfidence = best.score;
-
-            // Debug logging for OFF early return
-            if (debugCollector) {
-              debugCollector.addEvaluation(this.convertToEvaluations(scored));
-              debugCollector.setDecision({
-                winner: best.food.name,
-                source: best.source,
-                confidence: best.score,
-                reason: 'early_return_off',
-                status: 'accepted',
-                reasonCodes: ['OFF_EARLY_RETURN'],
-              });
-              debugCollector.setTotalTime(metrics.totalElapsedMs);
-              debugCollector.logToConsole();
-            }
-
-            this.logSummary(metrics, best);
-            return this.buildDecision(normalizedQuery, scored);
-          } else {
-            // Debug logging for OFF early return blocked
-            if (debugCollector) {
-              debugCollector.addEvaluation(this.convertToEvaluations(scored));
-            }
-          }
-        }
-
+        // RESOLVER-V2-003: OFF no longer short-circuits on its own confidence — every source
+        // (besides the deterministic user-alias and DACH/BLS-truth fast paths above) always
+        // contributes its candidates so the multi-source comparison below can pick the best
+        // match across OFF/USDA/BLS instead of OFF pre-empting USDA on confidence alone.
         allRawCandidates.push(...mappedCandidates);
       } catch (error) {
         const sourceElapsedMs = Date.now() - resolverStartTime;
@@ -470,6 +412,21 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       const decision = this.buildDecision(normalizedQuery, scoredCandidates);
       metrics.winnerSource = decision.best?.source ?? null;
       metrics.winnerConfidence = decision.best?.score ?? null;
+
+      // RESOLVER-V2-004: Candidate Fusion Layer ranking rationale, so a cross-source decision
+      // (as opposed to an early-return short-circuit above) is traceable without needing the
+      // full JSON debug dump (which additionally requires enableDebugLogs+enableTracing).
+      if (isDebugLoggingEnabled() && traceId) {
+        const rankingSummary = scoredCandidates
+          .map(
+            (candidate, index) =>
+              `#${index + 1} source=${candidate.source} score=${candidate.score.toFixed(3)} name="${candidate.food.name}"`,
+          )
+          .join(' | ');
+        console.log(
+          `[${traceId}] RANKING query="${normalizedQuery}" candidateCount=${scoredCandidates.length} ${rankingSummary}`,
+        );
+      }
 
       // Debug logging for final decision
       if (debugCollector) {
@@ -723,40 +680,37 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   /**
-   * DACH Data Strategy: Determine source routing strategy based on input classification
+   * DACH Data Strategy: Determine source routing strategy based on input classification.
+   *
+   * Locale-based source priority lives here in one place so future non-DACH markets can get
+   * their own trusted-source ordering (e.g. a "fr"/"it" canonical source) by adding a branch,
+   * without touching the dispatch loop itself.
    */
   private determineSourceRoutingStrategy(query: FoodSearchQuery): SourceRoutingStrategy {
     const inputType = query.inputType || 'ambiguous';
     const locale = query.locale || 'en';
 
-    // For German locale with generic classification: prioritize DACH-compatible sources
-    if (locale === 'de' && inputType === 'generic') {
-      return {
-        name: 'DACH_GENERIC_FIRST',
-        offEarlyReturnDisabled: true, // Allow USDA to compete with OFF for better DACH matches
-        blsEarlyReturnDisabled: false, // Allow BLS early return for high confidence
-        userEarlyReturnDisabled: false, // Allow user early return
-        sourcePriority: ['user', 'bls', 'off', 'usda', 'ai'],
-      };
-    }
-
-    // For branded products: prioritize OFF (branded database)
+    // Branded products: OFF is the branded-product database; BLS has no branded data, so it
+    // never leads regardless of locale.
     if (inputType === 'branded') {
       return {
         name: 'BRANDED_OFF_FIRST',
-        offEarlyReturnDisabled: false, // Standard early return behavior
-        blsEarlyReturnDisabled: false, // Standard early return behavior
-        userEarlyReturnDisabled: false, // Standard early return behavior
         sourcePriority: ['user', 'off', 'bls', 'usda', 'ai'],
       };
     }
 
-    // Default/ambiguous: standard behavior
+    // DACH-first: for German locale (generic or ambiguous/unclassified), BLS is the trusted
+    // local source for the primary launch market and should be queried ahead of OFF/USDA.
+    if (locale === 'de') {
+      return {
+        name: inputType === 'generic' ? 'DACH_GENERIC_FIRST' : 'STANDARD_SEQUENTIAL',
+        sourcePriority: ['user', 'bls', 'off', 'usda', 'ai'],
+      };
+    }
+
+    // Default for non-DACH locales: standard behavior, no locale-specific trusted source yet.
     return {
       name: 'STANDARD_SEQUENTIAL',
-      offEarlyReturnDisabled: false,
-      blsEarlyReturnDisabled: false,
-      userEarlyReturnDisabled: false,
       sourcePriority: ['user', 'off', 'bls', 'usda', 'ai'],
     };
   }

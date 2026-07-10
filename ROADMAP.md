@@ -4300,24 +4300,56 @@ Focus: private-use stability, deterministic architecture hygiene, and DACH-first
 
 ### P2-001 Verify Environment Wiring
 
-Status: `todo`
+Status: `done`
 
 Ensure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are strictly verified.
 App throws fatal error on boot if variables are missing.
 
 **Verify:** `npm run typecheck` + `npm run test` validating environment checks.
 
+**Implementation notes:** [`supabaseClient.ts`](src/infrastructure/supabase/supabaseClient.ts)
+already threw on missing `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`, but this
+was untested and didn't reject blank/whitespace-only values or malformed URLs. Both env vars
+are now trimmed before the presence check, and the URL is additionally validated via `new
+URL(url)` so a non-empty-but-invalid value (e.g. `not-a-url`) fails fast with a clear error
+instead of reaching `createClient`. Since `App.tsx` imports `container.ts`, which imports
+`supabaseClient.ts` at module scope, these throws still happen synchronously during app boot
+as required. Added
+[`supabaseClient.test.ts`](src/infrastructure/supabase/__tests__/supabaseClient.test.ts) (6
+new tests) covering: missing URL, blank URL, invalid URL, missing anon key, blank anon key, and
+the happy path — using `jest.isolateModulesAsync` + dynamic `import()` to reload the module
+under different `process.env` states (same pattern as
+`container.security.test.ts`). Full suite (108 suites / 819 tests), `tsc --noEmit`, `eslint`,
+and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean.
+
 ---
 
 ### P2-002 Enforce Single Supabase Client
 
-Status: `todo`
+Status: `done`
 
 Prevent any creation of new `createClient` instances globally.
 `supabaseClient.ts` is the single source of truth.
 No manual `fetch` calls to `/functions/v1/` exist.
 
 **Verify:** `npm run lint` + global search for `fetch(` targeting Supabase URLs (must yield 0 results).
+
+**Implementation notes:** A repo-wide search confirmed only one real `createClient(...)` call
+in runtime code
+([`supabaseClient.ts`](src/infrastructure/supabase/supabaseClient.ts)) and zero `fetch(...)`
+calls targeting `/functions/v1/` anywhere in `src/**` (the only `/functions/v1/`-adjacent
+`fetch` calls live inside `supabase/functions/**`, which are server-side edge functions calling
+external APIs, not the app bypassing the shared client). The one stale reference was a
+`src/features/nutrition/infrastructure/catalog/README.md` code example showing a second
+`createClient(...)` call with the wrong env var names — updated to import the shared `supabase`
+singleton instead. To make single-client usage an enforced invariant rather than a
+point-in-time grep result, added two ESLint rules in
+[`.eslintrc.cjs`](.eslintrc.cjs): `no-restricted-imports` blocks importing `createClient` from
+`@supabase/supabase-js` anywhere except `supabaseClient.ts` (via a file override), and
+`no-restricted-syntax` blocks `fetch(...)` calls whose argument contains `functions/v1`. Both
+rules were sanity-checked against a throwaway violating file (removed after confirming the
+expected two lint errors). Full suite (108 suites / 819 tests), `tsc --noEmit`, `eslint`, and
+`npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean.
 
 ---
 
@@ -4370,7 +4402,7 @@ No manual `fetch` calls to `/functions/v1/` exist.
 
 #### RESOLVER-V2-001: Remove Early Translation Layer
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Remove global translation before source querying. Keep normalization only (case, umlauts, punctuation). Input must reach multiple sources unchanged.
@@ -4383,11 +4415,34 @@ Remove global translation before source querying. Keep normalization only (case,
 
 **Verify:** Unit tests show "ei" sent to BLS, "egg" sent to USDA, "ei" sent to OFF
 
+**Implementation notes:** Audited the current resolver pipeline end-to-end
+([`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:79))
+and confirmed no global/early translation layer exists: the only pre-dispatch step is
+[`normalizeText()`](src/features/nutrition/application/utils/normalizeText.ts), which does
+lowercase/trim/umlaut-replacement/punctuation-stripping only — no language translation. Per-
+source query adaptation happens inside the source loop, once per source, via
+[`getSourceQuery()`](src/features/nutrition/domain/catalog/FoodAliasDictionary.ts:204) (note:
+this now lives in `FoodAliasDictionary.ts`, not `CanonicalFood.ts` — that file no longer exists;
+the DoD link above is stale from when this task was written). `getSourceQuery()` only special-
+cases `sourceName === 'usda'` with a known DE canonical match; every other source (`off`, `bls`,
+`user`) falls through to the shared `normalizedQuery` untouched. Unit coverage already existed
+for `getSourceQuery()` in isolation
+([`deEnAliases.test.ts`](src/features/nutrition/__tests__/deEnAliases.test.ts)), but nothing
+exercised the resolver's actual per-source dispatch end-to-end. Added two integration-level
+tests to
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts)
+(new `describe('Source-Native Query Adaptation (RESOLVER-V2-001 / RESOLVER-V2-002)')` block):
+one asserting `"ei"` reaches both a mocked BLS and OFF source unchanged while the mocked USDA
+source receives the mapped `"egg"` for the same resolve() call, and one asserting an unknown
+term reaches OFF/USDA unchanged when no canonical entity matches. Full suite (108 suites / 821
+tests, +2 new), `tsc --noEmit`, `eslint`, and `npx prettier -c .` (238-file pre-existing
+baseline, unchanged) all pass clean.
+
 ---
 
 #### RESOLVER-V2-002: Implement Source-Native Query Adapters
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Each source builds its own query from normalized input. No shared query string across sources.
@@ -4401,11 +4456,30 @@ Each source builds its own query from normalized input. No shared query string a
 
 **Verify:** Debug logs show source-specific query adaptation
 
+**Implementation notes:**
+[`getSourceQuery()`](src/features/nutrition/domain/catalog/FoodAliasDictionary.ts:204) already
+implemented per-source query adaptation (RESOLVER-V2-001's audit confirmed the dispatch loop
+calls it once per source), but the `QUERY_MAP` debug log line in
+[`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:112)
+only surfaced `offQuery`/`usdaQuery`, silently omitting BLS. Added `blsQuery` to that log line so
+all three source-native queries (`bls`, `off`, `usda`) are visible together for the same
+resolve() call — since BLS/OFF both receive the untouched DE-native `normalizedQuery` and USDA
+receives the source-native EN mapping when a canonical match exists, the log now demonstrates
+"same input, source-specific adaptation" directly instead of only for two of three sources.
+Added a debug-logging test to
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts)
+that sets `APP_ENV=dev` + `EXPO_PUBLIC_RESOLVER_DEBUG=true` (Jest otherwise always resolves
+`envName()` to `test`, so debug logging is normally off in the suite), spies on `console.log`,
+and asserts the `QUERY_MAP` line contains `blsQuery="ei"`, `offQuery="ei"`, and
+`usdaQuery="egg"` for one `resolve()` call with `"ei"`. Full suite (108 suites / 822 tests, +1
+new), `tsc --noEmit`, `eslint`, and `npx prettier -c .` (238-file pre-existing baseline,
+unchanged) all pass clean.
+
 ---
 
 #### RESOLVER-V2-003: Implement Multi-Source Candidate Retrieval
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 All sources return candidates before decision. Remove early-return logic except negative cache.
@@ -4418,11 +4492,58 @@ All sources return candidates before decision. Remove early-return logic except 
 
 **Verify:** Resolution logs show multi-source candidate collection
 
+**Implementation notes (human-approved scope, see conversation):** The literal DoD text ("no
+early return except negative cache") would also remove the deterministic user-alias fast path
+and the documented DACH Data Strategy "Resolver Decision Rule" (BLS high-confidence generic
+match → accept as truth without cross-checking OFF/USDA). Both were confirmed with the human
+maintainer as deliberate, non-arbitrary behavior distinct from the thing this task actually
+targets, so they were kept:
+
+- **Removed:** OFF's confidence-threshold early return
+  (`best.score >= offEarlyReturnMinConfidence`), which was an arbitrary "OFF is good enough,
+  don't bother checking USDA" shortcut with no strategic backing. OFF's candidates now always
+  flow into `allRawCandidates` like every other source, so USDA (and BLS, if not already
+  matched) get a fair comparison via the existing scoring/ranking step
+  (`scoreCandidates`/`buildResolverDecision`) instead of losing by default. The dead
+  `SourceRoutingStrategy.offEarlyReturnDisabled` flag (and its unused `blsEarlyReturnDisabled`/
+  `userEarlyReturnDisabled` siblings, which were never actually read by the BLS/user fast
+  paths) were removed along with the block that consumed them.
+  `FoodCatalogConfig.offEarlyReturnMinConfidence` itself was left in place (marked
+  `@deprecated`/unused in a doc comment) rather than deleted, to avoid churning ~20 existing
+  test fixtures that still set it.
+- **Kept:** the user-alias fast path (deterministic, local, no network call — not a confidence
+  heuristic) and the BLS "DACH generic truth" fast path
+  (`source.type === 'bls' && locale === 'de' && ... && best.score >= threshold`), which already
+  implements the `ROADMAP.md` DACH Data Strategy's "Resolver Decision Rule" (§5): a
+  high-confidence BLS match for a generic DE input is accepted without querying OFF/USDA.
+- **Locale-based source priority:** `determineSourceRoutingStrategy()` now puts `bls` ahead of
+  `off`/`usda` for **any** German-locale, non-branded input (previously only for `inputType ===
+'generic'`; ambiguous/unclassified DE input still queried `off` first). This directly
+  addresses the human's ask that BLS — as the trusted local source for the DACH launch market —
+  should have priority, and keeps the priority decision centralized in one function so future
+  non-DACH locales can add their own trusted-source ordering without touching the dispatch
+  loop.
+- Added a `describe('Multi-Source Candidate Retrieval (RESOLVER-V2-003)')` block to
+  [`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts):
+  one test confirming OFF+USDA candidates are both collected into the same decision
+  (`result.candidates` contains both `'OFF'` and `'USDA'`) instead of OFF pre-empting USDA, and
+  one confirming BLS is queried before OFF for German-locale ambiguous/unclassified input
+  (via `mock.invocationCallOrder`).
+- Updated two pre-existing tests whose premise was OFF's now-removed early return: "returns OFF
+  result with high confidence without checking USDA" → renamed to reflect that USDA is now
+  always queried too (identical OFF/USDA match quality now resolves via source-trust tie-break
+  to USDA, consistent with the existing "returns USDA when match quality is tied..." test right
+  below it); the "Lookup Summary Metrics" debug-log test's `sourcesTried` expectation was
+  updated from `['off']` to `['off', 'usda']` since USDA is now always tried (it still
+  contributes no candidates in that fixture, so `winnerSource` stays `'OFF'`).
+- Full suite (108 suites / 824 tests, +2 new), `tsc --noEmit`, `eslint`, and `npx prettier -c .`
+  (238-file pre-existing baseline, unchanged) all pass clean.
+
 ---
 
 #### RESOLVER-V2-004: Build Candidate Fusion Layer
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Central scoring across all sources. Introduce unified Candidate type with cross-source ranking.
@@ -4434,6 +4555,38 @@ Central scoring across all sources. Introduce unified Candidate type with cross-
 - Ranking logs show source comparison rationale
 
 **Verify:** Ranking logs demonstrate cross-source candidate evaluation
+
+**Implementation notes:** The unified scoring algorithm and cross-source comparison logic
+already existed — [`ScoreCalculator`](src/features/nutrition/application/services/ScoreCalculator.ts)
+computes one shared breakdown (`matchScore`/`dataQualityScore`/`kcalConsistencyScore`/
+`sourceTrustScore`/`finalScore`, weighted per `WEIGHTS`, plus a semantic-class multiplier and a
+generic-food plausibility penalty) for every candidate regardless of source, and
+`SequentialFoodCatalogResolver.scoreCandidates()` applies it uniformly to `allRawCandidates` —
+now populated from every queried source after RESOLVER-V2-003 — before sorting by `finalScore`
+in `buildResolverDecision()`. What was missing was the third DoD line: a **log that actually
+shows the cross-source ranking rationale** for a human/operator, not just the full
+`ResolverDebugCollector` JSON dump (which requires `enableDebugLogs` **and** `enableTracing`
+**and** `isDebugLoggingEnabled()` all at once, and buries the ranking inside a large JSON
+object rather than presenting it as a readable comparison).
+
+Added a dedicated `RANKING` debug log line in
+[`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:409),
+gated the same way as the existing `QUERY_MAP`/`SOURCE` debug lines
+(`isDebugLoggingEnabled() && traceId`), emitted whenever a decision is reached via the
+multi-source comparison path (as opposed to one of the early-return fast paths above it) —
+e.g. `[traceId] RANKING query="..." candidateCount=2 #1 source=OFF score=0.823 name="..." | #2
+source=USDA score=0.751 name="..."`. This surfaces, in one line, which sources contributed
+candidates, their rank order, and their final scores — the "source comparison rationale" the
+DoD asks for — without needing the heavier full JSON debug bundle.
+
+Added a test to
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts)
+(`describe('Candidate Fusion Layer Ranking Log (RESOLVER-V2-004)')`) that enables resolver
+debug logging, resolves a query where both a mocked OFF and USDA source contribute a candidate
+for the same normalized name, and asserts the `RANKING` log line contains both `source=OFF` and
+`source=USDA` with numbered, scored entries — i.e. the log demonstrates cross-source candidate
+evaluation, not just the winner. Full suite (108 suites / 825 tests, +1 new), `tsc --noEmit`,
+`eslint`, and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean.
 
 ---
 

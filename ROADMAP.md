@@ -4027,7 +4027,7 @@ pointing at the Ziele tab, rather than a generic error. Manual testing gap logge
 
 #### DI-003: Rule-Level Insights & Recommendations
 
-Status: `todo`
+Status: `done`
 Depends on: DI-002 (so there's a screen to show them on; can implement in parallel)
 
 **Ziel:** Both existing Rules (`CalorieMacroCorridorRule`, `ProteinPreservingDeficitRule`)
@@ -4060,6 +4060,18 @@ under specific input conditions; existing GE-002/GE-004 tests continue to pass u
 - Full suite, typecheck, lint pass clean.
 
 **Verify:** `npm run typecheck`, `npm run test`, `npm run lint`.
+
+**Implementation notes:** Kept `dailyProgressToEvaluationOutput()` itself unchanged (still
+returns empty `insights`/`recommendations`, still shared by both rules) — each Rule now
+appends its own content on top of that base result, rather than the shared helper growing
+per-profile branching. `CalorieMacroCorridorRule`: a protein-remaining insight when protein
+is under target, a "calorie-richer meal is possible" recommendation when calories are under
+but protein is already met. `ProteinPreservingDeficitRule`: a deficit-pace insight (kcal
+below TDEE) when not over the deficit target, a protein-priority recommendation when
+protein is under target — genuinely distinct wording from the other rule for the same
+underlying facts, proven by an explicit `not.toEqual` test. Full suite (107 suites / 808
+tests, +7 new), `tsc --noEmit`, `eslint`, and `npx prettier -c` (scoped) pass clean; no
+change to any existing `assessment`/`goalProgress`/`warnings` test expectations.
 
 ---
 

@@ -28,6 +28,26 @@ export const CalorieMacroCorridorRule: Rule = {
     const consumed = aggregateConsumed(input.journalReadsForPeriod);
     const progress = calculateDailyProgress(consumed, goals);
 
-    return dailyProgressToEvaluationOutput(progress, goals, 'Kalorienziel überschritten.');
+    const result = dailyProgressToEvaluationOutput(progress, goals, 'Kalorienziel überschritten.');
+
+    // DI-003: real Insights & Recommendations content, not just progress numbers.
+    const caloriesProgress = result.goalProgress.find((g) => g.label === 'calories')!;
+    const proteinProgress = result.goalProgress.find((g) => g.label === 'protein')!;
+
+    const insights = [...result.insights];
+    if (proteinProgress.status === 'under' && proteinProgress.remaining > 0) {
+      insights.push(
+        `Noch ${Math.round(proteinProgress.remaining)} g Protein übrig, um das Tagesziel zu erreichen.`,
+      );
+    }
+
+    const recommendations = [...result.recommendations];
+    if (caloriesProgress.status === 'under' && proteinProgress.status !== 'under') {
+      recommendations.push(
+        'Kalorienziel ist noch nicht erreicht, Proteinziel aber schon — eine ausgewogene, kalorienreichere Mahlzeit ist möglich.',
+      );
+    }
+
+    return { ...result, insights, recommendations };
   },
 };

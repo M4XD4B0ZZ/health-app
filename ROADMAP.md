@@ -3864,7 +3864,7 @@ clean.
 
 #### GE-008: GoalsScreen "Ziel wählen" Surface
 
-Status: `todo`
+Status: `done`
 Depends on: GE-004 (needs at least two selectable profiles to be meaningful)
 
 **Ziel:** Product Bible §4b: "Evaluation Profile", "Preset", "Origin" etc. must never
@@ -3873,6 +3873,26 @@ appear literally in the product surface — users choose a **Ziel** (goal/focus)
 a metabolism-profile + macro-strategy form, 762 lines) needs a profile-picker UI wired to
 GE-003's `EvaluationProfileRegistry`, using §4b's internal→product-surface vocabulary
 mapping (e.g. "vorgeschlagenes Ziel" for a Preset-origin profile).
+
+**Implementation notes:** Added a new "Ziel wählen" card to `GoalsScreen.tsx`, rendered
+right below the header and above the (untouched) Metabolismus-Profil section. It lists
+`container.evaluationProfileRegistry.list()`, highlights the active id (from
+`getActiveProfileId()`), and calls `setActiveProfileId()` on selection — no Journal/Food
+Catalog write path is reachable from this handler, matching GE-003's contract. New
+[`goalsDisplay.ts`](src/presentation/features/goals/goalsDisplay.ts) provides `originLabel()`,
+a `EvaluationProfileOrigin → string` map straight from §4b's table (`preset` → "Vorgeschlagenes
+Ziel", `user` → "Eigenes Ziel", plus placeholder labels for the not-yet-implemented
+`professional`/`community`/`ai` origins) — the internal words "Profil"/"Preset"/"Origin"
+never render; only `originLabel()`'s output and each profile's own `name` (e.g. "Weight
+Loss") do, mirroring the existing `EvaluationSummaryScreen` (DI-002) picker pattern. New
+[`goalsDisplay.test.ts`](src/presentation/features/goals/__tests__/goalsDisplay.test.ts)
+asserts the §4b mapping and, explicitly, that no origin ever produces a label matching
+`/profil/i`, `/preset/i`, or `/\borigin\b/i`. Full suite (113 suites / 854 tests, +4 new),
+`tsc --noEmit`, `eslint`, and `npx prettier -c` (scoped) pass clean. Per AGENTS.md's Manual
+UI Testing Gap Log rule, a visual-verification gap entry was added to
+`docs/MANUAL_TESTING_GAPS.md` (headless environment, no Expo/simulator available) — the
+Ziel-picker's layout/touch behavior and its live effect on the Auswertung tab (DI-002) still
+need a real-device/simulator check.
 
 **Why not folded into GE-001–GE-005:** the highest-risk, most user-visible change of
 everything found in this decomposition — a substantial rewrite of an existing, working

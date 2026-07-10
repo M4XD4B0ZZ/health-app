@@ -10,12 +10,20 @@ import {
 } from 'react-native';
 import container from '../../../infrastructure/di/container';
 import { MetabolismResult, ActivityLevel, Sex, EffectiveGoals } from '../../../features/goals';
+import { EvaluationProfile } from '../../../features/evaluation';
+import { originLabel } from './goalsDisplay';
 
 const GoalsScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
   const [metabolismResult, setMetabolismResult] = useState<MetabolismResult | null>(null);
   const [effectiveGoals, setEffectiveGoals] = useState<EffectiveGoals | null>(null);
+
+  // GE-008: "Ziel wählen" — active Evaluation Profile selection (Product Bible §4b:
+  // "Evaluation Profile"/"Preset"/"Origin" stay internal; the user picks a "Ziel").
+  const [zielOptions, setZielOptions] = useState<EvaluationProfile[]>([]);
+  const [activeZielId, setActiveZielId] = useState<string | null>(null);
+  const [switchingZielId, setSwitchingZielId] = useState<string | null>(null);
 
   // Profile form state
   const [weightKg, setWeightKg] = useState('');
@@ -52,10 +60,28 @@ const GoalsScreen: React.FC = () => {
       // Try to load effective goals
       const goals = await container.effectiveGoalsRepository.get();
       setEffectiveGoals(goals);
+
+      // GE-008: load the "Ziel" picker (registered Evaluation Profiles + active selection)
+      setZielOptions(container.evaluationProfileRegistry.list());
+      setActiveZielId(await container.evaluationProfileRegistry.getActiveProfileId());
     } catch (err) {
       console.error('Failed to load goals data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectZiel = async (profileId: string) => {
+    if (switchingZielId || profileId === activeZielId) return;
+
+    setSwitchingZielId(profileId);
+    try {
+      await container.evaluationProfileRegistry.setActiveProfileId(profileId);
+      setActiveZielId(profileId);
+    } catch (err) {
+      console.error('Failed to switch active Ziel:', err);
+    } finally {
+      setSwitchingZielId(null);
     }
   };
 
@@ -157,6 +183,40 @@ const GoalsScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Ziele & Profil</Text>
       </View>
+
+      {/* GE-008: Ziel wählen — picks the active Evaluation Profile via
+          container.evaluationProfileRegistry. Never renders "Profil"/"Preset"/"Origin"
+          literally (Product Bible §4b) — origin is shown via originLabel(). */}
+      {zielOptions.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Ziel wählen</Text>
+          <Text style={styles.helperText}>
+            Wählen Sie, worauf Ihre Auswertung sich fokussieren soll.
+          </Text>
+
+          <View style={styles.zielList}>
+            {zielOptions.map((ziel) => {
+              const isActive = ziel.id === activeZielId;
+              return (
+                <TouchableOpacity
+                  key={ziel.id}
+                  style={[styles.zielOption, isActive && styles.zielOptionActive]}
+                  onPress={() => handleSelectZiel(ziel.id)}
+                  disabled={switchingZielId !== null || isActive}
+                >
+                  <Text style={styles.zielOriginLabel}>{originLabel(ziel.origin)}</Text>
+                  <Text style={[styles.zielOptionText, isActive && styles.zielOptionTextActive]}>
+                    {ziel.name}
+                  </Text>
+                  {!!ziel.metadata.motivation && (
+                    <Text style={styles.zielMotivation}>{ziel.metadata.motivation}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* Metabolism Profile Section */}
       <View style={styles.card}>
@@ -756,6 +816,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 15,
+  },
+  zielList: {
+    gap: 10,
+  },
+  zielOption: {
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: '#fff',
+  },
+  zielOptionActive: {
+    borderColor: '#4a90e2',
+    backgroundColor: '#e8f4ff',
+  },
+  zielOriginLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4a90e2',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  zielOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  zielOptionTextActive: {
+    color: '#2b6cb0',
+  },
+  zielMotivation: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
   },
 });
 

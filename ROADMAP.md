@@ -4479,7 +4479,7 @@ unchanged) all pass clean.
 
 #### RESOLVER-V2-003: Implement Multi-Source Candidate Retrieval
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 All sources return candidates before decision. Remove early-return logic except negative cache.
@@ -4491,6 +4491,53 @@ All sources return candidates before decision. Remove early-return logic except 
 - Logs show candidates from multiple sources per query
 
 **Verify:** Resolution logs show multi-source candidate collection
+
+**Implementation notes (human-approved scope, see conversation):** The literal DoD text ("no
+early return except negative cache") would also remove the deterministic user-alias fast path
+and the documented DACH Data Strategy "Resolver Decision Rule" (BLS high-confidence generic
+match → accept as truth without cross-checking OFF/USDA). Both were confirmed with the human
+maintainer as deliberate, non-arbitrary behavior distinct from the thing this task actually
+targets, so they were kept:
+
+- **Removed:** OFF's confidence-threshold early return
+  (`best.score >= offEarlyReturnMinConfidence`), which was an arbitrary "OFF is good enough,
+  don't bother checking USDA" shortcut with no strategic backing. OFF's candidates now always
+  flow into `allRawCandidates` like every other source, so USDA (and BLS, if not already
+  matched) get a fair comparison via the existing scoring/ranking step
+  (`scoreCandidates`/`buildResolverDecision`) instead of losing by default. The dead
+  `SourceRoutingStrategy.offEarlyReturnDisabled` flag (and its unused `blsEarlyReturnDisabled`/
+  `userEarlyReturnDisabled` siblings, which were never actually read by the BLS/user fast
+  paths) were removed along with the block that consumed them.
+  `FoodCatalogConfig.offEarlyReturnMinConfidence` itself was left in place (marked
+  `@deprecated`/unused in a doc comment) rather than deleted, to avoid churning ~20 existing
+  test fixtures that still set it.
+- **Kept:** the user-alias fast path (deterministic, local, no network call — not a confidence
+  heuristic) and the BLS "DACH generic truth" fast path
+  (`source.type === 'bls' && locale === 'de' && ... && best.score >= threshold`), which already
+  implements the `ROADMAP.md` DACH Data Strategy's "Resolver Decision Rule" (§5): a
+  high-confidence BLS match for a generic DE input is accepted without querying OFF/USDA.
+- **Locale-based source priority:** `determineSourceRoutingStrategy()` now puts `bls` ahead of
+  `off`/`usda` for **any** German-locale, non-branded input (previously only for `inputType ===
+  'generic'`; ambiguous/unclassified DE input still queried `off` first). This directly
+  addresses the human's ask that BLS — as the trusted local source for the DACH launch market —
+  should have priority, and keeps the priority decision centralized in one function so future
+  non-DACH locales can add their own trusted-source ordering without touching the dispatch
+  loop.
+- Added a `describe('Multi-Source Candidate Retrieval (RESOLVER-V2-003)')` block to
+  [`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts):
+  one test confirming OFF+USDA candidates are both collected into the same decision
+  (`result.candidates` contains both `'OFF'` and `'USDA'`) instead of OFF pre-empting USDA, and
+  one confirming BLS is queried before OFF for German-locale ambiguous/unclassified input
+  (via `mock.invocationCallOrder`).
+- Updated two pre-existing tests whose premise was OFF's now-removed early return: "returns OFF
+  result with high confidence without checking USDA" → renamed to reflect that USDA is now
+  always queried too (identical OFF/USDA match quality now resolves via source-trust tie-break
+  to USDA, consistent with the existing "returns USDA when match quality is tied..." test right
+  below it); the "Lookup Summary Metrics" debug-log test's `sourcesTried` expectation was
+  updated from `['off']` to `['off', 'usda']` since USDA is now always tried (it still
+  contributes no candidates in that fixture, so `winnerSource` stays `'OFF'`).
+- Full suite (108 suites / 824 tests, +2 new), `tsc --noEmit`, `eslint`, and `npx prettier -c .`
+  (238-file pre-existing baseline, unchanged) all pass clean.
 
 ---
 

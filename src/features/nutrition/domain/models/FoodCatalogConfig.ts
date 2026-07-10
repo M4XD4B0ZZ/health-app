@@ -6,10 +6,10 @@
  */
 export interface FoodCatalogConfig {
   /**
-   * Minimum Confidence für OFF Early Return
-   *
-   * Wenn OFF-Quelle einen Match mit dieser oder höherer Confidence liefert,
-   * wird sofort zurückgekehrt ohne USDA zu befragen.
+   * @deprecated No longer consumed by `SequentialFoodCatalogResolver` since RESOLVER-V2-003
+   * removed OFF's confidence-based early return (OFF always contributes candidates to the
+   * multi-source comparison now, alongside USDA/BLS). Kept as a config field only to avoid
+   * churning every existing `FoodCatalogConfig` fixture across the test suite.
    *
    * @default 0.7
    */

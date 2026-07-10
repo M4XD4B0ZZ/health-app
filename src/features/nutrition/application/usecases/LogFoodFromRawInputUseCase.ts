@@ -1,4 +1,4 @@
-import { FoodEntry } from '../../domain/models/NutritionTypes';
+import { FoodEntry, AutoMergeInfo } from '../../domain/models/NutritionTypes';
 import { detectCanonicalEntity } from '../../domain/detectCanonicalEntity';
 import { resolvePortionGrams } from '../../domain/portion/resolvePortionGrams';
 import { PortionNeedsEditItem } from '../../domain/portion/PortionNeedsEdit';
@@ -76,7 +76,8 @@ function toResolvedCanonicalFood(
 export class LogFoodFromRawInputUseCase {
   private readonly engine: NutritionEngine;
   private readonly portionParser: PortionParser;
-  private static readonly CORRECTION_WINDOW_MS = 30 * 60 * 1000;
+  /** J-005: narrowed from 30 minutes per Journal Decision Record 1 Entscheidung 2. */
+  private static readonly CORRECTION_WINDOW_MS = 2 * 60 * 1000;
   static readonly LOCAL_PORTION_HINT_USER_ID = 'local-user';
 
   constructor(
@@ -99,7 +100,7 @@ export class LogFoodFromRawInputUseCase {
   async execute(
     input: { rawText: string; rawInput: string; groupId?: string; groupLabel?: string },
     dateISO?: string,
-  ): Promise<FoodEntry> {
+  ): Promise<FoodEntry & { autoMergeInfo?: AutoMergeInfo }> {
     const { rawText, rawInput, groupId, groupLabel } = input;
     const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log(`[${traceId}] PROOF_USECASE_ENTERED rawText="${rawText}" rawInput="${rawInput}"`);
@@ -418,9 +419,17 @@ export class LogFoodFromRawInputUseCase {
           lastModifiedAt: entryDate,
         };
 
+        // J-005: visible, undoable, system-triggered — not a silent merge.
+        const correctionLogTimestamp = this.clock.now();
+        await this.repository.appendCorrectionLogEntry(updatedEntry.id, {
+          timestamp: correctionLogTimestamp,
+          previousValues: correctionCandidate,
+          triggeredBy: 'system',
+        });
         await this.repository.updateEntryById(updatedEntry);
 
         console.log(`[${traceId}] PROOF_PERSIST_SUCCESS entryId="${updatedEntry.id}"`);
+        console.log(`[${traceId}] PROOF_AUTO_MERGE_LOGGED entryId="${updatedEntry.id}"`);
 
         if (isDebugLoggingEnabled()) {
           const durationMs = Date.now() - startTimeMs;
@@ -429,7 +438,13 @@ export class LogFoodFromRawInputUseCase {
           );
         }
 
-        return updatedEntry;
+        return {
+          ...updatedEntry,
+          autoMergeInfo: {
+            previousValues: correctionCandidate,
+            correctionLogTimestamp,
+          },
+        };
       }
 
       await this.repository.addEntry(entry);

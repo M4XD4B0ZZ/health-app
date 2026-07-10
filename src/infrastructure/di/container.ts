@@ -36,6 +36,7 @@ import {
   SetReminderSettingsUseCase,
   GetReminderDecisionUseCase,
   GetCalendarMonthSummaryUseCase,
+  UndoAutoMergeUseCase,
 } from '../../features/nutrition';
 import { PortionKnowledgeService } from '../../features/nutrition/domain/portion/PortionKnowledgeService';
 import { SEED_PORTION_HINTS } from '../../features/nutrition/domain/portion/seedPortionHints';
@@ -137,6 +138,7 @@ class Container {
   private _applyNaturalLanguageEditUseCase: ApplyNaturalLanguageEditUseCase;
   private _editFoodEntryFromNaturalLanguageUseCase: EditFoodEntryFromNaturalLanguageUseCase;
   private _deleteFoodEntryUseCase: DeleteFoodEntryUseCase;
+  private _undoAutoMergeUseCase: UndoAutoMergeUseCase;
   private _enrichFoodEntryMacrosUseCase: EnrichFoodEntryMacrosUseCase;
   private _getGoalsUseCase: GetGoalsUseCase;
   private _setManualGoalsUseCase: SetManualGoalsUseCase;
@@ -288,6 +290,11 @@ class Container {
       this._nutritionClock,
     );
 
+    this._undoAutoMergeUseCase = new UndoAutoMergeUseCase(
+      this._foodEntryRepository,
+      this._nutritionClock,
+    );
+
     this._enrichFoodEntryMacrosUseCase = new EnrichFoodEntryMacrosUseCase(
       this._foodEntryRepository,
       this._nutritionLookup,
@@ -423,6 +430,10 @@ class Container {
 
   get deleteFoodEntryUseCase(): DeleteFoodEntryUseCase {
     return this._deleteFoodEntryUseCase;
+  }
+
+  get undoAutoMergeUseCase(): UndoAutoMergeUseCase {
+    return this._undoAutoMergeUseCase;
   }
 
   get enrichFoodEntryMacrosUseCase(): EnrichFoodEntryMacrosUseCase {

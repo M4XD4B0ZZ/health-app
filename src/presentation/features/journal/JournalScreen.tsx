@@ -114,6 +114,12 @@ const JournalScreen: React.FC = () => {
   const [recognizedItems, setRecognizedItems] = React.useState<
     { name: string; quantity: number | null; unit: string | null; kcal: number | null }[]
   >([]);
+  // J-005: visible, undoable notification for a silent same-food auto-merge.
+  const [autoMergeNotice, setAutoMergeNotice] = React.useState<{
+    entryId: string;
+    previousValues: FoodEntry;
+  } | null>(null);
+  const [undoInFlight, setUndoInFlight] = useState(false);
 
   const clearFeedback = () => {
     setProcessingState('idle');
@@ -127,6 +133,7 @@ const JournalScreen: React.FC = () => {
     setUnresolvedItems([]);
     setPortionNeedsEditItems([]);
     setRecognizedItems([]);
+    setAutoMergeNotice(null);
   };
 
   const handleRawInputChange = (text: string) => {
@@ -159,6 +166,14 @@ const JournalScreen: React.FC = () => {
       result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
     );
     setPortionNeedsEditItems(result.needsEditItems);
+
+    // J-005: surface the first auto-merge (if any) as a visible, undoable notification.
+    const mergedEntry = result.persistedEntries.find((entry) => entry.autoMergeInfo);
+    setAutoMergeNotice(
+      mergedEntry?.autoMergeInfo
+        ? { entryId: mergedEntry.id, previousValues: mergedEntry.autoMergeInfo.previousValues }
+        : null,
+    );
 
     const remainingPersistedEntries = [...result.persistedEntries];
 
@@ -217,6 +232,24 @@ const JournalScreen: React.FC = () => {
     }
 
     await loadJournalData();
+  };
+
+  const handleUndoAutoMerge = async () => {
+    if (!autoMergeNotice || undoInFlight) return;
+
+    setUndoInFlight(true);
+    try {
+      await container.undoAutoMergeUseCase.execute(
+        autoMergeNotice.entryId,
+        autoMergeNotice.previousValues,
+      );
+      setAutoMergeNotice(null);
+      await loadJournalData();
+    } catch (err) {
+      console.error('Failed to undo auto-merge:', err);
+    } finally {
+      setUndoInFlight(false);
+    }
   };
 
   const handleQuickAdd = async () => {
@@ -354,6 +387,20 @@ const JournalScreen: React.FC = () => {
         <InlineStatus state={processingState} message={statusMessage} />
 
         {!!trustMessage && <AppText style={styles.trustMessage}>{trustMessage}</AppText>}
+
+        {autoMergeNotice && (
+          <View style={styles.autoMergeNotice}>
+            <AppText variant="meta" tone="muted" style={styles.autoMergeNoticeText}>
+              Mit vorherigem Eintrag zusammengeführt
+            </AppText>
+            <PrimaryButton
+              label="Rückgängig"
+              onPress={handleUndoAutoMerge}
+              disabled={undoInFlight}
+              style={styles.autoMergeNoticeButton}
+            />
+          </View>
+        )}
 
         {recognizedItems.length > 0 && (
           <View style={styles.section}>
@@ -570,6 +617,22 @@ const styles = StyleSheet.create({
   trustMessage: {
     marginTop: 8,
     color: tokens.colors.textMuted,
+  },
+  autoMergeNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingHorizontal: tokens.spacing.s,
+    paddingVertical: tokens.spacing.xs,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.medium,
+  },
+  autoMergeNoticeText: {
+    flex: 1,
+  },
+  autoMergeNoticeButton: {
+    marginLeft: tokens.spacing.s,
   },
   correctionButton: {
     marginTop: 8,

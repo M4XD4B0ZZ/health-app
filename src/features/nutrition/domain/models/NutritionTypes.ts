@@ -77,6 +77,17 @@ export interface CorrectionLogEntry {
   triggeredBy: 'user' | 'system';
 }
 
+/**
+ * J-005 / Journal Decision Record 1 Entscheidung 2: transient signal attached to a logging
+ * use case's return value when the just-persisted entry was silently merged into a recent
+ * same-food entry (auto-merge), so the caller can surface a visible, undoable notification.
+ * Never persisted — repositories only serialize the fields they know about.
+ */
+export interface AutoMergeInfo {
+  previousValues: FoodEntry;
+  correctionLogTimestamp: Date;
+}
+
 export interface DailyNutritionSummary {
   date: string; // ISO (YYYY-MM-DD)
   totalCalories: number;

@@ -2986,7 +2986,7 @@ J-001 still applies to `npm run verify` as an aggregate command.)
 
 #### J-005: Auto-Merge Narrowing + Visible/Undoable Correction
 
-Status: `todo`
+Status: `done`
 Depends on: J-003 (correction log must exist to record system-triggered merges)
 
 **Ziel:** Implement Decision Record 1 Entscheidung 2 — narrow the auto-merge heuristic to a
@@ -3022,6 +3022,36 @@ logged as system-triggered.
 
 **Verify:** `npm run typecheck`, `npm run test`, manual app verification of the undo
 notification per the `/verify` skill.
+
+**Implementation notes:** `CORRECTION_WINDOW_MS` narrowed to 2 minutes. The merge branch now
+writes a correction-log entry (`triggeredBy: 'system'`, `previousValues` = the pre-merge
+entry) before persisting, and `execute()`'s return type became
+`Promise<FoodEntry & { autoMergeInfo?: AutoMergeInfo }>` (new type in `NutritionTypes.ts`,
+`autoMergeInfo` never persisted — repositories only serialize fields they explicitly know
+about) — a superset of `FoodEntry`, so every existing typed consumer (`Awaited<ReturnType<...>>`
+usage in `resolvePreparedNutritionInputs.ts`/`logResolvedNutritionInput.ts`) picked up the new
+optional field automatically with zero call-site changes. New `UndoAutoMergeUseCase`
+(DI-wired in `container.ts`) restores an entry to `previousValues` and logs the undo itself
+as a `triggeredBy: 'user'` correction, so the log accurately reflects both events in order.
+Presentation-layer hook, kept minimal per the Risiken note: `JournalScreen.tsx` shows a small
+dismissible banner ("Mit vorherigem Eintrag zusammengeführt" + "Rückgängig", reusing the
+existing `PrimaryButton`/`AppText` primitives — no new UI components) when
+`logResolvedNutritionInput()`'s result contains a persisted entry with `autoMergeInfo`; only
+the first concurrent merge is surfaced (documented MVP limitation, not multi-item stacking).
+Full suite (91 suites / 740 tests, +4 new: narrowed-window merge assertions incl.
+`autoMergeInfo`/correction-log checks, a new just-outside-window boundary test, and 3
+`UndoAutoMergeUseCase` tests), `tsc --noEmit`, `eslint`, and `prettier -c` on touched files
+pass clean.
+**Manual app verification gap (per AGENTS.md's Manual UI Testing Gap Log binding rule):** the
+agent execution environment is headless — no Expo/simulator/device available — so the banner's
+actual on-screen appearance, layout, and touch behavior could not be visually verified. Logged
+as an open entry in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-10--j-005-auto-merge-undo-notification-in-journalscreen)
+per that binding rule; all application-layer logic (merge detection, undo restoration,
+correction-log bookkeeping) is fully unit-tested. This is the documented, sanctioned
+completion path for UI-relevant changes under this repo's governance — not a substitute for
+eventual real-device verification, which remains the human reviewer's follow-up per the gap
+log.
 
 ---
 

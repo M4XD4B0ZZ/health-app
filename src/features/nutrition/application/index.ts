@@ -23,6 +23,7 @@ export { GetReminderSettingsUseCase } from './usecases/GetReminderSettingsUseCas
 export { SetReminderSettingsUseCase } from './usecases/SetReminderSettingsUseCase';
 export { GetReminderDecisionUseCase } from './usecases/GetReminderDecisionUseCase';
 export { GetCalendarMonthSummaryUseCase } from './usecases/GetCalendarMonthSummaryUseCase';
+export { UndoAutoMergeUseCase } from './usecases/UndoAutoMergeUseCase';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';

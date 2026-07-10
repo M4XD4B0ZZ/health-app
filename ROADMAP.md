@@ -3113,9 +3113,9 @@ mass-reformat.
 
 ### Saved Meals Domain
 
-Status: `todo`
+Status: `done`
 
-All six decomposed tasks (SM-001–SM-006 below) are `todo`. Unlike the Journal Domain, this
+All six decomposed tasks (SM-001–SM-006 below) are `done`. Unlike the Journal Domain, this
 is **not** greenfield: an application/domain/infrastructure-layer implementation already
 exists (`SavedMealTemplate`/`SavedMealItem` in
 [`SavedMealTypes.ts`](src/features/nutrition/domain/models/SavedMealTypes.ts),
@@ -3446,9 +3446,10 @@ J-001 — all files touched across SM-001–SM-006 are confirmed individually Pr
 
 ### Goals & Evaluation
 
-Status: `todo`
+Status: `done` (GE-001–GE-007 done; GE-008 explicitly deferred, see its own section)
 
-All five decomposed tasks (GE-001–GE-005 below) are `todo`. Like Saved Meals, this is
+All five decomposed tasks (GE-001–GE-005 below) are `done`, plus follow-ups GE-006/GE-007
+(done) and GE-008 (deferred). Like Saved Meals, this is
 **not** greenfield: there is already substantial, partially-overlapping goal-tracking code,
 but **no** Evaluation Profile/Rule concept (Product Bible §4/4a: Origin, swappable
 Preset/User profiles, stateless Food-Catalog+Journal+Profile→Bewertung formula) exists
@@ -3920,10 +3921,11 @@ blocking; `GoalsScreen.tsx` stays as-is until this task is explicitly picked up.
 
 ### Dashboard & Insights
 
-Status: `todo`
+Status: `done`
 
-All four decomposed tasks (DI-001–DI-004 below) are `todo`. Like Saved Meals and Goals &
-Evaluation, this is **not** greenfield, but the existing code is worse than either: the
+All four decomposed tasks (DI-001–DI-004 below) are `done`, plus follow-ups DI-005/DI-006
+(done). Like Saved Meals and Goals & Evaluation, this is **not** greenfield, but the
+existing code was worse than either: the
 live "Dashboard" tab (`src/presentation/features/dashboard/DashboardScreen.tsx`, via the
 legacy `src/application/usecases/GetDashboardSummary.ts`) reads from
 `MockNutritionRepository`/`MockRecoveryRepository` — entirely fabricated, hardcoded

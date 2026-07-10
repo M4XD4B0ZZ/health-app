@@ -7,7 +7,7 @@ description: Delete merged and stale Git branches locally and on the remote, wit
 
 Remove branches that are fully merged or long inactive, without ever risking unmerged work.
 
-Branch deletion is one of the few Git operations that can lose work. Local deletion is recoverable via reflog; remote deletion generally is not. This skill therefore treats *showing* and *confirming* as the main job, and deletion as the small step at the end.
+Branch deletion is one of the few Git operations that can lose work. Local deletion is recoverable via reflog; remote deletion generally is not. This skill therefore treats _showing_ and _confirming_ as the main job, and deletion as the small step at the end.
 
 This skill implements, for this repository, the branch-deletion behavior required by
 [`AGENTS.md`](../../../AGENTS.md)'s "Git Branch Sync After Push/Pull" rule: only delete a branch once its
@@ -25,7 +25,7 @@ immediately after every `git push` and every `git pull`/`git fetch --prune`:
 - **Scope:** local only (no `--remote`) by default. This surfaces branches merged into
   `origin/$DEFAULT` right after a sync point, when the list is most likely to have changed.
 - **Confirmation still applies.** An automatic trigger is not license to skip step 8 below — it
-  changes *when* the skill runs, not *whether* it asks before deleting. Present the preview and wait
+  changes _when_ the skill runs, not _whether_ it asks before deleting. Present the preview and wait
   for the normal single local confirmation, same as a manually-invoked run.
 - **`--remote` only** when either (a) the branch being cleaned up is one whose PR was confirmed
   merged in this same session (the standing authorization already granted by AGENTS.md for that
@@ -37,13 +37,13 @@ immediately after every `git push` and every `git pull`/`git fetch --prune`:
 
 ## Flags
 
-| Flag | Effect |
-|---|---|
-| *(none)* | Local merged branches only. Preview + one confirmation. |
-| `--remote` | Also consider remote branches. Requires a **second, separate** confirmation. |
-| `--stale <days>` | Additionally list branches with no commit in `<days>` days (default 90). Never auto-deleted — reported for the user to choose. |
-| `--dry-run` | Print exactly what would be deleted, then stop. No confirmation prompt, no deletion. |
-| `--protect <a,b,c>` | Extra protected branch names or glob patterns, added to the defaults. |
+| Flag                | Effect                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| _(none)_            | Local merged branches only. Preview + one confirmation.                                                                        |
+| `--remote`          | Also consider remote branches. Requires a **second, separate** confirmation.                                                   |
+| `--stale <days>`    | Additionally list branches with no commit in `<days>` days (default 90). Never auto-deleted — reported for the user to choose. |
+| `--dry-run`         | Print exactly what would be deleted, then stop. No confirmation prompt, no deletion.                                           |
+| `--protect <a,b,c>` | Extra protected branch names or glob patterns, added to the defaults.                                                          |
 
 Flags combine (`--remote --dry-run` previews both sides).
 
@@ -56,7 +56,7 @@ Never delete, under any circumstances:
 - The branch currently checked out (`git branch --show-current`)
 - The remote's default branch (`git symbolic-ref refs/remotes/origin/HEAD`)
 
-**Repo note:** in this repository the remote's default branch is *not* named `main` — verify it
+**Repo note:** in this repository the remote's default branch is _not_ named `main` — verify it
 with step 3 below rather than assuming. Do not hardcode `main` anywhere in the implementation.
 
 If a user explicitly asks to delete a protected branch, refuse and explain — they can do it manually with plain Git if they truly mean it. The value of this skill is that it can't be the thing that deleted the default branch.
@@ -104,7 +104,7 @@ git branch -r --format='%(refname:short)' --merged "origin/$DEFAULT"
 
 Compare against `origin/$DEFAULT`, not the local `$DEFAULT`. A local default branch that hasn't been pulled in two weeks will report far fewer branches as merged than are actually merged.
 
-**Squash-merge caveat:** repositories that squash-merge PRs produce branches that are *logically* merged but that `--merged` will not report, because no merge commit shares their tip. Mention this once in the summary if nothing was found — the user may need `git cherry` or their forge's UI instead. Never work around it by loosening the merge check.
+**Squash-merge caveat:** repositories that squash-merge PRs produce branches that are _logically_ merged but that `--merged` will not report, because no merge commit shares their tip. Mention this once in the summary if nothing was found — the user may need `git cherry` or their forge's UI instead. Never work around it by loosening the merge check.
 
 ### 5. Find stale branches (only with `--stale`)
 
@@ -114,7 +114,7 @@ git for-each-ref --sort=committerdate \
   refs/heads/
 ```
 
-Filter to those older than the threshold. Report them in a **separate section**, clearly labelled as *not merged*. Stale ≠ safe to delete: an old branch may hold the only copy of unfinished work. The user picks individually; never bulk-delete stale branches.
+Filter to those older than the threshold. Report them in a **separate section**, clearly labelled as _not merged_. Stale ≠ safe to delete: an old branch may hold the only copy of unfinished work. The user picks individually; never bulk-delete stale branches.
 
 ### 6. Filter
 
@@ -147,12 +147,12 @@ git push origin --delete "$branch"
 
 Delete one branch at a time and keep going on failure. Common failures worth surfacing plainly:
 
-| Failure | Meaning |
-|---|---|
+| Failure                                       | Meaning                                  |
+| --------------------------------------------- | ---------------------------------------- |
 | `error: the branch '<x>' is not fully merged` | Unmerged commits. Left intact — correct. |
-| `remote ref does not exist` | Someone already deleted it. Harmless. |
-| `protected branch hook declined` | Server-side protection. Respect it. |
-| non-fast-forward / permission denied | No push rights. Report, don't retry. |
+| `remote ref does not exist`                   | Someone already deleted it. Harmless.    |
+| `protected branch hook declined`              | Server-side protection. Respect it.      |
+| non-fast-forward / permission denied          | No push rights. Report, don't retry.     |
 
 If a remote deletion is rejected by the environment/proxy (HTTP 403, no MCP tool available, etc.) rather
 than by Git itself, do not build ad-hoc workarounds (raw API calls, new tools/dependencies) to route
@@ -166,6 +166,7 @@ Report deleted, skipped, and failed counts separately. Mention that local deleti
 ## Examples
 
 **Basic cleanup**
+
 ```
 /cleanup-branches
 → Fetching (git fetch --prune origin)...
@@ -187,6 +188,7 @@ Report deleted, skipped, and failed counts separately. Mention that local deleti
 ```
 
 **With remote — note the two prompts**
+
 ```
 /cleanup-branches --remote
 → Default branch: chore/clean-arch-structure
@@ -203,6 +205,7 @@ Report deleted, skipped, and failed counts separately. Mention that local deleti
 ```
 
 **Unmerged branch encountered**
+
 ```
 → Deleting...
   ✅ feature/add-button
@@ -211,6 +214,7 @@ Report deleted, skipped, and failed counts separately. Mention that local deleti
 ```
 
 **Nothing to clean**
+
 ```
 /cleanup-branches
 → Default branch: chore/clean-arch-structure
@@ -220,6 +224,7 @@ Report deleted, skipped, and failed counts separately. Mention that local deleti
 ```
 
 **Dry run**
+
 ```
 /cleanup-branches --remote --dry-run
 → Would delete (dry run, nothing changed):

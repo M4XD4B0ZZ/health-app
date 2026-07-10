@@ -692,6 +692,47 @@ describe('SequentialFoodCatalogResolver', () => {
     });
   });
 
+  describe('Candidate Fusion Layer Ranking Log (RESOLVER-V2-004)', () => {
+    it('logs a cross-source ranking with per-candidate scores when a multi-source decision is made', async () => {
+      const originalAppEnv = process.env.APP_ENV;
+      const originalResolverDebug = process.env.EXPO_PUBLIC_RESOLVER_DEBUG;
+      process.env.APP_ENV = 'dev';
+      process.env.EXPO_PUBLIC_RESOLVER_DEBUG = 'true';
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      try {
+        const offCandidate = createCandidate('off', 0.9, 'ranked match');
+        const usdaCandidate = createCandidate('usda', 0.8, 'ranked match');
+        const offSource = createMockOffSource([offCandidate]);
+        const usdaSource = createMockUsdaSource([usdaCandidate]);
+
+        const resolver = new SequentialFoodCatalogResolver(
+          [offSource, usdaSource],
+          confidenceEngine,
+        );
+
+        await resolver.resolve({ raw: 'ranked match', normalized: 'ranked match', locale: 'en' });
+
+        const rankingLog = consoleSpy.mock.calls
+          .map((call) => call[0])
+          .find((message) => typeof message === 'string' && message.includes('RANKING'));
+
+        expect(rankingLog).toBeDefined();
+        // Cross-source comparison rationale: both sources' candidates and scores are visible
+        // together in one ranking log, not just the winner.
+        expect(rankingLog).toContain('source=OFF');
+        expect(rankingLog).toContain('source=USDA');
+        expect(rankingLog).toMatch(/#1 .*score=0\.\d+/);
+        expect(rankingLog).toMatch(/#2 .*score=0\.\d+/);
+      } finally {
+        consoleSpy.mockRestore();
+        process.env.APP_ENV = originalAppEnv;
+        process.env.EXPO_PUBLIC_RESOLVER_DEBUG = originalResolverDebug;
+      }
+    });
+  });
+
   describe('Circuit Breaker', () => {
     it('opens circuit after N failures and skips source', async () => {
       const config: FoodCatalogConfig = {

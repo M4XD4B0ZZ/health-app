@@ -413,6 +413,21 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       metrics.winnerSource = decision.best?.source ?? null;
       metrics.winnerConfidence = decision.best?.score ?? null;
 
+      // RESOLVER-V2-004: Candidate Fusion Layer ranking rationale, so a cross-source decision
+      // (as opposed to an early-return short-circuit above) is traceable without needing the
+      // full JSON debug dump (which additionally requires enableDebugLogs+enableTracing).
+      if (isDebugLoggingEnabled() && traceId) {
+        const rankingSummary = scoredCandidates
+          .map(
+            (candidate, index) =>
+              `#${index + 1} source=${candidate.source} score=${candidate.score.toFixed(3)} name="${candidate.food.name}"`,
+          )
+          .join(' | ');
+        console.log(
+          `[${traceId}] RANKING query="${normalizedQuery}" candidateCount=${scoredCandidates.length} ${rankingSummary}`,
+        );
+      }
+
       // Debug logging for final decision
       if (debugCollector) {
         debugCollector.addEvaluation(this.convertToEvaluations(scoredCandidates));

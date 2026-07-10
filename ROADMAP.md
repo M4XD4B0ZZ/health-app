@@ -4518,7 +4518,7 @@ targets, so they were kept:
   high-confidence BLS match for a generic DE input is accepted without querying OFF/USDA.
 - **Locale-based source priority:** `determineSourceRoutingStrategy()` now puts `bls` ahead of
   `off`/`usda` for **any** German-locale, non-branded input (previously only for `inputType ===
-  'generic'`; ambiguous/unclassified DE input still queried `off` first). This directly
+'generic'`; ambiguous/unclassified DE input still queried `off` first). This directly
   addresses the human's ask that BLS — as the trusted local source for the DACH launch market —
   should have priority, and keeps the priority decision centralized in one function so future
   non-DACH locales can add their own trusted-source ordering without touching the dispatch
@@ -4543,7 +4543,7 @@ targets, so they were kept:
 
 #### RESOLVER-V2-004: Build Candidate Fusion Layer
 
-Status: `todo`
+Status: `done`
 
 **Description:**
 Central scoring across all sources. Introduce unified Candidate type with cross-source ranking.
@@ -4555,6 +4555,38 @@ Central scoring across all sources. Introduce unified Candidate type with cross-
 - Ranking logs show source comparison rationale
 
 **Verify:** Ranking logs demonstrate cross-source candidate evaluation
+
+**Implementation notes:** The unified scoring algorithm and cross-source comparison logic
+already existed — [`ScoreCalculator`](src/features/nutrition/application/services/ScoreCalculator.ts)
+computes one shared breakdown (`matchScore`/`dataQualityScore`/`kcalConsistencyScore`/
+`sourceTrustScore`/`finalScore`, weighted per `WEIGHTS`, plus a semantic-class multiplier and a
+generic-food plausibility penalty) for every candidate regardless of source, and
+`SequentialFoodCatalogResolver.scoreCandidates()` applies it uniformly to `allRawCandidates` —
+now populated from every queried source after RESOLVER-V2-003 — before sorting by `finalScore`
+in `buildResolverDecision()`. What was missing was the third DoD line: a **log that actually
+shows the cross-source ranking rationale** for a human/operator, not just the full
+`ResolverDebugCollector` JSON dump (which requires `enableDebugLogs` **and** `enableTracing`
+**and** `isDebugLoggingEnabled()` all at once, and buries the ranking inside a large JSON
+object rather than presenting it as a readable comparison).
+
+Added a dedicated `RANKING` debug log line in
+[`SequentialFoodCatalogResolver.resolve()`](src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts:409),
+gated the same way as the existing `QUERY_MAP`/`SOURCE` debug lines
+(`isDebugLoggingEnabled() && traceId`), emitted whenever a decision is reached via the
+multi-source comparison path (as opposed to one of the early-return fast paths above it) —
+e.g. `[traceId] RANKING query="..." candidateCount=2 #1 source=OFF score=0.823 name="..." | #2
+source=USDA score=0.751 name="..."`. This surfaces, in one line, which sources contributed
+candidates, their rank order, and their final scores — the "source comparison rationale" the
+DoD asks for — without needing the heavier full JSON debug bundle.
+
+Added a test to
+[`SequentialFoodCatalogResolver.test.ts`](src/features/nutrition/__tests__/SequentialFoodCatalogResolver.test.ts)
+(`describe('Candidate Fusion Layer Ranking Log (RESOLVER-V2-004)')`) that enables resolver
+debug logging, resolves a query where both a mocked OFF and USDA source contribute a candidate
+for the same normalized name, and asserts the `RANKING` log line contains both `source=OFF` and
+`source=USDA` with numbered, scored entries — i.e. the log demonstrates cross-source candidate
+evaluation, not just the winner. Full suite (108 suites / 825 tests, +1 new), `tsc --noEmit`,
+`eslint`, and `npx prettier -c .` (238-file pre-existing baseline, unchanged) all pass clean.
 
 ---
 

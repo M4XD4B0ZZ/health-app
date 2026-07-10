@@ -4893,6 +4893,33 @@ no external blocker, mirrors the existing `AiFoodMapper` port pattern), RESOLVER
 provider wiring — needs a provider decision + API key), RESOLVER-V2-007-C (usage logs + real
 rate limiting — depends on -A/-B).
 
+**RESOLVER-V2-007-A implementation notes:** Added
+[`AiRerankingProvider`](src/features/nutrition/application/ports/AiRerankingProvider.ts) (port +
+`NoopAiRerankingProvider` default, mirroring `FakeAiFoodMapper`'s existing pattern) and
+[`RateLimitedAiReranker`](src/features/nutrition/application/services/RateLimitedAiReranker.ts),
+which wraps any `AiRerankingProvider` and enforces all three DoD lines itself, independent of
+which real provider RESOLVER-V2-007-B eventually wires in:
+
+- **Confidence gate:** only calls the wrapped provider when the best candidate's score is
+  below `confidenceThreshold` (default `0.6`); otherwise returns the original order untouched.
+- **Rate limit:** a sliding window (`maxCallsPerWindow` per `windowMs`, default 20/min)
+  tracked in-memory; once exceeded, falls back to the original order instead of calling out.
+- **Never authoritative:** on a rate limit, a thrown/rejected provider call, _or_ the provider
+  returning a reordered id list that isn't a valid permutation of the input candidates (a
+  defensive check against a misbehaving AI response), it always falls back to the original
+  candidate order — it can only ever reorder existing, already-scored candidates, never
+  invent one or touch macro data.
+- **Usage logging seam:** takes an `AiRerankingUsageLogger` (default `NoopAiRerankingUsageLogger`)
+  and calls it for every triggered/skipped/rate-limited decision — RESOLVER-V2-007-C persists
+  this for real; -A only defines the interface and calls it.
+
+**Not yet wired into `SequentialFoodCatalogResolver`** — there's no real provider to call yet
+(RESOLVER-V2-007-B), so wiring this into the live resolution hot path now would add an unused
+code path without benefit. Tests:
+[`RateLimitedAiReranker.test.ts`](src/features/nutrition/__tests__/RateLimitedAiReranker.test.ts)
+(threshold gating, rate limiting, error/invalid-permutation fallback, usage logging). Full suite
+(112 suites / 850 tests, +7 new), `tsc --noEmit`, `eslint` all pass clean.
+
 ---
 
 # COMPLETED / GOVERNANCE / LEGACY PHASE GROUPS

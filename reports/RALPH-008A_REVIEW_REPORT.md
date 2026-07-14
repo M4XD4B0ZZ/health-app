@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Die Morning Review Generator Implementierung in [`scripts/agent/generate-morning-review.mjs`](scripts/agent/generate-morning-review.mjs) erfüllt alle Anforderungen aus dem Plan [`plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md`](plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md) und ist als solide Grundlage für das Ralph-Loop-System geeignet. Die Implementierung zeigt konservative, sichere Architektur mit vollständiger CLI-Schnittstelle, robuster Aggregationslogik und strikter Einhaltung der Sicherheitsrichtlinien.
+Die Morning Review Generator Implementierung in [`scripts/agent/generate-morning-review.mjs`](../scripts/agent/generate-morning-review.mjs) erfüllt alle Anforderungen aus dem Plan [`plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md`](../plans/RALPH_MORNING_REVIEW_GENERATOR_PLAN.md) und ist als solide Grundlage für das Ralph-Loop-System geeignet. Die Implementierung zeigt konservative, sichere Architektur mit vollständiger CLI-Schnittstelle, robuster Aggregationslogik und strikter Einhaltung der Sicherheitsrichtlinien.
 
 **Hauptbefunde:**
 
@@ -40,7 +40,7 @@ Die Morning Review Generator Implementierung in [`scripts/agent/generate-morning
 - `--since`: Zeit-Parsing mit relativen und absoluten Formaten (Zeilen 218-248)
 
 **Validierung durch Handoff-Report:**
-Laut [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md) wurden alle CLI-Tests erfolgreich durchgeführt:
+Laut [`handoffs/latest-handoff.md`](../handoffs/latest-handoff.md) wurden alle CLI-Tests erfolgreich durchgeführt:
 
 - ✅ Help-Test: Comprehensive help output displayed correctly
 - ✅ Dry-Run-Test: Generated complete markdown report preview

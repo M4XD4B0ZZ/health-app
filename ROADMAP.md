@@ -4766,6 +4766,98 @@ unimplemented pending the `corrections` table from RESOLVER-V2-005.
 
 ---
 
+#### RESOLVER-V2-008: Backfill Missing Migration History (RLS Policy Reconciliation)
+
+Status: `done`
+
+**Description:**
+A reconciliation across four sources of truth — local `supabase/migrations/` files, the
+remote Supabase migration ledger (`mcp__Supabase__list_migrations`), the actual live schema
+(`mcp__Supabase__execute_sql` / `get_advisors`), and the two "already-live, no file" cases
+already documented in RESOLVER-V2-005/`20260710_document_existing_knowledge_layer_tables.sql`
+— found the ledger records two more applied versions with no matching local file:
+`20260201000000` (`create_user_food_aliases`) and `20260613145404`
+(`harden_food_catalog_and_resolver_schema`). Both are purely a **local history gap**, not a
+live schema problem: the end state either migration would produce is already covered live and
+on a fresh rebuild by the later migrations (`20260710`/`20260711`/`20260712`), same as
+RESOLVER-V2-005's original discovery.
+
+**Root cause of the _actual_ live defect, isolated by this reconciliation (not fixed by this
+task — see RESOLVER-V2-009):** `20260710_document_existing_knowledge_layer_tables.sql` itself
+re-creates the `"Authenticated users can read sources"` policy on `food_sources` and the
+`"Authenticated users can read cache results"` policy on `food_query_cache_results` using the
+unoptimized `auth.role() = 'authenticated'` form — regressing both back from the
+initplan-friendly `TO authenticated USING (true)` form that `20260613145404`'s hardening had
+originally set. Confirmed live via `mcp__Supabase__get_advisors` (`type: "performance"`):
+exactly these two tables/policies carry the `auth_rls_initplan` WARN today; the other tables
+this migration touched (`user_food_aliases`, `food_resolver_runs`) kept the optimized form
+because `20260710` happened to re-declare those two with `(SELECT auth.uid())` already. This
+is the same regression that `20260713_harden_food_catalog_grants_and_constraints.sql`
+(currently pending, not yet applied to remote) would fix.
+
+**This task's scope (repo-only, deliberately not mixed with the live fix):**
+
+- Added
+  [`supabase/migrations/20260201000000_create_user_food_aliases.sql`](supabase/migrations/20260201000000_create_user_food_aliases.sql)
+  and
+  [`supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql`](supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql),
+  reconstructed from live schema introspection (not a recovered original file) to match the
+  ledger's recorded version/name exactly. Every statement is `IF NOT EXISTS`/`DROP ... IF
+EXISTS` guarded — a safe no-op against the already-migrated remote project and a correct
+  create-from-scratch script for a fresh/local database.
+- **Not applied to remote** — the versions are already recorded as applied in the ledger, so
+  `supabase db push`/`apply_migration` would not (and should not) re-run them.
+- **Does not claim to fix** the two live `auth_rls_initplan` WARNs above — that requires an
+  actual new migration application (RESOLVER-V2-009), not a documentation backfill.
+- Verified the reconstructed end state matches reality by replaying the full local migration
+  order mentally against live introspection: `20260613145404` sets the optimized form for
+  `food_sources`/`food_query_cache_results`, then `20260710` (unchanged, already committed)
+  overwrites both back to the unoptimized form — so a fresh local DB reproduces the exact same
+  regression the live project currently has, which is the historically accurate outcome.
+
+**Verify:** `git --no-pager status --short` / `git --no-pager diff --stat` (migration files +
+`ROADMAP.md` only); no runtime/application code touched (Category 1/"documentation-adjacent"
+per `VERIFY.md`'s decision table — pure SQL migration text, no `src/**` or `supabase/functions/**`
+changes). Cross-checked against the remote project via the Supabase MCP connector
+(`list_migrations`, `execute_sql` against `pg_policies`/`pg_constraint`/
+`information_schema.role_table_grants`, `get_advisors`) rather than the npm `verify:schema`/
+`verify:edge` scripts, consistent with this sandbox's known network-egress limitation (see
+P2-007's verification-gap note above).
+
+---
+
+#### RESOLVER-V2-009: Apply the Pending RLS-Policy Fix (`20260713`)
+
+Status: `todo`
+
+**Description:**
+Separate, live-effecting follow-up to RESOLVER-V2-008's reconciliation. Not started by this
+task on purpose — mixing a repo-only history backfill with an actual remote policy change in
+one task would make it harder to review each independently and to attribute the live effect
+correctly.
+
+**Scope for whoever picks this up:**
+
+1. Before applying, fix
+   [`supabase/migrations/20260713_harden_food_catalog_grants_and_constraints.sql`](supabase/migrations/20260713_harden_food_catalog_grants_and_constraints.sql)'s
+   header comment — it currently claims **"This entire migration is already live"**, which
+   RESOLVER-V2-008's reconciliation shows is no longer accurate: two policies
+   (`food_sources`."Authenticated users can read sources", `food_query_cache_results`.
+   "Authenticated users can read cache results") were reset to the unoptimized form by
+   `20260710` after this migration was drafted. The comment should say plainly that tables,
+   constraints, grants, seeds, and most policies are already live, but these two policies are
+   being deliberately re-applied to repair that specific `20260710` regression.
+2. Apply the migration to `HealthDatabase` (`kbplfcqluqqowmvchvhc`) in a controlled way (e.g.
+   `mcp__Supabase__apply_migration` or `supabase db push`), then re-run
+   `mcp__Supabase__get_advisors` (`type: "performance"`) and confirm both `auth_rls_initplan`
+   WARNs for `food_sources`/`food_query_cache_results` are gone.
+3. Only after that verification should general CI planning for the migration pipeline resume
+   — CI must not compare migration file name sets alone (local filenames and ledger versions
+   can diverge, as RESOLVER-V2-008 shows), it needs to understand ledger versions and
+   documented exceptions like the ones above.
+
+---
+
 ## Tier 3 Planning Targets — Require Later Task Decomposition
 
 The following modules remain planned but not yet scoped into concrete implementation tasks.

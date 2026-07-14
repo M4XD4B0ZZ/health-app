@@ -4797,23 +4797,39 @@ is the same regression that `20260713_harden_food_catalog_grants_and_constraints
 
 **This task's scope (repo-only, deliberately not mixed with the live fix):**
 
-- Added
+- The two missing files —
   [`supabase/migrations/20260201000000_create_user_food_aliases.sql`](supabase/migrations/20260201000000_create_user_food_aliases.sql)
   and
-  [`supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql`](supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql),
-  reconstructed from live schema introspection (not a recovered original file) to match the
-  ledger's recorded version/name exactly. Every statement is `IF NOT EXISTS`/`DROP ... IF
-EXISTS` guarded — a safe no-op against the already-migrated remote project and a correct
-  create-from-scratch script for a fresh/local database.
+  [`supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql`](supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql)
+  — were backfilled by a separate, already-merged commit
+  (`chore(supabase): backfill missing historical migration files`, from an independent
+  session's PR) that recovered them **verbatim** from an orphaned `claude/tier-2-continuation-*`
+  branch, which is strictly more authoritative than a reconstruction from live introspection.
+  This task's own first attempt reconstructed both files independently from live schema
+  introspection before discovering that merge (see the "Multi-session note" below); the
+  reconstructions were discarded once the verbatim-recovered files were confirmed already on
+  the default branch, since keeping both would have produced a same-path add/add conflict.
+  Both are `IF NOT EXISTS`/`DROP ... IF EXISTS` guarded — a safe no-op against the
+  already-migrated remote project and a correct create-from-scratch script for a fresh/local
+  database.
 - **Not applied to remote** — the versions are already recorded as applied in the ledger, so
   `supabase db push`/`apply_migration` would not (and should not) re-run them.
 - **Does not claim to fix** the two live `auth_rls_initplan` WARNs above — that requires an
   actual new migration application (RESOLVER-V2-009), not a documentation backfill.
-- Verified the reconstructed end state matches reality by replaying the full local migration
+- Verified the merged files' end state matches reality by replaying the full local migration
   order mentally against live introspection: `20260613145404` sets the optimized form for
   `food_sources`/`food_query_cache_results`, then `20260710` (unchanged, already committed)
   overwrites both back to the unoptimized form — so a fresh local DB reproduces the exact same
   regression the live project currently has, which is the historically accurate outcome.
+
+**Multi-session note:** while this task was reconciling the migration history, a separate
+already-in-flight session merged its own backfill of the same two file paths first (confirmed
+via `git fetch origin <default-branch>` showing new commits on the base after this branch was
+created, per the repo's git-branch-sync rule). Rather than silently pushing a conflicting
+duplicate, this task merged the updated default branch in, resolved the add/add conflict by
+keeping the upstream verbatim-recovered files, and kept only the root-cause diagnosis and
+RESOLVER-V2-009 follow-up documentation below, which the other session's commit did not
+include.
 
 **Verify:** `git --no-pager status --short` / `git --no-pager diff --stat` (migration files +
 `ROADMAP.md` only); no runtime/application code touched (Category 1/"documentation-adjacent"

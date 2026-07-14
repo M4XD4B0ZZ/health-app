@@ -3902,10 +3902,6 @@ scoped task (and likely UI/UX input) rather than being squeezed into an additive
 **Verify (once scoped):** manual Expo verification required (this is a UI task); typecheck/
 test/lint as a floor, not a substitute.
 
-**Decision (via `AskUserQuestion`):** deferred — remains `todo`, no code change.
-`EvaluationSummaryScreen` (DI-002) already has a minimal profile picker, so this is not
-blocking; `GoalsScreen.tsx` stays as-is until this task is explicitly picked up.
-
 ---
 
 ### Dashboard & Insights

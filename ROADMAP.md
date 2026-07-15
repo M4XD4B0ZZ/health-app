@@ -4496,6 +4496,116 @@ only requires the gap to be logged, not closed.
 
 ---
 
+#### DI-009: Cross-Tab Data Freshness
+
+Status: `todo`
+Depends on: SM-005 (`SavedMealsScreen`), GE-008/DI-002 (`GoalsScreen`'s "Ziel wählen" card,
+`EvaluationSummaryScreen`) — the two screens whose manual-testing sweep surfaced this
+
+**Ziel:** A manual-testing sweep across the seven open `docs/MANUAL_TESTING_GAPS.md` entries found
+two reproducible defects sharing one root cause, confirmed live against `expo start --web` +
+headless Playwright:
+
+- **Vorlagen → Protokoll:** logging a Saved Meal template from `SavedMealsScreen` persists
+  correctly (a full page reload shows the new entry and the correct summed total), but
+  `JournalScreen`, if already mounted from an earlier visit, keeps showing its stale pre-log
+  state when the user switches back to the "Protokoll" tab — no reload happens on tab
+  return.
+- **Ziele → Auswertung:** switching the active Evaluation Profile via `GoalsScreen`'s "Ziel
+  wählen" card persists correctly (confirmed via reload: `Ziele` tab shows the new profile
+  as selected, `Auswertung` tab shows profile-correct numbers/insights) — but if
+  `EvaluationSummaryScreen` was already mounted from an earlier visit, switching back to
+  "Auswertung" shows the _previous_ profile's assessment, progress numbers, and insight text
+  completely unchanged, with no indication anything is stale. More product-critical than the
+  Journal case: this isn't merely outdated data, it's a materially wrong assessment presented
+  as current.
+
+**Root cause (confirmed by inspection):** `JournalScreen.tsx`'s `loadJournalData()` and
+`EvaluationSummaryScreen.tsx`'s `load()` are both invoked exactly once, from a plain
+`useEffect(() => { load…(); }, [])` (or `[load]`, itself a `useCallback` with a stable-ish
+dependency), which fires once on the screen's first mount only. React Navigation's
+bottom-tabs navigator keeps visited tab screens mounted rather than unmounting them on
+tab-away (confirmed empirically during the sweep — inactive tabs' DOM content remained
+present, at one point even intercepting a Playwright click meant for the active tab), so
+`useEffect(..., [])` never fires again for the lifetime of the app session once a tab has
+been visited once. Neither screen has a `useFocusEffect`/`addListener('focus', ...)`/
+`useIsFocused()`-based refresh — a full-repo grep confirms **zero** existing usage of any of
+these three APIs anywhere in `src/`, so this is a genuinely new pattern for this codebase,
+not an existing convention to imitate.
+
+**Scope / betroffene Dateien:**
+
+- `src/presentation/features/journal/JournalScreen.tsx` — `loadJournalData()`'s trigger.
+- `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — `load()`'s
+  trigger; DI-008's `loadState` state machine already provides the "hide stale content the
+  instant a reload starts" behavior this task needs — likely reusable as-is, not a new
+  mechanism, once `load()` is actually invoked on focus.
+- No changes anticipated to `SavedMealsScreen.tsx` or `GoalsScreen.tsx` themselves (their own
+  writes already persist correctly); this is purely about the _reader_ side re-fetching.
+
+**Pre-confirmed architecture facts (from inspection, not to be re-derived during Act):**
+
+- `@react-navigation/native` `^7.1.28` / `@react-navigation/bottom-tabs` `^7.13.0` — both
+  current enough that `useFocusEffect` (stable, long-standing React Navigation API) is
+  available with no version blocker.
+- **Double-load risk is real and must be designed around, not discovered mid-implementation:**
+  React Navigation fires a screen's focus event on its very first mount too, not only on
+  subsequent returns. Adding `useFocusEffect` _alongside_ the existing `useEffect(..., [])`
+  would double-fire the load on first visit to each tab. The clean fix is very likely to
+  **replace** the mount-only `useEffect` with `useFocusEffect` (not run both), but this must
+  be verified against actual behavior during Act, not assumed.
+- **Race-condition guard is an open question, not yet answered:** neither `load()` currently
+  guards against overlapping in-flight calls (no ref/AbortController/generation-counter
+  pattern). Rapid tab switching (away and back before a load resolves) could let an
+  out-of-order response win. `JournalScreen` has a similar, already-solved precedent nearby
+  (`claimJournalSubmitSlot`/`submitInFlightRef` guards concurrent _submits_, not loads) that
+  the Act task should look at before inventing a new pattern.
+
+**Explicit UX decision (already made by the user, not open for re-litigation in Act):**
+
+- **Auswertung:** the previous profile's evaluation must never remain visible as if current
+  during a profile-triggered refresh — DI-008's existing `loadState === 'loading'` branch
+  already satisfies this by construction once `load()` fires on focus; no new loading UI
+  expected here.
+- **Journal:** the existing entry list may keep displaying its current (slightly stale)
+  content for the brief duration of a focus-triggered background refresh — no flicker/spinner
+  is required, only that the refresh actually happens and completes correctly. No new loading
+  state expected here either.
+
+**Explicitly out of scope:**
+
+- Any UI/UX redesign beyond wiring the refetch (no skeletons, no pull-to-refresh, no broader
+  loading-state standardization — same boundary DI-008 already drew).
+- `GoalsScreen.tsx`/`SavedMealsScreen.tsx` write-side changes — their persistence is already
+  confirmed correct.
+- Any other screen not implicated by this sweep (`NutritionScreen`, `RecoveryScreen`) — out of
+  scope unless the Act task's own architecture review finds the identical pattern there too,
+  in which case that finding should be reported, not silently fixed as a scope expansion.
+
+**Akzeptanzkriterien (DoD):**
+
+1. A meal logged via "Vorlagen" appears under "Protokoll" on tab return, no full reload
+   required.
+2. A goal/profile change made under "Ziele" is immediately reflected under "Auswertung" on tab
+   return, no full reload required.
+3. No stale evaluation is ever presented as current during a profile-triggered Auswertung
+   refresh.
+4. The existing in-screen profile switch on the Auswertung tab itself (already working, proven
+   in the DI-008 sweep) keeps working unchanged.
+5. No duplicate Journal entries and no duplicate/doubled evaluation loads from the
+   mount-plus-focus interaction.
+6. Existing error states (`GoalsNotFoundError`/`ProfileNotFoundError`/generic Journal load
+   failure) remain correctly handled on a focus-triggered reload, not just on initial mount.
+7. `npm run verify` passes clean.
+8. Both cross-tab paths (Vorlagen→Protokoll, Ziele→Auswertung) are re-verified live (Expo or
+   `expo start --web` + Playwright, mirroring this sweep's method) after the fix, not just
+   asserted from code reading.
+
+**Verify:** `npm run verify`; live re-verification of both cross-tab paths per DoD item 8,
+logged in `docs/MANUAL_TESTING_GAPS.md`.
+
+---
+
 # TIER 2 — CORE ARCHITECTURE
 
 Focus: private-use stability, deterministic architecture hygiene, and DACH-first resolver correctness.

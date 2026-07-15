@@ -4272,6 +4272,80 @@ clean.
 
 ---
 
+#### DI-007: Render Rule-Level Insights & Recommendations in EvaluationSummaryScreen
+
+Status: `todo`
+Depends on: DI-002 (screen to render into), DI-003 (content already exists on `EvaluationOutput`)
+
+**Ziel:** `DI-003` already populates `EvaluationOutput.insights`/`.recommendations` with real,
+profile-dependent content (`CalorieMacroCorridorRule`, `ProteinPreservingDeficitRule`), proven
+distinct per profile by `DI-004`'s regression test — but `EvaluationSummaryScreen` (`DI-002`)
+only ever renders `assessment`, `goalProgress`, and `warnings`. A repo-wide grep for
+`.insights`/`.recommendations` under `src/presentation/` returns zero hits: this content is
+fully computed and tested, but never shown to a user. Show it. This is immediate today's-status
+interpretation ("what does my current day mean under my active evaluation model"), explicitly
+**not** the separate, still-`todo`, not-yet-decomposed Tier 3 "Insights" module (trend
+analysis/weekly summaries over multiple days, see Tier 3 planning table below) — DI-007 must
+not be folded into or block on that later, larger effort.
+
+**Scope / betroffene Dateien:**
+
+- `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — add an
+  insights section and a recommendations section, rendered from the same `output` already held
+  in state; mirror the existing `warnings` block's rendering pattern.
+- `src/presentation/features/evaluationSummary/evaluationSummaryDisplay.ts` — only if needed
+  for display formatting (no new domain logic).
+- `src/presentation/features/evaluationSummary/__tests__/*` — new/extended tests per below.
+
+**Required behavior:**
+
+- Render `output.insights` and `output.recommendations` verbatim — no re-computation, no
+  rewording, no new fixed copy that's independent of the active profile.
+- Each section renders only when it has at least one entry; an empty array renders nothing (no
+  empty section, no placeholder, no implication that something is missing or broken).
+- Assessment, Goal Progress, and Warnings stay unchanged; Warnings must not become visually
+  buried by the new sections. Recommended order: Assessment → Goal Progress → Insights →
+  Recommendations → Warnings, unless implementation finds a clearly better-justified order (may
+  be documented in the implementation notes) — but Warnings' visibility must not regress.
+- No internal architecture vocabulary (rule names, "Evaluation Profile", registry terms) may
+  leak into the rendered text.
+- No new evaluation logic in the screen; the screen stays a pure renderer of an already-built
+  `EvaluationOutput`.
+- Switching the active profile must remain visible as different rendered insight/recommendation
+  text (already covered structurally by existing DI-004 coverage; screen-level test should
+  assert this too, see Tests).
+
+**Explicitly out of scope:** explicit loading-state UI (separate, pre-existing gap, own
+follow-up rather than folded in here); historical date selection or wiring `dateISO` through
+the settings providers; the GoalsScreen/EvaluationSummaryScreen dual profile-switch-entry-point
+UX question; removing the dead `ComputeProgressForDateUseCase` container wiring; the
+`MockNutritionRepository`/`MockRecoveryRepository`-backed tabs; the separate Tier 3
+trends/weekly-summaries module; any new Rule or new insight/recommendation content.
+
+**Tests:**
+
+- Insights render when `output.insights` has entries.
+- Recommendations render when `output.recommendations` has entries.
+- Empty arrays produce no visible section for that content (not just an empty container).
+- Existing assessment/goal-progress/warnings rendering is unchanged (regression).
+- Two different `EvaluationOutput`s (e.g. built from the two existing profiles, as in DI-004's
+  fixtures) produce visibly different rendered insight/recommendation text.
+- No hardcoded profile-dependent string and no new computation appear in the screen/component
+  under test. Existing `DI-003` domain-level tests must stay green unmodified.
+
+**Akzeptanzkriterien (DoD):**
+
+- Insights and Recommendations are visible in the production `EvaluationSummaryScreen` when
+  present, absent when empty, without disturbing Assessment/Goal Progress/Warnings.
+- No new use case, repository, domain abstraction, or Rule introduced.
+- Full suite, typecheck, lint pass clean.
+- No work performed on the Tier 3 trends/weekly-summaries module.
+
+**Verify:** `npm run verify`; additionally targeted:
+`npm run test -- --runTestsByPath src/presentation/features/evaluationSummary/__tests__/<test-file>`.
+
+---
+
 # TIER 2 — CORE ARCHITECTURE
 
 Focus: private-use stability, deterministic architecture hygiene, and DACH-first resolver correctness.

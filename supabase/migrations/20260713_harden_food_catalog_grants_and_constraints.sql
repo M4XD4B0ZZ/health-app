@@ -191,7 +191,17 @@ grant select on table public.food_resolver_runs to authenticated;
 
 -- 6) Role-scoped, initplan-friendly RLS policies (wrap auth.uid() in a subquery so
 -- Postgres evaluates it once per query instead of once per row).
+--
+-- food_catalog_items and food_query_cache below drop both the pre-migration
+-- legacy name and their own current target name before recreating: an earlier
+-- successful run already renamed both policies to the target name, so a
+-- legacy-only drop leaves the live target name in place and CREATE POLICY
+-- fails with 42710 (policy already exists) -- exactly what the first live
+-- apply attempt of this migration hit. The other policies in this section
+-- only need one self-drop, since they were never renamed away from their
+-- target name.
 drop policy if exists "Allow SELECT for authenticated users" on public.food_catalog_items;
+drop policy if exists "Authenticated users can read catalog" on public.food_catalog_items;
 create policy "Authenticated users can read catalog"
 on public.food_catalog_items
 for select
@@ -199,6 +209,7 @@ to authenticated
 using (true);
 
 drop policy if exists "Allow SELECT for authenticated users" on public.food_query_cache;
+drop policy if exists "Authenticated users can read query cache" on public.food_query_cache;
 create policy "Authenticated users can read query cache"
 on public.food_query_cache
 for select

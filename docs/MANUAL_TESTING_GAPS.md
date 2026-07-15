@@ -53,7 +53,7 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ### 2026-07-15 — DI-007: Insights & Recommendations im EvaluationSummaryScreen
 
-- **Status:** ⏳ offen
+- **Status:** ✅ geprüft
 - **Branch/PR:** `claude/project-status-audit-i8blw1`
 - **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
   — zwei neue, rein additive Abschnitte "Einordnung" (`output.insights`) und "Empfehlungen"
@@ -110,6 +110,18 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   und Hinweisen erscheinen (falls vorhanden), zwischen den beiden Zielen wechseln und prüfen,
   dass sich die angezeigten Texte sichtbar unterscheiden, und einen Tag ohne auslösende
   Bedingungen prüfen (beide Abschnitte sollten dann unsichtbar sein, kein leerer Rahmen).
+- **Verifiziert (visuell, 2026-07-15, nach WEB-001/PR #32):** Der oben dokumentierte Blocker
+  wurde durch `WEB-001` (siehe `ROADMAP.md`, `PR #32`) behoben — `npm run web` startet jetzt
+  fehlerfrei. Anschließend wurde dieser Eintrag per Headless-Playwright/Chromium gegen den
+  laufenden `expo start --web`-Server real geprüft: "Einordnung"/"Empfehlungen" erscheinen nur
+  bei nicht-leeren Arrays, in der korrekten Reihenfolge (Bewertung → Fortschritt → Einordnung →
+  Empfehlungen → Hinweise); ein reales Kalorienziel-Warning wurde ausgelöst und blieb sichtbar,
+  nicht von den neuen Abschnitten verdeckt; Profilwechsel (Evidence-based Standard ↔ Weight
+  Loss) zeigte sichtbar unterschiedliche Insight-/Empfehlungstexte; langer Text umbricht sauber
+  ohne Abschneiden (per Scroll bis zum tatsächlichen Ende bestätigt); keine internen Begriffe
+  ("Evaluation Profile", Rule-Namen) sichtbar; Screen auf 390×844-Viewport vollständig
+  scrollbar; keine Browser-Konsolenfehler. Vollständige Evidenz in `ROADMAP.md`'s
+  `WEB-001`-Eintrag (Implementation notes / Verification results).
 
 ### 2026-07-10 — GE-008: GoalsScreen "Ziel wählen" Surface
 

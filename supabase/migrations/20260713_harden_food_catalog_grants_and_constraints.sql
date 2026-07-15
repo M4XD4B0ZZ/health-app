@@ -3,29 +3,41 @@
 -- Purpose: Recovered from a second, independent undocumented-drift discovery
 -- (a parallel, never-merged branch found the same schema drift as
 -- 20260710_document_existing_knowledge_layer_tables.sql and went further).
--- Verified against the live "HealthDatabase" project (kbplfcqluqqowmvchvhc) via the
--- Supabase MCP connector on 2026-07-14 (migrations-reconciliation review):
--- food_sources already has all 5 seed rows, food_catalog_items already has all
--- 3 named constraints below plus the source_fkey, and grants already match
--- exactly what section 5 revokes/re-grants. Tables, constraints, grants, seed
--- data, and the SELECT policies on food_catalog_items/food_query_cache/
--- food_resolver_runs plus all four user_food_aliases policies (section 6) are
--- already live in exactly the form defined below -- applying those parts is a
--- safe no-op, the same as 20260710/20260711/20260712.
 --
--- NOT a no-op: the SELECT policies on food_sources and food_query_cache_results
--- (also section 6) are live today in an older, non-initplan-safe form
--- (`USING (auth.role() = 'authenticated')`) -- exactly what Supabase's
--- `auth_rls_initplan` performance-advisor warning flags for both tables. This
--- migration's predecessor (backfilled as
--- 20260613145404_harden_food_catalog_and_resolver_schema.sql, ledger version
--- 20260613145404) already fixed both to the initplan-safe
--- `TO authenticated USING (true)` form once, but
+-- Applied to the live "HealthDatabase" project (kbplfcqluqqowmvchvhc) on
+-- 2026-07-15 (ledger version 20260715101751, name
+-- 20260713_harden_food_catalog_grants_and_constraints). A first attempt
+-- failed with PostgreSQL 42710 ("policy already exists" on
+-- food_catalog_items) and rolled back completely; the two affected CREATE
+-- POLICY statements in section 6 below were fixed to also drop their own
+-- current target name (not just the pre-migration legacy name) before the
+-- successful second attempt.
+--
+-- What was already live before this migration, confirmed via SQL
+-- introspection: food_sources' 5 seed rows, food_catalog_items' 3 named
+-- constraints plus source_fkey, all grants from section 5, and the SELECT
+-- policies on food_catalog_items/food_query_cache -- these parts really
+-- were no-ops.
+--
+-- What this migration actually changed, also confirmed by comparing live
+-- state before/after: the role binding on four user_food_aliases policies
+-- and food_resolver_runs' SELECT policy changed from the broad `public`
+-- role scope to the explicit `authenticated` role, matching this file's
+-- `TO authenticated` clauses -- an earlier migration had already
+-- established the intended USING/WITH CHECK expressions, but had left the
+-- policies attached to the broader `public` role scope. And
+-- food_sources/food_query_cache_results'
+-- SELECT policies were replaced outright: they were live in an older,
+-- non-initplan-safe form (`USING (auth.role() = 'authenticated')`, flagged
+-- by Supabase's `auth_rls_initplan` performance advisor) because
 -- 20260710_document_existing_knowledge_layer_tables.sql (ledger version
--- 20260710200019, applied later) redefined the same two policy names back to
--- the old form, reverting that fix. Applying this migration re-applies the
--- initplan-safe fix for those two policies specifically -- a real, intended
--- schema change, not just documentation.
+-- 20260710200019, applied after this migration's predecessor
+-- 20260613145404_harden_food_catalog_and_resolver_schema.sql) redefined
+-- those two policy names back to the old form.
+--
+-- The seed upsert in section 1 refreshes `updated_at` on all 5 food_sources
+-- rows on every apply; it does not change any row's identity or descriptive
+-- values.
 --
 -- `food_sources`, `food_query_cache_results`, and `food_resolver_runs` are also
 -- created here (again) with `if not exists` guards -- safe no-ops against both the

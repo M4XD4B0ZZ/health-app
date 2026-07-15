@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import container from '../../../infrastructure/di/container';
 import { EvaluationProfile, EvaluationOutput } from '../../../features/evaluation';
 import { GoalsNotFoundError, ProfileNotFoundError } from '../../../features/goals';
@@ -17,16 +17,23 @@ import { formatGoalProgressLabel, formatAssessment } from './evaluationSummaryDi
  * Explicitly nutrition-only (Product Bible §9); the legacy mock-data-backed Dashboard tab
  * was retired in DI-005 once this screen existed as its replacement.
  */
+type LoadState = 'loading' | 'success' | 'error';
+
 const EvaluationSummaryScreen: React.FC = () => {
   const [profiles, setProfiles] = useState<EvaluationProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [output, setOutput] = useState<EvaluationOutput | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null);
+  // DI-008: explicit state so the mount/reload gap between clearing the previous
+  // result and setting the next one is never rendered as blank or stale.
+  const [loadState, setLoadState] = useState<LoadState>('loading');
 
   const today = new Date().toISOString().split('T')[0];
 
   const load = useCallback(async () => {
+    setLoadState('loading');
+
     const profileList = container.evaluationProfileRegistry.list();
     setProfiles(profileList);
 
@@ -41,6 +48,7 @@ const EvaluationSummaryScreen: React.FC = () => {
       const result = await container.getActiveEvaluationOutputUseCase.execute(input);
       setOutput(result);
       setErrorMessage('');
+      setLoadState('success');
     } catch (err) {
       setOutput(null);
       if (err instanceof GoalsNotFoundError) {
@@ -51,6 +59,7 @@ const EvaluationSummaryScreen: React.FC = () => {
         console.error('Failed to load evaluation summary:', err);
         setErrorMessage('Auswertung konnte nicht geladen werden.');
       }
+      setLoadState('error');
     }
   }, [today]);
 
@@ -96,13 +105,22 @@ const EvaluationSummaryScreen: React.FC = () => {
           </View>
         </View>
 
-        {!!errorMessage && (
+        {loadState === 'loading' && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={tokens.colors.accent} />
+            <AppText variant="meta" tone="muted" style={styles.loadingText}>
+              Auswertung wird geladen…
+            </AppText>
+          </View>
+        )}
+
+        {loadState === 'error' && !!errorMessage && (
           <AppText tone="danger" style={styles.errorMessage}>
             {errorMessage}
           </AppText>
         )}
 
-        {output && (
+        {loadState === 'success' && output && (
           <>
             <View style={styles.section}>
               <AppText style={styles.sectionTitle}>Heutige Bewertung</AppText>
@@ -197,6 +215,13 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     marginTop: tokens.spacing.s,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginTop: tokens.spacing.l,
+  },
+  loadingText: {
+    marginTop: tokens.spacing.xs,
   },
   progressRow: {
     flexDirection: 'row',

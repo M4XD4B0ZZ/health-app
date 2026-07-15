@@ -89,7 +89,7 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
      umgebungsspezifisch**, auf einem Rechner mit normalem Internetzugang vermutlich kein
      Problem.
   2. Danach: `CommandError: ... don't have the required dependencies installed. Install
-     react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Netzwerk
+react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Netzwerk
      nötig): weder `react-dom` noch `react-native-web` noch `@expo/metro-runtime` existieren
      irgendwo unter `node_modules/` — auch nicht gehoistet/transitiv. Kein Workspace-/Monorepo-
      Setup, das das erklären würde (`package.json` hat kein `workspaces`-Feld). **Das ist

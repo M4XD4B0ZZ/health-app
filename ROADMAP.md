@@ -4498,7 +4498,7 @@ only requires the gap to be logged, not closed.
 
 #### DI-009: Cross-Tab Data Freshness
 
-Status: `todo`
+Status: `done`
 Depends on: SM-005 (`SavedMealsScreen`), GE-008/DI-002 (`GoalsScreen`'s "Ziel wählen" card,
 `EvaluationSummaryScreen`) — the two screens whose manual-testing sweep surfaced this
 
@@ -4603,6 +4603,65 @@ not an existing convention to imitate.
 
 **Verify:** `npm run verify`; live re-verification of both cross-tab paths per DoD item 8,
 logged in `docs/MANUAL_TESTING_GAPS.md`.
+
+**Implementation notes:** Both open architecture questions from planning resolved as
+predicted, confirmed rather than assumed:
+
+- **Chosen mechanism:** `useFocusEffect` (from `@react-navigation/native`), wrapping the
+  existing load function in `useCallback` per React Navigation's documented pattern
+  (`useFocusEffect(useCallback(() => { load…(); }, [deps]))`) — the callback must be
+  synchronous (`() => void`), so the async load function is invoked fire-and-forget inside
+  it rather than passed directly (an async function's `Promise<void>` return type doesn't
+  satisfy `useFocusEffect`'s `void | (() => void)` signature and would fail `tsc --noEmit`).
+- **Double-load avoided by replacement, not addition:** the mount-only `useEffect(..., [])`
+  in both screens was removed entirely (not kept alongside `useFocusEffect`), exactly as
+  flagged as the likely-but-unverified fix during planning. Confirmed empirically: no
+  duplicate entries or doubled evaluation content on first tab visit or after repeated
+  focus/blur cycles (see verification below).
+- **Race-condition guard implemented:** a `loadRequestIdRef` (`useRef(0)`) generation counter
+  in both `JournalScreen.loadJournalData()` and `EvaluationSummaryScreen.load()`, incremented
+  at the start of each call; every `setState` call after an `await` boundary checks the ref
+  still matches its captured `requestId` before applying, and bails out silently otherwise.
+  This is a new, small, local pattern — not the pre-existing `claimJournalSubmitSlot`/
+  `submitInFlightRef` (that guards concurrent _submits_, a different operation; reusing it
+  directly for _loads_ would have conflated two independent concerns).
+- **DI-008's `loadState` machine reused as-is, unmodified:** `EvaluationSummaryScreen`'s
+  `load()` already set `loadState` to `'loading'` synchronously as its first line (before this
+  task); once `useFocusEffect` actually invokes `load()` on every focus, that existing
+  first-line reset is sufficient by itself to hide stale content immediately — no new loading
+  UI, no changes to the `loadState` type or the render gating (`loadState === 'success' &&
+output`) were needed.
+- **`JournalScreen`:** per the explicit, already-made UX decision, no new loading state was
+  added — the existing entry list may keep displaying its current content for the brief
+  duration of a focus-triggered background refresh.
+- No changes to `SavedMealsScreen.tsx`, `GoalsScreen.tsx`, `NutritionScreen.tsx`, or
+  `RecoveryScreen.tsx` — the architecture review confirmed the identical
+  mount-only-`useEffect` pattern is not present in those files' data-loading paths (out of
+  scope per planning; not silently fixed).
+
+**Verification results:** `npm run verify` passes clean (typecheck, lint, format, full suite —
+113 suites / 854 tests, including `JournalScreen.submitGuard.test.ts`, unchanged). Both
+cross-tab paths re-verified live against `expo start --web` + headless Playwright/Chromium
+(mirroring the original sweep's method):
+
+- **Vorlagen → Protokoll:** logging "200g quark" in Journal, creating+logging a Saved Meal
+  template from it in Vorlagen, then switching back to Protokoll without a reload now
+  correctly shows both entries (264 kcal total, 2× "Quark 200 G") — previously showed only
+  the original single entry until a full reload.
+- **Ziele → Auswertung:** switching the active profile to "Weight Loss" via `GoalsScreen`'s
+  "Ziel wählen" card, then switching back to the already-mounted Auswertung tab without a
+  reload, now immediately shows the correct Weight Loss assessment (Kalorien 264/1661,
+  deficit-insight, protein recommendation) — previously showed the stale Evidence-based
+  Standard assessment (264/2076, corridor-insight) unchanged.
+- **Existing in-screen picker regression check:** switching profile via Auswertung's own
+  picker button (not the Ziele-tab card) still works correctly and instantly, confirming DoD
+  item 4.
+- **Rapid multi-tab-switching stress test:** five rapid switches (Ziele→Protokoll→
+  Auswertung→Ziele→Auswertung, ~400ms apart) followed by settling produced no corrupted,
+  duplicated, or out-of-order state in either screen — Auswertung showed the last-selected
+  profile's correct data, Protokoll showed exactly the expected two entries (no duplicates
+  from repeated focus-triggered reloads).
+- Zero browser console/runtime errors across the entire verification session.
 
 ---
 

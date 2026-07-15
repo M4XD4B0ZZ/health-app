@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import type { PortionNeedsEditItem } from '../../../features/nutrition/domain/portion/PortionNeedsEdit';
 import { View, StyleSheet, Modal } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { FoodEntry, DailyNutritionSummary } from '../../../features/nutrition';
 
@@ -78,23 +78,32 @@ const JournalScreen: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Load data on mount and after changes
-  useEffect(() => {
-    loadJournalData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // DI-009: guards against an in-flight load that resolves after a newer one has already
+  // started (e.g. rapid tab switching) from overwriting the newer result.
+  const loadRequestIdRef = useRef(0);
 
-  const loadJournalData = async () => {
+  const loadJournalData = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     try {
       // Load daily summary
       const summaryData = await container.getDailySummaryUseCase.execute(today);
+      if (loadRequestIdRef.current !== requestId) return;
       setSummary(summaryData);
       setEntries(summaryData.entries);
     } catch (err) {
+      if (loadRequestIdRef.current !== requestId) return;
       // log and continue
       console.error('Failed to load journal data:', err);
     }
-  };
+  }, [today]);
+
+  // DI-009: reload on every tab focus (not just mount) so entries logged from another tab
+  // (e.g. a Saved Meal template) are picked up on return, without a full app reload.
+  useFocusEffect(
+    useCallback(() => {
+      loadJournalData();
+    }, [loadJournalData]),
+  );
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
   const [portionNeedsEditItems, setPortionNeedsEditItems] = React.useState<PortionNeedsEditItem[]>(

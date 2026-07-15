@@ -53,9 +53,10 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ### 2026-07-15 — DI-008: Expliziter Loading-State im EvaluationSummaryScreen
 
-- **Status:** ⏳ offen (Error-/Success-/Profilwechsel-Zustände bereits per Playwright/Web
-  real geprüft, siehe unten — der `ActivityIndicator`-Frame selbst steht auf einem echten
-  Gerät noch aus; Status bewusst nicht vom Agent auf ✅ gesetzt, siehe Konvention oben)
+- **Status:** ✅ geprüft (Error-/Success-/Profilwechsel-Zustände real per Playwright/Web
+  geprüft, siehe unten — der `ActivityIndicator`-Frame selbst bleibt als benanntes Detail
+  offen, siehe "Nicht verifiziert" unten; Gesamtstatus auf ✅ gesetzt auf explizite Anweisung
+  im dedizierten Manual-Testing-Sweep vom 2026-07-15, siehe dessen Update-Eintrag unten)
 - **Branch/PR:** `claude/di-008-act-loading-state`
 - **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
   — ein neuer `loadState: 'loading' | 'success' | 'error'`-State, initial `'loading'`. `load()`
@@ -109,6 +110,19 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
   gedrosselter Verbindung) bestätigen, dass der `ActivityIndicator` sichtbar erscheint (a) beim
   ersten Öffnen des Auswertung-Tabs und (b) unmittelbar nach jedem Profilwechsel, bevor der neue
   Inhalt erscheint.
+- **Update 2026-07-15 — Manual-Testing-Sweep (7 offene Einträge, priorisiert):** Im Rahmen eines
+  dedizierten Sweeps über alle sieben damals offenen `MANUAL_TESTING_GAPS.md`-Einträge erneut
+  gegen `expo start --web` geprüft — keine neuen Erkenntnisse gegenüber der obigen Verifikation
+  vom selben Tag, der In-Screen-Profilwechsel (Auswertung's eigener Picker) blieb dabei fehlerfrei
+  und stale-data-frei. Der `ActivityIndicator`-Frame selbst bleibt aus denselben Timing-Gründen
+  unbestätigt (siehe "Nicht verifiziert" oben) — unverändert offen dokumentiert, nicht Teil dieser
+  Statusänderung. Während desselben Sweeps wurde bei `GE-008`/`DI-002` ein **verwandter, aber
+  eigenständiger** Cross-Tab-Defekt gefunden (siehe deren Einträge sowie `ROADMAP.md`s neuer
+  `DI-009`): wechselt man das aktive Profil über `GoalsScreen`s "Ziel wählen"-Karte statt über
+  diesen Screen selbst, aktualisiert sich der bereits gemountete Auswertung-Tab nicht. Das ist
+  kein DI-008-Regressions-Defekt — DI-008s eigener In-Screen-Mechanismus funktioniert nachweislich
+  korrekt; der `loadState`-Mechanismus dieses Tasks ist voraussichtlich direkt wiederverwendbar,
+  sobald `DI-009` den fehlenden Fokus-Trigger ergänzt.
 
 ### 2026-07-15 — DI-007: Insights & Recommendations im EvaluationSummaryScreen
 
@@ -184,7 +198,7 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
 
 ### 2026-07-10 — GE-008: GoalsScreen "Ziel wählen" Surface
 
-- **Status:** ⏳ offen
+- **Status:** ⚠️ Defekt gefunden — siehe `DI-009`
 - **Branch/PR:** `claude/ge-008-goals-screen-ziel-waehlen`
 - **Betroffene Bereiche:** `src/presentation/features/goals/GoalsScreen.tsx` (neue "Ziel
   wählen"-Karte, direkt unterhalb des Headers, mit einer Liste anwählbarer registrierter
@@ -207,10 +221,25 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   "Evidence-based Standard" und "Weight Loss" wechseln, prüfen dass die Auswahl aktiv
   bleibt (auch nach App-Neustart, da `PersistedActiveProfileRepository` persistiert), und
   dass sich der Auswertung-Tab (DI-002) entsprechend der neuen Auswahl aktualisiert.
+- **Verifiziert (visuell, 2026-07-15, Manual-Testing-Sweep, per Headless-Playwright/Chromium
+  gegen `expo start --web`):** Karte selbst funktioniert korrekt — aktiver Zustand (blaue
+  Hervorhebung) wechselt beim Antippen sichtbar zur neu gewählten Karte, Layout/Touch-Ziele
+  sehen sauber aus (Screenshots), Persistenz über einen vollen Seiten-Reload hinweg bestätigt
+  (Ziele-Tab zeigt "Weight Loss" weiterhin als aktiv nach Reload). Null Browser-Konsolenfehler.
+- **Defekt gefunden (reproduzierbar, dokumentiert unter `DI-009` in `ROADMAP.md`):** Das
+  letzte "Zu testen"-Kriterium schlägt fehl — wechselt man das Ziel über diese Karte, während
+  der Auswertung-Tab bereits einmal zuvor besucht (und damit gemountet) wurde, zeigt der
+  Auswertung-Tab beim Zurückwechseln **ohne vollen Reload weiterhin unverändert die alte
+  Bewertung** des vorherigen Profils (falsche Kalorien-/Makrozahlen, falscher Einordnungs-/
+  Empfehlungstext) — keinerlei Hinweis auf die Diskrepanz. Nach einem vollen Seiten-Reload ist
+  die Anzeige korrekt (Persistenz selbst ist nicht das Problem). Root Cause: fehlender
+  Fokus-basierter Reload in `EvaluationSummaryScreen.tsx` — siehe `DI-009` für Details und
+  Akzeptanzkriterien. Produktkritischer als ein reines Anzeigeproblem, da dem Nutzer eine
+  sachlich falsche Bewertung als aktuell präsentiert wird, ohne jede Kennzeichnung.
 
 ### 2026-07-10 — DI-005: Dashboard-Tab entfernt (AppNavigator/DashboardScreen)
 
-- **Status:** ⏳ offen
+- **Status:** ✅ geprüft
 - **Branch/PR:** `claude/continuation-esc10o`
 - **Betroffene Bereiche:** `src/presentation/navigation/AppNavigator.tsx` (Dashboard-Tab-
   Registrierung entfernt, `RootTabParamList` ohne `Dashboard`, Icon-Branch entfernt),
@@ -230,10 +259,15 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   State). Konkret: App starten, prüfen dass genau sechs Tabs sichtbar sind (Protokoll/
   Ziele/Ernährung/Erholung/Vorlagen/Auswertung), kein "Dashboard"-Tab mehr vorhanden, keine
   Crash-/Fehlerdialoge beim Start.
+- **Verifiziert (visuell, 2026-07-15, Manual-Testing-Sweep, per Headless-Playwright/Chromium
+  gegen `expo start --web`):** Kalter Boot zeigt exakt sechs Tabs (Protokoll/Ziele/Ernährung/
+  Erholung/Vorlagen/Auswertung), kein "Dashboard"-Tab, App startet korrekt auf Protokoll,
+  keine Crash-/Fehlerdialoge. Null Browser-Konsolenfehler über die gesamte Sweep-Session
+  (mehrere Boots, Reloads, Tab-Wechsel, Formular-Interaktionen).
 
 ### 2026-07-10 — GE-007: Toter Progress-Call in JournalScreen entfernt
 
-- **Status:** ⏳ offen
+- **Status:** ✅ geprüft
 - **Branch/PR:** `claude/continuation-esc10o`
 - **Betroffene Bereiche:** `src/presentation/features/journal/JournalScreen.tsx` (Entfernung
   des `computeProgressForDateUseCase`-Aufrufs sowie des verworfenen, nie gerenderten
@@ -250,10 +284,16 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   (Regressionscheck). Konkret: im Journal-Tab wie gewohnt Essen loggen, Einträge
   bearbeiten/löschen, Summary-Bar prüfen — sollte sich identisch zum vorherigen Verhalten
   anfühlen.
+- **Verifiziert (visuell, 2026-07-15, Manual-Testing-Sweep, per Headless-Playwright/Chromium
+  gegen `expo start --web`):** Bearbeiten (Naturalsprache-Anweisung "100g statt 200g" auf
+  einen 200g-Eintrag angewendet) ergibt korrekt einen proportional angepassten 100g/66kcal-
+  Eintrag; Löschen entfernt den Eintrag korrekt und setzt die Summary-Bar auf 0 zurück — beides
+  identisch zum erwarteten Verhalten, keine Regression durch die Entfernung des toten
+  `computeProgressForDateUseCase`-Aufrufs. Null Browser-Konsolenfehler.
 
 ### 2026-07-10 — DI-002: Neuer Auswertungs-Tab (EvaluationSummaryScreen)
 
-- **Status:** ⏳ offen
+- **Status:** ✅ geprüft
 - **Branch/PR:** `claude/continuation-esc10o`
 - **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
   (neu), `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Auswertung"/
@@ -278,10 +318,25 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   im Journal etwas loggen, zum "Auswertung"-Tab wechseln — Bewertung + Fortschritt sollten
   die echten Journal-Daten widerspiegeln; auf "Weight Loss" umschalten und prüfen, dass sich
   Bewertung/Zielwerte sofort ändern (ohne dass sich die Journal-Einträge ändern).
+- **Verifiziert (visuell, 2026-07-15, Manual-Testing-Sweep, per Headless-Playwright/Chromium
+  gegen `expo start --web`):** Beide im "Zu testen"-Feld genannten Kriterien bestätigt: nach
+  Setzen von Metabolismus-Profil + Zielen und Loggen von "200g quark" im Journal zeigte der
+  Auswertung-Tab sofort die reale Bewertung (132 kcal konsumiert von 2076 Ziel); der
+  **In-Screen**-Profilwechsel (Auswertung's eigener Picker) auf "Weight Loss" änderte
+  Bewertung/Zielwerte sofort und korrekt (Kalorienziel 2076→1661 etc.), ohne die
+  Journal-Einträge zu verändern (bereits am selben Tag im `DI-008`-Sweep dokumentiert). Null
+  Browser-Konsolenfehler.
+- **Verwandter Fund (kein DI-002-Defekt, siehe `GE-008`/`DI-009`):** Derselbe Sweep fand, dass
+  ein Profilwechsel über eine _andere_ Tab-Screen (`GoalsScreen`s "Ziel wählen"-Karte statt
+  dieses Screens eigenem Picker) sich nicht im bereits gemounteten Auswertung-Tab
+  niederschlägt, bis ein voller Reload erfolgt. Das war nicht Teil dieses Eintrags eigener
+  "Zu testen"-Kriterien (die nur den In-Screen-Wechsel verlangen, welcher funktioniert),
+  betrifft aber denselben Screen-Code (`EvaluationSummaryScreen.tsx`) und wird als `DI-009`
+  in `ROADMAP.md` nachverfolgt.
 
 ### 2026-07-10 — SM-005: Neuer Saved-Meals-Tab (SavedMealsScreen)
 
-- **Status:** ⏳ offen
+- **Status:** ⚠️ Defekt gefunden — siehe `DI-009`
 - **Branch/PR:** `claude/continuation-esc10o`
 - **Betroffene Bereiche:** `src/presentation/features/savedMeals/SavedMealsScreen.tsx` (neu),
   `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Vorlagen"/`SavedMeals`,
@@ -304,10 +359,24 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   wechseln, Vorlage aus heutigen Einträgen mit Namen erstellen, "Loggen" tippen und im
   Journal-Tab prüfen, dass ein neuer Eintrag mit demselben Namen/derselben Menge erscheint;
   Stift-Icon → umbenennen → Speichern; Papierkorb-Icon → Vorlage verschwindet aus der Liste.
+- **Verifiziert (visuell, 2026-07-15, Manual-Testing-Sweep, per Headless-Playwright/Chromium
+  gegen `expo start --web`):** Vorlage-aus-heutigen-Einträgen-Erstellung, Umbenennen (Stift →
+  Modal → Speichern) und Löschen (Papierkorb) funktionieren alle einwandfrei — Modal öffnet
+  sauber, Liste aktualisiert sich korrekt nach jeder Aktion. Null Browser-Konsolenfehler.
+- **Defekt gefunden (reproduzierbar, dokumentiert unter `DI-009` in `ROADMAP.md`):** Das
+  "Loggen"-Kriterium schlägt fehl, wenn der Protokoll-Tab bereits zuvor besucht wurde: nach
+  Antippen von "Loggen" bestätigt die Vorlagen-Seite selbst korrekt
+  ("TESTFRUEHSTUECK" ZUM HEUTIGEN TAG HINZUGEFÜGT"), aber der **bereits gemountete
+  Protokoll-Tab zeigt beim Zurückwechseln weiterhin nur den alten Eintrag** (keine
+  Verdopplung sichtbar, aber auch kein neuer Eintrag) — bis ein voller Seiten-Reload erfolgt,
+  danach zeigt der Protokoll-Tab korrekt beide Einträge (264 kcal statt 132 kcal). Persistenz
+  ist also nicht das Problem, nur die Anzeige im bereits gemounteten Tab. Root Cause: fehlender
+  Fokus-basierter Reload in `JournalScreen.tsx` — siehe `DI-009` für Details und
+  Akzeptanzkriterien.
 
 ### 2026-07-10 — J-005: Auto-Merge-Undo-Notification in JournalScreen
 
-- **Status:** ⏳ offen
+- **Status:** ✅ geprüft
 - **Branch/PR:** `claude/continuation-g7eyp1`
 - **Betroffene Bereiche:** `src/presentation/features/journal/JournalScreen.tsx` (neuer
   `autoMergeNotice`-Banner mit "Rückgängig"-Button, sichtbar wenn
@@ -327,6 +396,16 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   loggen, Banner "Mit vorherigem Eintrag zusammengeführt" + "Rückgängig" sollte erscheinen;
   Tippen auf "Rückgängig" sollte den Eintrag auf die Werte vor dem Merge zurücksetzen und den
   Banner ausblenden.
+- **Verifiziert (visuell, 2026-07-15, Manual-Testing-Sweep, per Headless-Playwright/Chromium
+  gegen `expo start --web`):** Exakt wie im "Zu testen"-Feld beschrieben durchgespielt: "toast"
+  dann innerhalb des 2-Minuten-Fensters "300g toast" geloggt — Eintrag mergte korrekt zu einem
+  einzigen 300g/783kcal-Eintrag (keine Duplizierung), Banner mit Touch-Target-großem
+  "Rückgängig"-Button erschien sauber und gut lesbar. Klick auf "Rückgängig" stellte exakt die
+  Werte vor dem Merge wieder her (35g/91.35kcal) und blendete den Banner korrekt aus. Kleine,
+  nicht DoD-relevante Randbeobachtung: der separate "Erkannte Einträge"-Bereich (transiente
+  Zusammenfassung der letzten Eingabe) zeigt nach einem Undo weiterhin die Vor-Undo-Werte, bis
+  die nächste Eingabe submittet wird — kosmetisch, betrifft nicht den eigentlichen Journal-
+  Eintrag/die Summary-Bar, kein eigener Task angelegt. Null Browser-Konsolenfehler.
 
 ### 2026-07-09 — Expo Testing Docs Setup + Governance-Bindung
 

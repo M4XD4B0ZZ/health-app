@@ -4861,7 +4861,7 @@ unimplemented pending the `corrections` table from RESOLVER-V2-005.
 
 #### WEB-001: Restore Reproducible Expo Web Runtime
 
-Status: `todo`
+Status: `done`
 Depends on: none (infra/tooling fix, independent of DI-xxx product work)
 
 **Ziel:** `npm run web` (`expo start --web`) must boot successfully on a clean `npm ci`, so
@@ -4937,6 +4937,36 @@ dependencies installed. Install react-dom@19.1.0, react-native-web@~0.21.0`.
 
 **Verify:** per `VERIFY.md`'s Dependency-change category: full `npm run verify` plus a manual
 boot check (`npm run web`, confirm it serves without the `CommandError` seen above).
+
+**Implementation notes:** Installed via `npx expo install react-dom react-native-web`, which
+resolved the exact versions Expo itself requested — `react-dom@19.1.0`,
+`react-native-web@~0.21.0`. Two invocation flags were needed beyond the plain command, neither
+touching app code or expanding scope: `EXPO_OFFLINE=1` (the sandbox blocks Expo's online
+version-check API, same class of issue as previously documented `expo start` network blocks)
+and `-- --ignore-scripts` (the sandbox blocks the pre-existing `supabase` package's postinstall
+CLI-binary download, same root cause as CI-A's `--ignore-scripts` choice and the P2-003/P2-007
+verification-gap notes — unrelated to the two new packages). `@expo/metro-runtime` turned out
+not to be needed for SDK 54. `package-lock.json`'s diff is purely additive (196 insertions):
+only the two new packages and their own transitive deps (`cross-fetch`, `fbjs`, `styleq`,
+`inline-style-prefixer`, `whatwg-url`, etc.) — no pre-existing package version changed.
+
+**Verification results:**
+
+- `npm run verify` passed clean: typecheck, lint, format:check, and the full suite (113 suites /
+  854 tests — unchanged count, no regression).
+- `npm run web` starts successfully with no dependency-related `CommandError`.
+- `npx expo config --json` now resolves `"platforms": ["ios","android","web"]` (previously
+  silently dropped `web`).
+- DI-007's manual-testing gap was visually verified in this same session using a headless
+  Playwright/Chromium session against the running `expo start --web` server: insights/
+  recommendations sections render only when non-empty, correct section order (Bewertung →
+  Fortschritt → Einordnung → Empfehlungen → Hinweise), a real over-calorie warning was triggered
+  (via the Journal's offline BLS-backed resolver) and confirmed `Hinweise` stays visible and not
+  buried, switching between Evidence-based Standard and Weight Loss produced visibly different
+  insight/recommendation text, long text wraps cleanly with no truncation after scrolling the
+  screen to its actual bottom, no internal architecture vocabulary leaked into the UI, and zero
+  browser console errors throughout. See `docs/MANUAL_TESTING_GAPS.md`'s DI-007 entry for the
+  human sign-off step on flipping that status.
 
 ---
 

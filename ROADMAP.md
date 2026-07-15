@@ -4389,24 +4389,24 @@ getActiveEvaluationOutputUseCase.execute(...)`. Success sets `output` and clears
 true only "while loading" — the interim state is inferred by omission (`output === null &&
 errorMessage === ''`), indistinguishable from any future bug that leaves both unset. `load()`
 runs both on mount (`useEffect`) and again on every `handleSelectProfile` call, so this blank
-gap recurs on every profile switch, not only once at mount — and the *previous* profile's
+gap recurs on every profile switch, not only once at mount — and the _previous_ profile's
 `output` stays rendered, untouched, until the new `load()` resolves, which can read as
 belonging to the newly selected profile.
 
 **Defined state transitions:**
 
-| State | Trigger | Current visual result | Distinguishable today? |
-| --- | --- | --- | --- |
-| Initial mount | Component mounts, before `load()`'s first `await` | Title + empty profile picker, no content, no error | Only for one render tick; collapses into "Loading" below |
-| Loading | `load()` in flight (initial call **or** profile-switch reload) | Title + profile picker (previous or empty); no content, no error, no indicator | **No — this is the gap.** Blank/ambiguous; on a profile-switch reload the *stale* previous profile's content stays on screen instead of clearing |
-| Success (with data) | `load()` resolves, `output.goalProgress.length > 0` | Assessment, Fortschritt, (optionally) Einordnung/Empfehlungen, (optionally) Hinweise | Yes |
-| Success (empty result) | `load()` resolves, `mergeRuleResults` returns `{ assessment: 'no-data', goalProgress: [], insights: [], recommendations: [], warnings: [] }` (e.g. active profile has no rules producing results) | Assessment renders "Keine Daten"; Fortschritt section header renders with zero rows; no Einordnung/Empfehlungen/Hinweise | Yes — already renders distinct content; no new UI required for this case |
-| Error | `load()` throws (`GoalsNotFoundError`, `ProfileNotFoundError`, or other) | `errorMessage` text shown, no content | Yes |
+| State                  | Trigger                                                                                                                                                                                           | Current visual result                                                                                                    | Distinguishable today?                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Initial mount          | Component mounts, before `load()`'s first `await`                                                                                                                                                 | Title + empty profile picker, no content, no error                                                                       | Only for one render tick; collapses into "Loading" below                                                                                         |
+| Loading                | `load()` in flight (initial call **or** profile-switch reload)                                                                                                                                    | Title + profile picker (previous or empty); no content, no error, no indicator                                           | **No — this is the gap.** Blank/ambiguous; on a profile-switch reload the _stale_ previous profile's content stays on screen instead of clearing |
+| Success (with data)    | `load()` resolves, `output.goalProgress.length > 0`                                                                                                                                               | Assessment, Fortschritt, (optionally) Einordnung/Empfehlungen, (optionally) Hinweise                                     | Yes                                                                                                                                              |
+| Success (empty result) | `load()` resolves, `mergeRuleResults` returns `{ assessment: 'no-data', goalProgress: [], insights: [], recommendations: [], warnings: [] }` (e.g. active profile has no rules producing results) | Assessment renders "Keine Daten"; Fortschritt section header renders with zero rows; no Einordnung/Empfehlungen/Hinweise | Yes — already renders distinct content; no new UI required for this case                                                                         |
+| Error                  | `load()` throws (`GoalsNotFoundError`, `ProfileNotFoundError`, or other)                                                                                                                          | `errorMessage` text shown, no content                                                                                    | Yes                                                                                                                                              |
 
 **Smallest UI change (for the Act task — not implemented here):**
 
 1. Add one explicit state value, e.g. `const [loadState, setLoadState] = useState<'loading' |
-   'success' | 'error'>('loading')`.
+'success' | 'error'>('loading')`.
 2. Set `loadState` to `'loading'` at the very start of `load()` — covers both the mount call
    and every profile-switch reload, and incidentally fixes the stale-previous-profile-data
    issue above once the content block's render condition includes `loadState === 'success'`
@@ -4419,7 +4419,7 @@ belonging to the newly selected profile.
    falls through to nothing — an `ActivityIndicator` plus a short German status line (e.g.
    "Auswertung wird geladen…"), replacing the blank gap. Gate the existing error block on
    `loadState === 'error'` and the existing content block on `loadState === 'success' &&
-   output` (both conditions already exist in some form; this only makes the third,
+output` (both conditions already exist in some form; this only makes the third,
    currently-implicit branch explicit).
 6. No change to the empty-result branch's rendering — it already renders truthy, distinct
    content under `loadState === 'success'`.

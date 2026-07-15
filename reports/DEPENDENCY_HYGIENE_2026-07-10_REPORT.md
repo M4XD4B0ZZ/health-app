@@ -11,12 +11,12 @@ fix --force` require explicit approval and are **not** run here.
 27 vulnerabilities (1 low, 17 moderate, 7 high, 2 critical)
 ```
 
-| Severity | Count | Packages |
-| -------- | ----- | -------- |
-| Critical | 2     | `handlebars`, `shell-quote` |
-| High     | 7     | `@xmldom/xmldom`, `flatted`, `minimatch`, `picomatch`, `supabase`, `tar`, `ws` |
+| Severity | Count | Packages                                                                                                                                                                                                                                          |
+| -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Critical | 2     | `handlebars`, `shell-quote`                                                                                                                                                                                                                       |
+| High     | 7     | `@xmldom/xmldom`, `flatted`, `minimatch`, `picomatch`, `supabase`, `tar`, `ws`                                                                                                                                                                    |
 | Moderate | 17    | `@expo/*` family (cli, config, config-plugins, metro-config, prebuild-config), `brace-expansion`, `expo`, `expo-asset`, `expo-constants`, `expo-dev-client`, `expo-dev-launcher`, `expo-manifests`, `js-yaml`, `postcss`, `uuid`, `xcode`, `yaml` |
-| Low      | 1     | `@babel/core` |
+| Low      | 1     | `@babel/core`                                                                                                                                                                                                                                     |
 
 All 27 are **transitive** (none of our own source imports the vulnerable
 package directly); they come in via two dependency trees:

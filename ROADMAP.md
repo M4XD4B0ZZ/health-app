@@ -4365,7 +4365,7 @@ rule. Full suite (113 suites / 854 tests, unchanged — no new test files), `tsc
 
 #### DI-008: Explicit Loading State for Evaluation Summary
 
-Status: `todo`
+Status: `done`
 Depends on: DI-002 (screen this applies to)
 
 **Ziel:** `EvaluationSummaryScreen` (`DI-002`) has no explicit loading state. Between mount and
@@ -4482,6 +4482,17 @@ output` (both conditions already exist in some form; this only makes the third,
 **Verify (this planning-only entry):** `git --no-pager status --short`, `git --no-pager diff
 --stat`, `git --no-pager diff --name-only` (Category 1, Documentation-only, per `VERIFY.md`) —
 no product code touched.
+
+**Implementation notes:** Implemented as planned in `EvaluationSummaryScreen.tsx`: an explicit
+`loadState: 'loading' | 'success' | 'error'` state, set to `'loading'` synchronously at the top
+of `load()` (covers mount and every profile-switch reload), `'success'`/`'error'` alongside the
+existing `setOutput`/`setErrorMessage` branches. Stale output from the previously active profile
+is now hidden immediately once a reload starts, since the content block gates on
+`loadState === 'success'` instead of `output` truthiness alone. Planning in PR #34, Act
+implementation in PR #35 — both merged. `npm run verify` passes clean (typecheck, lint, format,
+full suite). The literal `ActivityIndicator` visual frame remains a separate, still-open manual
+check in `docs/MANUAL_TESTING_GAPS.md` (`⏳ offen`) — not required for this task's own DoD, which
+only requires the gap to be logged, not closed.
 
 ---
 

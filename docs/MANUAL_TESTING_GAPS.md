@@ -51,6 +51,65 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-15 — DI-008: Expliziter Loading-State im EvaluationSummaryScreen
+
+- **Status:** ⏳ offen (Error-/Success-/Profilwechsel-Zustände bereits per Playwright/Web
+  real geprüft, siehe unten — der `ActivityIndicator`-Frame selbst steht auf einem echten
+  Gerät noch aus; Status bewusst nicht vom Agent auf ✅ gesetzt, siehe Konvention oben)
+- **Branch/PR:** `claude/di-008-act-loading-state`
+- **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
+  — ein neuer `loadState: 'loading' | 'success' | 'error'`-State, initial `'loading'`. `load()`
+  setzt ihn synchron auf `'loading'` als allererste Zeile (deckt sowohl den Mount-Aufruf als auch
+  jeden Profilwechsel-Reload ab), auf `'success'` zusammen mit `setOutput(result)` im Erfolgsfall,
+  auf `'error'` im `catch`-Block (alle drei bestehenden Fehlerzweige unverändert). Rendering:
+  ein neuer, expliziter `loadState === 'loading'`-Block (`ActivityIndicator` + "Auswertung wird
+  geladen…", mirrored auf `GoalsScreen`s bestehendem `ActivityIndicator`-Pattern — keine neue
+  geteilte Loading-Komponente) ersetzt die bisherige implizite Lücke; der bestehende
+  Error-Block ist jetzt an `loadState === 'error'` gebunden, der bestehende Content-Block an
+  `loadState === 'success' && output` (vorher nur `output`) — dadurch verschwindet auch das im
+  Planning-Task (`ROADMAP.md`, DI-008) dokumentierte Stale-Data-Problem beim Profilwechsel, da
+  der Content-Block jetzt beim Reload sofort ausblendet, nicht erst wenn der neue Output
+  eintrifft. Keine neue Use-Case-, Repository-, Domain- oder Rule-Änderung; kein neues
+  gemeinsames Loading-Component/Design-System eingeführt.
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npx prettier -c`
+  (scoped), `npm run test` (113 Suiten / 854 Tests, unverändert grün — keine neuen Tests, siehe
+  Begründung unten).
+- **Warum keine neuen automatisierten Tests:** wie bei `DI-007` enthält dieses Repo keine
+  React-Native-Render-Testbibliothek. Die Änderung selbst enthält zudem keine eigenständig als
+  reine Funktion testbare Logik — es ist eine reine State-Machine-Verdrahtung auf bereits
+  anderswo getesteten Use-Cases (`BuildEvaluationInputForDateUseCase`,
+  `GetActiveEvaluationOutputUseCase`), kein neues Mapping/keine neue Formatierung, die sich
+  sinnvoll isoliert unit-testen ließe.
+- **Verifiziert (visuell, 2026-07-15, per Headless-Playwright/Chromium gegen `expo start
+--web`):** Mit einer lokalen, nie getrackten `.env` (Platzhalterwerte, ausschließlich zum
+  Boot-Check — siehe `DI-007`s Eintrag oben für dasselbe Vorgehen) real gegen die laufende Web-
+  Runtime getestet:
+  - **Error-Zustand:** Frischer Mount ohne gesetzte Ziele zeigt korrekt "Bitte zuerst im
+    Ziele-Tab Ziele festlegen." (nicht leer, nicht auf Loading hängend).
+  - **Success-Zustand:** Nach Setzen von Metabolismus-Profil + Ziel-Preset ("Balanced") zeigt
+    der Auswertung-Tab korrekt Bewertung ("Im Zielkorridor"), Fortschritt (alle 4 Makros),
+    und Einordnung — Reihenfolge und Inhalt wie von `DI-007` etabliert.
+  - **Profilwechsel:** Wechsel von "Evidence-based Standard" zu "Weight Loss" zeigt sichtbar
+    andere Werte (Kalorienziel 2076→1661, Protein 130→125) und sichtbar andere Einordnung/
+    Empfehlungen-Texte (Korridor-Insight → Defizit-Insight + neue Protein-Empfehlung), aktiver
+    Profil-Button-Highlight wechselt korrekt; kein Stale-Data-Frame des vorherigen Profils
+    sichtbar in den Screenshots unmittelbar nach dem Klick.
+  - Null Browser-Konsolenfehler über die gesamte Session (Mount, Ziele-Flow, Profilwechsel).
+  - Test-`.env` danach wieder entfernt (war ohnehin nie getrackt/gitignored), keine
+    Dependency-Änderung.
+- **Nicht verifiziert (visuell):** Der explizite `ActivityIndicator`-Frame selbst (initial mount
+  und beim Profilwechsel-Reload) konnte in dieser Umgebung nicht per Screenshot eingefangen
+  werden — die zugrundeliegenden Repositories sind lokal/offline (kein echtes Netzwerk-Delay),
+  sodass der `'loading'`-Zustand selbst bei einem 50–60ms-Screenshot-Delay nach dem Klick bereits
+  wieder vom `'success'`-Zustand abgelöst war. Der Code-Pfad ist per Review bestätigt (`loadState`
+  wird synchron vor jedem `await` in `load()` gesetzt), aber die visuelle Sub-100ms-Anzeige selbst
+  ist auf einem echten Gerät mit echtem Netzwerk-/Storage-Delay zu bestätigen.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 4 (Navigation & State) und 7
+  (Regressionscheck). Konkret: auf einem echten Gerät/Simulator mit spürbarer Ladezeit (oder
+  gedrosselter Verbindung) bestätigen, dass der `ActivityIndicator` sichtbar erscheint (a) beim
+  ersten Öffnen des Auswertung-Tabs und (b) unmittelbar nach jedem Profilwechsel, bevor der neue
+  Inhalt erscheint.
+
 ### 2026-07-15 — DI-007: Insights & Recommendations im EvaluationSummaryScreen
 
 - **Status:** ✅ geprüft

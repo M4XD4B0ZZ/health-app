@@ -4363,6 +4363,128 @@ rule. Full suite (113 suites / 854 tests, unchanged — no new test files), `tsc
 
 ---
 
+#### DI-008: Explicit Loading State for Evaluation Summary
+
+Status: `todo`
+Depends on: DI-002 (screen this applies to)
+
+**Ziel:** `EvaluationSummaryScreen` (`DI-002`) has no explicit loading state. Between mount and
+the moment `load()` resolves — including every reload triggered by a profile switch — the
+screen shows only the title and the (briefly empty) profile picker; the entire evaluation
+content area is blank, indistinguishable from a stuck screen or an undecided state. This gap
+was explicitly flagged and deferred by `DI-007`'s "Explicitly out of scope" section
+("explicit loading-state UI ... separate, pre-existing gap, own follow-up rather than folded in
+here"). **This entry is planning only** — a fresh review-only task; no product code was
+changed to add it.
+
+**Current load flow (as inspected):**
+
+`load()` in `EvaluationSummaryScreen.tsx` synchronously calls
+`evaluationProfileRegistry.list()` (→ `setProfiles`), then `await getActiveProfileId()` (→
+`setActiveProfileId`), then, inside a `try`, `await
+buildEvaluationInputForDateUseCase.execute(...)` and `await
+getActiveEvaluationOutputUseCase.execute(...)`. Success sets `output` and clears
+`errorMessage`; failure sets `errorMessage` (mapped from `GoalsNotFoundError`/
+`ProfileNotFoundError`, or a generic fallback) and clears `output`. There is no state that is
+true only "while loading" — the interim state is inferred by omission (`output === null &&
+errorMessage === ''`), indistinguishable from any future bug that leaves both unset. `load()`
+runs both on mount (`useEffect`) and again on every `handleSelectProfile` call, so this blank
+gap recurs on every profile switch, not only once at mount — and the *previous* profile's
+`output` stays rendered, untouched, until the new `load()` resolves, which can read as
+belonging to the newly selected profile.
+
+**Defined state transitions:**
+
+| State | Trigger | Current visual result | Distinguishable today? |
+| --- | --- | --- | --- |
+| Initial mount | Component mounts, before `load()`'s first `await` | Title + empty profile picker, no content, no error | Only for one render tick; collapses into "Loading" below |
+| Loading | `load()` in flight (initial call **or** profile-switch reload) | Title + profile picker (previous or empty); no content, no error, no indicator | **No — this is the gap.** Blank/ambiguous; on a profile-switch reload the *stale* previous profile's content stays on screen instead of clearing |
+| Success (with data) | `load()` resolves, `output.goalProgress.length > 0` | Assessment, Fortschritt, (optionally) Einordnung/Empfehlungen, (optionally) Hinweise | Yes |
+| Success (empty result) | `load()` resolves, `mergeRuleResults` returns `{ assessment: 'no-data', goalProgress: [], insights: [], recommendations: [], warnings: [] }` (e.g. active profile has no rules producing results) | Assessment renders "Keine Daten"; Fortschritt section header renders with zero rows; no Einordnung/Empfehlungen/Hinweise | Yes — already renders distinct content; no new UI required for this case |
+| Error | `load()` throws (`GoalsNotFoundError`, `ProfileNotFoundError`, or other) | `errorMessage` text shown, no content | Yes |
+
+**Smallest UI change (for the Act task — not implemented here):**
+
+1. Add one explicit state value, e.g. `const [loadState, setLoadState] = useState<'loading' |
+   'success' | 'error'>('loading')`.
+2. Set `loadState` to `'loading'` at the very start of `load()` — covers both the mount call
+   and every profile-switch reload, and incidentally fixes the stale-previous-profile-data
+   issue above once the content block's render condition includes `loadState === 'success'`
+   instead of relying on `output` truthiness alone.
+3. Set `loadState` to `'success'` alongside the existing `setOutput(result)` /
+   `setErrorMessage('')` on the happy path.
+4. Set `loadState` to `'error'` alongside the existing `setErrorMessage(...)` in the `catch`
+   block (all three branches: `GoalsNotFoundError`, `ProfileNotFoundError`, generic fallback).
+5. Render one explicit loading branch (`loadState === 'loading'`) where the screen currently
+   falls through to nothing — an `ActivityIndicator` plus a short German status line (e.g.
+   "Auswertung wird geladen…"), replacing the blank gap. Gate the existing error block on
+   `loadState === 'error'` and the existing content block on `loadState === 'success' &&
+   output` (both conditions already exist in some form; this only makes the third,
+   currently-implicit branch explicit).
+6. No change to the empty-result branch's rendering — it already renders truthy, distinct
+   content under `loadState === 'success'`.
+7. No change to `switchingProfileId` — it continues to govern only button
+   disabled/active-styling during a switch; it is a separate, narrower mechanism from the new
+   content-area `loadState`, and the two do not conflict.
+
+**Explicitly out of scope** (per task instructions):
+
+- Skeleton loading system.
+- Pull-to-refresh.
+- Historical date selection.
+- Provider/date semantics.
+- Error-state redesign (existing `errorMessage` copy/behavior stays as-is).
+- Insight text changes.
+- Navigation changes.
+- Broader loading-state standardization across the app (this task touches only
+  `EvaluationSummaryScreen`).
+
+**Test cases (for the Act task):**
+
+- No React Native rendering test library exists in this repo
+  (`@testing-library/react-native`/`react-test-renderer` are not dependencies — confirmed
+  during `DI-007`); the same constraint applies here. Automated coverage is therefore limited
+  to any pure logic extracted alongside the change; there is no obvious extraction candidate
+  beyond a possible display-string constant (unlike `DI-002`'s `formatGoalProgressLabel`/
+  `formatAssessment`) — if the Act task extracts one, it must be unit-tested the same way,
+  mirroring `evaluationSummaryDisplay.test.ts`.
+- Manual verification (Expo, or `expo start --web` — now available per `WEB-001` and already
+  used to visually verify `DI-007`), to be logged in `docs/MANUAL_TESTING_GAPS.md` per
+  `AGENTS.md`'s binding rule:
+  1. Fresh mount, profile with real Journal data → loading indicator visible, then content, no
+     blank gap in between.
+  2. Fresh mount, `GoalsNotFoundError`/`ProfileNotFoundError` condition → loading indicator,
+     then the existing error message (not blank, not stuck loading).
+  3. Fresh mount, empty-result case (`no-data`/empty `goalProgress`) → loading indicator, then
+     the existing "Keine Daten" content.
+  4. Profile switch (tap the other profile button) → loading indicator reappears; the
+     previously active profile's content is not shown once loading starts; the new profile's
+     content replaces it once resolved.
+  5. Regression: Assessment → Fortschritt → Einordnung → Empfehlungen → Hinweise order and
+     content unchanged once loaded (no visual regression vs. `DI-007`); Hinweise stays visible,
+     not buried.
+
+**Akzeptanzkriterien (DoD) for the Act task:**
+
+- Every state in the transition table above is explicitly represented in code (no
+  inferred/implicit states).
+- No blank interim screen between mount/profile-switch and the next terminal state (success,
+  empty-result-success, or error).
+- No stale previous-profile content visible once a profile-switch reload starts.
+- No new use case, repository, domain abstraction, or Rule introduced; screen stays a pure
+  renderer.
+- Full suite, typecheck, lint pass clean; manual testing gap logged if not visually verified via
+  Expo/web.
+
+**Verify (Act task):** `npm run verify`; manual/web verification per
+`docs/MANUAL_TESTING_GAPS.md`.
+
+**Verify (this planning-only entry):** `git --no-pager status --short`, `git --no-pager diff
+--stat`, `git --no-pager diff --name-only` (Category 1, Documentation-only, per `VERIFY.md`) —
+no product code touched.
+
+---
+
 # TIER 2 — CORE ARCHITECTURE
 
 Focus: private-use stability, deterministic architecture hygiene, and DACH-first resolver correctness.

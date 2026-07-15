@@ -122,6 +122,33 @@ const EvaluationSummaryScreen: React.FC = () => {
               ))}
             </View>
 
+            {output.insights.length > 0 && (
+              <View style={styles.section}>
+                <AppText style={styles.sectionTitle}>Einordnung</AppText>
+                {output.insights.map((insight) => (
+                  <AppText key={insight} variant="body" style={styles.insightText}>
+                    {insight}
+                  </AppText>
+                ))}
+              </View>
+            )}
+
+            {output.recommendations.length > 0 && (
+              <View style={styles.section}>
+                <AppText style={styles.sectionTitle}>Empfehlungen</AppText>
+                {output.recommendations.map((recommendation) => (
+                  <AppText
+                    key={recommendation}
+                    variant="body"
+                    tone="accent"
+                    style={styles.recommendationText}
+                  >
+                    {recommendation}
+                  </AppText>
+                ))}
+              </View>
+            )}
+
             {output.warnings.length > 0 && (
               <View style={styles.section}>
                 <AppText style={styles.sectionTitle}>Hinweise</AppText>
@@ -180,6 +207,12 @@ const styles = StyleSheet.create({
     borderBottomColor: tokens.colors.divider,
   },
   warningText: {
+    marginTop: 4,
+  },
+  insightText: {
+    marginTop: 4,
+  },
+  recommendationText: {
     marginTop: 4,
   },
 });

@@ -51,6 +51,41 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-15 — DI-007: Insights & Recommendations im EvaluationSummaryScreen
+
+- **Status:** ⏳ offen
+- **Branch/PR:** `claude/project-status-audit-i8blw1`
+- **Betroffene Bereiche:** `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx`
+  — zwei neue, rein additive Abschnitte "Einordnung" (`output.insights`) und "Empfehlungen"
+  (`output.recommendations`), eingefügt zwischen dem bestehenden "Fortschritt"-Abschnitt und dem
+  bestehenden "Hinweise"-Abschnitt (Warnings). Beide Abschnitte rendern die vom
+  Evaluation-Use-Case gelieferten Strings unverändert (kein neues Mapping, keine neue
+  Berechnung) und erscheinen nur, wenn das jeweilige Array mindestens einen Eintrag hat —
+  exakt derselbe Bedingungs-/Render-Pattern wie der bestehende, unveränderte `warnings`-Block.
+  Keine Änderung an Rules, Registry, Provider, Journal-/Repository-Schicht oder Navigation.
+- **Verifiziert durch Agent:** `npm run typecheck`, `npm run lint`, `npm run test` (113 Suiten
+  / 854 Tests, unverändert grün — keine neuen Tests, siehe Begründung unten), `npx prettier -c`
+  (scoped).
+- **Warum keine neuen automatisierten Tests:** Dieses Repo enthält keine
+  React-Native-Render-Testbibliothek (weder `@testing-library/react-native` noch
+  `react-test-renderer` in `package.json`, kein einziger `render(...)`-Aufruf irgendwo unter
+  `src/presentation/`). Der strukturell identische, bereits produktive `warnings`-Block (DI-002)
+  hat aus demselben Grund ebenfalls nie einen Screen-Rendering-Test gehabt. Da neue Dependencies
+  für DI-007 explizit außerhalb des Scopes liegen, gibt es keine sinnvolle Möglichkeit, das
+  bedingte Rendering hier automatisiert zu prüfen, ohne diese Einschränkung zu verletzen — die
+  Änderung selbst enthält zudem keine eigenständig testbare Logik (reines Verbatim-Rendering
+  bereits vorhandener Strings, kein neues Mapping/keine neue Formatierung).
+- **Nicht verifiziert (visuell):** Dass "Einordnung" und "Empfehlungen" korrekt zwischen
+  "Fortschritt" und "Hinweise" erscheinen und "Hinweise" dabei nicht visuell untergeht; dass
+  beide Abschnitte bei leeren Arrays tatsächlich keinen sichtbaren leeren Bereich hinterlassen;
+  dass ein Profilwechsel (Evidence-based Standard ↔ Weight Loss) sichtbar unterschiedliche
+  Insight-/Empfehlungstexte zeigt; allgemeines Layout/Abstände der neuen Abschnitte.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 7 (Regressionscheck).
+  Konkret: Auswertung-Tab öffnen, prüfen dass "Einordnung"/"Empfehlungen" zwischen Fortschritt
+  und Hinweisen erscheinen (falls vorhanden), zwischen den beiden Zielen wechseln und prüfen,
+  dass sich die angezeigten Texte sichtbar unterscheiden, und einen Tag ohne auslösende
+  Bedingungen prüfen (beide Abschnitte sollten dann unsichtbar sein, kein leerer Rahmen).
+
 ### 2026-07-10 — GE-008: GoalsScreen "Ziel wählen" Surface
 
 - **Status:** ⏳ offen

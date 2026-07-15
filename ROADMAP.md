@@ -4274,7 +4274,7 @@ clean.
 
 #### DI-007: Render Rule-Level Insights & Recommendations in EvaluationSummaryScreen
 
-Status: `todo`
+Status: `done`
 Depends on: DI-002 (screen to render into), DI-003 (content already exists on `EvaluationOutput`)
 
 **Ziel:** `DI-003` already populates `EvaluationOutput.insights`/`.recommendations` with real,
@@ -4343,6 +4343,23 @@ trends/weekly-summaries module; any new Rule or new insight/recommendation conte
 
 **Verify:** `npm run verify`; additionally targeted:
 `npm run test -- --runTestsByPath src/presentation/features/evaluationSummary/__tests__/<test-file>`.
+
+**Implementation notes:** Added two new sections to `EvaluationSummaryScreen.tsx` — "Einordnung"
+(`output.insights`) and "Empfehlungen" (`output.recommendations`) — positioned between the
+existing "Fortschritt" and "Hinweise" sections, exactly the recommended order. Both mirror the
+existing `warnings` block's conditional-render pattern (`length > 0 &&`) verbatim: no new
+mapping, no new formatting, no new domain logic — the strings from `EvaluationOutput` render
+unchanged. `evaluationSummaryDisplay.ts` was not touched: unlike `goalProgress.label`/
+`assessment`, insight/recommendation strings need no label lookup. No use case, repository,
+Rule, or registry file touched.
+
+No new automated tests were added: this repo has no React Native rendering test library
+(`@testing-library/react-native`/`react-test-renderer` are not dependencies, and no file under
+`src/presentation/` calls `render(...)`) — adding one was explicitly out of scope. The mirrored
+`warnings` block (DI-002) has the same pre-existing gap for the same reason. A
+`docs/MANUAL_TESTING_GAPS.md` entry was added per `AGENTS.md`'s binding Manual UI Testing Gap Log
+rule. Full suite (113 suites / 854 tests, unchanged — no new test files), `tsc --noEmit`,
+`eslint`, and `npx prettier -c` (scoped) all pass clean.
 
 ---
 

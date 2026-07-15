@@ -80,6 +80,31 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
   beide Abschnitte bei leeren Arrays tatsächlich keinen sichtbaren leeren Bereich hinterlassen;
   dass ein Profilwechsel (Evidence-based Standard ↔ Weight Loss) sichtbar unterschiedliche
   Insight-/Empfehlungstexte zeigt; allgemeines Layout/Abstände der neuen Abschnitte.
+- **Update 2026-07-15 — Browser-Verifikationsversuch (blockiert, kein Claude-spezifisches
+  Problem):** Es wurde versucht, diesen Eintrag über `expo start --web` + Playwright/Chromium
+  (in dieser Umgebung vorinstalliert) durch einen echten Screenshot-Test zu schließen, statt
+  ihn offen zu lassen. Der Versuch scheiterte an zwei getrennten Ursachen:
+  1. Ein Online-Versionscheck von `expo start` gegen Expos eigene API schlug am
+     Netzwerk-Proxy dieser Sandbox fehl (`--offline`-Flag umgeht das) — **das ist
+     umgebungsspezifisch**, auf einem Rechner mit normalem Internetzugang vermutlich kein
+     Problem.
+  2. Danach: `CommandError: ... don't have the required dependencies installed. Install
+react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Netzwerk
+     nötig): weder `react-dom` noch `react-native-web` noch `@expo/metro-runtime` existieren
+     irgendwo unter `node_modules/` — auch nicht gehoistet/transitiv. Kein Workspace-/Monorepo-
+     Setup, das das erklären würde (`package.json` hat kein `workspaces`-Feld). **Das ist
+     unabhängig von der Sandbox** — `npm run web` würde nach einem sauberen `npm ci` auf jedem
+     Rechner mit denselben drei fehlenden Paketen scheitern, obwohl `app.json` `web` als
+     Plattform konfiguriert (`expo.web.favicon`) und `package.json` das `web`-Skript definiert
+     (`expo start --web`) und README `w` als Startoption dokumentiert.
+  - Testdatei `.env` (Platzhalterwerte, nur für den Startversuch) wurde wieder entfernt, war
+    ohnehin nie getrackt (gitignored).
+  - Keine Dependency-Änderung vorgenommen — `package.json`/`package-lock.json` liegen
+    außerhalb des Scopes eines Verifikationsversuchs. Empfehlung: separater, explizit
+    autorisierter Task (Arbeitstitel `WEB-001`) zur Reparatur der Web-Runtime, danach erneuter
+    Verifikationsversuch für diesen Eintrag.
+  - Native Android-/iOS-Verifikation ist von diesem Befund **nicht** betroffen — `react-dom`/
+    `react-native-web` werden ausschließlich für die Web-Plattform benötigt.
 - **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 7 (Regressionscheck).
   Konkret: Auswertung-Tab öffnen, prüfen dass "Einordnung"/"Empfehlungen" zwischen Fortschritt
   und Hinweisen erscheinen (falls vorhanden), zwischen den beiden Zielen wechseln und prüfen,

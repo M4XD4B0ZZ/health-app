@@ -4857,6 +4857,89 @@ unimplemented pending the `corrections` table from RESOLVER-V2-005.
 
 ---
 
+## EPIC: Developer Tooling & Verification
+
+#### WEB-001: Restore Reproducible Expo Web Runtime
+
+Status: `todo`
+Depends on: none (infra/tooling fix, independent of DI-xxx product work)
+
+**Ziel:** `npm run web` (`expo start --web`) must boot successfully on a clean `npm ci`, so
+UI changes (starting with the DI-007 manual-testing gap, see
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md)) can be visually verified in a
+browser, and Web becomes usable as an internal Playwright/headless-agent verification path.
+
+**Problem (empirically confirmed 2026-07-15):**
+
+- `npm run web` fails on a clean checkout with `CommandError: ... don't have the required
+dependencies installed. Install react-dom@19.1.0, react-native-web@~0.21.0`.
+- Confirmed via repo-wide search: none of `react-dom`, `react-native-web`,
+  `@expo/metro-runtime` exist anywhere under `node_modules/`; `package.json` has no
+  `workspaces` field to explain hoisting from elsewhere.
+- `npx expo config --json` resolves `"platforms": ["ios","android"]` — Expo silently drops
+  `web` from the effective platform list because the runtime deps are missing, even though
+  `app.json` configures `expo.web.favicon` and `package.json` defines the `web` script
+  (`expo start --web`), and `README.md` documents pressing `w` to launch it.
+- No code-level blocker found: no `NativeModules`/`requireNativeComponent`/`expo-dev-client`
+  usage under `src/`, no custom `metro.config.js` in the project root, `App.tsx`/`index.ts`
+  are minimal and platform-agnostic.
+- Expo SDK resolved as `54.0.0` (`expo@~54.0.35`).
+- This is a genuine, reproducible repository defect — a clean `npm ci` fails identically on
+  any machine — not a sandbox-specific artifact. (A separate, unrelated failure mode was also
+  hit during investigation: `expo start`'s online version-check fails against this sandbox's
+  network proxy; that part is environment-specific and bypassable with `--offline`, and is not
+  part of this task's problem statement.)
+
+**Scope / betroffene Dateien:**
+
+- `package.json` / `package-lock.json`: add `react-dom@19.1.0`, `react-native-web@~0.21.0` via
+  `npx expo install react-dom react-native-web` (the Expo-aware installer, so versions stay
+  SDK-compatible rather than manually chosen).
+- Re-check afterward whether `expo start --web` still requests `@expo/metro-runtime` — Expo's
+  own dependency check did not flag it as missing for SDK 54 (unlike some other SDK web
+  guides), so whether it's actually needed must be verified empirically after the first two
+  packages land, not assumed either way.
+- No other file changes anticipated. If `expo start --web` surfaces further missing
+  dependencies or config issues after this install, that is new information to be handled
+  within this same task, not a silent scope expansion into unrelated work.
+
+**Risiken:**
+
+- Dependency-change tasks carry more blast radius than doc/UI-only tasks: a lockfile diff
+  touching unrelated transitive versions would be a red flag and must be caught in review
+  before merge, not after.
+- `react-native-web` shims some RN primitives; this task only proves the app _boots_ on web,
+  it does not audit every screen for web-specific rendering bugs (native modules, gestures,
+  platform-specific styling) — that risk is explicitly deferred to whatever UI work is
+  actually verified through this runtime afterward (e.g. DI-007), not solved here.
+- Whether Web becomes an officially supported Zera platform or stays an internal
+  verification-only tool is a separate, still-open product/tooling decision this task does not
+  resolve — this task only restores the ability to boot the app on web, it does not commit to
+  a support policy.
+
+**Explicitly out of scope:**
+
+- Any decision to make Web an officially supported Zera platform vs. an internal
+  verification-only tool.
+- Any UI/UX changes, any DI-xxx work, any CI workflow changes.
+- Deploying or hosting a web build anywhere.
+- Auditing individual screens for web-specific rendering correctness beyond "the app boots".
+
+**Tests:** none new (pure dependency-restoration task); `npm run verify` must stay green.
+
+**Akzeptanzkriterien (DoD):**
+
+- `npm run web` starts without a dependency-related `CommandError` on a clean install.
+- `npx expo config --json` includes `"web"` in the resolved `platforms` array.
+- `npm run verify` passes.
+- No unrelated dependency drift — lockfile diff limited to the newly added packages and their
+  own transitive dependencies.
+
+**Verify:** per `VERIFY.md`'s Dependency-change category: full `npm run verify` plus a manual
+boot check (`npm run web`, confirm it serves without the `CommandError` seen above).
+
+---
+
 ## Tier 3 Planning Targets — Require Later Task Decomposition
 
 The following modules remain planned but not yet scoped into concrete implementation tasks.

@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
 import { EvaluationProfile, EvaluationOutput } from '../../../features/evaluation';
 import { GoalsNotFoundError, ProfileNotFoundError } from '../../../features/goals';
@@ -31,13 +32,20 @@ const EvaluationSummaryScreen: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  // DI-009: guards against an in-flight load that resolves after a newer one has already
+  // started (e.g. rapid tab switching, or a switch fired mid-load) from overwriting the
+  // newer result with stale data.
+  const loadRequestIdRef = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoadState('loading');
 
     const profileList = container.evaluationProfileRegistry.list();
     setProfiles(profileList);
 
     const currentActiveId = await container.evaluationProfileRegistry.getActiveProfileId();
+    if (loadRequestIdRef.current !== requestId) return;
     setActiveProfileId(currentActiveId);
 
     try {
@@ -46,10 +54,12 @@ const EvaluationSummaryScreen: React.FC = () => {
         currentActiveId,
       );
       const result = await container.getActiveEvaluationOutputUseCase.execute(input);
+      if (loadRequestIdRef.current !== requestId) return;
       setOutput(result);
       setErrorMessage('');
       setLoadState('success');
     } catch (err) {
+      if (loadRequestIdRef.current !== requestId) return;
       setOutput(null);
       if (err instanceof GoalsNotFoundError) {
         setErrorMessage('Bitte zuerst im Ziele-Tab Ziele festlegen.');
@@ -63,9 +73,16 @@ const EvaluationSummaryScreen: React.FC = () => {
     }
   }, [today]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // DI-009: reload on every tab focus (not just mount) so a profile switch made from the
+  // Ziele tab's "Ziel wählen" card is picked up on return, without a full app reload.
+  // Reuses the same load()/loadState machinery as the existing in-screen profile switch
+  // (handleSelectProfile below) — loadState flips to 'loading' synchronously at the top of
+  // load(), so stale content is hidden immediately, before any new data arrives.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const handleSelectProfile = async (profileId: string) => {
     if (switchingProfileId || profileId === activeProfileId) return;

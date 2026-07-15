@@ -198,7 +198,7 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
 
 ### 2026-07-10 — GE-008: GoalsScreen "Ziel wählen" Surface
 
-- **Status:** ⚠️ Defekt gefunden — siehe `DI-009`
+- **Status:** ✅ geprüft (Defekt behoben durch `DI-009`, siehe unten)
 - **Branch/PR:** `claude/ge-008-goals-screen-ziel-waehlen`
 - **Betroffene Bereiche:** `src/presentation/features/goals/GoalsScreen.tsx` (neue "Ziel
   wählen"-Karte, direkt unterhalb des Headers, mit einer Liste anwählbarer registrierter
@@ -236,6 +236,16 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   Fokus-basierter Reload in `EvaluationSummaryScreen.tsx` — siehe `DI-009` für Details und
   Akzeptanzkriterien. Produktkritischer als ein reines Anzeigeproblem, da dem Nutzer eine
   sachlich falsche Bewertung als aktuell präsentiert wird, ohne jede Kennzeichnung.
+- **Update 2026-07-15 — behoben durch `DI-009` und real re-verifiziert:**
+  `EvaluationSummaryScreen.tsx` lädt jetzt per `useFocusEffect` bei jedem Tab-Fokus neu (statt
+  nur beim ersten Mount). Erneut per Headless-Playwright/Chromium gegen `expo start --web`
+  geprüft: Wechsel auf "Weight Loss" über diese Karte, danach zurück zu Auswertung **ohne
+  Reload** — zeigt jetzt sofort die korrekte Weight-Loss-Bewertung (Kalorien, Defizit-Insight,
+  Protein-Empfehlung), keine alte Evidence-based-Standard-Bewertung mehr sichtbar. Der
+  bestehende In-Screen-Profilwechsel in der Auswertung bleibt unverändert funktionsfähig.
+  Zusätzlich mit fünf schnellen Tab-Wechseln in Folge (ohne Wartezeit) stresstestet — keine
+  Race-Condition-Artefakte, korrekter Endzustand. Null Browser-Konsolenfehler. Vollständige
+  Evidenz in `ROADMAP.md`'s `DI-009`-Eintrag (Implementation notes / Verification results).
 
 ### 2026-07-10 — DI-005: Dashboard-Tab entfernt (AppNavigator/DashboardScreen)
 
@@ -336,7 +346,7 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
 
 ### 2026-07-10 — SM-005: Neuer Saved-Meals-Tab (SavedMealsScreen)
 
-- **Status:** ⚠️ Defekt gefunden — siehe `DI-009`
+- **Status:** ✅ geprüft (Defekt behoben durch `DI-009`, siehe unten)
 - **Branch/PR:** `claude/continuation-esc10o`
 - **Betroffene Bereiche:** `src/presentation/features/savedMeals/SavedMealsScreen.tsx` (neu),
   `src/presentation/navigation/AppNavigator.tsx` (neuer Bottom-Tab "Vorlagen"/`SavedMeals`,
@@ -373,6 +383,14 @@ react-dom@19.1.0, react-native-web@~0.21.0`. Bestätigt per `Glob` (kein Bash/Ne
   ist also nicht das Problem, nur die Anzeige im bereits gemounteten Tab. Root Cause: fehlender
   Fokus-basierter Reload in `JournalScreen.tsx` — siehe `DI-009` für Details und
   Akzeptanzkriterien.
+- **Update 2026-07-15 — behoben durch `DI-009` und real re-verifiziert:** `JournalScreen.tsx`
+  lädt jetzt per `useFocusEffect` bei jedem Tab-Fokus neu (statt nur beim ersten Mount). Erneut
+  per Headless-Playwright/Chromium gegen `expo start --web` geprüft: Vorlage aus Journal-Eintrag
+  erstellt, über "Loggen" auf Vorlagen-Tab zum Tag hinzugefügt, danach zurück zu Protokoll
+  **ohne Reload** — zeigt jetzt korrekt beide Einträge (264 kcal statt weiterhin 132 kcal).
+  Zusätzlich mit fünf schnellen Tab-Wechseln in Folge stresstestet — keine doppelten Einträge,
+  keine Race-Condition-Artefakte. Null Browser-Konsolenfehler. Vollständige Evidenz in
+  `ROADMAP.md`'s `DI-009`-Eintrag (Implementation notes / Verification results).
 
 ### 2026-07-10 — J-005: Auto-Merge-Undo-Notification in JournalScreen
 

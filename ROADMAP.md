@@ -4915,6 +4915,84 @@ console/runtime errors throughout.
 
 ---
 
+### NATIVE-001: Android Standalone Build Crashes on Cold Start
+
+Status: `in_progress` (code fix landed + web-verified; new build with configured env vars and
+a real-device cold-start check by the maintainer are still pending — this task is not done
+until that cold start succeeds)
+Severity: **Blocker** — blocks UT-001 Phase B (dogfooding) and every further native test
+Depends on: none
+Full diagnosis: [`reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md`](reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md)
+
+**Observed:** The installed Android standalone build (predating PR #45) closes immediately on
+every launch; Samsung shows "Zera geschlossen, da diese App einen Fehler enthält." Clearing the
+app cache does not help. The app never reaches its first frame.
+
+**Root cause (mechanism proven by code inspection + live reproduction):**
+`src/infrastructure/supabase/supabaseClient.ts` threw at **module scope** when
+`EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY` were absent. That module sits on the
+unconditional boot path (`container.ts` imports it; the container singleton is constructed at
+module scope; `presentation/App.tsx` imports the container) — so the throw happens during JS
+bundle evaluation, before React renders anything. In a release build there is no dev overlay:
+the unhandled exception aborts the process, which is exactly the observed instant close.
+Reproduced live in this repo (Expo Web started **without** `.env`): zero rendered frames, empty
+DOM, single page error `Missing EXPO_PUBLIC_SUPABASE_URL`. Cache-clearing can never fix it
+because `EXPO_PUBLIC_*` values are inlined into the bundle at **build time**.
+
+**Trigger (very likely; final confirmation via device evidence):** the build was produced
+without these env vars in its build environment. `.env` is gitignored (never part of a remote
+EAS build's upload), the repo contains no `eas.json` and no `env`/`extra` block in `app.json`,
+and no EAS environment variables are documented anywhere. The one alternative hypothesis
+(a native-side init failure, e.g. New-Architecture/library issue) is ranked far lower — every
+dependency is a standard Expo SDK 54 library — and is distinguishable in one step: `adb logcat`
+containing `Missing EXPO_PUBLIC_SUPABASE_URL` (or the next successful cold start after building
+with vars set) confirms H1; a native stack without that message would reopen H2.
+
+**Fix (smallest safe change, landed on `claude/app-testing-evaluation-yogpjt`):**
+
+- `supabaseClient.ts`: module-scope `throw` replaced by an exported
+  `supabaseConfigError: string | null` (validation extracted into pure, unit-tested
+  `validateSupabaseConfig()`). When config is missing, the client is created with a syntactically
+  valid placeholder so module evaluation and DI-container construction stay crash-free — the
+  client is unreachable in that state because:
+- `presentation/App.tsx` checks `supabaseConfigError` before rendering the navigator and shows a
+  blocking "Konfigurationsfehler" screen naming the offending variable instead.
+- New `src/infrastructure/supabase/__tests__/validateSupabaseConfig.test.ts` (6 tests).
+- Rewritten `src/infrastructure/supabase/__tests__/supabaseClient.test.ts`: the pre-existing
+  P2-001 suite asserted that _importing the module throws_ on missing config — i.e. it
+  codified exactly the crash mechanism this task removes. It now asserts the new invariant:
+  importing never throws; `supabaseConfigError` names the offending variable; valid config
+  yields `null`.
+- **P2-001 note:** P2-001 ("App throws fatal error on boot if variables are missing") is
+  deliberately preserved in intent and changed in mechanism: the app still strictly verifies at
+  boot and is completely unusable on bad config — but it now fails **visibly and diagnosably**
+  instead of dying before the first frame. This is an explicit, documented adjustment, not a
+  silent reversal.
+
+**Verified (this environment):** without `.env`, Expo Web previously rendered nothing and threw
+(`Missing EXPO_PUBLIC_SUPABASE_URL`); after the fix the blocking Konfigurationsfehler screen
+renders with the variable named and zero uncaught errors. With `.env` present, normal boot is
+unchanged (four tabs, zero page errors). `npm run verify` green. Native rendering of the new
+screen is logged as open in `docs/MANUAL_TESTING_GAPS.md`.
+
+**Remaining DoD (maintainer, on device):**
+
+1. Configure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for the EAS
+   environment/build profile actually used (EAS dashboard → project → Environment variables, or
+   `eas env:create`; alternatively the `env` block of the build profile in a local `eas.json`).
+   Values must be present **at build time** — a code fix alone cannot substitute for this.
+2. Produce a **new build** (mandatory — the installed binary has the missing values baked in),
+   uninstall the old app completely, install the new build.
+3. Cold-start check only, per the UT-001 plan's staging: app must reach the Protokoll tab.
+   Only then continue the native test list.
+4. Optional but decisive if anything still fails: capture `adb logcat` and search for
+   `FATAL EXCEPTION|AndroidRuntime|Missing EXPO_PUBLIC` — the diagnosis report contains the
+   exact commands.
+
+**Verify:** `npm run verify` (done, green); real-device cold start per DoD above (pending).
+
+---
+
 ### UT-001: Practical MVP Validation
 
 Status: `todo`

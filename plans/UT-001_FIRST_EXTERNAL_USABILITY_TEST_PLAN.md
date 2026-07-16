@@ -145,6 +145,109 @@ Mittel/Niedrig werden dokumentiert, aber nicht als Bedingung für weitere Produk
 
 ---
 
+## Reset-Prozedur zwischen Sitzungen
+
+**Befund, der diesen Nachtrag nötig macht:** Der einzige im Code vorhandene Reset-Mechanismus
+(`EXPO_PUBLIC_RESET_ON_LAUNCH` in `src/presentation/App.tsx`) reicht für diesen Test nicht aus —
+er ist `__DEV__`-gated (greift je nach Build-Art möglicherweise gar nicht) und löscht ausschließlich
+`foodEntryRepository` (Journal-Einträge). Ziele, Metabolismus-Profil, das aktive Bewertungsprofil
+und gespeicherte Vorlagen bleiben davon unberührt. Würde sich eine Moderation allein darauf
+verlassen, wäre jede Testperson nach der ersten von einem bereits vorgeprägten Zustand betroffen —
+genau die Vergleichbarkeit, die dieser Test braucht, wäre verloren.
+
+**Verbindlich:**
+
+- **Nicht auf den internen Dev-Reset verlassen.** Er ist keine geeignete Reset-Prozedur für diesen
+  Test, unabhängig davon, ob er im jeweiligen Build technisch greift.
+- **Zwischen jeder Testperson:** App-Daten vollständig über die Betriebssystem-Einstellungen löschen
+  (iOS: Einstellungen → Allgemein → iPhone-Speicher → App → App löschen bzw. Daten löschen; Android:
+  Einstellungen → Apps → App → Speicher → Daten löschen) **oder** die App deinstallieren und neu
+  installieren. Diese Prozedur ist bewusst build-unabhängig — sie funktioniert identisch, ob Expo Go
+  oder ein interner Build verwendet wird, und hängt an keinem `__DEV__`-Flag.
+- **Danach vor jeder Sitzung verifizieren und abhaken** (Moderator-Checkliste, direkt in der App
+  geprüft, nicht angenommen):
+  - [ ] Journal ist leer ("Noch keine gespeicherten Einträge für heute.")
+  - [ ] Keine Ziele gesetzt (Ziele-Tab zeigt das leere Metabolismus-Profil-Formular)
+  - [ ] Kein Metabolismus-Profil vorhanden
+  - [ ] Bewertungsmodell im Standardzustand (Auswertung-Tab zeigt die Fehlermeldung "Bitte zuerst
+        im Ziele-Tab Ziele festlegen.", nicht die Bewertung einer vorherigen Sitzung)
+  - [ ] Keine gespeicherten Vorlagen ("Noch keine gespeicherten Mahlzeiten.")
+- **Kein neuer Build zwischen den fünf Sitzungen verteilt.** Alle fünf Testpersonen testen exakt
+  denselben Produktstand — sonst ist am Ende nicht mehr feststellbar, ob eine Abweichung an der
+  Person oder am Produkt lag.
+- **Build-Version bzw. Commit-SHA pro Sitzung dokumentieren**, auch wenn erwartungsgemäß bei allen
+  fünf identisch — das ist die Absicherung, falls doch versehentlich zwischendurch aktualisiert
+  wurde.
+
+---
+
+## Anhang: Moderator-Spickzettel
+
+Einseitig gedacht, direkt nutzbar während einer Sitzung — kein separates Studium nötig.
+
+### Grundregeln
+
+- Aufgaben wortwörtlich wie unten vorlesen — keine Funktionsnamen, Tab-Namen oder Bedienhinweise
+  vorwegnehmen, die die Testperson selbst erst finden soll.
+- Erst nach **60 Sekunden erkennbarem Stillstand** überhaupt eingreifen (siehe Think-Aloud-Regel
+  oben) — und dann mit der niedrigsten passenden Hilfestufe, nicht direkt mit der Lösung.
+- Jeder Eingriff wird selbst notiert (welche Stufe, bei welcher Aufgabe).
+
+### Aufgaben zum Vorlesen (neutral, unverändert aus dem Hauptplan)
+
+1. "Lege dein Ernährungsziel fest."
+2. "Protokolliere: Zwei Eier und 200 Gramm Quark."
+3. "Korrigiere einen der gerade erfassten Einträge."
+4. "Speichere eine Mahlzeit als Vorlage."
+5. "Logge diese Vorlage erneut."
+6. "Erkläre mir in deinen eigenen Worten, was dir die Tagesauswertung sagt."
+7. "Ändere dein Bewertungsziel und erkenne, was sich dadurch ändert."
+
+### Standardisierte Hilfestufen
+
+| Stufe | Bezeichnung        | Was passiert                                                                                                                                | Zählt als "ohne Hilfe gelöst"? |
+| ----- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **0** | Keine Hilfe        | Testperson löst die Aufgabe selbstständig                                                                                                   | Ja                             |
+| **1** | Rückfrage          | Nach 60s Stillstand offene Gegenfrage stellen, z. B. "Was würdest du als Nächstes erwarten oder versuchen?" — keine Information preisgeben  | Ja                             |
+| **2** | Bereichshinweis    | Auf den richtigen Tab/Bereich hinweisen, ohne die konkrete Bedienung zu nennen, z. B. "Schau mal, ob dir einer der Tabs unten weiterhilft." | Nein                           |
+| **3** | Konkrete Anleitung | Genauer Bedienschritt wird genannt                                                                                                          | Nein                           |
+
+Stufe 2/3 bedeuten nicht automatisch einen hohen Schweregrad — das hängt zusätzlich davon ab, wie
+schnell und wie sicher die Testperson danach weiterkommt. Die Stufe ist ein Rohdatum für die
+spätere Auswertung, keine fertige Bewertung.
+
+### Notizraster (pro Aufgabe, einmal je Testperson auszufüllen)
+
+| Feld                                                          | Eintrag                             |
+| ------------------------------------------------------------- | ----------------------------------- |
+| Aufgabe (1–7)                                                 |                                     |
+| Startzeit                                                     |                                     |
+| Endzeit                                                       |                                     |
+| Ohne Hilfe gelöst? (Stufe 0/1 = ja)                           | ☐ Ja ☐ Nein                         |
+| Höchste Hilfestufe                                            | ☐ 0 ☐ 1 ☐ 2 ☐ 3                     |
+| Sichtbares Zögern                                             |                                     |
+| Wörtliches Zitat                                              |                                     |
+| Verständnisproblem (Begriff/Konzept unklar)                   | ☐ Ja ☐ Nein — welches?              |
+| Bedienproblem (weiß was, findet es nicht)                     | ☐ Ja ☐ Nein — wo?                   |
+| Technischer Defekt (Produkt verhält sich nachweislich falsch) | ☐ Ja ☐ Nein — welcher?              |
+| Vorläufiger Schweregrad (siehe Tabelle oben)                  | ☐ Blocker ☐ Hoch ☐ Mittel ☐ Niedrig |
+| Freie Beobachtung                                             |                                     |
+
+Die drei Problemtypen schließen sich nicht gegenseitig aus — ein einzelner Moment kann z. B.
+gleichzeitig ein Bedienproblem UND ein Verständnisproblem sein. Ein technischer Defekt ist
+etwas anderes als beides: das Produkt tut nachweislich nicht, was es laut eigener Spezifikation
+tun sollte (vgl. die Beispiele in der Schweregrad-Tabelle oben) — nicht "die Testperson kam nicht
+klar", sondern "das Produkt hat sich falsch verhalten".
+
+### Vor jeder Sitzung (kurze Checkliste)
+
+- [ ] Reset-Prozedur (siehe oben) durchgeführt und die fünf Punkte verifiziert
+- [ ] Aufzeichnung (Bildschirm + Ton) läuft, Einverständnis eingeholt
+- [ ] Build-Version/Commit-SHA notiert
+- [ ] Notizraster (7× für die 7 Aufgaben) bereitliegend
+
+---
+
 ## Nicht Teil dieses Plans
 
 - Die tatsächliche Durchführung der fünf Testsitzungen (das ist der nächste, separate Schritt).

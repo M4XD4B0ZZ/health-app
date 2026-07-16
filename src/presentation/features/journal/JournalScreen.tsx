@@ -19,34 +19,11 @@ import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
 import { buildFoodEntryDisplay, groupJournalEntries } from './journalEntryDisplay';
+import { deriveSubmitOutcome } from './journalSubmitFeedback';
 
 const formatCalories = (value: number) => Math.round(value).toString();
 const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
 const LOCAL_PORTION_HINT_USER_ID = 'local-user';
-
-function buildTrustMessage(
-  confidenceReason: string,
-  persistedCount: number,
-  unresolvedCount: number,
-) {
-  if (persistedCount > 0 && unresolvedCount > 0) {
-    return 'Teilweise erkannt: Gespeicherte Einträge wurden übernommen; nicht erkannte Einträge wurden nicht geschätzt.';
-  }
-
-  if (unresolvedCount > 0) {
-    return 'Es wurde nichts gespeichert und es wurden keine Nährwerte geschätzt.';
-  }
-
-  if (confidenceReason === 'all_items_matched' && persistedCount > 0) {
-    return 'Alle erkannten Einträge wurden gespeichert.';
-  }
-
-  if (confidenceReason === 'no_items' || confidenceReason === 'no_items_matched') {
-    return 'Zu ungenau — bitte Lebensmittel oder Menge genauer angeben.';
-  }
-
-  return '';
-}
 
 function formatPortionUnitLabel(unit: PortionNeedsEditItem['unit']) {
   return unit === 'slice' ? 'Scheibe' : 'Stück';
@@ -154,11 +131,6 @@ const JournalScreen: React.FC = () => {
     const persistedCount = result.persistedEntries.length;
     const unresolvedCount = result.dispatch.unresolvedRequests.length;
     const blockedCount = result.blockedEntries;
-    const nextTrustMessage = buildTrustMessage(
-      result.dispatch.confidence.reason,
-      persistedCount,
-      unresolvedCount,
-    );
 
     setUnresolvedItems(
       result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
@@ -195,38 +167,27 @@ const JournalScreen: React.FC = () => {
 
     setRecognizedItems(recognizedWithKcal);
 
-    if (blockedCount > 0) {
-      setStatusMessage(
-        result.needsEditItems.length > 0
-          ? 'Portionsgewicht fehlt'
-          : 'Eintrag konnte nicht verarbeitet werden',
-      );
-      setTrustMessage(nextTrustMessage);
-      setProcessingState('error');
+    // J-007: if anything was persisted, this is always a (possibly partial) success — never
+    // a hard error that would contradict what "Erkannte Einträge"/"Heutige Einträge" already
+    // show as saved. See journalSubmitFeedback.ts for the full truthfulness rules.
+    const outcome = deriveSubmitOutcome({
+      persistedCount,
+      unresolvedCount,
+      blockedCount,
+      needsEditCount: result.needsEditItems.length,
+      confidenceReason: result.dispatch.confidence.reason,
+    });
+
+    setStatusMessage(outcome.statusMessage);
+    setTrustMessage(outcome.trustMessage);
+    setProcessingState(outcome.processingState);
+
+    if (outcome.processingState === 'error') {
       return;
     }
 
-    if (persistedCount > 0 && unresolvedCount === 0) {
-      setStatusMessage(`${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert`);
-      setTrustMessage('');
-      setProcessingState('done');
-      if (options.clearRawInputOnSuccess) {
-        setRawInput('');
-      }
-    } else if (persistedCount > 0 && unresolvedCount > 0) {
-      setStatusMessage(
-        `${persistedCount} Eintrag${persistedCount > 1 ? 'e' : ''} gespeichert, ${unresolvedCount} nicht erkannt`,
-      );
-      setTrustMessage(nextTrustMessage);
-      setProcessingState('done'); // Partial success is still success, not error
-      if (options.clearRawInputOnSuccess) {
-        setRawInput('');
-      }
-    } else {
-      setStatusMessage('Nicht erkannt — bitte genauer eingeben');
-      setTrustMessage(nextTrustMessage);
-      setProcessingState('error');
-      return;
+    if (options.clearRawInputOnSuccess) {
+      setRawInput('');
     }
 
     await loadJournalData();

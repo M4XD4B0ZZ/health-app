@@ -388,10 +388,9 @@ const GoalsScreen: React.FC = () => {
                         {step.substituted && (
                           <Text style={styles.stepFormula}>{step.substituted}</Text>
                         )}
-                        <Text style={styles.stepResult}>
-                          ={' '}
-                          {typeof step.result === 'number' ? Math.round(step.result) : step.result}
-                        </Text>
+                        {typeof step.result === 'number' && (
+                          <Text style={styles.stepResult}>= {Math.round(step.result)}</Text>
+                        )}
                       </View>
                     ))}
                   </View>

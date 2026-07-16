@@ -2653,7 +2653,7 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `done`
+Status: `done` (J-001–J-007 all done — see each task's own section)
 
 All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
 Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
@@ -3080,6 +3080,63 @@ either fix it or scope `format:check`/`npm run verify`'s policy in `VERIFY.md` t
 files only, since as currently defined no task can ever satisfy it without that unrelated
 mass-reformat.
 
+---
+
+#### J-007: Truthful Feedback for Mixed-Success Submits
+
+Status: `done`
+Depends on: none
+
+**Ziel:** [`reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md`](../reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md)
+(Befund 4.3) found that submitting e.g. "1 Banane und zorbfrucht" persists the Banane entry
+(visible in "Erkannte Einträge"/"Heutige Einträge") while the status line simultaneously shows
+the hard-error framing "Eintrag konnte nicht verarbeitet werden" — contradicting what the rest
+of the screen already shows as saved. Root cause: `JournalScreen.submitRawInput` checked
+`blockedCount > 0` before checking `persistedCount > 0`, so any blocked item (e.g. a
+canonically-unmatched food like "zorbfrucht", not just a genuinely empty submission) forced the
+hard-error branch regardless of what had actually persisted — and, as a side effect, skipped the
+`loadJournalData()` call at the end of the function, so "Heutige Einträge" would not even reflect
+the new entry until a later, unrelated reload.
+
+**Scope / betroffene Dateien:**
+
+- New [`src/presentation/features/journal/journalSubmitFeedback.ts`](../src/presentation/features/journal/journalSubmitFeedback.ts):
+  pure `deriveSubmitOutcome()` (status message, trust message, processing state), extracted out
+  of `JournalScreen.submitRawInput` so the truthfulness rules are unit-testable without a
+  rendering harness (mirrors the existing `journalEntryDisplay.ts`/`goalsDisplay.ts` pattern in
+  this codebase). Absorbs the previously-inline, untested `buildTrustMessage`.
+- `src/presentation/features/journal/JournalScreen.tsx`: `submitRawInput` now calls
+  `deriveSubmitOutcome()` once instead of the previous four-way if/else chain; `loadJournalData()`
+  now runs whenever the outcome is `'done'` (i.e. `persistedCount > 0`), not only in the subset
+  of success branches the old code happened to reach before returning early.
+- New [`src/presentation/features/journal/__tests__/journalSubmitFeedback.test.ts`](../src/presentation/features/journal/__tests__/journalSubmitFeedback.test.ts).
+
+**Governing rule (unchanged intent, now enforced in one place):** if anything was actually
+persisted, the outcome is always reported as a (possibly partial) success — never as a hard
+error. The pre-existing "nothing persisted" error framings (`Portionsgewicht fehlt` /
+`Eintrag konnte nicht verarbeitet werden` / `Nicht erkannt — bitte genauer eingeben`) are
+unchanged for the `persistedCount === 0` case.
+
+**Akzeptanzkriterien (DoD):**
+
+- Reproducing the report's exact case ("1 Banane und zorbfrucht") no longer shows the hard-error
+  framing once the Banane is persisted — covered by a dedicated regression test.
+- `persistedCount === 0` branches (blocked without portion prompt, blocked with portion prompt,
+  fully unresolved) keep their existing messages/`error` state.
+- `npm run verify` passes clean.
+
+**Verify:** `npm run verify` (typecheck, lint, format, full suite).
+
+**Implementation notes:** See file list above; no test needed updating in existing suites — the
+new pure function is a straight extraction with a corrected condition order, not a behavior
+change to any other already-covered path. One small incidental fix while extracting: the
+multi-entry status message used `` `Eintrag${count > 1 ? 'e' : ''}` ``, which produces the
+ungrammatical "2 Eintrage" instead of "2 Einträge" (appending "e" doesn't add the required
+umlaut) — corrected to a direct singular/plural noun choice in the same statement. This task's
+own new test file (7 tests) is the primary verification; it directly encodes the report's
+befund 4.3 scenario as a named regression case.
+Full suite green after this change (see this branch's `npm run verify` run).
+
 ### Saved Meals Domain
 
 Status: `done`
@@ -3410,6 +3467,51 @@ durably persisted, reachable from the app via a dedicated tab, and covered end-t
 cross-cutting regression test. As with J-001–J-005, `npm run verify`'s `format:check` step
 still surfaces the same pre-existing, unrelated repo-wide Prettier debt first identified in
 J-001 — all files touched across SM-001–SM-006 are confirmed individually Prettier-clean.
+
+---
+
+#### SM-007: Include Piece/Unit-Based Entries When Creating a Template
+
+Status: `done`
+Depends on: none
+
+**Ziel:** [`reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md`](../reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md)
+(Befund 4.2) found that "Vorlage aus heutigen Einträgen erstellen" on a day with "Eier 2 Stück
+(120 g)" + "Magerquark 100 g" silently produced a template with **only 1 Zutat** — the
+piece-based Eier entry was dropped with no indication anything was skipped. Root cause:
+`CreateSavedMealFromDateUseCase` filtered on `entry.quantityGrams > 0`, but `quantityGrams`
+only reflects an _explicit_ gram amount the user typed (e.g. "200g Magerquark"). Count/unit-
+based entries (e.g. "2 Eier") resolve their actual weight via portion knowledge into
+`entry.grams` instead (see `LogFoodFromRawInputUseCase`'s resolver branch) — `quantityGrams`
+stays `0` for them, even though `entry.grams` holds exactly the same weight already shown to
+the user (e.g. "2 Stück (120 g)").
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/CreateSavedMealFromDateUseCase.ts`: new
+  `resolvedGrams()` helper — uses `entry.quantityGrams` when explicitly set (> 0), falling back
+  to `entry.grams` otherwise. Used both for the "has a real weight" filter and for the per100g
+  snapshot's factor and the template item's `quantityGrams`.
+- `src/features/nutrition/__tests__/SavedMeals.test.ts`: new regression test for a count-based
+  entry (`quantityGrams: 0`, `grams: 120`), asserting it is now included with the correct
+  `quantityGrams`/`per100g`.
+
+**Akzeptanzkriterien (DoD):**
+
+- A template created from a day containing both an explicit-gram entry and a piece/unit-based
+  entry includes both.
+- The existing "entries genuinely without any weight" skip behavior (`quantityGrams: 0` and no
+  `grams`) is unchanged — covered by the pre-existing "should skip entries without grams" test.
+- `npm run verify` passes clean.
+
+**Verify:** `npm run verify` (typecheck, lint, format, full suite); targeted
+`npm run test -- --testPathPattern=SavedMeals`.
+
+**Implementation notes:** See file list above. No other consumer of `SavedMealItem.quantityGrams`
+needed changes — `LogSavedMealToDateUseCase` already treats it as a plain gram weight
+(`` `${item.quantityGrams}g ${item.parsedName}` ``), which is exactly what `entry.grams` already
+represents for both explicit-gram and resolved-portion entries. Full suite green after this
+change (see this branch's `npm run verify` run).
 
 ---
 
@@ -3901,6 +4003,48 @@ scoped task (and likely UI/UX input) rather than being squeezed into an additive
 
 **Verify (once scoped):** manual Expo verification required (this is a UI task); typecheck/
 test/lint as a floor, not a substitute.
+
+---
+
+#### GE-009: Remove Placeholder Result from Berechnungs-Details
+
+Status: `done`
+Depends on: none
+
+**Ziel:** [`reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md`](../reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md)
+(Befund 4.1) found that the first line of the BMR breakdown in `GoalsScreen`'s
+"Berechnungs-Details" ("BMR Formula (Mifflin-St Jeor)") renders **"= 0"** — a placeholder
+result (`result: 0, // Placeholder`) that `calculateBmr` pushed for the formula-statement step,
+before any real value is substituted in (that happens in the very next step, "BMR Calculation").
+This is exactly the kind of displayed-but-wrong number the transparency feature exists to avoid,
+and undermines trust most for the persona (6.4, "Blutwerte verbessern") that most needs the
+breakdown to be nachvollziehbar.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/goals/domain/models/MetabolismTypes.ts`: `MetabolismBreakdownStep.result` is
+  now optional (`result?: number`) — a step may state a formula without yet having a result.
+- `src/features/goals/application/calculators/MetabolismCalculator.ts`: removed the
+  `result: 0` placeholder from the `bmr_formula` step; the field is simply omitted there now.
+- `src/presentation/features/goals/GoalsScreen.tsx`: the breakdown renderer only shows the
+  "= N" line when `step.result` is an actual number, instead of coercing `undefined`/every step
+  into always rendering an "=" row.
+
+**Akzeptanzkriterien (DoD):**
+
+- The "BMR Formula (Mifflin-St Jeor)" step no longer renders any "=" result line.
+- The "BMR Calculation", "Activity Multiplier", and "Total Daily Energy Expenditure" steps keep
+  rendering their real results unchanged.
+- `npm run verify` passes clean.
+
+**Verify:** `npm run verify` (typecheck, lint, format, full suite); existing
+`MetabolismCalculator.test.ts`/`ComputeMetabolismResultUseCase.test.ts` re-run unchanged (no
+test asserted on the placeholder value, confirmed before making this change).
+
+**Implementation notes:** See file list above. No new test added — this is a pure display-layer
+correctness fix with no new branching logic to cover; the existing calculator tests (which never
+asserted `steps[0].result === 0`) continue to pass unchanged and already cover `bmr`/`tdee`
+correctness. Full suite green after this change (see this branch's `npm run verify` run).
 
 ---
 

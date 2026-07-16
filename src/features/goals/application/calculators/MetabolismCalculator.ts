@@ -30,7 +30,7 @@ export function calculateBmr(profile: MetabolismProfile): {
     title: 'BMR Formula (Mifflin-St Jeor)',
     formula,
     substituted: formula,
-    result: 0, // Placeholder
+    // No result yet — this step only states the formula, values are substituted in the next step.
   });
 
   // Step 2: Substitution

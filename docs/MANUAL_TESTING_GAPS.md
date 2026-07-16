@@ -51,6 +51,33 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-16 — NATIVE-001: Fatal-Config-Screen statt Boot-Crash bei fehlender Supabase-Konfiguration
+
+- **Status:** ⏳ offen (Web-Pfad real per Playwright verifiziert, siehe unten — der **native**
+  Pfad ist der eigentliche Gegenstand dieses Fixes und kann nur auf einem echten Gerät geprüft
+  werden)
+- **Branch/PR:** `claude/app-testing-evaluation-yogpjt` (PR #45)
+- **Betroffene Bereiche:** `src/presentation/App.tsx` (neuer Early-Return: blockierender
+  „Konfigurationsfehler"-Screen, wenn `supabaseConfigError` gesetzt ist — Titel in
+  `tokens.colors.danger`, Erklärungstext, Name der fehlenden Variable als Meta-Zeile);
+  `src/infrastructure/supabase/supabaseClient.ts` (Modul-Scope-Throw entfernt, Validierung als
+  pure Funktion + `supabaseConfigError`-Export, Platzhalter-Client bei fehlender Konfig).
+  Kontext: `reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md`.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite inkl.
+  6 neuer Tests für `validateSupabaseConfig`). Zusätzlich real gegen `expo start --web`
+  (Playwright/Chromium): (a) **ohne** `.env` rendert jetzt der Konfigurationsfehler-Screen
+  (Screenshot) statt einer leeren Seite mit unbehandelter Exception — Variable wird benannt,
+  App blockiert, 0 uncaught errors; (b) **mit** `.env` bootet die App unverändert normal
+  (4 Tabs, 0 Page-Errors).
+- **Nicht verifiziert (visuell):** Das native Rendering des Fatal-Screens auf einem echten
+  Gerät (Layout, Safe-Area, Schriftgrößen). Hinweis: Bei einem **korrekt** konfigurierten Build
+  ist dieser Screen nie sichtbar — explizit prüfbar nur mit einem absichtlich ohne Env-Vars
+  gebauten Build; implizit gilt der Fix als bestätigt, wenn der neue, korrekt konfigurierte
+  Build kalt startet (NATIVE-001 DoD).
+- **Zu testen:** Kaltstart des neuen Builds (Abschnitt 1 der Checkliste). Optional: ein
+  bewusst fehlkonfigurierter Build muss den Konfigurationsfehler-Screen zeigen statt zu
+  crashen.
+
 ### 2026-07-15 — DI-008: Expliziter Loading-State im EvaluationSummaryScreen
 
 - **Status:** ✅ geprüft (Error-/Success-/Profilwechsel-Zustände real per Playwright/Web

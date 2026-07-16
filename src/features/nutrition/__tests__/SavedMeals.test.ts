@@ -178,6 +178,41 @@ describe('Saved Meals System', () => {
       expect(template.items[0].parsedName).toBe('chicken');
     });
 
+    it('should include piece/unit-based entries via entry.grams, not just quantityGrams (SM-007)', async () => {
+      // Arrange: a count-based entry ("2 Eier") — quantityGrams stays 0 (no explicit gram
+      // input), but the resolved portion weight lives in `grams`, exactly like
+      // LogFoodFromRawInputUseCase leaves it for unit-based foods.
+      const dateISO = '2024-01-15';
+      const entry: FoodEntry = {
+        id: 'e1',
+        rawInput: '2 Eier',
+        parsedName: 'Eier',
+        quantityGrams: 0,
+        grams: 120,
+        calories: 164.4,
+        protein: 14,
+        carbs: 1,
+        fat: 11,
+        confidenceScore: 0.6,
+        sourceType: 'generic',
+        createdAt: new Date(dateISO + 'T08:00:00Z'),
+      };
+      await foodEntryRepo.addEntry(entry);
+
+      // Act
+      const template = await createUseCase.execute(dateISO, 'Frühstück');
+
+      // Assert: entry is included, using entry.grams as the template's quantityGrams
+      expect(template.items).toHaveLength(1);
+      expect(template.items[0].parsedName).toBe('Eier');
+      expect(template.items[0].quantityGrams).toBe(120);
+      const per100g = template.items[0].per100g;
+      expect(per100g?.calories).toBeCloseTo(137, 10);
+      expect(per100g?.protein).toBeCloseTo(11.666666666666666, 10);
+      expect(per100g?.carbs).toBeCloseTo(0.8333333333333334, 10);
+      expect(per100g?.fat).toBeCloseTo(9.166666666666666, 10);
+    });
+
     it('should copy foodCatalogRef from source entries that have one (SM-001)', async () => {
       // Arrange: one entry with a foodCatalogRef, one without
       const dateISO = '2024-01-15';

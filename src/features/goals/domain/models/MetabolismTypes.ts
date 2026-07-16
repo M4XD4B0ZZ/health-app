@@ -25,7 +25,8 @@ export interface MetabolismBreakdownStep {
   title: string;
   formula: string;
   substituted: string;
-  result: number;
+  /** Omitted for steps that only state the formula, before any value is substituted in. */
+  result?: number;
 }
 
 export interface MetabolismResult {

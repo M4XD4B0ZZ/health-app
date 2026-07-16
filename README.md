@@ -32,6 +32,11 @@ React Native (Expo) MVP for nutrition and recovery tracking, backed by Supabase 
 - npm
 - Android Emulator (Android Studio) or iOS Simulator (Xcode, macOS only)
 - `.env` file with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- **Release/EAS builds:** these `EXPO_PUBLIC_*` values are inlined at **build time**. `.env` is
+  gitignored and never part of a remote EAS build — configure both variables for the EAS
+  environment/build profile you use (expo.dev → Environment variables, `eas env:create`, or the
+  profile's `env` block in `eas.json`). A build without them shows a blocking configuration-error
+  screen on launch (see `NATIVE-001` in `ROADMAP.md`).
 
 ---
 

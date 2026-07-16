@@ -2653,7 +2653,7 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `done`
+Status: `done` (J-001–J-007 all done — see each task's own section)
 
 All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
 Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
@@ -3080,6 +3080,63 @@ either fix it or scope `format:check`/`npm run verify`'s policy in `VERIFY.md` t
 files only, since as currently defined no task can ever satisfy it without that unrelated
 mass-reformat.
 
+---
+
+#### J-007: Truthful Feedback for Mixed-Success Submits
+
+Status: `done`
+Depends on: none
+
+**Ziel:** [`reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md`](../reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md)
+(Befund 4.3) found that submitting e.g. "1 Banane und zorbfrucht" persists the Banane entry
+(visible in "Erkannte Einträge"/"Heutige Einträge") while the status line simultaneously shows
+the hard-error framing "Eintrag konnte nicht verarbeitet werden" — contradicting what the rest
+of the screen already shows as saved. Root cause: `JournalScreen.submitRawInput` checked
+`blockedCount > 0` before checking `persistedCount > 0`, so any blocked item (e.g. a
+canonically-unmatched food like "zorbfrucht", not just a genuinely empty submission) forced the
+hard-error branch regardless of what had actually persisted — and, as a side effect, skipped the
+`loadJournalData()` call at the end of the function, so "Heutige Einträge" would not even reflect
+the new entry until a later, unrelated reload.
+
+**Scope / betroffene Dateien:**
+
+- New [`src/presentation/features/journal/journalSubmitFeedback.ts`](../src/presentation/features/journal/journalSubmitFeedback.ts):
+  pure `deriveSubmitOutcome()` (status message, trust message, processing state), extracted out
+  of `JournalScreen.submitRawInput` so the truthfulness rules are unit-testable without a
+  rendering harness (mirrors the existing `journalEntryDisplay.ts`/`goalsDisplay.ts` pattern in
+  this codebase). Absorbs the previously-inline, untested `buildTrustMessage`.
+- `src/presentation/features/journal/JournalScreen.tsx`: `submitRawInput` now calls
+  `deriveSubmitOutcome()` once instead of the previous four-way if/else chain; `loadJournalData()`
+  now runs whenever the outcome is `'done'` (i.e. `persistedCount > 0`), not only in the subset
+  of success branches the old code happened to reach before returning early.
+- New [`src/presentation/features/journal/__tests__/journalSubmitFeedback.test.ts`](../src/presentation/features/journal/__tests__/journalSubmitFeedback.test.ts).
+
+**Governing rule (unchanged intent, now enforced in one place):** if anything was actually
+persisted, the outcome is always reported as a (possibly partial) success — never as a hard
+error. The pre-existing "nothing persisted" error framings (`Portionsgewicht fehlt` /
+`Eintrag konnte nicht verarbeitet werden` / `Nicht erkannt — bitte genauer eingeben`) are
+unchanged for the `persistedCount === 0` case.
+
+**Akzeptanzkriterien (DoD):**
+
+- Reproducing the report's exact case ("1 Banane und zorbfrucht") no longer shows the hard-error
+  framing once the Banane is persisted — covered by a dedicated regression test.
+- `persistedCount === 0` branches (blocked without portion prompt, blocked with portion prompt,
+  fully unresolved) keep their existing messages/`error` state.
+- `npm run verify` passes clean.
+
+**Verify:** `npm run verify` (typecheck, lint, format, full suite).
+
+**Implementation notes:** See file list above; no test needed updating in existing suites — the
+new pure function is a straight extraction with a corrected condition order, not a behavior
+change to any other already-covered path. One small incidental fix while extracting: the
+multi-entry status message used `` `Eintrag${count > 1 ? 'e' : ''}` ``, which produces the
+ungrammatical "2 Eintrage" instead of "2 Einträge" (appending "e" doesn't add the required
+umlaut) — corrected to a direct singular/plural noun choice in the same statement. This task's
+own new test file (7 tests) is the primary verification; it directly encodes the report's
+befund 4.3 scenario as a named regression case.
+Full suite green after this change (see this branch's `npm run verify` run).
+
 ### Saved Meals Domain
 
 Status: `done`
@@ -3410,6 +3467,51 @@ durably persisted, reachable from the app via a dedicated tab, and covered end-t
 cross-cutting regression test. As with J-001–J-005, `npm run verify`'s `format:check` step
 still surfaces the same pre-existing, unrelated repo-wide Prettier debt first identified in
 J-001 — all files touched across SM-001–SM-006 are confirmed individually Prettier-clean.
+
+---
+
+#### SM-007: Include Piece/Unit-Based Entries When Creating a Template
+
+Status: `done`
+Depends on: none
+
+**Ziel:** [`reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md`](../reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md)
+(Befund 4.2) found that "Vorlage aus heutigen Einträgen erstellen" on a day with "Eier 2 Stück
+(120 g)" + "Magerquark 100 g" silently produced a template with **only 1 Zutat** — the
+piece-based Eier entry was dropped with no indication anything was skipped. Root cause:
+`CreateSavedMealFromDateUseCase` filtered on `entry.quantityGrams > 0`, but `quantityGrams`
+only reflects an _explicit_ gram amount the user typed (e.g. "200g Magerquark"). Count/unit-
+based entries (e.g. "2 Eier") resolve their actual weight via portion knowledge into
+`entry.grams` instead (see `LogFoodFromRawInputUseCase`'s resolver branch) — `quantityGrams`
+stays `0` for them, even though `entry.grams` holds exactly the same weight already shown to
+the user (e.g. "2 Stück (120 g)").
+
+**Scope / betroffene Dateien:**
+
+- `src/features/nutrition/application/usecases/CreateSavedMealFromDateUseCase.ts`: new
+  `resolvedGrams()` helper — uses `entry.quantityGrams` when explicitly set (> 0), falling back
+  to `entry.grams` otherwise. Used both for the "has a real weight" filter and for the per100g
+  snapshot's factor and the template item's `quantityGrams`.
+- `src/features/nutrition/__tests__/SavedMeals.test.ts`: new regression test for a count-based
+  entry (`quantityGrams: 0`, `grams: 120`), asserting it is now included with the correct
+  `quantityGrams`/`per100g`.
+
+**Akzeptanzkriterien (DoD):**
+
+- A template created from a day containing both an explicit-gram entry and a piece/unit-based
+  entry includes both.
+- The existing "entries genuinely without any weight" skip behavior (`quantityGrams: 0` and no
+  `grams`) is unchanged — covered by the pre-existing "should skip entries without grams" test.
+- `npm run verify` passes clean.
+
+**Verify:** `npm run verify` (typecheck, lint, format, full suite); targeted
+`npm run test -- --testPathPattern=SavedMeals`.
+
+**Implementation notes:** See file list above. No other consumer of `SavedMealItem.quantityGrams`
+needed changes — `LogSavedMealToDateUseCase` already treats it as a plain gram weight
+(`` `${item.quantityGrams}g ${item.parsedName}` ``), which is exactly what `entry.grams` already
+represents for both explicit-gram and resolved-portion entries. Full suite green after this
+change (see this branch's `npm run verify` run).
 
 ---
 
@@ -3901,6 +4003,48 @@ scoped task (and likely UI/UX input) rather than being squeezed into an additive
 
 **Verify (once scoped):** manual Expo verification required (this is a UI task); typecheck/
 test/lint as a floor, not a substitute.
+
+---
+
+#### GE-009: Remove Placeholder Result from Berechnungs-Details
+
+Status: `done`
+Depends on: none
+
+**Ziel:** [`reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md`](../reports/APP_TESTING_EVALUATION_2026-07-16_REPORT.md)
+(Befund 4.1) found that the first line of the BMR breakdown in `GoalsScreen`'s
+"Berechnungs-Details" ("BMR Formula (Mifflin-St Jeor)") renders **"= 0"** — a placeholder
+result (`result: 0, // Placeholder`) that `calculateBmr` pushed for the formula-statement step,
+before any real value is substituted in (that happens in the very next step, "BMR Calculation").
+This is exactly the kind of displayed-but-wrong number the transparency feature exists to avoid,
+and undermines trust most for the persona (6.4, "Blutwerte verbessern") that most needs the
+breakdown to be nachvollziehbar.
+
+**Scope / betroffene Dateien:**
+
+- `src/features/goals/domain/models/MetabolismTypes.ts`: `MetabolismBreakdownStep.result` is
+  now optional (`result?: number`) — a step may state a formula without yet having a result.
+- `src/features/goals/application/calculators/MetabolismCalculator.ts`: removed the
+  `result: 0` placeholder from the `bmr_formula` step; the field is simply omitted there now.
+- `src/presentation/features/goals/GoalsScreen.tsx`: the breakdown renderer only shows the
+  "= N" line when `step.result` is an actual number, instead of coercing `undefined`/every step
+  into always rendering an "=" row.
+
+**Akzeptanzkriterien (DoD):**
+
+- The "BMR Formula (Mifflin-St Jeor)" step no longer renders any "=" result line.
+- The "BMR Calculation", "Activity Multiplier", and "Total Daily Energy Expenditure" steps keep
+  rendering their real results unchanged.
+- `npm run verify` passes clean.
+
+**Verify:** `npm run verify` (typecheck, lint, format, full suite); existing
+`MetabolismCalculator.test.ts`/`ComputeMetabolismResultUseCase.test.ts` re-run unchanged (no
+test asserted on the placeholder value, confirmed before making this change).
+
+**Implementation notes:** See file list above. No new test added — this is a pure display-layer
+correctness fix with no new branching logic to cover; the existing calculator tests (which never
+asserted `steps[0].result === 0`) continue to pass unchanged and already cover `bmr`/`tdee`
+correctness. Full suite green after this change (see this branch's `npm run verify` run).
 
 ---
 
@@ -4768,6 +4912,84 @@ all four remaining tabs were visited and function correctly (Ziele's "Ziel wähl
 Metabolismus-Profil form, Vorlagen's empty-state, Auswertung's "Ziele festlegen" prompt, back to
 Protokoll's empty Journal state — all rendering as before this change). Zero browser
 console/runtime errors throughout.
+
+---
+
+### NATIVE-001: Android Standalone Build Crashes on Cold Start
+
+Status: `in_progress` (code fix landed + web-verified; new build with configured env vars and
+a real-device cold-start check by the maintainer are still pending — this task is not done
+until that cold start succeeds)
+Severity: **Blocker** — blocks UT-001 Phase B (dogfooding) and every further native test
+Depends on: none
+Full diagnosis: [`reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md`](reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md)
+
+**Observed:** The installed Android standalone build (predating PR #45) closes immediately on
+every launch; Samsung shows "Zera geschlossen, da diese App einen Fehler enthält." Clearing the
+app cache does not help. The app never reaches its first frame.
+
+**Root cause (mechanism proven by code inspection + live reproduction):**
+`src/infrastructure/supabase/supabaseClient.ts` threw at **module scope** when
+`EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY` were absent. That module sits on the
+unconditional boot path (`container.ts` imports it; the container singleton is constructed at
+module scope; `presentation/App.tsx` imports the container) — so the throw happens during JS
+bundle evaluation, before React renders anything. In a release build there is no dev overlay:
+the unhandled exception aborts the process, which is exactly the observed instant close.
+Reproduced live in this repo (Expo Web started **without** `.env`): zero rendered frames, empty
+DOM, single page error `Missing EXPO_PUBLIC_SUPABASE_URL`. Cache-clearing can never fix it
+because `EXPO_PUBLIC_*` values are inlined into the bundle at **build time**.
+
+**Trigger (very likely; final confirmation via device evidence):** the build was produced
+without these env vars in its build environment. `.env` is gitignored (never part of a remote
+EAS build's upload), the repo contains no `eas.json` and no `env`/`extra` block in `app.json`,
+and no EAS environment variables are documented anywhere. The one alternative hypothesis
+(a native-side init failure, e.g. New-Architecture/library issue) is ranked far lower — every
+dependency is a standard Expo SDK 54 library — and is distinguishable in one step: `adb logcat`
+containing `Missing EXPO_PUBLIC_SUPABASE_URL` (or the next successful cold start after building
+with vars set) confirms H1; a native stack without that message would reopen H2.
+
+**Fix (smallest safe change, landed on `claude/app-testing-evaluation-yogpjt`):**
+
+- `supabaseClient.ts`: module-scope `throw` replaced by an exported
+  `supabaseConfigError: string | null` (validation extracted into pure, unit-tested
+  `validateSupabaseConfig()`). When config is missing, the client is created with a syntactically
+  valid placeholder so module evaluation and DI-container construction stay crash-free — the
+  client is unreachable in that state because:
+- `presentation/App.tsx` checks `supabaseConfigError` before rendering the navigator and shows a
+  blocking "Konfigurationsfehler" screen naming the offending variable instead.
+- New `src/infrastructure/supabase/__tests__/validateSupabaseConfig.test.ts` (6 tests).
+- Rewritten `src/infrastructure/supabase/__tests__/supabaseClient.test.ts`: the pre-existing
+  P2-001 suite asserted that _importing the module throws_ on missing config — i.e. it
+  codified exactly the crash mechanism this task removes. It now asserts the new invariant:
+  importing never throws; `supabaseConfigError` names the offending variable; valid config
+  yields `null`.
+- **P2-001 note:** P2-001 ("App throws fatal error on boot if variables are missing") is
+  deliberately preserved in intent and changed in mechanism: the app still strictly verifies at
+  boot and is completely unusable on bad config — but it now fails **visibly and diagnosably**
+  instead of dying before the first frame. This is an explicit, documented adjustment, not a
+  silent reversal.
+
+**Verified (this environment):** without `.env`, Expo Web previously rendered nothing and threw
+(`Missing EXPO_PUBLIC_SUPABASE_URL`); after the fix the blocking Konfigurationsfehler screen
+renders with the variable named and zero uncaught errors. With `.env` present, normal boot is
+unchanged (four tabs, zero page errors). `npm run verify` green. Native rendering of the new
+screen is logged as open in `docs/MANUAL_TESTING_GAPS.md`.
+
+**Remaining DoD (maintainer, on device):**
+
+1. Configure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for the EAS
+   environment/build profile actually used (EAS dashboard → project → Environment variables, or
+   `eas env:create`; alternatively the `env` block of the build profile in a local `eas.json`).
+   Values must be present **at build time** — a code fix alone cannot substitute for this.
+2. Produce a **new build** (mandatory — the installed binary has the missing values baked in),
+   uninstall the old app completely, install the new build.
+3. Cold-start check only, per the UT-001 plan's staging: app must reach the Protokoll tab.
+   Only then continue the native test list.
+4. Optional but decisive if anything still fails: capture `adb logcat` and search for
+   `FATAL EXCEPTION|AndroidRuntime|Missing EXPO_PUBLIC` — the diagnosis report contains the
+   exact commands.
+
+**Verify:** `npm run verify` (done, green); real-device cold start per DoD above (pending).
 
 ---
 

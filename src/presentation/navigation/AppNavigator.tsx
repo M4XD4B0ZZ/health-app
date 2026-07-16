@@ -6,8 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 // Screen-Komponenten importieren
 import JournalScreen from '../features/journal/JournalScreen';
 import GoalsScreen from '../features/goals/GoalsScreen';
-import NutritionScreen from '../features/nutrition/NutritionScreen';
-import RecoveryScreen from '../features/recovery/RecoveryScreen';
 import VoiceScreen from '../features/voice/VoiceScreen';
 import SavedMealsScreen from '../features/savedMeals/SavedMealsScreen';
 import EvaluationSummaryScreen from '../features/evaluationSummary/EvaluationSummaryScreen';
@@ -16,8 +14,6 @@ import EvaluationSummaryScreen from '../features/evaluationSummary/EvaluationSum
 export type RootTabParamList = {
   Journal: undefined;
   Goals: undefined;
-  Nutrition: undefined;
-  Recovery: undefined;
   SavedMeals: undefined;
   EvaluationSummary: undefined;
 };
@@ -42,10 +38,6 @@ const TabNavigator: React.FC = () => {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'Goals') {
             iconName = focused ? 'trophy' : 'trophy-outline';
-          } else if (route.name === 'Nutrition') {
-            iconName = focused ? 'restaurant' : 'restaurant-outline';
-          } else if (route.name === 'Recovery') {
-            iconName = focused ? 'bed' : 'bed-outline';
           } else if (route.name === 'SavedMeals') {
             iconName = focused ? 'bookmark' : 'bookmark-outline';
           } else if (route.name === 'EvaluationSummary') {
@@ -74,20 +66,6 @@ const TabNavigator: React.FC = () => {
         component={GoalsScreen}
         options={{
           title: 'Ziele',
-        }}
-      />
-      <Tab.Screen
-        name="Nutrition"
-        component={NutritionScreen}
-        options={{
-          title: 'Ernährung',
-        }}
-      />
-      <Tab.Screen
-        name="Recovery"
-        component={RecoveryScreen}
-        options={{
-          title: 'Erholung',
         }}
       />
       <Tab.Screen

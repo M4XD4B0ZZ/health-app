@@ -31,3 +31,4 @@ Plan-Dateien sollten folgende Namenskonvention verwenden:
 - [`BLS_DACH_GENERIC_SOURCE_IMPLEMENTATION_PLAN.md`](./BLS_DACH_GENERIC_SOURCE_IMPLEMENTATION_PLAN.md) - BLS DACH Datenquelle Implementation
 - [`EMULATOR_NUTRITION_FLOW_TEST_PLAN.md`](./EMULATOR_NUTRITION_FLOW_TEST_PLAN.md) - Nutrition Flow Tests
 - [`EMULATOR_SMOKE_TEST_PLAN.md`](./EMULATOR_SMOKE_TEST_PLAN.md) - Smoke Tests für Emulator
+- [`UT-001_FIRST_EXTERNAL_USABILITY_TEST_PLAN.md`](./UT-001_FIRST_EXTERNAL_USABILITY_TEST_PLAN.md) - Erster externer Nutzertest

@@ -4771,6 +4771,38 @@ console/runtime errors throughout.
 
 ---
 
+### UT-001: First External Usability Test
+
+Status: `todo`
+Depends on: PR-001 (a coherent four-tab surface must exist first)
+
+**Ziel:** Now that `PR-001` reduced the MVP to four coherent tabs (Protokoll → Ziele → Vorlagen
+→ Auswertung), validate whether real, unfamiliar users actually understand and can use that core
+loop without guidance — before any further product development. This entry is planning only; no
+test has been run yet, no code changes.
+
+**Full test protocol:** see
+[`plans/UT-001_FIRST_EXTERNAL_USABILITY_TEST_PLAN.md`](../plans/UT-001_FIRST_EXTERNAL_USABILITY_TEST_PLAN.md)
+— target audience and sample size (5 participants, deliberately mixed prior-experience
+background), test prerequisites (native device, real Supabase environment, fully fresh account
+per participant, no Web build), the seven operation-agnostic tasks, observation criteria
+(including a specific check on whether testers miss the tabs `PR-001` removed), post-test
+questions, a four-tier release-blocking severity scale calibrated against this project's own
+prior defect history, and how findings get documented and turned into new `ROADMAP.md` task IDs
+before any fix work starts — mirroring the `DI-009` pattern (document and classify first, fix as
+a separate Act task second).
+
+**Akzeptanzkriterien (DoD) for running the test (a later, separate step):**
+
+- All five sessions run per the plan's prerequisites (native device, fresh account, think-aloud).
+- Raw observation notes captured per session, synthesized into a findings table afterward.
+- Findings logged in a new `docs/USABILITY_TEST_RESULTS_UT-001.md`.
+- Every Blocker/Hoch finding gets its own `ROADMAP.md` task ID before being worked on.
+
+**Verify:** n/a for this planning entry (Category 1, Documentation-only, per `VERIFY.md`).
+
+---
+
 # TIER 2 — CORE ARCHITECTURE
 
 Focus: private-use stability, deterministic architecture hygiene, and DACH-first resolver correctness.

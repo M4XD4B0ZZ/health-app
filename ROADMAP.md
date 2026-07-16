@@ -4669,7 +4669,7 @@ cross-tab paths re-verified live against `expo start --web` + headless Playwrigh
 
 ### PR-001: Remove Disconnected Mock Tabs Before External Testing
 
-Status: `todo`
+Status: `done`
 Depends on: none
 
 **Ziel:** A review-only Product Readiness Audit (2026-07-15, live against `expo start --web` +
@@ -4746,6 +4746,28 @@ Act):**
 
 **Verify:** `npm run verify`; live re-verification per DoD item 8, logged in
 `docs/MANUAL_TESTING_GAPS.md`.
+
+**Implementation notes:** Exactly the file the planning inventory identified —
+`src/presentation/navigation/AppNavigator.tsx` — was changed, and it was the only file changed:
+the `NutritionScreen`/`RecoveryScreen` imports, the `Nutrition: undefined`/`Recovery: undefined`
+entries in `RootTabParamList`, the two tab-bar-icon `else if` branches, and the two `<Tab.Screen>`
+registrations were removed. `initialRouteName="Journal"` was left untouched (already correct).
+No other file needed a change — `App.tsx` only imports `AppNavigator` as a whole, and (as the
+planning-time grep predicted) no test anywhere references `AppNavigator`, `RootTabParamList`,
+`NutritionScreen`, or `RecoveryScreen`; the full suite stayed at 113 suites / 854 tests,
+unchanged, confirming no coverage was lost. `NutritionScreen.tsx`, `RecoveryScreen.tsx`, their
+use cases, `container.ts`'s wiring for them, and both mock repositories are untouched and still
+present — orphaned from the tab bar, not deleted, exactly as scoped.
+
+**Verification results:** `npm run verify` passes clean (typecheck, lint, format, full suite).
+Live re-verification against `expo start --web` + headless Playwright/Chromium (mirroring the
+original audit's method): cold start lands on "Protokoll"; the tab bar shows exactly four tabs
+(Protokoll, Ziele, Vorlagen, Auswertung); a full-page text scan confirms **zero** occurrences of
+"Ernährung" or "Erholung" anywhere in the DOM (not merely hidden — the routes no longer exist);
+all four remaining tabs were visited and function correctly (Ziele's "Ziel wählen" card and
+Metabolismus-Profil form, Vorlagen's empty-state, Auswertung's "Ziele festlegen" prompt, back to
+Protokoll's empty Journal state — all rendering as before this change). Zero browser
+console/runtime errors throughout.
 
 ---
 

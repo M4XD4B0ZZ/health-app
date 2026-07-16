@@ -3415,10 +3415,10 @@ J-001 — all files touched across SM-001–SM-006 are confirmed individually Pr
 
 ### Goals & Evaluation
 
-Status: `done` (GE-001–GE-007 done; GE-008 explicitly deferred, see its own section)
+Status: `done` (GE-001–GE-008 all done — see each task's own section)
 
-All five decomposed tasks (GE-001–GE-005 below) are `done`, plus follow-ups GE-006/GE-007
-(done) and GE-008 (deferred). Like Saved Meals, this is
+All five decomposed tasks (GE-001–GE-005 below) are `done`, plus follow-ups GE-006/GE-007/GE-008
+(all done). Like Saved Meals, this is
 **not** greenfield: there is already substantial, partially-overlapping goal-tracking code,
 but **no** Evaluation Profile/Rule concept (Product Bible §4/4a: Origin, swappable
 Preset/User profiles, stateless Food-Catalog+Journal+Profile→Bewertung formula) exists

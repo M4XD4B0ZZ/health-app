@@ -4771,33 +4771,45 @@ console/runtime errors throughout.
 
 ---
 
-### UT-001: First External Usability Test
+### UT-001: Practical MVP Validation
 
 Status: `todo`
 Depends on: PR-001 (a coherent four-tab surface must exist first)
 
 **Ziel:** Now that `PR-001` reduced the MVP to four coherent tabs (Protokoll → Ziele → Vorlagen
-→ Auswertung), validate whether real, unfamiliar users actually understand and can use that core
-loop without guidance — before any further product development. This entry is planning only; no
-test has been run yet, no code changes.
+→ Auswertung), validate whether the core loop is technically stable and understandable in real
+daily use and to at least one person unfamiliar with the product — before any further product
+development. This entry is planning only; no test has been run yet, no code changes.
+
+**Revision note:** the original version of this task assumed five recruited external testers
+with a fixed study protocol — that didn't match the actual situation (a single developer, one
+Android device, one willing partner on iPhone, and Claude with no real device/emulator access).
+Revised into a staged, practical validation instead; see the plan doc for the full reasoning.
 
 **Full test protocol:** see
-[`plans/UT-001_FIRST_EXTERNAL_USABILITY_TEST_PLAN.md`](../plans/UT-001_FIRST_EXTERNAL_USABILITY_TEST_PLAN.md)
-— target audience and sample size (5 participants, deliberately mixed prior-experience
-background), test prerequisites (native device, real Supabase environment, fully fresh account
-per participant, no Web build), the seven operation-agnostic tasks, observation criteria
-(including a specific check on whether testers miss the tabs `PR-001` removed), post-test
-questions, a four-tier release-blocking severity scale calibrated against this project's own
-prior defect history, and how findings get documented and turned into new `ROADMAP.md` task IDs
-before any fix work starts — mirroring the `DI-009` pattern (document and classify first, fix as
-a separate Act task second).
+[`plans/UT-001_PRACTICAL_MVP_VALIDATION_PLAN.md`](../plans/UT-001_PRACTICAL_MVP_VALIDATION_PLAN.md)
+— four phases: **A0** (Claude's one-time full technical baseline, via `expo start --web` +
+Playwright — no real native emulator is available, honestly noted as such), **B** (the developer's
+real multi-day dogfooding on Android, the main information source), **A1** (targeted, repeatable
+but narrowly-scoped technical reproduction of specific findings from `B` — never a full re-audit),
+and **C** (a single, informal session with an independent tester on iPhone, only after `A0` and
+known blockers from `B` are resolved). Also covers the reset procedure (still needed before `A0`
+and `C`, not between every dogfooding moment), the change-during-B policy (Blocker findings may
+be fixed immediately; smaller findings are batched), the four-tier severity scale, and how
+findings get documented and turned into new `ROADMAP.md` task IDs before fix work starts —
+mirroring the `DI-009` pattern.
 
-**Akzeptanzkriterien (DoD) for running the test (a later, separate step):**
+**Akzeptanzkriterien (DoD) for running the validation (a later, separate step):**
 
-- All five sessions run per the plan's prerequisites (native device, fresh account, think-aloud).
-- Raw observation notes captured per session, synthesized into a findings table afterward.
-- Findings logged in a new `docs/USABILITY_TEST_RESULTS_UT-001.md`.
-- Every Blocker/Hoch finding gets its own `ROADMAP.md` task ID before being worked on.
+- `A0` run once, completely, before `B` begins; findings logged per
+  `docs/MANUAL_TESTING_GAPS.md` convention.
+- `B` observations captured as they occur (input/expected/actual/result/problem
+  type/frequency), not reconstructed afterward.
+- Any `A1` reproduction stays scoped to the single reported finding, never a full re-audit.
+- `C` only happens after `A0` is done and known `B` blockers are fixed.
+- Findings synthesized in a new `docs/USABILITY_TEST_RESULTS_UT-001.md` after `B` and `C`.
+- Every Blocker/Hoch finding gets its own `ROADMAP.md` task ID before being worked on (acute
+  blockers found during `B`/`A1` may be fixed immediately per the plan's change policy).
 
 **Verify:** n/a for this planning entry (Category 1, Documentation-only, per `VERIFY.md`).
 

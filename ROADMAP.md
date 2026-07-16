@@ -4665,6 +4665,90 @@ cross-tab paths re-verified live against `expo start --web` + headless Playwrigh
 
 ---
 
+## EPIC: Product Readiness
+
+### PR-001: Remove Disconnected Mock Tabs Before External Testing
+
+Status: `todo`
+Depends on: none
+
+**Ziel:** A review-only Product Readiness Audit (2026-07-15, live against `expo start --web` +
+Playwright, screenshots) found that the "Ernährung" and "Erholung" tabs are the one thing in the
+current MVP capable of actively damaging a first external user test. Both are backed entirely by
+`MockNutritionRepository`/`MockRecoveryRepository` — fixed, hardcoded data with **zero**
+connection to anything the user actually logs. Confirmed live: at the exact moment "Protokoll"
+correctly showed 296 kcal (2 eggs + 200g quark, just logged) and "Auswertung" correctly showed
+the same 296 kcal against the real goal, "Ernährung" simultaneously showed a fixed 1310 kcal
+across three invented meals ("Frühstück 08:00 – 460 kcal", "Mittagessen 12:30 – 640 kcal",
+"Abendessen 19:00 – 210 kcal") that never change regardless of what's logged — even on a brand
+-new, zero-entries account. "Erholung" is the same pattern (fixed sleep/steps/heart-rate numbers).
+Both screens also use an entirely different visual design system (raw hex colors, white
+drop-shadow cards) from the rest of the app (`tokens`/`AppText`/`ScreenContainer`), making the
+inconsistency visible even before a user reads the numbers. A tester seeing two contradictory
+calorie totals for the same day, in the same app, will reasonably distrust the whole product, not
+just these two tabs — this is a sharper risk than an merely "unfinished-looking" screen.
+
+**Product decision (already made by the user, not open for re-litigation in Act):** remove the
+two tabs from navigation entirely — not label them "Demo-Daten"/"Bald verfügbar", and not build
+out Health Sync now to make them real. The four remaining tabs (Protokoll → Ziele → Vorlagen →
+Auswertung) already form a complete, coherent product loop; "Erholung" isn't part of that loop
+today, and "Ernährung" semantically duplicates Protokoll/Auswertung without sharing their data.
+Health Sync (platform/permissions/privacy/device dependencies) is explicitly deferred until the
+already-working core is validated with real users — it remains tracked, unscoped, under "Tier 4
+Planning Targets".
+
+**Inventory (from this planning task, confirmed by repo-wide grep — not to be re-derived during
+Act):**
+
+- **Exactly one file needs to change:** `src/presentation/navigation/AppNavigator.tsx`. It is the
+  _only_ place in `src/` that imports `NutritionScreen`/`RecoveryScreen` or references the
+  `Nutrition`/`Recovery` route names — specifically: the two component imports; the two
+  `Nutrition: undefined` / `Recovery: undefined` entries in the exported `RootTabParamList` type;
+  the two `else if (route.name === 'Nutrition'/'Recovery')` branches in the tab-bar icon
+  resolver; and the two `<Tab.Screen name="Nutrition"/"Recovery" .../>` registrations.
+  `initialRouteName="Journal"` is already correct (maps to the "Protokoll" tab) and needs no
+  change.
+- `src/presentation/App.tsx` imports `AppNavigator` as a whole and needs no change — it never
+  references individual tabs.
+- **Zero test files** reference `AppNavigator`, `RootTabParamList`, `NutritionScreen`,
+  `RecoveryScreen`, or the German tab labels "Ernährung"/"Erholung" anywhere in `src/` (grep
+  confirmed) — same class of finding as `DI-005`'s prior Dashboard-tab removal ("keine
+  dedizierten Dashboard-Tests vorhanden"). No test updates anticipated, but the Act task should
+  re-confirm this before finishing, not just trust this planning-time grep.
+- `container.ts` wires `getNutritionSummary`/`getRecoverySummary` (consumed only by the two
+  screens being unlinked) and stays untouched — the screens, use cases
+  (`GetNutritionSummary.ts`/`GetRecoverySummary.ts`), and mock repositories
+  (`MockNutritionRepository.ts`/`MockRecoveryRepository.ts`) all remain in the repo, fully
+  intact, just unreachable from the tab bar. Nothing here is deleted.
+
+**Explicitly out of scope:**
+
+- Deleting `NutritionScreen.tsx`, `RecoveryScreen.tsx`, their use cases, mock repositories, or
+  their `container.ts` wiring — all stay, unreferenced-but-intact, so this is reversible later
+  without reconstructing anything.
+- Any Health Sync planning or scoping.
+- Any change to tab order, icons, or navigation structure beyond removing these two entries.
+- Any redesign of the four remaining screens.
+- Labeling the tabs as "Demo-Daten"/"Bald verfügbar" instead of removing them — an explicitly
+  rejected alternative, not a fallback if removal turns out harder than expected.
+
+**Akzeptanzkriterien (DoD):**
+
+1. The tab bar shows exactly `Protokoll`, `Ziele`, `Vorlagen`, `Auswertung`.
+2. `Ernährung` and `Erholung` are unreachable via normal navigation.
+3. The app still starts on `Protokoll`.
+4. The four remaining tabs keep their existing data and behavior unchanged.
+5. No mock value is ever presented to a user as real day data anymore.
+6. Navigation types (`RootTabParamList`) and any affected tests are cleanly updated.
+7. `npm run verify` passes clean.
+8. A real cold start and all four remaining tabs are visually re-verified afterward (Expo or
+   `expo start --web` + Playwright, mirroring this audit's method).
+
+**Verify:** `npm run verify`; live re-verification per DoD item 8, logged in
+`docs/MANUAL_TESTING_GAPS.md`.
+
+---
+
 # TIER 2 — CORE ARCHITECTURE
 
 Focus: private-use stability, deterministic architecture hygiene, and DACH-first resolver correctness.

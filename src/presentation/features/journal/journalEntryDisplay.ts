@@ -149,23 +149,34 @@ function deriveKnownCount(grams: number, gramsPerUnit: number): number | null {
   return rounded > 0 && Math.abs(raw - rounded) <= KNOWN_COUNT_TOLERANCE ? rounded : null;
 }
 
-function buildSubtitle(
+/**
+ * J-009: a single entry's quantity, classified the same way `buildSubtitle` formats it, but
+ * as structured data instead of a string — shared by the single-entry subtitle and the
+ * group-header quantity aggregator (`buildGroupQuantitySubtitle`) so both apply the exact
+ * same J-010/J-011 rules (count only when semantically present, explicit grams never
+ * reverse-derives a count).
+ */
+type ResolvedEntryQuantity =
+  | { kind: 'count'; count: number; unit: Exclude<DisplayUnit, 'g'>; grams: number }
+  | { kind: 'grams'; grams: number }
+  | { kind: 'none' };
+
+function resolveEntryQuantity(
   rawInput: string,
   grams: number | null | undefined,
   knownCountPortion?: KnownCountPortion,
-) {
-  if (!grams || grams <= 0) return undefined;
+): ResolvedEntryQuantity {
+  if (!grams || grams <= 0) return { kind: 'none' };
 
-  const gramsText = `${formatNumber(grams)} g`;
   const parsed = parseDisplayQuantity(rawInput);
 
   // J-011 (correcting J-010): explicit grams is the user's own stated intent — a known count
   // portion is a calculation aid (count -> grams), never license to run that arithmetic in
   // reverse and assert a count nobody stated or observed. Real per-item weights vary too much
   // (carrots, bananas, bread rolls, slices) for a coincidentally clean division to prove a
-  // specific count was eaten, so explicit grams always renders as grams-only, full stop.
+  // specific count was eaten, so explicit grams always resolves as grams-only, full stop.
   if (parsed.unit === 'g') {
-    return gramsText;
+    return { kind: 'grams', grams };
   }
 
   // A known count portion still applies here — decision 11's consistency goal — but only
@@ -176,15 +187,74 @@ function buildSubtitle(
   if (knownCountPortion) {
     const count = deriveKnownCount(grams, knownCountPortion.gramsPerUnit);
     if (count !== null) {
-      return `${formatNumber(count)} ${formatUnitLabel(knownCountPortion.unit, count)} (${gramsText})`;
+      return { kind: 'count', count, unit: knownCountPortion.unit, grams };
     }
   }
 
   if (parsed.count && parsed.count > 0 && parsed.unit) {
-    return `${formatNumber(parsed.count)} ${formatUnitLabel(parsed.unit, parsed.count)} (${gramsText})`;
+    return { kind: 'count', count: parsed.count, unit: parsed.unit, grams };
   }
 
-  return gramsText;
+  return { kind: 'grams', grams };
+}
+
+function formatResolvedQuantity(resolved: ResolvedEntryQuantity): string | undefined {
+  if (resolved.kind === 'none') return undefined;
+
+  const gramsText = `${formatNumber(resolved.grams)} g`;
+  if (resolved.kind === 'grams') return gramsText;
+
+  return `${formatNumber(resolved.count)} ${formatUnitLabel(resolved.unit, resolved.count)} (${gramsText})`;
+}
+
+function buildSubtitle(
+  rawInput: string,
+  grams: number | null | undefined,
+  knownCountPortion?: KnownCountPortion,
+) {
+  return formatResolvedQuantity(resolveEntryQuantity(rawInput, grams, knownCountPortion));
+}
+
+/**
+ * J-009: aggregates a canonical group's header quantity from its children, applying the same
+ * "never invent a count" rule at the group level (decision 11/J-011, requirement 13): shows a
+ * combined count only when *every* child resolves to a semantically-present count and all of
+ * them share the same unit (e.g. all "piece"); otherwise falls back to summed grams only —
+ * never mixes incompatible units into a misleading count, and an explicit-grams child in the
+ * mix always forces the grams-only fallback for the whole group.
+ */
+export function buildGroupQuantitySubtitle(
+  children: FoodEntry[],
+  resolveKnownCountPortion: (entry: FoodEntry) => KnownCountPortion | undefined,
+): string | undefined {
+  const resolved = children.map((child) =>
+    resolveEntryQuantity(
+      child.rawInput,
+      child.grams ?? child.quantityGrams,
+      resolveKnownCountPortion(child),
+    ),
+  );
+
+  const totalGrams = resolved.reduce(
+    (sum, item) => sum + (item.kind === 'none' ? 0 : item.grams),
+    0,
+  );
+  if (totalGrams <= 0) return undefined;
+
+  const first = resolved[0];
+  const allSameCountUnit =
+    first?.kind === 'count' &&
+    resolved.every((item) => item.kind === 'count' && item.unit === first.unit);
+
+  if (allSameCountUnit && first?.kind === 'count') {
+    const totalCount = resolved.reduce(
+      (sum, item) => sum + (item.kind === 'count' ? item.count : 0),
+      0,
+    );
+    return `${formatNumber(totalCount)} ${formatUnitLabel(first.unit, totalCount)} (${formatNumber(totalGrams)} g)`;
+  }
+
+  return `${formatNumber(totalGrams)} g`;
 }
 
 export function buildFoodEntryDisplay(
@@ -201,13 +271,17 @@ export function buildFoodEntryDisplay(
 }
 
 /**
- * P1-003C: a composite-dish group (e.g. "Fruchtsalat mit Bananen, Kirschen") - the
- * label itself is never a persisted FoodEntry, so the group total is always exactly
- * the sum of its children's macros (no separate total to keep in sync, and deleting
- * the last child makes the group disappear on the next grouping pass for free).
+ * P1-003C composite-dish groups (e.g. "Fruchtsalat mit Bananen, Kirschen") and J-009
+ * canonical-identity groups (e.g. repeated "Eier" entries) share this shape. The label
+ * itself is never a persisted FoodEntry, so the group total is always exactly the sum of
+ * its children's macros (no separate total to keep in sync, and deleting children down to
+ * fewer than the grouping threshold makes the group disappear on the next pass for free).
+ * `groupKind` lets the screen render them differently: composite groups stay always-expanded
+ * (existing, unchanged behavior); canonical groups are collapsed-by-default/tap-to-expand.
  */
 export interface JournalEntryGroup {
   kind: 'group';
+  groupKind: 'composite' | 'canonical';
   groupId: string;
   label: string;
   children: FoodEntry[];
@@ -224,10 +298,124 @@ export interface JournalEntryLeaf {
 
 export type JournalListItem = JournalEntryGroup | JournalEntryLeaf;
 
+// Rounds to one decimal — enough precision for these already-≤1-decimal macro values, and
+// it eliminates binary floating-point summation noise (e.g. 82.2 + 164.4 -> 246.60000000000002
+// in raw JS arithmetic) without changing the mathematically exact total (requirement 12: the
+// group total must equal the exact sum of its children, not a re-derived or drifted value).
+function roundToOneDecimal(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function sumEntries(entries: FoodEntry[]) {
+  const raw = entries.reduce(
+    (totals, entry) => ({
+      totalCalories: totals.totalCalories + entry.calories,
+      totalProtein: totals.totalProtein + entry.protein,
+      totalCarbs: totals.totalCarbs + entry.carbs,
+      totalFat: totals.totalFat + entry.fat,
+    }),
+    { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0 },
+  );
+
+  return {
+    totalCalories: roundToOneDecimal(raw.totalCalories),
+    totalProtein: roundToOneDecimal(raw.totalProtein),
+    totalCarbs: roundToOneDecimal(raw.totalCarbs),
+    totalFat: roundToOneDecimal(raw.totalFat),
+  };
+}
+
 /**
- * Groups entries sharing a groupId (set by P1-003B/C composite-dish detection) under
- * a single JournalEntryGroup, in the position of their first-seen child. Entries
- * without a groupId pass through unchanged as JournalEntryLeaf items.
+ * J-009 / decision 6: the grouping key is canonical food identity, and *only* that — never
+ * raw input text, display label, or name similarity. `null` (no usable identity) means the
+ * entry can never join a canonical group and stays an individual leaf (decision 6's safe
+ * default: a missed grouping is better than a false one).
+ */
+function canonicalIdentityKey(entry: FoodEntry): string | null {
+  const ref = entry.foodCatalogRef;
+  if (!ref || !ref.source || !ref.sourceId) return null;
+
+  return `${ref.source}:${ref.sourceId}`;
+}
+
+/**
+ * J-009: a second pass over the leaves left by the composite-dish pass, grouping entries that
+ * share a canonical food identity (requirement 2/3/4). A group forms only when at least two
+ * entries share the identity (requirement 5); a lone match stays a leaf. The group is emitted
+ * at the position of its *newest* (chronologically last) member, not its first — so a newly
+ * logged item is visible where it was just added rather than appearing to vanish into an old
+ * position (requirement 11) — while `children` itself stays in original chronological order
+ * (requirement 10). Composite-dish members never reach this pass (they were already absorbed
+ * into `JournalEntryGroup`s in pass one, so they no longer appear as leaves here) — matching
+ * "composite-dish grouping is untouched".
+ */
+function applyCanonicalGrouping(items: JournalListItem[]): JournalListItem[] {
+  const indicesByKey = new Map<string, number[]>();
+  items.forEach((item, index) => {
+    if (item.kind !== 'entry') return;
+    const key = canonicalIdentityKey(item.entry);
+    if (!key) return;
+
+    const existing = indicesByKey.get(key);
+    if (existing) existing.push(index);
+    else indicesByKey.set(key, [index]);
+  });
+
+  const groupableEntries = Array.from(indicesByKey.entries()).filter(
+    ([, indices]) => indices.length >= 2,
+  );
+  if (groupableEntries.length === 0) return items;
+
+  const keyByIndex = new Map<number, string>();
+  const newestIndexByKey = new Map<string, number>();
+  const memberIndicesByKey = new Map<string, number[]>();
+  for (const [key, indices] of groupableEntries) {
+    for (const index of indices) keyByIndex.set(index, key);
+    newestIndexByKey.set(key, indices[indices.length - 1]);
+    memberIndicesByKey.set(key, indices);
+  }
+
+  const result: JournalListItem[] = [];
+  items.forEach((item, index) => {
+    const key = keyByIndex.get(index);
+    if (key === undefined) {
+      result.push(item);
+      return;
+    }
+    if (newestIndexByKey.get(key) !== index) {
+      // An older member of this identity — absorbed into the group emitted at the newest
+      // member's position below, so it does not also appear as its own leaf.
+      return;
+    }
+
+    const memberIndices = memberIndicesByKey.get(key) ?? [];
+    const children = memberIndices.map((i) => (items[i] as JournalEntryLeaf).entry);
+    // Every child shares this identity's foodCatalogRef by construction (canonicalIdentityKey
+    // requires it); the first child's displayName is used deterministically for the label —
+    // requirement 14's "smallest deterministic fallback" only matters if displayName were ever
+    // empty despite a valid identity, which the fallback chain below also covers defensively.
+    const displayName = children[0].foodCatalogRef?.displayName;
+    const label = formatTitle(displayName || children[0].parsedName || children[0].rawInput);
+
+    result.push({
+      kind: 'group',
+      groupKind: 'canonical',
+      groupId: `canonical:${key}`,
+      label,
+      children,
+      ...sumEntries(children),
+    });
+  });
+
+  return result;
+}
+
+/**
+ * Groups entries sharing a groupId (set by P1-003B/C composite-dish detection) under a
+ * single `groupKind: 'composite'` JournalEntryGroup, in the position of their first-seen
+ * child (unchanged from before J-009). Then runs the J-009 canonical-identity pass over the
+ * remaining leaves. Entries that end up in neither pass pass through unchanged as
+ * JournalEntryLeaf items.
  */
 export function groupJournalEntries(entries: FoodEntry[]): JournalListItem[] {
   const result: JournalListItem[] = [];
@@ -244,6 +432,7 @@ export function groupJournalEntries(entries: FoodEntry[]): JournalListItem[] {
       groupIndexByGroupId.set(entry.groupId, result.length);
       result.push({
         kind: 'group',
+        groupKind: 'composite',
         groupId: entry.groupId,
         label: formatTitle(entry.groupLabel ?? ''),
         children: [entry],
@@ -263,5 +452,5 @@ export function groupJournalEntries(entries: FoodEntry[]): JournalListItem[] {
     group.totalFat += entry.fat;
   }
 
-  return result;
+  return applyCanonicalGrouping(result);
 }

@@ -51,6 +51,91 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — J-009: Kanonisch gruppierte Tagesübersicht mit Einzel-Detailzugriff
+
+- **Status:** ⏳ offen (Kernverhalten sehr ausführlich real per Headless-Playwright/Chromium
+  gegen `expo start --web` verifiziert — siehe unten; native Bestätigung (Touch-Ziele,
+  Screenreader-Ansage der Accessibility-State) steht aus)
+- **Branch/PR:** `claude/j-009-canonical-grouping`
+- **Betroffene Bereiche:** `src/presentation/features/journal/journalEntryDisplay.ts` —
+  `groupJournalEntries` um einen zweiten Pass erweitert, der die nach dem bestehenden
+  Composite-Dish-Pass verbleibenden Leaves nach kanonischer Lebensmittelidentität
+  (`foodCatalogRef.source:sourceId`) gruppiert, nur bei ≥2 Treffern, positioniert an der
+  Stelle des **neuesten** (nicht des ersten) Mitglieds; `JournalEntryGroup` erhielt ein neues
+  `groupKind: 'composite' | 'canonical'`-Diskriminatorfeld. Neue reine Hilfsfunktion
+  `buildGroupQuantitySubtitle()` aggregiert die Mengen-Unterzeile einer Gruppe (Stückzahl nur,
+  wenn **jedes** Kind eine semantisch vorhandene, **gleiche** Einheit hat — sonst reine
+  Gramm-Summe; nie rückwärts aus Gramm eine Stückzahl erzeugen, dieselbe J-010/J-011-Regel wie
+  bei Einzeleinträgen). `src/presentation/features/journal/__tests__/journalEntryDisplay.test.ts`
+  — 13 neue Tests. `JournalScreen.tsx` — neuer `expandedGroupIds`-State (Set, eingeklappt per
+  Default), Gruppen-Header für `groupKind: 'canonical'` jetzt in `TouchableOpacity` mit
+  `accessibilityRole="button"`/`accessibilityState={{expanded}}`/beschreibendem
+  `accessibilityLabel`; Composite-Dish-Gruppen bleiben unverändert immer aufgeklappt, ohne
+  Toggle. Die transiente J-008-Bestätigung wurde **nicht** angefasst (Vorgabe: Gruppierung
+  betrifft nur die dauerhafte Tagesübersicht).
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 116
+  Suiten / 910 Tests grün, inkl. 13 neuer `groupJournalEntries`/`buildGroupQuantitySubtitle`-
+  Tests: gleiche Identität gruppiert inkl. Singular/Plural, gleiches Label aber andere
+  Identität gruppiert nicht, fehlende Identität bleibt Leaf, ein einzelner Treffer bleibt
+  Leaf, Positionierung am neuesten Mitglied, Löschen bis auf ein verbleibendes Mitglied löst
+  die Gruppe auf, identitätsändernde Bearbeitung gruppiert korrekt neu, Composite-Dish-Gruppen
+  unberührt, exakte Kalorien-/Makro-Summierung, homogene bekannte Stückzahlen aggregieren,
+  gemischte Stückzahl+explizite-Gramm zeigt nur Gramm, inkompatible Einheiten erzeugen keine
+  falsche Stückzahl, Gleitkomma-Summierungsrauschen wird korrekt auf eine Nachkommastelle
+  gerundet (`246.60000000000002` → `246.6`, während des Live-Checks unten entdeckt und noch in
+  diesem Task behoben, siehe unten).
+- **Verifiziert (visuell, 2026-07-17, sehr ausführlich per Headless-Playwright/Chromium gegen
+  `expo start --web`):**
+  - Kernszenario "Ei" → "Ein Ei" → "Drei Eier": ergibt genau **eine** eingeklappte Gruppe
+    „Huehnerei ganz roh · 5 STÜCK (300 G) · 411 kcal" (die reale Katalog-`displayName` statt
+    des illustrativen Plan-Beispiels „Eier" — korrektes Verhalten laut Spezifikation, nur ein
+    anderes reales Label). Tagestotal exakt 411 kcal.
+  - Antippen des Gruppen-Headers klappt korrekt auf: alle drei ursprünglichen Einträge
+    einzeln sichtbar in chronologischer Reihenfolge, jeweils mit eigenem „Löschen" (Screenshot).
+    Erneutes Antippen klappt korrekt wieder ein.
+  - Löschen eines Kindes (2 verbleiben): Gruppe bleibt bestehen, rekalkuliert korrekt zu
+    „4 STÜCK (240 G) · 328,8 kcal" (Tagestotal korrekt auf 329 kcal aktualisiert).
+  - Löschen eines weiteren Kindes (1 verbleibt): Gruppe löst sich korrekt auf, verbleibender
+    Eintrag erscheint wieder als normale Zeile („Eier · 3 STÜCK (180 G) · 246,6 kcal").
+  - „1 Ei" + „120g Ei" **außerhalb** des J-005-2-Minuten-Auto-Merge-Fensters eingegeben (mit
+    echter 130-Sekunden-Wartezeit, um den bestehenden, unveränderten Auto-Merge-Mechanismus
+    absichtlich zu umgehen und die reine Gruppierungs-/Aggregations-Anzeige zu prüfen):
+    ergibt eine Gruppe „Huehnerei ganz roh · 180 G · 246,6 kcal" — korrekt **keine** erfundene
+    Stückzahl trotz gruppierter Identität, exakt wie gefordert.
+  - Innerhalb des Auto-Merge-Fensters (Sekunden statt Minuten zwischen den Eingaben) griff wie
+    erwartet **unverändert** J-005s bestehender Auto-Merge-Mechanismus (Banner „Mit vorherigem
+    Eintrag zusammengeführt" erschien) — bestätigt, dass J-009 diesen bestehenden,
+    persistenzseitigen Mechanismus nicht verändert oder umgeht.
+  - Während dieser Live-Prüfung wurde ein echtes, durch die neue Gruppen-Summierung erstmals
+    sichtbar gewordenes Gleitkomma-Anzeigeproblem gefunden (`82.2 + 164.4` ergab in JS
+    `246.60000000000002`, roh ungerundet an `EntryRow`s `kcal`-Prop durchgereicht) und noch
+    innerhalb dieses Tasks behoben (`sumEntries()` rundet jetzt auf eine Nachkommastelle,
+    mathematisch identisch zur exakten Summe, siehe Testfall oben) — danach erneut live
+    bestätigt: zeigt sauber „246,6 kcal".
+  - Zugriffs-Attribute geprüft: `role="button"` und ein beschreibender `aria-label`
+    (z. B. „Huehnerei ganz roh, 2 Einträge, eingeklappt") werden im DOM korrekt gesetzt; ein
+    separates `aria-expanded`-Attribut wird von dieser react-native-web-Version für ein
+    einfaches `TouchableOpacity` + `accessibilityState` nicht emittiert (Bibliotheks-
+    Einschränkung, kein Code-Defekt) — der Zustand wird stattdessen über den Label-Text
+    kommuniziert. Auf nativen Plattformen (iOS/Android) mappt `accessibilityState={{expanded}}`
+    laut RN-Dokumentation direkt auf die native Screenreader-Semantik.
+  - Null Browser-Konsolenfehler/Page-Errors über alle Läufe.
+- **Nicht verifiziert (visuell):** natives Layout/Touch-Ziel-Größe des Gruppen-Headers auf
+  iOS/Android; ob ein nativer Screenreader (VoiceOver/TalkBack) den Auf-/Zugeklappt-Zustand
+  über `accessibilityState`/`accessibilityLabel` korrekt ansagt (die Web-DOM-Prüfung oben
+  zeigt korrekt gesetzte Attribute, aber keine native Screenreader-Ansage selbst); die
+  identitätsändernde-Bearbeitung-regruppiert-Szenario wurde nur unit-getestet (nicht live
+  nachgestellt — eine natürlichsprachliche Bearbeitung, die die Katalog-Identität ändert, ist
+  über eine kurze Textanweisung schwer deterministisch auszulösen; die reine Funktionslogik
+  ist über den entsprechenden Test bereits vollständig abgedeckt).
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 2 (Layout & Rendering) und
+  3 (Interaktion & Eingabe). Konkret: "Ei"/"Ein Ei"/"Drei Eier" eingeben, eine Gruppe
+  „5 Stück (300 g) · 411 kcal" bestätigen, aufklappen und mit VoiceOver/TalkBack die
+  Auf-/Zugeklappt-Ansage prüfen; Touch-Ziel-Größe des Gruppen-Headers auf einem echten Gerät
+  bestätigen.
+
+---
+
 ### 2026-07-17 — J-011: Explizite Gramm-Angabe wird nicht mehr rückwärts in eine Stückzahl umgerechnet
 
 - **Status:** ✅ geprüft (real per Headless-Playwright/Chromium gegen `expo start --web`

@@ -347,6 +347,7 @@ class Container {
       this._foodEntryRepository,
       this._nutritionLookup,
       this._nutritionClock,
+      this._portionKnowledgeService,
     );
 
     this._deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(

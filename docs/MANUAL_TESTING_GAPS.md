@@ -51,6 +51,44 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — J-013: Absolute, idempotente Journal-Mengenbearbeitung
+
+- **Status:** ⏳ offen (Kernlogik deterministisch per Unit-/Integrationstests gegen die exakte
+  Dogfooding-Sequenz verifiziert — siehe unten; die echte Bearbeitungs-UI wurde in dieser
+  headless Session nicht visuell/live geprüft).
+- **Branch/PR:** `claude/j-013-absolute-idempotent-journal-edit`
+- **Betroffene Bereiche:** `src/features/nutrition/domain/portion/PortionParser.ts` und
+  `PortionParseResult.ts` (neuer absoluter Count-Intent `count`/`countUnit`; bloße Zahl jetzt
+  `ambiguous`/`BARE_NUMBER_NEEDS_UNIT` statt Multiplikator),
+  `src/features/nutrition/application/usecases/EditFoodEntryFromNaturalLanguageUseCase.ts`
+  (Count → absolute Gramm via `resolvePortionGrams`; Ablehnung ohne Mutation bei bloßer Zahl
+  bzw. unbekannter Stückportion; count-basierter `rawInput` für die Anzeige),
+  `src/infrastructure/di/container.ts` (`portionKnowledgeService` injiziert),
+  `src/presentation/features/journal/JournalScreen.tsx` (Modal zeigt aktuelle Menge, Label
+  „Was möchtest du ändern?" statt „Bearbeitungsanweisung", Beispiele, Klärungs-Hinweis der das
+  Modal offen hält). Kontext:
+  `reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md` (Finding 1).
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 116
+  Suiten / 926 Tests grün). Neue Tests reproduzieren die exakte native Sequenz
+  `1 → 2 Stück → 3 Stück → 2 Stück` als **absolute** Werte (120 → 180 → 120 g, nie 720),
+  Idempotenz bei wiederholter identischer Anweisung, explizite `120 g` als reine Grammanzeige,
+  bloße `2` wird ohne Mutation und ohne Correction-Log-Eintrag abgelehnt, sowie Count für ein
+  Lebensmittel ohne bekannte Stückportion → Ablehnung ohne Mutation. `PortionParser`-Tests für
+  Count-Parsing und Bare-Number-Ablehnung ergänzt. Regressionssuiten (Logging,
+  `journalEntryDisplay` J-009/J-010/J-011, `resolvePortionGrams`) unverändert grün.
+- **Nicht verifiziert (visuell):** Die echte Bearbeitungs-UI auf Gerät/Web (Modal-Layout, der
+  „Aktuell:"-Wert, der Klärungs-Hinweis, die Beispiel-Zeile, Touch-Verhalten) wurde nicht live
+  geprüft — die Umgebung ist headless und der Ausgangs-Log eines Eis hängt am OFF/USDA-Resolver-
+  Netzwerk (laut J-008-Notiz in dieser Sandbox zeitweise hängend). Die reine Bearbeitungslogik
+  ist über die obigen Tests vollständig abgedeckt.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 3 (Interaktion &
+  Eingabe). Konkret auf dem nächsten nativen Build: 1 Ei loggen, dann nacheinander „2 Stück",
+  „3 Stück", „2 Stück" bearbeiten und bestätigen, dass die Werte exakt 120 g / 180 g / 120 g
+  ergeben (nie kumulativ 720); „120 g" bleibt reine Grammanzeige; bloße „2" zeigt den
+  Klärungs-Hinweis und ändert nichts; das Modal zeigt die aktuelle Menge und die Beispiele.
+
+---
+
 ### 2026-07-17 — J-009: Kanonisch gruppierte Tagesübersicht mit Einzel-Detailzugriff
 
 - **Status:** ⏳ offen (Kernverhalten sehr ausführlich real per Headless-Playwright/Chromium

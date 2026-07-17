@@ -75,6 +75,31 @@ export class PortionParser {
       };
     }
 
+    // J-013: absolute count intent ("2 Stück", "3 Scheiben", "zwei stück"). A target quantity,
+    // resolved to grams via portion knowledge by the caller — never a relative multiplier.
+    const numericCountMatch = text.match(
+      /^(\d+(?:[.,]\d+)?)\s*(stueck|stk|piece|pieces|scheibe|scheiben|slice|slices)\b/,
+    );
+    const wordCountMatch = text.match(
+      /^([a-z]+)\s+(stueck|stk|piece|pieces|scheibe|scheiben|slice|slices)\b/,
+    );
+    const countMatch = numericCountMatch ?? wordCountMatch;
+    if (countMatch) {
+      const count = parseNumberToken(countMatch[1]);
+      if (count !== null && count > 0) {
+        const unit: 'piece' | 'slice' = /^(scheibe|scheiben|slice|slices)$/.test(countMatch[2])
+          ? 'slice'
+          : 'piece';
+        return {
+          status: 'resolved',
+          count,
+          countUnit: unit,
+          notes: ['COUNT_SET'],
+          confidence: 0.95,
+        };
+      }
+    }
+
     const countXMatch = text.match(/^(\d+(?:[.,]\d+)?)\s*x$/);
     if (countXMatch) {
       const multiplier = parseLocaleNumber(countXMatch[1]);
@@ -83,12 +108,15 @@ export class PortionParser {
       }
     }
 
+    // J-013: a bare number or number word ("2", "zwei") carries no trustworthy unit — it must
+    // never be silently guessed as a count, grams, multiplier or percentage. Ask for a unit.
     const exactToken = text.match(/^([a-zA-Z]+|\d+(?:[.,]\d+)?)$/);
-    if (exactToken) {
-      const multiplier = parseNumberToken(exactToken[1]);
-      if (multiplier !== null) {
-        return this.multiplierResult(multiplier, context.hasBaseGrams);
-      }
+    if (exactToken && parseNumberToken(exactToken[1]) !== null) {
+      return {
+        status: 'ambiguous',
+        notes: ['BARE_NUMBER_NEEDS_UNIT'],
+        confidence: 0.2,
+      };
     }
 
     return {

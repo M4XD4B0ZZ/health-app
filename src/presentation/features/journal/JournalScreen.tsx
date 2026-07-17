@@ -70,6 +70,9 @@ const JournalScreen: React.FC = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
+  // J-013: clarification shown in the edit modal when an instruction can't be applied safely
+  // (bare number without a unit, or a count for a food with no known piece weight).
+  const [editHint, setEditHint] = useState<string | null>(null);
   const [manualPortionItem, setManualPortionItem] = useState<PortionNeedsEditItem | null>(null);
   const [manualTotalGrams, setManualTotalGrams] = useState('');
   const [portionActionInFlight, setPortionActionInFlight] = useState(false);
@@ -416,6 +419,7 @@ const JournalScreen: React.FC = () => {
   const handleOpenEdit = (entry: FoodEntry) => {
     setEditingEntry(entry);
     setEditInstruction('');
+    setEditHint(null);
     setEditModalVisible(true);
   };
 
@@ -432,6 +436,7 @@ const JournalScreen: React.FC = () => {
     setEditModalVisible(false);
     setEditingEntry(null);
     setEditInstruction('');
+    setEditHint(null);
 
     if (confirmationEditHeldRef.current) {
       confirmationEditHeldRef.current = false;
@@ -443,10 +448,23 @@ const JournalScreen: React.FC = () => {
     if (!editingEntry || !editInstruction.trim()) return;
 
     try {
-      await container.editFoodEntryFromNaturalLanguageUseCase.execute(
+      const result = await container.editFoodEntryFromNaturalLanguageUseCase.execute(
         editingEntry.id,
         editInstruction,
       );
+      const codes = result.editDecision.reasonCodes;
+      // J-013: on a safe-to-reject instruction, keep the modal open with a clarification and
+      // do not reload — nothing was mutated.
+      if (codes.includes('BARE_NUMBER_NEEDS_UNIT')) {
+        setEditHint('Bitte gib eine Einheit an – zum Beispiel „2 Stück“ oder „150 g“.');
+        return;
+      }
+      if (codes.includes('COUNT_PORTION_UNKNOWN')) {
+        setEditHint(
+          'Für dieses Lebensmittel ist kein Stückgewicht bekannt. Bitte gib die Menge in Gramm an, z. B. „150 g“.',
+        );
+        return;
+      }
       handleCloseEdit();
       await loadJournalData();
     } catch (err) {
@@ -672,14 +690,29 @@ const JournalScreen: React.FC = () => {
         <View style={styles.modalBackground}>
           <View style={styles.modalContent}>
             <AppText style={styles.modalTitle}>Eintrag bearbeiten</AppText>
+            {editingEntry && (
+              <AppText style={styles.editCurrent}>
+                {`Aktuell: ${
+                  buildFoodEntryDisplay(editingEntry, getKnownCountPortion(editingEntry))
+                    .subtitle ?? '—'
+                }`}
+              </AppText>
+            )}
             <InputArea
-              placeholder="Bearbeitungsanweisung"
+              placeholder="Was möchtest du ändern?"
               value={editInstruction}
-              onChangeText={setEditInstruction}
+              onChangeText={(text) => {
+                setEditInstruction(text);
+                if (editHint) setEditHint(null);
+              }}
               multiline
               blurOnSubmit
               style={styles.inputArea}
             />
+            <AppText style={styles.editExamples}>
+              Beispiele: „2 Stück“, „150 g“, „Magerquark statt Quark“
+            </AppText>
+            {editHint && <AppText style={styles.editHint}>{editHint}</AppText>}
             <PrimaryButton label="Anwenden" onPress={handleApplyEdit} />
             <IconButton icon="close" onPress={handleCloseEdit} />
           </View>
@@ -826,6 +859,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 20,
     marginBottom: 12,
+  },
+  editCurrent: {
+    marginBottom: 8,
+    color: tokens.colors.textMuted,
+  },
+  editExamples: {
+    marginTop: 8,
+    color: tokens.colors.textMuted,
+    fontSize: 13,
+  },
+  editHint: {
+    marginTop: 8,
+    color: tokens.colors.danger,
   },
 });
 

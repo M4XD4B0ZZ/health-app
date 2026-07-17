@@ -285,4 +285,104 @@ describe('EditFoodEntryFromNaturalLanguageUseCase', () => {
     expect(log[0].previousValues).toEqual(baseEntry);
     expect(log[0].previousValues.grams).toBe(100);
   });
+
+  describe('J-013: absolute, idempotent quantity editing', () => {
+    const eggPer100g = { calories: 137, protein: 12.5, carbs: 0.72, fat: 9.51 };
+
+    const createEggEntry = (overrides: Partial<FoodEntry> = {}): FoodEntry => ({
+      id: 'egg-entry',
+      rawInput: 'Ei',
+      parsedName: 'ei',
+      quantityGrams: 60,
+      grams: 60,
+      servingMultiplier: 1,
+      calories: 82.2,
+      protein: 7.5,
+      carbs: 0.43,
+      fat: 5.71,
+      confidenceScore: 0.6,
+      sourceType: 'generic',
+      createdAt: new Date('2026-02-15T10:00:00Z'),
+      calcBreakdown: { per100g: eggPer100g, gramsUsed: 60, multiplier: 1 },
+      ...overrides,
+    });
+
+    it('sets an absolute count and never multiplies the edited value (1 -> 2 -> 3 -> 2 Stück)', async () => {
+      await repository.addEntry(createEggEntry());
+
+      const r2 = await useCase.execute('egg-entry', '2 Stück');
+      expect(r2.editDecision.status).toBe('applied');
+      expect(r2.editDecision.reasonCodes).toContain('COUNT_SET');
+      expect(r2.updatedEntry.grams).toBe(120);
+      expect(r2.updatedEntry.quantityGrams).toBe(120);
+      expect(r2.updatedEntry.servingMultiplier).toBe(1);
+      expect(r2.updatedEntry.rawInput).toBe('2 Stück ei');
+      expect(r2.updatedEntry.calories).toBeCloseTo(164.4, 1);
+
+      const r3 = await useCase.execute('egg-entry', '3 Stück');
+      expect(r3.updatedEntry.grams).toBe(180); // absolute, NOT 120 * 3
+      expect(r3.updatedEntry.rawInput).toBe('3 Stück ei');
+      expect(r3.updatedEntry.calories).toBeCloseTo(246.6, 1);
+
+      const r2b = await useCase.execute('egg-entry', '2 Stück');
+      expect(r2b.updatedEntry.grams).toBe(120); // back to exactly 120, not 720
+      expect(r2b.updatedEntry.calories).toBeCloseTo(164.4, 1);
+    });
+
+    it('is idempotent for a repeated identical count instruction', async () => {
+      await repository.addEntry(createEggEntry());
+
+      const first = await useCase.execute('egg-entry', '2 Stück');
+      const second = await useCase.execute('egg-entry', '2 Stück');
+
+      expect(second.updatedEntry.grams).toBe(first.updatedEntry.grams);
+      expect(second.updatedEntry.calories).toBe(first.updatedEntry.calories);
+      expect(second.updatedEntry.rawInput).toBe(first.updatedEntry.rawInput);
+    });
+
+    it('rejects a bare number without mutating the entry or logging a correction', async () => {
+      await repository.addEntry(createEggEntry());
+
+      const result = await useCase.execute('egg-entry', '2');
+
+      expect(result.editDecision.status).toBe('ambiguous');
+      expect(result.editDecision.reasonCodes).toContain('BARE_NUMBER_NEEDS_UNIT');
+
+      const after = await repository.getEntryById('egg-entry');
+      expect(after?.grams).toBe(60);
+      expect(after?.quantityGrams).toBe(60);
+      expect(after?.rawInput).toBe('Ei');
+      expect(after?.calories).toBe(82.2);
+      const log = await repository.getCorrectionLog('egg-entry');
+      expect(log).toHaveLength(0);
+    });
+
+    it('keeps an explicit gram edit gram-only and absolute', async () => {
+      await repository.addEntry(createEggEntry());
+
+      const result = await useCase.execute('egg-entry', '120 g');
+
+      expect(result.editDecision.status).toBe('applied');
+      expect(result.editDecision.reasonCodes).toContain('GRAMS_SET');
+      expect(result.updatedEntry.grams).toBe(120);
+      expect(result.updatedEntry.rawInput).toBe('120g ei');
+      expect(result.updatedEntry.calories).toBeCloseTo(164.4, 1);
+    });
+
+    it('rejects a count for a food with no known piece weight, without mutating', async () => {
+      await repository.addEntry(
+        createEggEntry({ id: 'myst-entry', parsedName: 'zorbfrucht', rawInput: 'zorbfrucht' }),
+      );
+
+      const result = await useCase.execute('myst-entry', '2 Stück');
+
+      expect(result.editDecision.status).toBe('ambiguous');
+      expect(result.editDecision.reasonCodes).toContain('COUNT_PORTION_UNKNOWN');
+      const after = await repository.getEntryById('myst-entry');
+      expect(after?.rawInput).toBe('zorbfrucht');
+      expect(after?.grams).toBe(60);
+      const log = await repository.getCorrectionLog('myst-entry');
+      expect(log).toHaveLength(0);
+    });
+  });
 });

@@ -3,6 +3,8 @@ import { NutritionLookup } from '../ports/NutritionLookup';
 import { Clock } from '../ports/Clock';
 import { FoodEntry } from '../../domain/models/NutritionTypes';
 import { PortionParser } from '../../domain/portion/PortionParser';
+import { PortionKnowledgeService } from '../../domain/portion/PortionKnowledgeService';
+import { resolvePortionGrams } from '../../domain/portion/resolvePortionGrams';
 import { computeTotals } from '../../domain/portion/computeTotals';
 import { buildEditDecisionMeta } from '../services/explainability/buildEditDecisionMeta';
 import { AssumptionTag } from '../../domain/models/AssumptionTag';
@@ -26,6 +28,7 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     private readonly repository: FoodEntryRepository,
     private readonly nutritionLookup: NutritionLookup,
     private readonly clock: Clock,
+    private readonly portionKnowledgeService?: PortionKnowledgeService,
   ) {
     this.parser = new PortionParser();
   }
@@ -40,6 +43,31 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     const hasBaseGrams = (entry.grams ?? entry.quantityGrams) > 0;
     const parseResult = this.parser.parse(editText, { hasBaseGrams });
 
+    // J-013: a bare number ("2") has no trustworthy unit — reject it with a clarification and
+    // do not mutate the entry (no quantity change, no correction-log entry, no persistence).
+    if (parseResult.notes.includes('BARE_NUMBER_NEEDS_UNIT')) {
+      return this.rejectWithoutMutation(entry, parseResult, 'BARE_NUMBER_NEEDS_UNIT');
+    }
+
+    // J-013: an absolute count intent ("2 Stück") sets a target quantity — resolve it to grams
+    // via identity-based portion knowledge, never by multiplying the already-edited value.
+    let countResolution: { grams: number; count: number; unit: 'piece' | 'slice' } | null = null;
+    if (parseResult.count !== undefined) {
+      const resolved = await resolvePortionGrams(entry.parsedName, 0, parseResult.count, {
+        unit: parseResult.countUnit ?? 'piece',
+        rawInput: editText,
+        portionKnowledgeService: this.portionKnowledgeService,
+      });
+      if (resolved.status !== 'resolved') {
+        return this.rejectWithoutMutation(entry, parseResult, 'COUNT_PORTION_UNKNOWN');
+      }
+      countResolution = {
+        grams: resolved.grams,
+        count: parseResult.count,
+        unit: parseResult.countUnit ?? 'piece',
+      };
+    }
+
     let nextEntry: FoodEntry = {
       ...entry,
       servingMultiplier: entry.servingMultiplier ?? 1,
@@ -48,6 +76,19 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
     const notes = [...parseResult.notes];
     let decisionStatus: EditDecision['status'] = 'rejected';
     let decisionConfidence = parseResult.confidence;
+
+    if (countResolution) {
+      nextEntry.grams = countResolution.grams;
+      nextEntry.quantityGrams = countResolution.grams;
+      nextEntry.servingMultiplier = 1;
+      nextEntry.rawInput = this.buildCountRawInput(
+        countResolution.count,
+        countResolution.unit,
+        nextEntry.parsedName,
+      );
+      reasonCodes.push('COUNT_SET');
+      decisionStatus = 'applied';
+    }
 
     if (parseResult.grams !== undefined) {
       nextEntry.grams = parseResult.grams;
@@ -173,6 +214,36 @@ export class EditFoodEntryFromNaturalLanguageUseCase {
         notes: Array.from(new Set(notes)),
       },
     };
+  }
+
+  /**
+   * J-013: return the entry unchanged with an explicit clarification decision. No quantity
+   * change, no correction-log entry and no repository write — the entry must not mutate when
+   * the instruction can't be applied safely (bare number / unknown count portion).
+   */
+  private rejectWithoutMutation(
+    entry: FoodEntry,
+    parseResult: { notes: string[]; confidence: number },
+    reasonCode: 'BARE_NUMBER_NEEDS_UNIT' | 'COUNT_PORTION_UNKNOWN',
+  ): EditFoodEntryResult {
+    return {
+      updatedEntry: entry,
+      editDecision: {
+        status: 'ambiguous',
+        reasonCodes: Array.from(new Set([...parseResult.notes, reasonCode])),
+        confidence: parseResult.confidence,
+        notes: Array.from(new Set(parseResult.notes)),
+      },
+    };
+  }
+
+  /**
+   * J-013: a count-based edit stays displayed as count + grams. The rawInput deliberately omits
+   * grams so the display layer (J-010/J-011) shows "2 Stück (120 g)" rather than grams-only.
+   */
+  private buildCountRawInput(count: number, unit: 'piece' | 'slice', parsedName: string): string {
+    const label = unit === 'slice' ? (count === 1 ? 'Scheibe' : 'Scheiben') : 'Stück';
+    return `${count} ${label} ${parsedName}`;
   }
 
   private buildDisplayRawInput(grams: number, parsedName: string): string {

@@ -4975,12 +4975,28 @@ renders with the variable named and zero uncaught errors. With `.env` present, n
 unchanged (four tabs, zero page errors). `npm run verify` green. Native rendering of the new
 screen is logged as open in `docs/MANUAL_TESTING_GAPS.md`.
 
+**Follow-up (same task, 2026-07-16):** the maintainer's first attempt to produce the new build
+via expo.dev's "Start a build from GitHub" failed with `Failed to read "/eas.json"` — the repo
+contained no `eas.json`, and the maintainer has no computer available to run
+`eas build:configure` locally. A minimal root `eas.json` was therefore added (explicitly
+authorized): single `preview` build profile with `distribution: internal`,
+`environment: preview` (so the `EXPO_PUBLIC_SUPABASE_*` variables stored in the EAS _preview_
+environment are injected at build time), `android.buildType: apk` (directly installable),
+`android.image: latest` (per Expo's GitHub-builds guidance), plus
+`cli.appVersionSource: remote`. No env values/credentials committed; validated with the
+official `@expo/eas-json` parser (profile resolves with `credentialsSource: "remote"`, so the
+Android signing credentials stored from the previous EAS build are reused). Note: `app.json`
+carries no `extra.eas.projectId` — for GitHub-triggered builds the project mapping comes from
+the repo↔project link on expo.dev; if a build ever demands a projectId, that is a separate
+one-line `app.json` addition.
+
 **Remaining DoD (maintainer, on device):**
 
 1. Configure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for the EAS
    environment/build profile actually used (EAS dashboard → project → Environment variables, or
    `eas env:create`; alternatively the `env` block of the build profile in a local `eas.json`).
    Values must be present **at build time** — a code fix alone cannot substitute for this.
+   _(Done per maintainer 2026-07-16: publishable key + URL stored on expo.dev.)_
 2. Produce a **new build** (mandatory — the installed binary has the missing values baked in),
    uninstall the old app completely, install the new build.
 3. Cold-start check only, per the UT-001 plan's staging: app must reach the Protokoll tab.

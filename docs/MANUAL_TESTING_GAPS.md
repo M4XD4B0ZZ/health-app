@@ -51,6 +51,61 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — J-008: Transiente Last-Submit-Bestätigung ersetzt "Erkannte Einträge"
+
+- **Status:** ⏳ offen (Kernverhalten real per Playwright/Chromium gegen `expo start --web`
+  verifiziert — siehe unten; eine Teilinteraktion bleibt nativ zu bestätigen)
+- **Branch/PR:** `claude/j-008-transient-confirmation`
+- **Betroffene Bereiche:** `src/presentation/features/journal/JournalScreen.tsx` (permanente
+  "Erkannte Einträge"-Liste + `recognizedItems`-State entfernt; neue transiente
+  Bestätigungs-Panel mit ~8s-Timer/Hold-Logik, Tab-Blur- und Unmount-Cleanup, Korrekturzugriff
+  über die bestehende Edit-Modal-Interaktion); neu
+  `src/presentation/features/journal/journalLastSubmitConfirmation.ts` (reine
+  Nachrichten-Ableitung + framework-agnostischer Timer-Controller); `journalEntryDisplay.ts`
+  (zwei bestehende Funktionen `formatNumber`/`parseDisplayQuantity` exportiert, keine
+  Verhaltensänderung).
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite
+  884/884 grün, inkl. 16 neuer Tests für `journalLastSubmitConfirmation.ts`: Nachrichten-
+  Ableitung für 1/2/3+ Einträge, Grammatik ohne erfundene Stückzahl, sowie der Timer-Controller
+  mit Jest-Fake-Timern — Auto-Dismiss nach ~8s, Reset bei neuer Submission, Hold/Release
+  inkl. verschachtelter Holds, kein Dismiss durch einen unpassenden `release()`-Aufruf,
+  sofortiges `hide()`, sauberes `dispose()` ohne Leak).
+  **Zusätzlich real verifiziert** (Headless-Playwright/Chromium gegen `expo start --web`,
+  echte Supabase-Anon-Config nur für Auth/Resolver — Journal-Einträge selbst liegen laut
+  Code-Inspektion in `AsyncStorage`/Browser-`localStorage`, nicht in der Remote-DB, pro
+  Playwright-Browserinstanz isoliert): die exakte Ausgangsszenario-Sequenz aus dem
+  Dogfooding-Report nachgestellt — "Ei", dann "Ein Ei", dann "Drei Eier" nacheinander
+  eingegeben. Panel zeigte nacheinander exakt `"Ei gespeichert · 82,2 kcal"`,
+  `"1 Ei gespeichert · 82,2 kcal"`, `"3 Eier gespeichert · 246,6 kcal"` — nie die missverständliche
+  Tagessumme. Tagestotal korrekt bei 411 kcal (identisch mit dem Report), alle drei Einträge
+  einzeln in "Heutige Einträge" mit eigenem "Löschen" erhalten (Screenshot). "Erkannte
+  Einträge" erschien in keinem Zustand (vor/nach 1/2/3 Submits geprüft). Auto-Dismiss
+  bestätigt: Panel nach einem separaten Lauf mit 15s Warteszeit bereits wieder verschwunden
+  (>~8s), während "Heutige Einträge"/Summary-Bar unverändert korrekt blieben. Null Browser-
+  Konsolenfehler/Page-Errors über alle Läufe.
+- **Nicht verifiziert (visuell):** Der Korrekturzugriff (Antippen einer Zeile im Panel öffnet
+  das Edit-Modal) konnte in diesem Lauf nicht zuverlässig live erfasst werden — mehrere
+  Playwright-Versuche liefen in eine intermittierende Netzwerk-Verzögerung/-Hänger bei den
+  echten OFF/USDA-Resolver-Quellen dieser Sandbox (unabhängig von dieser Änderung, siehe
+  Konsolen-Trace: BLS liefert sofort ein Match, die App wartet aber sichtbar weiter auf
+  OFF/USDA, bevor `submitRawInput` zurückkehrt), wodurch das Panel wiederholt schon wieder
+  verschwunden war, bevor der Klick erfolgen konnte. Der Handler
+  (`handleOpenEditFromConfirmation` → bestehendes `handleOpenEdit`) nutzt exakt dieselbe
+  `EntryRow`-Komponente und denselben `onPress`-Mechanismus, der in "Heutige Einträge" auf
+  derselben Seite nachweislich funktioniert (Löschen-Buttons dort real geklickt/funktionsfähig
+  in den Screenshots) — Code-seitig also keine neue Interaktionslogik, aber nicht selbst
+  live angeklickt bestätigt. Ebenfalls nicht real geprüft: Hold-Verhalten bei aktivem
+  Touch/offenem Edit-Modal (`hold()`/`release()`), natives Layout/Spacing auf iOS/Android,
+  Touch-Target-Größe der Panel-Zeilen.
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test), 3 (Interaktion & Eingabe).
+  Konkret: "Ei", "Ein Ei", "Drei Eier" nacheinander eingeben (wie oben) und die drei
+  Bestätigungstexte + das Verschwinden von "Erkannte Einträge" bestätigen; eine Panel-Zeile
+  antippen und prüfen, dass sich das bestehende Bearbeiten-Modal für genau diesen Eintrag
+  öffnet; während des Antippens/offenen Modals darf das Panel nicht automatisch verschwinden;
+  Tab wechseln und zurückkehren sollte das Panel ausblenden.
+
+---
+
 ### 2026-07-16 — NATIVE-001: Fatal-Config-Screen statt Boot-Crash bei fehlender Supabase-Konfiguration
 
 - **Status:** ⏳ offen (Web-Pfad real per Playwright verifiziert, siehe unten — der **native**

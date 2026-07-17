@@ -2653,7 +2653,10 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `done` (J-001–J-007 all done — see each task's own section)
+Status: `in_progress` (J-001–J-007 done; J-008–J-010 `todo` — presentation-layer
+follow-ups accepted from the 2026-07-16 native dogfooding session, see each task's own
+section and
+[`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md))
 
 All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
 Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
@@ -3136,6 +3139,137 @@ umlaut) — corrected to a direct singular/plural noun choice in the same statem
 own new test file (7 tests) is the primary verification; it directly encodes the report's
 befund 4.3 scenario as a named regression case.
 Full suite green after this change (see this branch's `npm run verify` run).
+
+---
+
+#### J-008: Transient Last-Submit Confirmation (replaces „Erkannte Einträge")
+
+Status: `todo`
+Depends on: none
+
+**Ziel:** Accepted product decision 3/4 from the 2026-07-16 native dogfooding session. Today
+[`JournalScreen.tsx`](../src/presentation/features/journal/JournalScreen.tsx) shows „Erkannte
+Einträge" as a **permanent** list built from the last submit's `recognizedItems` — it lingers
+and shows only the most recent submit (e.g. 246,6 kcal), which reads like a day-total next to
+„Heutige Einträge". Replace it with a **transient last-submit confirmation** that states
+explicitly it is only the latest submission and lets the just-saved entries be corrected.
+
+**Scope / betroffene Dateien:**
+
+- New `src/presentation/features/journal/journalLastSubmitConfirmation.ts` — pure
+  `buildLastSubmitConfirmation()` deriving the message („3 Eier gespeichert · 246,6 kcal" /
+  „2 Einträge gespeichert: Eier und Magerquark · 296 kcal") + the just-saved entry ids.
+- New `src/presentation/features/journal/__tests__/journalLastSubmitConfirmation.test.ts`.
+- `JournalScreen.tsx` — remove the „Erkannte Einträge" section + `recognizedItems`
+  state/population; add the transient panel, its ~8 s timer/visibility controller (state
+  machine in the plan), and correction access (open the saved entry/entries for edit).
+  Optional small `useLastSubmitConfirmation.ts` hook if the timer logic is cleaner extracted.
+
+**Risiken:** timer leaks/races across overlapping submits and on tab-blur/unmount (mitigate:
+single named timer, cleared on replace/hidden/blur/unmount); removing `recognizedItems` must
+not break another reader (it is that section's only consumer — verify before deleting).
+
+**Tests:** pure message derivation (single/multiple/none, German comma kcal); fake-timer
+state machine (auto-dismiss ~8 s, replace-resets-timer, interaction-holds, blur/unmount
+clears); integration render check if an RN test harness is available, else manual-native.
+
+**Akzeptanzkriterien (DoD):** see
+[`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](../plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md)
+§10 (J-008). In short: permanent „Erkannte Einträge" gone; transient panel reflects only the
+latest submit and says so; ~8 s auto-dismiss; replaced by next submit; disappears on tab
+change; does not auto-dismiss while interacted with; opens saved entries for correction;
+`persistedCount === 0` shows no confirmation (J-007 error framing unchanged).
+
+**Verify:** `npm run verify`; UI-relevant in a headless env → new `docs/MANUAL_TESTING_GAPS.md`
+entry (VERIFY.md Category 4).
+
+---
+
+#### J-009: Canonical-Identity Grouped Daily Overview + Detail Access
+
+Status: `todo`
+Depends on: none (recommended after J-010 so grouped rows inherit normalized quantities)
+
+**Ziel:** Accepted product decisions 5–10/12. „Heutige Einträge" must group identical foods
+visually by **canonical food identity** (not raw text/display name), so „Ei"/„Ein Ei"/
+„Drei Eier" show as one „Eier" group. Grouping is **presentation-only** — every underlying
+journal entry, its timestamp/order, correction-log behavior, and J-005 auto-merge semantics
+stay unchanged; nothing is merged in persistence.
+
+**Scope / betroffene Dateien:**
+
+- `src/presentation/features/journal/journalEntryDisplay.ts` — extend the existing pure
+  `groupJournalEntries` with a second, canonical-identity pass over the non-`groupId` leaves;
+  key = `` `${foodCatalogRef.source}:${foodCatalogRef.sourceId}` ``; label = `displayName`;
+  group total = Σ children; aggregate count+grams for the header (count only if every child
+  has a known count). Composite-dish `groupId` grouping is untouched.
+- `src/presentation/features/journal/__tests__/journalEntryDisplay.test.ts` — grouping cases.
+- `JournalScreen.tsx` — collapsed-by-default group header with tap-to-expand (local expand
+  state), reusing the **existing** per-child `handleOpenEdit`/`handleDeleteEntry`. No
+  group-level edit/delete action.
+
+**Risiken:** false grouping of different foods by name (mitigate: `foodCatalogRef` identity
+key only, no name fallback; entries without a catalog match stay leaves); confusion with
+persistence-level auto-merge (mitigate: pure transform, purity test asserting no mutation/no
+persistence call); edit/delete ambiguity (mitigate: only children carry edit/delete); totals
+divergence (mitigate: group total = Σ children; daily total from `GetDailySummaryUseCase` is
+independent and unchanged).
+
+**Tests:** same-identity singular/plural group together; different `sourceId` not grouped;
+no-`foodCatalogRef` stays leaf; single-identity stays leaf; group total === Σ children ===
+411 for the egg case; composite-dish groups unaffected; purity (no mutation/no persist).
+Detail-interaction render check if a harness is available, else manual-native.
+
+**Akzeptanzkriterien (DoD):** plan §10 (J-009). In short: same-canonical-food entries render
+as one labeled group with an aggregated header and are tap-expandable to their individual
+entries; each entry independently editable/deletable; different foods not grouped; grouped
+total === Σ children; daily total === ungrouped sum; no persistence mutation; J-005 unchanged.
+
+**Verify:** `npm run verify`; UI-relevant in a headless env → new `docs/MANUAL_TESTING_GAPS.md`
+entry (VERIFY.md Category 4).
+
+---
+
+#### J-010: Consistent Quantity Display (Known Count Portions)
+
+Status: `todo`
+Depends on: none (split from J-009 because its data source is portion knowledge, not the
+`foodCatalogRef` grouping key, and it also applies to ungrouped leaf rows)
+
+**Ziel:** Accepted product decision 11. The same egg is shown inconsistently as „60 G",
+„1 STÜCK (60 G)", „3 STÜCK (180 G)" because
+[`journalEntryDisplay.ts`](../src/presentation/features/journal/journalEntryDisplay.ts)'s
+`parseDisplayQuantity` derives count/unit purely from `rawInput` text. When a **known count
+portion** exists for the food, prefer „1 Stück (60 g)" even if the raw text lacked a count
+word; keep the grams calculation basis visible; never invent a count when only grams are known.
+
+**Scope / betroffene Dateien:**
+
+- `journalEntryDisplay.ts` — make `buildFoodEntryDisplay`/`buildSubtitle` count-portion-aware,
+  reading known-count-portion info via the existing portion-knowledge query
+  (`PortionKnowledgeService`/`resolvePortionGrams`, read-only); derive N from
+  `grams / gramsPerUnit` when a clean integer; otherwise keep current text-parsed / grams-only
+  behavior. Keep the display helper **pure** — thread a small
+  `knownCountPortion?: { unit; gramsPerUnit }` in from the screen rather than making it async.
+- `__tests__/journalEntryDisplay.test.ts` — known-count-portion cases + the negative
+  „grams-only, no invented count" case.
+- `JournalScreen.tsx` — only if the known-count-portion data must be threaded in (read-only
+  use of the existing `container.portionKnowledgeService`); no domain/infra change.
+
+**Risiken:** inventing a count when only grams are known (mitigate: count shown only when a
+known count portion exists and grams/gramsPerUnit is a clean integer; explicit negative test);
+must not change any stored macro (mitigate: display-only, reads existing grams).
+
+**Tests:** „Ei" (60 g, known 60 g/Stück) → „1 Stück (60 g)"; „Eier" (300 g) → „5 Stück
+(300 g)"; grams-only when no known count → „X g"; grams basis always visible in count cases;
+existing gram-only/text-count cases stay green.
+
+**Akzeptanzkriterien (DoD):** plan §10 (J-010). In short: known-count foods show
+„N Stück (X g)" consistently on leaf and grouped rows; grams basis stays visible; grams-only
+foods show „X g" with no invented count.
+
+**Verify:** `npm run verify`; if display output changed in a headless env → new
+`docs/MANUAL_TESTING_GAPS.md` entry (VERIFY.md Category 4).
 
 ### Saved Meals Domain
 

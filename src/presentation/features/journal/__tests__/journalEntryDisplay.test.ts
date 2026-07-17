@@ -100,23 +100,6 @@ describe('buildFoodEntryDisplay', () => {
       });
     });
 
-    it('a known count portion wins even over explicit-grams raw input phrasing (decision 11 consistency)', () => {
-      expect(
-        buildFoodEntryDisplay(
-          foodEntry({
-            rawInput: '300g karotten',
-            parsedName: 'karotten',
-            quantityGrams: 300,
-            grams: 300,
-          }),
-          { unit: 'piece', gramsPerUnit: 60 },
-        ),
-      ).toEqual({
-        title: 'Karotten',
-        subtitle: '5 Stück (300 g)',
-      });
-    });
-
     it('a known slice portion renders with the German slice label', () => {
       expect(
         buildFoodEntryDisplay(
@@ -180,6 +163,77 @@ describe('buildFoodEntryDisplay', () => {
       ).toEqual({
         title: 'Ei',
         subtitle: '60 g',
+      });
+    });
+  });
+
+  describe('J-011: explicit gram intent is never overridden by a known count portion', () => {
+    it('"300g Karotten" stays "300 g" even though 300 divides cleanly by a known 60g/Stück portion', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({
+            rawInput: '300g karotten',
+            parsedName: 'karotten',
+            quantityGrams: 300,
+            grams: 300,
+          }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Karotten',
+        subtitle: '300 g',
+      });
+    });
+
+    it('"120g Ei" stays "120 g", not "2 Stück (120 g)"', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: '120g Ei', parsedName: 'ei', quantityGrams: 120, grams: 120 }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Ei',
+        subtitle: '120 g',
+      });
+    });
+
+    it('a bare "Ei" (no explicit grams in the raw input) still shows "1 Stück (60 g)" — the known-count path is unaffected', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Ei', parsedName: 'ei', quantityGrams: 60, grams: 60 }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Ei',
+        subtitle: '1 Stück (60 g)',
+      });
+    });
+
+    it('"Drei Eier" (count-worded text, no explicit grams) still shows "3 Stück (180 g)"', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Drei Eier', parsedName: 'eier', quantityGrams: 180, grams: 180 }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Eier',
+        subtitle: '3 Stück (180 g)',
+      });
+    });
+
+    it('an explicit-gram entry with no known count portion at all is unaffected (pre-existing behavior)', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({
+            rawInput: '300g karotten',
+            parsedName: 'karotten',
+            quantityGrams: 300,
+            grams: 300,
+          }),
+        ),
+      ).toEqual({
+        title: 'Karotten',
+        subtitle: '300 g',
       });
     });
   });

@@ -18,6 +18,8 @@ export interface FoodEntryDisplay {
  * J-010: a resolved known-count portion (e.g. "1 egg = 60g") for the entry's food identity,
  * looked up ahead of time by the caller (portion knowledge is an async, identity-keyed
  * lookup — this module stays pure/sync, per the plan's "thread it in" design).
+ * J-011: only ever used to *derive grams from a count*, never the reverse — see
+ * `buildSubtitle`'s explicit-grams guard.
  */
 export interface KnownCountPortion {
   unit: PortionHintUnit;
@@ -155,22 +157,27 @@ function buildSubtitle(
   if (!grams || grams <= 0) return undefined;
 
   const gramsText = `${formatNumber(grams)} g`;
+  const parsed = parseDisplayQuantity(rawInput);
 
-  // J-010 / decision 11: a known count portion for this food takes priority over raw-text
-  // parsing, so the same food renders consistently ("1 Stück (60 g)") no matter how the
-  // input was phrased — including when it was typed as explicit grams. The frozen grams
-  // calculation basis stays visible in parentheses either way.
+  // J-011 (correcting J-010): explicit grams is the user's own stated intent — a known count
+  // portion is a calculation aid (count -> grams), never license to run that arithmetic in
+  // reverse and assert a count nobody stated or observed. Real per-item weights vary too much
+  // (carrots, bananas, bread rolls, slices) for a coincidentally clean division to prove a
+  // specific count was eaten, so explicit grams always renders as grams-only, full stop.
+  if (parsed.unit === 'g') {
+    return gramsText;
+  }
+
+  // A known count portion still applies here — decision 11's consistency goal — but only
+  // because a count is genuinely present: either the raw text itself carries no explicit
+  // grams (a bare "Ei" resolves through a real count-based default/hint, e.g. count=1 x 60g),
+  // or the persisted grams were themselves computed from a count via portion knowledge. That
+  // makes recovering the count via division a reconstruction, not an invention.
   if (knownCountPortion) {
     const count = deriveKnownCount(grams, knownCountPortion.gramsPerUnit);
     if (count !== null) {
       return `${formatNumber(count)} ${formatUnitLabel(knownCountPortion.unit, count)} (${gramsText})`;
     }
-  }
-
-  const parsed = parseDisplayQuantity(rawInput);
-
-  if (parsed.unit === 'g') {
-    return gramsText;
   }
 
   if (parsed.count && parsed.count > 0 && parsed.unit) {

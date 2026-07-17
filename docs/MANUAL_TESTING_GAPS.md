@@ -51,6 +51,41 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — J-011: Explizite Gramm-Angabe wird nicht mehr rückwärts in eine Stückzahl umgerechnet
+
+- **Status:** ✅ geprüft (real per Headless-Playwright/Chromium gegen `expo start --web`
+  verifiziert, siehe unten)
+- **Branch/PR:** `claude/j-011-preserve-explicit-grams`
+- **Betroffene Bereiche:** `src/presentation/features/journal/journalEntryDisplay.ts` —
+  Product-Review-Korrektur von J-010: `buildSubtitle` prüft jetzt zuerst, ob der Rohtext
+  selbst explizite Gramm enthält (`parseDisplayQuantity(rawInput).unit === 'g'`); falls ja,
+  wird **immer** nur die Gramm-Anzeige gezeigt — die bekannte Stückportion wird in diesem Fall
+  gar nicht mehr konsultiert, auch wenn `grams / gramsPerUnit` rechnerisch glatt aufgeht. Der
+  bekannte-Stückportion-Pfad bleibt nur für den Fall erhalten, für den er eigentlich gedacht
+  war: Rohtext ohne explizite Gramm (bloßes „Ei", oder Text mit eigenem Zählwort wie
+  „Drei Eier"), wo die gespeicherten Gramm selbst aus einer echten Stückzahl berechnet wurden.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 116
+  Suiten / 896 Tests grün). Der zuvor fehlerhafte Test „a known count portion wins even over
+  explicit-grams raw input phrasing" wurde entfernt; ein neuer Testblock
+  „J-011: explicit gram intent is never overridden by a known count portion" (5 Tests) deckt
+  ab: `"300g Karotten"` bleibt `"300 g"` trotz glatter Teilbarkeit; `"120g Ei"` bleibt
+  `"120 g"`; `"Ei"` zeigt weiterhin `"1 Stück (60 g)"`; `"Drei Eier"` zeigt weiterhin
+  `"3 Stück (180 g)"`; unverändertes Verhalten ohne bekannte Portion. Alle bestehenden
+  J-010-Tests (bis auf den entfernten fehlerhaften) bleiben unverändert grün.
+- **Verifiziert (visuell, 2026-07-17, per Headless-Playwright/Chromium gegen `expo start
+--web`):** Die drei in der Produktentscheidung genannten Beispiele nacheinander eingegeben
+  und exakt bestätigt: `"Ei"` → `"1 STÜCK (60 G)"`, `"Drei Eier"` → `"3 STÜCK (180 G)"`,
+  `"300g Karotten"` → `"300 G"` (nicht mehr `"5 STÜCK (300 G)"`) — alle drei gleichzeitig in
+  „Heutige Einträge" sichtbar (Screenshot), Tagestotal korrekt (82,2 + 246,6 + 96 ≈ 425 kcal).
+  Null Browser-Konsolenfehler/Page-Errors.
+- **Nicht verifiziert (visuell):** natives Layout auf iOS/Android; der Scheiben-Fall wurde nur
+  unit-getestet (kein Blocker — dieselbe Formatierungsfunktion wie der live geprüfte
+  Stück-Fall, bereits in J-010s Eintrag dokumentiert).
+- **Zu testen:** siehe Checkliste unten, Abschnitt 1 (Smoke-Test). Konkret: „300g Karotten"
+  eingeben und bestätigen, dass die Anzeige „300 g" bleibt (nicht „5 Stück").
+
+---
+
 ### 2026-07-17 — J-010: Konsistente Mengenanzeige für bekannte Stückportionen
 
 - **Status:** ✅ geprüft (real per Headless-Playwright/Chromium gegen `expo start --web`

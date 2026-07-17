@@ -2653,7 +2653,7 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `in_progress` (J-001–J-008 done; J-009–J-010 `todo` — presentation-layer
+Status: `in_progress` (J-001–J-008 and J-010 done; J-009 `todo` — presentation-layer
 follow-ups accepted from the 2026-07-16 native dogfooding session, see each task's own
 section and
 [`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md))
@@ -3287,7 +3287,7 @@ entry (VERIFY.md Category 4).
 
 #### J-010: Consistent Quantity Display (Known Count Portions)
 
-Status: `todo`
+Status: `done`
 Depends on: none (split from J-009 because its data source is portion knowledge, not the
 `foodCatalogRef` grouping key, and it also applies to ungrouped leaf rows)
 
@@ -3325,6 +3325,53 @@ foods show „X g" with no invented count.
 
 **Verify:** `npm run verify`; if display output changed in a headless env → new
 `docs/MANUAL_TESTING_GAPS.md` entry (VERIFY.md Category 4).
+
+**Implementation notes:** Exactly the planned file boundary
+(`journalEntryDisplay.ts`/`__tests__/journalEntryDisplay.test.ts`/`JournalScreen.tsx`, no
+domain/infra change). `buildSubtitle`/`buildFoodEntryDisplay` gained an optional
+`knownCountPortion?: { unit: PortionHintUnit; gramsPerUnit: number }` parameter (new exported
+`KnownCountPortion` type) — kept the helper pure/sync per the plan, with the async
+portion-knowledge lookup resolved ahead of time by the caller. A new `deriveKnownCount(grams,
+gramsPerUnit)` helper only ever returns a count when `grams / gramsPerUnit` is a whole number
+within floating-point tolerance (0.01); otherwise `buildSubtitle` falls through to the
+pre-existing text-parsed/grams-only behavior unchanged — no fractional „Stück" is ever shown,
+and nothing is invented when the ratio doesn't land cleanly.
+**Priority decision (beyond the literal task text, resolved from decision 11's own wording):**
+a known count portion wins **even over explicit-grams raw input** (e.g. `"300g Karotten"` with
+a known 60 g/Stück carrot portion renders `"5 Stück (300 g)"`, not `"300 g"`) — decision 11
+frames this as a general consistency rule for "known Stückportionen", not one scoped only to
+inputs that lacked a count word; the alternative (only override bare/count-worded inputs) would
+have left the exact `"60 G"` vs. `"1 STÜCK (60 G)"` inconsistency alive whenever a user later
+weighed the same food explicitly. Grams basis stays visible in parentheses in every count case
+either way, so no information is lost by re-framing.
+`JournalScreen.tsx` — new `knownCountPortions: Record<foodIdentityKey, KnownCountPortion>`
+state, resolved by a `useEffect` keyed on `entries` that runs `resolveFoodIdentityKey()` per
+distinct today's food and queries the existing `container.portionKnowledgeService.lookup()`
+(piece and slice, in parallel, read-only — the same service `savePortionHintAndRetry` already
+uses) whenever the day's entries change; a `getKnownCountPortion(entry)` helper feeds the
+result into all three existing `buildFoodEntryDisplay` call sites (the J-008 confirmation
+panel, the flat "Heutige Einträge" row, and each group's child row) so leaf and (future J-009)
+grouped rows share one formatting source of truth, per the plan's stated goal.
+New tests (8, `journalEntryDisplay.test.ts`): bare "Ei" with no count word + a known portion →
+"1 Stück (60 g)"; multi-count "5 Stück (300 g)"; known portion overriding explicit-grams
+phrasing; slice-unit rendering; no invented fractional count on an unclean ratio (65 g / 60
+g/Stück); a known portion of a different unit overriding a conflicting text-parsed unit;
+unchanged behavior with no known portion; defensive zero/negative `gramsPerUnit`. Full suite
+(116 suites / 892 tests, +8 new), `tsc --noEmit`, `eslint`, and `prettier -c` all pass clean;
+`npm run verify` green.
+**Real (non-simulated) verification:** ran `expo start --web` + headless Playwright/Chromium
+(same journal-entries-are-`AsyncStorage`-local setup as J-008) and logged a bare `"Ei"` — it
+now renders `"1 STÜCK (60 G)"` (previously `"60 g"`) identically in both the J-008 confirmation
+panel and "Heutige Einträge". Then logged `"300g Karotten"` — it renders `"5 STÜCK (300 G)"`,
+confirming the known-portion-overrides-explicit-grams priority decision above holds in the real
+app, not just in unit tests. Daily total correct (82 + 96 = 178 kcal), zero console/page errors.
+Logged as a `✅ geprüft` entry in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-17--j-010-konsistente-mengenanzeige-für-bekannte-stückportionen)
+per the binding gap-log rule (native layout and the slice-unit case in the live web runtime
+remain unverified there, non-blocking — same formatting function as the live-verified piece
+case).
+
+---
 
 ### Saved Meals Domain
 

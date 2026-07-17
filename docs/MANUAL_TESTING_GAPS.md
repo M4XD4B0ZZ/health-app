@@ -51,6 +51,49 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — J-010: Konsistente Mengenanzeige für bekannte Stückportionen
+
+- **Status:** ✅ geprüft (real per Headless-Playwright/Chromium gegen `expo start --web`
+  verifiziert, siehe unten)
+- **Branch/PR:** `claude/j-010-quantity-display`
+- **Betroffene Bereiche:** `src/presentation/features/journal/journalEntryDisplay.ts`
+  (`buildSubtitle`/`buildFoodEntryDisplay` erhalten einen neuen optionalen
+  `knownCountPortion`-Parameter; wenn `grams / gramsPerUnit` eine glatte Ganzzahl ergibt, hat
+  die bekannte Stückportion Vorrang vor der bisherigen reinen Text-Parsing-Logik — auch wenn
+  der Rohtext explizite Gramm enthielt; sonst unverändertes Alt-Verhalten); neuer
+  `KnownCountPortion`-Typ (exportiert). `JournalScreen.tsx` — neuer `knownCountPortions`-State
+  - `useEffect`, der bei jeder Änderung von `entries` für alle heutigen Food-Identitäten
+    parallel `container.portionKnowledgeService.lookup()` (piece + slice, read-only, bereits
+    bestehender Service) aufruft und das Ergebnis in allen drei `buildFoodEntryDisplay`-
+    Aufrufstellen (Bestätigungs-Panel, "Heutige Einträge"-Flach-Eintrag, Gruppen-Kind) einspeist.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 116
+  Suiten / 892 Tests grün, inkl. 8 neuer Tests in `journalEntryDisplay.test.ts`: bekannte
+  Stückportion ohne Zählwort im Rohtext, mehrfache Stückzahl, bekannte Portion schlägt
+  explizite Gramm-Eingabe, Scheiben-Einheit, kein erfundener Bruch-Count bei unsauberem
+  Verhältnis, bekannte Portion überschreibt abweichende Text-Parse-Einheit, unverändertes
+  Verhalten ohne bekannte Portion, defensive 0/negative `gramsPerUnit`).
+- **Verifiziert (visuell, 2026-07-17, per Headless-Playwright/Chromium gegen `expo start
+--web`, echte Supabase-Anon-Config nur zum Boot — Journal-Einträge selbst liegen laut
+  Code-Inspektion in `AsyncStorage`/Browser-`localStorage`):** Bare `"Ei"` (keine Zählangabe
+  im Rohtext) zeigte vorher `"60 g"`, jetzt korrekt `"1 STÜCK (60 G)"` — in **beiden**
+  Renderstellen (transientes Bestätigungs-Panel und "Heutige Einträge"), identisch formatiert.
+  `"300g Karotten"` (explizite Gramm-Eingabe, bekannte Portion 60 g/Stück, 300/60 = 5) zeigte
+  korrekt `"5 STÜCK (300 G)"` statt `"300 g"` — bestätigt, dass die bekannte Stückportion auch
+  eine explizite Gramm-Phrasierung überschreibt, wie von Entscheidung 11 gefordert
+  (Konsistenz unabhängig von der Eingabeformulierung). Tagestotal korrekt (82 + 96 = 178 kcal).
+  Null Browser-Konsolenfehler/Page-Errors. Screenshot bestätigt sauberes Layout beider
+  Einträge nebeneinander.
+- **Nicht verifiziert (visuell):** natives Layout/Zeilenumbruch auf iOS/Android bei langen
+  Lebensmittelnamen kombiniert mit der neuen Stück-Formatierung; das Verhalten bei einem
+  Scheiben-Fall (`toast`, 35 g/Scheibe) wurde nur unit-getestet, nicht live in der Web-Runtime
+  nachgestellt (kein Blocker — dieselbe Formatierungsfunktion wie der live geprüfte
+  Stück-Fall).
+- **Zu testen:** siehe Checkliste unten, Abschnitte 1 (Smoke-Test) und 2 (Layout & Rendering).
+  Konkret: "Ei" eingeben und "1 Stück (60 g)" bestätigen; ein Scheiben-Lebensmittel (z. B.
+  "Toast") eingeben und die Scheiben-Formatierung auf einem echten Gerät bestätigen.
+
+---
+
 ### 2026-07-17 — J-008: Transiente Last-Submit-Bestätigung ersetzt "Erkannte Einträge"
 
 - **Status:** ⏳ offen (Kernverhalten real per Playwright/Chromium gegen `expo start --web`

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import type { PortionNeedsEditItem } from '../../../features/nutrition/domain/portion/PortionNeedsEdit';
+import { resolveFoodIdentityKey } from '../../../features/nutrition/domain/portion/foodIdentity';
 import { View, StyleSheet, Modal } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -18,7 +19,11 @@ import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineSt
 import { SummaryBar, MacroStack } from '../../../ui/components/SummaryBar';
 import { EntryRow } from '../../../ui/components/EntryRow';
 import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
-import { buildFoodEntryDisplay, groupJournalEntries } from './journalEntryDisplay';
+import {
+  buildFoodEntryDisplay,
+  groupJournalEntries,
+  KnownCountPortion,
+} from './journalEntryDisplay';
 import { deriveSubmitOutcome } from './journalSubmitFeedback';
 import {
   buildLastSubmitConfirmation,
@@ -55,6 +60,11 @@ const JournalScreen: React.FC = () => {
 
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [summary, setSummary] = useState<DailyNutritionSummary | null>(null);
+  // J-010: known count portions (e.g. "1 egg = 60g"), keyed by food identity, resolved
+  // ahead of time so the pure display helper can stay synchronous (see journalEntryDisplay.ts).
+  const [knownCountPortions, setKnownCountPortions] = useState<Record<string, KnownCountPortion>>(
+    {},
+  );
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
@@ -102,6 +112,60 @@ const JournalScreen: React.FC = () => {
       confirmationControllerRef.current?.dispose();
     };
   }, []);
+
+  // J-010: resolve known count portions for today's distinct foods whenever entries change
+  // (submit/edit/delete/reload) — read-only, display-only; never mutates a stored entry.
+  useEffect(() => {
+    let cancelled = false;
+    const identityKeys = new Set<string>();
+    for (const entry of entries) {
+      if (entry.calories <= 0) continue;
+      const key = resolveFoodIdentityKey(entry.parsedName);
+      if (key) identityKeys.add(key);
+    }
+
+    if (identityKeys.size === 0) {
+      setKnownCountPortions({});
+      return;
+    }
+
+    (async () => {
+      const resolved = await Promise.all(
+        Array.from(identityKeys).map(async (foodIdentityKey) => {
+          const [pieceHint, sliceHint] = await Promise.all([
+            container.portionKnowledgeService.lookup({
+              foodIdentityKey,
+              unit: 'piece',
+              userId: LOCAL_PORTION_HINT_USER_ID,
+            }),
+            container.portionKnowledgeService.lookup({
+              foodIdentityKey,
+              unit: 'slice',
+              userId: LOCAL_PORTION_HINT_USER_ID,
+            }),
+          ]);
+          return [foodIdentityKey, pieceHint ?? sliceHint] as const;
+        }),
+      );
+
+      if (cancelled) return;
+
+      const next: Record<string, KnownCountPortion> = {};
+      for (const [foodIdentityKey, hint] of resolved) {
+        if (hint) next[foodIdentityKey] = { unit: hint.unit, gramsPerUnit: hint.gramsPerUnit };
+      }
+      setKnownCountPortions(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entries]);
+
+  const getKnownCountPortion = (entry: FoodEntry): KnownCountPortion | undefined => {
+    const foodIdentityKey = resolveFoodIdentityKey(entry.parsedName);
+    return foodIdentityKey ? knownCountPortions[foodIdentityKey] : undefined;
+  };
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
   const [portionNeedsEditItems, setPortionNeedsEditItems] = React.useState<PortionNeedsEditItem[]>(
@@ -415,7 +479,7 @@ const JournalScreen: React.FC = () => {
           >
             <AppText style={styles.lastSubmitMessage}>{lastSubmitPanel.message}</AppText>
             {lastSubmitPanel.entries.map((entry) => {
-              const display = buildFoodEntryDisplay(entry);
+              const display = buildFoodEntryDisplay(entry, getKnownCountPortion(entry));
 
               return (
                 <EntryRow
@@ -483,7 +547,10 @@ const JournalScreen: React.FC = () => {
           {persistedDailyEntries.length > 0 ? (
             groupJournalEntries(persistedDailyEntries).map((listItem) => {
               if (listItem.kind === 'entry') {
-                const display = buildFoodEntryDisplay(listItem.entry);
+                const display = buildFoodEntryDisplay(
+                  listItem.entry,
+                  getKnownCountPortion(listItem.entry),
+                );
 
                 return (
                   <EntryRow
@@ -507,7 +574,7 @@ const JournalScreen: React.FC = () => {
                     style={styles.groupHeader}
                   />
                   {listItem.children.map((child) => {
-                    const display = buildFoodEntryDisplay(child);
+                    const display = buildFoodEntryDisplay(child, getKnownCountPortion(child));
 
                     return (
                       <EntryRow

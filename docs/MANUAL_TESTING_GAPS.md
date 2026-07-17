@@ -51,6 +51,46 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — DI-010: Einzige Quelle für das aktive Bewertungsziel
+
+- **Status:** ⏳ offen (Logik/Verdrahtung per Typecheck/Lint/Unit-Suite grün; das reine
+  UI-Rendering + die Navigation konnten in der headless Umgebung nicht visuell geprüft werden —
+  kein RN-Render-Harness im Repo, wie bei DI-002/DI-007/DI-008).
+- **Branch/PR:** `claude/di-010-single-evaluation-goal-control`
+- **Betroffene Bereiche:**
+  `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — interaktiver
+  Ziel-Umschalter (inkl. der invertierten Aktiv-/Auswählbar-Optik) entfernt; stattdessen
+  read-only „Aktives Bewertungsziel" + „Ziel ändern"-Aktion (`TouchableOpacity`,
+  `accessibilityRole="button"`, beschreibender `accessibilityLabel`, ≥44 px Touch-Ziel), die per
+  `navigation.navigate('Goals')` zum Ziele-Tab wechselt; toter `handleSelectProfile`/
+  `switchingProfileId`-State + `PrimaryButton`-Import entfernt; DI-009-Fokus-Reload bleibt.
+  `src/presentation/features/goals/GoalsScreen.tsx` — GE-008-Kartentitel jetzt „Bewertungsziel"
+  (statt „Ziel wählen") mit klärendem Hilfetext; „Makroverteilung"-Label über den
+  Balanced/High-Protein/Manuell-Buttons. Keine Verhaltens-/Formel-/Persistenz-Änderung.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 117
+  Suiten / 937 Tests grün; Evaluation/Goals-Suiten 24 Suiten / 107 Tests grün). Der aktive
+  Ziel-Zustand (einzige Quelle `evaluationProfileRegistry` + Persistenz) ist über die
+  bestehenden Registry-Tests abgedeckt, von dieser Aufgabe unverändert.
+- **Nicht verifiziert (visuell):** natives Layout der read-only Zeile + „Ziel ändern"-Link,
+  die tatsächliche Tab-Navigation zum Ziele-Tab, Screenreader-Ansage/Touch-Ziel-Größe des
+  Links, das Verschwinden jeglicher invertierten Aktiv-Optik.
+- **Zu testen (native Gegenprüfung, exakte Schritte):**
+  1. Im Ziele-Tab „Evidence-based Standard" wählen.
+  2. Auswertung-Tab öffnen.
+  3. Bestätigen: aktives Bewertungsziel wird **read-only** angezeigt (kein zweiter Umschalter,
+     keine orange/invertierte Aktiv-Optik).
+  4. „Ziel ändern" antippen.
+  5. Bestätigen: Navigation zum Ziele-Tab.
+  6. „Weight Loss" wählen.
+  7. Zurück zur Auswertung.
+  8. Bestätigen: „Weight Loss" wird angezeigt (Auswertung aktualisiert bei Fokus).
+  9. App neu starten.
+  10. Bestätigen: dasselbe Ziel bleibt aktiv.
+      Zusätzlich: Makroverteilung (Balanced/High Protein/Manuell) bleibt unabhängig vom
+      Bewertungsziel wählbar.
+
+---
+
 ### 2026-07-17 — RESOLVER-V2-009: Erreichbarkeit schlichter generischer BLS-Lebensmittel
 
 - **Status:** ⏳ offen (kein UI-/Presentation-Layer betroffen — reine Resolver-/Infra-Logik;

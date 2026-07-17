@@ -1,15 +1,16 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import container from '../../../infrastructure/di/container';
 import { EvaluationProfile, EvaluationOutput } from '../../../features/evaluation';
 import { GoalsNotFoundError, ProfileNotFoundError } from '../../../features/goals';
+import type { RootTabParamList } from '../../navigation/AppNavigator';
 
 // UI Components
 import { tokens } from '../../../ui/theme';
 import { ScreenContainer } from '../../../ui/components/ScreenContainer';
 import { AppText } from '../../../ui/components/AppText';
-import { PrimaryButton } from '../../../ui/components/PrimaryButton';
 import { formatGoalProgressLabel, formatAssessment } from './evaluationSummaryDisplay';
 
 /**
@@ -25,10 +26,13 @@ const EvaluationSummaryScreen: React.FC = () => {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [output, setOutput] = useState<EvaluationOutput | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null);
   // DI-008: explicit state so the mount/reload gap between clearing the previous
   // result and setting the next one is never rendered as blank or stale.
   const [loadState, setLoadState] = useState<LoadState>('loading');
+
+  // DI-010: the active evaluation goal is changed ONLY in the Ziele tab. This screen shows it
+  // read-only and links there — it holds no independently mutable goal state.
+  const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -84,19 +88,13 @@ const EvaluationSummaryScreen: React.FC = () => {
     }, [load]),
   );
 
-  const handleSelectProfile = async (profileId: string) => {
-    if (switchingProfileId || profileId === activeProfileId) return;
-
-    setSwitchingProfileId(profileId);
-    try {
-      await container.evaluationProfileRegistry.setActiveProfileId(profileId);
-      await load();
-    } catch (err) {
-      console.error('Failed to switch active evaluation profile:', err);
-    } finally {
-      setSwitchingProfileId(null);
-    }
+  // DI-010: navigate to the Ziele tab, the single place the evaluation goal can be changed.
+  const handleChangeGoal = () => {
+    navigation.navigate('Goals');
   };
+
+  const activeProfileName =
+    profiles.find((profile) => profile.id === activeProfileId)?.name ?? null;
 
   return (
     <ScreenContainer scroll>
@@ -105,20 +103,20 @@ const EvaluationSummaryScreen: React.FC = () => {
           Auswertung
         </AppText>
 
+        {/* DI-010: active evaluation goal shown read-only. It is changed only in the Ziele tab;
+            "Ziel ändern" navigates there. No second, inverted selector lives here. */}
         <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>Ziel</AppText>
-          <View style={styles.profilePicker}>
-            {profiles.map((profile) => (
-              <PrimaryButton
-                key={profile.id}
-                label={profile.name}
-                onPress={() => handleSelectProfile(profile.id)}
-                disabled={switchingProfileId !== null || profile.id === activeProfileId}
-                style={
-                  profile.id === activeProfileId ? styles.activeProfileButton : styles.profileButton
-                }
-              />
-            ))}
+          <AppText style={styles.sectionTitle}>Aktives Bewertungsziel</AppText>
+          <View style={styles.goalRow}>
+            <AppText variant="body">{activeProfileName ?? '—'}</AppText>
+            <TouchableOpacity
+              onPress={handleChangeGoal}
+              accessibilityRole="button"
+              accessibilityLabel="Bewertungsziel ändern – wechselt zum Ziele-Tab"
+              style={styles.changeGoalButton}
+            >
+              <AppText tone="accent">Ziel ändern</AppText>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -218,17 +216,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 8,
   },
-  profilePicker: {
+  goalRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: tokens.spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacing.s,
   },
-  profileButton: {
-    flexGrow: 1,
-  },
-  activeProfileButton: {
-    flexGrow: 1,
-    backgroundColor: tokens.colors.surface,
+  changeGoalButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: tokens.spacing.xs,
+    paddingHorizontal: tokens.spacing.s,
   },
   errorMessage: {
     marginTop: tokens.spacing.s,

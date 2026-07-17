@@ -5671,12 +5671,46 @@ cross-tab paths re-verified live against `expo start --web` + headless Playwrigh
 
 #### DI-010: Single Ownership of the Active Evaluation Goal
 
-Status: `todo`
+Status: `done`
 Severity: High
 Depends on: DI-002 (Auswertung goal toggle), GE-008 (Ziele „Ziel wählen" card), DI-009
 (cross-tab freshness) — all `done`.
 Origin: native dogfooding 2026-07-17,
 [report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 3.
+
+**Implementation notes (done):**
+
+- `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — removed the
+  interactive per-profile goal selector (and with it the inverted active/selectable optic: the
+  active profile had been rendered as a muted/`surface` disabled button while the _alternative_
+  used the accent `PrimaryButton`, so the active goal looked inactive). Replaced with a
+  read-only „Aktives Bewertungsziel" section showing the active profile's name plus a „Ziel
+  ändern" action (`TouchableOpacity`, `accessibilityRole="button"`, descriptive
+  `accessibilityLabel`, ≥44 px touch target) that navigates to the Ziele tab via
+  `navigation.navigate('Goals')` (typed `BottomTabNavigationProp<RootTabParamList>`, existing
+  tab navigation — no new library, no imperative workaround). Deleted the now-dead
+  `handleSelectProfile`/`switchingProfileId` state and the `PrimaryButton` import; kept the
+  existing DI-009 `useFocusEffect` reload so a goal changed in Ziele is reflected on focus. The
+  screen now holds **no independently mutable goal state** — the single persisted source of
+  truth remains `container.evaluationProfileRegistry`.
+- `src/presentation/features/goals/GoalsScreen.tsx` — user-facing wording (Product decision 5 /
+  requirement 13): the GE-008 card title is now „Bewertungsziel" (was „Ziel wählen") with a
+  helper clarifying it is separate from the Makroverteilung; added a „Makroverteilung" label
+  above the Balanced/High Protein/Manuell macro-mode buttons. No behavior/logic change — the
+  Ziele tab remains the single editing surface; its existing non-inverted active styling
+  (`zielOptionActive`) is unchanged.
+
+No change to evaluation formulas, calorie/macro targets, weight-loss/metabolism logic, journal
+data, persistence schema, or navigation architecture.
+
+**Verification (done):** `npm run verify` green (117 suites / 937 tests; typecheck + lint +
+format). The evaluation/goals suites (24 suites / 107 tests) stay green. This repo has no
+React-Native render-test harness (no `@testing-library/react-native`/`react-test-renderer`, no
+`render()` under `src/presentation`), so — as with DI-002/DI-007/DI-008 — the read-only
+rendering, the removed selector, „Ziel ändern" navigation, and accessibility/touch target are
+covered by a `docs/MANUAL_TESTING_GAPS.md` entry with a native retest checklist rather than an
+automated render test. The active-goal state itself (single source of truth + persistence) is
+already covered by the existing `evaluationProfileRegistry` tests, unchanged by this task.
 
 **Ziel:** The active evaluation goal is changed in **one** place — the Ziele tab. Auswertung
 shows the active goal read-only (with an optional „Ziel ändern" link that navigates to Ziele)

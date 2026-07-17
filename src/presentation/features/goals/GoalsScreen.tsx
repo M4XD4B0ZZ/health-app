@@ -189,9 +189,10 @@ const GoalsScreen: React.FC = () => {
           literally (Product Bible §4b) — origin is shown via originLabel(). */}
       {zielOptions.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Ziel wählen</Text>
+          <Text style={styles.cardTitle}>Bewertungsziel</Text>
           <Text style={styles.helperText}>
-            Wählen Sie, worauf Ihre Auswertung sich fokussieren soll.
+            Bestimmt, wie Ihr Tag in der Auswertung bewertet wird – unabhängig von der
+            Makroverteilung.
           </Text>
 
           <View style={styles.zielList}>
@@ -448,6 +449,7 @@ const GoalsScreen: React.FC = () => {
                 )}
               </View>
 
+              <Text style={styles.goalsLabel}>Makroverteilung</Text>
               <View style={styles.buttonGroup}>
                 <TouchableOpacity
                   style={styles.outlineButton}

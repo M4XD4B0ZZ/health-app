@@ -57,7 +57,8 @@ function formatTitle(value: string) {
   return trimmed.charAt(0).toLocaleUpperCase('de-DE') + trimmed.slice(1);
 }
 
-function formatNumber(value: number) {
+/** Exported for reuse by journalLastSubmitConfirmation.ts (J-008) — same German 1-decimal-comma rounding. */
+export function formatNumber(value: number) {
   const rounded = Math.round(value * 10) / 10;
   return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
 }
@@ -67,7 +68,8 @@ function formatUnitLabel(unit: Exclude<DisplayUnit, 'g'>, count: number) {
   return count === 1 ? labels.singular : labels.plural;
 }
 
-function parseDisplayQuantity(rawInput: string): ParsedDisplayQuantity {
+/** Exported for reuse by journalLastSubmitConfirmation.ts (J-008) — same raw-text count parsing. */
+export function parseDisplayQuantity(rawInput: string): ParsedDisplayQuantity {
   const normalized = rawInput.trim().toLowerCase().replace(/\s+/g, ' ');
   if (!normalized) return {};
 

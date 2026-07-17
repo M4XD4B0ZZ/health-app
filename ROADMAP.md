@@ -2653,7 +2653,7 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `in_progress` (J-001–J-007 done; J-008–J-010 `todo` — presentation-layer
+Status: `in_progress` (J-001–J-008 done; J-009–J-010 `todo` — presentation-layer
 follow-ups accepted from the 2026-07-16 native dogfooding session, see each task's own
 section and
 [`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md))
@@ -3144,7 +3144,7 @@ Full suite green after this change (see this branch's `npm run verify` run).
 
 #### J-008: Transient Last-Submit Confirmation (replaces „Erkannte Einträge")
 
-Status: `todo`
+Status: `done`
 Depends on: none
 
 **Ziel:** Accepted product decision 3/4 from the 2026-07-16 native dogfooding session. Today
@@ -3182,6 +3182,61 @@ change; does not auto-dismiss while interacted with; opens saved entries for cor
 
 **Verify:** `npm run verify`; UI-relevant in a headless env → new `docs/MANUAL_TESTING_GAPS.md`
 entry (VERIFY.md Category 4).
+
+**Implementation notes:** Exactly the planned 3-file boundary
+(`journalLastSubmitConfirmation.ts` + its test + `JournalScreen.tsx`), plus a smaller-boundary
+adjustment discovered during implementation: `formatNumber`/`parseDisplayQuantity` in
+`journalEntryDisplay.ts` were exported (no logic change) instead of re-implementing the same
+German-comma rounding and NUMBER_WORDS-based raw-text count parsing a second time — avoids a
+duplicate `NUMBER_WORDS` dictionary for the exact same "did the raw input carry a count word"
+question `buildFoodEntryDisplay` already answers.
+`buildLastSubmitConfirmation(persistedEntries)` treats "single food" as `persistedCount === 1`
+and "multiple" as `persistedCount >= 2` (not a cross-entry canonical-identity merge — that's
+J-009's job and explicitly out of scope here); the single-entry message reuses
+`parseDisplayQuantity` to prefix a count only when the raw input actually carried one (`"Drei
+Eier"` → `"3 Eier gespeichert · 246,6 kcal"`; bare `"Ei"` → `"Ei gespeichert · 82,2 kcal"`, no
+invented count; `"Ein Ei"` → `"1 Ei gespeichert · 82,2 kcal"`, shown as typed). The timer/hold
+state machine (`createLastSubmitConfirmationController`) is a framework-agnostic factory
+function with zero React dependency — driven from `JournalScreen` via a `useRef`-held
+singleton instance — specifically so it's unit-testable with Jest fake timers without a
+rendering harness (this repo's Jest config has no React Native Testing Library / jsdom;
+`testEnvironment: 'node'`, confirmed during implementation). `hold()`/`release()` use a
+counter (not a boolean) so an interaction-hold (`onTouchStart`/`onTouchEnd` on the panel) and
+a correction-modal hold (`handleOpenEditFromConfirmation`/`handleCloseEdit`, gated by a
+`confirmationEditHeldRef` so only a hold the confirmation path actually placed gets released)
+can overlap safely; `release()` without a matching `hold()` is a no-op by construction, so it
+can never accidentally restart/extend the timer for an unrelated edit opened from the daily
+list. Partial-success submits are untouched: `buildLastSubmitConfirmation` only ever receives
+`result.persistedEntries`, so a mixed "1 Banane und zorbfrucht" submit still shows the panel
+for the persisted Banane while J-007's status/trust message and the unchanged "Nicht erkannte
+Einträge"/"Portionsgewicht fehlt" sections keep explaining the blocked item — never suppressed,
+never implied as saved.
+New tests (16, `journalLastSubmitConfirmation.test.ts`): message derivation for 0/1/2/3+
+persisted entries (incl. the exact dogfooding case and the no-invented-count/grams-only cases)
+and the timer controller with Jest fake timers (auto-dismiss ~8 s, replace-resets-timer with
+no stale-timer dismissal of the newer confirmation, hold/release incl. nested holds,
+release-without-hold is a no-op, immediate `hide()`, `hide()`-when-already-hidden is a no-op,
+`dispose()` leaves no dangling timer). Full suite (116 suites / 884 tests, +16 new), `tsc
+--noEmit`, `eslint`, and `prettier -c` all pass clean; `npm run verify` green.
+**Real (non-simulated) verification beyond the unit tests:** ran the app for real via
+`expo start --web` + headless Playwright/Chromium against a real (but journal-entries-are-
+local-only, per `PersistedFoodEntryRepository`'s `AsyncStorage` backing — confirmed by code
+inspection before connecting) Supabase project, and replayed the exact dogfooding sequence
+("Ei" → "Ein Ei" → "Drei Eier"): the panel showed, in order, `"Ei gespeichert · 82,2 kcal"`,
+`"1 Ei gespeichert · 82,2 kcal"`, `"3 Eier gespeichert · 246,6 kcal"` — never the misleading
+day-total framing from the original report — while "Heutige Einträge" correctly kept all three
+entries separately (82.2 + 82.2 + 246.6 = 411 kcal, matching the report exactly), each with its
+own "Löschen". "Erkannte Einträge" never appeared. Auto-dismiss confirmed (panel gone by a 15 s
+checkpoint, well past the ~8 s window) with the rest of the screen unaffected. Zero console/page
+errors across all runs. The tap-a-panel-row-to-correct interaction could not be reliably
+captured live — this sandbox's real OFF/USDA resolver network calls were intermittently
+slow/hanging (unrelated to this change; confirmed via console trace showing BLS already
+matched while the app kept awaiting OFF/USDA), repeatedly outlasting the panel's own 8 s
+window before a click could land. Logged as an open entry in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-17--j-008-transiente-last-submit-bestätigung-ersetzt-erkannte-einträge)
+per the binding Manual UI Testing Gap Log rule — the handler reuses the exact same `EntryRow`/
+`onPress` mechanism already verified working elsewhere on the same screen, but was not itself
+clicked and confirmed live.
 
 ---
 

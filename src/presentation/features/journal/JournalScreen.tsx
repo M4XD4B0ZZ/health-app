@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import type { PortionNeedsEditItem } from '../../../features/nutrition/domain/portion/PortionNeedsEdit';
 import { View, StyleSheet, Modal } from 'react-native';
@@ -20,6 +20,16 @@ import { EntryRow } from '../../../ui/components/EntryRow';
 import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
 import { buildFoodEntryDisplay, groupJournalEntries } from './journalEntryDisplay';
 import { deriveSubmitOutcome } from './journalSubmitFeedback';
+import {
+  buildLastSubmitConfirmation,
+  createLastSubmitConfirmationController,
+  LastSubmitConfirmationController,
+} from './journalLastSubmitConfirmation';
+
+interface LastSubmitPanel {
+  message: string;
+  entries: FoodEntry[];
+}
 
 const formatCalories = (value: number) => Math.round(value).toString();
 const formatMacroGrams = (value: number) => `${Math.round(value)}g`;
@@ -76,19 +86,40 @@ const JournalScreen: React.FC = () => {
 
   // DI-009: reload on every tab focus (not just mount) so entries logged from another tab
   // (e.g. a Saved Meal template) are picked up on return, without a full app reload.
+  // J-008: the transient confirmation must disappear when the Journal tab loses focus.
   useFocusEffect(
     useCallback(() => {
       loadJournalData();
+      return () => {
+        confirmationControllerRef.current?.hide();
+      };
     }, [loadJournalData]),
   );
+
+  // J-008: clear any pending auto-dismiss timer on unmount to avoid a stale callback.
+  useEffect(() => {
+    return () => {
+      confirmationControllerRef.current?.dispose();
+    };
+  }, []);
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
   const [portionNeedsEditItems, setPortionNeedsEditItems] = React.useState<PortionNeedsEditItem[]>(
     [],
   );
-  const [recognizedItems, setRecognizedItems] = React.useState<
-    { name: string; quantity: number | null; unit: string | null; kcal: number | null }[]
-  >([]);
+  // J-008: transient last-submit confirmation, replacing the old permanent "Erkannte
+  // Einträge" list. Timer/visibility is owned by a framework-agnostic controller so it's
+  // unit-testable with fake timers; `lastSubmitPanel` mirrors the controller's current value.
+  const [lastSubmitPanel, setLastSubmitPanel] = useState<LastSubmitPanel | null>(null);
+  const confirmationControllerRef =
+    useRef<LastSubmitConfirmationController<LastSubmitPanel> | null>(null);
+  if (!confirmationControllerRef.current) {
+    confirmationControllerRef.current =
+      createLastSubmitConfirmationController<LastSubmitPanel>(setLastSubmitPanel);
+  }
+  // Tracks whether the currently open edit modal was opened from the confirmation panel, so
+  // handleCloseEdit only releases a hold it actually placed (see handleOpenEditFromConfirmation).
+  const confirmationEditHeldRef = useRef(false);
   // J-005: visible, undoable notification for a silent same-food auto-merge.
   const [autoMergeNotice, setAutoMergeNotice] = React.useState<{
     entryId: string;
@@ -107,7 +138,9 @@ const JournalScreen: React.FC = () => {
     setTrustMessage('');
     setUnresolvedItems([]);
     setPortionNeedsEditItems([]);
-    setRecognizedItems([]);
+    // J-008: a new submission always replaces the previous confirmation (decision 4), even
+    // if this new submission ends up persisting nothing itself.
+    confirmationControllerRef.current?.hide();
     setAutoMergeNotice(null);
   };
 
@@ -145,27 +178,25 @@ const JournalScreen: React.FC = () => {
         : null,
     );
 
-    const remainingPersistedEntries = [...result.persistedEntries];
-
-    // Keep the runtime UI on the same per-item list as persistence without relying only on array index.
-    const recognizedWithKcal = result.dispatch.readyRequests.map((item, index) => {
-      const persistedEntryIndex = remainingPersistedEntries.findIndex(
-        (entry) => entry.rawInput.toLowerCase() === item.rawName.toLowerCase(),
-      );
-      const persistedEntry =
-        persistedEntryIndex >= 0
-          ? remainingPersistedEntries.splice(persistedEntryIndex, 1)[0]
-          : result.persistedEntries[index];
-
-      return {
-        name: item.rawName,
-        quantity: item.quantity ?? null,
-        unit: item.unit ?? null,
-        kcal: persistedEntry?.calories ?? null, // Use null instead of 0 when no data available
-      };
-    });
-
-    setRecognizedItems(recognizedWithKcal);
+    // J-008: transient confirmation for exactly what this submission persisted. Independent
+    // of outcome/blocked/unresolved handling below — a partial success still shows this for
+    // the entries that DID persist, while the unresolved/blocked items keep using the J-007
+    // status/trust message and "Nicht erkannte Einträge"/"Portionsgewicht fehlt" sections
+    // (decision 10: never suppress that explanation, never imply a blocked item was saved).
+    const confirmation = buildLastSubmitConfirmation(
+      result.persistedEntries.map((entry) => ({
+        id: entry.id,
+        rawInput: entry.rawInput,
+        parsedName: entry.parsedName,
+        calories: entry.calories,
+      })),
+    );
+    if (confirmation) {
+      confirmationControllerRef.current?.show({
+        message: confirmation.message,
+        entries: result.persistedEntries,
+      });
+    }
 
     // J-007: if anything was persisted, this is always a (possibly partial) success — never
     // a hard error that would contradict what "Erkannte Einträge"/"Heutige Einträge" already
@@ -306,10 +337,24 @@ const JournalScreen: React.FC = () => {
     setEditModalVisible(true);
   };
 
+  // J-008: correction access from the transient confirmation panel. Holds the panel's
+  // auto-dismiss timer for the duration of the edit so it can't disappear underneath the
+  // user mid-correction; handleCloseEdit releases the hold once the modal closes.
+  const handleOpenEditFromConfirmation = (entry: FoodEntry) => {
+    confirmationControllerRef.current?.hold();
+    confirmationEditHeldRef.current = true;
+    handleOpenEdit(entry);
+  };
+
   const handleCloseEdit = () => {
     setEditModalVisible(false);
     setEditingEntry(null);
     setEditInstruction('');
+
+    if (confirmationEditHeldRef.current) {
+      confirmationEditHeldRef.current = false;
+      confirmationControllerRef.current?.release();
+    }
   };
 
   const handleApplyEdit = async () => {
@@ -361,19 +406,28 @@ const JournalScreen: React.FC = () => {
           </View>
         )}
 
-        {recognizedItems.length > 0 && (
-          <View style={styles.section}>
-            <AppText style={styles.sectionTitle}>Erkannte Einträge</AppText>
-            {recognizedItems.map((item) => (
-              <EntryRow
-                key={item.name}
-                title={item.name}
-                subtitle={
-                  item.quantity !== null && item.unit ? `${item.quantity} ${item.unit}` : undefined
-                }
-                kcal={item.kcal}
-              />
-            ))}
+        {lastSubmitPanel && (
+          <View
+            style={styles.lastSubmitConfirmation}
+            onTouchStart={() => confirmationControllerRef.current?.hold()}
+            onTouchEnd={() => confirmationControllerRef.current?.release()}
+            onTouchCancel={() => confirmationControllerRef.current?.release()}
+          >
+            <AppText style={styles.lastSubmitMessage}>{lastSubmitPanel.message}</AppText>
+            {lastSubmitPanel.entries.map((entry) => {
+              const display = buildFoodEntryDisplay(entry);
+
+              return (
+                <EntryRow
+                  key={entry.id}
+                  title={display.title}
+                  subtitle={display.subtitle}
+                  kcal={entry.calories}
+                  onPress={() => handleOpenEditFromConfirmation(entry)}
+                  style={styles.lastSubmitEntryRow}
+                />
+              );
+            })}
           </View>
         )}
 
@@ -592,6 +646,20 @@ const styles = StyleSheet.create({
   },
   autoMergeNoticeButton: {
     marginLeft: tokens.spacing.s,
+  },
+  lastSubmitConfirmation: {
+    marginTop: 8,
+    paddingHorizontal: tokens.spacing.s,
+    paddingVertical: tokens.spacing.xs,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.medium,
+  },
+  lastSubmitMessage: {
+    fontWeight: 'bold',
+    marginBottom: tokens.spacing.xs,
+  },
+  lastSubmitEntryRow: {
+    paddingVertical: tokens.spacing.xs,
   },
   correctionButton: {
     marginTop: 8,

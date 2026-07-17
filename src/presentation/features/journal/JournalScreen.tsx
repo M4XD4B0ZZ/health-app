@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import type { PortionNeedsEditItem } from '../../../features/nutrition/domain/portion/PortionNeedsEdit';
 import { resolveFoodIdentityKey } from '../../../features/nutrition/domain/portion/foodIdentity';
-import { View, StyleSheet, Modal } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import container from '../../../infrastructure/di/container';
@@ -21,6 +21,7 @@ import { EntryRow } from '../../../ui/components/EntryRow';
 import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
 import {
   buildFoodEntryDisplay,
+  buildGroupQuantitySubtitle,
   groupJournalEntries,
   KnownCountPortion,
 } from './journalEntryDisplay';
@@ -165,6 +166,23 @@ const JournalScreen: React.FC = () => {
   const getKnownCountPortion = (entry: FoodEntry): KnownCountPortion | undefined => {
     const foodIdentityKey = resolveFoodIdentityKey(entry.parsedName);
     return foodIdentityKey ? knownCountPortions[foodIdentityKey] : undefined;
+  };
+
+  // J-009: canonical-identity groups are collapsed by default; keyed by the group's own
+  // (stable) groupId, so toggled state survives an unrelated reload/re-group for the same
+  // identity. Composite-dish groups don't use this — they stay always-expanded, unchanged.
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
+
+  const toggleGroupExpanded = (groupId: string) => {
+    setExpandedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
   };
 
   const [unresolvedItems, setUnresolvedItems] = React.useState<string[]>([]);
@@ -565,30 +583,66 @@ const JournalScreen: React.FC = () => {
                 );
               }
 
+              const renderChild = (child: FoodEntry) => {
+                const display = buildFoodEntryDisplay(child, getKnownCountPortion(child));
+
+                return (
+                  <EntryRow
+                    key={child.id}
+                    title={display.title}
+                    subtitle={display.subtitle}
+                    kcal={child.calories}
+                    onPress={() => handleOpenEdit(child)}
+                    actionLabel="Löschen"
+                    onActionPress={() => handleDeleteEntry(child.id)}
+                    style={styles.groupChild}
+                  />
+                );
+              };
+
+              if (listItem.groupKind === 'composite') {
+                // P1-003C composite-dish groups: unchanged, always-expanded, no toggle.
+                return (
+                  <View key={listItem.groupId} style={styles.group}>
+                    <EntryRow
+                      title={listItem.label}
+                      subtitle={`${listItem.children.length} Zutaten`}
+                      kcal={listItem.totalCalories}
+                      style={styles.groupHeader}
+                    />
+                    {listItem.children.map(renderChild)}
+                  </View>
+                );
+              }
+
+              // J-009 canonical-identity groups: collapsed by default, tap the header to
+              // expand/collapse; every child keeps the existing edit/delete interaction; the
+              // header itself carries no edit/delete action.
+              const isExpanded = expandedGroupIds.has(listItem.groupId);
+              const quantitySubtitle = buildGroupQuantitySubtitle(
+                listItem.children,
+                getKnownCountPortion,
+              );
+
               return (
                 <View key={listItem.groupId} style={styles.group}>
-                  <EntryRow
-                    title={listItem.label}
-                    subtitle={`${listItem.children.length} Zutaten`}
-                    kcal={listItem.totalCalories}
-                    style={styles.groupHeader}
-                  />
-                  {listItem.children.map((child) => {
-                    const display = buildFoodEntryDisplay(child, getKnownCountPortion(child));
-
-                    return (
-                      <EntryRow
-                        key={child.id}
-                        title={display.title}
-                        subtitle={display.subtitle}
-                        kcal={child.calories}
-                        onPress={() => handleOpenEdit(child)}
-                        actionLabel="Löschen"
-                        onActionPress={() => handleDeleteEntry(child.id)}
-                        style={styles.groupChild}
-                      />
-                    );
-                  })}
+                  <TouchableOpacity
+                    onPress={() => toggleGroupExpanded(listItem.groupId)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isExpanded }}
+                    accessibilityLabel={`${listItem.label}, ${listItem.children.length} Einträge, ${
+                      isExpanded ? 'aufgeklappt' : 'eingeklappt'
+                    }`}
+                    activeOpacity={0.7}
+                  >
+                    <EntryRow
+                      title={listItem.label}
+                      subtitle={quantitySubtitle}
+                      kcal={listItem.totalCalories}
+                      style={styles.groupHeader}
+                    />
+                  </TouchableOpacity>
+                  {isExpanded && listItem.children.map(renderChild)}
                 </View>
               );
             })

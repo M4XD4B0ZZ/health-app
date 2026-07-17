@@ -2653,12 +2653,14 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `in_progress` (J-001–J-008 and J-010–J-011 done; J-009 `todo` — presentation-layer
-follow-ups accepted from the 2026-07-16 native dogfooding session, see each task's own
-section and
+Status: `done` (J-001–J-011 all done — see each task's own section)
+
+J-008–J-011 are the presentation-layer follow-ups accepted from the 2026-07-16 native
+dogfooding session, see
 [`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md).
-J-011 was a product-review correction of one of J-010's priority decisions, now merged; J-009
-can now start from the corrected quantity-display semantics.)
+J-011 was a product-review correction of one of J-010's priority decisions (merged before
+J-009 started, so J-009's grouped overview inherits the corrected quantity-display semantics
+from the start).
 
 All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
 Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
@@ -3244,8 +3246,8 @@ clicked and confirmed live.
 
 #### J-009: Canonical-Identity Grouped Daily Overview + Detail Access
 
-Status: `todo`
-Depends on: none (recommended after J-010 so grouped rows inherit normalized quantities)
+Status: `done`
+Depends on: J-010/J-011 (grouped rows inherit the corrected quantity-display semantics)
 
 **Ziel:** Accepted product decisions 5–10/12. „Heutige Einträge" must group identical foods
 visually by **canonical food identity** (not raw text/display name), so „Ei"/„Ein Ei"/
@@ -3284,6 +3286,81 @@ total === Σ children; daily total === ungrouped sum; no persistence mutation; J
 
 **Verify:** `npm run verify`; UI-relevant in a headless env → new `docs/MANUAL_TESTING_GAPS.md`
 entry (VERIFY.md Category 4).
+
+**Implementation notes:** Matches the planned file boundary exactly
+(`journalEntryDisplay.ts` + its tests + `JournalScreen.tsx`), with one addition the plan
+flagged as conditional and code inspection confirmed necessary: a new exported
+`buildGroupQuantitySubtitle()` (the group-header analogue of `buildFoodEntryDisplay`'s
+per-entry subtitle, sharing the same underlying `resolveEntryQuantity` classification so both
+apply identical J-010/J-011 rules — count only when semantically present, an explicit-grams
+child always forces the whole group to grams-only).
+`groupJournalEntries` now runs the existing composite-dish (`groupId`) pass unchanged, then a
+second `applyCanonicalGrouping` pass over the leaves it produced: groups by
+`` `${foodCatalogRef.source}:${foodCatalogRef.sourceId}` `` (decision 6 — identity only, no
+name fallback), only when ≥2 entries share it, positioned at the **newest** member's original
+index (not the first — an explicit deviation from the plan's own default, per this Act task's
+instruction, so a newly logged item is visible where it was just added rather than seeming to
+vanish into an older slot), with `children` preserved in original chronological order.
+`JournalEntryGroup` gained a `groupKind: 'composite' | 'canonical'` discriminator so the screen
+can render the two differently: composite groups stay exactly as before (always expanded, no
+toggle); canonical groups are collapsed-by-default with a `TouchableOpacity` header
+(`accessibilityRole="button"`, `accessibilityState={{expanded}}`, a descriptive
+`accessibilityLabel` including the German state word) that toggles a `Set<groupId>` expand
+state — carrying no edit/delete action itself; every child, expanded or not, reuses the
+pre-existing `handleOpenEdit`/`handleDeleteEntry`. The J-008 transient confirmation panel was
+not touched at all, per instruction. Grouping is a pure re-derivation on every render from
+`entries`, so edit/delete/reload already "recomputing the presentation" (requirement 15) needed
+no special-case code — a delete down to one match dissolves the group back to a leaf, and an
+edit that changes canonical identity regroups on the next pass, for free.
+**Real bug found and fixed during live verification, not present in the plan/task description:**
+summing children's `calories`/macros with plain `+=` (matching the composite-dish path's own
+long-standing pattern) surfaced raw JS binary-floating-point summation noise once real values
+were combined in the browser (`82.2 + 164.4` → `246.60000000000002`, passed unrounded straight
+into `EntryRow`'s `kcal` prop, which renders numbers as-is). `sumEntries()` now rounds each
+total to one decimal — mathematically identical to the exact sum for these already-≤1-decimal
+macro values (requirement 12's "exact child totals" is about not re-deriving or drifting the
+total, not about preserving binary-float noise), just without the display artifact. New
+regression test asserts the exact `246.6` output for this pair. This is a **narrower** display
+path than the pre-existing composite-dish `+=` pattern (untouched, out of scope, and less
+likely to surface the issue since composite dishes are rarely summed from repeat instances of
+the same decimal calorie value the way canonical groups routinely are) — not a fix applied
+retroactively to composite groups.
+New tests (14 total: 13 grouping/aggregation cases + this float-precision regression),
+`journalEntryDisplay.test.ts`: same-identity singular/plural grouping (incl. the exact
+82.2+82.2+246.6=411 dogfooding case), same-label-different-identity not grouped, missing
+identity stays leaf, single match stays leaf, group positioned at the newest member (with
+intervening unrelated entries proving it is not simply "last overall"), children stay
+chronologically ordered, exact calorie/macro aggregation, composite groups unaffected,
+dissolve-to-leaf on delete-down-to-one, identity-changing edit regroups, homogeneous known
+counts aggregate, mixed count+explicit-grams forces grams-only, incompatible units force
+grams-only, and the float-precision fix. Full suite (116 suites / 910 tests, +14 new), `tsc
+--noEmit`, `eslint`, and `prettier -c` all pass clean; `npm run verify` green.
+**Real (non-simulated) verification — very thorough, per the Act task's explicit request:** ran
+`expo start --web` + headless Playwright/Chromium and replayed every named scenario. "Ei" →
+"Ein Ei" → "Drei Eier" produced exactly one collapsed group — labeled with the real catalog
+`displayName` ("Huehnerei ganz roh", not the plan's illustrative "Eier" placeholder, which is
+correct per the design: prefer the actual catalog label) — showing "5 STÜCK (300 G) · 411 kcal".
+Tapping the header expanded it to all three original entries in order, each independently
+"Löschen"-able; tapping again re-collapsed it. Deleting one child (2 remain) kept the group and
+recalculated correctly to "4 STÜCK (240 G) · 328,8 kcal"; deleting a second (1 remains)
+correctly dissolved it back into a normal leaf row. "1 Ei" + "120g Ei", submitted **outside**
+J-005's 2-minute auto-merge window (a genuine 130s wait, to deliberately avoid the unrelated,
+unchanged auto-merge path and exercise pure grouping/aggregation instead), grouped by identity
+but showed "180 G" — no invented count — exactly the named example. Submitted **inside** the
+auto-merge window in a separate run, J-005's existing "Mit vorherigem Eintrag zusammengeführt"
+banner still fired unchanged, confirming J-009 does not interfere with it. `role="button"` and a
+state-describing `aria-label` were confirmed present in the rendered DOM; a separate
+`aria-expanded` attribute is not emitted by this react-native-web version for a plain
+`TouchableOpacity` + `accessibilityState` (a library-level limitation of the web target, not a
+code defect — `accessibilityState={{expanded}}` maps to native accessibility APIs on iOS/Android
+per RN's own documented behavior). Zero console/page errors across every run. Logged as an open
+entry in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-17--j-009-kanonisch-gruppierte-tagesübersicht-mit-einzel-detailzugriff)
+— native touch-target sizing and an actual native screen-reader (VoiceOver/TalkBack) expand/
+collapse announcement remain to be confirmed on a real device; the identity-changing-edit
+scenario is unit-test-covered but wasn't separately replayed live (a natural-language edit
+instruction reliably changing catalog identity isn't easy to trigger deterministically through
+a short text command).
 
 ---
 

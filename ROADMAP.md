@@ -2653,10 +2653,12 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `in_progress` (J-001–J-008 and J-010 done; J-009 `todo` — presentation-layer
+Status: `in_progress` (J-001–J-008 and J-010–J-011 done; J-009 `todo` — presentation-layer
 follow-ups accepted from the 2026-07-16 native dogfooding session, see each task's own
 section and
-[`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md))
+[`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md).
+J-011 was a product-review correction of one of J-010's priority decisions, now merged; J-009
+can now start from the corrected quantity-display semantics.)
 
 All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
 Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
@@ -3370,6 +3372,104 @@ Logged as a `✅ geprüft` entry in
 per the binding gap-log rule (native layout and the slice-unit case in the live web runtime
 remain unverified there, non-blocking — same formatting function as the live-verified piece
 case).
+**Post-merge correction (2026-07-17, product review):** the "known portion overrides
+explicit-grams phrasing" priority decision documented above (`"300g Karotten"` →
+`"5 Stück (300 g)"`) was reviewed and rejected as an incorrect reading of decision 11 —
+deriving a count backwards from grams via division is inventing a count, not reading one,
+because a known portion is a calculation aid (count → grams) and real per-item weights vary
+(carrots, bananas, bread rolls, slices are not uniform). This entry is left as originally
+written per this repo's "never silently rewrite a `done` task" convention; the corrected
+behavior is implemented as a dedicated follow-up, **J-011**, immediately below.
+
+---
+
+#### J-011: Preserve Explicit Gram Intent in Quantity Display
+
+Status: `done`
+Depends on: J-010 (corrects one of its priority decisions)
+
+**Ziel:** Product-review correction of J-010. J-010's `buildSubtitle` let a known count
+portion override raw-text-parsed **explicit grams** whenever `grams / gramsPerUnit` divided
+cleanly (e.g. `"300g Karotten"` → `"5 Stück (300 g)"`), reasoned as consistent with decision
+11 ("prefer a known count portion"). Product review rejected this: a known count portion is a
+**calculation aid** (derives grams from an already-known count), not license to **reverse**
+that arithmetic and assert a count the user never stated and the app never observed — the
+binding rule is "keinen Count erfinden, wenn ausschließlich Gramm bekannt sind" (never invent
+a count when only grams are known), and it applies to explicit grams input regardless of
+whether the division happens to land on a whole number. Real per-item weights vary too much
+(carrots, bananas, bread rolls, ham slices) for a coincidental clean division to prove that a
+specific count was actually eaten.
+
+**Scope / betroffene Dateien:**
+
+- `src/presentation/features/journal/journalEntryDisplay.ts` — `buildSubtitle`: when the raw
+  input's own parsed unit is explicit grams (`parseDisplayQuantity(rawInput).unit === 'g'`),
+  always render grams-only and **never** consult `knownCountPortion` in that branch, even if
+  the ratio is a clean integer. The known-count-portion path remains for the case it was
+  actually introduced for: raw input with **no** explicit grams (bare `"Ei"`, or a stored
+  quantity whose grams were themselves computed _from_ a count via
+  `resolvePortionGrams`'s `PORTION_KNOWLEDGE_HINT`/`KNOWN_DEFAULT_PORTION` branches) — there, a
+  count genuinely was used to compute the persisted grams, so recovering it via division is
+  reconstructing a real count, not inventing one.
+- `src/presentation/features/journal/__tests__/journalEntryDisplay.test.ts` — invert the now-
+  incorrect "known portion wins over explicit grams" test into the corrected "explicit grams
+  wins" assertion; keep the still-correct bare-word/no-count and count-worded cases green.
+- `JournalScreen.tsx`: no change (the display-helper fix alone corrects all three render
+  sites — confirmation panel, daily list, group children — since they all funnel through
+  `buildFoodEntryDisplay`/`buildSubtitle`).
+
+**Risiken:** low — a narrower, more conservative condition than J-010's (fewer cases show a
+derived count, not more), so no new invented-count risk is introduced; the existing "never
+invent when the ratio isn't clean" guard (`deriveKnownCount`'s tolerance check) is unchanged
+and still applies within the narrowed condition. No calculation/macro change — display-only.
+
+**Tests:** `"Ei"` (no unit in raw text, known 60 g/Stück) → `"1 Stück (60 g)"` (unchanged);
+`"Drei Eier"` (count-worded text) → `"3 Stück (180 g)"` (unchanged); `"300g Karotten"`
+(explicit grams, known 60 g/Stück, clean division) → `"300 g"` (**corrected**, was
+`"5 Stück (300 g)"`); `"120g Ei"` (explicit grams) → `"120 g"`; existing slice/no-known-
+portion/unclean-ratio/defensive cases stay green.
+
+**Akzeptanzkriterien (DoD):**
+
+- Explicit gram input always renders as grams-only, regardless of any known count portion.
+- A known count portion adds a count **only** when a count is semantically present (bare
+  count-less input resolved via a known default/hint, or text that itself parsed a count) —
+  never reverse-derived from a user-stated gram figure.
+- `"Ei"` → `"1 Stück (60 g)"`; `"3 Eier"` → `"3 Stück (180 g)"`; `"300g Karotten"` →
+  `"300 g"` (not `"5 Stück"`).
+- The same rule applies identically in the transient confirmation panel, the daily list, and
+  (future) group children — one shared formatting function, already the case since J-010.
+- No change to existing calorie/quantity calculation — display-only.
+- `npm run verify` green.
+- Native/web cross-check of the three named examples.
+
+**Verify:** `npm run verify`; UI-relevant in a headless env → new
+`docs/MANUAL_TESTING_GAPS.md` entry unless genuinely live-verified (VERIFY.md Category 4).
+
+**Implementation notes:** Exactly the planned single-file fix (`journalEntryDisplay.ts`), no
+`JournalScreen.tsx` change needed. `buildSubtitle` now checks
+`parseDisplayQuantity(rawInput).unit === 'g'` **first**: if true, returns the grams-only
+string immediately and never reaches the `knownCountPortion` branch at all, regardless of
+whether `grams / gramsPerUnit` is a clean integer. The known-count-portion branch moved below
+that guard, unchanged otherwise (`deriveKnownCount`'s tolerance check is untouched) — it still
+fires for count-less raw text (bare `"Ei"`) and count-worded text (`"Drei Eier"`, `"2
+Scheiben Schinken"`), which is exactly the case J-010 was originally motivated by and where a
+count is genuinely, not speculatively, present. The one existing J-010 test asserting the
+rejected behavior (`"300g Karotten"` → `"5 Stück (300 g)"`) was removed; a new test block adds
+5 cases covering both corrected explicit-grams examples from the product review (`"300g
+Karotten"` → `"300 g"`, `"120g Ei"` → `"120 g"`) and reconfirming the two still-correct
+count-present examples (`"Ei"` → `"1 Stück (60 g)"`, `"Drei Eier"` → `"3 Stück (180 g)"`)
+continue to pass unchanged. Full suite (116 suites / 896 tests, net +4 vs. J-010's 892 — one
+incorrect test removed, five added), `tsc --noEmit`, `eslint`, and `prettier -c` all pass
+clean; `npm run verify` green.
+**Real (non-simulated) verification of all three named examples:** ran `expo start --web` +
+headless Playwright/Chromium and logged, in sequence, `"Ei"`, `"Drei Eier"`, `"300g
+Karotten"` into the same day. Result, visible simultaneously in "Heutige Einträge"
+(screenshot): `"Ei"` → `"1 STÜCK (60 G)"`, `"Eier"` → `"3 STÜCK (180 G)"`, `"Karotten"` →
+`"300 G"` — the explicit-grams carrot entry no longer shows a derived Stück count. Daily total
+correct (82.2 + 246.6 + 96 ≈ 425 kcal), zero console/page errors. Logged as a `✅ geprüft`
+entry in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-17--j-011-explizite-gramm-angabe-wird-nicht-mehr-rückwärts-in-eine-stückzahl-umgerechnet).
 
 ---
 

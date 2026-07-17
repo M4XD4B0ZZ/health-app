@@ -2653,14 +2653,18 @@ Prinzip 0 in their own future decomposition into tasks.
 
 ### Journal Domain
 
-Status: `done` (J-001–J-011 all done — see each task's own section)
+Status: `in_progress` (J-001–J-011 done; J-012 `todo` — see each task's own section)
 
 J-008–J-011 are the presentation-layer follow-ups accepted from the 2026-07-16 native
 dogfooding session, see
 [`plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](plans/JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md).
 J-011 was a product-review correction of one of J-010's priority decisions (merged before
 J-009 started, so J-009's grouped overview inherits the corrected quantity-display semantics
-from the start).
+from the start). J-012 is a small, deferred UX refinement identified during post-merge native
+dogfooding review of J-009 (group title should prefer a user-friendly name over the raw
+catalog string; a visible expand/collapse chevron) — J-009's grouping logic itself was
+reviewed and accepted as correct, this is presentation polish only, to be prioritized
+alongside further dogfooding findings.
 
 All six decomposed tasks (J-001–J-006 below) are `done`, implementing Journal Decision
 Record 1's four accepted decisions (Entscheidung 1–4) end-to-end: CanonicalFood identity
@@ -3547,6 +3551,69 @@ Karotten"` into the same day. Result, visible simultaneously in "Heutige Einträ
 correct (82.2 + 246.6 + 96 ≈ 425 kcal), zero console/page errors. Logged as a `✅ geprüft`
 entry in
 [`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md#2026-07-17--j-011-explizite-gramm-angabe-wird-nicht-mehr-rückwärts-in-eine-stückzahl-umgerechnet).
+
+---
+
+#### J-012: User-Friendly Canonical Group Title + Expand/Collapse Chevron
+
+Status: `todo`
+Depends on: J-009 (refines its group-header presentation only; grouping logic itself is
+already correct and unchanged by this task)
+
+**Ziel:** Post-merge product review of J-009 (native dogfooding). Grouping data/behavior was
+accepted as correct in full — canonical-identity grouping, aggregation math, expand/collapse,
+per-child edit/delete, J-005 separation all confirmed working as specified. Two presentation
+refinements were identified, both explicitly deferred (not a J-009 rejection/reopen):
+
+1. **Group title is too catalog-technical.** J-009 uses `foodCatalogRef.displayName` directly
+   as the group label, which for the dogfooding case renders the raw BLS catalog string
+   `"Huehnerei ganz roh"` (ASCII `Huehnerei` instead of `Hühnerei`, an unrequested `"ganz roh"`
+   qualifier, and a different register than the child rows' own `"Ei"`/`"Eier"` titles). The
+   **grouping key** should stay the canonical catalog identity (unchanged — decision 6 is not
+   in question here); only the **visible title** should prefer a stable, user-friendly German
+   display name over the raw catalog string when one is available, e.g. `"Eier"` for this case.
+2. **No visible affordance that a group row is expandable.** The collapsed group header
+   currently looks like a plain summary row; nothing hints it is tappable. A small chevron
+   (e.g. `›` collapsed / `⌄` expanded) next to the title would fix this.
+
+**Scope / betroffene Dateien (expected, to confirm at implementation time via code
+inspection):**
+
+- `src/presentation/features/journal/journalEntryDisplay.ts` — where the canonical group's
+  `label` is currently set to `foodCatalogRef.displayName` (see `applyCanonicalGrouping`),
+  prefer a user-friendly name source if one exists in this codebase already (e.g. an existing
+  DE/EN alias dictionary or canonical-food display-name table — check
+  `src/features/nutrition/domain/canonicalFoods.ts` / `FoodAliasDictionary.ts` /
+  `detectCanonicalEntity.ts` for a reusable, already-populated German label per canonical
+  identity before introducing any new lookup or data source); fall back to the existing raw
+  `displayName` only when no friendlier name is available. Do not change the grouping key.
+- `src/presentation/features/journal/JournalScreen.tsx` — add a small chevron glyph/icon next
+  to the canonical group header title, reflecting `isExpanded`; composite-dish group headers
+  are out of scope (no chevron requested/needed there — they have no toggle).
+
+**Risiken:** picking an inconsistent or untranslated fallback name if no existing
+DE display-name source actually covers a given canonical identity (mitigate: fall back to the
+current raw `displayName` behavior, never fail/blank); scope creep into a new
+name-mapping table/data source not already in this codebase (mitigate: reuse existing
+alias/canonical-food data only — if none covers a given case, that is an acceptable, narrow,
+pre-existing gap, not something this task should newly build out).
+
+**Tests:** known canonical identities with an existing friendly-name source render that name,
+not the raw catalog string (e.g. egg case → `"Eier"`, not `"Huehnerei ganz roh"`); identities
+without a friendly-name source still fall back to the raw `displayName` unchanged (no
+regression to J-009's existing tests); chevron reflects collapsed/expanded state (render-level,
+manual/native check per this repo's headless-env limitation, same as J-009's own toggle).
+
+**Akzeptanzkriterien (DoD):**
+
+- Canonical group titles prefer a stable, user-friendly German name over a raw catalog string
+  when one already exists in this codebase's data; grouping key/identity logic is unchanged.
+- A visible chevron indicates collapsed vs. expanded state on canonical group headers only.
+- No regression to J-009's grouping, aggregation, edit/delete, or J-005-separation behavior.
+- `npm run verify` green.
+
+**Verify:** `npm run verify`; UI-relevant in a headless env → new `docs/MANUAL_TESTING_GAPS.md`
+entry unless genuinely live-verified (VERIFY.md Category 4).
 
 ---
 

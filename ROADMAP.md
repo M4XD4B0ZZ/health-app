@@ -4985,10 +4985,28 @@ environment are injected at build time), `android.buildType: apk` (directly inst
 `android.image: latest` (per Expo's GitHub-builds guidance), plus
 `cli.appVersionSource: remote`. No env values/credentials committed; validated with the
 official `@expo/eas-json` parser (profile resolves with `credentialsSource: "remote"`, so the
-Android signing credentials stored from the previous EAS build are reused). Note: `app.json`
-carries no `extra.eas.projectId` — for GitHub-triggered builds the project mapping comes from
-the repo↔project link on expo.dev; if a build ever demands a projectId, that is a separate
-one-line `app.json` addition.
+Android signing credentials stored from the previous EAS build are reused).
+
+**Follow-up 2 (same task, 2026-07-17):** as anticipated, the GitHub build then failed at
+"Resolve build configuration" with `EAS project not configured. Must configure EAS project by
+running 'eas init' before this command can be run in non-interactive mode.` /
+`The "extra.eas.projectId" field is missing from your app config` — confirmed non-blocking to
+diagnose: `git log --all -- app.json` found an existing, unmerged commit
+(`4acb3cb`, branch `claude/apk-file-request-5nbry4`, a parallel prior session that ran `eas init`
+for real, then never opened a PR) that had already linked this exact project — real
+`owner: "m4xxx"` and `extra.eas.projectId: "3e6cd267-1b2c-4bb6-97e9-68fa150952ea"` for the
+`health-dashboard` slug seen throughout this task's expo.dev screenshots. Added both fields to
+`app.json` from that authoritative source instead of asking the maintainer to hunt for the ID a
+second time (the mobile dashboard's Project Settings page didn't surface it for them). That
+same abandoned commit's `eas.json` was deliberately **not** adopted wholesale — it predates and
+lacks the `environment: "preview"` field this task's own `eas.json` added, which is exactly what
+makes the `EXPO_PUBLIC_SUPABASE_*` variables available at build time (the original NATIVE-001
+root cause); reverting to the older shape would silently reintroduce it. Per the
+Git-Branch-Sync-After-Push incident precedent in `AGENTS.md`, the orphaned branch itself was left
+untouched (no open PR exists for it, so no reconciliation conflict; nothing here justifies
+deleting someone else's unmerged work). Verified: `app.json` parses; `npx expo config --json`
+resolves `owner: "m4xxx"`, `extra.eas.projectId: "3e6cd267-1b2c-4bb6-97e9-68fa150952ea"`,
+`slug: "health-dashboard"` — matching the account/project seen in the maintainer's screenshots.
 
 **Remaining DoD (maintainer, on device):**
 

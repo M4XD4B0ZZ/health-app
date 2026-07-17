@@ -51,6 +51,35 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — RESOLVER-V2-009: Erreichbarkeit schlichter generischer BLS-Lebensmittel
+
+- **Status:** ⏳ offen (kein UI-/Presentation-Layer betroffen — reine Resolver-/Infra-Logik;
+  End-to-End deterministisch über den echten Resolver verifiziert, siehe unten. Eine native
+  Vertrauens-Stichprobe der drei Lebensmittel bleibt als optionale Bestätigung sinnvoll.)
+- **Branch/PR:** `claude/resolver-v2-009-plain-generic-reachability`
+- **Betroffene Bereiche:** ausschließlich
+  `src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts` (drei allgemeine
+  Normalisierungs-/Ranking-Regeln: whitespace-insensitiver Exakt-Match, Exakt-Match-Ordnung
+  „schlichtes Grundlebensmittel zuerst", Stage-2-Token-über-Includes-Override). **Kein
+  Presentation-Layer, keine Artefakt-/Nährwert-/Quellenreihenfolge-Änderung.**
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 117
+  Suiten / 937 Tests grün). Neue `BlsPlainGenericReachability.test.ts` prüft **end-to-end über
+  `SequentialFoodCatalogResolver` + `DefaultConfidenceEngine`**: `himbeeren → F302100
+„Himbeere roh" (43 kcal)`, `haferflocken → C133000 „Hafer Flocken" (348 kcal)`, `magerquark →
+M713100 (66 kcal, unverändert)`, `speck → W412000 (746 kcal, unverändert)`. Da die
+  Auswahllogik deterministisch ist, ist dieser Resolver-Durchlauf belastbarer als ein einzelner
+  Browserlauf.
+- **Nicht verifiziert (visuell):** eine native App-Session, in der `100 g Himbeeren`,
+  `100 g Haferflocken` und `100 g Magerquark` real geloggt werden und der angezeigte Name +
+  kcal in „Heutige Einträge" geprüft wird. Da die App zusätzlich OFF/USDA-Edge-Quellen abfragt
+  (netzabhängig, in dieser Sandbox laut J-008-Notiz zeitweise hängend), wurde die volle
+  Web-/Native-Runtime nicht befahren.
+- **Zu testen:** siehe Checkliste unten, Abschnitt 1 (Smoke-Test). Konkret auf dem nächsten
+  Build: `100 g Himbeeren` → ~43 kcal (nicht 275), `100 g Haferflocken` → ~348 kcal (nicht 102),
+  `100 g Magerquark` → ~66 kcal (unverändert); `100 g Speck` bleibt wie bisher.
+
+---
+
 ### 2026-07-17 — J-013: Absolute, idempotente Journal-Mengenbearbeitung
 
 - **Status:** ⏳ offen (Kernlogik deterministisch per Unit-/Integrationstests gegen die exakte

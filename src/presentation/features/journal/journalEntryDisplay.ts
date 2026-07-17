@@ -1,4 +1,5 @@
 import type { FoodEntry } from '../../../features/nutrition';
+import type { PortionHintUnit } from '../../../features/nutrition/domain/portion/PortionHint';
 
 type DisplayUnit = 'g' | 'piece' | 'slice' | 'count';
 
@@ -11,6 +12,16 @@ interface ParsedDisplayQuantity {
 export interface FoodEntryDisplay {
   title: string;
   subtitle?: string;
+}
+
+/**
+ * J-010: a resolved known-count portion (e.g. "1 egg = 60g") for the entry's food identity,
+ * looked up ahead of time by the caller (portion knowledge is an async, identity-keyed
+ * lookup — this module stays pure/sync, per the plan's "thread it in" design).
+ */
+export interface KnownCountPortion {
+  unit: PortionHintUnit;
+  gramsPerUnit: number;
 }
 
 const GERMAN_UNIT_LABELS: Record<
@@ -120,11 +131,43 @@ export function parseDisplayQuantity(rawInput: string): ParsedDisplayQuantity {
   return {};
 }
 
-function buildSubtitle(rawInput: string, grams: number | null | undefined) {
+const KNOWN_COUNT_TOLERANCE = 0.01;
+
+/**
+ * J-010: only ever derives a count when grams divides cleanly by the known portion's
+ * gramsPerUnit (within floating-point tolerance) — never a fractional "Stück", and never
+ * invented when the ratio doesn't land on a whole unit.
+ */
+function deriveKnownCount(grams: number, gramsPerUnit: number): number | null {
+  if (gramsPerUnit <= 0) return null;
+
+  const raw = grams / gramsPerUnit;
+  const rounded = Math.round(raw);
+
+  return rounded > 0 && Math.abs(raw - rounded) <= KNOWN_COUNT_TOLERANCE ? rounded : null;
+}
+
+function buildSubtitle(
+  rawInput: string,
+  grams: number | null | undefined,
+  knownCountPortion?: KnownCountPortion,
+) {
   if (!grams || grams <= 0) return undefined;
 
-  const parsed = parseDisplayQuantity(rawInput);
   const gramsText = `${formatNumber(grams)} g`;
+
+  // J-010 / decision 11: a known count portion for this food takes priority over raw-text
+  // parsing, so the same food renders consistently ("1 Stück (60 g)") no matter how the
+  // input was phrased — including when it was typed as explicit grams. The frozen grams
+  // calculation basis stays visible in parentheses either way.
+  if (knownCountPortion) {
+    const count = deriveKnownCount(grams, knownCountPortion.gramsPerUnit);
+    if (count !== null) {
+      return `${formatNumber(count)} ${formatUnitLabel(knownCountPortion.unit, count)} (${gramsText})`;
+    }
+  }
+
+  const parsed = parseDisplayQuantity(rawInput);
 
   if (parsed.unit === 'g') {
     return gramsText;
@@ -137,13 +180,16 @@ function buildSubtitle(rawInput: string, grams: number | null | undefined) {
   return gramsText;
 }
 
-export function buildFoodEntryDisplay(entry: FoodEntry): FoodEntryDisplay {
+export function buildFoodEntryDisplay(
+  entry: FoodEntry,
+  knownCountPortion?: KnownCountPortion,
+): FoodEntryDisplay {
   const titleSource = entry.parsedName || entry.rawInput;
   const grams = entry.grams ?? entry.quantityGrams;
 
   return {
     title: formatTitle(titleSource),
-    subtitle: buildSubtitle(entry.rawInput, grams),
+    subtitle: buildSubtitle(entry.rawInput, grams, knownCountPortion),
   };
 }
 

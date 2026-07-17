@@ -74,6 +74,115 @@ describe('buildFoodEntryDisplay', () => {
       subtitle: '35 g',
     });
   });
+
+  describe('J-010: known count portion takes priority over raw-text parsing', () => {
+    it('a bare "Ei" (no count word in the raw input) shows "1 Stück (60 g)" when a known count portion exists', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Ei', parsedName: 'ei', quantityGrams: 60, grams: 60 }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Ei',
+        subtitle: '1 Stück (60 g)',
+      });
+    });
+
+    it('"Drei Eier" shows "5 Stück (300 g)" for 300g against a 60g known portion', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Drei Eier', parsedName: 'eier', quantityGrams: 300, grams: 300 }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Eier',
+        subtitle: '5 Stück (300 g)',
+      });
+    });
+
+    it('a known count portion wins even over explicit-grams raw input phrasing (decision 11 consistency)', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({
+            rawInput: '300g karotten',
+            parsedName: 'karotten',
+            quantityGrams: 300,
+            grams: 300,
+          }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Karotten',
+        subtitle: '5 Stück (300 g)',
+      });
+    });
+
+    it('a known slice portion renders with the German slice label', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'toast', parsedName: 'toast', quantityGrams: 70, grams: 70 }),
+          { unit: 'slice', gramsPerUnit: 35 },
+        ),
+      ).toEqual({
+        title: 'Toast',
+        subtitle: '2 Scheiben (70 g)',
+      });
+    });
+
+    it('never invents a count when grams do not divide cleanly by the known gramsPerUnit', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Ei', parsedName: 'ei', quantityGrams: 65, grams: 65 }),
+          { unit: 'piece', gramsPerUnit: 60 },
+        ),
+      ).toEqual({
+        title: 'Ei',
+        subtitle: '65 g',
+      });
+    });
+
+    it('a known count portion for a different unit/gramsPerUnit overrides the text-parsed count and unit', () => {
+      // Raw text says "3 tomaten" (text-parsed: 3 Stück), but the resolved known portion is a
+      // slice-type portion at 35g/Scheibe; 105g / 35g = 3 -> the known portion wins.
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({
+            rawInput: '3 tomaten',
+            parsedName: 'tomaten',
+            quantityGrams: 105,
+            grams: 105,
+          }),
+          { unit: 'slice', gramsPerUnit: 35 },
+        ),
+      ).toEqual({
+        title: 'Tomaten',
+        subtitle: '3 Scheiben (105 g)',
+      });
+    });
+
+    it('without a known count portion, existing text-parsed/grams-only behavior is unchanged', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Ei', parsedName: 'ei', quantityGrams: 60, grams: 60 }),
+        ),
+      ).toEqual({
+        title: 'Ei',
+        subtitle: '60 g',
+      });
+    });
+
+    it('a zero/negative gramsPerUnit known portion is never used (defensive, falls back)', () => {
+      expect(
+        buildFoodEntryDisplay(
+          foodEntry({ rawInput: 'Ei', parsedName: 'ei', quantityGrams: 60, grams: 60 }),
+          { unit: 'piece', gramsPerUnit: 0 },
+        ),
+      ).toEqual({
+        title: 'Ei',
+        subtitle: '60 g',
+      });
+    });
+  });
 });
 
 describe('groupJournalEntries', () => {

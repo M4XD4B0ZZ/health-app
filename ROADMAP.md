@@ -6946,10 +6946,41 @@ test runs are read-only (`npm run test -- --testPathPattern="resolver|Resolver"`
 
 #### RESOLVER-V2-009: Plain-Generic BLS Food Reachability (Himbeeren / Haferflocken)
 
-Status: `todo`
+Status: `done`
 Severity: High
 Depends on: RESOLVER-V2-008 (diagnosis, `done`). Independently scoped; does not touch
 RESOLVER-V2-005/006.
+Origin: RESOLVER-V2-008 diagnosis —
+
+**Implementation notes (done):** the fix is entirely in
+`src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts` — three general
+normalization/ranking rules, no per-food overrides, no artifact/value/source-order change:
+
+1. **Whitespace-insensitive exact match** — the exact stage now also compares space-collapsed
+   forms, so a one-word query (`haferflocken`) exact-matches a multi-word BLS name
+   (`Hafer Flocken`). Fixes Haferflocken → `C133000` (348) as an exact match.
+2. **Exact-match ordering** — when several records match exactly (e.g. `Hafer Flocken` vs. the
+   comma-split `Hafer Flocken, gekocht`), the plain whole-name record without a processed
+   qualifier wins deterministically, so `C133000` (348, raw) beats `C133032` (66, cooked).
+3. **Stage-2 token-over-includes override** — for a single long token, a weak `includes` match
+   (0.7, on a processed/compound record that merely contains the query word) no longer
+   short-circuits before token matching; a stronger ranked token match wins. The ranking is
+   fold-aware recall (light German plural fold) + a head-noun-match bonus − a
+   processed-qualifier penalty, ties broken by fewer content tokens. This surfaces
+   `F302100` „Himbeere roh" (43) over the dessert `D3A4000` (275). **Scoped to the
+   single-long-token branch only, so Stage 4 — e.g. „Speck" — is byte-for-byte unchanged.**
+
+**Verification (done):** `npm run verify` green (117 suites / 937 tests, +11). New
+`BlsPlainGenericReachability.test.ts` asserts, both at the BLS-candidate level and **end-to-end
+through `SequentialFoodCatalogResolver` + `DefaultConfidenceEngine`**: `himbeeren →
+F302100 (43)` and `haferflocken → C133000 (348)`; singular `himbeere` unchanged; spaced
+`hafer flocken` also resolves; the dessert `D3A4000` is no longer top; deterministic, no
+duplicate candidates; **Magerquark unchanged** (`M713100`, 66, exactly one match); **Speck
+unchanged** (same candidate list `[U605700, W412000, W411000]` and same end-to-end selection
+`W412000`, 746); the `quarktoast → []` compound guard preserved. Full resolver regression suite
+(22 suites / 177 tests) green. Change is infra-only (no presentation/UI file) — see
+`docs/MANUAL_TESTING_GAPS.md` for the recommended native trust spot-check of the three foods.
+
 Origin: RESOLVER-V2-008 diagnosis —
 [`reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md`](../reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md)
 §3.1/§4.1.

@@ -18,12 +18,12 @@ to the same canonical food:
 
 Persisted result (calculation **correct**):
 
-| rawInput   | kcal  |
-| ---------- | ----- |
-| Ei         | 82,2  |
-| Ei         | 82,2  |
-| Drei Eier  | 246,6 |
-| **Daily**  | **411** |
+| rawInput  | kcal    |
+| --------- | ------- |
+| Ei        | 82,2    |
+| Ei        | 82,2    |
+| Drei Eier | 246,6   |
+| **Daily** | **411** |
 
 The **UI** was confusing, for two independent reasons:
 
@@ -81,17 +81,17 @@ grouped overview are implemented separately.
 
 ### 2.1 Files that exist today
 
-| Concern | File | Notes |
-| --- | --- | --- |
-| Screen | `src/presentation/features/journal/JournalScreen.tsx` (643 lines) | Owns all journal UI + submit orchestration. |
-| Submit feedback (pure) | `src/presentation/features/journal/journalSubmitFeedback.ts` | `deriveSubmitOutcome()` — J-007 truthfulness rules. |
-| Entry display + grouping (pure) | `src/presentation/features/journal/journalEntryDisplay.ts` | `buildFoodEntryDisplay()`, `groupJournalEntries()`. |
-| Submit guard | `src/presentation/features/journal/claimJournalSubmitSlot.ts` | Re-entrancy guard. |
-| Tests | `src/presentation/features/journal/__tests__/journalEntryDisplay.test.ts`, `journalSubmitFeedback.test.ts`, `JournalScreen.submitGuard.test.ts` | Pure-function coverage; no rendering harness in these. |
-| Logging entrypoint | `src/features/input/application/logResolvedNutritionInput.ts` | Returns `{ dispatch, persistedEntries, blockedEntries, needsEditItems, resolvedResults }`. |
-| Food entry model | `src/features/nutrition/domain/models/NutritionTypes.ts` | `FoodEntry`, incl. `foodCatalogRef`, `groupId`/`groupLabel`, `deletedAt`, `autoMergeInfo`. |
-| Daily totals | `GetDailySummaryUseCase` (via `container.getDailySummaryUseCase`) | Sums **all** non-tombstoned entries — independent of grouping. |
-| Portion knowledge | `src/features/nutrition/domain/portion/` (`PortionKnowledgeService`, `resolvePortionGrams`, `foodIdentity`, `PortionNeedsEdit`) | Source of „known count portion" info for decision 11. |
+| Concern                         | File                                                                                                                                            | Notes                                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Screen                          | `src/presentation/features/journal/JournalScreen.tsx` (643 lines)                                                                               | Owns all journal UI + submit orchestration.                                                |
+| Submit feedback (pure)          | `src/presentation/features/journal/journalSubmitFeedback.ts`                                                                                    | `deriveSubmitOutcome()` — J-007 truthfulness rules.                                        |
+| Entry display + grouping (pure) | `src/presentation/features/journal/journalEntryDisplay.ts`                                                                                      | `buildFoodEntryDisplay()`, `groupJournalEntries()`.                                        |
+| Submit guard                    | `src/presentation/features/journal/claimJournalSubmitSlot.ts`                                                                                   | Re-entrancy guard.                                                                         |
+| Tests                           | `src/presentation/features/journal/__tests__/journalEntryDisplay.test.ts`, `journalSubmitFeedback.test.ts`, `JournalScreen.submitGuard.test.ts` | Pure-function coverage; no rendering harness in these.                                     |
+| Logging entrypoint              | `src/features/input/application/logResolvedNutritionInput.ts`                                                                                   | Returns `{ dispatch, persistedEntries, blockedEntries, needsEditItems, resolvedResults }`. |
+| Food entry model                | `src/features/nutrition/domain/models/NutritionTypes.ts`                                                                                        | `FoodEntry`, incl. `foodCatalogRef`, `groupId`/`groupLabel`, `deletedAt`, `autoMergeInfo`. |
+| Daily totals                    | `GetDailySummaryUseCase` (via `container.getDailySummaryUseCase`)                                                                               | Sums **all** non-tombstoned entries — independent of grouping.                             |
+| Portion knowledge               | `src/features/nutrition/domain/portion/` (`PortionKnowledgeService`, `resolvePortionGrams`, `foodIdentity`, `PortionNeedsEdit`)                 | Source of „known count portion" info for decision 11.                                      |
 
 ### 2.2 „Erkannte Einträge" today (the panel to replace — decisions 3/4)
 
@@ -207,7 +207,7 @@ count where known, kcal). Output:
 
 **Visibility/timer controller** — a small `useLastSubmitConfirmation` hook (or an inlined
 `useEffect` + `useRef` timer in `JournalScreen`) owning the state machine in Section 5. Kept
-minimal; the *derivation* is unit-tested via the pure helper, the *timing* via fake timers.
+minimal; the _derivation_ is unit-tested via the pure helper, the _timing_ via fake timers.
 
 **Wiring in `JournalScreen`:**
 
@@ -324,17 +324,17 @@ resolvers/ranking, Saved Meals, J-005 auto-merge, `logResolvedNutritionInput`, o
 
 States: `hidden`, `visible`, `visible-held` (timer paused during interaction).
 
-| From | Event | To | Effect |
-| --- | --- | --- | --- |
-| `hidden` | submit succeeds, `persistedCount > 0` | `visible` | set content from `buildLastSubmitConfirmation`; start ~8 s timer |
-| `hidden` | submit fails, `persistedCount == 0` | `hidden` | no confirmation (J-007 error framing handles it) |
-| `visible` | 8 s timer elapses | `hidden` | clear content |
-| `visible` | **new** submit succeeds | `visible` | replace content; **reset** timer (decision 4: „replaced by the next submission") |
-| `visible` | user starts interacting (press/focus on panel or its correction affordance) | `visible-held` | **cancel** timer (decision 4: must not auto-dismiss while interacting) |
-| `visible-held` | interaction ends | `visible` | restart timer |
-| `visible`/`visible-held` | tab loses focus (`useFocusEffect` cleanup / blur) | `hidden` | clear content + timer (decision 4: „disappears when navigating away") |
-| `visible`/`visible-held` | user taps „open for correction" | `hidden` (or held) | open edit modal / chooser for the saved entry/entries; dismiss panel |
-| `visible`/`visible-held` | component unmounts | `hidden` | clear timer (no leak) |
+| From                     | Event                                                                       | To                 | Effect                                                                           |
+| ------------------------ | --------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------- |
+| `hidden`                 | submit succeeds, `persistedCount > 0`                                       | `visible`          | set content from `buildLastSubmitConfirmation`; start ~8 s timer                 |
+| `hidden`                 | submit fails, `persistedCount == 0`                                         | `hidden`           | no confirmation (J-007 error framing handles it)                                 |
+| `visible`                | 8 s timer elapses                                                           | `hidden`           | clear content                                                                    |
+| `visible`                | **new** submit succeeds                                                     | `visible`          | replace content; **reset** timer (decision 4: „replaced by the next submission") |
+| `visible`                | user starts interacting (press/focus on panel or its correction affordance) | `visible-held`     | **cancel** timer (decision 4: must not auto-dismiss while interacting)           |
+| `visible-held`           | interaction ends                                                            | `visible`          | restart timer                                                                    |
+| `visible`/`visible-held` | tab loses focus (`useFocusEffect` cleanup / blur)                           | `hidden`           | clear content + timer (decision 4: „disappears when navigating away")            |
+| `visible`/`visible-held` | user taps „open for correction"                                             | `hidden` (or held) | open edit modal / chooser for the saved entry/entries; dismiss panel             |
+| `visible`/`visible-held` | component unmounts                                                          | `hidden`           | clear timer (no leak)                                                            |
 
 Timer constant: `LAST_SUBMIT_CONFIRMATION_MS = 8000` (named, single source). Only one timer
 alive at a time; every transition into `hidden`/replacement clears the prior timer.
@@ -343,14 +343,14 @@ alive at a time; every transition into `hidden`/replacement clears the prior tim
 
 ## 6. Grouping-key rules & fallbacks (J-009)
 
-| Case | Has `groupId`? | Has `foodCatalogRef`? | Behavior |
-| --- | --- | --- | --- |
-| Composite-dish member | yes | any | Grouped by `groupId` (existing P1-003C) — **not** touched by canonical pass |
-| Catalog-matched, ≥2 sharing identity | no | yes | Grouped into one canonical group; key = `source:sourceId`; label = `displayName` |
-| Catalog-matched, only 1 of its identity | no | yes | Stays a leaf (no single-item group) |
-| AI-fallback / unmatched manual entry | no | **no** | Stays a leaf — **never** name-grouped (decision 6) |
-| Two different foods with similar names | no | different `sourceId` | **Not** grouped (different keys) |
-| Same food, singular vs plural („Ei"/„Eier") | no | same `source:sourceId` | Grouped (identity matches — this is the target case) |
+| Case                                        | Has `groupId`? | Has `foodCatalogRef`?  | Behavior                                                                         |
+| ------------------------------------------- | -------------- | ---------------------- | -------------------------------------------------------------------------------- |
+| Composite-dish member                       | yes            | any                    | Grouped by `groupId` (existing P1-003C) — **not** touched by canonical pass      |
+| Catalog-matched, ≥2 sharing identity        | no             | yes                    | Grouped into one canonical group; key = `source:sourceId`; label = `displayName` |
+| Catalog-matched, only 1 of its identity     | no             | yes                    | Stays a leaf (no single-item group)                                              |
+| AI-fallback / unmatched manual entry        | no             | **no**                 | Stays a leaf — **never** name-grouped (decision 6)                               |
+| Two different foods with similar names      | no             | different `sourceId`   | **Not** grouped (different keys)                                                 |
+| Same food, singular vs plural („Ei"/„Eier") | no             | same `source:sourceId` | Grouped (identity matches — this is the target case)                             |
 
 Fallback rationale: grouping only on `foodCatalogRef` identity guarantees decision 6's „same
 canonical food groups, different foods don't". The cost is that AI-fallback/manual entries
@@ -460,16 +460,16 @@ not something an Act task may introduce silently.
 
 ## 9. Risks & mitigations
 
-| # | Risk | Mitigation |
-| --- | --- | --- |
-| R1 | **Accidental data merging** — canonical *display* grouping mistaken for a *persistence* merge, or confused with J-005 auto-merge (decision 8). | `groupJournalEntries` stays a pure, side-effect-free transform; explicit purity test (7.2) asserts no mutation and no persistence call; plan and code comments state „presentation-only". J-005 path is not touched. |
-| R2 | **Edit/delete ambiguity in a group** — a group-level delete would ambiguously drop all children (decisions 9/10). | Group header carries **no** edit/delete action; only expanded children do, reusing the existing per-child handlers keyed by entry id. Test asserts the header exposes no delete. |
-| R3 | **False grouping** of different foods by similar names (decision 6). | Grouping key is `foodCatalogRef` identity only; no name fallback; entries without a catalog match stay leaves. Test with two different `sourceId`s asserts no grouping. |
-| R4 | **Totals divergence** — grouped total ≠ sum of children, or daily total shifts (decision 12). | Group total is computed as the child sum; daily total is computed independently by `GetDailySummaryUseCase` and untouched. Tests assert `groupTotal === Σ children` and that daily total is grouping-independent. |
-| R5 | **Transient timer leaks / races** — overlapping submits, stale timers after unmount/blur. | Single named timer; every transition into `hidden`/replacement clears the prior timer; cleanup on blur (`useFocusEffect`) and unmount. Fake-timer tests cover replace/hold/blur. |
-| R6 | **Removing `recognizedItems` breaks another reader.** | Confirm by search that the „Erkannte Einträge" section is its only consumer before deletion; remove dead state in the same task. |
-| R7 | **Inventing a count** when only grams are known (decision 11). | J-010 shows count **only** when a known count portion exists and grams/gramsPerUnit is a clean integer; otherwise grams-only. Explicit negative test. |
-| R8 | **Scope creep** into a Journal redesign, new tab, or J-005 changes (out of scope). | Each Act task's file list (Section 4) is the boundary; group interaction reuses existing primitives; no navigation change. |
+| #   | Risk                                                                                                                                           | Mitigation                                                                                                                                                                                                           |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | **Accidental data merging** — canonical _display_ grouping mistaken for a _persistence_ merge, or confused with J-005 auto-merge (decision 8). | `groupJournalEntries` stays a pure, side-effect-free transform; explicit purity test (7.2) asserts no mutation and no persistence call; plan and code comments state „presentation-only". J-005 path is not touched. |
+| R2  | **Edit/delete ambiguity in a group** — a group-level delete would ambiguously drop all children (decisions 9/10).                              | Group header carries **no** edit/delete action; only expanded children do, reusing the existing per-child handlers keyed by entry id. Test asserts the header exposes no delete.                                     |
+| R3  | **False grouping** of different foods by similar names (decision 6).                                                                           | Grouping key is `foodCatalogRef` identity only; no name fallback; entries without a catalog match stay leaves. Test with two different `sourceId`s asserts no grouping.                                              |
+| R4  | **Totals divergence** — grouped total ≠ sum of children, or daily total shifts (decision 12).                                                  | Group total is computed as the child sum; daily total is computed independently by `GetDailySummaryUseCase` and untouched. Tests assert `groupTotal === Σ children` and that daily total is grouping-independent.    |
+| R5  | **Transient timer leaks / races** — overlapping submits, stale timers after unmount/blur.                                                      | Single named timer; every transition into `hidden`/replacement clears the prior timer; cleanup on blur (`useFocusEffect`) and unmount. Fake-timer tests cover replace/hold/blur.                                     |
+| R6  | **Removing `recognizedItems` breaks another reader.**                                                                                          | Confirm by search that the „Erkannte Einträge" section is its only consumer before deletion; remove dead state in the same task.                                                                                     |
+| R7  | **Inventing a count** when only grams are known (decision 11).                                                                                 | J-010 shows count **only** when a known count portion exists and grams/gramsPerUnit is a clean integer; otherwise grams-only. Explicit negative test.                                                                |
+| R8  | **Scope creep** into a Journal redesign, new tab, or J-005 changes (out of scope).                                                             | Each Act task's file list (Section 4) is the boundary; group interaction reuses existing primitives; no navigation change.                                                                                           |
 
 ---
 

@@ -4804,12 +4804,32 @@ correctness. Full suite green after this change (see this branch's `npm run veri
 
 #### GE-010: Nutrient-Specific Mixed-State Daily Assessment
 
-Status: `todo`
+Status: `todo` (planning complete — Act pending)
 Severity: High
 Depends on: the evaluation engine (GE-001–GE-005). Recommended: **plan the output model
 first** (the brief flags mixed-state rules as needing review before coding).
 Origin: native dogfooding 2026-07-17,
 [report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 4.
+
+**Planning complete (2026-07-17):**
+[`plans/GE-010_NUTRIENT_SPECIFIC_ASSESSMENT_PLAN.md`](../plans/GE-010_NUTRIENT_SPECIFIC_ASSESSMENT_PLAN.md).
+Proven root cause: `dailyProgressToEvaluationOutput.ts` collapses four per-dimension corridor
+statuses with `goalProgress.some((g) => g.status === 'over') ? 'over' : 'on-track'`, so one
+over-corridor macro (fat) classifies the whole day as „Über dem Ziel" while calories/protein/
+carbs are under — and, in the opposite direction, an all-under/empty day wrongly reads as
+„Im Zielkorridor". Recommended target model (smallest safe): an additive, domain-computed
+`AssessmentDetail` (`orientation: in-corridor|below|over|mixed|no-data` + a `deviations` list of
+out-of-corridor dimensions + a `primary` dimension), derived deterministically from the existing
+`goalProgress` (no new thresholds — only the current ±5 % corridor); presentation formats it into
+a nutrient-specific summary (e.g. „Fettziel überschritten" + „Kalorien liegen noch unter deinem
+Tagesziel."). Magnitude words („leicht/deutlich") are deferred (would need a new, approval-pending
+threshold). No target/formula/schema change; the assessment-value tests that lock the current
+collapse are intentional updates for the Act task (see plan §8). This task stays **not done** —
+the plan does not complete the functional GE-010; no separate Act task ID was created (plan and
+fix are one coherent evaluation change, unlike RESOLVER-V2-008→009). Act sequence + wording
+matrix + native retest steps are in the plan.
+
+Remaining implementation notes below describe the Act task; the plan supersedes/details them.
 
 **Ziel:** The daily assessment names the actually-exceeded dimension instead of a blanket
 „Über dem Ziel" when only one nutrient is over. Example evidence: calories 1363/2449, protein

@@ -5023,7 +5023,28 @@ resolves `owner: "m4xxx"`, `extra.eas.projectId: "3e6cd267-1b2c-4bb6-97e9-68fa15
    `FATAL EXCEPTION|AndroidRuntime|Missing EXPO_PUBLIC` — the diagnosis report contains the
    exact commands.
 
-**Verify:** `npm run verify` (done, green); real-device cold start per DoD above (pending).
+**Follow-up 3 (same task, 2026-07-17):** the first GitHub build reached the "Run expo doctor"
+step (an advisory, non-fatal step — yellow warning, not the red failures of earlier follow-ups)
+and flagged one patch-version mismatch: `expo` installed at `54.0.35`, SDK 54 expects `~54.0.36`.
+Non-blocking (the build continued), but worth fixing since it's exactly the kind of drift
+`expo-doctor` exists to catch before it becomes a real incompatibility. Fixed with
+`npm install expo@~54.0.36` (`--ignore-scripts` locally, same `supabase` package postinstall
+block documented in `WEB-001`); diff is purely `expo` + its own transitive dependency tree, all
+patch-level — nothing unrelated touched. `npx expo-doctor`: 18/18 checks now pass (was 17/18).
+`npm run verify` green.
+
+**Also confirmed working (maintainer, on device, 2026-07-17):** the GitHub-triggered build
+succeeded and the app **booted** — no native crash. It landed on this task's own
+"Konfigurationsfehler" screen instead, naming `EXPO_PUBLIC_SUPABASE_ANON_KEY` as missing (the
+maintainer's EAS environment variable was still named `SUPABASE_PUBLISHABLE...`, not the exact
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` the app reads). This is the strongest possible confirmation of
+this task's core fix: a build with genuinely incomplete configuration now fails **visibly and
+diagnosably** instead of crashing before the first frame.
+
+**Verify:** `npm run verify` (done, green); real-device cold start per DoD above — **first EAS
+build confirmed the crash is gone** (config screen renders correctly instead); the actual
+"reaches Protokoll tab" cold start is pending the maintainer's next build with a correctly named
+`EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 
 ---
 

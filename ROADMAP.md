@@ -3673,12 +3673,45 @@ entry unless genuinely live-verified (VERIFY.md Category 4).
 
 #### J-013: Absolute, Idempotent Journal Quantity Editing
 
-Status: `todo`
+Status: `done`
 Severity: **BLOCKER**
 Depends on: none (blocks resumption of native dogfooding)
 Origin: native Android dogfooding 2026-07-17 —
 [`reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md`](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md)
 Finding 1.
+
+**Implementation notes (proven root cause + fix):** the cumulative bug was in
+`EditFoodEntryFromNaturalLanguageUseCase` + `PortionParser`, not the UI. A bare `"2"` matched
+`PortionParser`'s `exactToken` branch and returned a **multiplier**, which the use case applied
+to `nextEntry.grams` (the already-edited value) → 60→120→360→720. Fix (5 product files):
+
+- `PortionParser.ts` / `PortionParseResult.ts` — added an **absolute count** intent (`count` +
+  `countUnit` for `"2 Stück"`, `"3 Scheiben"`, `"zwei stück"`, `stk`), and changed a **bare
+  number/number-word** to `ambiguous` with note `BARE_NUMBER_NEEDS_UNIT` (no more silent
+  multiplier guess). Explicit `"2x"` and the keyword multipliers (`doppelt`/`halb`) are
+  unchanged (they are deliberately relative).
+- `EditFoodEntryFromNaturalLanguageUseCase.ts` — resolves a count intent to an **absolute**
+  grams target via `resolvePortionGrams` (portion knowledge / canonical default portion, e.g.
+  egg 60 g/piece), recalculates macros from that absolute quantity, and writes a count-phrased
+  `rawInput` (`"2 Stück ei"`, no grams) so the display shows `2 Stück (120 g)`. A bare number
+  and a count for a food with no known piece weight are **rejected without mutation** (no
+  quantity change, no correction-log entry, no repository write). Canonical identity, frozen
+  `calcBreakdown.per100g`, correction log, entry id/order and J-005 are preserved.
+- `container.ts` — injects `portionKnowledgeService` into the edit use case.
+- `JournalScreen.tsx` — modal now shows the current quantity, uses the label
+  „Was möchtest du ändern?" (replacing „Bearbeitungsanweisung"), shows examples
+  („2 Stück", „150 g", „Magerquark statt Quark"), and shows a clarification (keeping the modal
+  open, no reload) when the instruction is rejected.
+
+**Verification:** `npm run verify` green (116 suites / 926 tests, typecheck + lint + format).
+New tests reproduce the exact native sequence `1 → 2 Stück → 3 Stück → 2 Stück` staying
+absolute (120→180→120, never 720), repeated-identical idempotency, explicit `120 g` gram-only,
+bare `2` rejected without mutation/correction-log, and a count for an unknown-portion food
+rejected without mutation. `PortionParser` count/bare-number cases added. Regression suites
+(logging, `journalEntryDisplay` J-009/J-010/J-011, `resolvePortionGrams`) stay green. Live web
+verification not run this session (headless env; the initial-egg log path depends on the
+OFF/USDA resolver network, flaky per prior J-008 notes) → `docs/MANUAL_TESTING_GAPS.md` entry
+added for native retest.
 
 **Ziel:** A journal edit sets an **absolute target quantity**, never a multiplier of the
 already-edited value. Repeating the same instruction is idempotent. Count edits are

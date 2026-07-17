@@ -133,6 +133,16 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
   „5 Stück (300 g) · 411 kcal" bestätigen, aufklappen und mit VoiceOver/TalkBack die
   Auf-/Zugeklappt-Ansage prüfen; Touch-Ziel-Größe des Gruppen-Headers auf einem echten Gerät
   bestätigen.
+- **Native-Dogfooding-Evidenz 2026-07-17 (nicht als ✅ gesetzt — Agent-Konvention):** In der
+  nativen Android-Dogfooding-Session wurde das Kernverhalten dieses Eintrags real auf dem Gerät
+  bestätigt: Gruppenaufklappen, Löschen einzelner Kinder innerhalb der Gruppe, Neuberechnung
+  der Gruppensumme und Auflösung auf einen verbleibenden Eintrag, sowie Persistenz über einen
+  App-Neustart funktionierten wie spezifiziert (siehe
+  [`reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md`](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md),
+  Abschnitt 1). **Weiterhin offen:** native Touch-Ziel-Größe des Gruppen-Headers und die
+  Screenreader-Ansage (VoiceOver/TalkBack) des Auf-/Zugeklappt-Zustands wurden in dieser Session
+  nicht gezielt geprüft. Der `foodCatalogRef`-Gruppentitel („Huehnerei ganz roh") und die
+  fehlende Chevron-Affordanz bleiben als **J-012** getrennt getrackt (kein J-009-Reopen).
 
 ---
 
@@ -295,6 +305,14 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 - **Zu testen:** Kaltstart des neuen Builds (Abschnitt 1 der Checkliste). Optional: ein
   bewusst fehlkonfigurierter Build muss den Konfigurationsfehler-Screen zeigen statt zu
   crashen.
+- **Native-Dogfooding-Evidenz 2026-07-17 (nicht als ✅ gesetzt — Agent-Konvention):** Der
+  native Standalone-Build startete in der Dogfooding-Session vom 2026-07-17 korrekt kalt
+  (Vier-Tab-Navigation erreichbar, kein Boot-Crash) — das ist der eigentliche, nur nativ
+  prüfbare DoD-Kern dieses Fixes (siehe
+  [`reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md`](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md),
+  Abschnitt 1, „Confirmed working"). Der absichtlich fehlkonfigurierte Build (Konfigurations-
+  fehler-Screen statt Crash) wurde in dieser Session nicht separat geprüft; die `✅`-Setzung
+  bleibt dem menschlichen Review überlassen.
 
 ### 2026-07-15 — DI-008: Expliziter Loading-State im EvaluationSummaryScreen
 

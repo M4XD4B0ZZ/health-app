@@ -2623,6 +2623,60 @@ learning/growth mechanism as originally scoped.
 
 ---
 
+### P1-006: Scrambled-Egg („Rührei") Phrasing & Egg-Count Support
+
+Status: `todo`
+Severity: Medium
+Depends on: existing composite-dish / „mit"-splitting handling (P1-003B/C, P1-005).
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 5.
+
+**Ziel:** Common scrambled-egg phrasings resolve to the right number of eggs. All of
+`Rührei aus 2 Eiern`, `Rührei aus zwei Eiern`, `Rührei von zwei Eiern`, `2 Rühreier` must be
+understood as two eggs with correct piece/gram quantities, without inventing butter/oil/milk.
+
+**Current evidence (code-verified — the gap is phrasing, not a missing food):**
+
+- A Rührei alias already exists:
+  `src/features/nutrition/infrastructure/catalog/sources/bls/BlsCompactRuntimeAdapter.ts:14`
+  maps `Y720143: ['ruehrei', 'rührei', 'ruehei']`, and `detectInputType.ts` lists
+  `'ruehrei'`/`'rührei'`.
+- The four phrasings still fail natively, so the „aus/von N Eiern" and „N Rühreier" **count
+  extraction / phrasing normalization** is what breaks — not the catalog entry.
+
+**Exact scope / affected files (confirm the precise entry point at implementation time):**
+
+- Input parsing/normalization: `src/features/nutrition/application/utils/detectInputType.ts`,
+  `splitMultiItemInput.ts`, and the number-word / quantity extraction used for eggs (locate
+  the exact function that maps „aus 2 Eiern" / „zwei" / „2 Rühreier" → count = 2).
+- Composite-dish label handling
+  (`src/features/nutrition/domain/catalog/CompositeDishPatterns.ts` and the P1-003C label
+  path) — keep the preparation form („Rührei") as a user-friendly title where architecture
+  permits.
+- `Rührei aus 2 Eiern mit 10 g Butter` must still split into eggs + butter via the existing
+  „mit" handling.
+
+**Risks:** regressing existing „mit" splitting / composite-dish rules; inventing fats
+(butter/oil/milk) not mentioned; double-counting eggs (both the „Rührei" head and „Eiern").
+
+**Tests:** parser + resolution + end-to-end (real container path) for all four phrasings →
+two eggs, correct piece/gram quantity, no invented fats; `Rührei aus 2 Eiern mit 10 g Butter`
+→ eggs + butter separately; no regression to `Toast mit Butter` or existing composite-dish
+tests.
+
+**Akzeptanzkriterien (DoD):** all four phrasings processed; two eggs stay two eggs with
+correct piece + gram amounts; no invented butter/oil/milk; preparation form preserved as a
+friendly title where architecture permits; „… mit 10 g Butter" accounts for both; no „mit"/
+composite regression; `npm run verify` green.
+
+**Out of scope:** resolver trust/ranking changes (RESOLVER-V2-008), new alias data beyond the
+egg-count phrasing, evaluation/journal changes.
+
+**Verify:** `npm run verify` (Category 4); UI-relevant only if presentation touched → gap-log
+entry unless live-verified.
+
+---
+
 ## Nutrition Evaluation Foundation → Domain Phases
 
 Supersedes the former "Tier 1 Planning Targets" flat module list (Journal, Saved Meals,
@@ -3617,6 +3671,143 @@ entry unless genuinely live-verified (VERIFY.md Category 4).
 
 ---
 
+#### J-013: Absolute, Idempotent Journal Quantity Editing
+
+Status: `todo`
+Severity: **BLOCKER**
+Depends on: none (blocks resumption of native dogfooding)
+Origin: native Android dogfooding 2026-07-17 —
+[`reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md`](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md)
+Finding 1.
+
+**Ziel:** A journal edit sets an **absolute target quantity**, never a multiplier of the
+already-edited value. Repeating the same instruction is idempotent. Count edits are
+first-class (`2 Stück` = exactly 2 Stück / 120 g), and a bare number is never guessed.
+
+**Current evidence (code-verified):**
+
+- The edit modal calls `container.editFoodEntryFromNaturalLanguageUseCase`
+  ([`JournalScreen.tsx:446`](../src/presentation/features/journal/JournalScreen.tsx)) →
+  [`EditFoodEntryFromNaturalLanguageUseCase`](../src/features/nutrition/application/usecases/EditFoodEntryFromNaturalLanguageUseCase.ts).
+- A bare `"2"` is parsed by
+  [`PortionParser`](../src/features/nutrition/domain/portion/PortionParser.ts) `exactToken`
+  branch (`:86-92`) → `parseNumberToken` → `multiplierResult` → `{ multiplier: 2 }`. The use
+  case's multiplier branch (`EditFoodEntryFromNaturalLanguageUseCase.ts:61-70`) multiplies
+  `baseGrams = nextEntry.grams ?? nextEntry.quantityGrams` (the current value):
+  60 → ×2 = 120 → ×3 = 360 → ×2 = 720 (exact native reproduction).
+- `"2 Stück"` is two tokens, matches no `PortionParser` branch → `NO_PORTION_SIGNAL`; the
+  edit path has **no count/piece model** at all (pieces exist only in the display layer via
+  J-010/J-011 + portion knowledge).
+- The modal `TextInput` placeholder is literally `"Bearbeitungsanweisung"`
+  (`JournalScreen.tsx:676`).
+
+**Exact scope / affected files (confirm at implementation time):**
+
+- `src/features/nutrition/domain/portion/PortionParser.ts` and/or a new small helper —
+  distinguish **absolute** intents (`"150 g"`, `"2 Stück"`) from the existing relative
+  keyword multipliers, and stop mapping a bare number to a multiplier. A bare `"2"` must be
+  rejected/clarified, not guessed.
+- `src/features/nutrition/application/usecases/EditFoodEntryFromNaturalLanguageUseCase.ts` —
+  set an absolute target quantity (grams, or count → grams via the existing portion
+  knowledge / `resolvePortionGrams`); recalculate calories/macros from the absolute new
+  quantity; preserve canonical identity + frozen nutrition provenance
+  (`nutritionSnapshot`/`foodCatalogRef`); preserve `appendCorrectionLogEntry` behavior.
+- `src/features/nutrition/domain/portion/` (`PortionKnowledgeService`/`resolvePortionGrams`)
+  — read-only reuse to turn a count edit into grams and keep the count for display.
+- `src/presentation/features/journal/JournalScreen.tsx` — modal shows the current quantity,
+  concrete examples (`2 Stück`, `150 g`, `Magerquark statt Quark`), a clarification message
+  when the input lacks an explicit unit, and replaces the „Bearbeitungsanweisung" wording.
+  Count-based edits remain displayed as count + grams.
+
+**Risks:**
+
+- Silent behavior change to relative keyword edits („doppelte Portion") — keep those working,
+  scope the change to absolute-number/count intents only.
+- Turning a count into grams incorrectly when no known portion exists — reuse the exact
+  existing portion-knowledge path; if no piece portion is known, require grams (do not invent
+  a piece size).
+- Regression to J-005 auto-merge, J-008 confirmation, J-009 grouping, J-010/J-011 display —
+  all must stay unaffected.
+
+**Tests (required regression coverage):**
+
+- Exact reproduction: `1 Ei` → `2 Stück` (2/120 g) → `3 Stück` (3/180 g) → `2 Stück`
+  (2/120 g).
+- Repeated identical instruction is idempotent (`2 Stück` twice → unchanged).
+- Explicit grams (`120 g` stays gram-only).
+- Ambiguous bare number (`2`) is rejected/clarified **without mutating** the entry.
+- Grouped-child edit; calories/macros + daily totals recomputed from the absolute state.
+- Correction log records the correct previous values.
+- J-005, J-008, J-009, J-010, J-011 unaffected.
+
+**Akzeptanzkriterien (DoD):**
+
+- Edits set an absolute target; never multiply the already-edited value; identical
+  instructions are idempotent.
+- `2 Stück`→2/120 g, then `3 Stück`→3/180 g, then `2 Stück`→2/120 g.
+- `120 g` stays gram-only; count edits display as `2 Stück (120 g)`.
+- A bare number is not guessed; the UI requires an explicit unit or shows an understandable
+  clarification.
+- Correction log, grouping and daily assessment stay correct; canonical identity + frozen
+  provenance preserved.
+- Modal shows current value + concrete examples; „Bearbeitungsanweisung" replaced.
+- `npm run verify` green.
+
+**Out of scope:** resolver/ranking, evaluation, Saved Meals, whole-Journal redesign,
+migrations, dependency changes.
+
+**Verify:** `npm run verify` (Category 4); UI-relevant in a headless env → new
+`docs/MANUAL_TESTING_GAPS.md` entry unless genuinely live-verified.
+
+---
+
+#### J-014: Compact Last-Submit Confirmation (refines J-008)
+
+Status: `todo`
+Severity: Medium
+Depends on: J-008 (`done`) — refines its transient panel; does **not** reopen J-008.
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 7.
+
+**Ziel:** Replace the stacked confirmation (count header + summary sentence + full duplicated
+entry row) with a single compact banner, e.g. „**Haferflocken gespeichert · 102 kcal**
+**Bearbeiten**".
+
+**Current evidence:** the J-008 transient panel
+([`journalLastSubmitConfirmation.ts`](../src/presentation/features/journal/journalLastSubmitConfirmation.ts)
+
+- the panel section in
+  [`JournalScreen.tsx`](../src/presentation/features/journal/JournalScreen.tsx)) currently
+  renders a count header, a summary sentence, and a full entry row simultaneously (native
+  screenshot). J-008's controller/timer guarantees are already `done` and unit-tested.
+
+**Exact scope / affected files:**
+
+- `src/presentation/features/journal/JournalScreen.tsx` — collapse the panel to one compact
+  banner (latest submission only) with a „Bearbeiten" action; remove the duplicated full
+  entry row.
+- `src/presentation/features/journal/journalLastSubmitConfirmation.ts` — adjust the derived
+  message shape if needed; keep the existing timer/hold controller.
+
+**Risks:** breaking J-008's timer/hold/blur/unmount safety; losing the partial-success
+message; reducing target auto-dismiss from ~8 s to ~5 s must not race the hold logic.
+
+**Tests:** compact message derivation (single/partial-success); auto-dismiss ~5 s; hold while
+interacting/editing; tab blur removes the banner; multiple saved entries still reachable;
+partial-success message still visible; J-008 controller tests stay green.
+
+**Akzeptanzkriterien (DoD):** no duplicated full entry card; one compact banner under the
+input; ~5 s visibility; „Bearbeiten" holds it open and reuses the existing edit flow;
+partial-success text stays; tab change removes it; J-008 timer safety intact; `npm run verify`
+green.
+
+**Out of scope:** J-009 grouping, resolver/evaluation, redesign beyond this banner.
+
+**Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
+live-verified.
+
+---
+
 ### Saved Meals Domain
 
 Status: `done`
@@ -3992,6 +4183,56 @@ needed changes — `LogSavedMealToDateUseCase` already treats it as a plain gram
 (`` `${item.quantityGrams}g ${item.parsedName}` ``), which is exactly what `entry.grams` already
 represents for both explicit-gram and resolved-portion entries. Full suite green after this
 change (see this branch's `npm run verify` run).
+
+---
+
+#### SM-008: Saved Meal Composition Transparency
+
+Status: `todo`
+Severity: Medium
+Depends on: SM-001 (`foodCatalogRef` on template items, `done`) for canonical display
+grouping.
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 6.
+
+**Ziel:** A saved meal shows how many **unique foods** it contains and an aggregated,
+user-facing quantity — not a raw count of journal events — and lets its contents be inspected
+before logging. Egg example target: „1 Lebensmittel · 7 Eier · ~575 kcal".
+
+**Current evidence (code-verified):**
+`src/presentation/features/savedMeals/SavedMealsScreen.tsx:166` renders
+`{template.items.length} Zutat{…en}` — the count of template items (journal events), so three
+egg-log events read as „3 Zutaten" although the template is one food / seven eggs. No content
+inspection is offered before logging.
+
+**Exact scope / affected files (confirm at implementation time):**
+
+- `src/presentation/features/savedMeals/SavedMealsScreen.tsx` — count **unique foods** (group
+  by canonical identity: `foodCatalogRef.source:sourceId`, mirroring J-009's key) for the
+  summary line; show an aggregated user-facing quantity; add an openable content view listing
+  each food, quantity and unit.
+- Possibly a new pure display helper
+  `src/presentation/features/savedMeals/savedMealsDisplay.ts` (+ test) for the
+  unique-food/quantity aggregation, keeping the screen thin.
+
+**Risks:** collapsing different foods that share a similar label (mitigate: group by canonical
+identity only, never by name); mutating persisted template data (presentation-only — read
+existing `SavedMealTemplate`/`SavedMealItem`, write nothing); breaking log-back totals.
+
+**Tests:** repeated same food → „1 Lebensmittel · N …"; mixed meal → correct unique-food
+count; count + gram entries aggregated sensibly; explicit gram-only entries; reload
+persistence unchanged; logging still reproduces exact totals.
+
+**Akzeptanzkriterien (DoD):** „Zutaten" counts unique foods, not journal events; egg example
+reads equivalently to „1 Lebensmittel · 7 Eier · ~575 kcal"; contents openable before logging
+with food/quantity/unit visible; different foods not merged; persisted data unchanged; logging
+reproduces exact journal values; `npm run verify` green.
+
+**Out of scope:** new persistence model (unless proven necessary), resolver/evaluation
+changes, template rename/edit features.
+
+**Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
+live-verified.
 
 ---
 
@@ -4525,6 +4766,112 @@ test asserted on the placeholder value, confirmed before making this change).
 correctness fix with no new branching logic to cover; the existing calculator tests (which never
 asserted `steps[0].result === 0`) continue to pass unchanged and already cover `bmr`/`tdee`
 correctness. Full suite green after this change (see this branch's `npm run verify` run).
+
+---
+
+#### GE-010: Nutrient-Specific Mixed-State Daily Assessment
+
+Status: `todo`
+Severity: High
+Depends on: the evaluation engine (GE-001–GE-005). Recommended: **plan the output model
+first** (the brief flags mixed-state rules as needing review before coding).
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 4.
+
+**Ziel:** The daily assessment names the actually-exceeded dimension instead of a blanket
+„Über dem Ziel" when only one nutrient is over. Example evidence: calories 1363/2449, protein
+97/153, carbs 47/276, fat 87/82 → currently „Über dem Ziel", should be e.g. „Fettziel leicht
+überschritten" (optionally „Kalorien liegen noch unter deinem Tagesziel.").
+
+**Current evidence (code-verified):**
+
+- `src/features/evaluation/application/rules/dailyProgressToEvaluationOutput.ts:66` —
+  `assessment: goalProgress.some((g) => g.status === 'over') ? 'over' : 'on-track'`.
+- `src/features/evaluation/application/mergeRuleResults.ts:19-22` — merged `assessment` is
+  `'over'` if **any** rule result is `'over'`.
+- `src/presentation/features/evaluationSummary/evaluationSummaryDisplay.ts:19` maps
+  `'over' → 'Über dem Ziel'` (display only).
+
+So a single over-target macro forces the whole-day label to „over"; the fix is in the
+evaluation **output model**, not the display string.
+
+**Exact scope / affected files (confirm during the plan step):**
+
+- `src/features/evaluation/application/rules/dailyProgressToEvaluationOutput.ts` and
+  `mergeRuleResults.ts` — model mixed under/in-range/over states and carry which dimension(s)
+  are outside the corridor, instead of collapsing to a single global label when only one is
+  over.
+- `src/features/evaluation/domain/models/EvaluationContract.ts` — extend the assessment/
+  output shape if a richer mixed-state representation is needed (additive).
+- `src/presentation/features/evaluationSummary/evaluationSummaryDisplay.ts` +
+  `EvaluationSummaryScreen.tsx` — render the nutrient-specific summary; keep truthful calorie
+  context; ensure summary and recommendations do not contradict.
+- Rules must stay dependent on the active evaluation goal (Evidence-based / Weight-Loss).
+
+**Risks:** turning macro targets into medical limits (avoid — keep numbers unchanged);
+contradictory summary vs. recommendation text; adding nutritional doctrine without an accepted
+Product-Bible source (forbidden). Numerical facts must not change.
+
+**Tests:** calories below + fat above → names fat; calories above + macros within; protein
+below; all within corridor; several dimensions above; empty day; both evaluation goals;
+summary/recommendation non-contradiction.
+
+**Akzeptanzkriterien (DoD):** mixed states named concretely; no blanket global label when only
+one dimension is outside the corridor; assessment stays goal-dependent; recommendations
+consistent with the summary; unit tests cover over/under/mixed; `npm run verify` green.
+
+**Out of scope:** changing target/formula math, new nutrition doctrine, resolver/journal
+changes.
+
+**Verify:** planning step → Category 1 readback; implementation → `npm run verify`
+(Category 4) + gap-log entry unless live-verified.
+
+---
+
+#### GE-011: Energy-Need Explanation & Progressive Disclosure
+
+Status: `todo`
+Severity: Medium
+Depends on: none (presentation-only; no formula change).
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 8.
+
+**Ziel:** Make the energy-need section understandable and progressively disclosed. Prominent:
+„**Geschätzter Erhaltungsbedarf** · N kcal pro Tag" with a plain-German explanation. Secondary:
+„**Grundumsatz** · N kcal pro Tag" explained as rest-energy that is **not** a recommended
+target. Collapsed by default: „**So wurden die Werte berechnet**".
+
+**Current evidence (code-verified):**
+`src/presentation/features/goals/GoalsScreen.tsx:223` renders the „Metabolismus-Profil" card;
+`:368` „Grundumsatz (BMR)", `:374` „Gesamtumsatz (TDEE)", `:384` „Berechnungs-Details" — full
+transparency but formula-dominated and unexplained in user terms.
+
+**Exact scope / affected files:**
+
+- `src/presentation/features/goals/GoalsScreen.tsx` — rename „Metabolismus-Profil" to a
+  clearer term such as „Körperdaten & Energiebedarf"; lead with the TDEE/maintenance
+  explanation, then BMR (explicitly not the recommended target); move formulas/„Berechnungs-
+  Details" under a collapsed „So wurden die Werte berechnet" disclosure that preserves full
+  transparency.
+- (If the card is componentized, the corresponding presentation component/styles.)
+
+**Risks:** changing BMR/TDEE math (forbidden — wording/layout only); losing the existing
+transparency (must stay reachable via the disclosure); mixing this with account/evaluation
+profiles (keep separate).
+
+**Tests:** the repo has no RN render harness — document rationale; add a pure display helper +
+test only if new formatting/mapping logic is introduced (otherwise gap-log per headless-env
+rule).
+
+**Akzeptanzkriterien (DoD):** formulas collapsed by default; BMR/TDEE explained in German; the
+user understands which value drives the daily target; „Metabolismus-Profil" renamed; no
+formula changes; no mixing with account/evaluation profiles; transparency preserved under the
+disclosure; `npm run verify` green.
+
+**Out of scope:** formula/calculation changes, account/sync, evaluation-goal wording.
+
+**Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
+live-verified.
 
 ---
 
@@ -5286,6 +5633,106 @@ cross-tab paths re-verified live against `expo start --web` + headless Playwrigh
   profile's correct data, Protokoll showed exactly the expected two entries (no duplicates
   from repeated focus-triggered reloads).
 - Zero browser console/runtime errors across the entire verification session.
+
+---
+
+#### DI-010: Single Ownership of the Active Evaluation Goal
+
+Status: `todo`
+Severity: High
+Depends on: DI-002 (Auswertung goal toggle), GE-008 (Ziele „Ziel wählen" card), DI-009
+(cross-tab freshness) — all `done`.
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 3.
+
+**Ziel:** The active evaluation goal is changed in **one** place — the Ziele tab. Auswertung
+shows the active goal read-only (with an optional „Ziel ändern" link that navigates to Ziele)
+and no longer carries a second, inverted-looking toggle. `Balanced` / `High Protein` /
+`Manuell` stay a distinct **Makroverteilung** concept, not evaluation goals.
+
+**Current evidence (code-verified):**
+
+- `EvaluationSummaryScreen.tsx` carries the DI-002 interactive per-profile goal toggle whose
+  orange button represents the _selectable alternative_ (inverted active optic).
+- `GoalsScreen.tsx` carries the GE-008 „Ziel wählen" card that sets the same active profile
+  via `container.setActiveProfileId`. Two mutable surfaces own one state (see
+  `docs/MANUAL_TESTING_GAPS.md` DI-002/GE-008/DI-009).
+
+**Exact scope / affected files:**
+
+- `src/presentation/features/evaluationSummary/EvaluationSummaryScreen.tsx` — remove the
+  interactive goal toggle and the inverted active/selectable optic; show a clear German
+  active-goal label read-only; add a small „Ziel ändern" action that navigates to the Ziele
+  tab (targeted navigation only). Preserve the existing DI-009 focus-reload so the goal set in
+  Ziele reflects immediately.
+- `src/presentation/features/goals/GoalsScreen.tsx` — remains the single editing surface
+  (GE-008 card unchanged); ensure „Bewertungsziel" vs. „Makroverteilung" wording is clearly
+  distinguished.
+- Navigation: reuse existing tab navigation for „Ziel ändern"; no navigation redesign.
+
+**Risks:** removing the only writer that some users relied on (mitigate: GE-008 card is the
+retained writer); breaking DI-009 refresh; conflating macro modes with the evaluation goal in
+wording; accessibility/touch-target of the new read-only label + link.
+
+**Tests:** switch goal in Ziele → Auswertung refreshes on focus; restart preserves the goal;
+no second mutable state; both evaluation profiles; all macro modes remain independently
+selectable; accessibility labels + touch target of „Ziel ändern".
+
+**Akzeptanzkriterien (DoD):** no second goal toggle in Auswertung; no inverted active optic;
+exactly one persisted source for the active goal; Ziele/Auswertung/restart show the same
+state; macro modes remain a separate Makroverteilung concept; existing same-day re-evaluation
+preserved; `npm run verify` green.
+
+**Out of scope:** evaluation-rule changes, macro-mode logic, navigation redesign beyond the
+targeted link.
+
+**Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
+live-verified.
+
+---
+
+## EPIC: Account, Backup & Sync (Architecture) — Deferred
+
+Review-only architecture planning, **lowest priority**, to be planned separately after the
+blocker and high/medium findings. Zera stays local-first: no login is required for initial
+use, and login alone does not synchronize existing local data.
+
+#### ACC-001: Local-First Account / Backup / Sync Boundary (review-only architecture)
+
+Status: `todo`
+Severity: Deferred (architecture planning)
+Mode: **review-only planning — no product code, no migration, no dependency change.**
+Depends on: none (explicitly sequenced last).
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 10.
+
+**Ziel:** Produce an ADR/plan (under `plans/`) that defines the local-first account/backup/
+sync boundary. Accepted product stance: Zera works local-first without an account;
+Google/Apple login via Supabase Auth comes later and is optional, for backup and cross-device
+use — it is not required for the local core and does not by itself sync existing local data.
+
+**Current state (context):** body data, goals, templates and journal are all local
+(AsyncStorage/local persistence). There is a Supabase client for resolver/edge use only; no
+user-account or sync layer for app data exists.
+
+**The plan must decide:** which data is synchronized; migration of local data on first login;
+logout behavior; two-device conflict resolution; soft-delete + correction-log sync semantics;
+privacy, deletion and export; anonymous local ID vs. Supabase user ID; Google-on-Android /
+Apple-on-iOS provider boundaries; offline behavior/queueing; restore after reinstall; staging
+and migration sequence.
+
+**Do NOT:** implement auth/sync; add dependencies; change persistence; create Supabase tables;
+touch product code.
+
+**Deliverable:** an ADR/plan document under `plans/` (e.g.
+`plans/ACCOUNT_BACKUP_SYNC_ARCHITECTURE_PLAN.md`) with explicit decision points, a recommended
+staging sequence, and follow-up Act task stubs — none implemented here.
+
+**Akzeptanzkriterien (DoD):** every decision point above is addressed or has an explicit open
+question with a recommendation; local-first-without-account remains the stated default;
+documentation-only; no code/migration/dependency change.
+
+**Verify:** VERIFY.md **Category 1** (documentation-only) readback checks.
 
 ---
 
@@ -6386,6 +6833,58 @@ for the evaluation criteria and
 for the (explicitly dated, non-authoritative) pricing research that motivated a benchmark
 instead of a hard-coded choice. RESOLVER-V2-007-B itself stays `todo` until the harness is
 actually run against real keys and a provider is picked.
+
+---
+
+#### RESOLVER-V2-008: Generic-Food Resolver Trust Diagnosis (review-only)
+
+Status: `todo`
+Severity: High
+Mode: **review-only diagnosis — no resolver code change.** Any fix is a separate task created
+only after the root cause is proven.
+Depends on: none. Keeps RESOLVER-V2-005/006 deferred; does not implement them.
+Origin: native dogfooding 2026-07-17,
+[report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 2.
+
+**Ziel:** Prove why generic-food inputs resolve to implausible records before any fix.
+Reproduced native cases: `100 g Himbeeren → 275 kcal`, `100 g Haferflocken → 102 kcal`,
+`100 g Speck → 746 kcal`, `100 g Magerquark → 66 kcal` (at least raspberries and oat flakes
+look wrong).
+
+**For each of the four inputs, trace and document:** parser output; normalized query +
+tokens; source adapters queried; every relevant candidate; source ID / BLS code; canonical DE
+
+- EN names; per-100 g macros; match score + reason; fusion/ranking outcome; final selected
+  record; persisted `foodCatalogRef` + `nutritionSnapshot`.
+
+**Determine:** whether the values come from the source artifact correctly; whether the wrong
+variant is selected; whether aliases are too broad; whether token matching / fusion ranking
+loses important qualifiers; whether a generic term should resolve directly or require
+disambiguation; whether source precedence causes the mismatch.
+
+**Files to read (review-only):**
+`src/features/nutrition/application/services/` (`FoodCatalogResolver.ts`,
+`DefaultFoodCatalogResolver.ts`, `FusionCandidateResolver.ts`, `ResolverDecisionPolicy.ts`,
+`ResolverDebugTypes.ts`), the source adapters under
+`src/features/nutrition/infrastructure/catalog/sources/` (BLS compact runtime adapter, OFF,
+USDA), the committed BLS artifact/manifest, and the resolver-v2 tests/docs.
+
+**Do NOT:** hardcode replacement calorie values; add speculative aliases; create a corrections
+table; implement RESOLVER-V2-005/006; change source priority without evidence; modify product
+code.
+
+**Deliverable:** a focused diagnosis report under `reports/` with a proven root cause (or
+ranked, evidence-backed hypotheses), the smallest safe fix proposal, exact affected files +
+tests, and a clear decision per input (deterministic match / disambiguation / honest
+unresolved state). A separate implementation task is opened only when the root cause is
+sufficiently proven.
+
+**Akzeptanzkriterien (DoD):** all four inputs fully traced with the fields above; root cause
+proven or hypotheses ranked with evidence; per-input decision stated; no product-code change;
+documentation-only verification.
+
+**Verify:** VERIFY.md **Category 1** (documentation-only) readback checks. Optional resolver
+test runs are read-only (`npm run test -- --testPathPattern="resolver|Resolver"`).
 
 ---
 

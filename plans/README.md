@@ -32,3 +32,4 @@ Plan-Dateien sollten folgende Namenskonvention verwenden:
 - [`EMULATOR_NUTRITION_FLOW_TEST_PLAN.md`](./EMULATOR_NUTRITION_FLOW_TEST_PLAN.md) - Nutrition Flow Tests
 - [`EMULATOR_SMOKE_TEST_PLAN.md`](./EMULATOR_SMOKE_TEST_PLAN.md) - Smoke Tests für Emulator
 - [`UT-001_PRACTICAL_MVP_VALIDATION_PLAN.md`](./UT-001_PRACTICAL_MVP_VALIDATION_PLAN.md) - Gestaffelte praktische MVP-Validierung (technische Baseline, Dogfooding, Partner-Sitzung)
+- [`JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md`](./JOURNAL_TRANSIENT_CONFIRMATION_AND_GROUPING_PLAN.md) - Journal: transiente Last-Submit-Bestätigung + kanonisch gruppierte Tagesübersicht (J-008/J-009/J-010)

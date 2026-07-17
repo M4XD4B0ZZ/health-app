@@ -6871,13 +6871,36 @@ actually run against real keys and a provider is picked.
 
 #### RESOLVER-V2-008: Generic-Food Resolver Trust Diagnosis (review-only)
 
-Status: `todo`
+Status: `done`
 Severity: High
 Mode: **review-only diagnosis — no resolver code change.** Any fix is a separate task created
 only after the root cause is proven.
 Depends on: none. Keeps RESOLVER-V2-005/006 deferred; does not implement them.
 Origin: native dogfooding 2026-07-17,
 [report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 2.
+
+**Diagnosis result (done):** full BLS trace in
+[`reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md`](../reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md).
+BLS is the winning source for all four inputs (each native kcal maps exactly to a committed BLS
+record). Verdicts:
+
+- **Himbeeren → 275 kcal** = `D3A4000` „Nussbiskuitrolle … mit Himbeeren und Sahne" (dessert).
+  **Wrong variant**; the plain „Himbeere roh" (`F302100`, 43) was never in the candidate set.
+- **Haferflocken → 102 kcal** = `X475243` „Milchsuppe … mit Haferflocken" (milk soup).
+  **Wrong variant**; the plain „Hafer Flocken" (`C133000`, 348) was never in the candidate set.
+- **Speck → 746 kcal** = `W412000` raw back fat. **Ambiguity** (legitimate BLS „Speck", but not
+  the commonly-intended bacon); needs a product decision, not a data fix.
+- **Magerquark → 66 kcal** = `M713100` exact match. **Correct** despite a surprising value; no
+  change.
+
+**Proven root cause (Himbeeren + Haferflocken, one shared mechanism):** the plain generic food
+is **unreachable**, so no ranking could pick it — (a) the plain record's only aliases are the
+singular/space displayName forms (`himbeere roh`, `hafer flocken`) which the compact
+plural/one-word query is not a substring of, and (b) `BlsLookupEngine.search` early-returns a
+weaker `includes` match (0.7, on processed/compound records that literally contain the query
+substring) at Stage 2/3, short-circuiting before Stage 4 token matching that would surface the
+plain food (score 0.8). Follow-ups registered below: **RESOLVER-V2-009** (proven fix) and
+**RESOLVER-V2-010** (Speck ambiguity, planning first). Magerquark: no task.
 
 **Ziel:** Prove why generic-food inputs resolve to implausible records before any fix.
 Reproduced native cases: `100 g Himbeeren → 275 kcal`, `100 g Haferflocken → 102 kcal`,
@@ -6918,6 +6941,93 @@ documentation-only verification.
 
 **Verify:** VERIFY.md **Category 1** (documentation-only) readback checks. Optional resolver
 test runs are read-only (`npm run test -- --testPathPattern="resolver|Resolver"`).
+
+---
+
+#### RESOLVER-V2-009: Plain-Generic BLS Food Reachability (Himbeeren / Haferflocken)
+
+Status: `todo`
+Severity: High
+Depends on: RESOLVER-V2-008 (diagnosis, `done`). Independently scoped; does not touch
+RESOLVER-V2-005/006.
+Origin: RESOLVER-V2-008 diagnosis —
+[`reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md`](../reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md)
+§3.1/§4.1.
+
+**Ziel:** A plain generic query resolves to the plain BLS food, not a processed/compound
+variant that merely contains the word. Proven cases: `himbeeren → "Himbeere roh" (F302100,
+43 kcal)` not `D3A4000` (275, dessert); `haferflocken → "Hafer Flocken" (C133000, 348 kcal)`
+not `X475243` (102, milk soup).
+
+**Proven root cause (see diagnosis):** the plain record is unreachable because (a) its only
+aliases are singular/space displayName forms (`himbeere roh`, `hafer flocken`) that the compact
+plural/one-word query is not a substring of, and (b) `BlsLookupEngine.search` early-returns a
+weaker `includes` match (0.7 on processed records literally containing the query substring)
+before Stage 4 token matching that would surface the plain food (0.8).
+
+**Exact scope / affected files:**
+
+- `src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts` — the fix is
+  in matching/stage logic. Smallest safe options (evidence-gated; the first is preferred):
+  whitespace-insensitive comparison (space-collapsed query vs. alias, so `hafer flocken` ↔
+  `haferflocken`); do not let a weaker `includes` match pre-empt a stronger `token` match
+  (compute/merge token matches instead of early-returning `includes`); a deterministic
+  qualifier penalty for processed/compound displayNames (`gezuckert`, `getrocknet`,
+  `-plätzchen`, `suppe`, `kompott`, `eis`, `mit … Sahne`, …) so a plain entry outranks a
+  dessert/soup; optional German singular/plural fold. **All normalization rules — no per-food
+  aliases, no artifact edit.**
+- Possibly `BlsCompactRuntimeAdapter.ts` — only to keep alias/token normalization symmetric
+  with the query normalization. **No** artifact edit, **no** source-precedence change.
+
+**Risks:** over-broadening matches (mitigate: evidence-gated, assert candidate-set + score
+before/after); regressing the correct exact/shortcut cases (`magerquark → M713100 (66)`,
+`buttertoast`, `ei`); accidentally making a genuinely ambiguous term resolve too confidently
+(keep Speck out of scope — RESOLVER-V2-010).
+
+**Tests:** new `BlsLookupEngine` cases — `himbeeren → F302100 (43)` and `haferflocken →
+C133000 (348)` outrank the processed variants; `magerquark → M713100 (66)` unchanged; existing
+exact/shortcut/token behavior unchanged; existing resolver suites
+(`--testPathPattern="resolver|Resolver|Bls"`) green.
+
+**Akzeptanzkriterien (DoD):** the two proven cases resolve to the plain food with correct
+macros; no hardcoded calories, no speculative per-food aliases, no artifact edit, no
+source-precedence change; Magerquark and existing exact/shortcut cases unchanged; `npm run
+verify` green.
+
+**Out of scope:** Speck ambiguity (RESOLVER-V2-010), OFF/USDA changes, corrections table,
+RESOLVER-V2-005/006, nutrition-value edits.
+
+**Verify:** `npm run verify` (Category 4). Not UI-facing (resolver/infra) — gap-log only if a
+presentation file is touched.
+
+---
+
+#### RESOLVER-V2-010: Ambiguous Generic Term „Speck" — Disambiguation Decision (planning first)
+
+Status: `todo`
+Severity: Medium
+Mode: **planning/decision first — no resolver code change until the product decision is made.**
+Depends on: RESOLVER-V2-008 (diagnosis, `done`).
+Origin: RESOLVER-V2-008 diagnosis §3.2/§4.2.
+
+**Ziel:** Decide how a bare, genuinely ambiguous generic term resolves. Evidence: `speck` →
+`W412000` raw back fat (746 kcal) wins by token score 1.0 over bacon variants
+(`Frühstücksspeck`/`Bauchspeck`, ~304 kcal, partial score 0.8). All candidates are legitimate
+BLS „Speck" records with correct macros — this is **ambiguity, not a data or code defect**.
+
+**The plan must decide** whether a bare „Speck" should (a) resolve deterministically to a chosen
+canonical variant (e.g. bacon), (b) trigger honest disambiguation („Welchen Speck?"), or (c)
+remain an honest low-confidence result — and whether this generalizes to other ambiguous German
+generics.
+
+**Do NOT:** hardcode a calorie value; add a speculative alias; change source precedence;
+implement before the decision.
+
+**Akzeptanzkriterien (DoD):** a documented product decision with the chosen behavior, its
+generalization boundary, affected files/tests for a later Act task, and an explicit statement
+that no source-data defect exists. Documentation-only until an Act task is split out.
+
+**Verify:** VERIFY.md **Category 1** (documentation-only) for the planning step.
 
 ---
 

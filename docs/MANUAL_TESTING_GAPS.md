@@ -51,6 +51,48 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — J-012: Nutzerfreundlicher Gruppentitel + sichtbarer Chevron (JournalScreen)
+
+- **Status:** ⏳ offen (die Titel-Präzedenz-Logik und die Accessibility-Label-Konstruktion sind
+  per Unit-Tests deterministisch verifiziert; die sichtbare Chevron-Darstellung, die
+  Touch-Target-Größe und das tatsächliche Screen-Reader-Verhalten sind UI-relevant und konnten in
+  dieser headless-Umgebung nicht visuell in Expo geprüft werden — es gibt keinen RN-Render-Harness.)
+- **Branch/PR:** `claude/j-012-group-title-chevron`
+- **Betroffene Bereiche:**
+  - `src/presentation/features/journal/journalEntryDisplay.ts` — neue interne
+    `resolveCanonicalGroupTitle` (Titel-Präzedenz: freundlicher Name aus dem bereits
+    existierenden Alias-Wörterbuch `detectCanonicalEntity`/`canonicalFoods.ts` nur wenn ALLE
+    Kinder derselben kanonischen Identität zustimmen, sonst Rückfall auf die rohe
+    `foodCatalogRef.displayName` — keine neue Namenstabelle, kein Ei-spezifischer Zweig) sowie
+    die neue exportierte, pure `buildCanonicalGroupAccessibilityLabel` (Titel + Menge + kcal +
+    Zustand + Aktion in einer Ansage).
+  - `src/ui/components/EntryRow.tsx` — neues **opt-in** Prop `chevron?: 'collapsed' |
+'expanded'` (Standard: nicht gesetzt → kein Chevron, betrifft also keinen bestehenden
+    Aufrufer); fixe Breite gegen Layout-Sprung; auf beiden Plattformen aus dem
+    Accessibility-Baum ausgeblendet, da das äußere Touchable bereits ein vollständiges
+    `accessibilityLabel` trägt.
+  - `src/presentation/features/journal/JournalScreen.tsx` — der Canonical-Gruppen-Header
+    übergibt jetzt `chevron` und das neue Accessibility-Label; Composite-Dish-Header und normale
+    Zeilen bleiben unverändert (kein Chevron dort). Gruppierungslogik (J-009), Mengenaggregation
+    (J-010/J-011) und Bearbeiten/Löschen pro Kind unverändert.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 120 Suiten /
+  1006 Tests grün). `journalEntryDisplay.test.ts` von 33 auf 45 Fälle erweitert: freundlicher Name
+  bevorzugt vor rohem Katalogstring; Rückfall bei nicht zuordenbarem/abweichendem Mitglied; Regel
+  ist nicht Ei-spezifisch (funktioniert generisch auch für Banane); Titel bleibt stabil bei
+  geänderter Kindreihenfolge, beim Löschen des neuesten Kindes (auch wenn genau dieses den Plural
+  eingegeben hatte) und nach einer Mengenänderung; Accessibility-Label enthält Titel/Menge/kcal/
+  Zustand/Aktion für eingeklappt und aufgeklappt sowie ohne Mengenangabe.
+- **Manuell nachzuholen:** Abschnitte **1 (Smoke)**, **2 (Layout & Rendering — Chevron sichtbar
+  neben dem Gruppentitel, kein Sprung beim Umschalten, schmale Android-Screens, kein Chevron bei
+  normalen Zeilen/Composite-Dish-Headern/Saved-Meal-Karten/J-014-Bestätigungszeilen)**, **3
+  (Interaktion — Antippen des Headers UND des Chevron-Bereichs schaltet genau einmal um; „Ei"/
+  „Ein Ei"/„Drei Eier" ergeben einen Eier-Gruppentitel statt Katalogstring; Kind bearbeiten/
+  löschen aktualisiert Summen bei stabilem Titel; Auflösen der Gruppe bei nur noch einem Kind
+  entfernt den Chevron)** und **7 (Regression: J-009 Gruppierung, J-010/J-011 Mengenanzeige,
+  J-013 Kind-Bearbeiten, TalkBack/VoiceOver liest genau eine Ansage ohne Dopplung durch den
+  ausgeblendeten Chevron)**. Szenarien A–G aus dem J-012-Prompt (native Retest-Checkliste) gelten
+  als Vorlage.
+
 ### 2026-07-18 — GE-011: Energiebedarf verständlich + progressive Disclosure (GoalsScreen)
 
 - **Status:** ⏳ offen (die reine Mapping-/Formatierungslogik ist per Unit-Tests verifiziert; die

@@ -1,6 +1,7 @@
 import {
   buildFoodEntryDisplay,
   buildGroupQuantitySubtitle,
+  buildCanonicalGroupAccessibilityLabel,
   groupJournalEntries,
 } from '../journalEntryDisplay';
 import type { FoodEntry } from '../../../../features/nutrition';
@@ -557,6 +558,126 @@ describe('groupJournalEntries', () => {
       expect(group.totalCalories).toBe(246.6);
     });
   });
+
+  describe('J-012: user-friendly canonical group title', () => {
+    function eggChild(id: string, parsedName: 'ei' | 'eier', overrides: Partial<FoodEntry> = {}) {
+      return foodEntry({
+        id,
+        rawInput: parsedName,
+        parsedName,
+        foodCatalogRef: catalogRef({ displayName: 'Huehnerei ganz roh' }),
+        ...overrides,
+      });
+    }
+
+    function groupLabel(entries: FoodEntry[]): string {
+      const result = groupJournalEntries(entries);
+      const group = result.find((item) => item.kind === 'group');
+      if (!group || group.kind !== 'group') throw new Error('expected a group');
+      return group.label;
+    }
+
+    it('prefers the friendly existing German name over the raw catalog display string', () => {
+      const label = groupLabel([
+        eggChild('e1', 'ei'),
+        eggChild('e2', 'ei'),
+        eggChild('e3', 'eier'),
+      ]);
+
+      expect(label).toBe('Eier');
+      expect(label).not.toBe('Huehnerei ganz roh');
+    });
+
+    it('falls back to the raw catalog display name when a member has no friendly name in the existing dictionary', () => {
+      const unresolved = foodEntry({
+        id: 'e2',
+        rawInput: 'zorbfrucht',
+        parsedName: 'zorbfrucht',
+        foodCatalogRef: catalogRef({ displayName: 'Huehnerei ganz roh' }),
+      });
+
+      const label = groupLabel([eggChild('e1', 'ei'), unresolved]);
+
+      expect(label).toBe('Huehnerei ganz roh');
+    });
+
+    it('is not egg-specific: the same data-driven rule prefers a longer existing alias for another food', () => {
+      const banane = (id: string, parsedName: 'banane' | 'bananen') =>
+        foodEntry({
+          id,
+          rawInput: parsedName,
+          parsedName,
+          foodCatalogRef: catalogRef({
+            source: 'bls',
+            sourceId: 'banana-raw',
+            displayName: 'Banane roh',
+          }),
+        });
+
+      const label = groupLabel([banane('e1', 'banane'), banane('e2', 'bananen')]);
+
+      expect(label).toBe('Bananen');
+    });
+
+    it('does not introduce a hard-coded food-specific branch — an unmapped food still falls back safely', () => {
+      const first = foodEntry({
+        id: 'e1',
+        rawInput: 'zorbfrucht',
+        parsedName: 'zorbfrucht',
+        foodCatalogRef: catalogRef({
+          source: 'bls',
+          sourceId: 'zorbfrucht',
+          displayName: 'Zorbfrucht Katalogeintrag',
+        }),
+      });
+      const second = foodEntry({
+        id: 'e2',
+        rawInput: 'zorbfrucht',
+        parsedName: 'zorbfrucht',
+        foodCatalogRef: catalogRef({
+          source: 'bls',
+          sourceId: 'zorbfrucht',
+          displayName: 'Zorbfrucht Katalogeintrag',
+        }),
+      });
+
+      expect(groupLabel([first, second])).toBe('Zorbfrucht Katalogeintrag');
+    });
+
+    it('remains stable when the child order changes', () => {
+      const a = eggChild('e1', 'ei');
+      const b = eggChild('e2', 'ei');
+      const c = eggChild('e3', 'eier');
+
+      expect(groupLabel([a, b, c])).toBe(groupLabel([c, a, b]));
+    });
+
+    it('remains stable when the newest child (the one carrying the plural raw text) is deleted', () => {
+      const a = eggChild('e1', 'ei');
+      const b = eggChild('e2', 'ei');
+      const c = eggChild('e3', 'eier');
+
+      const beforeDelete = groupLabel([a, b, c]);
+      // Simulates the post-delete reload: only the two singular-labelled children remain, yet
+      // the title must stay "Eier" — it is a property of the shared canonical identity, never
+      // of which individual child happened to type the plural.
+      const afterDeletingNewest = groupLabel([a, b]);
+
+      expect(beforeDelete).toBe('Eier');
+      expect(afterDeletingNewest).toBe('Eier');
+    });
+
+    it('remains stable after a child quantity edit', () => {
+      const a = eggChild('e1', 'ei', { grams: 60, quantityGrams: 60 });
+      const b = eggChild('e2', 'ei', { grams: 60, quantityGrams: 60 });
+
+      const before = groupLabel([a, b]);
+      const editedA = { ...a, grams: 120, quantityGrams: 120 };
+      const after = groupLabel([editedA, b]);
+
+      expect(before).toBe(after);
+    });
+  });
 });
 
 describe('buildGroupQuantitySubtitle', () => {
@@ -614,5 +735,31 @@ describe('buildGroupQuantitySubtitle', () => {
     const g2 = foodEntry({ id: 'e2', rawInput: '150g Karotten', grams: 150, quantityGrams: 150 });
 
     expect(buildGroupQuantitySubtitle([g1, g2], () => undefined)).toBe('300 g');
+  });
+});
+
+describe('J-012: buildCanonicalGroupAccessibilityLabel', () => {
+  it('includes title, aggregate quantity, rounded calories, collapsed state and the open action', () => {
+    expect(buildCanonicalGroupAccessibilityLabel('Eier', '5 Stück (300 g)', 411, false)).toBe(
+      'Eier, 5 Stück (300 g), 411 Kilokalorien, eingeklappt. Zum Öffnen doppeltippen.',
+    );
+  });
+
+  it('reflects the expanded state and the close action', () => {
+    expect(buildCanonicalGroupAccessibilityLabel('Eier', '5 Stück (300 g)', 411, true)).toBe(
+      'Eier, 5 Stück (300 g), 411 Kilokalorien, aufgeklappt. Zum Schließen doppeltippen.',
+    );
+  });
+
+  it('omits the quantity clause when no quantity subtitle is available', () => {
+    expect(buildCanonicalGroupAccessibilityLabel('Eier', undefined, 411, false)).toBe(
+      'Eier, 411 Kilokalorien, eingeklappt. Zum Öffnen doppeltippen.',
+    );
+  });
+
+  it('rounds a fractional calorie total for the spoken value', () => {
+    expect(buildCanonicalGroupAccessibilityLabel('Eier', '2 Stück (120 g)', 246.6, false)).toBe(
+      'Eier, 2 Stück (120 g), 247 Kilokalorien, eingeklappt. Zum Öffnen doppeltippen.',
+    );
   });
 });

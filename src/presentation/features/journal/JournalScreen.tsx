@@ -22,6 +22,7 @@ import { claimJournalSubmitSlot } from './claimJournalSubmitSlot';
 import {
   buildFoodEntryDisplay,
   buildGroupQuantitySubtitle,
+  buildCanonicalGroupAccessibilityLabel,
   groupJournalEntries,
   KnownCountPortion,
 } from './journalEntryDisplay';
@@ -714,6 +715,18 @@ const JournalScreen: React.FC = () => {
                 listItem.children,
                 getKnownCountPortion,
               );
+              // J-012: the accessible label states title + aggregate quantity + calorie total +
+              // expanded/collapsed state + the available action in one announcement (e.g.
+              // "Eier, 5 Stück (300 g), 411 Kilokalorien, eingeklappt. Zum Öffnen doppeltippen."),
+              // replacing the previous "N Einträge" phrasing. The chevron glyph itself is hidden
+              // from the accessibility tree (EntryRow's `chevron` prop) so this single label is
+              // the only announcement — no duplicate.
+              const accessibilityLabel = buildCanonicalGroupAccessibilityLabel(
+                listItem.label,
+                quantitySubtitle,
+                listItem.totalCalories,
+                isExpanded,
+              );
 
               return (
                 <View key={listItem.groupId} style={styles.group}>
@@ -721,9 +734,7 @@ const JournalScreen: React.FC = () => {
                     onPress={() => toggleGroupExpanded(listItem.groupId)}
                     accessibilityRole="button"
                     accessibilityState={{ expanded: isExpanded }}
-                    accessibilityLabel={`${listItem.label}, ${listItem.children.length} Einträge, ${
-                      isExpanded ? 'aufgeklappt' : 'eingeklappt'
-                    }`}
+                    accessibilityLabel={accessibilityLabel}
                     activeOpacity={0.7}
                   >
                     <EntryRow
@@ -731,6 +742,7 @@ const JournalScreen: React.FC = () => {
                       subtitle={quantitySubtitle}
                       kcal={listItem.totalCalories}
                       style={styles.groupHeader}
+                      chevron={isExpanded ? 'expanded' : 'collapsed'}
                     />
                   </TouchableOpacity>
                   {isExpanded && listItem.children.map(renderChild)}

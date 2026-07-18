@@ -3637,7 +3637,7 @@ entry in
 
 #### J-012: User-Friendly Canonical Group Title + Expand/Collapse Chevron
 
-Status: `todo`
+Status: `done`
 Depends on: J-009 (refines its group-header presentation only; grouping logic itself is
 already correct and unchanged by this task)
 
@@ -3695,6 +3695,51 @@ manual/native check per this repo's headless-env limitation, same as J-009's own
 
 **Verify:** `npm run verify`; UI-relevant in a headless env → new `docs/MANUAL_TESTING_GAPS.md`
 entry unless genuinely live-verified (VERIFY.md Category 4).
+
+**Implementation (done):**
+
+- **Display-name precedence** (`journalEntryDisplay.ts`, new `resolveCanonicalGroupTitle`,
+  internal — exercised via `groupJournalEntries`): (1) every child's `parsedName` must resolve,
+  via the existing, already-populated alias dictionary
+  (`features/nutrition/domain/detectCanonicalEntity` + `canonicalFoods.ts` — the same trusted
+  source already powering the resolver/portion-hint pipeline elsewhere), to the exact same
+  canonical food id — a single dissenting or unresolved child forfeits the friendly name
+  entirely, falling back to the raw catalog `displayName`; (2) among that food's existing DE
+  aliases, deterministically prefer the longest one (e.g. `"eier"` over `"ei"` — selecting among
+  pre-existing curated strings, never generating/inflecting a plural); (3) otherwise the existing
+  raw `foodCatalogRef.displayName` (or `parsedName`/`rawInput`) fallback chain is unchanged. No
+  new alias/name table was added, and there is no food-specific (e.g. egg) branch — the same
+  rule was verified against a second, unrelated food (banana) to prove it's general.
+- **Stability:** the computation depends only on the group's shared canonical identity (which
+  alias dictionary entry all children agree on), never on any individual child's raw text or on
+  which children currently exist — verified by dedicated tests for child-order change, deleting
+  the newest child (even the one that literally typed the plural), and a quantity edit, all
+  leaving the title unchanged.
+- **Fallback behavior:** when no friendlier name exists (unmapped/fictional food, or a group with
+  one member whose `parsedName` doesn't match the dictionary), the group falls back to the exact
+  pre-existing raw `foodCatalogRef.displayName` behavior — no speculative alias is ever invented.
+- **Chevron implementation** (`src/ui/components/EntryRow.tsx`): a new **opt-in** `chevron?:
+'collapsed' | 'expanded'` prop, undefined by default for every existing call site (ordinary
+  leaf rows, composite-dish headers, the J-014 transient-confirmation detail rows) — none of them
+  gain a chevron. Fixed-width (`width: 20`) so toggling the glyph never shifts surrounding
+  layout; hidden from the accessibility tree on both platforms
+  (`accessibilityElementsHidden`/`importantForAccessibility="no-hide-descendants"`) since the
+  wrapping touchable's own `accessibilityLabel` already states the expanded/collapsed state — no
+  duplicate announcement. `JournalScreen.tsx` passes `chevron` only on the canonical group
+  header's `EntryRow`; composite-dish headers and leaf rows are untouched. The chevron sits
+  inside the same outer `TouchableOpacity` that already owns the toggle — there is no separate
+  tap target, so tapping the chevron area toggles exactly once, same as the rest of the header.
+- **Accessibility:** the header's single accessible label — title, aggregate quantity, rounded
+  calorie total, expanded/collapsed state, and the available action (e.g. `"Eier, 5 Stück
+(300 g), 411 Kilokalorien, eingeklappt. Zum Öffnen doppeltippen."`) — is now built by a new
+  pure, unit-tested helper `buildCanonicalGroupAccessibilityLabel` (`journalEntryDisplay.ts`)
+  instead of an ad hoc template literal in the screen, replacing the previous `"N Einträge"`
+  phrasing. `accessibilityRole="button"` and `accessibilityState.expanded` are unchanged/preserved.
+- **Tests:** `journalEntryDisplay.test.ts` grew from 33 to 45 assertions (7 new cases for the
+  title-precedence rule + 4 new cases for the accessibility-label helper); full suite green:
+  `npm run verify` → 120 suites / 1006 tests. Chevron rendering/visual layout itself is not
+  unit-testable in this headless env (no RN render harness) — documented in
+  `docs/MANUAL_TESTING_GAPS.md`.
 
 ---
 

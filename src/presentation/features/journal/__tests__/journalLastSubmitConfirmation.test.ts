@@ -20,15 +20,36 @@ describe('buildLastSubmitConfirmation', () => {
     expect(buildLastSubmitConfirmation([])).toBeNull();
   });
 
-  it('reproduces the dogfooding case: "Drei Eier" -> "3 Eier gespeichert · 246,6 kcal"', () => {
+  it('reproduces the dogfooding case: single "100 g Haferflocken" → one compact single-kind line', () => {
+    const result = buildLastSubmitConfirmation([
+      entry({
+        id: 'e1',
+        rawInput: '100 g Haferflocken',
+        parsedName: 'haferflocken',
+        calories: 102,
+      }),
+    ]);
+
+    expect(result).toEqual({
+      kind: 'single',
+      message: 'Haferflocken gespeichert · 102 kcal',
+      accessibilityLabel: 'Haferflocken gespeichert, 102 kcal. Bearbeiten verfügbar.',
+      entryIds: ['e1'],
+      count: 1,
+      totalCalories: 102,
+    });
+  });
+
+  it('single count-based entry keeps the typed count: "Drei Eier" → "3 Eier gespeichert · 246,6 kcal"', () => {
     const result = buildLastSubmitConfirmation([
       entry({ id: 'e1', rawInput: 'Drei Eier', parsedName: 'eier', calories: 246.6 }),
     ]);
 
-    expect(result).toEqual({
-      message: '3 Eier gespeichert · 246,6 kcal',
-      entryIds: ['e1'],
-    });
+    expect(result?.kind).toBe('single');
+    expect(result?.message).toBe('3 Eier gespeichert · 246,6 kcal');
+    expect(result?.accessibilityLabel).toBe(
+      '3 Eier gespeichert, 246,6 kcal. Bearbeiten verfügbar.',
+    );
   });
 
   it('single entry without a count word in the raw input omits the count (no invented count)', () => {
@@ -36,10 +57,7 @@ describe('buildLastSubmitConfirmation', () => {
       entry({ id: 'e1', rawInput: 'Ei', parsedName: 'ei', calories: 82.2 }),
     ]);
 
-    expect(result).toEqual({
-      message: 'Ei gespeichert · 82,2 kcal',
-      entryIds: ['e1'],
-    });
+    expect(result?.message).toBe('Ei gespeichert · 82,2 kcal');
   });
 
   it('single entry with an explicit "Ein" count word shows the count as typed', () => {
@@ -58,38 +76,55 @@ describe('buildLastSubmitConfirmation', () => {
     expect(result?.message).toBe('Karotten gespeichert · 123 kcal');
   });
 
-  it('two distinct persisted entries join with "und" and sum kcal', () => {
+  it('two persisted entries collapse to a compact aggregate (no inlined name list)', () => {
     const result = buildLastSubmitConfirmation([
       entry({ id: 'e1', rawInput: '3 eier', parsedName: 'eier', calories: 246.6 }),
       entry({ id: 'e2', rawInput: 'magerquark', parsedName: 'magerquark', calories: 49.4 }),
     ]);
 
     expect(result).toEqual({
-      message: '2 Einträge gespeichert: Eier und Magerquark · 296 kcal',
+      kind: 'multiple',
+      message: '2 Einträge gespeichert · 296 kcal',
+      accessibilityLabel: '2 Einträge gespeichert, 296 kcal. Details anzeigen.',
       entryIds: ['e1', 'e2'],
+      count: 2,
+      totalCalories: 296,
     });
+    // The names must NOT appear in the compact summary — they live in the expandable detail.
+    expect(result?.message).not.toContain('Eier');
+    expect(result?.message).not.toContain('Magerquark');
   });
 
-  it('three or more entries join with commas and a final "und"', () => {
+  it('three or more entries stay a compact aggregate summary', () => {
     const result = buildLastSubmitConfirmation([
       entry({ id: 'e1', rawInput: 'ei', parsedName: 'ei', calories: 10 }),
       entry({ id: 'e2', rawInput: 'banane', parsedName: 'banane', calories: 20 }),
       entry({ id: 'e3', rawInput: 'quark', parsedName: 'quark', calories: 30 }),
     ]);
 
-    expect(result?.message).toBe('3 Einträge gespeichert: Ei, Banane und Quark · 60 kcal');
+    expect(result?.kind).toBe('multiple');
+    expect(result?.message).toBe('3 Einträge gespeichert · 60 kcal');
+    expect(result?.accessibilityLabel).toBe('3 Einträge gespeichert, 60 kcal. Details anzeigen.');
     expect(result?.entryIds).toEqual(['e1', 'e2', 'e3']);
   });
 
-  it('a mixed submit only ever receives the persisted entries — blocked items never appear here', () => {
+  it('a mixed/partial submit only ever receives the persisted entries — blocked items never appear here', () => {
     // Simulates "1 Banane und zorbfrucht": caller passes only the persisted Banane entry;
     // the blocked "zorbfrucht" is never part of this function's input (J-007 handles it).
     const result = buildLastSubmitConfirmation([
       entry({ id: 'e1', rawInput: 'banane', parsedName: 'banane', calories: 90 }),
     ]);
 
+    expect(result?.kind).toBe('single');
     expect(result?.message).toBe('Banane gespeichert · 90 kcal');
+    expect(result?.message).not.toContain('zorbfrucht');
     expect(result?.entryIds).toEqual(['e1']);
+  });
+});
+
+describe('LAST_SUBMIT_CONFIRMATION_MS', () => {
+  it('is the ~5s J-014 auto-dismiss target (single exported source of truth)', () => {
+    expect(LAST_SUBMIT_CONFIRMATION_MS).toBe(5000);
   });
 });
 
@@ -102,7 +137,7 @@ describe('createLastSubmitConfirmationController', () => {
     jest.useRealTimers();
   });
 
-  it('shows the payload immediately and auto-dismisses after ~8s', () => {
+  it('shows the payload immediately and auto-dismisses after the exported duration', () => {
     const onChange = jest.fn();
     const controller = createLastSubmitConfirmationController<string>(onChange);
 

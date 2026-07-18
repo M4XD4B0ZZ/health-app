@@ -51,6 +51,43 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — J-014: Kompakte Speicher-Bestätigung (JournalScreen)
+
+- **Status:** ⏳ offen (Nachrichten-/Timer-Logik deterministisch per Unit-Tests verifiziert; die
+  eigentliche kompakte Banner-Darstellung, das Auf-/Zuklappen der Mehrfach-Details und das
+  Hold-Verhalten der Auto-Dismiss-Zeit sind UI-relevant und konnten in dieser headless-Umgebung
+  nicht visuell in Expo geprüft werden — es gibt keinen RN-Render-Harness.)
+- **Branch/PR:** `claude/j-014-compact-confirmation`
+- **Betroffene Bereiche:**
+  - `src/presentation/features/journal/journalLastSubmitConfirmation.ts` —
+    `buildLastSubmitConfirmation` liefert jetzt ein strukturiertes Modell
+    (`kind`/`message`/`accessibilityLabel`/`entryIds`/`count`/`totalCalories`); Einzel-Item →
+    „Name gespeichert · N kcal", Mehrfach → kompaktes „N Einträge gespeichert · N kcal" (ohne
+    Namensliste). `LAST_SUBMIT_CONFIRMATION_MS` von 8000 → **5000** (einzige exportierte
+    Konstante). Controller-/Timer-Semantik unverändert (J-008).
+  - `src/presentation/features/journal/JournalScreen.tsx` — ersetzt Zähler-Header + Satz +
+    dupliziertem Eintrags-Row durch eine kompakte Banner-Region (dünne Akzent-Randkante, keine
+    Vollkarte). Einzel-Item: inline „Bearbeiten"; Mehrfach: „Anzeigen"/„Verbergen"-Disclosure,
+    Detailzeilen nur im aufgeklappten Zustand, jede Zeile zum Bearbeiten tippbar. Auf-/Zuklappen
+    hält/​löst die Auto-Dismiss-Zeit (`confirmationExpandHeldRef`); Touch auf der Fläche und das
+    Bearbeiten-Modal halten wie in J-008.
+  - Keine Änderung an Logging/Resolver/Persistenz/Gruppierung/Edit-Semantik (J-013 wiederverwendet).
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 119 Suiten /
+  986 Tests grün). `journalLastSubmitConfirmation.test.ts` (20 Fälle): Einzel/​Mehrfach/​Teilerfolg-
+  Nachrichten + Accessibility-Labels, „keine Namensliste im Summary", 5000-ms-Konstante, sowie die
+  9 J-008-Controller-Sicherheitstests (Stale-Timer, Replace, Hold/Release verschachtelt, Blur,
+  Dispose) gegen die neue Dauer.
+- **Manuell nachzuholen:** Abschnitte **1 (Smoke)**, **2 (Layout & Rendering — kompaktes Banner
+  unter dem Input, keine dublette Haferflocken-Zeile, Akzent-Randkante klar von Journal-Karten/
+  Fehlermeldungen/Teilerfolg-Warnung unterscheidbar, lange DE-Namen ohne Overflow auf schmalen
+  Android-Screens)**, **3 (Interaktion — „Bearbeiten" leicht antippbar und öffnet den korrekten
+  Eintrag; Banner verschwindet nicht während der Interaktion/während das Edit-Modal offen ist;
+  „Anzeigen"/„Verbergen" klappt Mehrfach-Details korrekt; ~5 s Auto-Dismiss)**, **4 (Navigation —
+  Tab-Wechsel entfernt das Banner, Rückkehr stellt kein abgelaufenes wieder her)** und **7
+  (Regression: schnelles Nacheinander-Loggen → nur die letzte Bestätigung bleibt; erste Speicherung
+  bleibt in „Heutige Einträge"; TalkBack/VoiceOver liest Bestätigung + expanded-State einmalig)**.
+  Szenarien A–G aus dem J-014-Prompt gelten als native Retest-Vorlage.
+
 ### 2026-07-18 — SM-008: Saved-Meal-Zusammensetzungs-Transparenz (SavedMealsScreen)
 
 - **Status:** ⏳ offen (Gruppierungs-/Aggregations-Logik deterministisch per Unit-Tests

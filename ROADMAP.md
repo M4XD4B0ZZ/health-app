@@ -3823,7 +3823,7 @@ migrations, dependency changes.
 
 #### J-014: Compact Last-Submit Confirmation (refines J-008)
 
-Status: `todo`
+Status: `done`
 Severity: Medium
 Depends on: J-008 (`done`) — refines its transient panel; does **not** reopen J-008.
 Origin: native dogfooding 2026-07-17,
@@ -3865,6 +3865,48 @@ green.
 
 **Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
 live-verified.
+
+**Implementation (done):**
+
+- **Compact UI structure** (`JournalScreen.tsx`): the transient panel no longer renders the
+  duplicated count header + summary sentence + full `EntryRow`. For a **single** saved item it
+  shows one line — „Haferflocken gespeichert · 102 kcal" — with an inline accent „Bearbeiten"
+  action (`TouchableOpacity`, `accessibilityRole="button"`, `hitSlop`). For **several** items it
+  shows a compact aggregate — „3 Einträge gespeichert · 428 kcal" — plus an „Anzeigen"/„Verbergen"
+  disclosure (`accessibilityState.expanded`); only when expanded are the per-entry rows rendered
+  (name · quantity · kcal, each tappable to edit). A thin accent left-border (no full card border)
+  keeps the banner visually distinct from permanent Journal entries and from the auto-merge notice.
+  The permanent entries remain solely in „Heutige Einträge".
+- **Pure derivation** (`journalLastSubmitConfirmation.ts`): `buildLastSubmitConfirmation` now
+  returns `{ kind, message, accessibilityLabel, entryIds, count, totalCalories }`. Single messages
+  keep the J-010/J-011 count rule (typed count only, never invented; grams-only stays grams-only);
+  multiple messages drop the inlined name list (names live in the disclosure). Accessibility labels
+  cover name/count + saved state + kcal + available action for single, and count + total + „Details
+  anzeigen" for multiple.
+- **Timer duration & hold** (decision 23–29): `LAST_SUBMIT_CONFIRMATION_MS` lowered from 8000 to
+  **5000** — the single exported source of truth (controller default; the screen hard-codes no
+  duration). All J-008 controller guarantees are preserved unchanged (stale-timer safety, replace
+  resets timer, blur/unmount clears, no post-unmount state). Interaction holds dismissal: touching
+  the surface holds/releases via `onTouchStart`/`onTouchEnd`; opening „Bearbeiten" holds for the
+  whole edit-modal lifetime (existing J-008 `handleOpenEditFromConfirmation`/`handleCloseEdit`);
+  expanding the multi-item disclosure holds while open and releases on collapse (a dedicated
+  `confirmationExpandHeldRef`, balanced against the controller's hold counter).
+- **Multi-item behavior:** aggregate summary by default (no full duplicate list); the disclosure
+  is the smallest interaction that reveals the minimum identify-and-correct detail; opening it logs
+  nothing (pure render of already-persisted entries); a replacement/dismissal collapses it via the
+  wrapped `handleConfirmationChange` onChange.
+- **Partial-success behavior:** untouched — `buildLastSubmitConfirmation` only ever receives the
+  persisted entries, so a „1 Banane und zorbfrucht" submit shows the compact „Banane gespeichert"
+  confirmation while J-007's status/trust message and the „Nicht erkannte Einträge" section keep
+  explaining the blocked „zorbfrucht". Unknown items never appear as saved; saved entries stay
+  editable.
+- **Edit reuse (J-013):** „Bearbeiten" opens the exact persisted entry through the existing edit
+  flow — no second editing implementation; entry ID, canonical identity, provenance and quantity
+  intent are preserved (the screen passes the real `FoodEntry`).
+- **Test count & evidence:** `journalLastSubmitConfirmation.test.ts` now has 20 cases (9 message/
+  accessibility derivations incl. single/multiple/partial + the „no name list" guarantee, the
+  5000 ms constant assertion, and the 9 J-008 controller safety tests re-run against the new
+  duration). Full suite green: `npm run verify` → 119 suites / 986 tests.
 
 ---
 

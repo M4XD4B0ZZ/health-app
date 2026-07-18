@@ -23,6 +23,12 @@ import { summarizeResolverDecision } from '../services/explainability/summarizeR
 import { AssumptionTag } from '../../domain/models/AssumptionTag';
 import { isDebugLoggingEnabled } from '../../../../infrastructure/config/appEnv';
 import { CanonicalFood } from '../../domain/catalog/FoodCatalogSource';
+import {
+  isGenericSpeckQuery,
+  SPECK_CLARIFICATION_CHOICES,
+  buildSpeckClarificationItem,
+  SpeckClarificationItem,
+} from '../../domain/catalog/SpeckAmbiguity';
 
 /**
  * J-004: transforms a resolved CanonicalFood into the local per100g shape used by
@@ -142,6 +148,28 @@ export class LogFoodFromRawInputUseCase {
         // Weder Gramm noch Count
         quantityGrams = 0;
         confidenceScore = 0.35; // Low confidence
+      }
+
+      // RESOLVER-V2-010: bare, unqualified "Speck" spans three materially distinct BLS nutrient
+      // clusters (up to 6.2x kcal apart) — never silently persist one. Detected *before* any
+      // resolver call for the ambiguous term itself; qualified terms (Bauchspeck, Schinkenspeck,
+      // Rückenspeck, Bacon, ...) never match and flow through completely unchanged below.
+      if (this.resolver && isGenericSpeckQuery(parsed.name)) {
+        console.log(`[${traceId}] PROOF_SPECK_AMBIGUITY_DETECTED rawInput="${rawInput}"`);
+        const choicePreviews = await Promise.all(
+          SPECK_CLARIFICATION_CHOICES.map(async (choice) => {
+            const preview = await this.previewQualifiedFoodCalories(choice.query, quantityGrams);
+            return { ...choice, previewCalories: preview?.calories ?? null };
+          }),
+        );
+        throw new SpeckAmbiguityError(
+          buildSpeckClarificationItem({
+            rawInput: originalRawInput,
+            quantityGrams,
+            hasExplicitQuantity: parsed.quantityGrams !== undefined,
+            choices: choicePreviews,
+          }),
+        );
       }
 
       // Build base FoodEntry
@@ -467,6 +495,29 @@ export class LogFoodFromRawInputUseCase {
   }
 
   /**
+   * RESOLVER-V2-010: resolves a qualified query (one of the three Speck clarification choices)
+   * to a preview calorie value only — reuses the exact same `resolveCanonicalFood` resolution
+   * path used for real persistence, so the preview is guaranteed consistent with whatever gets
+   * persisted once the choice is actually selected and re-submitted. Returns `null` only if
+   * resolution unexpectedly fails (not expected in practice — all three queries are proven
+   * deterministic, see `SpeckAmbiguity.ts`).
+   */
+  async previewQualifiedFoodCalories(
+    query: string,
+    quantityGrams: number,
+  ): Promise<{ calories: number } | null> {
+    const result = await this.resolveCanonicalFood(query, query, undefined, 'generic');
+    if (!result.canonicalFood) return null;
+
+    const calories =
+      quantityGrams > 0
+        ? computeTotals(result.canonicalFood.per100g, quantityGrams, 1).totals.calories
+        : result.canonicalFood.per100g.calories;
+
+    return { calories };
+  }
+
+  /**
    * Sprint 5.3: Canonical Food Resolution Flow
    * Step 0: Multi-source resolver (if available)
    * Step 1: Normalize text
@@ -690,5 +741,14 @@ export class PortionNeedsEditError extends Error {
       `PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT reason=${needsEdit.reasonCode} input: ${needsEdit.rawInput}`,
     );
     this.name = 'PortionNeedsEditError';
+  }
+}
+
+export class SpeckAmbiguityError extends Error {
+  readonly code = 'GENERIC_SPECK_NEEDS_CLARIFICATION';
+
+  constructor(readonly clarification: SpeckClarificationItem) {
+    super(`GENERIC_SPECK_NEEDS_CLARIFICATION input: ${clarification.rawInput}`);
+    this.name = 'SpeckAmbiguityError';
   }
 }

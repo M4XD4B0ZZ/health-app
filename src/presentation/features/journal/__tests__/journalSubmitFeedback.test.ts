@@ -7,6 +7,7 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 0,
       blockedCount: 0,
       needsEditCount: 0,
+      speckClarificationCount: 0,
       confidenceReason: 'all_items_matched',
     });
 
@@ -23,6 +24,7 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 0,
       blockedCount: 1,
       needsEditCount: 0,
+      speckClarificationCount: 0,
       confidenceReason: 'partial_match',
     });
 
@@ -41,6 +43,7 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 1,
       blockedCount: 0,
       needsEditCount: 0,
+      speckClarificationCount: 0,
       confidenceReason: 'partial_match',
     });
 
@@ -54,6 +57,7 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 0,
       blockedCount: 1,
       needsEditCount: 0,
+      speckClarificationCount: 0,
       confidenceReason: 'no_items_matched',
     });
 
@@ -67,10 +71,38 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 0,
       blockedCount: 1,
       needsEditCount: 1,
+      speckClarificationCount: 0,
       confidenceReason: 'partial_match',
     });
 
     expect(outcome.processingState).toBe('error');
+    expect(outcome.statusMessage).toBe('Portionsgewicht fehlt');
+  });
+
+  it('RESOLVER-V2-010: reports "Bitte Speck-Art wählen" when nothing was persisted and the block is a Speck clarification', () => {
+    const outcome = deriveSubmitOutcome({
+      persistedCount: 0,
+      unresolvedCount: 0,
+      blockedCount: 1,
+      needsEditCount: 0,
+      speckClarificationCount: 1,
+      confidenceReason: 'partial_match',
+    });
+
+    expect(outcome.processingState).toBe('error');
+    expect(outcome.statusMessage).toBe('Bitte Speck-Art wählen');
+  });
+
+  it('RESOLVER-V2-010: a portion prompt takes priority over a Speck clarification when both are pending', () => {
+    const outcome = deriveSubmitOutcome({
+      persistedCount: 0,
+      unresolvedCount: 0,
+      blockedCount: 2,
+      needsEditCount: 1,
+      speckClarificationCount: 1,
+      confidenceReason: 'partial_match',
+    });
+
     expect(outcome.statusMessage).toBe('Portionsgewicht fehlt');
   });
 
@@ -80,6 +112,7 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 0,
       blockedCount: 0,
       needsEditCount: 0,
+      speckClarificationCount: 0,
       confidenceReason: 'no_items',
     });
 
@@ -96,6 +129,7 @@ describe('deriveSubmitOutcome (J-007)', () => {
       unresolvedCount: 0,
       blockedCount: 0,
       needsEditCount: 0,
+      speckClarificationCount: 0,
       confidenceReason: 'all_items_matched',
     });
 

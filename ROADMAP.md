@@ -7298,11 +7298,10 @@ presentation file is touched.
 
 ---
 
-#### RESOLVER-V2-010: Ambiguous Generic Term „Speck" — Disambiguation Decision (planning first)
+#### RESOLVER-V2-010: Ambiguous Generic Term „Speck" — Disambiguation Decision
 
-Status: `todo`
+Status: `done`
 Severity: Medium
-Mode: **planning/decision first — no resolver code change until the product decision is made.**
 Depends on: RESOLVER-V2-008 (diagnosis, `done`).
 Origin: RESOLVER-V2-008 diagnosis §3.2/§4.2.
 
@@ -7358,10 +7357,75 @@ Architecture: a narrowly-scoped, food-specific detection (not a generic ambiguit
 the `LogFoodFromRawInputUseCase` layer, closing the alias-cache risk (saving an alias for an
 ambiguous result currently locks in the wrong answer on every subsequent query). All proposed
 user-facing strings are net-new and await product approval (plan §16); the 2-vs-3-choice question
-(include lean Schinkenspeck or not) also awaits a product decision (plan §14). This task **stays
-`todo`** — the plan does not implement the functional behavior; a later RESOLVER-V2-010 **Act**
-task (same task ID, no new ID per this repo's Plan→Act convention) is ready to start once those
-two decisions are made.
+(include lean Schinkenspeck or not) also awaits a product decision (plan §14).
+
+**Approved product decision (2026-07-18) — Act complete:** three choices (Bacon/Bauchspeck,
+Fettspeck/Rückenspeck, Schinkenspeck) plus „Nicht sicher". Exact approved copy:
+
+- Heading: „Welche Art von Speck meinst du?"
+- Explanation: „Speck kann je nach Art sehr unterschiedliche Nährwerte haben. Wähle die
+  Variante, die am besten passt."
+- Choices: „Bacon / Bauchspeck" („Durchwachsen, typischerweise zum Braten"); „Fettspeck /
+  Rückenspeck" („Sehr fettreich, häufig zum Auslassen"); „Schinkenspeck" („Magerer,
+  aufschnittartiger Speck").
+- „Nicht sicher" — saves nothing, suggests a more specific term.
+
+**Implementation (done):**
+
+- **Detection policy** — new `src/features/nutrition/domain/catalog/SpeckAmbiguity.ts`,
+  `isGenericSpeckQuery(parsedName)`: true only when the normalized parsed food name is the exact
+  bare token `"speck"` (via the existing `normalizeText`, not brittle raw-string equality).
+  Qualified terms (`Bauchspeck`, `Frühstücksspeck`, `Bacon`, `Schinkenspeck`, `Rückenspeck`, or a
+  descriptive multi-word phrase) never match and flow through the resolver completely unchanged.
+  **Not** a generic `ResolverDecision.status`/score-gap framework — the plan proved that would
+  misfire on qualified terms; this is a narrow, explicit, food-specific check only.
+- **The three resolver payload terms** (proven deterministic, verified against the real,
+  committed BLS artifact): `bauchspeck` → `W411300` (304 kcal/100 g), `rueckenspeck` → `U605000`
+  (746 kcal/100 g — the same record class the old silent default targeted, now only ever reached
+  as one explicit, informed choice), `schinkenspeck` → the Schinkenspeck cluster (121–167 kcal
+  range). Never guessed from the labels — each is an exported constant in `SpeckAmbiguity.ts`.
+- **Detection point:** `LogFoodFromRawInputUseCase.execute()` checks `isGenericSpeckQuery` right
+  after quantity is parsed, before any resolver call for the ambiguous term itself. On a match it
+  resolves all three choices' **preview** calories via a new public
+  `previewQualifiedFoodCalories(query, quantityGrams)` (reusing the exact same private
+  `resolveCanonicalFood` path used for real persistence — preview and eventual persisted value are
+  therefore guaranteed consistent) and throws a new `SpeckAmbiguityError` carrying a structured
+  `SpeckClarificationItem` — mirroring the existing `PortionNeedsEditError` pattern exactly.
+  Nothing is persisted and no alias is cached for the ambiguous attempt itself.
+- **Selection re-enters the existing pipeline, no new resolver plumbing:** a new
+  `buildSpeckChoiceResubmissionText(rawInput, choice)` replaces the bare word "Speck" in the
+  _original_ raw text with the chosen qualified term via a word-boundary regex (`"100 g Speck"` →
+  `"100 g bauchspeck"`; `"3 Scheiben Speck"` → `"3 Scheiben bauchspeck"`; bare `"Speck"` →
+  `"bauchspeck"`) — preserving whatever quantity phrasing (grams, count/unit, or none) the user
+  actually typed without reconstructing or re-parsing it, and re-enters the exact same
+  `logResolvedNutritionInput`/`execute()` pipeline a direct qualified input already uses. If the
+  chosen variant can't safely support the original unit (no known portion hint), the existing
+  `PortionNeedsEditError` mechanism fires — a correction prompt, never a fabricated conversion.
+- **Provenance preserved:** the persisted entry's `foodCatalogRef`/`nutritionSnapshot`/quantity
+  come straight from the resolver for the chosen query; `parsedName` reflects the real resolved
+  term (e.g. `"bauchspeck"`), never the fabricated friendly label. No new persistence field, no
+  migration; historical „Speck" entries are untouched (only future resolutions changed).
+- **Partial success:** the Speck-ambiguity throw is caught per-item in
+  `resolvePreparedNutritionInputs.ts` (new `speckClarificationItems` array, alongside the existing
+  `needsEditItems`), so `Promise.all` lets other items in the same submission persist normally —
+  `"2 Eier und 100 g Speck"` saves the eggs once and surfaces only Speck for clarification; picking
+  a choice resolves and saves only that pending item, never re-dispatching or re-saving the rest.
+- **UI (`JournalScreen.tsx`):** a new section (modeled on the existing `portionNeedsEditItems`
+  block) renders each pending item's heading/explanation, three choice rows (label + description +
+  „ca. N kcal für M g" preview, computed by new pure helpers in
+  `speckClarificationDisplay.ts`), and a „Nicht sicher" action. Selecting a choice or dismissing
+  removes only that one pending item from state — sibling clarifications, portion prompts, and
+  unresolved items are untouched. `journalSubmitFeedback.ts` gained a `speckClarificationCount`
+  input and a dedicated „Bitte Speck-Art wählen" status message (same priority pattern as the
+  existing „Portionsgewicht fehlt" case) so a pending Speck item is never mislabeled „nicht
+  erkannt".
+- **Tests:** `SpeckAmbiguity.test.ts` (36), `speckClarificationDisplay.test.ts` (7),
+  `ResolverV2010SpeckClarification.test.ts` (12, against the real BLS resolver — proves the exact
+  preview values, that qualified terms bypass clarification, and that a count/slice quantity
+  survives selection), plus new architecture-level cases in `logResolvedNutritionInput.test.ts`
+  and `journalSubmitFeedback.test.ts`. Full suite green: `npm run verify` → 123 suites / 1066
+  tests. UI-relevant → `docs/MANUAL_TESTING_GAPS.md` entry added (no RN render harness in this
+  environment).
 
 ---
 

@@ -1,12 +1,21 @@
 # RESOLVER-V2-010 — Ambiguous Generic Term „Speck" — Disambiguation Decision — Planning
 
-Status: `planning complete` — no product code changed. Owner task: **RESOLVER-V2-010**
-(ROADMAP.md, Nutrition Resolver v2).
-Mode: **review-only product and technical planning** (VERIFY.md Category 1, documentation-only).
+Status: `implemented` (RESOLVER-V2-010 Act merged — see ROADMAP.md RESOLVER-V2-010). Owner task:
+**RESOLVER-V2-010** (ROADMAP.md, Nutrition Resolver v2).
 Depends on: RESOLVER-V2-008 (diagnosis, `done`). Does not reopen RESOLVER-V2-008/RESOLVER-V2-009.
 
 Origin: RESOLVER-V2-008 diagnosis §3.2/§4.2 —
 [`reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md`](../reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md).
+
+> **Approved decision (2026-07-18).** Three choices, not two — Schinkenspeck is included
+> alongside Bacon/Bauchspeck and Fettspeck/Rückenspeck, since a Schinkenspeck-only
+> misclassification would otherwise stay silently wrong just like the original fatback default.
+> Approved copy: heading „Welche Art von Speck meinst du?"; explanation „Speck kann je nach Art
+> sehr unterschiedliche Nährwerte haben. Wähle die Variante, die am besten passt."; choices
+> „Bacon / Bauchspeck" / „Fettspeck / Rückenspeck" / „Schinkenspeck" with the descriptions in §8;
+> plus „Nicht sicher". The Act task implemented exactly the recommended MVP direction below (§7
+> Option B + §9 Option A) — see ROADMAP.md's RESOLVER-V2-010 "Implementation (done)" section for
+> the full implementation notes, exact resolver payload terms, and test evidence.
 
 ---
 

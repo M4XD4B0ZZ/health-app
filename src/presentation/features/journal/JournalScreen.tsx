@@ -2,6 +2,11 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { logResolvedNutritionInput } from '../../../features/input/application/logResolvedNutritionInput';
 import type { PortionNeedsEditItem } from '../../../features/nutrition/domain/portion/PortionNeedsEdit';
 import { resolveFoodIdentityKey } from '../../../features/nutrition/domain/portion/foodIdentity';
+import type {
+  SpeckClarificationItem,
+  SpeckClarificationChoicePreview,
+} from '../../../features/nutrition/domain/catalog/SpeckAmbiguity';
+import { buildSpeckChoiceResubmissionText } from '../../../features/nutrition/domain/catalog/SpeckAmbiguity';
 import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -27,6 +32,11 @@ import {
   KnownCountPortion,
 } from './journalEntryDisplay';
 import { deriveSubmitOutcome } from './journalSubmitFeedback';
+import {
+  formatSpeckChoicePreview,
+  buildSpeckChoiceAccessibilityLabel,
+  SPECK_NOT_SURE_ACCESSIBILITY_LABEL,
+} from './speckClarificationDisplay';
 import {
   buildLastSubmitConfirmation,
   createLastSubmitConfirmationController,
@@ -195,6 +205,12 @@ const JournalScreen: React.FC = () => {
   const [portionNeedsEditItems, setPortionNeedsEditItems] = React.useState<PortionNeedsEditItem[]>(
     [],
   );
+  // RESOLVER-V2-010: bare, unqualified "Speck" items awaiting a disambiguation choice. Each
+  // pending item is independent — resolving or dismissing one never touches the others.
+  const [speckClarificationItems, setSpeckClarificationItems] = React.useState<
+    SpeckClarificationItem[]
+  >([]);
+  const [speckActionInFlight, setSpeckActionInFlight] = useState(false);
   // J-008: transient last-submit confirmation, replacing the old permanent "Erkannte
   // Einträge" list. Timer/visibility is owned by a framework-agnostic controller so it's
   // unit-testable with fake timers; `lastSubmitPanel` mirrors the controller's current value.
@@ -254,6 +270,7 @@ const JournalScreen: React.FC = () => {
     setTrustMessage('');
     setUnresolvedItems([]);
     setPortionNeedsEditItems([]);
+    setSpeckClarificationItems([]);
     // J-008: a new submission always replaces the previous confirmation (decision 4), even
     // if this new submission ends up persisting nothing itself.
     confirmationControllerRef.current?.hide();
@@ -285,6 +302,7 @@ const JournalScreen: React.FC = () => {
       result.dispatch.unresolvedRequests.map((req: { rawName: string }) => req.rawName),
     );
     setPortionNeedsEditItems(result.needsEditItems);
+    setSpeckClarificationItems(result.speckClarificationItems);
 
     // J-005: surface the first auto-merge (if any) as a visible, undoable notification.
     const mergedEntry = result.persistedEntries.find((entry) => entry.autoMergeInfo);
@@ -324,6 +342,7 @@ const JournalScreen: React.FC = () => {
       unresolvedCount,
       blockedCount,
       needsEditCount: result.needsEditItems.length,
+      speckClarificationCount: result.speckClarificationItems.length,
       confidenceReason: result.dispatch.confidence.reason,
     });
 
@@ -431,6 +450,44 @@ const JournalScreen: React.FC = () => {
     }
 
     await savePortionHintAndRetry(manualPortionItem, totalGrams / manualPortionItem.quantity);
+  };
+
+  // RESOLVER-V2-010: selecting a clarification choice re-submits the original quantity against
+  // the chosen qualified term (e.g. "100g bauchspeck") through the exact same
+  // logResolvedNutritionInput pipeline a direct "100 g Bauchspeck" input already uses — proven
+  // deterministic. Deliberately does NOT go through submitRawInput/clearSubmitFeedback: several
+  // Speck items (or a portion prompt, or unresolved items) may be pending in the same
+  // submission, and resolving one must never wipe the others (requirement 41/42). Only the
+  // journal list is refreshed and the exact item chosen is removed from the pending list.
+  const handleSelectSpeckChoice = async (
+    item: SpeckClarificationItem,
+    choice: SpeckClarificationChoicePreview,
+  ) => {
+    if (speckActionInFlight) return;
+
+    setSpeckActionInFlight(true);
+    try {
+      const resubmissionText = buildSpeckChoiceResubmissionText(item.rawInput, choice);
+      const result = await logResolvedNutritionInput(resubmissionText);
+
+      setSpeckClarificationItems((prev) => prev.filter((pending) => pending !== item));
+
+      if (result.persistedEntries.length > 0) {
+        await loadJournalData();
+      }
+    } catch (err) {
+      console.error('Failed to resolve Speck clarification choice:', err);
+    } finally {
+      setSpeckActionInFlight(false);
+    }
+  };
+
+  // "Nicht sicher": dismisses only this item — nothing is saved, no default is chosen, and the
+  // user is pointed at the exact terms proven to resolve deterministically (never a descriptive
+  // phrase, which the resolver cannot parse today).
+  const handleDismissSpeckClarification = (item: SpeckClarificationItem) => {
+    setSpeckClarificationItems((prev) => prev.filter((pending) => pending !== item));
+    setTrustMessage(item.notSureSuggestion);
   };
 
   const handleReinsertUnresolvedItems = () => {
@@ -632,6 +689,63 @@ const JournalScreen: React.FC = () => {
                     style={styles.portionActionButton}
                   />
                 </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {speckClarificationItems.length > 0 && (
+          <View style={styles.section}>
+            {speckClarificationItems.map((item) => (
+              <View key={item.rawInput} style={styles.speckClarification}>
+                <AppText style={styles.sectionTitle} accessibilityRole="header">
+                  {item.heading}
+                </AppText>
+                <AppText variant="meta" tone="muted" style={styles.speckExplanation}>
+                  {item.explanation}
+                </AppText>
+                {item.choices.map((choice) => {
+                  const previewText = formatSpeckChoicePreview(
+                    choice.previewCalories,
+                    item.hasExplicitQuantity,
+                    item.quantityGrams,
+                  );
+
+                  return (
+                    <TouchableOpacity
+                      key={choice.id}
+                      onPress={() => handleSelectSpeckChoice(item, choice)}
+                      disabled={speckActionInFlight}
+                      accessibilityRole="button"
+                      accessibilityLabel={buildSpeckChoiceAccessibilityLabel(choice, previewText)}
+                      style={styles.speckChoiceRow}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.speckChoiceText}>
+                        <AppText variant="body">{choice.label}</AppText>
+                        <AppText variant="meta" tone="muted">
+                          {choice.description}
+                        </AppText>
+                      </View>
+                      {previewText && (
+                        <AppText variant="meta" tone="muted">
+                          {previewText}
+                        </AppText>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  onPress={() => handleDismissSpeckClarification(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={SPECK_NOT_SURE_ACCESSIBILITY_LABEL}
+                  style={styles.speckNotSureButton}
+                  activeOpacity={0.7}
+                >
+                  <AppText variant="meta" tone="accent">
+                    {item.notSureLabel}
+                  </AppText>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -928,6 +1042,31 @@ const styles = StyleSheet.create({
   },
   portionActionButton: {
     alignSelf: 'stretch',
+  },
+  speckClarification: {
+    marginBottom: tokens.spacing.s,
+    padding: tokens.spacing.s,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.medium,
+  },
+  speckExplanation: {
+    marginBottom: tokens.spacing.xs,
+  },
+  speckChoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: tokens.spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.divider,
+  },
+  speckChoiceText: {
+    flex: 1,
+    paddingRight: tokens.spacing.s,
+  },
+  speckNotSureButton: {
+    marginTop: tokens.spacing.xs,
+    alignSelf: 'flex-start',
   },
   summaryBar: {
     marginTop: 16,

@@ -3,23 +3,30 @@ import {
   PreparedNutritionResolverDispatch,
 } from './prepareNutritionResolverDispatch';
 import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
-import { PortionNeedsEditError } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
+import {
+  PortionNeedsEditError,
+  SpeckAmbiguityError,
+} from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
 import { PortionNeedsEditItem } from '../../nutrition/domain/portion/PortionNeedsEdit';
+import { SpeckClarificationItem } from '../../nutrition/domain/catalog/SpeckAmbiguity';
 import container from '../../../infrastructure/di/container';
 
 export interface ResolvePreparedNutritionInputsResult {
   dispatch: PreparedNutritionResolverDispatch;
   resolvedResults: Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>>[];
   needsEditItems: PortionNeedsEditItem[];
+  /** RESOLVER-V2-010: bare, unqualified "Speck" items pending a user disambiguation choice. */
+  speckClarificationItems: SpeckClarificationItem[];
 }
 
 const CONTROLLED_INPUT_FAILURE_MARKERS = [
   'PORTION_GRAMS_REQUIRED_FOR_UNIT_INPUT',
   'RESOLVER_FAILED_OR_NO_MACROS',
+  'GENERIC_SPECK_NEEDS_CLARIFICATION',
 ];
 
 export function isControlledInputResolutionFailure(error: unknown): boolean {
-  if (error instanceof PortionNeedsEditError) {
+  if (error instanceof PortionNeedsEditError || error instanceof SpeckAmbiguityError) {
     return true;
   }
 
@@ -65,6 +72,11 @@ export async function resolvePreparedNutritionInputs(
           return { needsEdit: error.needsEdit };
         }
 
+        if (error instanceof SpeckAmbiguityError) {
+          console.log('Controlled input resolution block (Speck ambiguity):', input.raw);
+          return { speckClarification: error.clarification };
+        }
+
         if (isControlledInputResolutionFailure(error)) {
           console.log('Controlled input resolution block:', input.raw);
           return null;
@@ -82,10 +94,17 @@ export async function resolvePreparedNutritionInputs(
     resolvedResults: resolvedResults
       .filter((r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => r !== null)
       .filter(
-        (r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> => !('needsEdit' in r),
+        (r): r is Awaited<ReturnType<LogFoodFromRawInputUseCase['execute']>> =>
+          !('needsEdit' in r) && !('speckClarification' in r),
       ),
     needsEditItems: resolvedResults
       .filter((r): r is { needsEdit: PortionNeedsEditItem } => r !== null && 'needsEdit' in r)
       .map((r) => r.needsEdit),
+    speckClarificationItems: resolvedResults
+      .filter(
+        (r): r is { speckClarification: SpeckClarificationItem } =>
+          r !== null && 'speckClarification' in r,
+      )
+      .map((r) => r.speckClarification),
   };
 }

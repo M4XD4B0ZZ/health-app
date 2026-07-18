@@ -6306,8 +6306,9 @@ refactoring.
 #### ACC-005: OAuth Native Wiring (app.json + native dependencies)
 
 Status: `blocked` (repository slice landed and verified; task cannot be marked `done` — it
-depends on external, human-only prerequisites that no agent can perform or verify: see
-"Remaining blocker" below)
+depends on external, human-only provider registration/configuration that no agent can perform
+or verify: see "Completion criteria" below. Native end-to-end login verification is **not** an
+ACC-005 criterion — it moved to ACC-006, see the boundary note below.)
 Severity: Deferred (Phase 1 — optional authentication shell, completes P2-008; ACC-001)
 Mode: Act (config/dependency implementation)
 Depends on: none (independent of Phase 0)
@@ -6354,21 +6355,50 @@ ACC-021 landed the dynamic `app.config.ts` variant mechanism producing them (pro
 `de.zerahealth.zera.dev`, with distinct schemes). No further repository change is required
 for the app identity or the deep-link scheme.
 
-**Remaining blocker (external / human-only; keeps ACC-005 `blocked`, gates ACC-006):**
+**Completion criteria (external / human-only; ACC-005 stays `blocked` until these land — it is
+NOT gated on a working native login existing; see the boundary note below):**
 
 1. register the Google OAuth application (external developer console);
-2. register the Apple application + Sign in with Apple identifiers (external developer
+2. register the Apple application identifiers + enable Sign in with Apple (external developer
    console);
-3. configure the Supabase Auth providers;
-4. add the development and production redirect allowlists as appropriate
-   (`de.zerahealth.zera.dev://**` for dogfooding, `de.zerahealth.zera://**` for production);
-5. perform native end-to-end OAuth verification on a real device/simulator.
+3. configure the Supabase Auth providers (Google + Apple);
+4. enter the **exact** development and production redirect callbacks in the Supabase redirect
+   allowlist (exact URLs, not broad `://**` wildcards):
+   - `de.zerahealth.zera.dev://auth/callback` (development / dogfooding);
+   - `de.zerahealth.zera://auth/callback` (production).
 
-**Out of scope (preserved):** authentication UI / login-logout screen (ACC-006); OAuth client
-IDs, Apple/Google secrets, Supabase credentials, redirect URLs; session-storage hardening
-(ACC-007); Supabase schema/SQL/RLS; backup/restore; synchronization; outbox; ACC-006+ work;
-unrelated refactoring. (`expo.scheme`, `ios.bundleIdentifier`, and `android.package` are no
-longer deferred here — the repository-side portion is handled by ACC-021.)
+ACC-005 is `done` once criteria 1–4 are complete. **No working-login claim is required for
+ACC-005.**
+
+**ACC-005 ↔ ACC-006 boundary (circular-dependency fix):** native end-to-end OAuth verification
+was previously listed as an ACC-005 blocker. That created a cycle — the end-to-end test needs
+the browser / Apple / callback / session code that ACC-006 builds, yet ACC-006 depends on
+ACC-005, so ACC-005 could never reach `done` before ACC-006 existed. Native end-to-end
+verification is therefore an **ACC-006** completion criterion, not an ACC-005 one. ACC-006
+keeps its dependency on ACC-005.
+
+**Provider boundary (binding; governs registration here and the runtime implementation in
+ACC-006):**
+
+- **Google** — mobile Supabase `signInWithOAuth` flow. Create the Google OAuth client as type
+  **Web application** (not an Android client first). Its single authorized redirect URI is the
+  **Supabase project callback** `https://<PROJECT_REF>.supabase.co/auth/v1/callback`; the app
+  schemes are **not** registered at Google. The app callbacks in criterion 4 live in the
+  Supabase redirect allowlist and are used by ACC-006 as `redirectTo`.
+- **Apple** — the initial release uses **native Sign in with Apple on iOS only**
+  (`expo-apple-authentication` → Apple identity token → `supabase.auth.signInWithIdToken()`).
+  No Apple login on Android in the initial release. Do **not** create an Apple Services ID or a
+  browser-based Apple OAuth secret unless separately approved (the native ID-token flow needs
+  no half-yearly secret rotation). Register both App IDs in the Apple Developer portal —
+  `de.zerahealth.zera` (production) and `de.zerahealth.zera.dev` (development) — and enable
+  Sign in with Apple on both.
+
+**Out of scope (preserved):** authentication UI / login-logout screen, Google browser launch,
+native Apple flow, callback handling, session creation, and **native end-to-end OAuth
+verification** — all **ACC-006**; OAuth client IDs, Apple/Google secrets, Supabase
+credentials, redirect URLs in source; session-storage hardening (ACC-007); Supabase
+schema/SQL/RLS; backup/restore; synchronization; outbox; ACC-006+ work; unrelated refactoring.
+(`expo.scheme`, `ios.bundleIdentifier`, and `android.package` are handled by ACC-021.)
 
 ---
 
@@ -6451,14 +6481,22 @@ their own full entries above (all `done`); ACC-005 is now its own full entry abo
 
 **Phase 1 — optional authentication shell (completes P2-008, no new port/use case):**
 
-- **ACC-005** — OAuth native wiring: registered OAuth apps, `app.json` deep-link scheme,
-  `expo-web-browser`/`expo-apple-authentication` dependencies (protected files, explicit
-  approval required). Depends on: none. **Now `blocked` with its own full entry above** —
-  native deps + `expo-web-browser` plugin landed; the deep-link scheme and OAuth-app/Supabase
-  registration are held on a production app-identity decision (RFC 8252 reverse-domain scheme).
-- **ACC-006** — Settings login/logout screen wired to the existing
-  `signInWithOAuthUseCase`/`AuthRepository.signOut()`. Depends on: ACC-005 (blocked until the
-  deep-link scheme + OAuth registration are resolved).
+- **ACC-005** — OAuth native wiring: registered OAuth apps, deep-link scheme, native
+  dependencies. Depends on: none. **Now `blocked` with its own full entry above** — native
+  deps + `expo-web-browser` plugin landed (ACC-005), and the dev/prod app identities + schemes
+  landed (ACC-021); the remaining gate is external Google/Apple/Supabase provider registration
+  - configuration. Native end-to-end login verification is an ACC-006 criterion, not ACC-005
+    (circular-dependency fix — see the full entry).
+- **ACC-006** — Optional login/logout UI + the full native OAuth runtime, wired to the
+  existing `signInWithOAuthUseCase`/`AuthRepository.signOut()`. Completion criteria: optional
+  login UI; Google browser OAuth launch (`expo-web-browser`); variant-aware `redirectTo` (dev
+  `de.zerahealth.zera.dev://auth/callback`, prod `de.zerahealth.zera://auth/callback`);
+  callback handling; session creation + persistence; native Apple Sign in on iOS
+  (`expo-apple-authentication` → `supabase.auth.signInWithIdToken()`); logout in its registered
+  scope; and **native real-device end-to-end verification** (moved here from ACC-005 to break
+  the completion cycle — see the ACC-005 boundary note). Depends on: ACC-005 (the deep-link
+  scheme is already resolved by ACC-021; the remaining gate is ACC-005's external provider
+  registration + Supabase configuration).
 - **ACC-007** — Session-storage hardening decision (`expo-secure-store` vs. Supabase's
   default AsyncStorage-backed session) — **open decision, see ACC-001 plan §27 item 2**.
   Depends on: ACC-005.

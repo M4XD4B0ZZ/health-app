@@ -230,6 +230,7 @@ class Container {
     );
     this._deleteSavedMealTemplateUseCase = new DeleteSavedMealTemplateUseCase(
       this._savedMealRepository,
+      this._nutritionClock,
     );
     this._renameSavedMealTemplateUseCase = new RenameSavedMealTemplateUseCase(
       this._savedMealRepository,

@@ -51,6 +51,48 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — ACC-002: Saved Meal Soft-Delete (kein UI-Datei betroffen, dennoch dokumentiert)
+
+- **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — `SavedMealsScreen.tsx` ruft
+  weiterhin unverändert `container.deleteSavedMealTemplateUseCase.execute(...)` und
+  `listSavedMealTemplatesUseCase.execute()` auf; die neue Tombstone-Semantik ist vollständig
+  in Domain/Application/Infrastructure verifiziert. Dieser Eintrag dokumentiert dennoch den
+  nativen Nachtest, weil "verschwindet dauerhaft nach Neustart" ein echtes Geräteverhalten
+  ist, das ein Headless-Unit-Test (Fake-KeyValueStore) nicht 1:1 beweist.)
+- **Branch/PR:** `claude/acc-002-saved-meal-soft-delete`
+- **Betroffene Bereiche:**
+  - `src/features/nutrition/domain/models/SavedMealTypes.ts` — neues optionales
+    `deletedAt?: Date` auf `SavedMealTemplate` (spiegelt `FoodEntry.deletedAt`, J-003).
+  - `src/features/nutrition/application/ports/SavedMealRepository.ts` — `delete(id, deletedAt)`
+    (Tombstone statt physischem Löschen); neue `listIncludingDeleted()` /
+    `getByIdIncludingDeleted(id)` für künftige Sync-/Diagnose-Zwecke (ACC-001-Vorbereitung).
+  - `PersistedSavedMealRepository.ts` / `InMemorySavedMealRepository.ts` — `list()`/`getById()`
+    filtern jetzt aktiv/nicht-gelöscht; `delete()` setzt den Tombstone idempotent (kein Rewrite,
+    falls bereits gelöscht oder ID unbekannt); Serialisierung rundet `deletedAt` (ISO-String)
+    verlustfrei; fehlt das Feld in gespeicherten Alt-Daten, bleibt der Datensatz aktiv (sicherer
+    Default, keine explizite Migration nötig).
+  - `DeleteSavedMealTemplateUseCase.ts` — nimmt jetzt zusätzlich `Clock` entgegen und übergibt
+    `clock.now()` als Tombstone-Zeitstempel (exakt das `DeleteFoodEntryUseCase`-Muster).
+  - `src/infrastructure/di/container.ts` — Wiring um den bestehenden `_nutritionClock` ergänzt.
+  - Keine UUID-/ID-Migration (das ist ACC-003), keine Supabase-/Auth-/Sync-Änderung, keine
+    Restore/Undelete-UI, kein physisches Tombstone-Purging.
+- **Verifiziert durch Agent:** `npm run verify` grün (123 Suiten / 1078 Tests, davon 25 neue
+  ACC-002-Fälle in `SavedMeals.test.ts` und `PersistedSavedMealRepository.test.ts`): Tombstone
+  wird gesetzt statt physisch gelöscht; `list()` schließt gelöschte Vorlagen aus,
+  `listIncludingDeleted()` zeigt sie weiterhin; Loggen einer gelöschten Vorlage wird ohne
+  Journal-Mutation abgelehnt; Umbenennen einer gelöschten Vorlage wird abgelehnt; wiederholtes
+  Löschen ist idempotent (Tombstone-Zeitstempel bleibt beim ersten Aufruf); `SavedMealItem`s
+  bleiben am tombstoned Parent erhalten (keine destruktive Entfernung); ein neues Template mit
+  demselben Anzeigenamen erweckt die gelöschte Vorlage nicht wieder zum Leben; Alt-Daten ohne
+  `deletedAt`-Feld migrieren sicher zu "aktiv"; leere Datenbank migriert fehlerfrei;
+  SM-007/SM-008-Regressionssuiten unverändert grün.
+- **Manuell nachzuholen:** Abschnitt **7 (Regressionscheck)** — natives Retest-Protokoll: (1)
+  bestehende Saved Meal öffnen, (2) löschen, (3) sofortiges Verschwinden bestätigen, (4) App neu
+  starten, (5) weiterhin abwesend bestätigen, (6) andere Saved Meals unverändert bestätigen,
+  (7) neue Vorlage mit demselben sichtbaren Namen anlegen, (8) bestätigen, dass die alte
+  gelöschte Vorlage nicht wieder auftaucht, (9) bestätigen, dass die neue Vorlage normal
+  inspiziert und geloggt werden kann.
+
 ### 2026-07-18 — RESOLVER-V2-010: Speck-Klärungsdialog (JournalScreen)
 
 - **Status:** ⏳ offen (Erkennungs-Logik, die drei bewiesenen Resolver-Suchbegriffe, Vorschau-

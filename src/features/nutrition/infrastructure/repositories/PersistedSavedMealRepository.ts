@@ -33,6 +33,7 @@ interface SerializedSavedMealTemplate {
   items: SerializedSavedMealItem[];
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
+  deletedAt?: string; // ISO string
 }
 
 /**
@@ -57,18 +58,25 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
 
   async list(): Promise<SavedMealTemplate[]> {
     await this.ensureLoaded();
-    return Array.from(this.templates.values()).map((template) => ({ ...template }));
+    return Array.from(this.templates.values())
+      .filter((template) => !template.deletedAt)
+      .map((template) => ({ ...template }));
   }
 
   async getById(id: string): Promise<SavedMealTemplate | null> {
     await this.ensureLoaded();
     const found = this.templates.get(id);
-    return found ? { ...found } : null;
+    return found && !found.deletedAt ? { ...found } : null;
   }
 
-  async delete(id: string): Promise<void> {
+  /** ACC-002: soft-delete — no-op if unknown or already tombstoned (idempotent). */
+  async delete(id: string, deletedAt: Date): Promise<void> {
     await this.ensureLoaded();
-    this.templates.delete(id);
+    const existing = this.templates.get(id);
+    if (!existing || existing.deletedAt) {
+      return;
+    }
+    this.templates.set(id, { ...existing, deletedAt });
     await this.persist();
   }
 
@@ -79,6 +87,17 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
     }
     this.templates.set(template.id, template);
     await this.persist();
+  }
+
+  async listIncludingDeleted(): Promise<SavedMealTemplate[]> {
+    await this.ensureLoaded();
+    return Array.from(this.templates.values()).map((template) => ({ ...template }));
+  }
+
+  async getByIdIncludingDeleted(id: string): Promise<SavedMealTemplate | null> {
+    await this.ensureLoaded();
+    const found = this.templates.get(id);
+    return found ? { ...found } : null;
   }
 
   private async ensureLoaded(): Promise<void> {
@@ -118,6 +137,7 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
       items: template.items.map((item) => this.serializeItem(item)),
       createdAt: template.createdAt.toISOString(),
       updatedAt: template.updatedAt.toISOString(),
+      deletedAt: template.deletedAt?.toISOString(),
     };
   }
 
@@ -131,13 +151,21 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
   }
 
   private deserializeTemplate(serialized: SerializedSavedMealTemplate): SavedMealTemplate {
-    return {
+    const template: SavedMealTemplate = {
       id: serialized.id,
       name: serialized.name,
       items: serialized.items.map((item) => this.deserializeItem(item)),
       createdAt: new Date(serialized.createdAt),
       updatedAt: new Date(serialized.updatedAt),
     };
+
+    // ACC-002: absent on every pre-existing record (they predate this field) — leaving it
+    // unset here is exactly the safe "not deleted" default, no explicit migration needed.
+    if (serialized.deletedAt !== undefined) {
+      template.deletedAt = new Date(serialized.deletedAt);
+    }
+
+    return template;
   }
 
   private deserializeItem(serialized: SerializedSavedMealItem): SavedMealItem {

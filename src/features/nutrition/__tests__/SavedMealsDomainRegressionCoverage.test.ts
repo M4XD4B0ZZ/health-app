@@ -64,7 +64,7 @@ describe('Saved Meals Domain Regression Coverage (SM-006)', () => {
     const deleteFoodEntryUseCase = new DeleteFoodEntryUseCase(foodEntryRepository, clock);
     const listTemplatesUseCase = new ListSavedMealTemplatesUseCase(savedMealRepository);
     const renameTemplateUseCase = new RenameSavedMealTemplateUseCase(savedMealRepository, clock);
-    const deleteTemplateUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepository);
+    const deleteTemplateUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepository, clock);
 
     // 1. A resolver-produced entry, carrying a foodCatalogRef (as J-004 wires it), logged
     // for date 1.
@@ -135,6 +135,11 @@ describe('Saved Meals Domain Regression Coverage (SM-006)', () => {
     expect(await listTemplatesUseCase.execute()).toHaveLength(0);
     const finalSavedMealRepository = new PersistedSavedMealRepository(keyValueStore);
     expect(await finalSavedMealRepository.getById(template.id)).toBeNull();
+    // ACC-002: the template is a durable tombstone, not physically removed — its items
+    // survive intact for future sync/diagnostic inspection.
+    const tombstoned = await finalSavedMealRepository.getByIdIncludingDeleted(template.id);
+    expect(tombstoned?.deletedAt).not.toBeUndefined();
+    expect(tombstoned?.items).toEqual(renamed.items);
   });
 
   describe('P0-P1 / Journal Domain / earlier Saved Meals regression sentinel', () => {

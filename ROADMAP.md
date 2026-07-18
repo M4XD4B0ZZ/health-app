@@ -6305,10 +6305,13 @@ refactoring.
 
 #### ACC-005: OAuth Native Wiring (app.json + native dependencies)
 
-Status: `blocked` (repository slice landed and verified; task cannot be marked `done` — it
-depends on external, human-only provider registration/configuration that no agent can perform
-or verify: see "Completion criteria" below. Native end-to-end login verification is **not** an
-ACC-005 criterion — it moved to ACC-006, see the boundary note below.)
+Status: `blocked` — **intentionally deferred (product & cost decision, not a technical
+failure)**. The repository slice landed and verified; the task cannot be marked `done` because
+it depends on external, human-only provider registration/configuration that no agent can
+perform or verify (see "Completion criteria" below). Those criteria are being deliberately
+held until an economically justified release is imminent — see the "Binding cost / release
+decision" block below. Native end-to-end login verification is **not** an ACC-005 criterion —
+it moved to ACC-006, see the boundary note below.
 Severity: Deferred (Phase 1 — optional authentication shell, completes P2-008; ACC-001)
 Mode: Act (config/dependency implementation)
 Depends on: none (independent of Phase 0)
@@ -6369,6 +6372,33 @@ NOT gated on a working native login existing; see the boundary note below):**
 
 ACC-005 is `done` once criteria 1–4 are complete. **No working-login claim is required for
 ACC-005.**
+
+**Binding cost / release decision (intentional deferral — product & economics, not a technical
+gap):** Zera is unreleased and has no revenue, so the account/auth epic will **not** trigger
+any recurring platform cost yet. The completion criteria above are deliberately held until an
+economically justified release is imminent. Governing rule: _no annually recurring platform
+cost before an imminent release or proven demand justifies it._
+
+- **Only paid asset now:** the `zerahealth.de` domain (secures the name, grounds the permanent
+  app identities, and enables a later website / privacy policy / support — a small strategic
+  asset, not a recurring block).
+- **Not to be purchased now:** Google Play developer account, Apple Developer Program, paid web
+  hosting, email packages, additional domains, and any auth/backup/sync infrastructure.
+- **Google Play (one-time ~US$25)** — buy only once a stable Android release candidate is
+  tested on-device, a privacy policy + simple `zerahealth.de` site + store listing are ready,
+  a monetization or user-acquisition test is planned, and publication is expected within a
+  short defined window (~2–4 weeks).
+- **Apple Developer Program (recurring ~US$99/yr)** — enroll **only** once at least one holds:
+  Android Zera earns revenue, shows meaningful active users/retention, iOS demand is proven by
+  real users, another app shares the annual access, or a concrete iOS release is imminent.
+  Apple's paid membership is required mainly for App Store distribution; local development can
+  proceed without it. Android (one-time fee) therefore comes first; Apple (annual) comes later.
+- **Meanwhile:** keep developing and dogfooding the Android app locally (local APK / Expo
+  local builds — no store account required). The completed local-first groundwork (ACC-002
+  tombstones, ACC-003 UUIDs, ACC-004 sync-readiness fields, ACC-021 variant config) is
+  preserved and incurs no ongoing cost. Do **not** add placeholder OAuth or unverified login
+  UI, and do **not** add new recurring infrastructure cost without a separately approved
+  business case.
 
 **ACC-005 ↔ ACC-006 boundary (circular-dependency fix):** native end-to-end OAuth verification
 was previously listed as an ACC-005 blocker. That created a cycle — the end-to-end test needs
@@ -6496,10 +6526,20 @@ their own full entries above (all `done`); ACC-005 is now its own full entry abo
   scope; and **native real-device end-to-end verification** (moved here from ACC-005 to break
   the completion cycle — see the ACC-005 boundary note). Depends on: ACC-005 (the deep-link
   scheme is already resolved by ACC-021; the remaining gate is ACC-005's external provider
-  registration + Supabase configuration).
+  registration + Supabase configuration). **Blocked by ACC-005's intentional cost deferral — no
+  login UI is built while there are no real providers (see ACC-005's "Binding cost / release
+  decision").**
 - **ACC-007** — Session-storage hardening decision (`expo-secure-store` vs. Supabase's
   default AsyncStorage-backed session) — **open decision, see ACC-001 plan §27 item 2**.
   Depends on: ACC-005.
+
+> **Account/auth epic — intentional deferral (product & cost, not a technical failure):**
+> ACC-005 is deliberately held (external platform accounts + OAuth config carry recurring
+> cost); ACC-006 stays blocked by ACC-005 with no placeholder login UI; and **ACC-007 through
+> ACC-020 must not be prioritized ahead of core product validation** (backup/sync come only
+> after proven product value). The completed local-first + app-identity groundwork is
+> preserved and cost-free. See ACC-005's "Binding cost / release decision" for the governing
+> rule and the Google-Play/Apple thresholds.
 
 **Phase 2 — authenticated backup/adoption, one-directional (recommended MVP boundary):**
 

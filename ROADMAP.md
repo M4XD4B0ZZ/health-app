@@ -6811,10 +6811,34 @@ maintainer's EAS environment variable was still named `SUPABASE_PUBLISHABLE...`,
 this task's core fix: a build with genuinely incomplete configuration now fails **visibly and
 diagnosably** instead of crashing before the first frame.
 
+**Follow-up 4 (same task, 2026-07-18) — EAS "Read app config" resolution fix:** the maintainer's
+next Preview build (env var now correctly named) failed one step earlier than the config screen,
+in EAS's **"Read app config"** stage, before any Android compilation:
+`Error reading Expo config at app.config.ts: Cannot find module '.../src/config/appIdentity'
+imported from .../app.config.js`. Root cause: `app.config.ts` (added in ACC-021) imported the
+external TypeScript module `src/config/appIdentity.ts`; EAS evaluates the dynamic config by
+transpiling only `app.config.ts` → `app.config.js`, so the transitive local `.ts` import is not
+resolvable on the build server without the extra `tsx` loader setup Expo requires for external
+config modules. This was latent because ACC-021 was only verified via local `npx expo config`
+(which resolves the `.ts` import differently) and had never been through a real remote EAS build.
+**Smallest fix (no behavior/identity/dependency change):** inlined the identity resolver
+(`AppVariant`/`AppIdentity` types, `APP_IDENTITIES`, `resolveAppVariant`, `resolveAppIdentity`)
+directly into `app.config.ts` and re-exported the functions; deleted `src/config/appIdentity.ts`
+(its only consumers were `app.config.ts` and the focused test — repo-wide grep confirmed no
+production runtime consumer); repointed `src/config/__tests__/appIdentity.test.ts` to import from
+`app.config.ts`. `app.config.ts` now has no relative/local import (only `import type` from
+`expo/config`), so the EAS "Read app config" step can no longer fail on transitive `.ts`
+resolution. Verified: focused suites green (16 tests); real `expo config --type public --json`
+resolves cleanly for unset/`development`/`production` with unchanged identities
+(`com.nutritiondev.local` / `de.zerahealth.zera.dev` for dev, `de.zerahealth.zera` for prod) and
+fails clearly on an invalid `APP_VARIANT`; `npm run verify` green (131 suites / 1154 tests,
+unchanged count — pure refactor).
+
 **Verify:** `npm run verify` (done, green); real-device cold start per DoD above — **first EAS
-build confirmed the crash is gone** (config screen renders correctly instead); the actual
-"reaches Protokoll tab" cold start is pending the maintainer's next build with a correctly named
-`EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+build confirmed the native crash is gone** (config screen renders correctly instead); the
+"Read app config" build failure is now fixed too (Follow-up 4). Still `in_progress`: the actual
+"reaches Protokoll tab" cold start is pending the maintainer's next Preview build from the merged
+fix commit with a correctly named `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the `preview` environment.
 
 ---
 

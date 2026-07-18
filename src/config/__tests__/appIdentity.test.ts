@@ -1,4 +1,4 @@
-import { resolveAppIdentity, resolveAppVariant } from '../appIdentity';
+import { resolveAppIdentity, resolveAppVariant } from '../../../app.config';
 
 // ACC-021 — deterministic assertions on the variant resolver so later drift in the
 // approved dev/prod native identities (or in the fail-safe behavior) is caught by CI.

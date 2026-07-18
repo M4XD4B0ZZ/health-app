@@ -1,5 +1,6 @@
 import { FoodSourceType } from '../catalog/FoodCatalogSource';
 import { NutritionPer100g } from './NutritionTypes';
+import { SyncStatus } from '../../../../infrastructure/sync/SyncStatus';
 
 /**
  * SavedMealTemplate Domain Model
@@ -18,6 +19,13 @@ export interface SavedMealTemplate {
    * `listIncludingDeleted`/`getByIdIncludingDeleted` queries can see them.
    */
   deletedAt?: Date;
+  /**
+   * ACC-004: local sync-readiness fields — see `FoodEntry`'s identical fields for the full
+   * rationale (ACC-001 plan §7/§9/§20). Always `undefined` until Phase 2 exists.
+   */
+  revision?: number;
+  userId?: string;
+  syncStatus?: SyncStatus;
 }
 
 /**

@@ -9,6 +9,7 @@ import { FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
 import { isUuidV4 } from '../../../../infrastructure/ids/isUuidV4';
 import { assignMissingUuids } from '../../../../infrastructure/ids/assignMissingUuids';
 import { applyIdMap } from '../../../../infrastructure/ids/applyIdMap';
+import { SyncStatus } from '../../../../infrastructure/sync/SyncStatus';
 
 /**
  * Serialisierbare Version von FoodEntry für JSON-Speicherung.
@@ -61,6 +62,10 @@ interface SerializedFoodEntry {
     confidence: number;
   };
   deletedAt?: string; // ISO string
+  // ACC-004: local sync-readiness fields — see FoodEntry's identical fields (NutritionTypes.ts).
+  revision?: number;
+  userId?: string;
+  syncStatus?: SyncStatus;
 }
 
 /**
@@ -541,6 +546,9 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       nutritionSnapshot: entry.nutritionSnapshot,
       foodCatalogRef: entry.foodCatalogRef,
       deletedAt: entry.deletedAt?.toISOString(),
+      revision: entry.revision,
+      userId: entry.userId,
+      syncStatus: entry.syncStatus,
     };
   }
 
@@ -633,6 +641,20 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
 
     if (serialized.deletedAt !== undefined) {
       entry.deletedAt = new Date(serialized.deletedAt);
+    }
+
+    // ACC-004: absent on every record predating this task — leaving these unset here is
+    // exactly the safe "not yet sync-ready" default, no explicit migration needed.
+    if (serialized.revision !== undefined) {
+      entry.revision = serialized.revision;
+    }
+
+    if (serialized.userId !== undefined) {
+      entry.userId = serialized.userId;
+    }
+
+    if (serialized.syncStatus !== undefined) {
+      entry.syncStatus = serialized.syncStatus;
     }
 
     return entry;

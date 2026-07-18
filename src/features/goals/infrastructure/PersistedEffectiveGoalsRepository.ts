@@ -7,7 +7,9 @@ import { KeyValueStore } from '../../nutrition/application/ports/KeyValueStore';
  * PersistedSavedMealRepository's/PersistedActiveProfileRepository's pattern.
  * `EffectiveGoals`'s fields are all plain JSON-serializable primitives (no `Date`
  * objects — `suggestionSnapshot.createdAt` is already an ISO string), so no serialize/
- * deserialize transformation is needed beyond `JSON.stringify`/`JSON.parse`.
+ * deserialize transformation is needed beyond `JSON.stringify`/`JSON.parse`. ACC-004's
+ * optional `revision`/`userId`/`syncStatus` fields round-trip through this same plain
+ * pass-through automatically — no code change needed here beyond the domain model itself.
  */
 export class PersistedEffectiveGoalsRepository implements EffectiveGoalsRepository {
   private static readonly STORAGE_KEY = 'goals:effectiveGoals';

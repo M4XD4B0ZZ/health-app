@@ -62,4 +62,31 @@ describe('PersistedEffectiveGoalsRepository (DI-006)', () => {
 
     consoleErrorSpy.mockRestore();
   });
+
+  describe('ACC-004: local sync-readiness fields', () => {
+    it('round-trips revision/userId/syncStatus when set', async () => {
+      const goalsWithSyncFields: EffectiveGoals = {
+        ...fixtureManualGoals,
+        revision: 3,
+        userId: 'user-123',
+        syncStatus: 'pending',
+      };
+      const repository = new PersistedEffectiveGoalsRepository(new FakeKeyValueStore());
+
+      await repository.upsert(goalsWithSyncFields);
+
+      expect(await repository.get()).toEqual(goalsWithSyncFields);
+    });
+
+    it('leaves them undefined for a pre-ACC-004 record with no such fields at all', async () => {
+      // Exactly what every EffectiveGoals record persisted before ACC-004 looks like.
+      const repository = new PersistedEffectiveGoalsRepository(new FakeKeyValueStore());
+      await repository.upsert(fixtureManualGoals);
+
+      const loaded = await repository.get();
+      expect(loaded?.revision).toBeUndefined();
+      expect(loaded?.userId).toBeUndefined();
+      expect(loaded?.syncStatus).toBeUndefined();
+    });
+  });
 });

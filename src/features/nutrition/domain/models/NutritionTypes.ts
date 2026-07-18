@@ -2,6 +2,7 @@ import { AssumptionTag } from './AssumptionTag';
 import { DecisionMeta } from './DecisionMeta';
 import { ResolverDecisionSummary } from './ResolverDecisionSummary';
 import { FoodSourceType } from '../catalog/FoodCatalogSource';
+import { SyncStatus } from '../../../../infrastructure/sync/SyncStatus';
 
 export type NutritionSourceType = 'user' | 'cache' | 'branded' | 'generic' | 'ai';
 
@@ -65,6 +66,17 @@ export interface FoodEntry {
    * their normal read paths (listEntriesForDate/listByDateRange/getEntryById).
    */
   deletedAt?: Date;
+  /**
+   * ACC-004: local sync-readiness fields — reserved schema room for Phase 2's sync engine,
+   * added alongside ACC-002/ACC-003 rather than as a third separate local migration. All
+   * three stay `undefined` on every record created or migrated by this task; nothing here
+   * populates them. `revision` mirrors the server-assigned monotonic counter from the
+   * ACC-001 plan's conflict-resolution model (§9); `userId` is the eventual owning account
+   * (§7); `syncStatus` is the local sync-status UI state (§20, see `SyncStatus`).
+   */
+  revision?: number;
+  userId?: string;
+  syncStatus?: SyncStatus;
 }
 
 /**

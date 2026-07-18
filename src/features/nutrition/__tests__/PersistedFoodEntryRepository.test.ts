@@ -1031,4 +1031,55 @@ describe('PersistedFoodEntryRepository', () => {
       consoleWarnSpy.mockRestore();
     });
   });
+
+  describe('ACC-004: local sync-readiness fields', () => {
+    it('round-trips revision/userId/syncStatus across a reload when set', async () => {
+      const date = new Date('2024-01-15T10:00:00Z');
+      const entry: FoodEntry = {
+        ...createSampleEntry('55555555-5555-4555-8555-555555555555', date),
+        revision: 2,
+        userId: 'user-123',
+        syncStatus: 'pending',
+      };
+
+      await repository.addEntry(entry);
+
+      const reloaded = new PersistedFoodEntryRepository(keyValueStore);
+      const [loaded] = await reloaded.listEntriesForDate('2024-01-15');
+
+      expect(loaded.revision).toBe(2);
+      expect(loaded.userId).toBe('user-123');
+      expect(loaded.syncStatus).toBe('pending');
+    });
+
+    it('leaves them undefined for a pre-ACC-004 record with no such fields at all', async () => {
+      await keyValueStore.set(
+        'nutrition:entries',
+        JSON.stringify([
+          {
+            id: '66666666-6666-4666-8666-666666666666',
+            rawInput: '100g Chicken',
+            parsedName: 'Chicken',
+            quantityGrams: 100,
+            calories: 165,
+            protein: 31,
+            carbs: 0,
+            fat: 3.6,
+            confidenceScore: 0.8,
+            sourceType: 'cache',
+            createdAt: '2024-01-15T10:00:00.000Z',
+            // no revision/userId/syncStatus key at all — exactly what every record
+            // persisted before ACC-004 looks like in storage.
+          },
+        ]),
+      );
+
+      const migrated = new PersistedFoodEntryRepository(keyValueStore);
+      const [entry] = await migrated.listEntriesForDate('2024-01-15');
+
+      expect(entry.revision).toBeUndefined();
+      expect(entry.userId).toBeUndefined();
+      expect(entry.syncStatus).toBeUndefined();
+    });
+  });
 });

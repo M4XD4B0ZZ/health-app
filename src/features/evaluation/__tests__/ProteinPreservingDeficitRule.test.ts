@@ -51,7 +51,7 @@ describe('ProteinPreservingDeficitRule (GE-004)', () => {
 
     const output = ProteinPreservingDeficitRule.evaluate(input);
 
-    expect(output.assessment).toBe('over');
+    expect(output.assessment).toBe('above');
     expect(output.warnings).toContain('Kaloriendefizit-Ziel überschritten.');
   });
 });

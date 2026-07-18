@@ -100,8 +100,11 @@ describe('EvidenceBasedStandardProfile (GE-002)', () => {
     expect(fatProgress.consumed).toBe(legacySnapshot.consumed.fat);
     expect(fatProgress.remaining).toBe(legacySnapshot.progress.fatRemaining);
 
-    // 1400 consumed vs 2200 target calories -> under, no warnings.
-    expect(output.assessment).toBe('on-track');
+    // GE-010: 1400/2200 cal, 95/140 P, 145/220 C, 41/70 F — every dimension is below its
+    // corridor, so the day is `below` (no longer mis-collapsed to on-track), no warnings.
+    expect(output.assessment).toBe('below');
+    expect(output.assessmentDetail.orientation).toBe('below');
+    expect(output.assessmentDetail.deviations.every((d) => d.direction === 'under')).toBe(true);
     expect(output.warnings).toEqual([]);
   });
 
@@ -117,7 +120,13 @@ describe('EvidenceBasedStandardProfile (GE-002)', () => {
       profileSettings: { goals },
     });
 
-    expect(output.assessment).toBe('over');
+    // GE-010: calories over corridor while the macros stay under → mixed, not a global „over".
+    // The calorie warning still fires; the summary names calories as over, not the whole day.
+    expect(output.assessment).toBe('mixed');
+    expect(output.assessmentDetail.deviations).toContainEqual({
+      label: 'calories',
+      direction: 'over',
+    });
     expect(output.warnings).toContain('Kalorienziel überschritten.');
   });
 });

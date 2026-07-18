@@ -70,7 +70,7 @@ describe('Goals & Evaluation Domain Regression Coverage (GE-005)', () => {
     const useCaseSession1 = new GetActiveEvaluationOutputUseCase(registrySession1, knownRules);
 
     const beforeSwitch = await useCaseSession1.execute(fixtureInput);
-    expect(beforeSwitch.assessment).toBe('on-track');
+    expect(beforeSwitch.assessment).toBe('below');
 
     await registrySession1.setActiveProfileId(WeightLossProfile.id);
 
@@ -80,13 +80,13 @@ describe('Goals & Evaluation Domain Regression Coverage (GE-005)', () => {
 
     expect(await registrySession2.getActiveProfileId()).toBe(WeightLossProfile.id);
     const afterRestart = await useCaseSession2.execute(fixtureInput);
-    expect(afterRestart.assessment).toBe('over');
+    expect(afterRestart.assessment).toBe('mixed');
     expect(afterRestart.assessment).not.toBe(beforeSwitch.assessment);
 
     // Switch back, in the "restarted" session — also persists and is immediately visible.
     await registrySession2.setActiveProfileId(EvidenceBasedStandardProfile.id);
     const afterSwitchBack = await useCaseSession2.execute(fixtureInput);
-    expect(afterSwitchBack.assessment).toBe('on-track');
+    expect(afterSwitchBack.assessment).toBe('below');
 
     // registry.list() includes both profiles throughout, regardless of which is active.
     expect(registrySession2.list().map((p) => p.id)).toEqual([

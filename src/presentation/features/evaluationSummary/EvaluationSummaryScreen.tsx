@@ -11,7 +11,7 @@ import type { RootTabParamList } from '../../navigation/AppNavigator';
 import { tokens } from '../../../ui/theme';
 import { ScreenContainer } from '../../../ui/components/ScreenContainer';
 import { AppText } from '../../../ui/components/AppText';
-import { formatGoalProgressLabel, formatAssessment } from './evaluationSummaryDisplay';
+import { formatGoalProgressLabel, buildAssessmentSummary } from './evaluationSummaryDisplay';
 
 /**
  * DI-002: first real consumer of the Evaluation Engine (GE-001-GE-005 + DI-001) — shows
@@ -96,6 +96,10 @@ const EvaluationSummaryScreen: React.FC = () => {
   const activeProfileName =
     profiles.find((profile) => profile.id === activeProfileId)?.name ?? null;
 
+  // GE-010: nutrient-specific summary composed from the domain-computed assessmentDetail —
+  // the screen never re-derives corridor status.
+  const assessmentSummary = output ? buildAssessmentSummary(output.assessmentDetail) : null;
+
   return (
     <ScreenContainer scroll>
       <View style={styles.container}>
@@ -137,10 +141,25 @@ const EvaluationSummaryScreen: React.FC = () => {
 
         {loadState === 'success' && output && (
           <>
-            <View style={styles.section}>
-              <AppText style={styles.sectionTitle}>Heutige Bewertung</AppText>
-              <AppText variant="body">{formatAssessment(output.assessment)}</AppText>
-            </View>
+            {assessmentSummary && (
+              <View
+                style={styles.section}
+                accessibilityLabel={`Heutige Bewertung: ${assessmentSummary.announcement}`}
+              >
+                <AppText style={styles.sectionTitle}>Heutige Bewertung</AppText>
+                <AppText variant="body">{assessmentSummary.primary}</AppText>
+                {assessmentSummary.secondary.map((line) => (
+                  <AppText
+                    key={line}
+                    variant="meta"
+                    tone="muted"
+                    style={styles.assessmentSecondary}
+                  >
+                    {line}
+                  </AppText>
+                ))}
+              </View>
+            )}
 
             <View style={styles.section}>
               <AppText style={styles.sectionTitle}>Fortschritt</AppText>
@@ -215,6 +234,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 8,
+  },
+  assessmentSecondary: {
+    marginTop: 2,
   },
   goalRow: {
     flexDirection: 'row',

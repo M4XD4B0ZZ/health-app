@@ -41,6 +41,7 @@ export const ProteinPreservingDeficitRule: Rule = {
       progress,
       goals,
       'Kaloriendefizit-Ziel überschritten.',
+      input.journalReadsForPeriod.length > 0,
     );
 
     // DI-003: real Insights & Recommendations content, distinct from the generic

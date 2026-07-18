@@ -11,6 +11,13 @@ export interface SavedMealTemplate {
   items: SavedMealItem[];
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * ACC-002: tombstone timestamp, set instead of physically removing the template on
+   * delete — mirrors `FoodEntry.deletedAt` (J-003). Repositories filter tombstoned
+   * templates out of their normal read paths (`list`/`getById`); only the explicit
+   * `listIncludingDeleted`/`getByIdIncludingDeleted` queries can see them.
+   */
+  deletedAt?: Date;
 }
 
 /**

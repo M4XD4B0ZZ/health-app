@@ -642,7 +642,7 @@ describe('Saved Meals System', () => {
 
     beforeEach(() => {
       listUseCase = new ListSavedMealTemplatesUseCase(savedMealRepo);
-      deleteUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepo);
+      deleteUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepo, clock);
       renameUseCase = new RenameSavedMealTemplateUseCase(savedMealRepo, clock);
     });
 
@@ -716,6 +716,139 @@ describe('Saved Meals System', () => {
       await expect(renameUseCase.execute('does-not-exist', 'New Name')).rejects.toThrow(
         'SavedMealTemplate with id does-not-exist not found',
       );
+    });
+  });
+
+  describe('ACC-002: Saved Meal soft-delete', () => {
+    let listUseCase: ListSavedMealTemplatesUseCase;
+    let deleteUseCase: DeleteSavedMealTemplateUseCase;
+    let renameUseCase: RenameSavedMealTemplateUseCase;
+
+    beforeEach(() => {
+      listUseCase = new ListSavedMealTemplatesUseCase(savedMealRepo);
+      deleteUseCase = new DeleteSavedMealTemplateUseCase(savedMealRepo, clock);
+      renameUseCase = new RenameSavedMealTemplateUseCase(savedMealRepo, clock);
+    });
+
+    it('sets the deletedAt tombstone rather than removing the record', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [{ parsedName: 'chicken', quantityGrams: 200 }],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      await deleteUseCase.execute('t1');
+
+      const tombstoned = await savedMealRepo.getByIdIncludingDeleted('t1');
+      expect(tombstoned).not.toBeNull();
+      expect(tombstoned?.deletedAt).toEqual(clock.now());
+      // SavedMealItem records remain associated with the tombstoned parent.
+      expect(tombstoned?.items).toEqual([{ parsedName: 'chicken', quantityGrams: 200 }]);
+    });
+
+    it('excludes soft-deleted templates from list()', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await savedMealRepo.create({
+        id: 't2',
+        name: 'Dinner',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      await deleteUseCase.execute('t1');
+
+      expect((await listUseCase.execute()).map((t) => t.name)).toEqual(['Dinner']);
+      expect((await savedMealRepo.listIncludingDeleted()).map((t) => t.id).sort()).toEqual([
+        't1',
+        't2',
+      ]);
+    });
+
+    it('rejects logging a deleted template without creating any Journal entry', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [{ parsedName: 'chicken', quantityGrams: 200 }],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await deleteUseCase.execute('t1');
+
+      await expect(logUseCase.execute('t1', '2024-01-16')).rejects.toThrow(
+        'SavedMealTemplate with id t1 not found',
+      );
+      expect(await foodEntryRepo.listEntriesForDate('2024-01-16')).toHaveLength(0);
+    });
+
+    it('rejects renaming a deleted template (cannot be opened as an active template)', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await deleteUseCase.execute('t1');
+
+      await expect(renameUseCase.execute('t1', 'New Name')).rejects.toThrow(
+        'SavedMealTemplate with id t1 not found',
+      );
+    });
+
+    it('is idempotent: repeated delete calls do not throw and do not move the tombstone timestamp', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      await deleteUseCase.execute('t1');
+      const firstDeletedAt = (await savedMealRepo.getByIdIncludingDeleted('t1'))?.deletedAt;
+
+      clock.setTime(new Date('2024-02-01T00:00:00Z'));
+      await expect(deleteUseCase.execute('t1')).resolves.toBeUndefined();
+
+      const afterSecondDelete = await savedMealRepo.getByIdIncludingDeleted('t1');
+      expect(afterSecondDelete?.deletedAt).toEqual(firstDeletedAt);
+    });
+
+    it('does not resurrect a deleted template when a new template uses the same display name', async () => {
+      await savedMealRepo.create({
+        id: 't1',
+        name: 'Lunch',
+        items: [{ parsedName: 'chicken', quantityGrams: 200 }],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+      await deleteUseCase.execute('t1');
+
+      await savedMealRepo.create({
+        id: 't2',
+        name: 'Lunch',
+        items: [{ parsedName: 'rice', quantityGrams: 150 }],
+        createdAt: clock.now(),
+        updatedAt: clock.now(),
+      });
+
+      const active = await listUseCase.execute();
+      expect(active).toHaveLength(1);
+      expect(active[0].id).toBe('t2');
+      expect(active[0].items).toEqual([{ parsedName: 'rice', quantityGrams: 150 }]);
+      // The old tombstoned record under 't1' is untouched, not merged into 't2'.
+      expect((await savedMealRepo.getByIdIncludingDeleted('t1'))?.items).toEqual([
+        { parsedName: 'chicken', quantityGrams: 200 },
+      ]);
     });
   });
 });

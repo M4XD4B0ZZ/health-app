@@ -6060,19 +6060,89 @@ documentation-only; no code/migration/dependency change.
 
 ---
 
-#### ACC-002 … ACC-020: Follow-up stubs registered by ACC-001 (none implemented)
+#### ACC-002: Saved Meal Soft-Delete Readiness
 
-Status: `todo` (all — none may start before the release-boundary decision in ACC-001's
-planning notes above is explicitly approved for Phase 2 onward; Phase 0/Phase 1 stubs are not
-blocked by that decision, only Phase 2+ are)
+Status: `done`
+Severity: Deferred (Phase 0 prerequisite for local-first account/backup/sync, ACC-001)
+Depends on: none.
+Origin: ACC-001 planning
+([`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
+§23, Phase 0), released for implementation after the user's ACC-001 decision review
+(2026-07-18: backup-first release boundary, `expo-secure-store`, UUIDv4, no fixed tombstone
+retention window — see that review for the full decision set).
+
+**Implementation notes (done):** replaced `SavedMealTemplate` deletion's physical
+`Map.delete`/array-removal with a durable soft-delete tombstone, mirroring `FoodEntry`'s
+existing `deletedAt` (J-003) pattern exactly. `SavedMealTemplate` gains an optional
+`deletedAt?: Date` field
+([`SavedMealTypes.ts`](../src/features/nutrition/domain/models/SavedMealTypes.ts)).
+`SavedMealRepository`'s `delete(id)` becomes `delete(id, deletedAt: Date)` — sets the
+tombstone instead of removing the record, and is idempotent (a no-op if the id is unknown or
+already tombstoned; a repeated call never rewrites an existing `deletedAt`). Two new
+tombstone-aware queries were added for future sync/diagnostic use only —
+`listIncludingDeleted()` and `getByIdIncludingDeleted(id)` — while the existing `list()`/
+`getById()` signatures are unchanged but now filter to active (non-tombstoned) records only,
+which is what makes every other required behavior fall out for free: `ListSavedMealTemplatesUseCase`
+(unchanged code) now naturally excludes deleted templates; `LogSavedMealToDateUseCase` and
+`RenameSavedMealTemplateUseCase` (unchanged code) now naturally reject a deleted template with
+their existing "not found" error, before any Journal mutation or rename can happen — no new
+guard code was needed in either use case. `DeleteSavedMealTemplateUseCase` now takes a `Clock`
+(mirrors `DeleteFoodEntryUseCase`) and passes `clock.now()` as the tombstone timestamp;
+`container.ts` wires in the existing `_nutritionClock`. `PersistedSavedMealRepository`'s
+serialize/deserialize round-trips `deletedAt` as an ISO string; deserialize only sets the field
+when present, so every pre-existing stored record (which has no `deletedAt` key at all)
+defaults safely to active — no explicit migration step or schema-version marker was needed
+beyond this tolerant-deserialize convention (already the established local persistence pattern
+in this repository). `SavedMealItem` rows are never destructively touched — they stay attached
+to the tombstoned parent template exactly as before. No UUID/ID change (ACC-003), no Supabase/
+auth/backup/sync code, no restore/undelete UI, no physical tombstone purge — all explicitly out
+of scope per the task brief. `SavedMealsScreen.tsx` is unchanged: it already only calls
+`deleteSavedMealTemplateUseCase.execute(id)` and re-loads via `listSavedMealTemplatesUseCase`,
+both of which transparently pick up the new tombstone semantics with no UI code change.
+
+**Verification (done):** `npm run verify` green (123 suites / 1078 tests, +25 new ACC-002
+cases across `SavedMeals.test.ts` and `PersistedSavedMealRepository.test.ts`, plus updated
+constructor wiring in `SavedMealsDomainRegressionCoverage.test.ts`). Covers: tombstone set
+instead of physical removal; active `list()`/`getById()` exclude tombstoned records while
+`listIncludingDeleted()`/`getByIdIncludingDeleted()` still see them; logging a deleted template
+is rejected with zero Journal mutation; renaming a deleted template is rejected; repeated
+delete is idempotent (tombstone timestamp never moves on a second call); `SavedMealItem`s
+survive intact on the tombstoned parent; a new template using the same display name does not
+resurrect the old tombstoned record; pre-existing stored records without a `deletedAt` key
+default to active on load (migration-safe); an empty/missing store migrates without error;
+existing SM-007/SM-008 regression suites remain green with no behavior change for active
+templates. No product code outside the Saved Meal domain touched — no UI file changed, so per
+VERIFY.md's Category 4 rule a `docs/MANUAL_TESTING_GAPS.md` entry is not strictly required, but
+one was added anyway (native retest checklist for the one behavior a headless fake-store test
+cannot fully stand in for: real on-device persistence across an actual app restart).
+
+**Ziel (original task contract):** Replace destructive/disappearance-only Saved Meal deletion
+with an explicit durable local tombstone while preserving current user-visible behavior, as a
+Phase 0 prerequisite for the ACC-001 backup/sync architecture (stable soft-delete semantics
+must exist locally before any future sync engine can propagate deletions as tombstones).
+
+**Verify:** VERIFY.md **Category 4** (product/runtime code) — `npm run verify` (blocking, green)
+
+- `docs/MANUAL_TESTING_GAPS.md` entry (added, see 2026-07-18 ACC-002 entry).
+
+**Out of scope (preserved):** UUID/ULID migration (ACC-003); Supabase; authentication; backup;
+synchronization; outbox; server revisions; conflict resolution; restore/undelete UI; physical
+tombstone purge; account deletion; unrelated cleanup.
+
+---
+
+#### ACC-003 … ACC-020: Follow-up stubs registered by ACC-001 (ACC-002 done, rest not implemented)
+
+Status: `todo` (ACC-003 onward — none may start before the release-boundary decision in
+ACC-001's planning notes above is explicitly approved for Phase 2 onward; Phase 0/Phase 1
+stubs are not blocked by that decision, only Phase 2+ are)
 Full detail (expected files, dependencies, rationale) is in
 [`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
-§23; this ROADMAP entry is a compact index only.
+§23; this ROADMAP entry is a compact index only. **ACC-002 is now its own full entry above
+(`done`)** — removed from this index to avoid duplicate status tracking.
 
 **Phase 0 — prerequisites (local-only, no auth/network, unblocked today):**
 
-- **ACC-002** — Saved Meal soft-delete (`deletedAt` tombstone on `SavedMealTemplate`,
-  mirroring `FoodEntry`'s existing pattern). Depends on: none.
 - **ACC-003** — UUID/ULID record identity for newly created records (existing IDs untouched,
   additive only). Depends on: none.
 - **ACC-004** — Local sync-readiness fields (`revision`/`userId`/`syncStatus`-shaped, inert

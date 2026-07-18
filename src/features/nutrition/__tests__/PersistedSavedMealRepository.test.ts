@@ -83,7 +83,7 @@ describe('PersistedSavedMealRepository (SM-004)', () => {
 
     it('reflects deletes across instances', async () => {
       await repository.create(createSampleTemplate('t1'));
-      await repository.delete('t1');
+      await repository.delete('t1', new Date('2024-02-01T00:00:00Z'));
 
       const reloaded = new PersistedSavedMealRepository(keyValueStore);
       expect(await reloaded.getById('t1')).toBeNull();
@@ -107,16 +107,93 @@ describe('PersistedSavedMealRepository (SM-004)', () => {
     });
   });
 
-  describe('delete', () => {
-    it('removes a template by id', async () => {
+  describe('delete (ACC-002: soft-delete)', () => {
+    it('excludes the template from getById after delete', async () => {
       await repository.create(createSampleTemplate('t1'));
-      await repository.delete('t1');
+      await repository.delete('t1', new Date('2024-02-01T00:00:00Z'));
 
       expect(await repository.getById('t1')).toBeNull();
     });
 
     it('is a no-op for an unknown id', async () => {
-      await expect(repository.delete('does-not-exist')).resolves.toBeUndefined();
+      await expect(
+        repository.delete('does-not-exist', new Date('2024-02-01T00:00:00Z')),
+      ).resolves.toBeUndefined();
+    });
+
+    it('sets the deletedAt tombstone instead of physically removing the record', async () => {
+      await repository.create(createSampleTemplate('t1'));
+      const deletedAt = new Date('2024-02-01T00:00:00Z');
+      await repository.delete('t1', deletedAt);
+
+      const tombstoned = await repository.getByIdIncludingDeleted('t1');
+      expect(tombstoned).not.toBeNull();
+      expect(tombstoned?.deletedAt).toEqual(deletedAt);
+      // SavedMealItem records stay associated with the tombstoned parent, not destroyed.
+      expect(tombstoned?.items).toEqual(createSampleTemplate('t1').items);
+    });
+
+    it('excludes soft-deleted templates from list() while listIncludingDeleted() still returns them', async () => {
+      await repository.create(createSampleTemplate('t1'));
+      await repository.create({ ...createSampleTemplate('t2'), name: 'Snack' });
+      await repository.delete('t1', new Date('2024-02-01T00:00:00Z'));
+
+      expect((await repository.list()).map((t) => t.id)).toEqual(['t2']);
+      expect((await repository.listIncludingDeleted()).map((t) => t.id).sort()).toEqual([
+        't1',
+        't2',
+      ]);
+    });
+
+    it('is idempotent: a repeated delete does not overwrite the original tombstone timestamp', async () => {
+      await repository.create(createSampleTemplate('t1'));
+      const firstDeletedAt = new Date('2024-02-01T00:00:00Z');
+      await repository.delete('t1', firstDeletedAt);
+
+      const secondDeletedAt = new Date('2024-03-01T00:00:00Z');
+      await repository.delete('t1', secondDeletedAt);
+
+      const tombstoned = await repository.getByIdIncludingDeleted('t1');
+      expect(tombstoned?.deletedAt).toEqual(firstDeletedAt);
+    });
+
+    it('persists the tombstone durably across repository instances', async () => {
+      await repository.create(createSampleTemplate('t1'));
+      const deletedAt = new Date('2024-02-01T00:00:00Z');
+      await repository.delete('t1', deletedAt);
+
+      const reloaded = new PersistedSavedMealRepository(keyValueStore);
+      expect(await reloaded.getById('t1')).toBeNull();
+      expect((await reloaded.getByIdIncludingDeleted('t1'))?.deletedAt).toEqual(deletedAt);
+    });
+  });
+
+  describe('migration / backward compatibility (ACC-002)', () => {
+    it('defaults pre-existing records (no deletedAt field in storage) to active', async () => {
+      const legacySerialized = [
+        {
+          id: 't1',
+          name: 'Legacy Template',
+          items: [{ parsedName: 'rice', quantityGrams: 150 }],
+          createdAt: '2024-01-10T10:00:00.000Z',
+          updatedAt: '2024-01-10T10:00:00.000Z',
+          // no `deletedAt` key at all — this is exactly what every record written before
+          // ACC-002 looks like in storage.
+        },
+      ];
+      await keyValueStore.set('nutrition:savedMeals', JSON.stringify(legacySerialized));
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      const found = await migrated.getById('t1');
+      expect(found).not.toBeNull();
+      expect(found?.deletedAt).toBeUndefined();
+      expect((await migrated.list()).map((t) => t.id)).toEqual(['t1']);
+    });
+
+    it('handles an empty/missing store without error (empty-database migration)', async () => {
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      expect(await migrated.list()).toEqual([]);
+      expect(await migrated.listIncludingDeleted()).toEqual([]);
     });
   });
 });

@@ -68,11 +68,14 @@ describe('PersistedSavedMealRepository (SM-004)', () => {
 
   describe('durability across instances', () => {
     it('reloads templates (incl. foodCatalogRef/per100g on items) from storage in a new instance', async () => {
-      const template = createSampleTemplate('t1');
+      // ACC-003: a canonical UUIDv4 fixture id — this test is about reload-durability, not
+      // the legacy-id migration (which has its own dedicated test file), so the id must not
+      // itself trigger a rewrite on the new instance's load.
+      const template = createSampleTemplate('11111111-1111-4111-8111-111111111111');
       await repository.create(template);
 
       const reloaded = new PersistedSavedMealRepository(keyValueStore);
-      const found = await reloaded.getById('t1');
+      const found = await reloaded.getById('11111111-1111-4111-8111-111111111111');
 
       expect(found).toEqual(template);
       expect(found?.items[0].foodCatalogRef).toEqual(template.items[0].foodCatalogRef);
@@ -158,21 +161,28 @@ describe('PersistedSavedMealRepository (SM-004)', () => {
     });
 
     it('persists the tombstone durably across repository instances', async () => {
-      await repository.create(createSampleTemplate('t1'));
+      // ACC-003: a canonical UUIDv4 fixture id (see note in 'durability across instances'
+      // above).
+      const id = '22222222-2222-4222-8222-222222222222';
+      await repository.create(createSampleTemplate(id));
       const deletedAt = new Date('2024-02-01T00:00:00Z');
-      await repository.delete('t1', deletedAt);
+      await repository.delete(id, deletedAt);
 
       const reloaded = new PersistedSavedMealRepository(keyValueStore);
-      expect(await reloaded.getById('t1')).toBeNull();
-      expect((await reloaded.getByIdIncludingDeleted('t1'))?.deletedAt).toEqual(deletedAt);
+      expect(await reloaded.getById(id)).toBeNull();
+      expect((await reloaded.getByIdIncludingDeleted(id))?.deletedAt).toEqual(deletedAt);
     });
   });
 
   describe('migration / backward compatibility (ACC-002)', () => {
     it('defaults pre-existing records (no deletedAt field in storage) to active', async () => {
+      // ACC-003: a canonical UUIDv4 fixture id — this test is specifically about ACC-002's
+      // deletedAt-default behavior, not ACC-003's id migration (which has its own dedicated
+      // test file), so the id must not itself trigger a rewrite on load.
+      const id = '33333333-3333-4333-8333-333333333333';
       const legacySerialized = [
         {
-          id: 't1',
+          id,
           name: 'Legacy Template',
           items: [{ parsedName: 'rice', quantityGrams: 150 }],
           createdAt: '2024-01-10T10:00:00.000Z',
@@ -184,16 +194,206 @@ describe('PersistedSavedMealRepository (SM-004)', () => {
       await keyValueStore.set('nutrition:savedMeals', JSON.stringify(legacySerialized));
 
       const migrated = new PersistedSavedMealRepository(keyValueStore);
-      const found = await migrated.getById('t1');
+      const found = await migrated.getById(id);
       expect(found).not.toBeNull();
       expect(found?.deletedAt).toBeUndefined();
-      expect((await migrated.list()).map((t) => t.id)).toEqual(['t1']);
+      expect((await migrated.list()).map((t) => t.id)).toEqual([id]);
     });
 
     it('handles an empty/missing store without error (empty-database migration)', async () => {
       const migrated = new PersistedSavedMealRepository(keyValueStore);
       expect(await migrated.list()).toEqual([]);
       expect(await migrated.listIncludingDeleted()).toEqual([]);
+    });
+  });
+
+  describe('ACC-003: legacy id migration', () => {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    it('migrates a legacy SavedMealTemplate id to UUIDv4 on load', async () => {
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: 'legacy-template-1',
+            name: 'Protein Bowl',
+            items: [{ parsedName: 'chicken', quantityGrams: 200 }],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      const [template] = await migrated.list();
+
+      expect(template.id).not.toBe('legacy-template-1');
+      expect(template.id).toMatch(UUID_REGEX);
+      expect(template.name).toBe('Protein Bowl');
+      // SavedMealItem relationships remain intact (still embedded, unchanged).
+      expect(template.items).toEqual([{ parsedName: 'chicken', quantityGrams: 200 }]);
+    });
+
+    it('leaves an already-valid UUIDv4 template id unchanged', async () => {
+      const validId = '11111111-1111-4111-8111-111111111111';
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: validId,
+            name: 'Protein Bowl',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      const [template] = await migrated.list();
+      expect(template.id).toBe(validId);
+    });
+
+    it('migrates an ACC-002 tombstoned (soft-deleted) template without resurrecting it', async () => {
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: 'legacy-deleted-template',
+            name: 'Old Bowl',
+            items: [{ parsedName: 'rice', quantityGrams: 150 }],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+            deletedAt: '2024-01-15T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+
+      // Still excluded from the active list (not resurrected).
+      expect(await migrated.list()).toEqual([]);
+
+      const [tombstoned] = await migrated.listIncludingDeleted();
+      expect(tombstoned.id).not.toBe('legacy-deleted-template');
+      expect(tombstoned.id).toMatch(UUID_REGEX);
+      expect(tombstoned.deletedAt).toBeInstanceOf(Date);
+      expect(tombstoned.items).toEqual([{ parsedName: 'rice', quantityGrams: 150 }]);
+    });
+
+    it('migrates a mix of legacy and already-migrated templates, touching only the legacy one', async () => {
+      const alreadyValid = '22222222-2222-4222-8222-222222222222';
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: 'legacy-a',
+            name: 'A',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+          {
+            id: alreadyValid,
+            name: 'B',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      const templates = await migrated.list();
+
+      const migratedA = templates.find((t) => t.name === 'A')!;
+      const untouchedB = templates.find((t) => t.name === 'B')!;
+      expect(migratedA.id).toMatch(UUID_REGEX);
+      expect(migratedA.id).not.toBe('legacy-a');
+      expect(untouchedB.id).toBe(alreadyValid);
+    });
+
+    it('is idempotent: re-running migration (a second fresh instance) changes nothing further', async () => {
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: 'legacy-template-1',
+            name: 'Protein Bowl',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const first = new PersistedSavedMealRepository(keyValueStore);
+      const [firstTemplate] = await first.list();
+      const migratedId = firstTemplate.id;
+
+      const second = new PersistedSavedMealRepository(keyValueStore);
+      const [secondTemplate] = await second.list();
+
+      expect(secondTemplate.id).toBe(migratedId); // same id, not re-rolled
+    });
+
+    it('preserves the migrated id across a simulated app restart', async () => {
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: 'legacy-template-1',
+            name: 'Protein Bowl',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const before = new PersistedSavedMealRepository(keyValueStore);
+      const [templateBefore] = await before.list();
+
+      const afterRestart = new PersistedSavedMealRepository(keyValueStore);
+      const [templateAfter] = await afterRestart.list();
+
+      expect(templateAfter.id).toBe(templateBefore.id);
+    });
+
+    it('never crashes on duplicate legacy template ids, and whichever record survives the (pre-existing, id-format-independent) load still gets a valid new UUIDv4', async () => {
+      // Note: `PersistedSavedMealRepository` has always deserialized into a `Map<id, template>`
+      // (SM-004, predating both ACC-002 and ACC-003) — two stored records sharing the same
+      // legacy id already collapse onto one Map entry at *load* time, before migration ever
+      // runs. This is a pre-existing characteristic of keying the in-memory store by id, not
+      // something ACC-003 introduces or could fix by changing id *format* alone. What ACC-003
+      // does guarantee: no crash, and the record that does survive the load still gets a
+      // proper, valid UUIDv4 — verified here.
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: 'dup-legacy-id',
+            name: 'First',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+          {
+            id: 'dup-legacy-id',
+            name: 'Second',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+          },
+        ]),
+      );
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      const templates = await migrated.list();
+
+      expect(templates).toHaveLength(1);
+      expect(templates[0].id).toMatch(UUID_REGEX);
+      expect(templates[0].id).not.toBe('dup-legacy-id');
     });
   });
 });

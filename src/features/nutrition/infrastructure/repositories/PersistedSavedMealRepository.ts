@@ -2,6 +2,8 @@ import { SavedMealTemplate, SavedMealItem } from '../../domain/models/SavedMealT
 import { SavedMealRepository } from '../../application/ports/SavedMealRepository';
 import { KeyValueStore } from '../../application/ports/KeyValueStore';
 import { FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
+import { isUuidV4 } from '../../../../infrastructure/ids/isUuidV4';
+import { assignMissingUuids } from '../../../../infrastructure/ids/assignMissingUuids';
 
 /**
  * Serialisierbare Version von SavedMealItem für JSON-Speicherung.
@@ -119,7 +121,41 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
       }
     }
 
+    await this.migrateLegacyIdsIfNeeded();
+
     this.isLoaded = true;
+  }
+
+  /**
+   * ACC-003: one-time migration of legacy (pre-UUIDv4) `SavedMealTemplate.id`s to stable
+   * UUIDv4s. Unlike Journal entries, nothing else in local storage references a
+   * SavedMealTemplate by id (SavedMealItem has no independent identity — SM-001..SM-008
+   * confirmed no other persisted structure keys off a template id), so this is a single-key,
+   * single-write migration: either it completes and persists, or (on an interruption before
+   * that single `keyValueStore.set` call) nothing was durably written yet and the exact same
+   * check simply runs again — with fresh new ids — on the next launch. No durable temporary
+   * migration state is needed here, unlike `PersistedFoodEntryRepository`'s Correction Log
+   * cross-reference. Includes ACC-002 tombstoned templates; never resurrects one (only `id`
+   * is touched, `deletedAt` is untouched).
+   */
+  private async migrateLegacyIdsIfNeeded(): Promise<void> {
+    const templates = Array.from(this.templates.values());
+    const needsMigration = templates.some((template) => !isUuidV4(template.id));
+    if (!needsMigration) {
+      return;
+    }
+
+    const result = assignMissingUuids(templates);
+    if (result.duplicateLegacyIds.length > 0) {
+      console.warn(
+        '[ACC-003 migration] duplicate legacy SavedMealTemplate ids detected — each ' +
+          'occurrence received its own new UUIDv4:',
+        result.duplicateLegacyIds,
+      );
+    }
+
+    this.templates = new Map(result.records.map((template) => [template.id, template]));
+    await this.persist();
   }
 
   private async persist(): Promise<void> {

@@ -6131,20 +6131,129 @@ tombstone purge; account deletion; unrelated cleanup.
 
 ---
 
-#### ACC-003 … ACC-020: Follow-up stubs registered by ACC-001 (ACC-002 done, rest not implemented)
+#### ACC-003: Stable UUIDv4 Record Identity
 
-Status: `todo` (ACC-003 onward — none may start before the release-boundary decision in
+Status: `done`
+Severity: Deferred (Phase 0 prerequisite for local-first account/backup/sync, ACC-001)
+Depends on: none.
+Origin: ACC-001 planning
+([`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
+§23, Phase 0), released for implementation after the user's ACC-001 decision review
+(2026-07-18: UUIDv4 — not ULID — as the binding identity decision, among the other ACC-001
+decisions).
+
+**Implementation notes (done):** introduced one central UUIDv4 generation boundary,
+[`generateRecordId()`](../src/infrastructure/ids/generateRecordId.ts), backed by
+`expo-crypto`'s `Crypto.randomUUID()` (native, cryptographically secure on-device random —
+Android Keystore / iOS Security framework). **New dependency added:** `expo-crypto@~15.0.9`
+(pinned to the exact version Expo SDK 54 itself declares compatible, per
+`node_modules/expo/bundledNativeModules.json`) — approved via the user's own ACC-001 decision
+text naming Expo Crypto by name as the mechanism; no config plugin/`app.json` change needed
+(autolinked, no native permissions). `expo-crypto` ships ESM-only compiled output that
+`ts-jest` cannot parse, and there is no RN native bridge under plain Jest anyway — it is
+mocked once in [`src/test-setup.ts`](../src/test-setup.ts) with Node's own built-in
+`crypto.randomUUID()` (same convention already used there for `@supabase/supabase-js`); the
+real app always calls the real `expo-crypto` native module.
+
+Both existing `RandomIdGenerator` classes (`features/nutrition`, `features/goals` — same
+class name kept, only their internals changed, to avoid an unnecessary rename ripple through
+`container.ts`) now delegate to `generateRecordId()` instead of a
+`Date.now()+Math.random()` string. This is the **only** change needed for every new-record
+creation path (`LogFoodFromRawInputUseCase`, `LogMealFromRawInputUseCase`,
+`CreateSavedMealFromDateUseCase`, `LogSavedMealToDateUseCase`,
+`UpsertMetabolismProfileUseCase`) — none of them were touched directly.
+
+**Entity classification** (per the task's explicit scope-discovery requirement):
+
+- **Class A (migrated to UUIDv4):** `FoodEntry.id` (Journal, incl. soft-deleted/tombstoned
+  entries); `SavedMealTemplate.id` (incl. ACC-002 tombstoned templates); `MetabolismProfile.id`
+  (the one singleton body-data record that already carried a generated `id`, unlike
+  `EffectiveGoals`, which has none).
+- **Class B (semantic/config keys, not migrated):** `EvaluationProfile.id` selection
+  (`PersistedActiveProfileRepository` — a reference to a fixed, hardcoded catalog of built-in
+  profiles, not a per-installation generated record); `ReminderSettings` (no id field at all);
+  onboarding-completion state (confirmed: no such persistence exists anywhere in this
+  codebase today, nothing to migrate).
+- **Class C (reference/reconstructable, out of scope by design):** `foodCatalogRef.sourceId`
+  and any BLS/OFF/USDA catalog identity — external, not a locally-generated record id;
+  correctly never validated as a UUID (per the task's explicit instruction).
+- **Class D (no independent identity, embedded only):** `SavedMealItem` — confirmed no `id`
+  field exists on this type and nothing anywhere references one by id; `CorrectionLogEntry` —
+  confirmed it has no independent `id` field either (only `timestamp`/`previousValues`/
+  `triggeredBy`); it is addressed solely via its parent `entryId` (rewritten during
+  migration, see below) plus array position/timestamp. ACC-001's own logical schema left the
+  eventual server-side Correction Log primary key open ("server-generated, e.g. bigserial or
+  UUID") — since nothing local needs to address an individual correction record
+  independently today, no new `id` field was added to it; only its foreign `entryId`
+  reference was rewritten.
+
+**Migration mechanism (version 1, restart-safe, idempotent):** every legacy (non-UUIDv4) `id`
+is detected via [`isUuidV4()`](../src/infrastructure/ids/isUuidV4.ts) and assigned a fresh
+UUIDv4 via the pure, reusable
+[`assignMissingUuids()`](../src/infrastructure/ids/assignMissingUuids.ts) helper — an
+already-valid UUIDv4 is never touched or reassigned. For `SavedMealTemplate` and
+`MetabolismProfile` (single storage key each, no cross-key reference to keep in sync), this is
+a single-key, single-write migration: either the one write completes, or nothing was durably
+changed yet and the exact same check simply runs again (with fresh ids, safely, since nothing
+was half-written) on the next launch — no durable temporary migration state is needed. For
+`PersistedFoodEntryRepository` (`nutrition:entries` **and** `nutrition:correctionLog` must
+stay consistent — the Correction Log's `entryId` map key and each entry's embedded
+`previousValues.id` snapshot must reference the _same_ migrated Journal id), a durable,
+versioned temporary migration-state key (`nutrition:acc003IdMigrationState`) persists the
+exact old→new mapping **before** either destructive rewrite happens, so a crash between the
+two writes resumes with the identical mapping on next launch instead of rolling a fresh,
+inconsistent one — removed once both stores are confirmed migrated. **Duplicate legacy ids**
+(structurally possible though never observed in this codebase's real history, given the old
+generator's astronomically low collision probability) are handled explicitly: every
+occurrence still receives its own independent new UUIDv4 (via a positional, not id-keyed,
+mapping — a plain `Record<oldId, newId>` cannot represent "one old id maps to two different
+new ids," which was a genuine bug caught and fixed by this task's own test suite before
+merge), while an ambiguous Correction Log reference keyed by a duplicated legacy id is
+deliberately left unrewritten (fails closed, preserves the data, reported via
+`console.warn`) rather than guessed at. One separate, pre-existing characteristic was
+discovered and documented (not introduced or fixed by this task, since it is independent of
+id _format_): `PersistedSavedMealRepository` has always deserialized into a `Map<id,
+template>` (SM-004), so two stored records that happen to share the exact same legacy id
+already collapse onto one Map entry at _load_ time, before migration ever runs — out of
+ACC-003's scope to fix.
+
+**Compatibility (verified, no regressions):** `npm run verify` green — 129 suites / 1130
+tests (+52 new ACC-003 cases: pure generator/migration-helper unit tests, `RandomIdGenerator`
+delegation tests for both features, and full migration test suites for all three persisted
+repositories, incl. legacy migration, valid-UUID passthrough, tombstone/soft-delete
+inclusion, mixed legacy+UUID stores, idempotent re-run, restart durability, simulated
+interrupted-migration resumption, and duplicate-legacy-id safety). J-009 grouping (based on
+`foodCatalogRef`, never record `id`), J-013 absolute editing, SM-007/SM-008 composition
+display, and ACC-002's tombstone semantics are all unaffected — confirmed by the full green
+suite plus explicit new assertions in the existing regression-coverage files. No raw UUID is
+ever rendered in any UI string or accessibility label — confirmed by inspection (nothing in
+`src/presentation/**` reads a record `.id` into `Text`/`AppText`/`accessibilityLabel`; the
+only `.id` usage there is a React `key` prop, which is never user-visible).
+
+**Verify:** VERIFY.md **Category 6** (dependency change — `expo-crypto` added) +
+**Category 4** (product/runtime code) combined per the "strictest combination" rule —
+`npm run verify` green; no `docs/MANUAL_TESTING_GAPS.md`-blocking UI file was changed, but an
+entry was added anyway (native retest checklist), per the same reasoning as ACC-002.
+
+**Out of scope (preserved):** ULIDs; auth user IDs; installation/device IDs; workspace
+ownership; Supabase schemas/RLS; authentication; secure session storage; backup;
+synchronization; outbox; server revisions; conflict resolution; tombstone garbage collection;
+account deletion.
+
+---
+
+#### ACC-004 … ACC-020: Follow-up stubs registered by ACC-001 (ACC-002/ACC-003 done, rest not implemented)
+
+Status: `todo` (ACC-004 onward — none may start before the release-boundary decision in
 ACC-001's planning notes above is explicitly approved for Phase 2 onward; Phase 0/Phase 1
 stubs are not blocked by that decision, only Phase 2+ are)
 Full detail (expected files, dependencies, rationale) is in
 [`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
-§23; this ROADMAP entry is a compact index only. **ACC-002 is now its own full entry above
-(`done`)** — removed from this index to avoid duplicate status tracking.
+§23; this ROADMAP entry is a compact index only. **ACC-002 and ACC-003 are now their own full
+entries above (both `done`)** — removed from this index to avoid duplicate status tracking.
 
-**Phase 0 — prerequisites (local-only, no auth/network, unblocked today):**
+**Phase 0 — remaining prerequisite (local-only, no auth/network, unblocked today):**
 
-- **ACC-003** — UUID/ULID record identity for newly created records (existing IDs untouched,
-  additive only). Depends on: none.
 - **ACC-004** — Local sync-readiness fields (`revision`/`userId`/`syncStatus`-shaped, inert
   until Phase 2). Depends on: ACC-002, ACC-003.
 

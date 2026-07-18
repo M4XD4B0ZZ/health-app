@@ -148,9 +148,14 @@ describe('Journal Domain Regression Coverage (J-006)', () => {
       const repository = new PersistedFoodEntryRepository(keyValueStore);
       const clock = new MutableTestClock(new Date('2026-02-15T12:00:00Z'));
 
-      // Loads without error; new optional fields are absent, not defaulted to garbage.
-      const loaded = await repository.getEntryById('legacy-entry');
+      // ACC-003: the legacy (non-UUIDv4) 'legacy-entry' id is migrated to a stable UUIDv4 on
+      // this first load — exactly the same "Future Compatibility Principle" this describe
+      // block is about, just for id format instead of missing optional fields. Fetch by date
+      // (not by the now-superseded literal id) to learn the migrated id.
+      const [loaded] = await repository.listEntriesForDate('2026-02-15');
       expect(loaded).toBeDefined();
+      expect(loaded.id).not.toBe('legacy-entry');
+      const migratedId = loaded.id;
       expect(loaded?.nutritionSnapshot).toBeUndefined();
       expect(loaded?.foodCatalogRef).toBeUndefined();
       expect(loaded?.deletedAt).toBeUndefined();
@@ -167,16 +172,16 @@ describe('Journal Domain Regression Coverage (J-006)', () => {
         new InMemoryNutritionLookup(),
         clock,
       );
-      const editResult = await editUseCase.execute('legacy-entry', '200g');
+      const editResult = await editUseCase.execute(migratedId, '200g');
       expect(editResult.updatedEntry.grams).toBe(200);
-      const log = await repository.getCorrectionLog('legacy-entry');
+      const log = await repository.getCorrectionLog(migratedId);
       expect(log).toHaveLength(1);
-      expect(log[0].previousValues.id).toBe('legacy-entry');
+      expect(log[0].previousValues.id).toBe(migratedId);
       expect(log[0].previousValues.nutritionSnapshot).toBeUndefined();
 
       // Functions correctly through a soft-delete.
       const deleteUseCase = new DeleteFoodEntryUseCase(repository, clock);
-      await deleteUseCase.execute('legacy-entry');
+      await deleteUseCase.execute(migratedId);
       expect(await repository.listEntriesForDate('2026-02-15')).toHaveLength(0);
     });
   });

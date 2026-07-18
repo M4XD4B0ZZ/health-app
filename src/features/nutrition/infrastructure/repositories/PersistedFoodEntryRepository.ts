@@ -6,6 +6,9 @@ import { DecisionMeta } from '../../domain/models/DecisionMeta';
 import { ResolverDecisionSummary } from '../../domain/models/ResolverDecisionSummary';
 import { getDateISOInTimezone } from '../../domain/common/DateTimezone';
 import { FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
+import { isUuidV4 } from '../../../../infrastructure/ids/isUuidV4';
+import { assignMissingUuids } from '../../../../infrastructure/ids/assignMissingUuids';
+import { applyIdMap } from '../../../../infrastructure/ids/applyIdMap';
 
 /**
  * Serialisierbare Version von FoodEntry für JSON-Speicherung.
@@ -70,6 +73,39 @@ interface SerializedCorrectionLogEntry {
 }
 
 /**
+ * ACC-003: durable, temporary state for the one-time legacy-id -> UUIDv4 migration. Persisted
+ * under its own storage key so a crash between rewriting `nutrition:entries` and
+ * `nutrition:correctionLog` can resume with the *exact same* mapping on next launch, instead
+ * of rolling a fresh (and inconsistent) set of ids. Removed once both stores are confirmed
+ * migrated — its absence is the normal, steady-state condition for every app launch after
+ * the first successful migration.
+ */
+interface Acc003IdMigrationState {
+  version: 1;
+  /**
+   * String-keyed old-id -> new-id map, used to rewrite the Correction Log's `entryId` key.
+   * NOT sufficient for rewriting the entries array itself when duplicate legacy ids exist —
+   * see `migratedEntryIds` below for why.
+   */
+  idMap: Record<string, string>;
+  /**
+   * Legacy ids that were assigned to more than one entry. Any Correction Log entry keyed by
+   * one of these ids is left unrewritten (fail closed, per `migrateCorrectionLogIds`) rather
+   * than arbitrarily reattached to one of the several entries that shared the old id.
+   */
+  duplicateLegacyIds: string[];
+  /**
+   * The exact new id assigned to each entry, positionally aligned with the flattened
+   * entries array (all dates concatenated in `Map` iteration order) at the moment the
+   * migration was planned. Unlike `idMap`, this is never lossy for duplicate legacy ids —
+   * each entry gets its own array slot regardless of what any other entry's `id` was.
+   */
+  migratedEntryIds: string[];
+  entriesMigrated: boolean;
+  correctionLogMigrated: boolean;
+}
+
+/**
  * Persistierte Implementierung des FoodEntryRepository.
  * Speichert Einträge via KeyValueStore (AsyncStorage) und hält einen In-Memory-Cache.
  *
@@ -82,6 +118,7 @@ interface SerializedCorrectionLogEntry {
 export class PersistedFoodEntryRepository implements FoodEntryRepository {
   private static readonly STORAGE_KEY = 'nutrition:entries';
   private static readonly CORRECTION_LOG_STORAGE_KEY = 'nutrition:correctionLog';
+  private static readonly ACC003_MIGRATION_STATE_KEY = 'nutrition:acc003IdMigrationState';
 
   private entries: Map<string, FoodEntry[]> = new Map();
   private correctionLog: Map<string, CorrectionLogEntry[]> = new Map();
@@ -239,7 +276,177 @@ export class PersistedFoodEntryRepository implements FoodEntryRepository {
       }
     }
 
+    await this.migrateLegacyIdsIfNeeded();
+
     this.isLoaded = true;
+  }
+
+  /**
+   * ACC-003: one-time migration of legacy (pre-UUIDv4) `FoodEntry.id`s to stable UUIDv4s,
+   * rewriting every reference that must stay consistent with the migrated id: the Correction
+   * Log's `entryId` map key, and each Correction Log entry's embedded `previousValues.id`
+   * snapshot. Idempotent and restart-safe — see `Acc003IdMigrationState` above for the exact
+   * crash-recovery mechanism. Includes soft-deleted (tombstoned) Journal entries; never makes
+   * a tombstoned record active, and never touches anything except `id` fields.
+   */
+  private async migrateLegacyIdsIfNeeded(): Promise<void> {
+    const persistedState = await this.loadMigrationState();
+
+    if (persistedState && persistedState.entriesMigrated && persistedState.correctionLogMigrated) {
+      // A previous run completed both rewrites but was interrupted before the state key
+      // itself could be cleared. Nothing left to migrate — just finish the cleanup.
+      await this.keyValueStore.remove(PersistedFoodEntryRepository.ACC003_MIGRATION_STATE_KEY);
+      return;
+    }
+
+    const dateKeys = Array.from(this.entries.keys());
+    const bucketSizes = dateKeys.map((dateISO) => this.entries.get(dateISO)!.length);
+    const flatEntries = dateKeys.flatMap((dateISO) => this.entries.get(dateISO)!);
+
+    let idMap: Record<string, string>;
+    let duplicateLegacyIds: string[];
+    let migratedEntryIds: string[];
+    let entriesMigrated: boolean;
+    let correctionLogMigrated: boolean;
+
+    if (persistedState) {
+      // Resume: reuse the exact mapping/ids already committed before the interruption —
+      // never regenerate anything for records whose migration may already be (partially)
+      // durable.
+      idMap = persistedState.idMap;
+      duplicateLegacyIds = persistedState.duplicateLegacyIds;
+      migratedEntryIds = persistedState.migratedEntryIds;
+      entriesMigrated = persistedState.entriesMigrated;
+      correctionLogMigrated = persistedState.correctionLogMigrated;
+    } else {
+      const needsMigration = flatEntries.some((entry) => !isUuidV4(entry.id));
+      if (!needsMigration) {
+        return;
+      }
+
+      const result = assignMissingUuids(flatEntries);
+      idMap = result.idMap;
+      duplicateLegacyIds = result.duplicateLegacyIds;
+      // Positional, not id-keyed — this is what keeps duplicate legacy ids safe: two entries
+      // that both had the same legacy id still land on two different array slots here, so
+      // neither ever collapses onto the other's new id (a plain idMap lookup could not
+      // represent that).
+      migratedEntryIds = result.records.map((entry) => entry.id);
+      entriesMigrated = false;
+      correctionLogMigrated = false;
+
+      if (duplicateLegacyIds.length > 0) {
+        console.warn(
+          '[ACC-003 migration] duplicate legacy FoodEntry ids detected — each occurrence ' +
+            'received its own new UUIDv4, but Correction Log entries keyed by these ids ' +
+            'cannot be unambiguously reattached and are left under their original id:',
+          duplicateLegacyIds,
+        );
+      }
+
+      // Durably persist the mapping BEFORE any destructive rewrite — this is what makes a
+      // crash between the two downstream writes below safely resumable on next launch, using
+      // this exact mapping/ids rather than rolling fresh (and inconsistent) ones.
+      await this.saveMigrationState({
+        version: 1,
+        idMap,
+        duplicateLegacyIds,
+        migratedEntryIds,
+        entriesMigrated,
+        correctionLogMigrated,
+      });
+    }
+
+    if (!entriesMigrated) {
+      let cursor = 0;
+      for (let i = 0; i < dateKeys.length; i++) {
+        const count = bucketSizes[i];
+        const bucket = flatEntries
+          .slice(cursor, cursor + count)
+          .map((entry, offset) => ({ ...entry, id: migratedEntryIds[cursor + offset] }));
+        this.entries.set(dateKeys[i], bucket);
+        cursor += count;
+      }
+      await this.persist();
+      entriesMigrated = true;
+      await this.saveMigrationState({
+        version: 1,
+        idMap,
+        duplicateLegacyIds,
+        migratedEntryIds,
+        entriesMigrated,
+        correctionLogMigrated,
+      });
+    }
+
+    if (!correctionLogMigrated) {
+      this.migrateCorrectionLogIds(idMap, duplicateLegacyIds);
+      await this.persistCorrectionLog();
+      correctionLogMigrated = true;
+      await this.saveMigrationState({
+        version: 1,
+        idMap,
+        duplicateLegacyIds,
+        migratedEntryIds,
+        entriesMigrated,
+        correctionLogMigrated,
+      });
+    }
+
+    await this.keyValueStore.remove(PersistedFoodEntryRepository.ACC003_MIGRATION_STATE_KEY);
+  }
+
+  /**
+   * ACC-003: rewrites the Correction Log's `entryId` map key and every entry's embedded
+   * `previousValues.id` using the migration's old->new id map. A legacy id flagged as a
+   * duplicate (see `assignMissingUuids`) is deliberately left unrewritten rather than
+   * guessed at — fails closed, preserves the data, and is reported via the diagnostic
+   * already logged in `migrateLegacyIdsIfNeeded`.
+   */
+  private migrateCorrectionLogIds(
+    idMap: Record<string, string>,
+    duplicateLegacyIds: string[],
+  ): void {
+    const migrated = new Map<string, CorrectionLogEntry[]>();
+
+    for (const [oldEntryId, log] of this.correctionLog.entries()) {
+      const isAmbiguous = duplicateLegacyIds.includes(oldEntryId);
+      const newEntryId = isAmbiguous ? oldEntryId : (idMap[oldEntryId] ?? oldEntryId);
+      const migratedLog = log.map((logEntry) => {
+        const snapshotIsAmbiguous = duplicateLegacyIds.includes(logEntry.previousValues.id);
+        return {
+          ...logEntry,
+          previousValues: snapshotIsAmbiguous
+            ? logEntry.previousValues
+            : applyIdMap([logEntry.previousValues], idMap)[0],
+        };
+      });
+      migrated.set(newEntryId, migratedLog);
+    }
+
+    this.correctionLog = migrated;
+  }
+
+  private async loadMigrationState(): Promise<Acc003IdMigrationState | null> {
+    const stored = await this.keyValueStore.get(
+      PersistedFoodEntryRepository.ACC003_MIGRATION_STATE_KEY,
+    );
+    if (!stored) {
+      return null;
+    }
+    try {
+      return JSON.parse(stored) as Acc003IdMigrationState;
+    } catch (error) {
+      console.error('Failed to parse ACC-003 id migration state:', error);
+      return null;
+    }
+  }
+
+  private async saveMigrationState(state: Acc003IdMigrationState): Promise<void> {
+    await this.keyValueStore.set(
+      PersistedFoodEntryRepository.ACC003_MIGRATION_STATE_KEY,
+      JSON.stringify(state),
+    );
   }
 
   /**

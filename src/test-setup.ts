@@ -34,6 +34,16 @@ jest.mock('@supabase/supabase-js', () => {
   };
 });
 
+// ACC-003: expo-crypto ships ESM-only compiled output that ts-jest cannot parse (it isn't a
+// native module bridge here either — there's no RN runtime under plain Jest). Mock it with
+// Node's own built-in `crypto.randomUUID()`, which produces real RFC4122 v4 UUID strings —
+// good enough for deterministic-shape assertions in tests; the real app always runs
+// Crypto.randomUUID() from the actual expo-crypto native module.
+jest.mock('expo-crypto', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  randomUUID: () => require('node:crypto').randomUUID(),
+}));
+
 // Mock the DI container to use MockResolverBuilder
 jest.mock('./infrastructure/di/container', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

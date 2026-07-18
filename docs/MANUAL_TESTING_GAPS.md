@@ -51,6 +51,69 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — ACC-003: Stabile UUIDv4-Identitäten (kein UI-Datei betroffen, dennoch dokumentiert; neue native Dependency)
+
+- **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — Journal/Saved-Meals-Screens
+  rufen unverändert dieselben Use Cases auf; die Migrations- und Generator-Logik ist
+  vollständig durch Unit-/Integrationstests verifiziert. Dieser Eintrag dokumentiert dennoch
+  den nativen Nachtest, weil (a) `expo-crypto` eine neue native Dependency ist, deren
+  tatsächliches Laufzeitverhalten (Android Keystore / iOS Security-Framework-Zufallswerte)
+  nur auf einem echten Gerät/Build verifizierbar ist, und (b) „nach Neustart bleiben IDs
+  stabil" ein echtes Geräteverhalten ist, das ein Headless-Unit-Test (Fake-KeyValueStore)
+  nicht 1:1 beweist.)
+- **Branch/PR:** `claude/acc-003-uuidv4-record-identity`
+- **Betroffene Bereiche:**
+  - **Neue Dependency:** `expo-crypto@~15.0.9` (`package.json`/`package-lock.json`) — via die
+    vom Nutzer selbst in der ACC-001-Entscheidungsfreigabe namentlich genannte Mechanik
+    („Expo Crypto kann UUIDv4 mit kryptografisch sicheren Zufallswerten lokal erzeugen").
+    Kein `app.json`-Config-Plugin nötig (autolinked, keine nativen Berechtigungen).
+  - `src/infrastructure/ids/generateRecordId.ts` (neu) — die eine zentrale
+    UUIDv4-Erzeugungsgrenze der App, per `Crypto.randomUUID()`.
+  - `src/infrastructure/ids/isUuidV4.ts`, `assignMissingUuids.ts`, `applyIdMap.ts` (neu) —
+    reine, wiederverwendbare Migrations-Bausteine.
+  - `src/features/nutrition/infrastructure/RandomIdGenerator.ts`,
+    `src/features/goals/infrastructure/RandomIdGenerator.ts` — delegieren jetzt an
+    `generateRecordId()` statt an eine Timestamp+Random-Zeichenkette (Klassenname
+    unverändert, um kein unnötiges Rename durch `container.ts` zu ziehen).
+  - `PersistedFoodEntryRepository.ts` — einmalige, neustartsichere Migration bestehender
+    Journal-IDs (inkl. J-003-Tombstones) zu UUIDv4, mit einem durablen, versionierten
+    Zwischenzustand (`nutrition:acc003IdMigrationState`), der einen Crash zwischen dem
+    Entries- und dem Correction-Log-Rewrite sicher fortsetzbar macht, ohne die Zuordnung neu
+    zu würfeln. Correction-Log-`entryId`-Schlüssel und eingebettete
+    `previousValues.id`-Snapshots werden konsistent mitrewritten.
+  - `PersistedSavedMealRepository.ts` — einmalige Migration bestehender
+    Saved-Meal-Template-IDs (inkl. ACC-002-Tombstones), einfacherer Single-Key-Fall (kein
+    Zwischenzustand nötig).
+  - `PersistedMetabolismProfileRepository.ts` — einmalige Migration der einzelnen
+    Singleton-Profil-ID.
+  - `src/test-setup.ts` — `expo-crypto` global gemockt (ESM-Only-Kompilat, das `ts-jest`
+    nicht parsen kann, ohne dass es eine RN-Bridge unter Jest ohnehin gäbe), analog zum
+    bestehenden `@supabase/supabase-js`-Mock-Muster.
+  - Keine `SavedMealItem`/`CorrectionLogEntry`-eigene ID (beide bleiben ohne unabhängige
+    Identität, wie von ACC-001 vorgesehen), keine `EvaluationProfile`-/Reminder-Migration
+    (Katalog-/Singleton-Keys ohne generierte Record-ID), kein Account/Auth/Backup/Sync-Code.
+- **Verifiziert durch Agent:** `npm run verify` grün (129 Suiten / 1130 Tests, davon 52 neue
+  ACC-003-Fälle): kanonische UUIDv4-Erzeugung inkl. Versions-/Variant-Bits; verteilte IDs bei
+  schneller Serienerzeugung ohne Zeit-Abhängigkeit; Legacy-IDs werden migriert, gültige
+  UUIDv4 bleiben unverändert; Correction-Log-Referenzen korrekt umgeschrieben; J-003-Tombstones
+  und ACC-002-Tombstones migrieren ohne Wiederbelebung; leere/fehlende Stores migrieren
+  fehlerfrei; gemischte Legacy-/UUID-Bestände migrieren korrekt; wiederholte Migration ist
+  ein No-op; Migration übersteht einen simulierten Neustart; eine simulierte unterbrochene
+  Migration wird mit der exakt persistierten Zuordnung fortgesetzt statt neu gewürfelt;
+  doppelte Legacy-IDs erhalten sicher je eine eigene neue UUID (ein echter Bug — beide
+  Duplikate kollabierten anfangs auf dieselbe neue ID — wurde durch den eigenen Testlauf
+  gefunden und vor dem Merge behoben). Bestehende J-009/J-013/SM-007/SM-008-Regressionssuiten
+  bleiben unverändert grün.
+- **Manuell nachzuholen:** Abschnitt **7 (Regressionscheck)** — natives Retest-Protokoll: (1)
+  mit einer Datenbank bestehender Journal-Einträge/Saved-Meals starten, (2) aktualisierten
+  Build installieren/starten, (3) bestätigen, dass alle bestehenden Einträge sichtbar
+  bleiben, (4) einen bestehenden Journal-Eintrag bearbeiten und löschen, (5) bestätigen, dass
+  die Korrekturhistorie weiterhin funktioniert, (6) ein bestehendes Saved Meal öffnen und
+  loggen, (7) ein Saved Meal löschen und neu starten, (8) bestätigen, dass die gelöschte
+  Vorlage weiterhin abwesend bleibt, (9) neue Journal-Einträge/Saved Meals anlegen, (10) erneut
+  neu starten und bestätigen, dass alle Datensätze ohne Duplikate erhalten bleiben, (11)
+  bestätigen, dass nirgends eine rohe UUID in der UI erscheint.
+
 ### 2026-07-18 — ACC-002: Saved Meal Soft-Delete (kein UI-Datei betroffen, dennoch dokumentiert)
 
 - **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — `SavedMealsScreen.tsx` ruft

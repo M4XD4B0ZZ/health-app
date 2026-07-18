@@ -1,15 +1,14 @@
 import { IdGenerator } from '../application/ports/IdGenerator';
+import { generateRecordId } from '../../../infrastructure/ids/generateRecordId';
 
 /**
- * Einfacher ID-Generator ohne externe Dependencies.
- * Nutzt Timestamp + Random für Uniqueness.
- * Für echte Produktion kann später UUID-Library verwendet werden.
+ * ACC-003: delegates to the app's single central UUIDv4 generation boundary
+ * (`generateRecordId`). Previously a timestamp+random string; durable records now get a
+ * stable, standards-based identity suitable for future backup/sync.
  */
 export class RandomIdGenerator implements IdGenerator {
   newId(): string {
-    const timestamp = Date.now().toString(36);
-    const randomPart = Math.random().toString(36).substring(2, 11);
-    return `${timestamp}-${randomPart}`;
+    return generateRecordId();
   }
 }
 

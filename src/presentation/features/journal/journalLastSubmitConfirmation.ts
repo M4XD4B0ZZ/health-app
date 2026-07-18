@@ -11,7 +11,9 @@ import { formatNumber, parseDisplayQuantity } from './journalEntryDisplay';
  *   dependency so it can be unit-tested with Jest fake timers without a rendering harness.
  */
 
-export const LAST_SUBMIT_CONFIRMATION_MS = 8000;
+// J-014: auto-dismiss target lowered from 8 s to ~5 s. Single exported source of truth — the
+// controller defaults to it and JournalScreen never hard-codes a duration (decision 24).
+export const LAST_SUBMIT_CONFIRMATION_MS = 5000;
 
 export interface SubmitConfirmationEntry {
   id: string;
@@ -21,8 +23,21 @@ export interface SubmitConfirmationEntry {
 }
 
 export interface LastSubmitConfirmation {
+  /**
+   * J-014: `single` renders one compact line + a „Bearbeiten" action; `multiple` renders a
+   * compact aggregate line + an „Anzeigen" disclosure. The screen owns the per-entry rendering
+   * for the expanded detail — this module only derives the compact summary text.
+   */
+  kind: 'single' | 'multiple';
+  /** Compact summary line. Single: „Haferflocken gespeichert · 102 kcal". Multiple: „3 Einträge gespeichert · 428 kcal". */
   message: string;
+  /** Screen-reader announcement covering name/count, saved state, calories and the available action. */
+  accessibilityLabel: string;
   entryIds: string[];
+  /** Number of persisted entries (1 for `single`). */
+  count: number;
+  /** Summed calories across the persisted entries. */
+  totalCalories: number;
 }
 
 function formatEntryName(entry: SubmitConfirmationEntry): string {
@@ -32,16 +47,26 @@ function formatEntryName(entry: SubmitConfirmationEntry): string {
   return source.charAt(0).toLocaleUpperCase('de-DE') + source.slice(1);
 }
 
-function joinGerman(names: string[]): string {
-  if (names.length <= 1) return names[0] ?? '';
-
-  return `${names.slice(0, -1).join(', ')} und ${names[names.length - 1]}`;
+/**
+ * The user-facing name for a single entry, prefixed with the count only when it was actually
+ * typed (e.g. „Drei Eier" → „3 Eier"); never invents one for a bare „Ei" or grams-only input.
+ */
+function formatSingleEntryLabel(entry: SubmitConfirmationEntry): string {
+  const name = formatEntryName(entry);
+  const parsed = parseDisplayQuantity(entry.rawInput);
+  const countPrefix =
+    parsed.count && parsed.count > 0 && parsed.unit !== 'g' ? `${formatNumber(parsed.count)} ` : '';
+  return `${countPrefix}${name}`;
 }
 
 /**
  * Governing rule (decision 4): the confirmation represents only entries persisted by the
  * latest submission and must say so explicitly. Returns `null` when nothing was persisted —
  * a fully-blocked/unresolved submit is the J-007 error path's responsibility, not this panel's.
+ *
+ * J-014: the summary is intentionally compact. A single entry reads „Name gespeichert · N kcal"
+ * with an inline „Bearbeiten" action; several entries collapse to „N Einträge gespeichert · N
+ * kcal" (no inlined name list — the names live in the expandable detail the screen renders).
  */
 export function buildLastSubmitConfirmation(
   persistedEntries: SubmitConfirmationEntry[],
@@ -49,30 +74,33 @@ export function buildLastSubmitConfirmation(
   if (persistedEntries.length === 0) return null;
 
   const entryIds = persistedEntries.map((entry) => entry.id);
+  const totalCalories = persistedEntries.reduce((sum, entry) => sum + entry.calories, 0);
 
   if (persistedEntries.length === 1) {
     const [entry] = persistedEntries;
-    const name = formatEntryName(entry);
-    const parsed = parseDisplayQuantity(entry.rawInput);
-    // Only prefix a count that was actually present in the raw input (e.g. "Drei Eier" ->
-    // "3 Eier"); never invent one for a bare "Ei" or a grams-only "300g Karotten".
-    const countPrefix =
-      parsed.count && parsed.count > 0 && parsed.unit !== 'g'
-        ? `${formatNumber(parsed.count)} `
-        : '';
+    const label = formatSingleEntryLabel(entry);
+    const kcal = formatNumber(entry.calories);
 
     return {
-      message: `${countPrefix}${name} gespeichert · ${formatNumber(entry.calories)} kcal`,
+      kind: 'single',
+      message: `${label} gespeichert · ${kcal} kcal`,
+      accessibilityLabel: `${label} gespeichert, ${kcal} kcal. Bearbeiten verfügbar.`,
       entryIds,
+      count: 1,
+      totalCalories,
     };
   }
 
-  const names = persistedEntries.map(formatEntryName);
-  const totalKcal = persistedEntries.reduce((sum, entry) => sum + entry.calories, 0);
+  const count = persistedEntries.length;
+  const kcal = formatNumber(totalCalories);
 
   return {
-    message: `${persistedEntries.length} Einträge gespeichert: ${joinGerman(names)} · ${formatNumber(totalKcal)} kcal`,
+    kind: 'multiple',
+    message: `${count} Einträge gespeichert · ${kcal} kcal`,
+    accessibilityLabel: `${count} Einträge gespeichert, ${kcal} kcal. Details anzeigen.`,
     entryIds,
+    count,
+    totalCalories,
   };
 }
 

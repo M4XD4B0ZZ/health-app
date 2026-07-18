@@ -33,7 +33,9 @@ import {
 } from './journalLastSubmitConfirmation';
 
 interface LastSubmitPanel {
+  kind: 'single' | 'multiple';
   message: string;
+  accessibilityLabel: string;
   entries: FoodEntry[];
 }
 
@@ -196,12 +198,40 @@ const JournalScreen: React.FC = () => {
   // Einträge" list. Timer/visibility is owned by a framework-agnostic controller so it's
   // unit-testable with fake timers; `lastSubmitPanel` mirrors the controller's current value.
   const [lastSubmitPanel, setLastSubmitPanel] = useState<LastSubmitPanel | null>(null);
+  // J-014: whether the multi-entry disclosure is expanded, and whether that expansion is
+  // currently holding the auto-dismiss timer (so we release exactly the hold we placed).
+  const [confirmationExpanded, setConfirmationExpanded] = useState(false);
+  const confirmationExpandHeldRef = useRef(false);
+  // Any replacement/dismissal of the confirmation collapses the disclosure. The controller
+  // already zeroes its holdCount on show()/hide()/timeout, so we only clear our own ref here —
+  // calling release() would be a guarded no-op against an already-zero holdCount.
+  const handleConfirmationChange = useCallback((panel: LastSubmitPanel | null) => {
+    setLastSubmitPanel(panel);
+    setConfirmationExpanded(false);
+    confirmationExpandHeldRef.current = false;
+  }, []);
   const confirmationControllerRef =
     useRef<LastSubmitConfirmationController<LastSubmitPanel> | null>(null);
   if (!confirmationControllerRef.current) {
     confirmationControllerRef.current =
-      createLastSubmitConfirmationController<LastSubmitPanel>(setLastSubmitPanel);
+      createLastSubmitConfirmationController<LastSubmitPanel>(handleConfirmationChange);
   }
+  // J-014: toggles the multi-entry detail disclosure. Expanding holds the auto-dismiss timer
+  // (decision 26) so the banner can't vanish while the user is reading the details; collapsing
+  // releases it (decision 27), resuming the smallest deterministic dismissal behavior.
+  const toggleConfirmationExpanded = () => {
+    setConfirmationExpanded((prev) => {
+      const next = !prev;
+      if (next && !confirmationExpandHeldRef.current) {
+        confirmationExpandHeldRef.current = true;
+        confirmationControllerRef.current?.hold();
+      } else if (!next && confirmationExpandHeldRef.current) {
+        confirmationExpandHeldRef.current = false;
+        confirmationControllerRef.current?.release();
+      }
+      return next;
+    });
+  };
   // Tracks whether the currently open edit modal was opened from the confirmation panel, so
   // handleCloseEdit only releases a hold it actually placed (see handleOpenEditFromConfirmation).
   const confirmationEditHeldRef = useRef(false);
@@ -278,7 +308,9 @@ const JournalScreen: React.FC = () => {
     );
     if (confirmation) {
       confirmationControllerRef.current?.show({
+        kind: confirmation.kind,
         message: confirmation.message,
+        accessibilityLabel: confirmation.accessibilityLabel,
         entries: result.persistedEntries,
       });
     }
@@ -509,25 +541,66 @@ const JournalScreen: React.FC = () => {
         {lastSubmitPanel && (
           <View
             style={styles.lastSubmitConfirmation}
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={lastSubmitPanel.accessibilityLabel}
             onTouchStart={() => confirmationControllerRef.current?.hold()}
             onTouchEnd={() => confirmationControllerRef.current?.release()}
             onTouchCancel={() => confirmationControllerRef.current?.release()}
           >
-            <AppText style={styles.lastSubmitMessage}>{lastSubmitPanel.message}</AppText>
-            {lastSubmitPanel.entries.map((entry) => {
-              const display = buildFoodEntryDisplay(entry, getKnownCountPortion(entry));
+            {/* J-014: one compact line, no duplicated Journal-entry row. Single → inline
+                „Bearbeiten"; multiple → an „Anzeigen" disclosure for the per-entry detail. */}
+            <View style={styles.lastSubmitHeaderRow}>
+              <AppText style={styles.lastSubmitMessage}>{lastSubmitPanel.message}</AppText>
+              {lastSubmitPanel.kind === 'single' ? (
+                <TouchableOpacity
+                  onPress={() => handleOpenEditFromConfirmation(lastSubmitPanel.entries[0])}
+                  accessibilityRole="button"
+                  accessibilityLabel="Eintrag bearbeiten"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.lastSubmitAction}
+                  activeOpacity={0.7}
+                >
+                  <AppText variant="meta" tone="accent">
+                    Bearbeiten
+                  </AppText>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={toggleConfirmationExpanded}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: confirmationExpanded }}
+                  accessibilityLabel={
+                    confirmationExpanded ? 'Details verbergen' : 'Details anzeigen'
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.lastSubmitAction}
+                  activeOpacity={0.7}
+                >
+                  <AppText variant="meta" tone="accent">
+                    {confirmationExpanded ? 'Verbergen' : 'Anzeigen'}
+                  </AppText>
+                </TouchableOpacity>
+              )}
+            </View>
+            {lastSubmitPanel.kind === 'multiple' && confirmationExpanded && (
+              <View style={styles.lastSubmitDetails}>
+                {lastSubmitPanel.entries.map((entry) => {
+                  const display = buildFoodEntryDisplay(entry, getKnownCountPortion(entry));
 
-              return (
-                <EntryRow
-                  key={entry.id}
-                  title={display.title}
-                  subtitle={display.subtitle}
-                  kcal={entry.calories}
-                  onPress={() => handleOpenEditFromConfirmation(entry)}
-                  style={styles.lastSubmitEntryRow}
-                />
-              );
-            })}
+                  return (
+                    <EntryRow
+                      key={entry.id}
+                      title={display.title}
+                      subtitle={display.subtitle}
+                      kcal={entry.calories}
+                      onPress={() => handleOpenEditFromConfirmation(entry)}
+                      style={styles.lastSubmitEntryRow}
+                    />
+                  );
+                })}
+              </View>
+            )}
           </View>
         )}
 
@@ -801,16 +874,32 @@ const styles = StyleSheet.create({
   autoMergeNoticeButton: {
     marginLeft: tokens.spacing.s,
   },
+  // J-014: a compact, transient banner — a thin accent edge (not a full bordered card) keeps
+  // it visually distinct from permanent Journal entries and from the auto-merge notice.
   lastSubmitConfirmation: {
     marginTop: 8,
     paddingHorizontal: tokens.spacing.s,
     paddingVertical: tokens.spacing.xs,
     backgroundColor: tokens.colors.surface,
-    borderRadius: tokens.radius.medium,
+    borderRadius: tokens.radius.small,
+    borderLeftWidth: 3,
+    borderLeftColor: tokens.colors.accent,
+  },
+  lastSubmitHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   lastSubmitMessage: {
+    flex: 1,
     fontWeight: 'bold',
-    marginBottom: tokens.spacing.xs,
+    paddingRight: tokens.spacing.s,
+  },
+  lastSubmitAction: {
+    paddingVertical: 2,
+  },
+  lastSubmitDetails: {
+    marginTop: tokens.spacing.xs,
   },
   lastSubmitEntryRow: {
     paddingVertical: tokens.spacing.xs,

@@ -7325,6 +7325,44 @@ that no source-data defect exists. Documentation-only until an Act task is split
 
 **Verify:** VERIFY.md **Category 1** (documentation-only) for the planning step.
 
+**Planning complete (2026-07-18):**
+[`plans/RESOLVER-V2-010_SPECK_DISAMBIGUATION_DECISION_PLAN.md`](../plans/RESOLVER-V2-010_SPECK_DISAMBIGUATION_DECISION_PLAN.md).
+Exhaustive candidate inventory (89 artifact records containing "speck") resolves into **three**
+materially distinct BLS nutrient clusters — raw/cured pure fatback (`W412000`/`U605700`/`W411000`,
+660–746 kcal, the current bare-„Speck" result), cured/smoked Bauchspeck/Frühstücksspeck bacon-style
+(`W411300`/`W415000`+variants, 287–337 kcal), and lean Schinkenspeck ham-style
+(`U685100`/`W410400`+variants, 121–167 kcal) — up to **6.2× kcal** apart. No unqualified generic
+"Speck" record exists in BLS at all. **Root cause confirmed as ambiguity, not a defect**: Stage 4
+token matching (unchanged by RESOLVER-V2-009 — "speck" has length 5, under the Stage-2 `>6`
+single-token-guard threshold) scores the exact-token fatback family at 1.0 vs. the
+compound-substring bacon family at 0.8, so only fatback ever reaches the candidate set. Qualified
+single-word terms (`bauchspeck`, `fruehstuecksspeck`) already resolve deterministically and
+correctly today via the existing RESOLVER-V2-009 override — **no regression risk there** as long
+as a future fix stays narrowly scoped. Multi-word German qualifier phrasing (`geräucherter Speck`,
+`roher Speck`, `magerer Speck`, `gebratener Speck`, `durchwachsener Speck`) all return **zero**
+candidates (compound-guard rejection) — a clarification UI must offer tappable single-word choices,
+never suggest the user type a descriptive phrase. **Key finding:** `ResolverDecision.status`
+already has an `'ambiguous'` value and `ResolverDecisionPolicy` already computes it correctly for
+bare "speck" (`MULTIPLE_CLOSE_MATCHES`, all three fatback candidates tie at `finalScore=1.0000`) —
+but `LogFoodFromRawInputUseCase` never reads `decision.status`, gating purely on
+`resolved.score >= 0.7`, so the existing ambiguity signal is computed and then silently discarded
+(a dead-signal architecture gap). **Critical calibration risk proven with real data:** naively
+wiring up that existing generic threshold would _also_ flag "Bauchspeck"/"Frühstücksspeck" as
+ambiguous (their own near-tied same-family variants, plus one unrelated-dish near-miss for
+Bauchspeck: `Zwiebelkuchen ohne Speck` at 0.9715) — ruling out a blanket generic-threshold fix for
+a first Act task. **Recommended MVP:** a concise 2–3-choice clarification (calories shown before
+selection, plain German labels, no BLS codes) that re-dispatches the user's choice through the
+already-deterministic qualified-term resolver path — falling back to an honest unresolved state
+(reusing the existing "Nicht erkannte Einträge" contract shape) if the user doesn't choose.
+Architecture: a narrowly-scoped, food-specific detection (not a generic ambiguity framework) at
+the `LogFoodFromRawInputUseCase` layer, closing the alias-cache risk (saving an alias for an
+ambiguous result currently locks in the wrong answer on every subsequent query). All proposed
+user-facing strings are net-new and await product approval (plan §16); the 2-vs-3-choice question
+(include lean Schinkenspeck or not) also awaits a product decision (plan §14). This task **stays
+`todo`** — the plan does not implement the functional behavior; a later RESOLVER-V2-010 **Act**
+task (same task ID, no new ID per this repo's Plan→Act convention) is ready to start once those
+two decisions are made.
+
 ---
 
 # COMPLETED / GOVERNANCE / LEGACY PHASE GROUPS

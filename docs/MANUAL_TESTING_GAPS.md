@@ -51,6 +51,41 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — SM-008: Saved-Meal-Zusammensetzungs-Transparenz (SavedMealsScreen)
+
+- **Status:** ⏳ offen (Gruppierungs-/Aggregations-Logik deterministisch per Unit-Tests
+  verifiziert; die eigentliche Karten-Darstellung + das aufklappbare Detail sind UI-relevant und
+  konnten in dieser headless-Umgebung nicht visuell in Expo geprüft werden.)
+- **Branch/PR:** `claude/sm-008-saved-meal-transparency`
+- **Betroffene Bereiche:**
+  - `src/presentation/features/savedMeals/savedMealsDisplay.ts` (neuer reiner Display-Helper
+    `buildSavedMealComposition` + `formatSavedMealSummary`/`formatSavedMealPreview`) — gruppiert
+    gespeicherte Items nach kanonischer Identität (`foodCatalogRef.source:sourceId`, J-009-Prinzip),
+    aggregiert Gramm/Kalorien und rendert die Mengen durch **Wiederverwendung** von
+    `buildGroupQuantitySubtitle` (J-010/J-011: „Stück" nur bei sauber teilbarer bekannter Portion,
+    sonst grammbasiert; explizite Gramm leiten nie eine Stückzahl zurück).
+  - `src/presentation/features/savedMeals/SavedMealsScreen.tsx` — ersetzt die alte Zeile
+    `{template.items.length} Zutat{en}` durch eine aufklappbare Karten-Region
+    (`TouchableOpacity`, `accessibilityRole="button"`, `accessibilityState.expanded`): Summary
+    („1 Lebensmittel · ~601 kcal") + einzeilige Vorschau, aufgeklappt eine Pro-Lebensmittel-Liste
+    (`Name · Menge · ~kcal`). Portions-Hints werden pro Identität per `useEffect` aufgelöst
+    (piece + slice), analog zur Journal-Stück-Anzeige. „Loggen"/Stift/Papierkorb bleiben in einer
+    separaten Aktionszeile — das Inspizieren löst kein Loggen aus.
+  - Keine Persistenz-/Replay-/Use-Case-/Resolver-Änderung (rein anzeige-seitig).
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 119 Suiten /
+  984 Tests grün). Neue/erweiterte `savedMealsDisplay.test.ts` (13 Fälle): 3 gespeicherte
+  Ei-Events → „1 Lebensmittel · ~601 kcal" mit „7 Stück (420 g)" (nie „3 Zutaten"); reine
+  Gramm-Lebensmittel ohne Portion bleiben grammbasiert; gemischt sauber/unsauber (60 g + 50 g) →
+  „110 g" ohne erfundene Stückzahl; mehrere distinkte Lebensmittel → korrekte Unique-Count +
+  First-Member-Reihenfolge; gleiches Label bei unterschiedlicher `foodCatalogRef` bleibt getrennt;
+  Items ohne Ref werden nie namensbasiert gemerged; Determinismus; keine Float-Artefakte („0,3 g");
+  leeres Template → „0 Lebensmittel".
+- **Manuell nachzuholen:** Abschnitte **1 (Smoke)**, **2 (Layout & Rendering — Karten-Summary,
+  Vorschau-Truncation, aufgeklappte Detailliste, Chevron ›/⌄, lange DE-Namen ohne Overflow)**,
+  **3 (Interaktion — Auf-/Zuklappen per Tap, „Loggen" weiterhin separat auslösbar, TalkBack/
+  VoiceOver liest expanded-State)** und **7 (Regressionscheck: Saved-Meals-Liste, Loggen eines
+  Saved Meals reproduziert exakte Journal-Werte)**.
+
 ### 2026-07-18 — P1-006: Rührei-Eingaben (Scrambled-Egg-Phrasierung)
 
 - **Status:** ⏳ offen (Parser-Logik deterministisch per Unit-Tests + Portions-Auflösung

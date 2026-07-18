@@ -4248,7 +4248,7 @@ change (see this branch's `npm run verify` run).
 
 #### SM-008: Saved Meal Composition Transparency
 
-Status: `todo`
+Status: `done`
 Severity: Medium
 Depends on: SM-001 (`foodCatalogRef` on template items, `done`) for canonical display
 grouping.
@@ -4293,6 +4293,40 @@ changes, template rename/edit features.
 
 **Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
 live-verified.
+
+**Implementation (done):**
+
+- New pure display helper
+  `src/presentation/features/savedMeals/savedMealsDisplay.ts` exposes
+  `buildSavedMealComposition(template, resolveKnownCountPortion)` →
+  `SavedMealComposition { uniqueFoodCount, totalCalories, groups[] }`, plus
+  `formatSavedMealSummary` („1 Lebensmittel · ~601 kcal") and `formatSavedMealPreview`
+  („Ei · 7 Stück (420 g)"). Read-only — it never mutates the template.
+- **Presentation grouping rule (J-009 identity principle):** items are grouped only by a valid
+  canonical `foodCatalogRef` (`source:sourceId`). Items with no valid ref get their own
+  per-index group — never a name-based merge — and two different refs are never merged even
+  when their `parsedName`s look identical (covered by tests). Group order follows each group's
+  first stored member (stable/deterministic).
+- **Quantity aggregation:** grams are summed per group, then rendered by **reusing** the
+  Journal's `buildGroupQuantitySubtitle` (via a thin `FoodEntry` adapter with empty `rawInput`),
+  so J-010/J-011 rules apply verbatim — a count („7 Stück") appears only when a known count
+  portion divides the aggregated grams cleanly; otherwise the label stays grams-only („300 g").
+  Explicit grams never reverse-infer a count (mixed 60 g + 50 g eggs → „110 g", not „…Stück").
+- **UI disclosure (`SavedMealsScreen.tsx`):** the old `{template.items.length} Zutat{en}` line is
+  replaced by an expandable card region (`TouchableOpacity`, `accessibilityRole="button"`,
+  `accessibilityState.expanded`) showing the summary + one-line preview collapsed, and a
+  per-food breakdown (`name · quantityLabel · ~kcal`) when expanded. Portion hints are resolved
+  per identity via a `useEffect` over `templates` (piece + slice), mirroring the Journal's Stück
+  display. The „Loggen" action (and pencil/trash) stay in a separate `templateActions` row —
+  inspection never triggers logging.
+- **Persistence/replay unchanged:** no persistence model, use case, or resolver was touched.
+  `CreateSavedMealFromDateUseCase`/`LogSavedMealToDateUseCase` still read/write the same
+  `SavedMealItem.quantityGrams`; aggregation is display-only, so log-back reproduces exact
+  journal values.
+- **Tests:** `savedMealsDisplay.test.ts` (13 cases) covers the egg aggregation target, the
+  „never 3 Zutaten" guarantee, grams-only/no-portion foods, mixed clean/unclean grams, distinct
+  foods + ordering, same-label/different-ref separation, no-ref non-merge, determinism, float
+  artifacts, and the empty template. Full suite green: `npm run verify` → 119 suites / 984 tests.
 
 ---
 

@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Modal } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import container from '../../../infrastructure/di/container';
-import { SavedMealTemplate } from '../../../features/nutrition/domain/models/SavedMealTypes';
+import {
+  SavedMealTemplate,
+  SavedMealItem,
+} from '../../../features/nutrition/domain/models/SavedMealTypes';
+import { resolveFoodIdentityKey } from '../../../features/nutrition/domain/portion/foodIdentity';
 
 // UI Components
 import { tokens } from '../../../ui/theme';
@@ -11,7 +15,14 @@ import { InputArea } from '../../../ui/components/InputArea';
 import { IconButton } from '../../../ui/components/IconButton';
 import { PrimaryButton } from '../../../ui/components/PrimaryButton';
 import { InlineStatus, InlineStatusState } from '../../../ui/components/InlineStatus';
-import { templateTotalCalories } from './savedMealsDisplay';
+import type { KnownCountPortion } from '../journal/journalEntryDisplay';
+import {
+  buildSavedMealComposition,
+  formatSavedMealSummary,
+  formatSavedMealPreview,
+} from './savedMealsDisplay';
+
+const LOCAL_PORTION_HINT_USER_ID = 'local-user';
 
 /**
  * SM-005: minimal Saved Meals UI — create a template from today's journal entries, log a
@@ -28,12 +39,80 @@ const SavedMealsScreen: React.FC = () => {
   const [busyTemplateId, setBusyTemplateId] = useState<string | null>(null);
   const [renamingTemplate, setRenamingTemplate] = useState<SavedMealTemplate | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  // SM-008: expandable composition details per template; collapsed by default.
+  const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
+  // SM-008: known count portions (e.g. „1 Ei = 60 g") per food identity, resolved ahead of time
+  // so the pure composition helper can stay synchronous (same pattern as the Journal's J-010).
+  const [knownCountPortions, setKnownCountPortions] = useState<Record<string, KnownCountPortion>>(
+    {},
+  );
 
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     loadTemplates();
   }, []);
+
+  // SM-008: resolve known count portions for every distinct food identity across all templates
+  // whenever the template list changes — read-only, display-only, never mutates a template.
+  useEffect(() => {
+    let cancelled = false;
+    const identityKeys = new Set<string>();
+    for (const template of templates) {
+      for (const item of template.items) {
+        const key = resolveFoodIdentityKey(item.parsedName);
+        if (key) identityKeys.add(key);
+      }
+    }
+    if (identityKeys.size === 0) {
+      setKnownCountPortions({});
+      return;
+    }
+
+    (async () => {
+      const resolved = await Promise.all(
+        Array.from(identityKeys).map(async (foodIdentityKey) => {
+          const [pieceHint, sliceHint] = await Promise.all([
+            container.portionKnowledgeService.lookup({
+              foodIdentityKey,
+              unit: 'piece',
+              userId: LOCAL_PORTION_HINT_USER_ID,
+            }),
+            container.portionKnowledgeService.lookup({
+              foodIdentityKey,
+              unit: 'slice',
+              userId: LOCAL_PORTION_HINT_USER_ID,
+            }),
+          ]);
+          return [foodIdentityKey, pieceHint ?? sliceHint] as const;
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<string, KnownCountPortion> = {};
+      for (const [foodIdentityKey, hint] of resolved) {
+        if (hint) next[foodIdentityKey] = { unit: hint.unit, gramsPerUnit: hint.gramsPerUnit };
+      }
+      setKnownCountPortions(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [templates]);
+
+  const resolveKnownCountPortion = (item: SavedMealItem): KnownCountPortion | undefined => {
+    const key = resolveFoodIdentityKey(item.parsedName);
+    return key ? knownCountPortions[key] : undefined;
+  };
+
+  const toggleExpanded = (templateId: string) => {
+    setExpandedTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      return next;
+    });
+  };
 
   const loadTemplates = async () => {
     try {
@@ -155,18 +234,57 @@ const SavedMealsScreen: React.FC = () => {
             <AppText tone="muted">Noch keine gespeicherten Mahlzeiten.</AppText>
           ) : (
             templates.map((template) => {
-              const totalCalories = templateTotalCalories(template);
+              const composition = buildSavedMealComposition(template, resolveKnownCountPortion);
+              const isExpanded = expandedTemplateIds.has(template.id);
               const isBusy = busyTemplateId === template.id;
 
               return (
                 <View key={template.id} style={styles.templateRow}>
-                  <View style={styles.templateInfo}>
-                    <AppText variant="body">{template.name}</AppText>
+                  {/* SM-008: tapping the info area inspects the composition (never logs). */}
+                  <TouchableOpacity
+                    style={styles.templateInfo}
+                    onPress={() => toggleExpanded(template.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isExpanded }}
+                    accessibilityLabel={`${template.name}, ${formatSavedMealSummary(composition)}, ${
+                      isExpanded ? 'Details geöffnet' : 'antippen für Details'
+                    }`}
+                  >
+                    <View style={styles.templateHeaderRow}>
+                      <AppText variant="body">{template.name}</AppText>
+                      <AppText variant="meta" tone="muted">
+                        {isExpanded ? '⌄' : '›'}
+                      </AppText>
+                    </View>
                     <AppText variant="meta" tone="muted">
-                      {template.items.length} Zutat{template.items.length === 1 ? '' : 'en'}
-                      {totalCalories !== null ? ` · ~${Math.round(totalCalories)} kcal` : ''}
+                      {formatSavedMealSummary(composition)}
                     </AppText>
-                  </View>
+                    {composition.groups.length > 0 && (
+                      <AppText
+                        variant="meta"
+                        tone="muted"
+                        style={styles.previewLine}
+                        numberOfLines={isExpanded ? undefined : 1}
+                      >
+                        {formatSavedMealPreview(composition)}
+                      </AppText>
+                    )}
+                    {isExpanded && (
+                      <View style={styles.detailList}>
+                        {composition.groups.map((group) => (
+                          <AppText
+                            key={group.key}
+                            variant="meta"
+                            tone="muted"
+                            style={styles.detailLine}
+                          >
+                            {group.name} · {group.quantityLabel}
+                            {group.calories !== null ? ` · ~${group.calories} kcal` : ''}
+                          </AppText>
+                        ))}
+                      </View>
+                    )}
+                  </TouchableOpacity>
                   <View style={styles.templateActions}>
                     <PrimaryButton
                       label="Loggen"
@@ -248,6 +366,21 @@ const styles = StyleSheet.create({
   },
   templateInfo: {
     flex: 1,
+    paddingRight: tokens.spacing.s,
+  },
+  templateHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  previewLine: {
+    marginTop: 2,
+  },
+  detailList: {
+    marginTop: tokens.spacing.xs,
+  },
+  detailLine: {
+    marginTop: 2,
   },
   templateActions: {
     flexDirection: 'row',

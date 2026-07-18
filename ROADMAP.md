@@ -2625,10 +2625,37 @@ learning/growth mechanism as originally scoped.
 
 ### P1-006: Scrambled-Egg („Rührei") Phrasing & Egg-Count Support
 
-Status: `todo`
+Status: `done`
 Severity: Medium
 Depends on: existing composite-dish / „mit"-splitting handling (P1-003B/C, P1-005).
 Origin: native dogfooding 2026-07-17,
+
+**Proven failure point + fix (done):** the parser stage failed. `parseQuantityAndUnit`
+(`simpleParser.ts`) only recognizes a count at the **start** of an item, so „Rührei aus 2
+Eiern" became one unresolvable food name `"rührei aus 2 eiern"` (`quantity: null`) — the
+count is mid-phrase after „aus". („2 Rühreier" did parse `quantity: 2` but the food name
+`"rühreier"` doesn't map to the egg canonical; the „…mit 10 g Butter" clause already split
+correctly.) Fix: a single targeted normalizer `parseScrambledEggFromEggs` in
+`simpleParser.ts`, checked first in `parseQuantityAndUnit`, recognizes two general German
+constructions — „Rührei aus/von <N> Ei(ern)" and „<N> Rühreier/Rührei" (digit or number word,
+incl. dative „einem", singular/plural) — and rewrites them to the **exact same tuple a plain
+„N Eier" produces** (`{ quantity: N, unit: null, foodName: N===1 ? 'ei' : 'eier' }`). So the
+downstream resolver, egg provenance and portion path are reused unchanged: exactly N eggs, no
+invented butter/oil/milk. A bare „Rührei" (no count) is untouched → existing default. Files:
+`src/features/input/infrastructure/simpleParser.ts` only; new tests
+`src/features/input/application/__tests__/scrambledEggPhrasing.test.ts`.
+
+**Verification (done):** `npm run verify` green (119 suites / 975 tests, +18). Tests assert all
+four native phrases + `aus/von`, number-word, singular/plural, and `aus 1 Ei`/`von einem Ei` →
+exactly N eggs with nothing else invented; the parse tuple is identical to „N Eier";
+`resolvePortionGrams('eier',0,2)=120 g` (and 1 egg → 60 g); „Rührei aus 2 Eiern mit 10 g
+Butter" → 2 eggs + 10 g butter each once; determinism; regressions („2 Eier", „ein Ei", „Toast
+mit Butter", „2 Scheiben Toast mit Butter", bare „Rührei") unchanged. Full input/parser/
+composite/resolver suites (30 suites / 292 tests) green. No resolver/artifact/nutrition-value,
+J-005/J-009/J-010/J-011/J-013 change. Infra-only (no UI) — `docs/MANUAL_TESTING_GAPS.md` carries
+the native retest checklist. Reordered „Rührei mit Butter aus 2 Eiern" is **not** supported
+(conditional in the brief; the „mit"-split would strand „…aus 2 Eiern") — documented, out of
+this task's scope.
 [report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 5.
 
 **Ziel:** Common scrambled-egg phrasings resolve to the right number of eggs. All of

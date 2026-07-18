@@ -4,6 +4,7 @@ import { KeyValueStore } from '../../application/ports/KeyValueStore';
 import { FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
 import { isUuidV4 } from '../../../../infrastructure/ids/isUuidV4';
 import { assignMissingUuids } from '../../../../infrastructure/ids/assignMissingUuids';
+import { SyncStatus } from '../../../../infrastructure/sync/SyncStatus';
 
 /**
  * Serialisierbare Version von SavedMealItem für JSON-Speicherung.
@@ -36,6 +37,10 @@ interface SerializedSavedMealTemplate {
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string; // ISO string
+  // ACC-004: local sync-readiness fields — see FoodEntry's identical fields (NutritionTypes.ts).
+  revision?: number;
+  userId?: string;
+  syncStatus?: SyncStatus;
 }
 
 /**
@@ -174,6 +179,9 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
       createdAt: template.createdAt.toISOString(),
       updatedAt: template.updatedAt.toISOString(),
       deletedAt: template.deletedAt?.toISOString(),
+      revision: template.revision,
+      userId: template.userId,
+      syncStatus: template.syncStatus,
     };
   }
 
@@ -199,6 +207,19 @@ export class PersistedSavedMealRepository implements SavedMealRepository {
     // unset here is exactly the safe "not deleted" default, no explicit migration needed.
     if (serialized.deletedAt !== undefined) {
       template.deletedAt = new Date(serialized.deletedAt);
+    }
+
+    // ACC-004: same "absent = not yet sync-ready" default as FoodEntry.
+    if (serialized.revision !== undefined) {
+      template.revision = serialized.revision;
+    }
+
+    if (serialized.userId !== undefined) {
+      template.userId = serialized.userId;
+    }
+
+    if (serialized.syncStatus !== undefined) {
+      template.syncStatus = serialized.syncStatus;
     }
 
     return template;

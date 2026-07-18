@@ -396,4 +396,48 @@ describe('PersistedSavedMealRepository (SM-004)', () => {
       expect(templates[0].id).not.toBe('dup-legacy-id');
     });
   });
+
+  describe('ACC-004: local sync-readiness fields', () => {
+    it('round-trips revision/userId/syncStatus across a reload when set', async () => {
+      const template = {
+        ...createSampleTemplate('77777777-7777-4777-8777-777777777777'),
+        revision: 4,
+        userId: 'user-123',
+        syncStatus: 'synced' as const,
+      };
+
+      await repository.create(template);
+
+      const reloaded = new PersistedSavedMealRepository(keyValueStore);
+      const found = await reloaded.getById('77777777-7777-4777-8777-777777777777');
+
+      expect(found?.revision).toBe(4);
+      expect(found?.userId).toBe('user-123');
+      expect(found?.syncStatus).toBe('synced');
+    });
+
+    it('leaves them undefined for a pre-ACC-004 record with no such fields at all', async () => {
+      await keyValueStore.set(
+        'nutrition:savedMeals',
+        JSON.stringify([
+          {
+            id: '88888888-8888-4888-8888-888888888888',
+            name: 'Protein Bowl',
+            items: [],
+            createdAt: '2024-01-10T10:00:00.000Z',
+            updatedAt: '2024-01-10T10:00:00.000Z',
+            // no revision/userId/syncStatus/deletedAt key at all — exactly what every
+            // record persisted before ACC-002/ACC-004 looks like in storage.
+          },
+        ]),
+      );
+
+      const migrated = new PersistedSavedMealRepository(keyValueStore);
+      const [template] = await migrated.list();
+
+      expect(template.revision).toBeUndefined();
+      expect(template.userId).toBeUndefined();
+      expect(template.syncStatus).toBeUndefined();
+    });
+  });
 });

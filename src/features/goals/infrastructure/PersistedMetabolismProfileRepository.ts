@@ -9,7 +9,9 @@ import { generateRecordId } from '../../../infrastructure/ids/generateRecordId';
  * PersistedSavedMealRepository's/PersistedActiveProfileRepository's pattern.
  * `MetabolismProfile`'s fields are all plain JSON-serializable primitives (no `Date`
  * objects — `createdAt`/`updatedAt` are already ISO strings), so no serialize/deserialize
- * transformation is needed beyond `JSON.stringify`/`JSON.parse`.
+ * transformation is needed beyond `JSON.stringify`/`JSON.parse`. ACC-004's optional
+ * `revision`/`userId`/`syncStatus` fields round-trip through this same plain pass-through
+ * automatically — no code change needed here beyond the domain model itself.
  */
 export class PersistedMetabolismProfileRepository implements MetabolismProfileRepository {
   private static readonly STORAGE_KEY = 'goals:metabolismProfile';

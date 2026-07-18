@@ -111,4 +111,30 @@ describe('PersistedMetabolismProfileRepository (DI-006)', () => {
       expect(profileAfter?.id).toBe(profileBefore?.id);
     });
   });
+
+  describe('ACC-004: local sync-readiness fields', () => {
+    it('round-trips revision/userId/syncStatus when set', async () => {
+      const profileWithSyncFields: MetabolismProfile = {
+        ...fixtureProfile,
+        revision: 1,
+        userId: 'user-123',
+        syncStatus: 'synced',
+      };
+      const repository = new PersistedMetabolismProfileRepository(new FakeKeyValueStore());
+
+      await repository.upsert(profileWithSyncFields);
+
+      expect(await repository.get()).toEqual(profileWithSyncFields);
+    });
+
+    it('leaves them undefined for a pre-ACC-004 record with no such fields at all', async () => {
+      const repository = new PersistedMetabolismProfileRepository(new FakeKeyValueStore());
+      await repository.upsert(fixtureProfile);
+
+      const loaded = await repository.get();
+      expect(loaded?.revision).toBeUndefined();
+      expect(loaded?.userId).toBeUndefined();
+      expect(loaded?.syncStatus).toBeUndefined();
+    });
+  });
 });

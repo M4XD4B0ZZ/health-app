@@ -6242,20 +6242,77 @@ account deletion.
 
 ---
 
-#### ACC-004 … ACC-020: Follow-up stubs registered by ACC-001 (ACC-002/ACC-003 done, rest not implemented)
+#### ACC-004: Local Sync-Readiness Fields
 
-Status: `todo` (ACC-004 onward — none may start before the release-boundary decision in
-ACC-001's planning notes above is explicitly approved for Phase 2 onward; Phase 0/Phase 1
-stubs are not blocked by that decision, only Phase 2+ are)
+Status: `done`
+Severity: Deferred (Phase 0 prerequisite for local-first account/backup/sync, ACC-001)
+Depends on: ACC-002 (done), ACC-003 (done).
+Origin: ACC-001 planning
+([`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
+§23, Phase 0).
+
+**Implementation notes (done):** added three optional, currently-unpopulated fields —
+`revision?: number`, `userId?: string`, `syncStatus?: SyncStatus` — to every durable,
+independently synchronizable local domain model: `FoodEntry`, `SavedMealTemplate`,
+`MetabolismProfile`, and `EffectiveGoals` (the last has no local `id` at all — its eventual
+server identity is the owning `userId` itself, per the ACC-001 plan's `user_goal_settings`
+schema). `SyncStatus` (new,
+[`src/infrastructure/sync/SyncStatus.ts`](../src/infrastructure/sync/SyncStatus.ts)) is a
+6-value union reusing exactly the sync-status UX states already approved in the ACC-001 plan
+§20 (`local_only`/`synced`/`syncing`/`pending`/`failed`/`account_action_required`) — not a new
+abstraction, just the internal identifier for an already-decided UI vocabulary. Nothing in
+this task populates any of the three fields anywhere — every current write path
+(`LogFoodFromRawInputUseCase`, `CreateSavedMealFromDateUseCase`, `UpsertMetabolismProfileUseCase`,
+etc.) is completely untouched; they stay `undefined` on every record, exactly as the task
+specifies ("harmless no-ops until [Phase 2] exists"). `PersistedFoodEntryRepository` and
+`PersistedSavedMealRepository` (which have explicit `Serialized*`/serialize/deserialize
+functions) round-trip the three fields using the same conditional-assignment convention
+already established for every other optional field (`if (serialized.field !== undefined)`) —
+absent on any pre-ACC-004 record, which safely defaults to "not yet sync-ready" with no
+migration step needed (unlike ACC-002/ACC-003, there is nothing to migrate: a genuinely
+absent field needs no rewrite). `PersistedMetabolismProfileRepository` and
+`PersistedEffectiveGoalsRepository` needed **no code change at all** — both already pass
+their domain object through `JSON.stringify`/`JSON.parse` verbatim, so the three new fields
+round-trip automatically; only a doc-comment note was added for clarity. `SavedMealItem` and
+`CorrectionLogEntry` were **not** touched — per ACC-003's classification, neither has an
+independent identity, so neither needs its own sync metadata (both sync as part of their
+parent record's revision).
+
+**Verification (done):** `npm run verify` green — 129 suites / 1138 tests (+8 new ACC-004
+cases): revision/userId/syncStatus round-trip correctly across a reload when set, for all
+four domain models; a pre-ACC-004 record with none of these keys in storage loads with all
+three left `undefined` (not defaulted to `null`/`0`/`''`), for all four domain models. Full
+existing suite (J-009/J-013/SM-007/SM-008/ACC-002 tombstones/ACC-003 migration) remains
+unaffected — confirmed by the unchanged pass count outside the 8 new cases; optional fields
+being absent by default means every existing `toEqual` fixture comparison is untouched. No UI
+file changed and no native-only behavior was introduced (plain JSON field round-tripping,
+fully verifiable headless) — no `docs/MANUAL_TESTING_GAPS.md` entry was added, per this
+task's own instruction to add one only where native confirmation is genuinely required.
+
+**Ziel (original task contract):** Add optional `revision`/`userId`/`syncStatus`-shaped
+fields to the local domain models (populated only once Phase 2 exists; harmless no-ops until
+then) so Phase 2 doesn't need a second local migration on top of Phase 0.
+
+**Verify:** VERIFY.md **Category 4** (product/runtime code) — `npm run verify` (blocking,
+green).
+
+**Out of scope (preserved):** authentication UI; Google/Apple provider configuration;
+Supabase schema/SQL; RLS policies; backup upload; restore; synchronization; outbox; server
+revisions; Realtime; account ownership-field population; ACC-005+ work; unrelated
+refactoring.
+
+---
+
+#### ACC-005 … ACC-020: Follow-up stubs registered by ACC-001 (ACC-002/ACC-003/ACC-004 done, rest not implemented)
+
+Status: `todo` (none may start before the release-boundary decision in ACC-001's planning
+notes above is explicitly approved for Phase 2 onward; the remaining Phase 1 stubs are not
+blocked by that decision, only Phase 2+ are)
 Full detail (expected files, dependencies, rationale) is in
 [`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
-§23; this ROADMAP entry is a compact index only. **ACC-002 and ACC-003 are now their own full
-entries above (both `done`)** — removed from this index to avoid duplicate status tracking.
-
-**Phase 0 — remaining prerequisite (local-only, no auth/network, unblocked today):**
-
-- **ACC-004** — Local sync-readiness fields (`revision`/`userId`/`syncStatus`-shaped, inert
-  until Phase 2). Depends on: ACC-002, ACC-003.
+§23; this ROADMAP entry is a compact index only. **ACC-002, ACC-003, and ACC-004 are now
+their own full entries above (all `done`)** — removed from this index to avoid duplicate
+status tracking.
 
 **Phase 1 — optional authentication shell (completes P2-008, no new port/use case):**
 

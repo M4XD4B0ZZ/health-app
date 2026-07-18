@@ -1,3 +1,5 @@
+import { SyncStatus } from '../../../../infrastructure/sync/SyncStatus';
+
 export type Sex = 'male' | 'female';
 export type ActivityLevel = 'low' | 'moderate' | 'high';
 export type ActivityLevelSource = 'manual' | 'auto';
@@ -12,6 +14,13 @@ export interface MetabolismProfile {
   sex: Sex;
   activityLevel: ActivityLevel;
   activityLevelSource?: ActivityLevelSource;
+  /**
+   * ACC-004: local sync-readiness fields — see `FoodEntry`'s identical fields for the full
+   * rationale (ACC-001 plan §7/§9/§20). Always `undefined` until Phase 2 exists.
+   */
+  revision?: number;
+  userId?: string;
+  syncStatus?: SyncStatus;
 }
 
 export type MetabolismBreakdownStepKey =

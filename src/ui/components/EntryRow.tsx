@@ -11,6 +11,14 @@ interface EntryRowProps {
   actionLabel?: string;
   onActionPress?: () => void;
   style?: ViewStyle;
+  /**
+   * J-012: opt-in expand/collapse affordance for a toggleable group header. Omitted (default)
+   * for every other row — ordinary leaf entries, composite-dish headers, transient confirmation
+   * rows, Saved Meal cards — so none of them gain a chevron. Hidden from the accessibility tree
+   * (requirement 24): the caller's own `accessibilityLabel` on the wrapping touchable already
+   * communicates the expanded/collapsed state, so this glyph would otherwise double-announce it.
+   */
+  chevron?: 'collapsed' | 'expanded';
 }
 
 export const EntryRow: React.FC<EntryRowProps> = ({
@@ -21,6 +29,7 @@ export const EntryRow: React.FC<EntryRowProps> = ({
   actionLabel,
   onActionPress,
   style,
+  chevron,
 }) => {
   const Container = onPress ? TouchableOpacity : View;
 
@@ -50,6 +59,21 @@ export const EntryRow: React.FC<EntryRowProps> = ({
           </TouchableOpacity>
         ) : null}
       </View>
+      {chevron && (
+        // Fixed width so swapping the glyph on toggle never shifts surrounding layout
+        // (requirement 14). Hidden from the accessibility tree on both platforms — the
+        // touchable wrapper's own accessibilityLabel already states the expanded/collapsed
+        // state (requirement 24/20: no duplicate announcement).
+        <AppText
+          variant="body"
+          tone="muted"
+          style={styles.chevron}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {chevron === 'expanded' ? '⌄' : '›'}
+        </AppText>
+      )}
     </Container>
   );
 };
@@ -81,5 +105,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 2,
+  },
+  chevron: {
+    width: 20,
+    marginLeft: tokens.spacing.xs,
+    textAlign: 'center',
   },
 });

@@ -1,5 +1,6 @@
 import type { FoodEntry } from '../../../features/nutrition';
 import type { PortionHintUnit } from '../../../features/nutrition/domain/portion/PortionHint';
+import { detectCanonicalEntity } from '../../../features/nutrition/domain/detectCanonicalEntity';
 
 type DisplayUnit = 'g' | 'piece' | 'slice' | 'count';
 
@@ -257,6 +258,27 @@ export function buildGroupQuantitySubtitle(
   return `${formatNumber(totalGrams)} g`;
 }
 
+/**
+ * J-012: the canonical group header's single accessible announcement — title, aggregate
+ * quantity, calorie total, expanded/collapsed state, and the available action, e.g.
+ * "Eier, 5 Stück (300 g), 411 Kilokalorien, eingeklappt. Zum Öffnen doppeltippen." Kept as one
+ * pure string builder (rather than composed ad hoc in the screen) so it's directly unit-tested
+ * without a render harness, and so the header's visible chevron glyph can safely be hidden from
+ * the accessibility tree (requirement 24) — this is the only announcement for the row.
+ */
+export function buildCanonicalGroupAccessibilityLabel(
+  label: string,
+  quantitySubtitle: string | undefined,
+  totalCalories: number,
+  isExpanded: boolean,
+): string {
+  const quantityPart = quantitySubtitle ? `${quantitySubtitle}, ` : '';
+  const statePart = isExpanded ? 'aufgeklappt' : 'eingeklappt';
+  const actionPart = isExpanded ? 'Schließen' : 'Öffnen';
+
+  return `${label}, ${quantityPart}${Math.round(totalCalories)} Kilokalorien, ${statePart}. Zum ${actionPart} doppeltippen.`;
+}
+
 export function buildFoodEntryDisplay(
   entry: FoodEntry,
   knownCountPortion?: KnownCountPortion,
@@ -339,6 +361,40 @@ function canonicalIdentityKey(entry: FoodEntry): string | null {
 }
 
 /**
+ * J-012: prefers a stable, user-friendly German display name for a canonical-identity group's
+ * header over the raw catalog string (e.g. "Eier" instead of "Huehnerei ganz roh"). Reuses the
+ * existing, already-populated alias dictionary (`detectCanonicalEntity`/`domain/canonicalFoods`)
+ * — the same trusted source that already powers portion-hint/resolver lookups elsewhere — rather
+ * than introducing any new name/alias table.
+ *
+ * Depends only on the group's shared canonical-food identity, never on any individual child's
+ * `rawInput`/which children currently exist, so the title stays stable across add/edit/delete of
+ * any member (the same "never derive from the newest/first entry alone" principle J-010/J-011
+ * apply to quantities). Precedence:
+ *
+ * 1. Every child's `parsedName` must resolve, via the existing dictionary, to the exact same
+ *    canonical food id — a single dissenting or unresolved child forfeits the friendly name
+ *    entirely (never a guess, never a name-similarity fallback).
+ * 2. Among that food's existing DE aliases, deterministically prefer the longest one (already-
+ *    curated data, e.g. "eier" over "ei") — this selects among strings that already exist in the
+ *    dictionary; it does not generate, inflect, or invent a plural.
+ * 3. Otherwise, fall back to the existing raw catalog display name unchanged — no speculative
+ *    alias is ever created.
+ */
+function resolveCanonicalGroupTitle(children: FoodEntry[], fallbackDisplayName: string): string {
+  const firstEntity = detectCanonicalEntity(children[0]?.parsedName ?? '');
+  if (!firstEntity) return formatTitle(fallbackDisplayName);
+
+  const allMatch = children.every(
+    (child) => detectCanonicalEntity(child.parsedName)?.id === firstEntity.id,
+  );
+  if (!allMatch) return formatTitle(fallbackDisplayName);
+
+  const preferredAlias = [...firstEntity.aliases.de].sort((a, b) => b.length - a.length)[0];
+  return formatTitle(preferredAlias || fallbackDisplayName);
+}
+
+/**
  * J-009: a second pass over the leaves left by the composite-dish pass, grouping entries that
  * share a canonical food identity (requirement 2/3/4). A group forms only when at least two
  * entries share the identity (requirement 5); a lone match stays a leaf. The group is emitted
@@ -391,11 +447,14 @@ function applyCanonicalGrouping(items: JournalListItem[]): JournalListItem[] {
     const memberIndices = memberIndicesByKey.get(key) ?? [];
     const children = memberIndices.map((i) => (items[i] as JournalEntryLeaf).entry);
     // Every child shares this identity's foodCatalogRef by construction (canonicalIdentityKey
-    // requires it); the first child's displayName is used deterministically for the label —
-    // requirement 14's "smallest deterministic fallback" only matters if displayName were ever
-    // empty despite a valid identity, which the fallback chain below also covers defensively.
-    const displayName = children[0].foodCatalogRef?.displayName;
-    const label = formatTitle(displayName || children[0].parsedName || children[0].rawInput);
+    // requires it); the first child's displayName is the deterministic fallback if no friendlier
+    // name applies (requirement 14's "smallest deterministic fallback" only matters if
+    // displayName were ever empty despite a valid identity, which the chain below also covers
+    // defensively). J-012: resolveCanonicalGroupTitle prefers a friendly existing German name
+    // over this raw catalog string when the whole group's identity supports one.
+    const fallbackDisplayName =
+      children[0].foodCatalogRef?.displayName || children[0].parsedName || children[0].rawInput;
+    const label = resolveCanonicalGroupTitle(children, fallbackDisplayName);
 
     result.push({
       kind: 'group',

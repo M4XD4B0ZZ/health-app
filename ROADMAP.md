@@ -6303,6 +6303,66 @@ refactoring.
 
 ---
 
+#### ACC-005: OAuth Native Wiring (app.json + native dependencies)
+
+Status: `blocked` (repository slice landed and verified; task cannot be marked `done` — it
+depends on external, human-only prerequisites that no agent can perform or verify: see
+"Remaining blocker" below)
+Severity: Deferred (Phase 1 — optional authentication shell, completes P2-008; ACC-001)
+Mode: Act (config/dependency implementation)
+Depends on: none (independent of Phase 0)
+Origin: ACC-001 planning
+([`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
+§23, Phase 1).
+
+**Completed repository slice (verified):** added the two native OAuth-support dependencies at
+Expo-SDK-54-compatible versions selected by `expo install` (not hand-picked):
+`expo-web-browser@~15.0.11` and `expo-apple-authentication@~8.0.8`, with the matching
+`package.json`/`package-lock.json` updates (protected files — changed under explicit,
+recorded human approval for this task). `app.json` gained only the scheme-independent
+`expo-web-browser` config plugin (`plugins: ["expo-font", "expo-web-browser"]`). The existing
+`SupabaseAuthRepository.signInWithOAuth` boundary comment already anticipated this wiring:
+the dependencies are the native prerequisites for the browser-open / redirect handling that
+ACC-006 will build in the presentation layer. No use case, screen, or navigation was touched
+(that is ACC-006).
+
+**Deliberately NOT changed (product decision deferred — see "Remaining blocker"):** no
+`app.json` `scheme` (deep-link), no `ios.bundleIdentifier`, and `android.package`
+(`com.nutritiondev.local`) left untouched. A permanent OAuth private-use URI scheme must be a
+reverse-domain scheme under a publisher-controlled domain (RFC 8252); the repo currently has
+no such approved production identity (iOS bundle identifier absent, Android package is a
+development-oriented `com.nutritiondev.local`). Deriving a scheme now would either bake a
+dev/local marker into a permanent public scheme or invent a new identity — both explicitly
+disallowed. The scheme is therefore held until the production app identity is decided.
+
+**Verification (done):** VERIFY.md **Category 4 (product/runtime config) + Category 6
+(dependency change)** — strictest combination applied. `npm run verify` green (lint +
+typecheck + format:check + tests): **129 suites / 1138 tests**, unchanged from the ACC-004
+baseline — the dependency addition is a non-breaking no-op at runtime (nothing imports the
+new modules yet). Category 6 regression scope (ACC-002 tombstones, ACC-003 UUID identity +
+migrations, ACC-004 optional sync-readiness serialization, Journal/Correction-Log
+persistence, Saved-Meal replay, Metabolism/goals persistence, restart/backward-compat) all
+pass. Native OAuth behavior is **not** exercisable in the headless environment and is **not**
+claimed — logged in [`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md).
+
+**Remaining blocker (external / human-only; keeps ACC-005 `blocked`, gates ACC-006):**
+
+1. choose or obtain the publisher-controlled domain for the app identity;
+2. approve the permanent production Android package + iOS bundle identifier;
+3. derive the reverse-domain OAuth deep-link scheme from that controlled identity and add it
+   to `app.json`;
+4. register the Google and Apple OAuth applications (external developer consoles);
+5. configure the corresponding redirect URI in the Supabase Auth dashboard;
+6. perform native end-to-end OAuth verification on a real device/simulator.
+
+**Out of scope (preserved):** authentication UI / login-logout screen (ACC-006); OAuth client
+IDs, Apple/Google secrets, Supabase credentials, redirect URLs; `expo.scheme`;
+`ios.bundleIdentifier`; replacing `android.package`; session-storage hardening (ACC-007);
+Supabase schema/SQL/RLS; backup/restore; synchronization; outbox; ACC-006+ work; unrelated
+refactoring.
+
+---
+
 #### ACC-005 … ACC-020: Follow-up stubs registered by ACC-001 (ACC-002/ACC-003/ACC-004 done, rest not implemented)
 
 Status: `todo` (none may start before the release-boundary decision in ACC-001's planning
@@ -6311,16 +6371,20 @@ blocked by that decision, only Phase 2+ are)
 Full detail (expected files, dependencies, rationale) is in
 [`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
 §23; this ROADMAP entry is a compact index only. **ACC-002, ACC-003, and ACC-004 are now
-their own full entries above (all `done`)** — removed from this index to avoid duplicate
-status tracking.
+their own full entries above (all `done`); ACC-005 is now its own full entry above
+(`blocked` — repository slice landed, external app-identity/OAuth prerequisites outstanding)**
+— removed from this index to avoid duplicate status tracking.
 
 **Phase 1 — optional authentication shell (completes P2-008, no new port/use case):**
 
 - **ACC-005** — OAuth native wiring: registered OAuth apps, `app.json` deep-link scheme,
   `expo-web-browser`/`expo-apple-authentication` dependencies (protected files, explicit
-  approval required). Depends on: none.
+  approval required). Depends on: none. **Now `blocked` with its own full entry above** —
+  native deps + `expo-web-browser` plugin landed; the deep-link scheme and OAuth-app/Supabase
+  registration are held on a production app-identity decision (RFC 8252 reverse-domain scheme).
 - **ACC-006** — Settings login/logout screen wired to the existing
-  `signInWithOAuthUseCase`/`AuthRepository.signOut()`. Depends on: ACC-005.
+  `signInWithOAuthUseCase`/`AuthRepository.signOut()`. Depends on: ACC-005 (blocked until the
+  deep-link scheme + OAuth registration are resolved).
 - **ACC-007** — Session-storage hardening decision (`expo-secure-store` vs. Supabase's
   default AsyncStorage-backed session) — **open decision, see ACC-001 plan §27 item 2**.
   Depends on: ACC-005.

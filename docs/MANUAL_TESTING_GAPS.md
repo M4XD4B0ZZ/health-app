@@ -51,6 +51,40 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — ACC-005: OAuth Native Wiring (native Dependencies + Config-Plugin; Scheme/OAuth-Registrierung blockiert)
+
+- **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — kein Screen, keine Navigation,
+  kein Use Case; ACC-005 fügt ausschließlich native Support-Dependencies und ein
+  scheme-unabhängiges Config-Plugin hinzu. Dieser Eintrag dokumentiert den nativen Nachtest,
+  weil (a) `expo-web-browser` und `expo-apple-authentication` neue native Module sind, deren
+  Laufzeitverhalten (In-App-Browser-Session, Apple-Sign-In-Entitlement) nur auf einem echten
+  Build/Gerät verifizierbar ist, und (b) der eigentliche OAuth-End-to-End-Flow erst nach der
+  externen App-Identitäts-/OAuth-Registrierung existiert und headless grundsätzlich nicht
+  prüfbar ist. **Working OAuth wird ausdrücklich nicht behauptet.**)
+- **Branch/PR:** `claude/acc-005-task-start-iucydb`
+- **Betroffene Bereiche:**
+  - **Neue Dependencies (protected files, unter ausdrücklicher, protokollierter Nutzer-Freigabe
+    für diesen Task):** `expo-web-browser@~15.0.11` und `expo-apple-authentication@~8.0.8`
+    (`package.json`/`package-lock.json`) — Versionen von `expo install` für Expo SDK 54
+    ausgewählt (nicht handverlesen).
+  - `app.json` — nur das scheme-unabhängige Config-Plugin `expo-web-browser` ergänzt
+    (`plugins: ["expo-font", "expo-web-browser"]`). **Kein** `scheme`, **kein**
+    `ios.bundleIdentifier`, `android.package` (`com.nutritiondev.local`) unverändert.
+  - Kein Screen/keine Navigation/kein Use Case geändert (das ist ACC-006); keine OAuth-Client-
+    IDs, Apple-/Google-Secrets, Supabase-Credentials oder Redirect-URLs.
+- **Verifiziert durch Agent:** `npm run verify` grün (129 Suiten / 1138 Tests, unverändert zur
+  ACC-004-Baseline): Dependency-Addition ist ein nicht-brechender Laufzeit-No-op (nichts
+  importiert die neuen Module bisher); VERIFY.md Kategorie 4 + 6 kombiniert; ACC-002/ACC-003/
+  ACC-004- sowie Journal-/Correction-Log-/Saved-Meal-/Metabolism-Regressionen bleiben grün.
+- **Manuell nachzuholen (extern/human-only; hält ACC-005 `blocked`, gated ACC-006):**
+  1. publisher-kontrollierte Domain für die App-Identität wählen/beschaffen;
+  2. permanenten Produktions-Android-`package` + iOS-`bundleIdentifier` festlegen;
+  3. Reverse-Domain-OAuth-Deep-Link-`scheme` daraus ableiten und in `app.json` eintragen (RFC 8252);
+  4. Google- und Apple-OAuth-Apps in den externen Developer-Konsolen registrieren;
+  5. zugehörige Redirect-URI im Supabase-Auth-Dashboard konfigurieren;
+  6. nativen End-to-End-OAuth-Flow auf echtem Gerät/Simulator prüfen (In-App-Browser öffnet,
+     Redirect springt via Scheme zurück in die App, Session wird gesetzt).
+
 ### 2026-07-18 — ACC-003: Stabile UUIDv4-Identitäten (kein UI-Datei betroffen, dennoch dokumentiert; neue native Dependency)
 
 - **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — Journal/Saved-Meals-Screens

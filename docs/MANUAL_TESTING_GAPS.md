@@ -51,6 +51,62 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — RESOLVER-V2-010: Speck-Klärungsdialog (JournalScreen)
+
+- **Status:** ⏳ offen (Erkennungs-Logik, die drei bewiesenen Resolver-Suchbegriffe, Vorschau-
+  Berechnung, Mengen-Erhaltung [inkl. Stück/Scheiben] und die Textbausteine sind per Unit-Tests
+  gegen den echten, committeten BLS-Artefakt verifiziert; die sichtbare Darstellung des
+  Klärungsdialogs, Fokus-Verhalten und echtes Screen-Reader-Verhalten sind UI-relevant und
+  konnten in dieser headless-Umgebung nicht visuell in Expo geprüft werden — es gibt keinen
+  RN-Render-Harness.)
+- **Branch/PR:** `claude/resolver-v2-010-speck-clarification`
+- **Betroffene Bereiche:**
+  - `src/features/nutrition/domain/catalog/SpeckAmbiguity.ts` (neu) — `isGenericSpeckQuery`
+    (erkennt ausschließlich das nackte Wort „Speck", nie qualifizierte Begriffe), die drei
+    freigegebenen Auswahlmöglichkeiten mit bewiesenen Suchbegriffen (`bauchspeck`,
+    `rueckenspeck`, `schinkenspeck`), die freigegebenen deutschen Texte, sowie
+    `buildSpeckChoiceResubmissionText` (ersetzt „Speck" im Original-Rohtext, erhält Gramm-,
+    Stück-/Scheiben- oder fehlende Mengenangabe unverändert).
+  - `src/features/nutrition/application/usecases/LogFoodFromRawInputUseCase.ts` — neue
+    Erkennungs-Weiche vor jedem Resolver-Aufruf für den mehrdeutigen Begriff selbst; neue
+    öffentliche `previewQualifiedFoodCalories` (nutzt denselben Auflösungspfad wie die
+    tatsächliche Persistierung); neue `SpeckAmbiguityError` (spiegelt exakt das bestehende
+    `PortionNeedsEditError`-Muster).
+  - `src/features/input/application/resolvePreparedNutritionInputs.ts` /
+    `logResolvedNutritionInput.ts` — neues `speckClarificationItems`-Feld, analog zu
+    `needsEditItems`.
+  - `src/presentation/features/journal/JournalScreen.tsx` — neuer Abschnitt (nach dem Vorbild von
+    `portionNeedsEditItems`): Überschrift, Erklärung, drei Auswahlzeilen (Label + Beschreibung +
+    kcal-Vorschau) und „Nicht sicher". Answahl/Verwerfen entfernt nur das eine betroffene Element
+    aus dem State — andere gleichzeitig offene Klärungen/Portionsabfragen bleiben unberührt.
+  - `src/presentation/features/journal/speckClarificationDisplay.ts` (neu) — reine
+    Formatierungs-/Accessibility-Label-Helfer.
+  - `src/presentation/features/journal/journalSubmitFeedback.ts` — neues
+    `speckClarificationCount`-Feld und eigene „Bitte Speck-Art wählen"-Statusmeldung (gleiche
+    Priorität wie „Portionsgewicht fehlt"), damit ein offener Speck-Klärungsfall nie fälschlich
+    als „nicht erkannt" erscheint.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 123 Suiten /
+  1066 Tests grün). `ResolverV2010SpeckClarification.test.ts` (12 Fälle, gegen einen echten
+  `SequentialFoodCatalogResolver` mit dem committeten BLS-Artefakt, nicht den in Tests
+  gemockten Container): bestätigt die exakten Vorschau-kcal-Werte für alle drei Auswahlen,
+  dass qualifizierte Begriffe (Bauchspeck/Frühstücksspeck/Bacon/Schinkenspeck/Rückenspeck) den
+  Dialog umgehen, dass W412000 nie stillschweigend für bloßes „Speck" gewählt wird, dass eine
+  Stück-/Scheiben-Menge („3 Scheiben Speck") über die Auswahl erhalten bleibt (führt korrekt zur
+  bestehenden Portionsgewicht-Abfrage statt einer erfundenen Umrechnung), und dass Vorschau- und
+  gespeicherter Wert aus demselben aufgelösten Kandidaten stammen. `SpeckAmbiguity.test.ts` (36
+  Fälle) und `speckClarificationDisplay.test.ts` (7 Fälle) decken Erkennung, Textbausteine und
+  Formatierung isoliert ab.
+- **Manuell nachzuholen:** Abschnitte **1 (Smoke)**, **2 (Layout & Rendering — Klärungsdialog
+  direkt unter der Eingabe, drei verständliche Optionen mit kcal-Vorschau, „Nicht sicher" klar
+  abgesetzt, schmale Android-Screens)**, **3 (Interaktion — Antippen einer Option speichert genau
+  diesen einen Eintrag mit erhaltener Menge; „Nicht sicher" speichert nichts und zeigt einen
+  Hinweis; mehrere gleichzeitig offene Klärungen/Portionsabfragen bleiben unabhängig
+  voneinander)** und **7 (Regression: „2 Eier und 100 g Speck" speichert die Eier nur einmal;
+  bestehende historische Speck-Einträge bleiben nach Neustart unverändert; TalkBack/VoiceOver
+  liest pro Option Label + Beschreibung + kcal-Vorschau + Aktion einmalig, Fokus wandert sinnvoll
+  in den Dialog und danach zurück)**. Die Szenarien A–J aus dem RESOLVER-V2-010-Prompt gelten als
+  native Retest-Vorlage.
+
 ### 2026-07-18 — J-012: Nutzerfreundlicher Gruppentitel + sichtbarer Chevron (JournalScreen)
 
 - **Status:** ⏳ offen (die Titel-Präzedenz-Logik und die Accessibility-Label-Konstruktion sind

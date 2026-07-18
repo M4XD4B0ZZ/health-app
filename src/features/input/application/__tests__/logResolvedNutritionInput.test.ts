@@ -128,4 +128,60 @@ describe('logResolvedNutritionInput', () => {
       }),
     ]);
   });
+
+  // RESOLVER-V2-010: architecture-level behavior (detection, item shape, multi-food
+  // coexistence, partial success) using this file's existing mocked-container harness
+  // (test-setup.ts's MockResolverBuilder happy path — it has no real BLS "Speck" data, so it
+  // cannot prove specific preview kcal values or that qualified terms resolve deterministically;
+  // those are proven end-to-end against the real BLS artifact in
+  // ResolverV2010SpeckClarification.test.ts instead). What *is* provable here — and is exactly
+  // what this file's existing container wiring is for — is that the detection/throw/collect
+  // architecture behaves correctly regardless of which resolver backs it.
+  describe('RESOLVER-V2-010: generic "Speck" clarification (architecture)', () => {
+    it('scenario A: "100 g Speck" does not silently persist — clarification item is produced instead', async () => {
+      const result = await logResolvedNutritionInput('100 g Speck');
+
+      expect(result.persistedEntries).toHaveLength(0);
+      expect(result.blockedEntries).toBe(1);
+      expect(result.speckClarificationItems).toHaveLength(1);
+
+      const item = result.speckClarificationItems[0];
+      expect(item.rawInput).toBe('100 g Speck');
+      expect(item.hasExplicitQuantity).toBe(true);
+      expect(item.quantityGrams).toBe(100);
+      expect(item.heading).toBe('Welche Art von Speck meinst du?');
+      expect(item.choices.map((c) => c.id)).toEqual([
+        'bacon_bauchspeck',
+        'fettspeck_rueckenspeck',
+        'schinkenspeck',
+      ]);
+    });
+
+    it('scenario B: bare "Speck" (no quantity) produces a clarification item with no fabricated portion', async () => {
+      const result = await logResolvedNutritionInput('Speck');
+
+      expect(result.persistedEntries).toHaveLength(0);
+      expect(result.speckClarificationItems).toHaveLength(1);
+      const item = result.speckClarificationItems[0];
+      expect(item.hasExplicitQuantity).toBe(false);
+      expect(item.quantityGrams).toBe(0);
+    });
+
+    it('scenario G: "2 Eier und 100 g Speck" — eggs persist once, only Speck needs clarification', async () => {
+      const result = await logResolvedNutritionInput('2 Eier und 100 g Speck');
+
+      expect(result.persistedEntries).toHaveLength(1);
+      expect(result.persistedEntries[0].parsedName).toBe('eier');
+      expect(result.speckClarificationItems).toHaveLength(1);
+      expect(result.speckClarificationItems[0].rawInput).toBe('100 g Speck');
+    });
+
+    it('scenario H: "1 Banane und Speck" — banana persists, Speck needs clarification', async () => {
+      const result = await logResolvedNutritionInput('1 Banane und Speck');
+
+      expect(result.persistedEntries).toHaveLength(1);
+      expect(result.persistedEntries[0].parsedName).toBe('banane');
+      expect(result.speckClarificationItems).toHaveLength(1);
+    });
+  });
 });

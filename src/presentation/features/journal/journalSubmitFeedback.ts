@@ -14,6 +14,8 @@ export interface SubmitOutcomeInput {
   unresolvedCount: number;
   blockedCount: number;
   needsEditCount: number;
+  /** RESOLVER-V2-010: bare, unqualified "Speck" items awaiting a disambiguation choice. */
+  speckClarificationCount: number;
   confidenceReason: string;
 }
 
@@ -50,15 +52,31 @@ function buildTrustMessage(
 }
 
 export function deriveSubmitOutcome(input: SubmitOutcomeInput): SubmitOutcome {
-  const { persistedCount, unresolvedCount, blockedCount, needsEditCount, confidenceReason } = input;
+  const {
+    persistedCount,
+    unresolvedCount,
+    blockedCount,
+    needsEditCount,
+    speckClarificationCount,
+    confidenceReason,
+  } = input;
   const notRecognizedCount = unresolvedCount + blockedCount;
   const trustMessage = buildTrustMessage(confidenceReason, persistedCount, notRecognizedCount);
 
   if (persistedCount === 0) {
     if (blockedCount > 0) {
+      // RESOLVER-V2-010: a pending Speck clarification is not a failure and not "nicht
+      // erkannt" — the item *was* recognized, it just needs a choice — so it gets its own
+      // honest wording, same priority pattern as the existing Portionsgewicht-fehlt case.
+      const statusMessage =
+        needsEditCount > 0
+          ? 'Portionsgewicht fehlt'
+          : speckClarificationCount > 0
+            ? 'Bitte Speck-Art wählen'
+            : 'Eintrag konnte nicht verarbeitet werden';
+
       return {
-        statusMessage:
-          needsEditCount > 0 ? 'Portionsgewicht fehlt' : 'Eintrag konnte nicht verarbeitet werden',
+        statusMessage,
         trustMessage,
         processingState: 'error',
       };

@@ -6,9 +6,18 @@
     "preview": {
       "distribution": "internal",
       "environment": "preview",
+      "env": {
+        "APP_VARIANT": "development"
+      },
       "android": {
         "buildType": "apk",
         "image": "latest"
+      }
+    },
+    "production": {
+      "environment": "production",
+      "env": {
+        "APP_VARIANT": "production"
       }
     }
   }

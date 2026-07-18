@@ -5997,17 +5997,43 @@ use, and login alone does not synchronize existing local data.
 
 #### ACC-001: Local-First Account / Backup / Sync Boundary (review-only architecture)
 
-Status: `todo`
+Status: `done`
 Severity: Deferred (architecture planning)
 Mode: **review-only planning — no product code, no migration, no dependency change.**
 Depends on: none (explicitly sequenced last).
 Origin: native dogfooding 2026-07-17,
 [report](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md) Finding 10.
 
-**Ziel:** Produce an ADR/plan (under `plans/`) that defines the local-first account/backup/
-sync boundary. Accepted product stance: Zera works local-first without an account;
-Google/Apple login via Supabase Auth comes later and is optional, for backup and cross-device
-use — it is not required for the local core and does not by itself sync existing local data.
+**Planning complete (2026-07-18):**
+[`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md).
+Full current-state inventory (AsyncStorage-backed `KeyValueStore`, one physical local store,
+no `revision`/`userId` on any domain model, `RandomIdGenerator` is timestamp+random, not a
+UUID/ULID; `FoodEntry` already has a soft-delete `deletedAt` tombstone + append-only
+`CorrectionLogEntry`, `SavedMealTemplate` does **not** have soft-delete today; an OAuth
+application-layer scaffold already exists from **P2-008** — `AuthRepository`/
+`SupabaseAuthRepository`/`SignInWithOAuthUseCase`, still `todo`, missing native config/deps/UI
+— this plan sequences around P2-008 rather than duplicating it; two existing RLS ownership
+precedents, `user_food_aliases` and `user_entitlements`, reused as the schema template).
+**Recommended boundary:** optional account offered only after value is delivered, never
+blocking onboarding/first log/goals/Saved Meals/evaluations; recommended sync architecture is
+outbox + server-assigned revision + tombstones with Supabase Realtime demoted to an optional
+later-phase hint, never the source of truth; recommended MVP release order is **backup/
+restore first**, full bidirectional multi-device sync later on the same data model (final
+sign-off on this specific point is explicitly still pending the user's dedicated follow-up
+review, not decided by this task). Data-classification matrix, per-domain conflict matrix,
+first-login/logout/restore state machines, a logical (no-SQL) Supabase schema + RLS
+intentions, a 20-scenario failure-mode matrix, and a 25-item deliverable checklist are all in
+the plan. Twenty new follow-up task IDs (**ACC-002 … ACC-020**, stub entries below) are
+registered across five phases (prerequisites → auth shell → backup → sync → conflict
+handling/export/deletion); none are implemented by this task, and none may start before the
+release-boundary decision above is explicitly approved for Phase 2 onward. No product code,
+migration, dependency, or configuration file was changed.
+
+**Ziel (original task contract, preserved):** Produce an ADR/plan (under `plans/`) that
+defines the local-first account/backup/sync boundary. Accepted product stance: Zera works
+local-first without an account; Google/Apple login via Supabase Auth comes later and is
+optional, for backup and cross-device use — it is not required for the local core and does
+not by itself sync existing local data.
 
 **Current state (context):** body data, goals, templates and journal are all local
 (AsyncStorage/local persistence). There is a Supabase client for resolver/edge use only; no
@@ -6031,6 +6057,73 @@ question with a recommendation; local-first-without-account remains the stated d
 documentation-only; no code/migration/dependency change.
 
 **Verify:** VERIFY.md **Category 1** (documentation-only) readback checks.
+
+---
+
+#### ACC-002 … ACC-020: Follow-up stubs registered by ACC-001 (none implemented)
+
+Status: `todo` (all — none may start before the release-boundary decision in ACC-001's
+planning notes above is explicitly approved for Phase 2 onward; Phase 0/Phase 1 stubs are not
+blocked by that decision, only Phase 2+ are)
+Full detail (expected files, dependencies, rationale) is in
+[`plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md`](../plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md)
+§23; this ROADMAP entry is a compact index only.
+
+**Phase 0 — prerequisites (local-only, no auth/network, unblocked today):**
+
+- **ACC-002** — Saved Meal soft-delete (`deletedAt` tombstone on `SavedMealTemplate`,
+  mirroring `FoodEntry`'s existing pattern). Depends on: none.
+- **ACC-003** — UUID/ULID record identity for newly created records (existing IDs untouched,
+  additive only). Depends on: none.
+- **ACC-004** — Local sync-readiness fields (`revision`/`userId`/`syncStatus`-shaped, inert
+  until Phase 2). Depends on: ACC-002, ACC-003.
+
+**Phase 1 — optional authentication shell (completes P2-008, no new port/use case):**
+
+- **ACC-005** — OAuth native wiring: registered OAuth apps, `app.json` deep-link scheme,
+  `expo-web-browser`/`expo-apple-authentication` dependencies (protected files, explicit
+  approval required). Depends on: none.
+- **ACC-006** — Settings login/logout screen wired to the existing
+  `signInWithOAuthUseCase`/`AuthRepository.signOut()`. Depends on: ACC-005.
+- **ACC-007** — Session-storage hardening decision (`expo-secure-store` vs. Supabase's
+  default AsyncStorage-backed session) — **open decision, see ACC-001 plan §27 item 2**.
+  Depends on: ACC-005.
+
+**Phase 2 — authenticated backup/adoption, one-directional (recommended MVP boundary):**
+
+- **ACC-008** — Local outbox + idempotency-key infrastructure. Depends on: ACC-004.
+- **ACC-009** — Server schema (`journal_entries`, `journal_corrections`, `saved_meals`,
+  `saved_meal_items`, `user_body_profile`, `user_goal_settings`, `sync_mutations`) + RLS,
+  migration-only task under `supabase/migrations/` (protected, explicit migration-task
+  authorization required). Depends on: none.
+- **ACC-010** — Push path (outbox → authenticated upload → ack). Depends on: ACC-006, ACC-008,
+  ACC-009.
+- **ACC-011** — First-login adoption flow + restore-after-reinstall flow. Depends on: ACC-010.
+- **ACC-012** — Sync-status UX (Settings/account area only, no Journal-wide icons). Depends
+  on: ACC-010.
+
+**Phase 3 — incremental synchronization, bidirectional (only after Phase 2 validated + the
+release-boundary decision is approved for this phase):**
+
+- **ACC-013** — Incremental pull (revision-keyed) + local merge/apply. Depends on: ACC-009,
+  ACC-010.
+- **ACC-014** — Deletion propagation (tombstone pull + local soft-delete apply). Depends on:
+  ACC-013.
+
+**Phase 4 — multi-device conflict handling:**
+
+- **ACC-015** — Domain-specific conflict rules implemented in the sync engine. Depends on:
+  ACC-013.
+- **ACC-016** — `sync_devices` + device management UX. Depends on: ACC-013.
+- **ACC-017** — Optional Realtime hint integration (never the source of truth). Depends on:
+  ACC-013.
+
+**Phase 5 — export and account deletion:**
+
+- **ACC-018** — Local (offline-capable) export — can ship independent of Phase 2. Depends on:
+  none.
+- **ACC-019** — Authenticated export (server-side canonical copy). Depends on: ACC-010.
+- **ACC-020** — Account deletion flow. Depends on: ACC-009, ACC-010.
 
 ---
 

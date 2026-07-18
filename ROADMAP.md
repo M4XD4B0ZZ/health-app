@@ -6345,21 +6345,95 @@ persistence, Saved-Meal replay, Metabolism/goals persistence, restart/backward-c
 pass. Native OAuth behavior is **not** exercisable in the headless environment and is **not**
 claimed — logged in [`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md).
 
+**Repository-side app identity + deep-link scheme: COMPLETE (via ACC-021).** The former
+blockers 1–3 (choose the publisher-controlled domain, approve the permanent production
+Android package + iOS bundle identifier, derive and add the reverse-domain OAuth deep-link
+`scheme`) are resolved: the human approved `zerahealth.de` and the permanent identities, and
+ACC-021 landed the dynamic `app.config.ts` variant mechanism producing them (production
+`de.zerahealth.zera`; development/dogfooding `com.nutritiondev.local` +
+`de.zerahealth.zera.dev`, with distinct schemes). No further repository change is required
+for the app identity or the deep-link scheme.
+
 **Remaining blocker (external / human-only; keeps ACC-005 `blocked`, gates ACC-006):**
 
-1. choose or obtain the publisher-controlled domain for the app identity;
-2. approve the permanent production Android package + iOS bundle identifier;
-3. derive the reverse-domain OAuth deep-link scheme from that controlled identity and add it
-   to `app.json`;
-4. register the Google and Apple OAuth applications (external developer consoles);
-5. configure the corresponding redirect URI in the Supabase Auth dashboard;
-6. perform native end-to-end OAuth verification on a real device/simulator.
+1. register the Google OAuth application (external developer console);
+2. register the Apple application + Sign in with Apple identifiers (external developer
+   console);
+3. configure the Supabase Auth providers;
+4. add the development and production redirect allowlists as appropriate
+   (`de.zerahealth.zera.dev://**` for dogfooding, `de.zerahealth.zera://**` for production);
+5. perform native end-to-end OAuth verification on a real device/simulator.
 
 **Out of scope (preserved):** authentication UI / login-logout screen (ACC-006); OAuth client
-IDs, Apple/Google secrets, Supabase credentials, redirect URLs; `expo.scheme`;
-`ios.bundleIdentifier`; replacing `android.package`; session-storage hardening (ACC-007);
-Supabase schema/SQL/RLS; backup/restore; synchronization; outbox; ACC-006+ work; unrelated
-refactoring.
+IDs, Apple/Google secrets, Supabase credentials, redirect URLs; session-storage hardening
+(ACC-007); Supabase schema/SQL/RLS; backup/restore; synchronization; outbox; ACC-006+ work;
+unrelated refactoring. (`expo.scheme`, `ios.bundleIdentifier`, and `android.package` are no
+longer deferred here — the repository-side portion is handled by ACC-021.)
+
+---
+
+#### ACC-021: Development/production Expo app-identity variants
+
+Status: `done` (verified; landed via this task's PR)
+Severity: Deferred (Phase 1 — completes the repository-side portion of ACC-005's former
+blockers 1–3)
+Mode: Act (config mechanism)
+Depends on: none (independent slice)
+Origin: ACC-005 scope-gate report — production identity approved by the human (domain
+`zerahealth.de`). Registered as the next genuinely unused ACC id (ACC-002…ACC-020 were
+reserved by ACC-001; ACC-021 verified absent before use). Uses a unique numeric id, not a
+letter suffix, per the repository convention.
+
+**Goal:** Introduce one dynamic Expo configuration mechanism that preserves the existing
+Android dogfooding installation (`com.nutritiondev.local`) while defining Zera's permanent
+production identity (`de.zerahealth.zera`), so both variants remain separately installable and
+the OAuth callback can never route ambiguously.
+
+**Approved identities:**
+
+| Variant                  | android.package          | ios.bundleIdentifier     | scheme                   | OAuth callback identity                  |
+| ------------------------ | ------------------------ | ------------------------ | ------------------------ | ---------------------------------------- |
+| Development / dogfooding | `com.nutritiondev.local` | `de.zerahealth.zera.dev` | `de.zerahealth.zera.dev` | `de.zerahealth.zera.dev://auth/callback` |
+| Production               | `de.zerahealth.zera`     | `de.zerahealth.zera`     | `de.zerahealth.zera`     | `de.zerahealth.zera://auth/callback`     |
+
+Development and production deliberately use **different** URL schemes: both apps may be
+installed at once, and a shared scheme could make OAuth callback routing ambiguous.
+
+**Mechanism (single source of truth):**
+
+- Static `app.json` **removed**; replaced by a dynamic `app.config.ts` (the two never
+  compete). Every non-variant value (name, slug, owner, version, orientation, icons/splash,
+  `userInterfaceStyle`, `newArchEnabled`, plugins incl. `expo-font`/`expo-web-browser`,
+  `extra.eas.projectId`, web favicon) is carried over verbatim.
+- `src/config/appIdentity.ts` resolves `APP_VARIANT` → identity. Fail-safe: a missing/empty
+  `APP_VARIANT` resolves to `development` (protects the dogfooding install as the safe
+  default); an unknown value **throws** and never silently emits the production package.
+- `eas.json`: the existing `preview` profile now sets `APP_VARIANT=development` (its
+  internal-APK behavior is otherwise unchanged); a new `production` profile sets
+  `APP_VARIANT=production`. No separate `development` profile was needed by the existing EAS
+  workflow.
+- `app.config.ts` added to `tsconfig.json` `include` so `tsc` type-checks it (drift guard).
+
+**Compatibility (no data touched):** the dev variant keeps building
+`com.nutritiondev.local`, so the installed dogfooding app and its local data remain
+rebuildable/updatable and associated with that package. Production installs as a **separate**
+app with its own local storage; no automatic data migration between variants is claimed or
+performed. No app was uninstalled. No OAuth client IDs, provider secrets, Supabase dashboard
+values, redirect allowlists in source, auth UI, or ACC-006 work were added. No dependency
+changes (the OAuth deps already landed in ACC-005).
+
+**Verification (done):** VERIFY.md **Category 4** (product/runtime config). `npm run verify`
+green — **131 suites / 1154 tests** (up from the 129/1138 ACC-005 baseline by the two new
+config suites). Automated config assertions in `src/config/__tests__/` prove: default env →
+development identity; explicit `development` and `production` identities (exact package,
+bundle id, scheme each); all preserved former-`app.json` values present and identical across
+variants; dev/prod schemes differ; unknown `APP_VARIANT` throws. Native parallel-install and
+callback routing are **not** exercisable headless and are **not** claimed — logged in
+[`docs/MANUAL_TESTING_GAPS.md`](../docs/MANUAL_TESTING_GAPS.md).
+
+**Files:** `app.config.ts` (new), `app.json` (removed), `eas.json`, `tsconfig.json`,
+`src/config/appIdentity.ts` (new), `src/config/__tests__/appIdentity.test.ts` (new),
+`src/config/__tests__/appConfig.test.ts` (new), `docs/MANUAL_TESTING_GAPS.md`, `ROADMAP.md`.
 
 ---
 

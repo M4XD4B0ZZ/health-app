@@ -51,6 +51,54 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — ACC-021: Development/Production Expo App-Identity-Varianten (dynamische `app.config.ts`; nativer Parallel-Install + Callback nur auf echtem Gerät prüfbar)
+
+- **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — kein Screen, keine
+  Navigation, kein Use Case. Reine native-/Build-Konfiguration. Dieser Eintrag dokumentiert
+  den nativen Nachtest, weil das eigentliche Ziel — **zwei parallel installierbare Varianten
+  mit getrennten Application-IDs und getrennten URL-Schemes** — nur auf echten Builds/Geräten
+  verifizierbar ist. Der Headless-Agent prüft die _Konfigurationsauflösung_ (Package/Bundle-
+  ID/Scheme je `APP_VARIANT`, Fail-safe-Default, Preservation aller Alt-Werte) vollständig per
+  Unit-Test, aber **nicht** das tatsächliche Android/iOS-Verhalten bei parallel installierten
+  Apps und beim OAuth-Deep-Link-Rücksprung. **Working OAuth wird ausdrücklich nicht
+  behauptet.**)
+- **Branch/PR:** `claude/acc-021-app-identity-variants`
+- **Betroffene Bereiche:**
+  - `app.config.ts` (neu) — ersetzt das entfernte statische `app.json` als **einzige**
+    (dynamische) Expo-Config-Quelle; alle Nicht-Varianten-Werte 1:1 übernommen.
+  - `app.json` — **entfernt** (keine konkurrierende zweite Quelle).
+  - `src/config/appIdentity.ts` (neu) — deterministische `APP_VARIANT`→Identität-Auflösung;
+    fehlend/leer ⇒ `development` (schützt die Dogfooding-Installation), unbekannt ⇒ Fehler
+    (nie stillschweigend Produktion).
+  - `eas.json` — `preview` setzt jetzt `APP_VARIANT=development`; neues `production`-Profil
+    setzt `APP_VARIANT=production` (bestehendes Preview-Verhalten sonst unverändert).
+  - `tsconfig.json` — `app.config.ts` in `include` aufgenommen (Typecheck als Drift-Schutz).
+  - `src/config/__tests__/appIdentity.test.ts`, `src/config/__tests__/appConfig.test.ts`
+    (neu) — automatisierte Config-Assertions.
+  - Kein Screen/keine Navigation/kein Use Case; keine OAuth-Client-IDs, Secrets, Supabase-
+    Dashboard-Werte oder Redirect-Allowlists im Quellcode; keine Dependency-Änderungen.
+- **Approved Identities (dev vs. prod, getrennte Schemes):**
+  - Development/Dogfooding: `android.package = com.nutritiondev.local`,
+    `ios.bundleIdentifier = de.zerahealth.zera.dev`, `scheme = de.zerahealth.zera.dev`,
+    Callback `de.zerahealth.zera.dev://auth/callback`.
+  - Production: `android.package = de.zerahealth.zera`,
+    `ios.bundleIdentifier = de.zerahealth.zera`, `scheme = de.zerahealth.zera`,
+    Callback `de.zerahealth.zera://auth/callback`.
+- **Verifiziert durch Agent:** `npm run verify` grün (131 Suiten / 1154 Tests; +2 Suiten/+16
+  Tests ggü. ACC-005-Baseline 129/1138). Config-Auflösung, Fail-safe-Default und Preservation
+  vollständig per Unit-Test bewiesen; VERIFY.md Kategorie 4.
+- **Manuell nachzuholen (nur auf echtem Build/Gerät prüfbar):**
+  1. Development-Build (`APP_VARIANT=development`, `com.nutritiondev.local`) installiert
+     **neben** einem Production-Build (`de.zerahealth.zera`) ohne Kollision — beide Icons
+     getrennt sichtbar, getrennte lokale Datenspeicher.
+  2. Die bestehende Dogfooding-App und ihre lokalen Journal-Daten bleiben erhalten (kein
+     Datenverlust, keine automatische Migration).
+  3. Deep-Link/OAuth-Rücksprung nutzt je Variante das **richtige** Scheme
+     (`de.zerahealth.zera.dev://…` vs. `de.zerahealth.zera://…`) ohne mehrdeutiges Routing bei
+     parallel installierten Apps.
+  4. Der eigentliche OAuth-End-to-End-Flow bleibt zusätzlich durch die externen
+     ACC-005-Blocker (Google/Apple/Supabase-Registrierung + Redirect-Allowlists) gated.
+
 ### 2026-07-18 — ACC-005: OAuth Native Wiring (native Dependencies + Config-Plugin; Scheme/OAuth-Registrierung blockiert)
 
 - **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — kein Screen, keine Navigation,

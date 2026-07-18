@@ -51,6 +51,42 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — GE-011: Energiebedarf verständlich + progressive Disclosure (GoalsScreen)
+
+- **Status:** ⏳ offen (die reine Mapping-/Formatierungslogik ist per Unit-Tests verifiziert; die
+  neue Informationshierarchie, das Auf-/Zuklappen der Berechnungs-Disclosure und die
+  Screen-Reader-Reihenfolge sind UI-relevant und konnten in dieser headless-Umgebung nicht visuell
+  in Expo geprüft werden — es gibt keinen RN-Render-Harness.)
+- **Branch/PR:** `claude/ge-011-energy-need-disclosure`
+- **Betroffene Bereiche:**
+  - `src/presentation/features/goals/goalsMetabolismDisplay.ts` (neu) — deutsche Copy-Konstanten,
+    `formatKcalPerDay`, `germanStepTitle` (Step-Key → deutscher Titel, kein Enum-Leak),
+    `buildEnergyInputRows` (übersetzt Geschlecht/Aktivitätslevel). Rein anzeige-seitig, keine
+    Neuberechnung.
+  - `src/presentation/features/goals/GoalsScreen.tsx` — Karte „Metabolismus-Profil" →
+    **„Körperdaten & Energiebedarf"**; prominenter Erhaltungsbedarf (TDEE) zuerst mit Erklärung,
+    danach Grundumsatz (BMR) mit Erklärung inkl. „Das ist kein empfohlenes Tagesziel."; die
+    Formeln/Steps liegen jetzt unter der eingeklappten Disclosure „So wurden die Werte berechnet"
+    (aufgeklappt: Eingaben-Block + deutsche Step-Titel + Provenienz). Werte kommen unverändert aus
+    `computeMetabolismResultUseCase` + `metabolismProfileRepository.get()` — keine Formel-/Faktor-/
+    Rundungs-/Validierungs-/Persistenz-Änderung.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 120 Suiten /
+  995 Tests grün). Neue `goalsMetabolismDisplay.test.ts` (9 Fälle): Sektionstitel umbenannt,
+  Erhaltungsbedarf-/Grundumsatz-Erklärungen inkl. „kein empfohlenes Tagesziel", Disclosure-Label,
+  `formatKcalPerDay`-Rundung, deutsche Step-Titel ohne Enum-Leak, Eingaben-Zeilen mit
+  Geschlecht-/Aktivitätsübersetzung.
+- **Manuell nachzuholen:** Abschnitte **1 (Smoke)**, **2 (Layout & Rendering — Sektion füllt nicht
+  mehr den ganzen Screen mit Formeln; Erhaltungsbedarf prominent, Grundumsatz sekundär, Formeln
+  optisch nachrangig; schmale Android-Screens ohne Horizontal-Scroll; lange DE-Texte ohne
+  Overflow)**, **3 (Interaktion — „So wurden die Werte berechnet" klappt auf/zu ohne Wertänderung;
+  Körperdaten + Aktivitätslevel ändern → Erhaltungsbedarf aktualisiert sich, Grundumsatz wie
+  erwartet; „Körperdaten bearbeiten" erreichbar)**, **4 (Navigation/State — App-Neustart erhält
+  Körperdaten + berechnete Werte; unvollständiges Profil zeigt weiterhin die Formular-Ansicht)**
+  und **7 (Regression: GE-009 Transparenz weiterhin vollständig unter der Disclosure; DI-010
+  Ziel-Auswahl, GE-010 Auswertung, „Tägliche Ziele" unverändert; TalkBack/VoiceOver liest
+  Reihenfolge Titel → Erhaltungsbedarf → Erklärung → Grundumsatz → Erklärung → Disclosure und den
+  expanded-State)**. Szenarien A–F aus dem GE-011-Prompt gelten als native Retest-Vorlage.
+
 ### 2026-07-18 — J-014: Kompakte Speicher-Bestätigung (JournalScreen)
 
 - **Status:** ⏳ offen (Nachrichten-/Timer-Logik deterministisch per Unit-Tests verifiziert; die

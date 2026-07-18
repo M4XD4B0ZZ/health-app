@@ -28,7 +28,12 @@ export const CalorieMacroCorridorRule: Rule = {
     const consumed = aggregateConsumed(input.journalReadsForPeriod);
     const progress = calculateDailyProgress(consumed, goals);
 
-    const result = dailyProgressToEvaluationOutput(progress, goals, 'Kalorienziel überschritten.');
+    const result = dailyProgressToEvaluationOutput(
+      progress,
+      goals,
+      'Kalorienziel überschritten.',
+      input.journalReadsForPeriod.length > 0,
+    );
 
     // DI-003: real Insights & Recommendations content, not just progress numbers.
     const caloriesProgress = result.goalProgress.find((g) => g.label === 'calories')!;

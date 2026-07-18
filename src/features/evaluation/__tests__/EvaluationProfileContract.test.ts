@@ -14,6 +14,12 @@ describe('Evaluation Profile & Rule Domain Contract (GE-001)', () => {
       description: 'Fixture rule for contract-shape testing only.',
       evaluate: (_input: EvaluationInput): EvaluationOutput => ({
         assessment: 'on-track',
+        assessmentDetail: {
+          orientation: 'on-track',
+          deviations: [],
+          primary: null,
+          unavailableDimensions: [],
+        },
         insights: [],
         warnings: [],
         recommendations: [],

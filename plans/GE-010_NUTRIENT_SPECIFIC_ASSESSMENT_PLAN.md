@@ -1,8 +1,23 @@
 # GE-010 — Nutrient-Specific Mixed-State Daily Assessment — Planning
 
-Status: `planning` (review-only — no product code, tests, schema, formulas or thresholds
-changed by this document)
+Status: `implemented` (GE-010 Act merged — see ROADMAP.md GE-010)
 Owner task: **GE-010** (ROADMAP.md, Dashboard & Insights)
+
+> **Accepted-decision note (2026-07-17, supersedes §4.3 / §5.1 where they differ).** The Act
+> task implemented the model below with these binding product decisions:
+>
+> - **`primary` precedence changed:** an over-corridor macro does **not** take precedence over
+>   calories. Orientation stays `mixed` when directions differ; `primary` is simply the **first
+>   deviation in the established display order** (calories → protein → carbs → fat) — presentation
+>   ordering, not severity. The native case therefore reads „Kalorien unter dem Tagesziel" first
+>   with „Fett über dem Zielbereich" as secondary (not „Fettziel überschritten" as a lead).
+> - **Empty day → `no-data`** („Noch nichts protokolliert"), never `below`/`on-track` (D-1).
+> - **Missing/≤0/non-finite targets → excluded** and reported as `target-unavailable`/„Ziel nicht
+>   gesetzt" (D-3).
+> - **No magnitude words** („leicht/deutlich/stark/knapp") — §5.1 stays deferred.
+> - **User-facing wording uses „Zielbereich"** (corridor/„Korridor" stays internal); Weight-Loss
+>   under-calories is a neutral fact (no „gutes Defizit" in the summary).
+
 Origin: native dogfooding 2026-07-17,
 [`reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md`](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md)
 Finding 4. Grounded in the accepted `docs/vision/ZERA_PRODUCT_BIBLE.md` (§3/§4).

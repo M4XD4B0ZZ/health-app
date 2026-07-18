@@ -4804,8 +4804,38 @@ correctness. Full suite green after this change (see this branch's `npm run veri
 
 #### GE-010: Nutrient-Specific Mixed-State Daily Assessment
 
-Status: `todo` (planning complete — Act pending)
+Status: `done`
 Severity: High
+
+**Implementation notes (done):** the `some(over) ? 'over' : 'on-track'` collapse is gone;
+`EvaluationOutput` now carries a domain-computed `AssessmentDetail`
+(`orientation: no-data | on-track | below | above | mixed | target-unavailable`, a `deviations`
+list, a `primary`, and `unavailableDimensions`) derived deterministically from the existing
+`goalProgress` and the existing ±5 % corridor — **no new thresholds**. Per the accepted product
+decision (superseding plan §4.3): a single over-corridor macro no longer dominates — mixed
+directions stay `mixed`, and `primary`/`deviations` follow the established display order
+(calories→protein→carbs→fat) as **presentation** ordering, not medical severity. New behaviors:
+an empty day → `no-data` („Noch nichts protokolliert"), an all-under day → `below` (both were
+wrongly `on-track` before), targets ≤0/non-finite are excluded and reported as
+`target-unavailable`/„Ziel nicht gesetzt". Weight-Loss under-calories reads as a neutral fact
+(no „gutes Defizit" in the summary). Files:
+`domain/models/EvaluationContract.ts` (+`AssessmentDetail` types),
+`application/assessmentDetail.ts` (new pure `buildAssessmentDetail`/`mergeAssessmentDetails`),
+`application/rules/dailyProgressToEvaluationOutput.ts` (builds the detail; `hasEntries` param),
+`CalorieMacroCorridorRule.ts`/`ProteinPreservingDeficitRule.ts` (pass entry count),
+`application/mergeRuleResults.ts` (merge detail), presentation
+`evaluationSummaryDisplay.ts` (`buildAssessmentSummary`, „Zielbereich" wording, replaces the old
+`formatAssessment` collapse) and `EvaluationSummaryScreen.tsx` (renders primary + secondary +
+a11y announcement; no status re-derivation in the UI). No target/formula/BMR/TDEE/schema change.
+
+**Verification (done):** `npm run verify` green (118 suites / 957 tests, +20). New
+`assessmentDetail.test.ts` (domain scenarios 1–12/20 + merge) and rewritten
+`evaluationSummaryDisplay.test.ts` (wording incl. native mixed case → „Kalorien unter dem
+Tagesziel" + „Fett über dem Zielbereich", no „Über dem Ziel", no magnitude words). The
+assessment-value assertions that locked the old collapse were migrated to the correct new
+orientations (`below`/`mixed`/`above`) with per-dimension cross-checks — the native reproduction
+day now yields `mixed`, calories-led, fat secondary. UI-relevant in a headless env →
+`docs/MANUAL_TESTING_GAPS.md` entry with the native retest checklist.
 Depends on: the evaluation engine (GE-001–GE-005). Recommended: **plan the output model
 first** (the brief flags mixed-state rules as needing review before coding).
 Origin: native dogfooding 2026-07-17,

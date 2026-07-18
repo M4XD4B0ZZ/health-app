@@ -39,7 +39,7 @@ describe('GetActiveEvaluationOutputUseCase (GE-003)', () => {
 
     const output = await useCase.execute(fixtureInput);
 
-    expect(output.assessment).toBe('on-track');
+    expect(output.assessment).toBe('below');
     expect(output.goalProgress).toHaveLength(4);
     expect(output.goalProgress.find((g) => g.label === 'calories')?.consumed).toBe(400);
   });

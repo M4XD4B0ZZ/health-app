@@ -56,7 +56,7 @@ describe('Profile swappability proves Variante B (GE-004)', () => {
     },
   };
 
-  it('interprets the identical fixture day as on-track under Evidence-based Standard but over under Weight Loss', async () => {
+  it('reinterprets the identical fixture day differently under Evidence-based Standard vs Weight Loss (Variante B)', async () => {
     const keyValueStore = new FakeKeyValueStore();
     const registry = new PersistedActiveProfileRepository(keyValueStore, [
       EvidenceBasedStandardProfile,
@@ -73,14 +73,14 @@ describe('Profile swappability proves Variante B (GE-004)', () => {
 
     // Default active profile: Evidence-based Standard (2500 kcal target).
     const standardOutput = await useCase.execute(fixtureInput);
-    expect(standardOutput.assessment).toBe('on-track');
+    expect(standardOutput.assessment).toBe('below');
 
     // Switch active profile — a pure read-context change, no Journal/Food Catalog writes.
     await registry.setActiveProfileId(WeightLossProfile.id);
 
     // Same fixture day, same EvaluationInput, different active profile.
     const weightLossOutput = await useCase.execute(fixtureInput);
-    expect(weightLossOutput.assessment).toBe('over');
+    expect(weightLossOutput.assessment).toBe('mixed');
 
     // Different assessment for identical underlying facts -- Variante B, proven not assumed.
     expect(standardOutput.assessment).not.toBe(weightLossOutput.assessment);

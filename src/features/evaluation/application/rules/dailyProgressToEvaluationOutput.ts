@@ -1,6 +1,7 @@
 import { DailyProgress } from '../../../goals/domain/models/ProgressTypes';
 import { DailyGoals } from '../../../goals/domain/models/GoalsTypes';
 import { RuleResult, EvaluationGoalProgress } from '../../domain/models';
+import { buildAssessmentDetail } from '../assessmentDetail';
 
 /**
  * GE-004: shared reshaping logic extracted from GE-002's CalorieMacroCorridorRule (no
@@ -25,6 +26,7 @@ export function dailyProgressToEvaluationOutput(
   progress: DailyProgress,
   goals: DailyGoals,
   overCaloriesWarning: string,
+  hasEntries: boolean,
 ): RuleResult {
   const goalProgress: EvaluationGoalProgress[] = [
     {
@@ -62,8 +64,16 @@ export function dailyProgressToEvaluationOutput(
     warnings.push(overCaloriesWarning);
   }
 
+  // GE-010: nutrient-specific structured assessment — no more `some(over) ? 'over' : 'on-track'`
+  // collapse. Derived deterministically from the same per-dimension corridor statuses.
+  const assessmentDetail = buildAssessmentDetail(
+    goalProgress.map((g) => ({ label: g.label, target: g.target, status: g.status })),
+    hasEntries,
+  );
+
   return {
-    assessment: goalProgress.some((g) => g.status === 'over') ? 'over' : 'on-track',
+    assessment: assessmentDetail.orientation,
+    assessmentDetail,
     insights: [],
     warnings,
     recommendations: [],

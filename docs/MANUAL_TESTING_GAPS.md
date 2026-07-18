@@ -51,6 +51,40 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-17 — GE-010: Nährwertspezifische, gemischte Tagesbewertung
+
+- **Status:** ⏳ offen (Domänen-/Kompositionslogik deterministisch per Unit-Tests + End-to-End-
+  Profiltests verifiziert; das reine UI-Rendering des primären/sekundären Bewertungstextes konnte
+  in der headless Umgebung nicht visuell geprüft werden — kein RN-Render-Harness, wie bei
+  DI-002/DI-007/DI-008/DI-010).
+- **Branch/PR:** `claude/ge-010-nutrient-specific-assessment-act`
+- **Betroffene Bereiche:** Domäne
+  `src/features/evaluation/domain/models/EvaluationContract.ts` (+`AssessmentDetail`),
+  `application/assessmentDetail.ts` (neu), `rules/dailyProgressToEvaluationOutput.ts`,
+  `CalorieMacroCorridorRule.ts`, `ProteinPreservingDeficitRule.ts`, `mergeRuleResults.ts`;
+  Präsentation `evaluationSummaryDisplay.ts` (neu `buildAssessmentSummary`, „Zielbereich"-Wording)
+  und `EvaluationSummaryScreen.tsx` (rendert Primär-Aussage + Sekundärkontext +
+  Screenreader-`accessibilityLabel`; keine Statuslogik im UI).
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 118
+  Suiten / 957 Tests grün). Neue Domänen-Szenariotests (leer→no-data, alles im Korridor→on-track,
+  nativer Mischfall→mixed/kalorienführend, Kalorien über+Makros unter→mixed, mehrere über→above,
+  fehlende Zielwerte→target-unavailable, deterministische Primär-Reihenfolge, Merge) und
+  Wording-Tests. Die alten „over"/„on-track"-Assertions wurden auf die korrekten neuen
+  Orientierungen migriert.
+- **Nicht verifiziert (visuell):** natives Rendering der „Heutige Bewertung"-Sektion (Primärzeile
+  - Sekundärzeilen), Screenreader-Ansage des kombinierten Announcements, Layout bei mehreren
+    Sekundärzeilen; der `no-data`/`target-unavailable`-Zustand real im Gerät.
+- **Zu testen (native Gegenprüfung):**
+  A. Ohne Journal-Einträge → „Noch nichts protokolliert" (nicht „Im Zielbereich").
+  B. Nativer Mischfall (Kalorien ~1363/2449, Fett ~87/82): Primär „Kalorien unter dem Tagesziel",
+  Sekundär u. a. „Fett über dem Zielbereich"; **kein** globales „Über dem Ziel"; alle vier
+  Makros bleiben in den Fortschritts-Karten sichtbar.
+  C. Zwischen Evidence-based Standard und Weight Loss wechseln.
+  D. Bestätigen: Zusammenfassung ändert sich konsistent, Empfehlung widerspricht ihr nicht,
+  Neustart ändert die berechnete Einordnung nicht.
+
+---
+
 ### 2026-07-17 — DI-010: Einzige Quelle für das aktive Bewertungsziel
 
 - **Status:** ⏳ offen (Logik/Verdrahtung per Typecheck/Lint/Unit-Suite grün; das reine

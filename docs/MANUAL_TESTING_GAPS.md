@@ -51,6 +51,35 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-18 — P1-006: Rührei-Eingaben (Scrambled-Egg-Phrasierung)
+
+- **Status:** ⏳ offen (Parser-Logik deterministisch per Unit-Tests + Portions-Auflösung
+  verifiziert; kein UI-/Presentation-Layer betroffen — reine Input-Parser-Infra. Eine native
+  Vertrauens-Stichprobe der fünf Eingaben bleibt als optionale Bestätigung sinnvoll.)
+- **Branch/PR:** `claude/p1-006-scrambled-egg-phrasing`
+- **Betroffene Bereiche:** ausschließlich
+  `src/features/input/infrastructure/simpleParser.ts` (neuer, gezielter Normalizer
+  `parseScrambledEggFromEggs`: „Rührei aus/von <N> Ei(ern)" und „<N> Rühreier/Rührei" → exakt N
+  Eier, dieselbe Tupel-Ausgabe wie „N Eier"). Keine Resolver-/Artefakt-/Nährwert-Änderung.
+- **Verifiziert durch Agent:** `npm run verify` (typecheck, lint, format, volle Suite 119
+  Suiten / 975 Tests grün). Neue `scrambledEggPhrasing.test.ts`: alle vier nativen Phrasen +
+  Zahlwort/Ziffer + Singular/Plural → genau N Eier ohne erfundene Butter/Öl/Milch; identische
+  Parse-Ausgabe wie „N Eier"; `resolvePortionGrams('eier',0,2)=120 g` (1 Ei → 60 g);
+  „Rührei aus 2 Eiern mit 10 g Butter" → 2 Eier + 10 g Butter je einmal; Regressionen
+  („2 Eier", „ein Ei", „Toast mit Butter", „2 Scheiben Toast mit Butter", bare „Rührei")
+  unverändert. Input/Parser/Composite/Resolver-Regressionssuiten (30 Suiten / 292 Tests) grün.
+- **Nicht verifiziert (visuell):** eine native App-Session, in der die fünf Phrasen real
+  geloggt werden und Anzeigename + Stück/Gramm + kcal in „Heutige Einträge" geprüft werden.
+- **Zu testen (native Gegenprüfung):**
+  1. „Rührei aus 2 Eiern", „Rührei aus zwei Eiern", „Rührei von zwei Eiern", „2 Rühreier"
+     einzeln loggen → jeweils genau **2 Eier** (2 Stück / 120 g, Ei-Nährwerte, kein Fett
+     erfunden).
+  2. „Rührei aus 2 Eiern mit 10 g Butter" → Eier **und** Butter je genau einmal.
+  3. App neu starten → Einträge/Summen bleiben; Gruppen aufklappen → Kinder bleiben
+     bearbeitbar/löschbar (J-009/J-013 unverändert).
+
+---
+
 ### 2026-07-17 — GE-010: Nährwertspezifische, gemischte Tagesbewertung
 
 - **Status:** ⏳ offen (Domänen-/Kompositionslogik deterministisch per Unit-Tests + End-to-End-

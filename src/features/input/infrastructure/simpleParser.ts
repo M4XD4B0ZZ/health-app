@@ -61,6 +61,62 @@ const REMOVABLE_MODIFIERS = [
   'frisches',
 ];
 
+// P1-006: German number words that can introduce an egg count in a scrambled-egg phrase,
+// including the dative „einem" that GERMAN_NUMBER_WORDS above intentionally omits.
+const EGG_COUNT_WORDS: Record<string, number> = {
+  ein: 1,
+  eine: 1,
+  einen: 1,
+  einem: 1,
+  eins: 1,
+  zwei: 2,
+  drei: 3,
+  vier: 4,
+  fünf: 5,
+  fuenf: 5,
+  sechs: 6,
+  sieben: 7,
+  acht: 8,
+  neun: 9,
+  zehn: 10,
+};
+
+function parseEggCountToken(token: string): number | null {
+  if (/^\d+$/.test(token)) {
+    const numeric = parseInt(token, 10);
+    return numeric > 0 ? numeric : null;
+  }
+  return EGG_COUNT_WORDS[token.toLowerCase()] ?? null;
+}
+
+/**
+ * P1-006: scrambled eggs stated purely as an egg count resolve to exactly that many eggs — no
+ * invented butter/oil/milk. Recognizes the two common German constructions and rewrites them to
+ * the *same* `{ quantity, unit, foodName }` tuple a plain „N Eier" produces, so the downstream
+ * resolver/portion path (and its egg provenance) is reused unchanged:
+ *
+ *   - „Rührei aus/von <N> Ei(ern)"  → N eggs
+ *   - „<N> Rühreier" / „<N> Rührei" → N eggs
+ *
+ * A bare „Rührei" (no count) is left untouched → existing honest default behavior. Any „mit …"
+ * addition (e.g. butter) has already been split into its own item before this runs.
+ */
+function parseScrambledEggFromEggs(
+  normalizedPart: string,
+): { quantity: number; unit: null; foodName: string } | null {
+  const fromEggs = normalizedPart.match(
+    /^r(?:ü|ue)hrei(?:er)?\s+(?:aus|von)\s+(\S+)\s+ei(?:ern|er|s)?$/,
+  );
+  const countDish = normalizedPart.match(/^(\S+)\s+r(?:ü|ue)hrei(?:er)?$/);
+  const countToken = fromEggs?.[1] ?? countDish?.[1];
+  if (countToken === undefined) return null;
+
+  const count = parseEggCountToken(countToken);
+  if (count === null) return null;
+
+  return { quantity: count, unit: null, foodName: count === 1 ? 'ei' : 'eier' };
+}
+
 function normalizeUnit(unit: string | null | undefined): string | null {
   if (!unit) return null;
   const normalized = unit.toLowerCase().trim();
@@ -94,6 +150,12 @@ function parseQuantityAndUnit(part: string): {
   foodName: string;
 } {
   const trimmed = part.trim();
+
+  // P1-006: scrambled-egg-from-eggs phrasing resolves to a plain egg count (no invented fat).
+  const scrambledEgg = parseScrambledEggFromEggs(trimmed);
+  if (scrambledEgg) {
+    return scrambledEgg;
+  }
 
   // Prüfe auf deutsche Zahlwörter am Anfang
   const words = trimmed.split(/\s+/);

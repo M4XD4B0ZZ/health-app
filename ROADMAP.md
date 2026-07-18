@@ -5016,7 +5016,7 @@ changes.
 
 #### GE-011: Energy-Need Explanation & Progressive Disclosure
 
-Status: `todo`
+Status: `done`
 Severity: Medium
 Depends on: none (presentation-only; no formula change).
 Origin: native dogfooding 2026-07-17,
@@ -5058,6 +5058,39 @@ disclosure; `npm run verify` green.
 
 **Verify:** `npm run verify` (Category 4) + `docs/MANUAL_TESTING_GAPS.md` entry unless
 live-verified.
+
+**Implementation (done):**
+
+- **Information hierarchy** (`GoalsScreen.tsx`): the card is renamed „Metabolismus-Profil" →
+  **„Körperdaten & Energiebedarf"**. The estimated maintenance need (TDEE) is now the most
+  prominent value — „Geschätzter Erhaltungsbedarf · N kcal pro Tag" — followed by the supporting
+  Grundumsatz (BMR) — „Grundumsatz · N kcal pro Tag". Each carries a plain-German explanation, and
+  the BMR block states explicitly „Das ist kein empfohlenes Tagesziel." Formula details have the
+  lowest visual priority. The „Körperdaten bearbeiten" button stays discoverable.
+- **Disclosure behavior:** the full formula/calculation path moved under a collapsed-by-default
+  disclosure labeled **„So wurden die Werte berechnet"** (`TouchableOpacity`,
+  `accessibilityRole="button"`, `accessibilityState.expanded`, chevron ›/⌄). Expanding reveals an
+  „Eingaben" block (Gewicht/Größe/Alter/Geschlecht/Aktivitätsniveau in clear German) plus the
+  existing calculation steps re-titled in German (Formel · Grundumsatz · Aktivitätsfaktor ·
+  Erhaltungsbedarf) and a provenance line. Expand/collapse is presentation-only and alters no
+  values or stored state.
+- **Formulas unchanged:** no domain/type change. BMR/TDEE math, activity multipliers, the
+  Mifflin-St-Jeor formula, rounding, validation and persistence are untouched — every number comes
+  from the existing `MetabolismResult`/`MetabolismProfile` (read via
+  `computeMetabolismResultUseCase` / `metabolismProfileRepository.get()`); the screen recalculates
+  nothing. Grundumsatz is never presented as a goal/lower bound/recommendation, and no new
+  BMR-based recommendation was added.
+- **New pure display helper** `goalsMetabolismDisplay.ts` holds the German copy constants, the
+  `formatKcalPerDay` formatter, the `germanStepTitle` step-key→German mapping (no raw enum leakage)
+  and `buildEnergyInputRows` (translates sex/activity level). 9 unit tests in
+  `goalsMetabolismDisplay.test.ts`. Screen render (hierarchy, disclosure, a11y state) is covered by
+  the `docs/MANUAL_TESTING_GAPS.md` entry — the repo has no RN render harness.
+- **Exact user-facing wording:** „Geschätzter Erhaltungsbedarf"; „Ungefähr diese Energiemenge hält
+  dein aktuelles Gewicht bei deinem gewählten Aktivitätsniveau."; „Grundumsatz"; „Geschätzter
+  Energiebedarf deines Körpers bei vollständiger Ruhe. Das ist kein empfohlenes Tagesziel.";
+  „So wurden die Werte berechnet"; „Eingaben"; „Basierend auf deinen Angaben · Formel:
+  Mifflin-St-Jeor".
+- **Verification evidence:** `npm run verify` → 120 suites / 995 tests green.
 
 ---
 

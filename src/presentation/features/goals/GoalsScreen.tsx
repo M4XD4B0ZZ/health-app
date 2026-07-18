@@ -9,14 +9,38 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import container from '../../../infrastructure/di/container';
-import { MetabolismResult, ActivityLevel, Sex, EffectiveGoals } from '../../../features/goals';
+import {
+  MetabolismResult,
+  MetabolismProfile,
+  ActivityLevel,
+  Sex,
+  EffectiveGoals,
+} from '../../../features/goals';
 import { EvaluationProfile } from '../../../features/evaluation';
 import { originLabel } from './goalsDisplay';
+import {
+  ENERGY_SECTION_TITLE,
+  MAINTENANCE_LABEL,
+  MAINTENANCE_EXPLANATION,
+  BASAL_LABEL,
+  BASAL_EXPLANATION,
+  CALCULATION_DISCLOSURE_LABEL,
+  INPUTS_HEADING,
+  formatKcalPerDay,
+  germanStepTitle,
+  buildEnergyInputRows,
+} from './goalsMetabolismDisplay';
 
 const GoalsScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
   const [metabolismResult, setMetabolismResult] = useState<MetabolismResult | null>(null);
+  // GE-011: the persisted body-data inputs, read (not recomputed) for the „Eingaben" block of the
+  // calculation disclosure. Kept separate from the edit-form fields below so viewing never
+  // disturbs editing.
+  const [profileInputs, setProfileInputs] = useState<MetabolismProfile | null>(null);
+  // GE-011: the full formula/calculation path is collapsed by default (presentation-only state).
+  const [calcDetailExpanded, setCalcDetailExpanded] = useState(false);
   const [effectiveGoals, setEffectiveGoals] = useState<EffectiveGoals | null>(null);
 
   // GE-008: "Ziel wählen" — active Evaluation Profile selection (Product Bible §4b:
@@ -51,10 +75,13 @@ const GoalsScreen: React.FC = () => {
       try {
         const result = await container.computeMetabolismResultUseCase.execute();
         setMetabolismResult(result);
+        // GE-011: surface the stored inputs for the disclosure's „Eingaben" block (read-only).
+        setProfileInputs(await container.metabolismProfileRepository.get());
         setHasProfile(true);
       } catch {
         setHasProfile(false);
         setMetabolismResult(null);
+        setProfileInputs(null);
       }
 
       // Try to load effective goals
@@ -219,9 +246,9 @@ const GoalsScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Metabolism Profile Section */}
+      {/* GE-011: Körperdaten & Energiebedarf — actionable value first, formulas progressively disclosed */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Metabolismus-Profil</Text>
+        <Text style={styles.cardTitle}>{ENERGY_SECTION_TITLE}</Text>
 
         {!hasProfile ? (
           <View>
@@ -364,36 +391,70 @@ const GoalsScreen: React.FC = () => {
           <View>
             {metabolismResult && (
               <>
-                <View style={styles.metabolismResults}>
-                  <View style={styles.metabolismRow}>
-                    <Text style={styles.metabolismLabel}>Grundumsatz (BMR):</Text>
-                    <Text style={styles.metabolismValue}>
-                      {Math.round(metabolismResult.bmr)} kcal/Tag
-                    </Text>
-                  </View>
-                  <View style={styles.metabolismRow}>
-                    <Text style={styles.metabolismLabel}>Gesamtumsatz (TDEE):</Text>
-                    <Text style={styles.metabolismValue}>
-                      {Math.round(metabolismResult.tdee)} kcal/Tag
-                    </Text>
-                  </View>
+                {/* Primary: estimated maintenance need (TDEE) — the most prominent value. */}
+                <View style={styles.energyPrimaryBlock}>
+                  <Text style={styles.energyPrimaryLabel}>{MAINTENANCE_LABEL}</Text>
+                  <Text style={styles.energyPrimaryValue}>
+                    {formatKcalPerDay(metabolismResult.tdee)}
+                  </Text>
+                  <Text style={styles.energyExplanation}>{MAINTENANCE_EXPLANATION}</Text>
                 </View>
 
-                {/* Breakdown Steps */}
+                {/* Secondary: Grundumsatz (BMR) — supporting value, explicitly not a target. */}
+                <View style={styles.energySecondaryBlock}>
+                  <Text style={styles.energySecondaryLabel}>{BASAL_LABEL}</Text>
+                  <Text style={styles.energySecondaryValue}>
+                    {formatKcalPerDay(metabolismResult.bmr)}
+                  </Text>
+                  <Text style={styles.energyExplanation}>{BASAL_EXPLANATION}</Text>
+                </View>
+
+                {/* Progressive disclosure: full formula/calculation path, collapsed by default. */}
                 {metabolismResult.steps && metabolismResult.steps.length > 0 && (
-                  <View style={styles.breakdownSection}>
-                    <Text style={styles.breakdownTitle}>Berechnungs-Details:</Text>
-                    {metabolismResult.steps.map((step, index) => (
-                      <View key={index} style={styles.breakdownStep}>
-                        <Text style={styles.stepTitle}>{step.title}</Text>
-                        {step.substituted && (
-                          <Text style={styles.stepFormula}>{step.substituted}</Text>
+                  <View style={styles.disclosureSection}>
+                    <TouchableOpacity
+                      style={styles.disclosureHeader}
+                      onPress={() => setCalcDetailExpanded((prev) => !prev)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: calcDetailExpanded }}
+                      accessibilityLabel={`${CALCULATION_DISCLOSURE_LABEL}, ${
+                        calcDetailExpanded ? 'aufgeklappt' : 'eingeklappt'
+                      }`}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.disclosureTitle}>{CALCULATION_DISCLOSURE_LABEL}</Text>
+                      <Text style={styles.disclosureChevron}>{calcDetailExpanded ? '⌄' : '›'}</Text>
+                    </TouchableOpacity>
+
+                    {calcDetailExpanded && (
+                      <View style={styles.disclosureBody}>
+                        {profileInputs && (
+                          <View style={styles.breakdownStep}>
+                            <Text style={styles.stepTitle}>{INPUTS_HEADING}</Text>
+                            {buildEnergyInputRows(profileInputs).map((row) => (
+                              <View key={row.label} style={styles.inputRow}>
+                                <Text style={styles.inputRowLabel}>{row.label}</Text>
+                                <Text style={styles.inputRowValue}>{row.value}</Text>
+                              </View>
+                            ))}
+                          </View>
                         )}
-                        {typeof step.result === 'number' && (
-                          <Text style={styles.stepResult}>= {Math.round(step.result)}</Text>
-                        )}
+                        {metabolismResult.steps.map((step, index) => (
+                          <View key={index} style={styles.breakdownStep}>
+                            <Text style={styles.stepTitle}>{germanStepTitle(step.key)}</Text>
+                            {step.substituted && (
+                              <Text style={styles.stepFormula}>{step.substituted}</Text>
+                            )}
+                            {typeof step.result === 'number' && (
+                              <Text style={styles.stepResult}>= {Math.round(step.result)}</Text>
+                            )}
+                          </View>
+                        ))}
+                        <Text style={styles.provenanceText}>
+                          Basierend auf deinen Angaben · Formel: Mifflin-St-Jeor
+                        </Text>
                       </View>
-                    ))}
+                    )}
                   </View>
                 )}
 
@@ -401,7 +462,7 @@ const GoalsScreen: React.FC = () => {
                   style={styles.secondaryButton}
                   onPress={() => setHasProfile(false)}
                 >
-                  <Text style={styles.secondaryButtonText}>Profil bearbeiten</Text>
+                  <Text style={styles.secondaryButtonText}>Körperdaten bearbeiten</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -708,37 +769,97 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  metabolismResults: {
-    marginBottom: 20,
-  },
-  metabolismRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
+  // GE-011: prominent maintenance-need block (primary value).
+  energyPrimaryBlock: {
+    marginBottom: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  metabolismLabel: {
-    fontSize: 16,
+  energyPrimaryLabel: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#666',
+    marginBottom: 4,
   },
-  metabolismValue: {
-    fontSize: 18,
+  energyPrimaryValue: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#4a90e2',
+    marginBottom: 6,
   },
-  breakdownSection: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
+  // GE-011: supporting Grundumsatz block (secondary value, lower visual weight).
+  energySecondaryBlock: {
+    marginBottom: 8,
   },
-  breakdownTitle: {
-    fontSize: 16,
+  energySecondaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  energySecondaryValue: {
+    fontSize: 20,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: 6,
+  },
+  energyExplanation: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  // GE-011: collapsed „So wurden die Werte berechnet" disclosure — lowest visual priority.
+  disclosureSection: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  disclosureHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: '#f9f9f9',
+  },
+  disclosureTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+    paddingRight: 8,
+  },
+  disclosureChevron: {
+    fontSize: 18,
+    color: '#666',
+  },
+  disclosureBody: {
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  inputRowLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  inputRowValue: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  provenanceText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   breakdownStep: {
     marginBottom: 12,

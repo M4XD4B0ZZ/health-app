@@ -30,8 +30,15 @@ class MutableTestClock implements Clock {
 class TestIdGenerator implements IdGenerator {
   private counter = 0;
 
+  /**
+   * ACC-003: emits canonical UUIDv4-shaped strings (deterministic per call via the trailing
+   * counter) rather than `sm-0`/`sm-1`-style ids — this suite reloads records through fresh
+   * `Persisted*Repository` instances to test real durability, and a non-UUID id would now be
+   * legitimately rewritten by the one-time legacy-id migration on that reload, which isn't
+   * what this suite is testing.
+   */
   newId(): string {
-    return `sm-${this.counter++}`;
+    return `00000000-0000-4000-8000-${(this.counter++).toString().padStart(12, '0')}`;
   }
 }
 

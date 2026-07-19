@@ -8241,7 +8241,7 @@ personal data without its own privacy design.
 
 #### RESOLVER-V3-001: Benchmark Corpus, Ground Truth & Metrics Definition
 
-Status: `todo`
+Status: `done`
 Depends on: none
 Verify: VERIFY.md Category 1 (documentation-only)
 
@@ -8258,6 +8258,53 @@ truth must never be Amy's own report (Decision Record §2.3/§7).
 JSON/YAML fixtures under `scripts/` or `reports/`) covering all corpus categories from Decision
 Record §7 including at least one DACH regional-dish case; a documented metrics list with exact
 computation rules; no product code changed.
+
+**Implementation notes (done):** New canonical spec:
+[`docs/domains/ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md`](../docs/domains/ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md)
+— a dedicated domain document rather than an extension of the Decision Record, to keep "decided
+strategic rules" (Decision Record) separate from "benchmark specification detail" per this task's
+own change discipline. Covers, at the level of detail a later implementation agent needs without
+inventing product decisions itself: five falsifiable, non-pre-decided hypotheses (§1); a full
+versioned case schema reusing existing vocabulary (`FoodSourceType`, `locale`, quantity/unit
+model from `AiInterpretationTypes.ts`) rather than inventing new types, plus four illustrative
+(not committed-fixture) example cases including the DoD-required DACH regional-dish case
+("Zwiebelrostbraten mit Spätzle") — deliberately left with `TBD`/`null` numeric placeholders
+rather than copying Amy's user-reported number as Zera ground truth (§2); an 11-category
+taxonomy with a `REPEAT_CONSISTENCY` overlay pattern instead of a competing category, and a
+reasoned (not asserted-as-proven) size/distribution target of ~150-200 base cases + ~15-20%
+repeat overlay for v1.0.0, with a 25-case smoke subset and a later holdout-subset rule (§3-4); a
+7-level ground-truth hierarchy with binding principles (missing ≠ zero, no averaging
+non-equivalent foods, no invented precise numbers, mandatory provenance) (§5); full metric
+computation rules for identification, component decomposition (precision/recall/F1),
+quantity/unit (with a near-zero-denominator guard against misleading relative error), energy/
+macros (median/p90/p95/signed-bias, category-specific tolerance bands explicitly derived
+independently of Amy's own bands even where the number coincides), further nutrients (never
+penalizing absence the source itself doesn't provide), uncertainty/safety (false-confident rate
+as the single hardest-weighted metric per the task's explicit instruction), consistency (with
+cache/correction-loop metrics explicitly reserved-but-deferred to RESOLVER-V3-008/009), and
+provenance/cost/latency (§6); a severity-tiered error taxonomy with a binding rule that
+false-confident rate cannot be "bought down" by aggregate accuracy (§7); a fair-comparison
+protocol (identical corpus/locale/ground truth, cost-aware repetition sampling instead of
+full-corpus multi-run, warm/cold-cache and outage-handling rules) (§8); leakage/versioning/
+reproducibility rules reusing `AGENTS.md`'s existing "task IDs are never reused" principle for
+case IDs (§9); a privacy boundary explicitly forbidding automatic ingestion of real
+`food_resolver_runs`/journal data into this corpus (§10); four multi-dimensional, explicitly
+provisional (not proven) decision gates G1-G4 mapped onto the existing RESOLVER-V3-010
+dependency graph rather than inventing a new one (§11); and a full reconciliation against actual
+repository evidence (§12) — identifying `FusionCalibrationMatrix.test.ts` and
+`ScoreCalculator.plausibility.test.ts` as the best ground-truth-value seed sources, the four
+proven cases in `reports/RESOLVER-V2-008_GENERIC_FOOD_TRUST_DIAGNOSIS.md` as ready-made DACH
+corpus cases, `SpeckAmbiguity.ts`/the RESOLVER-V2-010 plan as the clarification-taxonomy
+precedent, and `scripts/benchmark-ai-reranking-providers.mjs` + its `scripts/lib/` helpers as the
+explicit structural template for RESOLVER-V3-003's harness — versus which existing resolver
+tests are pure regression coverage, not ground-truth sources. No product code, no benchmark
+harness, no executable fixture files, and no provider selection were added, per this task's
+explicit non-goals. §13 records what remains open (exact G2/G3 thresholds, confidence-scale
+normalization across variants, `regionalContext` field design, final corpus size) rather than
+silently deciding it.
+
+**Verify:** VERIFY.md Category 1 (documentation-only) readback checks — `git status --short`,
+`git diff --stat`, `git diff --name-only`. No product/runtime code touched.
 
 ---
 

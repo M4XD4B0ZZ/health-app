@@ -6687,9 +6687,9 @@ console/runtime errors throughout.
 
 ### NATIVE-001: Android Standalone Build Crashes on Cold Start
 
-Status: `in_progress` (code fix landed + web-verified; new build with configured env vars and
-a real-device cold-start check by the maintainer are still pending — this task is not done
-until that cold start succeeds)
+Status: `done` (code fix landed + web-verified; maintainer completed the real-device
+cold-start verification recorded in Follow-up 5 below — the previously pending DoD item is
+satisfied)
 Severity: **Blocker** — blocks UT-001 Phase B (dogfooding) and every further native test
 Depends on: none
 Full diagnosis: [`reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md`](reports/NATIVE-001_ANDROID_COLDSTART_CRASH_DIAGNOSIS.md)
@@ -6834,11 +6834,28 @@ resolves cleanly for unset/`development`/`production` with unchanged identities
 fails clearly on an invalid `APP_VARIANT`; `npm run verify` green (131 suites / 1154 tests,
 unchanged count — pure refactor).
 
-**Verify:** `npm run verify` (done, green); real-device cold start per DoD above — **first EAS
-build confirmed the native crash is gone** (config screen renders correctly instead); the
-"Read app config" build failure is now fixed too (Follow-up 4). Still `in_progress`: the actual
-"reaches Protokoll tab" cold start is pending the maintainer's next Preview build from the merged
-fix commit with a correctly named `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the `preview` environment.
+**Follow-up 5 (maintainer closeout, 2026-07-19) — real-device verification complete:** the
+Android Preview APK built from merge commit `8bb961e` (which contains Follow-up 4's "Read app
+config" fix) was built and installed over the existing dogfooding app without uninstalling it.
+Verified on the physical Android device:
+
+1. A real cold start succeeds and the app remains open.
+2. No Supabase Konfigurationsfehler screen appears.
+3. The Protokoll tab is reachable and usable.
+4. A newly logged 100 g Haferflocken entry persisted after the app was fully closed and
+   restarted.
+5. The installed package remains `com.nutritiondev.local`.
+6. The EAS "Read app config" stage passed (confirms Follow-up 4's fix holds on a real remote
+   build, not just under local `npx expo config`).
+
+The previous-day history could not be inspected because the current Journal has no date
+navigation — this is **not** a NATIVE-001 failure (date navigation was never part of this
+task's scope); the current-day persistence check above (item 4) is accepted as sufficient
+proof that the installed package retains functional local persistence. This satisfies the
+"Remaining DoD" item above in full.
+
+**Verify:** `npm run verify` (done, green); real-device cold start per DoD above — confirmed
+complete via Follow-up 5. All DoD items are satisfied; task closed.
 
 ---
 

@@ -844,9 +844,8 @@ M713100 (66 kcal, unverändert)`, `speck → W412000 (746 kcal, unverändert)`. 
 
 ### 2026-07-16 — NATIVE-001: Fatal-Config-Screen statt Boot-Crash bei fehlender Supabase-Konfiguration
 
-- **Status:** ⏳ offen (Web-Pfad real per Playwright verifiziert, siehe unten — der **native**
-  Pfad ist der eigentliche Gegenstand dieses Fixes und kann nur auf einem echten Gerät geprüft
-  werden)
+- **Status:** ✅ geprüft (maintainer-Closeout 2026-07-19, siehe Update unten — native
+  Kaltstart-Verifikation auf echtem Gerät abgeschlossen)
 - **Branch/PR:** `claude/app-testing-evaluation-yogpjt` (PR #45)
 - **Betroffene Bereiche:** `src/presentation/App.tsx` (neuer Early-Return: blockierender
   „Konfigurationsfehler"-Screen, wenn `supabaseConfigError` gesetzt ist — Titel in
@@ -874,8 +873,20 @@ M713100 (66 kcal, unverändert)`, `speck → W412000 (746 kcal, unverändert)`. 
   prüfbare DoD-Kern dieses Fixes (siehe
   [`reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md`](../reports/NATIVE_DOGFOODING_2026-07-17_CONSOLIDATED_REPORT.md),
   Abschnitt 1, „Confirmed working"). Der absichtlich fehlkonfigurierte Build (Konfigurations-
-  fehler-Screen statt Crash) wurde in dieser Session nicht separat geprüft; die `✅`-Setzung
-  bleibt dem menschlichen Review überlassen.
+  fehler-Screen statt Crash) wurde in dieser Session nicht separat geprüft.
+- **Update 2026-07-19 — maintainer-Closeout, NATIVE-001 abgeschlossen:** die Android-Preview-
+  APK, gebaut aus Merge-Commit `8bb961e` (enthält den "Read app config"-Fix aus dem
+  NATIVE-001-Eintrag in `ROADMAP.md`), wurde erfolgreich erzeugt und über die bestehende
+  Dogfooding-App installiert, ohne diese vorher zu deinstallieren. Auf dem echten Android-Gerät
+  verifiziert: (1) ein echter Kaltstart gelingt, die App bleibt offen; (2) kein Supabase-
+  Konfigurationsfehler-Screen erscheint; (3) der Protokoll-Tab ist erreichbar und nutzbar;
+  (4) ein neu geloggter 100-g-Haferflocken-Eintrag blieb nach vollständigem Schließen und
+  Neustart der App erhalten; (5) das installierte Package bleibt `com.nutritiondev.local`;
+  (6) die EAS-„Read app config"-Stufe bestand. Die Vortages-Historie konnte mangels
+  Datumsnavigation im aktuellen Journal nicht geprüft werden — das ist kein NATIVE-001-Defekt;
+  der Persistenz-Test des aktuellen Tages (Punkt 4) gilt als ausreichender Nachweis, dass das
+  installierte Package funktionsfähige lokale Persistenz behält. Vollständige Evidenz im
+  `NATIVE-001`-Eintrag (`ROADMAP.md`, Follow-up 5).
 
 ### 2026-07-15 — DI-008: Expliziter Loading-State im EvaluationSummaryScreen
 

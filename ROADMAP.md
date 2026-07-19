@@ -8969,7 +8969,7 @@ performs no journal/Supabase persistence.
 
 #### RESOLVER-V3-006: Three-Variant Comparison Report
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-003, RESOLVER-V3-004, RESOLVER-V3-005
 
 **Description:** Run all three variants against the same corpus and produce a single
@@ -8980,6 +8980,24 @@ see Decision Record §7's full metric list).
 
 **DoD:** report under `reports/`, documented methodology, explicit pass/fail statement against
 the gate above.
+
+**Implementation notes (done):** Added the canonical, report-only comparison
+[`RESOLVER_V3_THREE_VARIANT_COMPARISON_REPORT.md`](reports/RESOLVER_V3_THREE_VARIANT_COMPARISON_REPORT.md).
+It reruns and reads the three versioned harness reports at commit `e26a151` rather than inventing
+an aggregator or a new benchmark specification: all reports declare corpus/harness v1.0.0 and the
+same 14 IDs. The report separates (1) A's real current-resolver/BLS smoke-baseline evidence,
+(2) B's fixture-only direct-estimation harness evidence, and (3) C's fixture-plus-real-retrieval
+architecture evidence. It explicitly marks the apparent A/B/C percentage ordering as not
+comparable model-quality evidence, keeps native false-confidence rules separate, treats absent
+component support as `not supported` rather than zero, and distinguishes fixture `$0`/zero latency
+from real provider cost or latency. Its gate result is **NOT PASSED / decision deferred**: C's
+source-grounding, provenance, deterministic partial-meal guard, and 7/14 fast-path operation are
+architectural facts, but neither B nor C has a live provider run. It records the real A defects
+(including Brötchen false confidence and Tomato/Cucumber selections), defines the required
+credential-gated live-evidence protocol, keeps cache claims deferred to RESOLVER-V3-008, and hands
+cost/latency field analysis to RESOLVER-V3-007 without setting a production bound.
+
+**Verify:** documentation readback checks plus all three canonical benchmark commands passed.
 
 ---
 

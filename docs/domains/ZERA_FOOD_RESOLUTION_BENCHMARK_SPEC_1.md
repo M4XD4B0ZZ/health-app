@@ -50,13 +50,13 @@ AI-first source-grounded Hybrid), bevor irgendein produktiver Umbau autorisiert 
 Die folgenden Hypothesen sind **überprüfbar formuliert, nicht als Ergebnis vorausgesetzt**. Kein
 Task vor RESOLVER-V3-006 darf eine dieser Hypothesen als bereits bewiesen behandeln.
 
-| ID  | Hypothese                                                                                                                                                                        | Falsifizierbar durch                                                                                        |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| H1  | Variante C hat eine niedrigere False-confident-Rate (sichere, aber falsche Auflösung) als Variante B.                                                                              | Gleiche oder höhere False-confident-Rate von C gegenüber B im Vergleichsbericht.                                |
-| H2  | Variante C verbessert komponentenweise Precision/Recall bei zusammengesetzten/DACH-regionalen Eingaben gegenüber Variante A.                                                       | Keine oder negative Differenz in den §6-Komponentenmetriken für die Kategorien `COMPOSED`/`DACH`/`HOMEMADE`.    |
-| H3  | Variante A bleibt bei Fast-Path-Eingaben (validierter Alias-Treffer, BLS-DACH-Wahrheit) schneller und günstiger als jede AI-Variante.                                              | p50/p95-Latenz oder Kosten von B/C unterhalb von A auf denselben Fast-Path-Fällen.                              |
-| H4  | Eine gezielte Rückfrage bei unvollständigen/vagen Eingaben erzeugt eine niedrigere False-confident-Rate als eine scheinpräzise Schätzung — sowohl bei B als auch bei C.             | Höhere False-confident-Rate bei Varianten, die auf `VAGUE`/`UNRELIABLE`-Fällen dennoch direkt auflösen.         |
-| H5  | Persistente Wiederverwendung (RESOLVER-V3-008, nicht Teil des A/B/C-Vergleichs selbst) senkt Kosten pro validiertem Log und erhöht Wiederholungskonsistenz gegenüber Kaltstart-AI. | Keine Kostensenkung/Konsistenzverbesserung im späteren V3-007/V3-008-Vergleich Kaltstart vs. Cache-Treffer.     |
+| ID  | Hypothese                                                                                                                                                                          | Falsifizierbar durch                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| H1  | Variante C hat eine niedrigere False-confident-Rate (sichere, aber falsche Auflösung) als Variante B.                                                                              | Gleiche oder höhere False-confident-Rate von C gegenüber B im Vergleichsbericht.                             |
+| H2  | Variante C verbessert komponentenweise Precision/Recall bei zusammengesetzten/DACH-regionalen Eingaben gegenüber Variante A.                                                       | Keine oder negative Differenz in den §6-Komponentenmetriken für die Kategorien `COMPOSED`/`DACH`/`HOMEMADE`. |
+| H3  | Variante A bleibt bei Fast-Path-Eingaben (validierter Alias-Treffer, BLS-DACH-Wahrheit) schneller und günstiger als jede AI-Variante.                                              | p50/p95-Latenz oder Kosten von B/C unterhalb von A auf denselben Fast-Path-Fällen.                           |
+| H4  | Eine gezielte Rückfrage bei unvollständigen/vagen Eingaben erzeugt eine niedrigere False-confident-Rate als eine scheinpräzise Schätzung — sowohl bei B als auch bei C.            | Höhere False-confident-Rate bei Varianten, die auf `VAGUE`/`UNRELIABLE`-Fällen dennoch direkt auflösen.      |
+| H5  | Persistente Wiederverwendung (RESOLVER-V3-008, nicht Teil des A/B/C-Vergleichs selbst) senkt Kosten pro validiertem Log und erhöht Wiederholungskonsistenz gegenüber Kaltstart-AI. | Keine Kostensenkung/Konsistenzverbesserung im späteren V3-007/V3-008-Vergleich Kaltstart vs. Cache-Treffer.  |
 
 H5 ist bewusst als **Anschlusshypothese** markiert: der Cache existiert erst ab RESOLVER-V3-008
 und ist nicht Teil des RESOLVER-V3-006-Dreiervergleichs, wird hier aber bereits benannt, damit
@@ -85,43 +85,43 @@ statt neu erfunden zu werden.
 
 ### 2.1 Pflicht- und Optionalfelder
 
-| Feld                        | Typ                                                                                                                    | Pflicht                                   | Bedeutung                                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `caseId`                    | `string` (stabil, z. B. `RV3-0001`)                                                                                       | ja                                           | Unveränderlich über alle Korpusversionen hinweg. Wird nie wiederverwendet oder umnummeriert (mirrors `AGENTS.md`s Task-ID-Regel).       |
-| `corpusVersion`             | `string` (SemVer, z. B. `1.0.0`)                                                                                          | ja                                           | Version des Korpus, in dem dieser Fall zuletzt geändert wurde (§9).                                                                    |
-| `category`                  | Enum, siehe §3                                                                                                            | ja                                           | Primäre Taxonomie-Kategorie.                                                                                                          |
-| `subcategory`                | `string`                                                                                                                  | optional                                     | Feingranulare Einordnung, z. B. DACH-Gerichtname, Restaurant-Subtyp.                                                                   |
-| `difficulty`                | `'easy' \| 'medium' \| 'hard' \| 'adversarial'`                                                                          | ja                                           | Grobe Schwierigkeitseinstufung, siehe §4.                                                                                             |
-| `rawInput`                  | `string`                                                                                                                  | ja                                           | Wörtliche Nutzereingabe, wie sie ein AI-/Resolver-System erhält.                                                                       |
-| `locale`                    | `'de' \| 'en'`                                                                                                            | ja                                           | Reuse von `FoodSearchQuery.locale`/`AiInterpretationRequest.locale`.                                                                   |
-| `regionalContext`           | `string` (z. B. `'DE'`, `'AT'`, `'CH'`, `'unspecified'`)                                                                 | optional                                     | Feinere regionale Einordnung als `locale` erlaubt; siehe §13 (offene Frage, ob dies später ein eigenes typisiertes Feld braucht).      |
-| `expectedComponents`        | `ExpectedComponent[]` (siehe 2.2)                                                                                        | ja, außer bei `expectedBehavior = abstention_expected` ohne bekannte Komponenten | Erwartete Lebensmittelbestandteile.                                                                                                    |
-| `groundTruthSource`         | Enum, siehe §5                                                                                                            | ja                                           | Hierarchie-Ebene der Ground Truth.                                                                                                     |
-| `groundTruthProvenance`     | `string`                                                                                                                  | ja, außer bei Stufe 7 (keine Ground Truth) | Konkrete Quellenangabe: BLS-`sourceId`, Etikett-/Produktreferenz, Restaurant-Dokument-URL/Name, Rezeptquelle, kuratierte Begründung.  |
-| `referenceNutrients`        | `ReferenceNutrients \| null`                                                                                             | ja                                           | Siehe 2.3. `null` nur zulässig, wenn `groundTruthSource` Stufe 7 ist — niemals ein impliziter Nullwert für „nicht verfügbar".         |
-| `tolerances`                | `ToleranceOverride`                                                                                                       | optional                                     | Fallspezifische Abweichung vom Default-Toleranzband (§6.4); muss begründet sein, wenn gesetzt.                                        |
-| `expectedBehavior`          | `'direct_resolution' \| 'resolution_with_assumption' \| 'clarification_required' \| 'multiple_candidates_acceptable' \| 'abstention_expected'` | ja                        | Erwartetes Systemverhalten, unabhängig vom numerischen Ergebnis.                                                                       |
-| `expectedClarificationKind` | `ClarificationKind` (reuse aus `AiInterpretationTypes.ts`)                                                               | ja, wenn `expectedBehavior = clarification_required` | Welche Art von Rückfrage korrekt wäre.                                                                                                |
-| `criticalFailureConditions` | `string[]`                                                                                                                | ja                                           | Explizite Liste, was für diesen Fall ein kritischer Fehler wäre (§7) — z. B. „darf nicht ungefragt auf eine Speck-Variante fixieren". |
-| `reproducibilityNotes`      | `string`                                                                                                                  | ja                                           | Snapshot-/Versionsangabe der externen Quelle (BLS-Version, Abrufdatum bei OFF/USDA, Rezeptdatum).                                     |
-| `personalDataFree`          | `boolean`                                                                                                                 | ja, muss `true` sein                        | Erzwungene Selbstauskunft — jeder Fall muss synthetisch/kuratiert sein (§10).                                                          |
-| `tags`                      | `string[]`                                                                                                                | optional                                     | Freitext-Filter, z. B. `['bls-precedent', 'resolver-v2-008']`.                                                                        |
-| `notes`                     | `string`                                                                                                                  | optional                                     | Freitext, z. B. Herkunft/Motivation des Falls.                                                                                        |
+| Feld                        | Typ                                                                                                                                            | Pflicht                                                                          | Bedeutung                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `caseId`                    | `string` (stabil, z. B. `RV3-0001`)                                                                                                            | ja                                                                               | Unveränderlich über alle Korpusversionen hinweg. Wird nie wiederverwendet oder umnummeriert (mirrors `AGENTS.md`s Task-ID-Regel).     |
+| `corpusVersion`             | `string` (SemVer, z. B. `1.0.0`)                                                                                                               | ja                                                                               | Version des Korpus, in dem dieser Fall zuletzt geändert wurde (§9).                                                                   |
+| `category`                  | Enum, siehe §3                                                                                                                                 | ja                                                                               | Primäre Taxonomie-Kategorie.                                                                                                          |
+| `subcategory`               | `string`                                                                                                                                       | optional                                                                         | Feingranulare Einordnung, z. B. DACH-Gerichtname, Restaurant-Subtyp.                                                                  |
+| `difficulty`                | `'easy' \| 'medium' \| 'hard' \| 'adversarial'`                                                                                                | ja                                                                               | Grobe Schwierigkeitseinstufung, siehe §4.                                                                                             |
+| `rawInput`                  | `string`                                                                                                                                       | ja                                                                               | Wörtliche Nutzereingabe, wie sie ein AI-/Resolver-System erhält.                                                                      |
+| `locale`                    | `'de' \| 'en'`                                                                                                                                 | ja                                                                               | Reuse von `FoodSearchQuery.locale`/`AiInterpretationRequest.locale`.                                                                  |
+| `regionalContext`           | `string` (z. B. `'DE'`, `'AT'`, `'CH'`, `'unspecified'`)                                                                                       | optional                                                                         | Feinere regionale Einordnung als `locale` erlaubt; siehe §13 (offene Frage, ob dies später ein eigenes typisiertes Feld braucht).     |
+| `expectedComponents`        | `ExpectedComponent[]` (siehe 2.2)                                                                                                              | ja, außer bei `expectedBehavior = abstention_expected` ohne bekannte Komponenten | Erwartete Lebensmittelbestandteile.                                                                                                   |
+| `groundTruthSource`         | Enum, siehe §5                                                                                                                                 | ja                                                                               | Hierarchie-Ebene der Ground Truth.                                                                                                    |
+| `groundTruthProvenance`     | `string`                                                                                                                                       | ja, außer bei Stufe 7 (keine Ground Truth)                                       | Konkrete Quellenangabe: BLS-`sourceId`, Etikett-/Produktreferenz, Restaurant-Dokument-URL/Name, Rezeptquelle, kuratierte Begründung.  |
+| `referenceNutrients`        | `ReferenceNutrients \| null`                                                                                                                   | ja                                                                               | Siehe 2.3. `null` nur zulässig, wenn `groundTruthSource` Stufe 7 ist — niemals ein impliziter Nullwert für „nicht verfügbar".         |
+| `tolerances`                | `ToleranceOverride`                                                                                                                            | optional                                                                         | Fallspezifische Abweichung vom Default-Toleranzband (§6.4); muss begründet sein, wenn gesetzt.                                        |
+| `expectedBehavior`          | `'direct_resolution' \| 'resolution_with_assumption' \| 'clarification_required' \| 'multiple_candidates_acceptable' \| 'abstention_expected'` | ja                                                                               | Erwartetes Systemverhalten, unabhängig vom numerischen Ergebnis.                                                                      |
+| `expectedClarificationKind` | `ClarificationKind` (reuse aus `AiInterpretationTypes.ts`)                                                                                     | ja, wenn `expectedBehavior = clarification_required`                             | Welche Art von Rückfrage korrekt wäre.                                                                                                |
+| `criticalFailureConditions` | `string[]`                                                                                                                                     | ja                                                                               | Explizite Liste, was für diesen Fall ein kritischer Fehler wäre (§7) — z. B. „darf nicht ungefragt auf eine Speck-Variante fixieren". |
+| `reproducibilityNotes`      | `string`                                                                                                                                       | ja                                                                               | Snapshot-/Versionsangabe der externen Quelle (BLS-Version, Abrufdatum bei OFF/USDA, Rezeptdatum).                                     |
+| `personalDataFree`          | `boolean`                                                                                                                                      | ja, muss `true` sein                                                             | Erzwungene Selbstauskunft — jeder Fall muss synthetisch/kuratiert sein (§10).                                                         |
+| `tags`                      | `string[]`                                                                                                                                     | optional                                                                         | Freitext-Filter, z. B. `['bls-precedent', 'resolver-v2-008']`.                                                                        |
+| `notes`                     | `string`                                                                                                                                       | optional                                                                         | Freitext, z. B. Herkunft/Motivation des Falls.                                                                                        |
 
 ### 2.2 `ExpectedComponent`
 
 Mirrors `InterpretedFoodComponent` (RESOLVER-V3-002), aber als Ground-Truth-Gegenstück, nicht als
 System-Ausgabe:
 
-| Feld                | Typ                                                       | Bedeutung                                                                                          |
-| -------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `componentId`       | `string`                                                     | Stabil innerhalb des Falls.                                                                             |
-| `expectedName`      | `string`                                                     | Kanonische Lebensmittelbezeichnung (nicht notwendig identisch mit dem Rohtext).                          |
-| `expectedBrand`     | `string`                                                     | Optional, nur bei Markenprodukten.                                                                       |
-| `expectedPreparation` | `string`                                                   | Optional, z. B. „gekocht", „gebraten".                                                                  |
-| `expectedQuantity`  | `{ value?: number; unit?: 'g' \| 'ml' \| 'piece' \| 'portion'; householdMeasure?: string }` | Reuse von `InterpretedQuantity`'s Einheiten-Vokabular.                     |
-| `required`          | `boolean`                                                    | `true` = fehlende Erkennung zählt als FN (§6.2); `false` = optionale/unsichere Komponente (z. B. „Soße" bei einer vage beschriebenen Mahlzeit), deren Fehlen nicht bestraft wird. |
-| `canonicalEquivalents` | `string[]`                                                 | Optional. Alternative akzeptierte kanonische Identitäten (§6.1 „kanonische Äquivalenz"), z. B. verschiedene, fachlich austauschbare BLS-Einträge. |
+| Feld                   | Typ                                                                                         | Bedeutung                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `componentId`          | `string`                                                                                    | Stabil innerhalb des Falls.                                                                                                                                                       |
+| `expectedName`         | `string`                                                                                    | Kanonische Lebensmittelbezeichnung (nicht notwendig identisch mit dem Rohtext).                                                                                                   |
+| `expectedBrand`        | `string`                                                                                    | Optional, nur bei Markenprodukten.                                                                                                                                                |
+| `expectedPreparation`  | `string`                                                                                    | Optional, z. B. „gekocht", „gebraten".                                                                                                                                            |
+| `expectedQuantity`     | `{ value?: number; unit?: 'g' \| 'ml' \| 'piece' \| 'portion'; householdMeasure?: string }` | Reuse von `InterpretedQuantity`'s Einheiten-Vokabular.                                                                                                                            |
+| `required`             | `boolean`                                                                                   | `true` = fehlende Erkennung zählt als FN (§6.2); `false` = optionale/unsichere Komponente (z. B. „Soße" bei einer vage beschriebenen Mahlzeit), deren Fehlen nicht bestraft wird. |
+| `canonicalEquivalents` | `string[]`                                                                                  | Optional. Alternative akzeptierte kanonische Identitäten (§6.1 „kanonische Äquivalenz"), z. B. verschiedene, fachlich austauschbare BLS-Einträge.                                 |
 
 ### 2.3 `ReferenceNutrients`
 
@@ -200,10 +200,30 @@ committeten Artefakt gezogen, nicht in dieser Spezifikation erfunden.
   "locale": "de",
   "regionalContext": "DE",
   "expectedComponents": [
-    { "componentId": "c1", "expectedName": "Rostbraten (Rindfleisch, gebraten)", "expectedQuantity": { "portionDescription": "TBD: recherchierte Standardportion" }, "required": true },
-    { "componentId": "c2", "expectedName": "Röstzwiebeln", "expectedQuantity": { "portionDescription": "TBD" }, "required": true },
-    { "componentId": "c3", "expectedName": "Spätzle", "expectedQuantity": { "portionDescription": "TBD" }, "required": true },
-    { "componentId": "c4", "expectedName": "Bratensoße", "expectedQuantity": { "portionDescription": "TBD" }, "required": false }
+    {
+      "componentId": "c1",
+      "expectedName": "Rostbraten (Rindfleisch, gebraten)",
+      "expectedQuantity": { "portionDescription": "TBD: recherchierte Standardportion" },
+      "required": true
+    },
+    {
+      "componentId": "c2",
+      "expectedName": "Röstzwiebeln",
+      "expectedQuantity": { "portionDescription": "TBD" },
+      "required": true
+    },
+    {
+      "componentId": "c3",
+      "expectedName": "Spätzle",
+      "expectedQuantity": { "portionDescription": "TBD" },
+      "required": true
+    },
+    {
+      "componentId": "c4",
+      "expectedName": "Bratensoße",
+      "expectedQuantity": { "portionDescription": "TBD" },
+      "required": false
+    }
   ],
   "groundTruthSource": "documented_recipe",
   "groundTruthProvenance": "TBD bei Fixture-Erstellung: dokumentiertes Rezept + BLS-Zutatenzuordnung je Komponente, KEINE Übernahme des Amy-Nutzerberichtswerts",
@@ -240,9 +260,24 @@ schreiben.
   "rawInput": "Zwei Scheiben Toast mit Butter und Gouda",
   "locale": "de",
   "expectedComponents": [
-    { "componentId": "c1", "expectedName": "Toast", "expectedQuantity": { "value": 2, "unit": "piece", "householdMeasure": "2 Scheiben" }, "required": true },
-    { "componentId": "c2", "expectedName": "Butter", "expectedQuantity": { "portionDescription": "ungenannte Menge" }, "required": true },
-    { "componentId": "c3", "expectedName": "Gouda", "expectedQuantity": { "portionDescription": "ungenannte Menge" }, "required": true }
+    {
+      "componentId": "c1",
+      "expectedName": "Toast",
+      "expectedQuantity": { "value": 2, "unit": "piece", "householdMeasure": "2 Scheiben" },
+      "required": true
+    },
+    {
+      "componentId": "c2",
+      "expectedName": "Butter",
+      "expectedQuantity": { "portionDescription": "ungenannte Menge" },
+      "required": true
+    },
+    {
+      "componentId": "c3",
+      "expectedName": "Gouda",
+      "expectedQuantity": { "portionDescription": "ungenannte Menge" },
+      "required": true
+    }
   ],
   "groundTruthSource": "documented_recipe",
   "groundTruthProvenance": "BLS-Zutaten je Komponente + kuratierte Standardmengen für 'ungenannte Menge' (Butter/Gouda-Aufstrich), TBD bei Fixture-Erstellung",
@@ -297,19 +332,19 @@ Benchmark-Korpus, keine neu erfundene Beispieleingabe.
 
 ## 3. Korpus-Taxonomie
 
-| Kategorie-Code       | Name                                       | Beispiele                                                                 | Typisches erwartetes Verhalten                                  | Typische Ground-Truth-Ebene (§5) |
-| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------- |
-| `SIMPLE`               | Einfache generische Lebensmittel             | `200 g Quark`, `zwei Eier`, `100 g Haferflocken`                             | `direct_resolution`                                                 | 3 (BLS)                             |
-| `HOUSEHOLD`            | Haushaltsmaße und Stückeinheiten             | `eine Scheibe Brot`, `ein Becher Skyr`, `eine Handvoll Nüsse`                 | `direct_resolution` oder `resolution_with_assumption`               | 3 oder 6 (kuratierter Referenzbereich für „Handvoll" etc.) |
-| `DACH`                 | DACH-spezifische/regionale Lebensmittel      | Magerquark, Schmand, Brötchen, Leberkäse, Zwiebelrostbraten, regional mehrdeutige Begriffe | `direct_resolution`, `resolution_with_assumption`, oder `clarification_required` (z. B. „Speck") | 3 (generisch) oder 4 (Regionalgericht) |
-| `BRANDED`              | Markenprodukte                               | eindeutige Marke + Produktvariante + Portionsgröße                           | `direct_resolution`                                                 | 1 (Hersteller/offizielle Produktdaten) |
-| `COMPOSED`             | Zusammengesetzte Mahlzeiten                  | `Zwei Scheiben Toast mit Butter und Gouda`                                   | `resolution_with_assumption`                                        | 4 (Rezept-/Komponentenzerlegung)    |
-| `HOMEMADE`             | Selbstgekochte Gerichte                      | dokumentiertes Rezept mit Mengen                                             | `direct_resolution` oder `resolution_with_assumption`               | 4                                    |
-| `RESTAURANT`           | Restaurantgerichte (3 Subtypen, siehe unten) | Kettenrestaurant mit offiziellen Angaben; ohne offizielle Angaben; regional/unabhängig | variiert je Subtyp                                              | 2, 4, oder 6                        |
-| `VAGUE`                | Vage Eingaben                                | `etwas Müsli`, `eine normale Portion Nudeln`, `Mittagessen`, `ein bisschen Butter` | `clarification_required` oder `abstention_expected`                 | 7 (keine numerische Ground Truth)   |
-| `PREPARATION`          | Zubereitungsabhängige Fälle                  | roh/gekocht, gebraten/gekocht, mit/ohne Öl, abgetropft/nicht abgetropft       | `direct_resolution` (wenn Zubereitung explizit) oder `clarification_required` (wenn fehlend) | 3 oder 6 |
-| `NEGATION_MODIFIER`    | Negationen und Modifikatoren                 | `ohne Käse`, `wenig Soße`, `doppelte Portion`, `ungesüßt`, `fettarm`          | `direct_resolution` oder `resolution_with_assumption`               | 3, 4, oder 6                        |
-| `UNRELIABLE`           | Nicht zuverlässig lösbare Fälle              | Fälle, in denen kein System verantwortungsvoll eine präzise Zahl bestimmen kann | `clarification_required`, `multiple_candidates_acceptable`, oder `abstention_expected` | 7 |
+| Kategorie-Code      | Name                                         | Beispiele                                                                                  | Typisches erwartetes Verhalten                                                                   | Typische Ground-Truth-Ebene (§5)                           |
+| ------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `SIMPLE`            | Einfache generische Lebensmittel             | `200 g Quark`, `zwei Eier`, `100 g Haferflocken`                                           | `direct_resolution`                                                                              | 3 (BLS)                                                    |
+| `HOUSEHOLD`         | Haushaltsmaße und Stückeinheiten             | `eine Scheibe Brot`, `ein Becher Skyr`, `eine Handvoll Nüsse`                              | `direct_resolution` oder `resolution_with_assumption`                                            | 3 oder 6 (kuratierter Referenzbereich für „Handvoll" etc.) |
+| `DACH`              | DACH-spezifische/regionale Lebensmittel      | Magerquark, Schmand, Brötchen, Leberkäse, Zwiebelrostbraten, regional mehrdeutige Begriffe | `direct_resolution`, `resolution_with_assumption`, oder `clarification_required` (z. B. „Speck") | 3 (generisch) oder 4 (Regionalgericht)                     |
+| `BRANDED`           | Markenprodukte                               | eindeutige Marke + Produktvariante + Portionsgröße                                         | `direct_resolution`                                                                              | 1 (Hersteller/offizielle Produktdaten)                     |
+| `COMPOSED`          | Zusammengesetzte Mahlzeiten                  | `Zwei Scheiben Toast mit Butter und Gouda`                                                 | `resolution_with_assumption`                                                                     | 4 (Rezept-/Komponentenzerlegung)                           |
+| `HOMEMADE`          | Selbstgekochte Gerichte                      | dokumentiertes Rezept mit Mengen                                                           | `direct_resolution` oder `resolution_with_assumption`                                            | 4                                                          |
+| `RESTAURANT`        | Restaurantgerichte (3 Subtypen, siehe unten) | Kettenrestaurant mit offiziellen Angaben; ohne offizielle Angaben; regional/unabhängig     | variiert je Subtyp                                                                               | 2, 4, oder 6                                               |
+| `VAGUE`             | Vage Eingaben                                | `etwas Müsli`, `eine normale Portion Nudeln`, `Mittagessen`, `ein bisschen Butter`         | `clarification_required` oder `abstention_expected`                                              | 7 (keine numerische Ground Truth)                          |
+| `PREPARATION`       | Zubereitungsabhängige Fälle                  | roh/gekocht, gebraten/gekocht, mit/ohne Öl, abgetropft/nicht abgetropft                    | `direct_resolution` (wenn Zubereitung explizit) oder `clarification_required` (wenn fehlend)     | 3 oder 6                                                   |
+| `NEGATION_MODIFIER` | Negationen und Modifikatoren                 | `ohne Käse`, `wenig Soße`, `doppelte Portion`, `ungesüßt`, `fettarm`                       | `direct_resolution` oder `resolution_with_assumption`                                            | 3, 4, oder 6                                               |
+| `UNRELIABLE`        | Nicht zuverlässig lösbare Fälle              | Fälle, in denen kein System verantwortungsvoll eine präzise Zahl bestimmen kann            | `clarification_required`, `multiple_candidates_acceptable`, oder `abstention_expected`           | 7                                                          |
 
 **Restaurant-Subtypen** (`subcategory`): `restaurant_official_data` (Kette mit veröffentlichten
 Nährwertangaben — Ground-Truth-Ebene 2), `restaurant_no_official_data` (kein veröffentlichter Wert
@@ -354,19 +389,19 @@ Kategorieabdeckung erhalten bleibt und die Abweichung im Korpus-Changelog (§9) 
 
 ### Verteilungsbegründung (Basisfälle, Summe 100 %)
 
-| Kategorie             | Anteil | Begründung                                                                                                   |
-| ------------------------ | -------: | ---------------------------------------------------------------------------------------------------------------- |
-| `SIMPLE`                 |    12 % | Häufigster Alltagsfall, aber bereits gut durch bestehende Resolver-Tests abgedeckt (§12) — kein Übergewicht nötig. |
-| `HOUSEHOLD`              |     8 % | Wichtige, aber schmalere Fehlerklasse.                                                                          |
-| `DACH`                   |    15 % | Bewusst überproportional: proaktiv dokumentierte Schwachstelle in **beiden** Systemen (Decision Record §2.1, §3 — Speck/Himbeeren/Haferflocken/Zwiebelrostbraten), zentrales Differenzierungsziel von Variante C. |
-| `BRANDED`                |    10 % | Deckt Ebene-1-Ground-Truth-Pfad ab; in der bisherigen Testsuite kaum vertreten (§12).                           |
-| `COMPOSED`               |    12 % | Amy-Nutzerbericht „complex meal breakdown" (Decision Record §2.1) als unabhängig bestätigte Schwachstelle — Kernhypothese H2. |
-| `HOMEMADE`               |     8 % | Ergänzt `COMPOSED` um dokumentierte Rezept-Ground-Truth-Fälle mit klarerer Ebene-4-Herleitung.                  |
-| `RESTAURANT`             |    10 % | Split ca. 40/30/30 über die drei Subtypen — deckt sowohl belastbare (Ebene 2) als auch bewusst unsichere (Ebene 6/7) Fälle ab. |
-| `VAGUE`                  |     8 % | Testet die Rückfrage-/Abstentions-Fähigkeit direkt (H4) — zentrale Produktprinzip-Frage („Rückfrage vs. scheinpräzise Schätzung"). |
-| `PREPARATION`            |     6 % | Bekannte Fehlerquelle (roh/gekocht-Verwechslung ändert Makros signifikant), schmaler aber wichtiger Bucket.     |
-| `NEGATION_MODIFIER`      |     6 % | Testet, ob Modifikatoren überhaupt in die Interpretation einfließen (AI-first-Kernfähigkeit).                   |
-| `UNRELIABLE`             |     5 % | Bewusst niedrig, aber nicht null — muss vorhanden sein, um „ehrliche Abstention" von „Fehler" zu unterscheiden (§6.6, §7), darf den Korpus aber nicht dominieren, da sonst kein numerischer Vergleich mehr möglich wäre. |
+| Kategorie           | Anteil | Begründung                                                                                                                                                                                                               |
+| ------------------- | -----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SIMPLE`            |   12 % | Häufigster Alltagsfall, aber bereits gut durch bestehende Resolver-Tests abgedeckt (§12) — kein Übergewicht nötig.                                                                                                       |
+| `HOUSEHOLD`         |    8 % | Wichtige, aber schmalere Fehlerklasse.                                                                                                                                                                                   |
+| `DACH`              |   15 % | Bewusst überproportional: proaktiv dokumentierte Schwachstelle in **beiden** Systemen (Decision Record §2.1, §3 — Speck/Himbeeren/Haferflocken/Zwiebelrostbraten), zentrales Differenzierungsziel von Variante C.        |
+| `BRANDED`           |   10 % | Deckt Ebene-1-Ground-Truth-Pfad ab; in der bisherigen Testsuite kaum vertreten (§12).                                                                                                                                    |
+| `COMPOSED`          |   12 % | Amy-Nutzerbericht „complex meal breakdown" (Decision Record §2.1) als unabhängig bestätigte Schwachstelle — Kernhypothese H2.                                                                                            |
+| `HOMEMADE`          |    8 % | Ergänzt `COMPOSED` um dokumentierte Rezept-Ground-Truth-Fälle mit klarerer Ebene-4-Herleitung.                                                                                                                           |
+| `RESTAURANT`        |   10 % | Split ca. 40/30/30 über die drei Subtypen — deckt sowohl belastbare (Ebene 2) als auch bewusst unsichere (Ebene 6/7) Fälle ab.                                                                                           |
+| `VAGUE`             |    8 % | Testet die Rückfrage-/Abstentions-Fähigkeit direkt (H4) — zentrale Produktprinzip-Frage („Rückfrage vs. scheinpräzise Schätzung").                                                                                       |
+| `PREPARATION`       |    6 % | Bekannte Fehlerquelle (roh/gekocht-Verwechslung ändert Makros signifikant), schmaler aber wichtiger Bucket.                                                                                                              |
+| `NEGATION_MODIFIER` |    6 % | Testet, ob Modifikatoren überhaupt in die Interpretation einfließen (AI-first-Kernfähigkeit).                                                                                                                            |
+| `UNRELIABLE`        |    5 % | Bewusst niedrig, aber nicht null — muss vorhanden sein, um „ehrliche Abstention" von „Fehler" zu unterscheiden (§6.6, §7), darf den Korpus aber nicht dominieren, da sonst kein numerischer Vergleich mehr möglich wäre. |
 
 **Schwierigkeitsverteilung (quer über alle Kategorien):** ~30 % `easy`, ~40 % `medium`, ~20 %
 `hard`, ~10 % `adversarial` (Tippfehler, widersprüchliche Eingaben, Negationskombinationen).
@@ -497,11 +532,11 @@ Pflicht für `kcal`, `protein_g`, `fat_g`, `carbs_g`. Pro Fall und pro Nährstof
 
 **Default-Toleranzbänder** (case-level `tolerances` kann dies begründet überschreiben):
 
-| Kategorie                                  | kcal-Toleranz | Makro-Toleranz | Begründung                                                                                   |
-| --------------------------------------------- | --------------: | ----------------: | -------------------------------------------------------------------------------------------- |
-| `SIMPLE` / `BRANDED` / `restaurant_official_data` | ±10 %          | ±15 %             | Belastbare Ebene-1/2/3-Ground-Truth erlaubt engere Bänder.                                    |
-| `HOMEMADE` / `COMPOSED` / `DACH` (Rezeptfälle) | ±20 %          | ±25 %             | Rezept-/Mengenunsicherheit ist real, unabhängig vom System — **unabhängig hergeleitet, nicht aus Amys `±20 %`-Homemade-Band übernommen**, auch wenn der Wert zufällig ähnlich liegt (siehe Decision Record §2.3-Vorbehalt). |
-| `restaurant_no_official_data` / `restaurant_regional_independent` | kein festes Band — Bewertung gegen den kuratierten Referenzbereich (Ebene 6) | — | Ebene-6-Ground-Truth ist selbst ein Bereich, keine Punktzahl. |
+| Kategorie                                                         |                                                                kcal-Toleranz | Makro-Toleranz | Begründung                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------: | -------------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SIMPLE` / `BRANDED` / `restaurant_official_data`                 |                                                                        ±10 % |          ±15 % | Belastbare Ebene-1/2/3-Ground-Truth erlaubt engere Bänder.                                                                                                                                                                  |
+| `HOMEMADE` / `COMPOSED` / `DACH` (Rezeptfälle)                    |                                                                        ±20 % |          ±25 % | Rezept-/Mengenunsicherheit ist real, unabhängig vom System — **unabhängig hergeleitet, nicht aus Amys `±20 %`-Homemade-Band übernommen**, auch wenn der Wert zufällig ähnlich liegt (siehe Decision Record §2.3-Vorbehalt). |
+| `restaurant_no_official_data` / `restaurant_regional_independent` | kein festes Band — Bewertung gegen den kuratierten Referenzbereich (Ebene 6) |              — | Ebene-6-Ground-Truth ist selbst ein Bereich, keine Punktzahl.                                                                                                                                                               |
 
 Diese Bänder sind ein **vorläufiger, begründeter Startpunkt** (siehe §11) — keine endgültig
 bewiesene fachliche Wahrheit.
@@ -518,8 +553,8 @@ ausgewiesen, um Datentiefe von Genauigkeit zu unterscheiden.
 
 ### 6.6 Unsicherheit und Sicherheit
 
-Die wichtigste Metrikgruppe dieses Dokuments — direkt aus dem Auftrag: *„Eine falsche sichere
-Entscheidung muss stärker gewichtet werden als eine ehrliche Rückfrage."*
+Die wichtigste Metrikgruppe dieses Dokuments — direkt aus dem Auftrag: _„Eine falsche sichere
+Entscheidung muss stärker gewichtet werden als eine ehrliche Rückfrage."_
 
 - **False-confident rate:** Anteil der Fälle, in denen die Variante `direct_resolution`-artiges
   Verhalten zeigt (keine Rückfrage, keine sichtbare Unsicherheit), das Ergebnis aber außerhalb der
@@ -586,33 +621,33 @@ unabhängig davon, ob die Zahl zufällig nah an der Ground Truth liegt.
 
 ## 7. Fehlerklassen und Gewichtung
 
-| Fehlerklasse                          | Beispiel                                                                 | Schweregrad |
-| ---------------------------------------- | ----------------------------------------------------------------------------- | -------------- |
-| Plausible, aber falsche sichere Auflösung | System liefert einen glaubwürdigen, aber falschen kcal-Wert ohne jede Unsicherheitsangabe | **kritisch**   |
-| Regionale Fehlzuordnung                  | US-/UK-Variante eines DACH-Gerichts, falsche Locale-Referenz                    | **kritisch**   |
-| Erfundenes Markenprodukt                 | Halluzinierte Marke/Produktvariante ohne Quellenbeleg                           | **kritisch**   |
-| Unbelegter Nährwert                      | Zahl ohne bestimmbare Quelle (§6.8)                                             | **kritisch**   |
-| Stiller Nullwert bei fehlenden Daten     | `0` statt `null` für einen von der Quelle nicht gelieferten Nährstoff           | **kritisch**   |
-| Falsches Lebensmittel                    | Falsche kanonische Identität insgesamt                                          | hoch           |
-| Falsche Produktvariante                  | Richtige Marke, falsche Variante/Portionsgröße                                  | hoch           |
-| Falsche Zubereitung                      | roh statt gekocht o. ä., mit relevantem Makroeffekt                             | hoch           |
-| Fehlende Komponente                      | `required: true`-Komponente nicht erkannt (FN, §6.2)                            | hoch           |
-| Halluzinierte Komponente                 | Zusätzliche, nicht erwartete Komponente (FP, §6.2)                              | hoch           |
-| Unzulässige sichere Schätzung bei Vagheit | `VAGUE`/`UNRELIABLE`-Fall dennoch als `direct_resolution` behandelt             | hoch           |
-| Falsche Menge                            | Zahlenabweichung außerhalb Toleranz                                             | mittel         |
-| Falsche Einheit                          | Kategorialer Einheitenfehler (z. B. `piece` statt `g`)                          | mittel         |
-| Fehlende Provenienz                      | Ergebnis ohne nachvollziehbare Quelle, aber sonst zahlenmäßig korrekt           | mittel         |
-| Unnötige Rückfrage                       | Rückfrage bei eindeutigem `direct_resolution`-Fall                              | mittel         |
-| Unterlassene Rückfrage                   | Keine Rückfrage bei `clarification_required`-Fall, aber Ergebnis zufällig innerhalb Toleranz | mittel |
-| Technischer Fehler                       | Exception, Timeout ohne Fallback                                                | niedrig–mittel (kontextabhängig) |
-| Quellenausfall                           | Externe Quelle nicht erreichbar, korrekt als solcher behandelt                  | niedrig (kein Fehler, wenn korrekt behandelt) |
+| Fehlerklasse                              | Beispiel                                                                                     | Schweregrad                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Plausible, aber falsche sichere Auflösung | System liefert einen glaubwürdigen, aber falschen kcal-Wert ohne jede Unsicherheitsangabe    | **kritisch**                                  |
+| Regionale Fehlzuordnung                   | US-/UK-Variante eines DACH-Gerichts, falsche Locale-Referenz                                 | **kritisch**                                  |
+| Erfundenes Markenprodukt                  | Halluzinierte Marke/Produktvariante ohne Quellenbeleg                                        | **kritisch**                                  |
+| Unbelegter Nährwert                       | Zahl ohne bestimmbare Quelle (§6.8)                                                          | **kritisch**                                  |
+| Stiller Nullwert bei fehlenden Daten      | `0` statt `null` für einen von der Quelle nicht gelieferten Nährstoff                        | **kritisch**                                  |
+| Falsches Lebensmittel                     | Falsche kanonische Identität insgesamt                                                       | hoch                                          |
+| Falsche Produktvariante                   | Richtige Marke, falsche Variante/Portionsgröße                                               | hoch                                          |
+| Falsche Zubereitung                       | roh statt gekocht o. ä., mit relevantem Makroeffekt                                          | hoch                                          |
+| Fehlende Komponente                       | `required: true`-Komponente nicht erkannt (FN, §6.2)                                         | hoch                                          |
+| Halluzinierte Komponente                  | Zusätzliche, nicht erwartete Komponente (FP, §6.2)                                           | hoch                                          |
+| Unzulässige sichere Schätzung bei Vagheit | `VAGUE`/`UNRELIABLE`-Fall dennoch als `direct_resolution` behandelt                          | hoch                                          |
+| Falsche Menge                             | Zahlenabweichung außerhalb Toleranz                                                          | mittel                                        |
+| Falsche Einheit                           | Kategorialer Einheitenfehler (z. B. `piece` statt `g`)                                       | mittel                                        |
+| Fehlende Provenienz                       | Ergebnis ohne nachvollziehbare Quelle, aber sonst zahlenmäßig korrekt                        | mittel                                        |
+| Unnötige Rückfrage                        | Rückfrage bei eindeutigem `direct_resolution`-Fall                                           | mittel                                        |
+| Unterlassene Rückfrage                    | Keine Rückfrage bei `clarification_required`-Fall, aber Ergebnis zufällig innerhalb Toleranz | mittel                                        |
+| Technischer Fehler                        | Exception, Timeout ohne Fallback                                                             | niedrig–mittel (kontextabhängig)              |
+| Quellenausfall                            | Externe Quelle nicht erreichbar, korrekt als solcher behandelt                               | niedrig (kein Fehler, wenn korrekt behandelt) |
 
 **Bindende Gewichtungsregel für RESOLVER-V3-006:** die **False-confident-Rate** (§6.6) wird als
 eigenständiges Gate-Kriterium **vor und unabhängig** von jeder aggregierten
 Genauigkeits-Kennzahl berichtet. Ein Variantenvergleich, der eine hohe False-confident-Rate durch
 einen guten mittleren kcal-Fehler „aufwiegt", erfüllt nicht die Vorgabe dieses Dokuments — der
-Auftrag ist hier eindeutig: *„Eine falsche sichere Entscheidung muss stärker gewichtet werden als
-eine ehrliche Rückfrage."* Kritische Fehlerklassen (Tabelle oben) fließen zusätzlich als eigene
+Auftrag ist hier eindeutig: _„Eine falsche sichere Entscheidung muss stärker gewichtet werden als
+eine ehrliche Rückfrage."_ Kritische Fehlerklassen (Tabelle oben) fließen zusätzlich als eigene
 Zählgröße in den §11-Gate-Vergleich ein, unabhängig von ihrem Effekt auf den mittleren Fehler.
 
 ---
@@ -703,14 +738,14 @@ demselben „bewusster Review-/Revisionsprozess statt stiller Edits"-Grundsatz w
 Record selbst und werden anhand der RESOLVER-V3-006/007-Ergebnisse überprüft, nicht vorab
 zementiert.
 
-| Gate | Voraussetzung für...                                  | Kombinierte Dimensionen (alle müssen erfüllt sein)                                                                                                                                                                                                                                                                                                                                                                     |
-| ---- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| G1   | Technischen Spike (RESOLVER-V3-005) fortsetzen             | Auf dem Smoke-Subset zeigt Variante C eine **niedrigere** False-confident-Rate als Variante B, ohne kategorialen Latenz-/Kostenausreißer. Niedrige Hürde, früh im Prozess prüfbar.                                                                                                                                                                                                                                    |
+| Gate | Voraussetzung für...                                        | Kombinierte Dimensionen (alle müssen erfüllt sein)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1   | Technischen Spike (RESOLVER-V3-005) fortsetzen              | Auf dem Smoke-Subset zeigt Variante C eine **niedrigere** False-confident-Rate als Variante B, ohne kategorialen Latenz-/Kostenausreißer. Niedrige Hürde, früh im Prozess prüfbar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | G2   | Variante C als überlegen betrachten (RESOLVER-V3-006-Fazit) | (a) **Qualität:** Top-1-Identifikation ≥ Variante A mindestens in `DACH`/`COMPOSED`/`RESTAURANT`, ohne Regression in `SIMPLE`/`HOUSEHOLD`; (b) **False Confidence:** streng niedriger als A **und** B (hartes, nicht-vorläufiges Kriterium — s. §7); (c) **Nutzerfriktion:** Rückfragenrate nicht drastisch über dem bestehenden Speck-Präzedenzfall-Volumen (RESOLVER-V2-010) — qualitativ zu prüfen, kein Fixwert; (d) **Latenz:** p95 innerhalb eines in RESOLVER-V3-007 explizit herzuleitenden, akzeptablen Vielfachen von As p95 außerhalb des Fast Path (Vielfaches hier **nicht** vorentschieden); (e) **Kosten:** Kosten pro validiertem Log dokumentiert und gegen Produktökonomie geprüft (kein Fixwert — Tier-5-Monetarisierung ist noch `todo`); (f) **Provenienz:** **keine** unbelegten autoritativen Zahlen — hartes Kriterium, keine Ausnahme; (g) **Konsistenz:** Wiederholungs-Übereinstimmungsrate nicht wesentlich schlechter als As (die strukturell nahe 100 % liegt). |
-| G3   | Feature-Flag-Integration rechtfertigen (RESOLVER-V3-010)   | G2 bestanden **und** RESOLVER-V3-007s Kosten-/Latenzmodell geprüft **und** RESOLVER-V3-008s Cache-Lesepfad existiert (keine ungecachte Vollkosten-AI-Pipeline geht live) — deckt sich mit der bereits in `ROADMAP.md` bestehenden Dependency (`RESOLVER-V3-010` hängt von `-006` und `-008` ab); dieses Dokument erfindet keine neue Regel, sondern erklärt die bestehende.                                        |
-| G4   | Cutover überhaupt diskutieren (RESOLVER-V3-012)             | G3 hinter Flag ausgeliefert **und** Regression + Real-Device-Verifikation gemäß `VERIFY.md` **und** kein offener kritischer Fehlerklassen-Fall (§7) aus einem noch zu definierenden Monitoring-Zeitraum — Zeitraum/Monitoring-Mechanismus ist **nicht** Teil dieses Dokuments.                                                                                                                                       |
+| G3   | Feature-Flag-Integration rechtfertigen (RESOLVER-V3-010)    | G2 bestanden **und** RESOLVER-V3-007s Kosten-/Latenzmodell geprüft **und** RESOLVER-V3-008s Cache-Lesepfad existiert (keine ungecachte Vollkosten-AI-Pipeline geht live) — deckt sich mit der bereits in `ROADMAP.md` bestehenden Dependency (`RESOLVER-V3-010` hängt von `-006` und `-008` ab); dieses Dokument erfindet keine neue Regel, sondern erklärt die bestehende.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| G4   | Cutover überhaupt diskutieren (RESOLVER-V3-012)             | G3 hinter Flag ausgeliefert **und** Regression + Real-Device-Verifikation gemäß `VERIFY.md` **und** kein offener kritischer Fehlerklassen-Fall (§7) aus einem noch zu definierenden Monitoring-Zeitraum — Zeitraum/Monitoring-Mechanismus ist **nicht** Teil dieses Dokuments.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
-**Ausdrücklich festgehalten:** *„Ein geringer kcal-Mittelwertfehler allein reicht nicht aus."* Kein
+**Ausdrücklich festgehalten:** _„Ein geringer kcal-Mittelwertfehler allein reicht nicht aus."_ Kein
 Gate darf auf eine einzelne Kennzahl reduziert werden.
 
 ---
@@ -770,10 +805,11 @@ Artefakts selbst sowie in `plans/BLS_INTEGRATION_ANALYSIS_AND_PLAN.md` und
 decken Latenz/Cache-Hit/Status für Variante A bereits strukturell ab. Für Kosten (§6.9) existiert
 noch keine Infrastruktur im Resolver selbst — das Muster dafür liefert
 [`scripts/benchmark-ai-reranking-providers.mjs`](../../scripts/benchmark-ai-reranking-providers.mjs)
-+ [`scripts/lib/ai-reranking-benchmark-{scoring,fixtures,providers}.mjs`](../../scripts/lib/)
-(RESOLVER-V2-007-B) — reine `fetch()`-Provider-Adapter, env-var-basierte Modellwahl,
-`node:test`-getestete Scoring-Logik, `computeCostUsd` aus echter Token-Nutzung — der explizit in
-`ROADMAP.md` benannte strukturelle Vorlage für RESOLVER-V3-003..005s Harness.
+
+- [`scripts/lib/ai-reranking-benchmark-{scoring,fixtures,providers}.mjs`](../../scripts/lib/)
+  (RESOLVER-V2-007-B) — reine `fetch()`-Provider-Adapter, env-var-basierte Modellwahl,
+  `node:test`-getestete Scoring-Logik, `computeCostUsd` aus echter Token-Nutzung — der explizit in
+  `ROADMAP.md` benannte strukturelle Vorlage für RESOLVER-V3-003..005s Harness.
 
 **Metriken, die erst in späteren Tasks implementierbar sind (hier nur definiert, s. §6.7/§6.9):**
 Cache-Hit-Rate/Kostenersparnis durch Wiederverwendung (RESOLVER-V3-008), Konsistenz nach

@@ -128,17 +128,17 @@ belastbarer als Amys eigene Erfolgszahlen.
 
 ### 2.6 Einstufung der Ausgangshinweise aus dem Auftrag
 
-| Hinweis | Einstufung |
-| --- | --- |
-| Flow: natürliche Eingabe → Suche → automatische Berechnung | **Belastbar** (Report + Entwickleraussage stimmen überein) |
-| Perplexity Sonar, mehrere Datenbanken | **Belastbar** (Primärquelle: Entwicklerzitat + jede Report-Zeile nennt `perplexity/sonar`) |
-| Reale Kosten pro Log (~1 Cent) | **Belastbar** (Entwicklerzitat, nicht extern geprüft, aber Primärquelle) |
-| Qualität abhängig von Eingabespezifität | **Belastbar** (Entwicklerzitat + durch Report-Datenmuster plausibilisiert: vage/komplexe Fälle haben durchgehend niedrigere Confidence-Werte, 68–75 statt 92–100) |
-| Benchmark aus internem ~100-Item-Benchmark hervorgegangen | **Belastbar, jetzt direkt belegt** (Entwicklerzitat vom 08.03., Link identisch mit später veröffentlichtem Report) |
-| Amy nutzt trotz AI-first weiterhin große Lebensmitteldatenbank | **Belastbar** (Entwicklerzitat: "search across a few databases (the same ones myfitnesspal and others use)"; `/vs/cronometer` nennt "500,000+ foods") |
-| Schwächen bei regionalen Speisen, vagen Beschreibungen, Mengen, gemischten Gerichten, Wiederholbarkeit | **Belastbar** (vier unabhängige, thematisch verschiedene Nutzerberichte, nicht aus Amys eigenem Benchmark) |
-| Persistente Wiederverwendung verbessert Geschwindigkeit/Konsistenz/Kosten | **Plausibel, produktseitig unbewiesen** (Nutzerwunsch + Entwickler-"working on it", aber noch nicht ausgeliefert — kein Nachweis, dass es bei Amy tatsächlich funktioniert) |
-| Cronometer als Gegenmodell (Tiefe vs. Friktion) | **Plausibel** (Amys eigene Positionierung, intern konsistent, aber Eigenaussage) |
+| Hinweis                                                                                                | Einstufung                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flow: natürliche Eingabe → Suche → automatische Berechnung                                             | **Belastbar** (Report + Entwickleraussage stimmen überein)                                                                                                                  |
+| Perplexity Sonar, mehrere Datenbanken                                                                  | **Belastbar** (Primärquelle: Entwicklerzitat + jede Report-Zeile nennt `perplexity/sonar`)                                                                                  |
+| Reale Kosten pro Log (~1 Cent)                                                                         | **Belastbar** (Entwicklerzitat, nicht extern geprüft, aber Primärquelle)                                                                                                    |
+| Qualität abhängig von Eingabespezifität                                                                | **Belastbar** (Entwicklerzitat + durch Report-Datenmuster plausibilisiert: vage/komplexe Fälle haben durchgehend niedrigere Confidence-Werte, 68–75 statt 92–100)           |
+| Benchmark aus internem ~100-Item-Benchmark hervorgegangen                                              | **Belastbar, jetzt direkt belegt** (Entwicklerzitat vom 08.03., Link identisch mit später veröffentlichtem Report)                                                          |
+| Amy nutzt trotz AI-first weiterhin große Lebensmitteldatenbank                                         | **Belastbar** (Entwicklerzitat: "search across a few databases (the same ones myfitnesspal and others use)"; `/vs/cronometer` nennt "500,000+ foods")                       |
+| Schwächen bei regionalen Speisen, vagen Beschreibungen, Mengen, gemischten Gerichten, Wiederholbarkeit | **Belastbar** (vier unabhängige, thematisch verschiedene Nutzerberichte, nicht aus Amys eigenem Benchmark)                                                                  |
+| Persistente Wiederverwendung verbessert Geschwindigkeit/Konsistenz/Kosten                              | **Plausibel, produktseitig unbewiesen** (Nutzerwunsch + Entwickler-"working on it", aber noch nicht ausgeliefert — kein Nachweis, dass es bei Amy tatsächlich funktioniert) |
+| Cronometer als Gegenmodell (Tiefe vs. Friktion)                                                        | **Plausibel** (Amys eigene Positionierung, intern konsistent, aber Eigenaussage)                                                                                            |
 
 **Nicht übernommen:** "Real accuracy data from independent testing" (2.4) und die 90–95 %-Zahl
 ohne Methodik (2.4) werden **nicht** als Repository-Fakt oder Zielmetrik verwendet.
@@ -271,10 +271,10 @@ einer Confidence-Schwelle.
    deterministisch (Abschnitt 5.5).
 
 **Verbindliche Umformulierung für zukünftige Referenzen:** „Deterministic-first" bedeutet ab
-sofort *„validierter Fast-Path und Nährwertberechnung sind immer deterministisch; KI-Nutzung
+sofort _„validierter Fast-Path und Nährwertberechnung sind immer deterministisch; KI-Nutzung
 ist für unbekannte Eingaben as Interpretations-/Suchplanungsschritt zulässig, sofern
 quellenbasiert, typisiert, nachvollziehbar, rate-limitiert und niemals autoritativ über
-Nährwerte."* Dieses Dokument ist die verbindliche Quelle für diese Umformulierung; `ROADMAP.md`
+Nährwerte."_ Dieses Dokument ist die verbindliche Quelle für diese Umformulierung; `ROADMAP.md`
 verweist in seinem Decisions Log künftig hierher, statt die alte Kurzformel unkommentiert
 stehen zu lassen (siehe Abschnitt 9 für die konkrete `ROADMAP.md`-Änderung).
 
@@ -290,7 +290,7 @@ abgeglichen. Für jede Stufe: was existiert bereits, was fehlt konkret.
 **Existiert bereits:** User-Alias-Quelle (`SupabaseUserAliasSource`), Saved Meals (SM-Epic,
 mehrere Tasks `done`), BLS-DACH-Wahrheit-Fast-Path, Negative Cache
 (`NegativeCacheHelper`). **Fehlt konkret:** ein Lesepfad, der `food_resolver_runs`/
-`food_query_cache_results` (bereits live, RESOLVER-V2-005) für Wiederverwendung *fremder*
+`food_query_cache_results` (bereits live, RESOLVER-V2-005) für Wiederverwendung _fremder_
 bereits validierter Query→Food-Zuordnungen konsultiert, nicht nur eigene Alias-Treffer. Das
 ist die konkrete Lücke, kein Neubau des gesamten Fast-Path-Konzepts.
 
@@ -350,28 +350,28 @@ automatisch global werden.
 
 ## 6. Was bleibt / was ändert sich / was wird ersetzt / was hängt vom Benchmark ab
 
-| Bestehende Entscheidung (aus Auftrag) | Status |
-| --- | --- |
-| 1. Erfassung und Bewertung bleiben getrennt | **Bleibt.** Bereits Product-Bible-Architekturprinzip (Food Catalog / Journal / Evaluation Engine), von dieser Arbeit nicht berührt. |
-| 2. BLS bleibt zentrale DACH-Quelle | **Bleibt, wird gestärkt.** BLS-Fast-Path unverändert; RESOLVER-V2-008/009/010 zeigen aktive Investition, kein Abbau. |
-| 3. Nährwertberechnungen bleiben deterministisch | **Bleibt, unangetastet.** Abschnitt 5.5. |
-| 4. Provenienz, Confidence, Editierbarkeit bleiben erhalten | **Bleibt, wird erweitert.** J-002/J-003 bereits vorhanden; Erweiterung um Resolver-Cache-Provenienz ist neue Arbeit (5.7), keine Abkehr. |
-| 5. Provider-Neutralität bleibt erhalten | **Bleibt, unverändert bindend.** `AiRerankingProvider`-Muster ist der Bauplan für den neuen Interpretationscontract. |
-| 6. Nutzerkorrekturen müssen künftige Auflösungen verbessern | **Bleibt Ziel, aktuell nicht vollständig erfüllt.** Correction Log existiert (J-003), aber kein Rückkanal in den Knowledge Layer — konkrete neue Aufgabe (RESOLVER-V3-009). |
-| 7. Wiederholte identische Eingaben sollen konsistent sein | **Bleibt Ziel, aktuell nicht vollständig erfüllt.** Kein Reuse-Lesepfad heute (5.1) — konkrete neue Aufgabe (RESOLVER-V3-008). Amy-Nutzerbericht (2.1) zeigt, dass dieses Problem beim Wettbewerber ungelöst ist — kein Grund zur Entwarnung, sondern Bestätigung der Priorität. |
-| 8. Zera behält Nährstofftiefe/Evaluationsfähigkeit | **Bleibt, unangetastet.** Product-Bible-Prinzip; Amys bewusste Beschränkung auf Kalorien+wenige Makros wird explizit **nicht** übernommen. |
-| 9. Nutzerfriktion bleibt zentrale Metrik | **Bleibt.** `SSOK.md` Product Principles unverändert gültig. |
+| Bestehende Entscheidung (aus Auftrag)                       | Status                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Erfassung und Bewertung bleiben getrennt                 | **Bleibt.** Bereits Product-Bible-Architekturprinzip (Food Catalog / Journal / Evaluation Engine), von dieser Arbeit nicht berührt.                                                                                                                                              |
+| 2. BLS bleibt zentrale DACH-Quelle                          | **Bleibt, wird gestärkt.** BLS-Fast-Path unverändert; RESOLVER-V2-008/009/010 zeigen aktive Investition, kein Abbau.                                                                                                                                                             |
+| 3. Nährwertberechnungen bleiben deterministisch             | **Bleibt, unangetastet.** Abschnitt 5.5.                                                                                                                                                                                                                                         |
+| 4. Provenienz, Confidence, Editierbarkeit bleiben erhalten  | **Bleibt, wird erweitert.** J-002/J-003 bereits vorhanden; Erweiterung um Resolver-Cache-Provenienz ist neue Arbeit (5.7), keine Abkehr.                                                                                                                                         |
+| 5. Provider-Neutralität bleibt erhalten                     | **Bleibt, unverändert bindend.** `AiRerankingProvider`-Muster ist der Bauplan für den neuen Interpretationscontract.                                                                                                                                                             |
+| 6. Nutzerkorrekturen müssen künftige Auflösungen verbessern | **Bleibt Ziel, aktuell nicht vollständig erfüllt.** Correction Log existiert (J-003), aber kein Rückkanal in den Knowledge Layer — konkrete neue Aufgabe (RESOLVER-V3-009).                                                                                                      |
+| 7. Wiederholte identische Eingaben sollen konsistent sein   | **Bleibt Ziel, aktuell nicht vollständig erfüllt.** Kein Reuse-Lesepfad heute (5.1) — konkrete neue Aufgabe (RESOLVER-V3-008). Amy-Nutzerbericht (2.1) zeigt, dass dieses Problem beim Wettbewerber ungelöst ist — kein Grund zur Entwarnung, sondern Bestätigung der Priorität. |
+| 8. Zera behält Nährstofftiefe/Evaluationsfähigkeit          | **Bleibt, unangetastet.** Product-Bible-Prinzip; Amys bewusste Beschränkung auf Kalorien+wenige Makros wird explizit **nicht** übernommen.                                                                                                                                       |
+| 9. Nutzerfriktion bleibt zentrale Metrik                    | **Bleibt.** `SSOK.md` Product Principles unverändert gültig.                                                                                                                                                                                                                     |
 
 ### Bestehende RESOLVER-V2-Tasks — Disposition (nicht ungültig, sondern eingeordnet)
 
-| Task | Status | Disposition |
-| --- | --- | --- |
-| RESOLVER-V2-001..004 | `done` | **Weiterhin gültig, wird direkt wiederverwendet.** Source-native Queries, Multi-Source-Retrieval, Fusion Layer sind die Grundlage von Abschnitt 5.3/5.4, kein Ersatz nötig. |
-| RESOLVER-V2-005 | `todo` (Schema-Drift dokumentiert) | **Bleibt gültig, wird erweitert.** Fehlende `corrections`-Tabelle + Lesepfad sind jetzt explizit RESOLVER-V3-008/009. |
-| RESOLVER-V2-006 | `todo` (Schreibpfad `done`, Korrektur-Rückkanal offen) | **Bleibt gültig, wird erweitert.** Rückkanal ist RESOLVER-V3-009. |
-| RESOLVER-V2-007-A | `done` | **Bleibt gültig, unverändert.** Eigenständiger KI-Kontaktpunkt (Reranking), koexistiert mit dem neuen Interpretationscontract (Abschnitt 4 Punkt 3). |
-| RESOLVER-V2-007-B/C | `todo` | **Bleibt gültig, abhängig vom Benchmark.** Provider-Wahl für Reranking ist eine andere Entscheidung als Provider-Wahl für Interpretation/Suchplanung — beide sollten denselben Benchmark-Prozess (Abschnitt 7) durchlaufen, müssen aber nicht denselben Provider wählen. |
-| RESOLVER-V2-008/009/010 | `done` | **Abgeschlossen, bereits durch aktuelle Implementierung erledigt.** Keine Änderung nötig; RESOLVER-V2-010s Klärungs-UI ist Vorbild für 5.6. |
+| Task                    | Status                                                 | Disposition                                                                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RESOLVER-V2-001..004    | `done`                                                 | **Weiterhin gültig, wird direkt wiederverwendet.** Source-native Queries, Multi-Source-Retrieval, Fusion Layer sind die Grundlage von Abschnitt 5.3/5.4, kein Ersatz nötig.                                                                                              |
+| RESOLVER-V2-005         | `todo` (Schema-Drift dokumentiert)                     | **Bleibt gültig, wird erweitert.** Fehlende `corrections`-Tabelle + Lesepfad sind jetzt explizit RESOLVER-V3-008/009.                                                                                                                                                    |
+| RESOLVER-V2-006         | `todo` (Schreibpfad `done`, Korrektur-Rückkanal offen) | **Bleibt gültig, wird erweitert.** Rückkanal ist RESOLVER-V3-009.                                                                                                                                                                                                        |
+| RESOLVER-V2-007-A       | `done`                                                 | **Bleibt gültig, unverändert.** Eigenständiger KI-Kontaktpunkt (Reranking), koexistiert mit dem neuen Interpretationscontract (Abschnitt 4 Punkt 3).                                                                                                                     |
+| RESOLVER-V2-007-B/C     | `todo`                                                 | **Bleibt gültig, abhängig vom Benchmark.** Provider-Wahl für Reranking ist eine andere Entscheidung als Provider-Wahl für Interpretation/Suchplanung — beide sollten denselben Benchmark-Prozess (Abschnitt 7) durchlaufen, müssen aber nicht denselben Provider wählen. |
+| RESOLVER-V2-008/009/010 | `done`                                                 | **Abgeschlossen, bereits durch aktuelle Implementierung erledigt.** Keine Änderung nötig; RESOLVER-V2-010s Klärungs-UI ist Vorbild für 5.6.                                                                                                                              |
 
 ---
 

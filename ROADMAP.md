@@ -7513,7 +7513,7 @@ their policies already existed live. `supabase/migrations/` is now confirmed in 
 remote project for this task's scope.
 
 **Disposition (2026-07-19 AI-first reconciliation — not superseded, extended):** stays
-`todo`, remains the correct owner of the missing `corrections` table. A missing *read* path
+`todo`, remains the correct owner of the missing `corrections` table. A missing _read_ path
 (reusing `food_resolver_runs`/`food_query_cache_results` for cache hits, not just writing to
 them) is now tracked separately as RESOLVER-V3-008/009 below — see
 [`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md) §6.
@@ -7912,7 +7912,7 @@ actually run against real keys and a provider is picked.
 **Disposition (2026-07-19 AI-first reconciliation — not superseded, extended):**
 RESOLVER-V2-007-A/B/C stay `todo`/`done` as recorded above and remain a valid, independent AI
 contact point (re-ranking already-scored candidates below a confidence threshold). The new
-AI-first interpretation/search-planning contract (RESOLVER-V3-002 below) is a *different*
+AI-first interpretation/search-planning contract (RESOLVER-V3-002 below) is a _different_
 capability — it decides what to search for, not which existing candidate is meant — and reuses
 this task's benchmark-harness pattern (`scripts/benchmark-ai-reranking-providers.mjs` +
 `scripts/lib/ai-reranking-benchmark-*.mjs`) as its structural template rather than duplicating
@@ -8220,7 +8220,7 @@ Fettspeck/Rückenspeck, Schinkenspeck) plus „Nicht sicher". Exact approved cop
 ## Resolver V3 – AI-First Interpretation & Source-Grounded Retrieval (Benchmark-Gated)
 
 **Goal:** Reconcile the Resolver V2 "deterministic-first, AI-only-as-late-fallback" ordering
-with new product evidence (Amy Food Journal) suggesting AI should be the *first* semantic step
+with new product evidence (Amy Food Journal) suggesting AI should be the _first_ semantic step
 for inputs that miss the validated fast path — while keeping every existing invariant
 (deterministic calculation, source-grounded data, provider neutrality, AI never authoritative
 over nutrient values) unchanged. Full rationale, Amy evidence classification, and the mapping
@@ -8251,7 +8251,7 @@ multi-item decomposition, quantity/unit accuracy, energy/macro error, further-nu
 where available, regional accuracy, correction rate, abstention rate, false-confident-decision
 rate, repeat-consistency, p50/p95 latency, cost per new log, cost per validated log, cache-hit
 rate, provenance completeness, source-outage behavior). Amy's category taxonomy (Simple,
-Homemade, Restaurant, International, Typos, Portions) may inspire category *names*, but ground
+Homemade, Restaurant, International, Typos, Portions) may inspire category _names_, but ground
 truth must never be Amy's own report (Decision Record §2.3/§7).
 
 **DoD:** a documented, versioned corpus + ground-truth file (format TBD by the task, e.g.
@@ -8310,7 +8310,7 @@ Status: `todo`
 Depends on: RESOLVER-V3-001, RESOLVER-V3-002
 
 **Description:** A deliberately simple AI-only estimator (direct input → estimated foods +
-nutrients, no source grounding) as the *control group* — explicitly not the target system (per
+nutrients, no source grounding) as the _control group_ — explicitly not the target system (per
 Decision Record §7 and the original task framing). Uses the RESOLVER-V3-002 contract's
 interpretation output but skips source-grounded retrieval entirely, so its own estimate stands
 in for nutrient data. Isolated from the production resolver path.
@@ -8527,14 +8527,14 @@ Before marking Resolver V2 as done:
 - **AI Endpoints gating:** AI endpoints will never be anon. Strictly JWT + subscription/entitlement required.
 - **Deterministic-first:** No LLM calls in core logging pipeline. AI only for complex multi-item parsing when deterministic logic is insufficient.
   **(2026-07-19 reconciliation, see below):** this line's ordering premise ("AI only … when
-  insufficient") is superseded for the *unknown-input* branch only — see
+  insufficient") is superseded for the _unknown-input_ branch only — see
   [`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md)
   §4. The deeper invariant (deterministic calculation, deterministic validated fast path, AI
   never authoritative over nutrient values) is unchanged and reaffirmed there.
 - **Resolver V2 Architecture:** Multi-source fusion replaces sequential early-return to eliminate translation bias and improve match quality.
 - **AI-First Interpretation for Unknown Inputs (2026-07-19):** For inputs that fail the
   validated fast path (user alias / saved meal / BLS-DACH-truth / cache), AI runs as the
-  *first* semantic step (interpretation + source-native search planning via a typed,
+  _first_ semantic step (interpretation + source-native search planning via a typed,
   provider-neutral contract) rather than only as a last-resort low-confidence re-ranker.
   Source-grounded retrieval, evidence-based candidate selection, and deterministic nutrient
   calculation remain unchanged and binding. No production resolver replacement without a

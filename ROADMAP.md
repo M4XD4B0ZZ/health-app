@@ -8770,7 +8770,7 @@ scripts/...` command already satisfies "vom Repository-Root ausführbar"). The e
 
 #### RESOLVER-V3-005: Source-Grounded Retrieval Spike — Variant C
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-001, RESOLVER-V3-002; reuses existing `BlsStaticSource`/
 `SupabaseEdgeOffSource`/`SupabaseEdgeUsdaSource` adapters unchanged
 
@@ -8784,6 +8784,186 @@ no persistence beyond what the spike needs for benchmarking.
 **DoD:** harness variant that runs the same corpus through Variant C; no changes to the
 production resolver's default wiring in `container.ts`; existing source adapters reused, not
 forked.
+
+**Implementation notes:** New modules alongside RESOLVER-V3-003/004's Variant-A/B harnesses in
+[`src/features/nutrition/benchmark/`](../src/features/nutrition/benchmark/) — Variant C is not
+registered in `container.ts`, never changes `LogFoodFromRawInputUseCase`/`nutritionSnapshot`, and
+performs no journal/Supabase persistence.
+
+- **Fast path** ([`ResolverV3VariantCAdapter.ts`](../src/features/nutrition/benchmark/ResolverV3VariantCAdapter.ts)):
+  reuses RESOLVER-V3-003's own `buildVariantAResolver()`/`runVariantACase()` verbatim as the
+  validated fast path — a case counts as fast-pathed exactly when the real, unmodified
+  `SequentialFoodCatalogResolver`'s own `ResolverDecision.status === 'accepted'`
+  (`ResolverDecisionPolicy`'s existing accept threshold). No new confidence threshold is invented.
+  The AI interpretation call is skipped entirely for a fast-pathed case; `VariantCFastPathInfo`
+  records the reason and `avoidedAiCalls`.
+- **AI interpretation** — the unmodified RESOLVER-V3-002 `AiInterpretationProvider` port is used
+  exactly as designed: `interpret()` returns the same `AiInterpretationResult` discriminated union
+  (`interpreted`/`interpreted_with_assumptions`/`clarification_required`/`not_interpretable`/
+  `unavailable`/`error`), never extended with a nutrient field. Since that port has no place to
+  carry cost/token usage, a small benchmark-local wrapper interface,
+  `VariantCAiInterpreter` (in `VariantCTypes.ts`), composes an `AiInterpretationProvider` with
+  run-only cost metadata (mirrors RESOLVER-V3-004's own "cost lives outside the food-facing
+  result" rule) — `FixtureCostAiInterpreter` wraps any provider at `$0`/`known` for fixture runs;
+  the live provider implements `VariantCAiInterpreter` directly so it can report real token usage.
+- **Search-plan-constrained retrieval**
+  ([`ResolverV3VariantCRetrieval.ts`](../src/features/nutrition/benchmark/ResolverV3VariantCRetrieval.ts)):
+  the documented semantic gap between RESOLVER-V3-002's per-component, per-source-type
+  `ComponentSearchPlan` and `SequentialFoodCatalogResolver`'s single-fixed-priority-order/single-
+  query loop is bridged by the smallest possible benchmark-local adapter: for each component, only
+  the plan's `suitableSourceTypes` minus `excludedSourceTypes` are queried, each with its own
+  `nativeQueries` entry (falling back to the component's `interpretedName` with a warning if the
+  plan omitted one for that source type); an unregistered source type is reported as a warning,
+  never silently skipped. Candidates from every queried source are then scored via the exact,
+  imported `ScoreCalculator`/`ResolverDecisionPolicy.buildResolverDecision` — zero
+  ranking/decision logic is duplicated. `inputTypeForResolutionKind()` is a small, documented
+  vocabulary mapping (AI's `ExpectedResolutionKind` → the resolver's existing `inputType`), not a
+  new classifier.
+- **Sources supported:** BLS via the real `BlsStaticSource` (default-registered); OFF/USDA are
+  fully wired through the same generic `sourcesByType` map (proven by
+  `ResolverV3VariantCRetrieval.test.ts`) but the shared 14-case corpus never plans an OFF/USDA
+  search (it is BLS-only, per RESOLVER-V3-003's own committed scope), so that path is exercised by
+  unit tests, not the corpus run — documented as a known scope boundary, not silently ignored.
+- **Deterministic quantity scaling** ([`VariantCQuantity.ts`](../src/features/nutrition/benchmark/VariantCQuantity.ts)):
+  `resolveComponentGrams()` reuses the existing production portion model
+  (`resolvePortionGrams`/`PortionKnowledgeService`/`SEED_PORTION_HINTS`/`detectCanonicalEntity`)
+  unchanged — no new universal gram weights are invented. Explicit grams are used directly;
+  `piece` quantities resolve via the existing seed portion hints (egg 60 g/piece, toast 35 g/slice
+  — the household-measure text is mapped to the existing `'slice'` unit only when it contains
+  "Scheibe", a small documented heuristic); `ml` and bare `portionDescription`-only quantities are
+  reported `not_convertible` rather than guessed (no invented density/weight). Grams are then
+  scaled via the existing, unmodified `computeTotals()`.
+- **Deterministic meal summation:** totals are summed only when every component reached
+  `resolverStatus === 'accepted'` **and** had a convertible quantity; otherwise `totals` stays
+  `null` and the outcome is `partially_resolved`/`abstained` rather than a falsely-complete
+  `resolved` — enforced both structurally and by a dedicated regression check
+  (`isPartialMealMisreportedAsComplete`).
+- **Outcome taxonomy** (`VariantCMealOutcome` in `VariantCTypes.ts`): all 10 ROADMAP-required
+  values (`resolved`/`resolved_with_assumptions`/`partially_resolved`/`clarification_required`/
+  `multiple_candidates`/`abstained`/`not_interpretable`/`unavailable`/`invalid_response`/`error`).
+  `invalid_response`/`error` are produced only by the (optional) live provider's response
+  validator, never by the fixture path. A provisional, documented derivation rule classifies the
+  meal from the per-component resolution mix (fully-resolved/ambiguous/unresolved counts) — same
+  "provisional, documented, variant-internal" precedent as Variant A/B's own expected-behavior
+  tables.
+- **AI-nutrient isolation:** verified both structurally (no nutrient field exists anywhere on
+  `InterpretedFoodComponent`/`AiInterpretationResult`) and by a dedicated test that smuggles an
+  extraneous numeric field onto a fixture AI component and asserts it never reaches
+  `macrosPer100g`/`scaledNutrients` (only a chosen source candidate's `CanonicalFood.macrosPer100g`
+  ever populates those fields).
+- **Provenance:** every component result carries `ComponentProvenance` (`sourceType`/`sourceId`/
+  `sourceGrounded`); a resolved numeric result with `sourceGrounded: false` is a provenance defect,
+  checked both directly and via `aggregateVariantCMetrics`'s `unbackedNumericResultCount`
+  (asserted `0` on the real corpus run).
+- **False confidence / partial-as-complete** ([`evaluateVariantCCase.ts`](../src/features/nutrition/benchmark/evaluateVariantCCase.ts)):
+  a separate, documented, Variant-C-internal rule (`isFalseConfidentC`) — distinct from Variant
+  A/B's own rules, per instruction not to invent a shared cross-variant confidence scale.
+  `isPartialMealMisreportedAsComplete` is tracked as an independent critical-failure trigger.
+- **Evaluation reuse:** `namesMatch`/`precisionRecallF1` are imported directly from
+  RESOLVER-V3-004's `evaluateVariantBCase.ts` (not re-derived); `NEAR_ZERO_GUARD`/
+  `relativeMacroError`/`toleranceBandFor` are imported from the shared
+  `benchmarkMetricsShared.ts`. Since the shared 14-case corpus's `referenceNutrients` are (like
+  Variant A's own evaluation) per-100g figures rather than quantity-scaled totals, macro/
+  identification evaluation targets the first meal component's per-100g candidate — identical
+  scope convention to Variant A/B on this corpus; full component-array precision/recall/F1 is
+  still computed generically (`matchComponentsC`) and is exercised meaningfully by the dedicated
+  multi-component test (`ResolverV3VariantCAdapter.test.ts`'s "Zwei Scheiben Toast mit Butter und
+  Gouda" case, reusing the exact RESOLVER-V3-002/benchmark-spec §2.4 Example 3 input).
+- **Live provider (optional, infra adapter)**
+  ([`VariantCLiveInterpretationProvider.ts`](../src/features/nutrition/benchmark/VariantCLiveInterpretationProvider.ts)):
+  Anthropic Claude via a raw `fetch()` call, same HTTP/retry/cost technique as
+  `VariantBLiveProvider.ts` (hand-ported, not cross-imported, for the same ts-jest/ESM-module-
+  system reason already documented there) — but with Variant C's **own** prompt/schema/parser
+  ([`variantCPrompt.ts`](../src/features/nutrition/benchmark/variantCPrompt.ts)/
+  [`validateVariantCInterpretationResponse.ts`](../src/features/nutrition/benchmark/validateVariantCInterpretationResponse.ts)),
+  which ask/validate for interpretation + search planning ONLY (matching `AiInterpretationResult`
+  field-for-field) — never Variant B's direct-nutrient-estimate contract. A schema-validation
+  failure normalizes to `AiInterpretationResult.outcome: 'error'` with a
+  `schema_validation_failed:`-prefixed message (the shared V3-002 contract has no separate
+  `invalid_response` outcome; that distinction lives at the Variant-C meal-outcome level).
+  `createLiveVariantCInterpreter()` throws a precise, secret-free
+  `VariantCLiveProviderConfigError` when `ANTHROPIC_API_KEY` is absent — verified directly to
+  never touch `fetch` in that case. Provider/model choice (`claude-haiku-4-5` default, same
+  price-snapshot caveat as `VariantBLiveProvider.ts`) is explicitly non-binding.
+- **Fixture corpus** ([`VariantCFixtureInterpretations.ts`](../src/features/nutrition/benchmark/VariantCFixtureInterpretations.ts)):
+  7 hand-authored `AiInterpretationResult` fixtures for exactly the 7 shared-corpus cases whose
+  Variant A fast path does NOT return `accepted` (Himbeeren, Speck, Tomate, Gurke, Reis, Spätzle,
+  Zwiebelrostbraten) — the other 7 cases resolve via the fast path and never reach the fixture
+  table at all. Mixed quality by design, not engineered to guarantee wins: Speck asks a genuine
+  clarification without any retrieval; Zwiebelrostbraten still correctly finds nothing in BLS and
+  abstains; Tomate/Gurke/Himbeeren/Spätzle use more domain-precise native queries than the bare
+  raw input (never a ground-truth value or ID copied verbatim) — whether those queries actually
+  change the outcome is left to the real harness run, not asserted in the fixture file.
+- **Reports** ([`buildResolverV3VariantCReports.ts`](../src/features/nutrition/benchmark/buildResolverV3VariantCReports.ts)):
+  own JSON/Markdown files (`logs/resolver-v3-variant-c-benchmark.{json,md}`, gitignored, never
+  overwrites A/B's), leading with an explicit "technical spike, not a production integration"
+  banner and a fixture-mode "NOT evidence of real AI-model quality" banner. `meta.interpreterVersion`
+  reports the interpreter actually used by any AI-called case in that run (never a hardcoded
+  constant that could misrepresent fixture vs. live).
+- **CLI** ([`scripts/benchmark-resolver-v3-variant-c.mjs`](../scripts/benchmark-resolver-v3-variant-c.mjs)):
+  `node scripts/benchmark-resolver-v3-variant-c.mjs [--live] [--cases=ID1,ID2,...] [--help]`,
+  identical execution mechanism (scoped Jest invocation against
+  `runResolverV3VariantCBenchmark.harness.ts`, invisible to `npm run test`/`npm run verify`) and
+  exit-code contract (non-zero only for harness/config failures, never for a "bad" benchmark
+  result) as Variant A/B's own CLIs. Default is fixture mode (zero network); `--live` requires
+  `ANTHROPIC_API_KEY` and never silently falls back to fixture. No `package.json` change (same
+  protected-file precedent as A/B).
+- **Tests:** 8 new suites under `src/features/nutrition/benchmark/__tests__/` (+83 tests) —
+  orchestrator (fast path vs. AI fall-through, all 6 `AiInterpretationResult` outcomes normalized,
+  search-plan source/query restriction incl. excluded-source and unregistered-source handling,
+  missing-provenance detection, AI-nutrient-isolation, deterministic single/multi-component
+  scaling and summation, partial-vs-complete-meal guard, the 3-component composed-input case),
+  retrieval adapter (native-query-per-source, ranking/decision-reuse equivalence check against a
+  direct `ScoreCalculator`/`buildResolverDecision` call), quantity resolution (explicit grams,
+  seed-hint piece/slice conversion, `ml`/bare-portion `not_convertible` paths), evaluation
+  (identification incl. canonical-equivalence, expected-behavior table incl. abstention/
+  clarification not auto-failing, false-confidence rule, provenance/macro/near-zero checks,
+  component P/R/F1), aggregation (repeat-group consistency incl. an inconsistent-group negative
+  case, cost/latency, never-divide-by-zero), report shape/sort-stability/banner presence, the live
+  provider's credential guard (never touches `fetch` without a key), and an end-to-end fixture run
+  of the full committed corpus that spies on `global.fetch` and asserts it is never called plus
+  asserts zero unbacked-numeric and zero partial-misreported-as-complete results. Full suite:
+  154 suites / 1417 tests, all green (`npm run verify`: `tsc --noEmit`, `eslint .`,
+  `prettier -c .`, `jest --runInBand` all clean).
+- **Variant A/B baseline re-verification (mandatory, no shared-infrastructure changes made this
+  time beyond reusing existing exports):** re-ran both canonical CLIs after this task's changes —
+  Variant A: 14 cases, 75.0% identification (9/12 applicable), 1 critical (false-confident)
+  failure (Brötchen), both repeat-consistency groups consistent — byte-identical to the
+  RESOLVER-V3-003/004 baseline. Variant B fixture: 14 cases, 91.7% identification (11/12
+  applicable), 1 critical failure, component P/R/F1 91.7%/84.6%/0.88, cost $0 — identical to the
+  RESOLVER-V3-004 baseline.
+- **Variant C fixture-mode result (this run, informational only — recorded-fixture evidence, NOT
+  real AI-quality evidence):** 14 cases; **7/14 used the validated fast path** (7 AI calls
+  avoided); of the 7 AI-routed cases, identification accuracy over applicable cases was 83.3%
+  (10/12, vs. Variant A's 75.0%/9/12 on the identical corpus) — RV3-0007 (Himbeeren), RV3-0009
+  (Tomate), RV3-0010 (Gurke), and RV3-0013 (Spätzle) all resolved correctly via a more
+  domain-precise AI-planned native query where Variant A itself is ambiguous or (Tomate/Gurke)
+  confidently wrong; RV3-0008 (Speck) correctly asked for clarification without retrieval;
+  RV3-0014 (Zwiebelrostbraten) correctly abstained (BLS genuinely has no entry); RV3-0012 (Reis)
+  produced `multiple_candidates` as expected but with a wrong top-pick identification (an honestly
+  reported limitation, not smoothed over). The one critical (false-confident) failure is RV3-0011
+  (Brötchen) — inherited unchanged from Variant A's own fast path, since a fast-pathed case never
+  reaches the AI/retrieval stage this task changed. Component P/R/F1 76.9%/76.9%/0.77 (all
+  single-component cases on this corpus). Zero unbacked numeric results; zero partial-meals
+  misreported as complete. Cost $0 (fixture mode, zero real AI calls for the 7 fast-pathed cases,
+  7 zero-cost fixture calls for the rest).
+- **Live-mode result: not run.** No `ANTHROPIC_API_KEY` (or any other provider credential) is
+  configured in this execution environment (same empirical finding as RESOLVER-V3-004). The live
+  provider's credential guard and the CLI's `--live`-without-key path were verified directly
+  instead (exit 1 / throws, secret-free message, no fixture fallback, `fetch` never touched). A
+  real live smoke run remains open for whoever next has provider credentials.
+- **Known, documented scope boundaries:** the shared 14-case corpus is single-component and
+  BLS-only, so true multi-component decomposition and OFF/USDA search-plan execution are
+  implemented and unit-tested but not exercised by this specific corpus run; fast-path components
+  report only per-100g macros (no quantity parsing at that boundary), mirroring Variant A's own
+  documented harness scope; the Decision-Record-§5.4-suggested extension of `ScoreCalculator`/
+  `ResolverDecisionPolicy` with cross-source contradiction handling and user-history input was
+  deliberately NOT implemented here — both are shared production modules also used by Variant A,
+  so modifying them would have gone beyond a benchmark-local spike and directly risked changing
+  Variant A's own behavior; this is left as an explicit open decision for a later task rather than
+  silently done or silently skipped. Cache-hit rate remains structurally not applicable before
+  RESOLVER-V3-008. `namesMatch()`'s heuristic limitations are the same already-documented
+  provisional approximation as RESOLVER-V3-004.
 
 ---
 

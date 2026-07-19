@@ -51,6 +51,82 @@ Abschnitt in [Manuelle Test-Checkliste](#manuelle-test-checkliste) entsprechend.
 
 ## Log
 
+### 2026-07-19 — DI-011: Evaluation-Freshness nach delete-inklusiven Journal-Mutationen (bestätigter nativer Defekt; noch **nicht** behoben — Task bleibt `in_progress`)
+
+- **Status:** ⏳ offen (dies ist **kein** normaler Manual-Testing-Gap-Eintrag für eine bereits
+  umgesetzte Änderung — `EvaluationSummaryScreen.tsx`/`JournalScreen.tsx` wurden in dieser
+  Phase **nicht geändert**. Dieser Eintrag dokumentiert die exakte native Reproduktion eines
+  bestätigten Defekts plus die genauen Schritte, die auf einem echten Android-Gerät/Emulator
+  nötig sind, um die verbleibende Diagnosehypothese zu klären und danach den kleinstmöglichen
+  Fix zu verifizieren. Siehe `ROADMAP.md`'s DI-011-Eintrag für die volle Beweisführung: ein
+  automatisierter Reproduktions-Harness gegen die echte Produktions-Repository-/Use-Case-Ebene
+  (`PersistedFoodEntryRepository`, `DeleteFoodEntryUseCase`,
+  `BuildEvaluationInputForDateUseCase`, `GetActiveEvaluationOutputUseCase`) zeigt **keinen**
+  Fehler in der Request-Ordering-Guard-Logik oder der Datenschicht — das Problem ist damit auf
+  eine native-only-Ursache eingegrenzt (Fokus-Event feuert nicht auf nativen Bottom-Tabs, oder
+  ein `react-native-screens`-natives Verhalten, das sich von Web unterscheidet), die headless
+  nicht geprüft werden kann.)
+- **Branch/PR:** `claude/di-011-evaluation-freshness-pfpntt`
+- **Bestätigte native Reproduktion (exakte Schritte):**
+  1. Ein Speck-Eintrag existiert; Auswertung hat bereits Summen für diesen Zustand geladen
+     (386 kcal / 24 g Protein / 1 g Kohlenhydrate / 32 g Fett).
+  2. Im Protokoll-Tab: Speck löschen.
+  3. "100 g Haferflocken" loggen.
+  4. Protokoll zeigt korrekt nur noch: 348 kcal / 13 g Protein / 53 g Kohlenhydrate / 7 g Fett.
+  5. Zum Auswertung-Tab wechseln, **ohne die App neu zu starten**.
+  6. **Fehler:** Auswertung zeigt weiterhin fälschlich den alten Speck-Snapshot (386/24/1/32)
+     — nicht die korrekten Haferflocken-Werte.
+  7. App vollständig schließen und neu starten.
+  8. Auswertung zeigt danach korrekt: 348 kcal / 13 g Protein / 53 g Kohlenhydrate / 7 g Fett.
+- **Betroffene Bereiche (in dieser Phase, Test-only):**
+  - `src/presentation/features/evaluationSummary/__tests__/DI011EvaluationFocusFreshness.test.ts`
+    (neu) — automatisierter Reproduktions-Harness (8 Fälle, alle grün) gegen die echte
+    Produktionslogik; siehe Dateikopf für die vollständige Methodik und warum kein echtes
+    `NavigationContainer`/Bottom-Tab-Rendering möglich war (dieses Repo kann
+    `@react-navigation/*`/`react-native` unter der aktuellen `ts-jest`-Konfiguration nicht
+    importieren — bestätigtes, vorbestehendes Repo-Limit, keine neue Einschränkung).
+  - **Keine** Produktionsdatei geändert (`EvaluationSummaryScreen.tsx`,
+    `JournalScreen.tsx`, Navigation, Repository — alle unverändert). Kein Fix implementiert,
+    da die Beweislage (siehe oben) noch keinen spezifischen, headless nachweisbaren
+    Fehler identifiziert — genau der in `ROADMAP.md` beschriebenen Evidence-Gate-Regel
+    folgend ("Do not select or implement a production fix until the automated harness
+    demonstrates the faulty lifecycle").
+- **Verifiziert durch Agent:** `npm run verify` grün (132 Suiten / 1162 Tests, +1 Suite / +8
+  Tests gegenüber der DI-010-Baseline — alle bestehenden Suiten unverändert grün). Der neue
+  Harness deckt: exakte Speck→Haferflocken-Sequenz, Create-only-Refresh, Edit-Refresh,
+  Delete-zu-leer, schnelle Blur/Focus-Wechsel, Out-of-Order-Async-Auflösung (älterer Load
+  überschreibt neueren NICHT — Guard bestätigt korrekt), Error→Recovery, sowie DI-008s
+  „loadState wird synchron vor jedem Await auf 'loading' gesetzt" (keine Stale-Anzeige auch
+  nur kurzzeitig). Die Sensitivität des Harnesses selbst wurde verifiziert, indem die
+  Guard-Prüfung testweise deaktiviert wurde — der Out-of-Order-Test schlug daraufhin
+  korrekt fehl (kein trivial-grüner Test).
+- **Nicht verifiziert (nur auf echtem Gerät möglich):** ob das native `focus`-Event beim
+  echten Tab-Wechsel überhaupt feuert (Diagnosehypothese 1), und ob natives
+  `react-native-screens`-Verhalten (automatisch aktivierte native `ScreenContainer`s auf
+  iOS/Android — bestätigt in `node_modules/react-native-screens/lib/module/core.js`:
+  `ENABLE_SCREENS = isNativePlatformSupported`, ohne dass die App `enableScreens()` je
+  aufruft; auf Web bleibt dieses Flag `false`, sodass Web-seitig nur einfache RN-`View`s statt
+  nativer Screen-Container gerendert werden) eine Rolle spielt (Diagnosehypothese 5). Beides
+  ist eine echte, zuvor undokumentierte Web/Native-Verhaltensasymmetrie in der bereits
+  verwendeten Navigations-Bibliothek, die DI-009s rein web-basierte Playwright-Verifikation
+  nie abgedeckt hat.
+- **Zu testen (native Gegenprüfung, vor dem eigentlichen Fix):**
+  1. Vorgeschlagene, noch **nicht** implementierte Diagnose-Instrumentierung (siehe
+     `ROADMAP.md` DI-011 für den vollen Vorschlag): drei bedingte Trace-Logs in
+     `EvaluationSummaryScreen.tsx` (Fokus-Event-Feuerung, `requestId` bei Load-Start,
+     `requestId` + committete Summen bei Load-Commit), hinter einem Default-`false`-Flag.
+  2. Exakte Speck→Haferflocken→Tab-Wechsel-Sequenz oben auf einem echten Android-Gerät/
+     Emulator ausführen, Trace via `adb logcat`/Metro-Konsole aufzeichnen.
+  3. Bestätigen, ob das Fokus-Event feuert und mit welcher `requestId`, und ob eine
+     `requestId` mit veralteten Summen committet.
+  4. Anhand des Traces die tatsächliche Ursache bestimmen und danach den kleinstmöglichen Fix
+     auswählen (siehe DI-011s "Possible fixes" in der Original-Aufgabenbeschreibung:
+     Fokus-Lifecycle-Korrektur, Request-Generation-Tokens-Erweiterung,
+     Stale-Request-Suppression, lokale Cancellation/Mounted-Guards, Dependency-Korrektur).
+  5. Nach dem Fix: exakte Sequenz erneut nativ verifizieren — Auswertung muss nach
+     Speck-Löschen + Haferflocken-Loggen + Tab-Wechsel **ohne Neustart** sofort
+     348/13/53/7 zeigen, nie den alten 386/24/1/32-Snapshot.
+
 ### 2026-07-18 — ACC-021: Development/Production Expo App-Identity-Varianten (dynamische `app.config.ts`; nativer Parallel-Install + Callback nur auf echtem Gerät prüfbar)
 
 - **Status:** ⏳ offen (keine Presentation-Layer-Datei geändert — kein Screen, keine

@@ -5989,6 +5989,186 @@ live-verified.
 
 ---
 
+#### DI-011: Evaluation freshness after delete-inclusive Journal mutations
+
+Status: `in_progress` (native verification pending — see "Native verification required"
+below; must NOT be marked `done` from Jest/web/CI alone per explicit task instruction)
+Depends on: DI-009 (cross-tab focus-reload — this task's prior foundation; DI-011 does
+**not** reopen DI-009 and is **not** a regression of DI-009's own code, which has not
+materially changed since it merged), DI-008 (`loadState` machine, reused unmodified)
+Origin: confirmed native reproduction, reported 2026-07-19.
+
+**Confirmed native reproduction:** a Speck entry existed; Auswertung had already loaded
+totals for it (386 kcal / 24 g protein / 1 g carbs / 32 g fat). In Protokoll: delete Speck,
+log "100 g Haferflocken" — Protokoll correctly shows only the Haferflocken totals (348 kcal /
+13 g protein / 53 g carbs / 7 g fat). Switching to Auswertung **without restarting the app**
+incorrectly continues showing the stale pre-delete Speck snapshot (386/24/1/32). Fully
+closing and restarting the app then shows the correct Haferflocken-only totals (348/13/53/7).
+
+**Established facts (not to be re-derived):** Journal persistence is correct; the deleted
+Speck entry is not permanently included; evaluation formulas/nutrient data are correct after
+a fresh read; Journal and Evaluation use the same singleton `PersistedFoodEntryRepository`
+(confirmed again in this task via `src/infrastructure/di/container.ts`'s constructor: one
+`this._foodEntryRepository = new PersistedFoodEntryRepository(...)` instance passed into
+both `NutritionReadRepositoryFromFoodEntryRepository`/Journal use cases and
+`BuildEvaluationInputForDateUseCase`); repository mutations are awaited before their UI
+handlers complete (`JournalScreen.handleDeleteEntry`/`submitRawInput` both `await` the
+use case, then `await loadJournalData()`); the defect is live in-session presentation
+freshness, not a persistence bug; DI-009 introduced `useFocusEffect`-based reloading and that
+code has not materially changed since; existing automated tests do not exercise
+`useFocusEffect` or a real tab-navigation lifecycle; DI-009 was only verified on web
+(`expo start --web` + Playwright) and never covered a native delete → create → tab-switch
+sequence.
+
+**Phase 1 — reproduction harness (built, run, evidence gathered):**
+
+`src/presentation/features/evaluationSummary/__tests__/DI011EvaluationFocusFreshness.test.ts`
+(8 cases, all passing — see that file's header comment for the full methodology writeup).
+
+_Why it does not render `EvaluationSummaryScreen.tsx`/`JournalScreen.tsx` inside a real
+`NavigationContainer`/bottom-tab navigator, despite that being explicitly preferred:_
+confirmed by direct experiment that importing `@react-navigation/native` (or either screen
+file, which imports both `react-native` and `@react-navigation/native`) fails immediately
+under this repo's actual Jest config (`ts-jest`, `testEnvironment: 'node'`, no
+`transformIgnorePatterns`/babel transform for node_modules ESM output):
+
+```
+SyntaxError: Unexpected token 'export'
+node_modules/@react-navigation/native/lib/module/index.js:3
+```
+
+No `react-test-renderer`/`@testing-library/react-native` dependency exists either (confirmed
+by every prior DI-002/DI-007/DI-008/DI-009/DI-010/GE-010/GE-011 entry in this file — a
+long-standing, pre-existing constraint, not introduced by this task). Adopting React
+Native's own jest-preset to fix this would be a disproportionate, high-blast-radius test
+infrastructure change (global transform swap, native module mocking) well outside "the
+dependencies already present" and this task's scope — not attempted.
+
+_What the harness actually does instead:_ drives the REAL, unmocked production
+repository/use-case/rule layer — `PersistedFoodEntryRepository`, `DeleteFoodEntryUseCase`,
+`BuildEvaluationInputForDateUseCase`, `GetActiveEvaluationOutputUseCase`,
+`CalorieMacroCorridorRule`, `PersistedActiveProfileRepository` (none of these import
+react/react-native/react-navigation, so all of it is real production code) — through a
+`FocusEffectDriver` verified line-for-line against `@react-navigation/core`'s actual
+`useFocusEffect` source (`node_modules/@react-navigation/core/lib/module/useFocusEffect.js`,
+quoted in the test file), plus an `EvaluationSummaryLoadMirror` that is a verified
+line-for-line port of `EvaluationSummaryScreen.tsx`'s current `load()` (React `setState`
+calls replaced with plain field writes + an event log; the `loadRequestIdRef`
+generation-counter guard reproduced exactly, unchanged). The harness's own sensitivity was
+validated by temporarily neutering the guard's stale-overwrite check — the out-of-order test
+correctly failed, confirming the suite is not trivially green.
+
+**Results — all 9 required-coverage scenarios exercised, all pass against the real
+production logic:**
+
+1. Exact delete-inclusive sequence (Speck → delete → Haferflocken → refocus): only
+   replacement totals (348/13/53/7) ever commit.
+2. Create-only refresh: new entry appears on refocus.
+3. Edit refresh: corrected values appear on refocus.
+4. Delete to completed-empty: zero totals on refocus, not stuck/stale.
+5. Rapid blur/focus transitions: only the final, last-triggered load commits; every
+   superseded one correctly bails without corrupting state.
+6. Out-of-order async completion: an older load's data resolving strictly after a newer
+   load has already committed does **not** overwrite the newer result (`loadRequestIdRef`
+   guard confirmed working exactly as designed).
+7. Error → later successful refocus recovery: `GoalsNotFoundError` surfaces correctly, a
+   later refocus after goals are set recovers to `success` with correct data.
+8. DI-008 loading state: `loadState` flips to `'loading'` synchronously, before any awaited
+   data resolves — the previous totals are never observably exposed mid-refresh.
+9. (DI-010/GE-010 regressions): out of scope for this harness (UI-only, unchanged by this
+   task) — existing domain-level DI-010/GE-010 test suites remain green, unmodified, and
+   `EvaluationSummaryScreen.tsx`/`GoalsScreen.tsx` were not touched.
+
+**Evidence-gate conclusion: the automated harness does NOT reproduce the defect.** The
+request-ordering guard algorithm (as currently written) and the underlying singleton
+repository data layer are both correct for every diagnostic hypothesis that is testable
+headlessly (hypotheses 2/3/4/6 from the task's diagnostic boundary: load discarded,
+overlapping loads, out-of-order overwrite, stale closure — none reproduce). This narrows the
+remaining live hypotheses to **1 (the focus-triggered load is not invoked on native) and 5
+(native bottom-tab focus behavior differs from the web harness DI-009 used)** — neither is
+verifiable in a headless Jest process.
+
+**Supporting technical finding (from reading, not assumed):** confirmed a genuine,
+previously-undocumented **native-vs-web behavioral asymmetry** in the navigation stack
+already in use, found while investigating hypothesis 5:
+`node_modules/react-native-screens/lib/module/core.js` sets
+`let ENABLE_SCREENS = isNativePlatformSupported;` — i.e. `react-native-screens`' native
+screen containers auto-enable themselves on iOS/Android **without** the app ever calling
+`enableScreens()` (confirmed absent anywhere in `src/`/`App.tsx`), while `isNativePlatformSupported`
+is `false` on web, so web always falls back to plain `View`-based tab rendering
+(`@react-navigation/bottom-tabs`' `ScreenFallback.js`: `MaybeScreen`/`MaybeScreenContainer`
+render a plain RN `View` whenever `Screens?.screensEnabled?.()` is falsy). This means DI-009's
+web-only Playwright verification exercised a fundamentally different tab-screen container
+implementation (plain DOM conditional rendering) than what native actually runs (native
+`RNSScreen`/`RNSScreenContainer` view managers with native-side attach/detach per
+`activityState`). `freezeOnBlur`/React-Freeze were separately ruled out by reading
+`react-native-screens`' `Screen.js`: `ENABLE_FREEZE` defaults to `false` and is never
+enabled anywhere in this app, so `freeze` evaluates to `false` regardless of platform — not
+the cause. The native screen container's attach/detach itself does not, by React Navigation's
+documented contract (verified against the real `useFocusEffect` source), affect when `focus`/
+`blur` events fire — those are driven by navigation state, not by the native view lifecycle —
+but this is exactly the kind of native-runtime-only interaction (JS-thread/native-bridge
+timing around a real device's screen attach/detach) that cannot be exercised, confirmed, or
+ruled out in a headless Jest process, and is the leading remaining suspect.
+
+**No production fix selected or implemented.** Per the task's evidence gate: "Do not select
+or implement a production fix until the automated harness demonstrates the faulty lifecycle,
+stale overwrite, or another specific evidence-backed failure" and "Do not invent a generic
+refresh mechanism merely because the native defect exists." The harness does not demonstrate
+a failure in any headlessly-testable part of the current implementation, so no
+`EvaluationSummaryScreen.tsx`/navigation change was made.
+
+**Proposed smallest temporary diagnostic instrumentation for a native run (not implemented —
+proposed only, pending human approval, since implementing it is itself a production-code
+change and the evidence gate says to stop before that):**
+
+- Add three `console.log`/native-visible trace lines, gated so they are trivially removable
+  (e.g. a single `DI011_TRACE` boolean constant at the top of `EvaluationSummaryScreen.tsx`,
+  default `false`): (1) inside the `useFocusEffect` callback, log a timestamp + incrementing
+  counter _before_ calling `load()`, to prove/disprove hypothesis 1 (does focus fire at all
+  on the exact native delete→create→switch-tab sequence); (2) at the top of `load()`, log the
+  captured `requestId`; (3) at the `loadState = 'success'`/error assignment sites, log the
+  `requestId` that committed and the resulting `calories`/`protein`/`carbs`/`fat` totals. Run
+  the exact Speck→Haferflocken→switch-tab sequence on a real Android device/emulator (per
+  `docs/MANUAL_TESTING_GAPS.md`'s new entry below) and capture the trace via
+  `adb logcat`/Metro's console. If the trace shows focus firing with a fresh `requestId` that
+  still commits stale totals, that reopens hypothesis 6 (a native-only out-of-order path this
+  harness's timing could not reproduce) and the fix would extend the existing
+  `loadRequestIdRef` guard's scope; if focus does not fire at all, the fix is in the
+  navigation/focus wiring itself (hypothesis 1), not the load logic. Remove the trace lines
+  once the real cause is confirmed, before implementing the actual fix.
+- This instrumentation is intentionally NOT added in this PR — it is a proposal for the next
+  step, requiring a real device/emulator to run and observe, which this session does not have.
+
+**Explicitly preserved (nothing here changed):** all evaluation formulas, target
+calculations, evaluation profiles, Journal mutation/soft-delete semantics, local-first
+persistence, navigation information architecture, Goals as the sole goal editor, DI-010's
+read-only goal display, GE-010's nutrient-specific assessment.
+
+**Forbidden items confirmed avoided:** no polling, no app-restart workaround, no global event
+bus, no new state-management framework, no repository persistence change, no
+nutrition-data/resolver change, no Supabase/auth/account/backup/sync work, no navigation
+redesign, no unrelated UI cleanup, no artificial delays in production code (the harness's
+`OrderControlledFoodEntryRepository` delay is test-only, in `__tests__/`), no dependency
+installation for the harness itself (`npm install --ignore-scripts` was run only to restore
+this repo's own already-declared `package.json`/`package-lock.json` dependencies, which were
+missing from a fresh checkout — no new dependency was added).
+
+**Native verification required — task stays `in_progress`:** per explicit task instruction,
+this task must NOT be marked `done` from Jest/web/CI alone. Closing it requires: (1) running
+the proposed diagnostic instrumentation (or an equivalent) on a real Android
+device/emulator against the exact Speck→Haferflocken→tab-switch sequence above to confirm
+which diagnostic hypothesis (1 vs. 5, or a new one the trace reveals) is the real cause; (2)
+implementing the smallest fix that evidence identifies; (3) re-verifying the exact native
+sequence fixes the display without a restart. See `docs/MANUAL_TESTING_GAPS.md`'s new DI-011
+entry for the exact device steps.
+
+**Verify (this Phase-1-only submission):** `npm run verify` (typecheck + lint + format:check +
+full suite, 132 suites / 1162 tests, +1 suite / +8 tests over the DI-010 baseline — all
+pre-existing suites unchanged/green).
+
+---
+
 ## EPIC: Account, Backup & Sync (Architecture) — Deferred
 
 Review-only architecture planning, **lowest priority**, to be planned separately after the

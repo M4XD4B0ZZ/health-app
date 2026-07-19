@@ -8400,8 +8400,9 @@ interface-plus-Noop pattern).
 
 #### RESOLVER-V3-003: Reproducible Benchmark Harness — Variant A (current resolver)
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-001
+Verify: VERIFY.md Category 4 (product/runtime code) — `npm run verify`
 
 **Description:** A script (structurally modeled on
 `scripts/benchmark-ai-reranking-providers.mjs`) that runs the RESOLVER-V3-001 corpus through
@@ -8411,6 +8412,135 @@ the defined metrics. Read-only against the resolver — no product code change.
 **DoD:** harness runs the full corpus deterministically; produces a metrics report; documented
 how to re-run it; `npm run test` unaffected (harness is not part of the Jest suite, same
 pattern as the existing AI-reranking benchmark).
+
+**Implementation notes:** New module
+[`src/features/nutrition/benchmark/`](../src/features/nutrition/benchmark/) — deliberately kept
+outside `application`/`domain`/`infrastructure` since it is benchmark tooling, not a shipped
+feature layer, mirroring `scripts/`' existing role as the repo's benchmark-tooling home
+(`scripts/lib/ai-reranking-benchmark-*.mjs` precedent) while still needing to import the real
+TypeScript resolver.
+
+- **Case schema** ([`BenchmarkCaseTypes.ts`](../src/features/nutrition/benchmark/BenchmarkCaseTypes.ts)):
+  an executable realization of
+  [`ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md`](../docs/domains/ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md)
+  §2's field list (`caseId`, `corpusVersion`, `category`, `groundTruthSource`, `referenceNutrients`
+  with `null` = "not provided" never zero, `expectedBehavior`, `criticalFailureConditions`,
+  `repeatGroupId` for the `REPEAT_CONSISTENCY` overlay, etc.), reusing `FoodSourceType`/locale
+  from `FoodCatalogSource.ts` and `ClarificationKind` from `AiInterpretationTypes.ts` rather than
+  inventing new vocabulary. Validated by hand-written, schema-near
+  [`validateBenchmarkCase.ts`](../src/features/nutrition/benchmark/validateBenchmarkCase.ts) (no
+  new validation dependency) with precise per-field, per-case error messages;
+  `assertValidCorpus()` also rejects duplicate `caseId`s. An invalid fixture throws
+  `BenchmarkCaseValidationError` and aborts the harness (DoD requirement).
+- **Adapter boundary**
+  ([`ResolverV3VariantAAdapter.ts`](../src/features/nutrition/benchmark/ResolverV3VariantAAdapter.ts)):
+  `buildVariantAResolver()` constructs the real, unmodified `SequentialFoodCatalogResolver` with
+  production defaults (`DEFAULT_CATALOG_CONFIG`, `DefaultConfidenceEngine`), the real
+  `BlsStaticSource` (reads the committed BLS artifact, no network — reproducibility principle 2)
+  and a `NoopResolverRunLogger` (no Supabase I/O during a benchmark run, no external requests
+  counted that aren't real). `runVariantACase()` builds the `FoodSearchQuery` via the exact same
+  `normalizeText`/`detectInputType` utilities the production `LogFoodFromRawInputUseCase` call
+  path uses, then calls `resolver.resolve()` — no ranking/decision logic is reimplemented. A
+  `FixtureFoodCatalogSource` test double (mirrors the existing `MockOffSource`/`MockUsdaSource`
+  pattern) is available for future OFF/USDA fixture injection; the initial smoke corpus only
+  exercises BLS.
+- **Evaluation** ([`evaluateVariantACase.ts`](../src/features/nutrition/benchmark/evaluateVariantACase.ts)):
+  pure functions mapping the raw `ResolverDecision` against a case's ground truth —
+  identification (`correct`/`acceptable_equivalent`/`wrong`/`no_resolution`/`not_applicable`,
+  §6.1), a documented provisional expected-behavior mapping table (§6.6, tri-state
+  `match`/`partial`/`mismatch` — e.g. an expected `clarification_required` is evaluated against
+  the resolver's own `ambiguous` status as the closest existing proxy, since a literal
+  clarification question is implemented one layer above the resolver boundary this harness
+  calls, transparently documented rather than hidden per the task's explicit instruction), a
+  provisional false-confidence rule (`status === 'accepted'` coinciding with a wrong/missing
+  identification or a ground truth that did not warrant a confident direct answer — the single
+  hard-weighted critical-failure signal per spec §6.6/§7), macro error with the near-zero-
+  denominator guard (§6.3/§6.4, kcal <20/macro <5g reported absolute-only) and never counting a
+  `null` reference nutrient as zero, and a provenance checklist (sourceId presence, no `ai`
+  source, no unbacked numeric result).
+- **Aggregation** ([`aggregateVariantAMetrics.ts`](../src/features/nutrition/benchmark/aggregateVariantAMetrics.ts)):
+  identification accuracy, expected-behavior match/partial/mismatch counts, critical-failure
+  count + case IDs, provenance rate, per-nutrient median-absolute/mean-signed macro error,
+  nearest-rank p50/p95 latency (`null` for empty samples, never `0`), and `REPEAT_CONSISTENCY`
+  group consistency (identical canonical identity + status across paraphrase/singular-plural
+  pairs).
+- **Reports** ([`buildResolverV3VariantAReports.ts`](../src/features/nutrition/benchmark/buildResolverV3VariantAReports.ts)):
+  a machine-readable JSON report (stable field names, cases sorted by `caseId`) and a
+  human-readable Markdown report (key metrics, critical failures, per-case table, explicit
+  "known limitations of this smoke run" section), both pure functions over already-computed
+  data. The orchestrator
+  ([`runResolverV3VariantABenchmark.ts`](../src/features/nutrition/benchmark/runResolverV3VariantABenchmark.ts))
+  writes both to `logs/` (gitignored generated artifact, same convention as
+  `FusionCalibrationMatrix.test.ts`'s `logs/fusion_calibration.log`) and re-runs every case twice
+  to detect non-determinism/flakiness (spec §6.7); it throws only on invalid fixtures or an
+  unexpected internal error — a bad benchmark result is captured in the report, never as a
+  thrown/non-zero-exit harness failure (architecture principle: harness success vs. benchmark
+  quality are different things).
+- **Execution mechanism (documented deviation, minimal and justified):** the actual harness
+  logic must import real TypeScript resolver modules, and this repo has no standalone
+  TS-execution tool (no `ts-node`/`esbuild-register`) outside Jest/`ts-jest`. Since the
+  resolver's full import graph (`SequentialFoodCatalogResolver` → `BlsStaticSource` →
+  `ScoreCalculator`/`ResolverDecisionPolicy`/`FoodAliasDictionary`/etc.) was verified to have
+  zero React Native/Expo/Supabase dependencies before writing this harness, it runs identically
+  under plain Jest (`testEnvironment: 'node'`) to how every other resolver test already does. The
+  canonical entry point is a plain Node wrapper,
+  [`scripts/benchmark-resolver-v3-variant-a.mjs`](../scripts/benchmark-resolver-v3-variant-a.mjs)
+  (`node scripts/benchmark-resolver-v3-variant-a.mjs`), which spawns a single, scoped Jest
+  invocation (`--testMatch` pointed only at
+  `runResolverV3VariantABenchmark.harness.ts`, using the existing root `jest.config.js`
+  unmodified) and forwards its exit code — this file is deliberately named `*.harness.ts`, not
+  `*.test.ts`, and lives outside any `__tests__` directory, so it is invisible to the default
+  `testMatch: ['**/__tests__/**/*.test.ts']` glob and therefore to `npm run test`/`npm run
+verify` (DoD requirement), while the harness's _own_ regression tests (schema validation,
+  metrics, adapter, report shape — 6 new suites under
+  `src/features/nutrition/benchmark/__tests__/`) run as ordinary Jest tests and are part of
+  `npm run verify`. No `package.json`/`package-lock.json` change — no canonical npm script was
+  strictly required since the direct `node scripts/...` command fully satisfies "vom
+  Repository-Root ausführbar", and `package.json` is a protected file under this task's own
+  governance guardrails.
+- **Initial smoke corpus** (14 cases, `src/features/nutrition/benchmark/resolverV3VariantASmokeCorpus.ts`,
+  smaller than the spec's ~25-case target because every case is backed by real, reproduced
+  evidence rather than invented filler): reuses the four already-proven
+  RESOLVER-V2-008/009 DACH cases (Magerquark, Haferflocken, Himbeeren — including the post-fix
+  "correct top-1 but `ambiguous` status" quirk — and the RESOLVER-V2-010 Speck ambiguity, whose
+  three non-equivalent BLS clusters are kept as `no_numeric_ground_truth` rather than averaged);
+  a Quark/Magerquark synonym repeat-pair and an Ei/Eier singular-plural repeat-pair (both
+  independently reproduced 2026-07-19 against the committed BLS artifact); three newly-traced,
+  currently-unfixed real defects (Tomate→"Tomate-Mozzarella", Gurke→"Gemüsesaft aus Gurke",
+  Brötchen→"Brötchen (Blätterteig)" — the last one a genuine, evidence-based **false-confident**
+  case: `status: 'accepted'` on a wrong, unusual variant with no ground truth support); a
+  legitimate acceptable-ambiguity case (Reis, two materially-similar milled-rice BLS records via
+  `canonicalEquivalents`); and an honest-abstention DACH regional-dish case (Zwiebelrostbraten —
+  BLS has no entry, resolver correctly returns `NO_CANDIDATES` rather than a fabricated number;
+  kept non-numeric per this task's explicit instruction not to reuse the Amy-reported figure from
+  the Decision Record as Zera ground truth). Every numeric reference value and BLS `sourceId` was
+  reproduced via the real resolver call path with a throwaway diagnostic test (deleted after
+  tracing), the same reproducible method RESOLVER-V2-008 used.
+- **Smoke result (this run, informational only — not a production signal per task scope):** 14
+  cases, identification accuracy 9/12 applicable (75.0%; 2 cases have no single falsifiable
+  identity target), expected-behavior match 9/14, 1 critical (false-confident) failure
+  (Brötchen), both repeat-consistency groups consistent, `sourcesRegistered: ['bls']` (no AI, no
+  OFF/USDA fixtures needed for this corpus).
+- **Tests:** 6 new suites under `src/features/nutrition/benchmark/__tests__/` (+56 tests) —
+  fixture validation (valid/invalid/duplicate-caseId), the adapter's real resolver-boundary call
+  (spied, not mocked) and disposition normalization, pure-function metric tests with small
+  controlled inputs (macro error incl. near-zero guard, p50/p95 on known samples, repeat-group
+  consistency, false-confidence classification, expected-behavior tri-state mapping incl. "an
+  expected clarification/ambiguity is not auto-scored as a failure"), machine-report determinism
+  and stable shape, and an end-to-end run of the full committed corpus (asserting the no-AI
+  baseline and the two known repeat groups). Full suite: 139 suites / 1232 tests, all green
+  (`npm run verify`: `tsc --noEmit`, `eslint .`, `prettier -c .`, `jest --runInBand` all clean).
+  Existing `SequentialFoodCatalogResolver`/`BlsStaticSource`/`SpeckAmbiguity` regression tests
+  are unchanged and still pass.
+- **Known, documented scope boundaries (not gaps to silently work around):** quantity/unit
+  accuracy and COMPOSED/HOMEMADE/RESTAURANT component-level precision/recall are not evaluated,
+  because `SequentialFoodCatalogResolver` resolves one food-name query at a time and does not
+  itself parse quantities or decompose multi-item input (that lives in
+  `PortionParser`/`DeterministicFoodParser`/the raw-input-splitting layer, all upstream of the
+  resolver boundary this task's ROADMAP entry scopes the harness to); reimplementing that
+  splitting inside the benchmark script would have duplicated resolver-adjacent logic, which
+  architecture principle 1 forbids. Cache-hit rate is structurally not applicable before
+  RESOLVER-V3-008, per spec §6.9.
 
 ---
 

@@ -7512,6 +7512,12 @@ no-op against `HealthDatabase` (`kbplfcqluqqowmvchvhc`) as expected — all four
 their policies already existed live. `supabase/migrations/` is now confirmed in sync with the
 remote project for this task's scope.
 
+**Disposition (2026-07-19 AI-first reconciliation — not superseded, extended):** stays
+`todo`, remains the correct owner of the missing `corrections` table. A missing *read* path
+(reusing `food_resolver_runs`/`food_query_cache_results` for cache hits, not just writing to
+them) is now tracked separately as RESOLVER-V3-008/009 below — see
+[`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md) §6.
+
 ---
 
 #### RESOLVER-V2-006: Persist Resolution Decisions
@@ -7574,6 +7580,11 @@ on `food_resolver_runs` in `HealthDatabase` (`kbplfcqluqqowmvchvhc`) — authent
 writes from `SupabaseResolverRunLogger` will no longer be silently rejected by RLS. This task
 still stays `todo` overall: the "user corrections update knowledge base" DoD line remains
 unimplemented pending the `corrections` table from RESOLVER-V2-005.
+
+**Disposition (2026-07-19 AI-first reconciliation — not superseded, extended):** stays
+`todo`. The write path (this task) is unaffected. The correction-to-knowledge-base rückkanal
+is now explicitly RESOLVER-V3-009 below — see
+[`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md) §6.
 
 ---
 
@@ -7898,6 +7909,17 @@ for the (explicitly dated, non-authoritative) pricing research that motivated a 
 instead of a hard-coded choice. RESOLVER-V2-007-B itself stays `todo` until the harness is
 actually run against real keys and a provider is picked.
 
+**Disposition (2026-07-19 AI-first reconciliation — not superseded, extended):**
+RESOLVER-V2-007-A/B/C stay `todo`/`done` as recorded above and remain a valid, independent AI
+contact point (re-ranking already-scored candidates below a confidence threshold). The new
+AI-first interpretation/search-planning contract (RESOLVER-V3-002 below) is a *different*
+capability — it decides what to search for, not which existing candidate is meant — and reuses
+this task's benchmark-harness pattern (`scripts/benchmark-ai-reranking-providers.mjs` +
+`scripts/lib/ai-reranking-benchmark-*.mjs`) as its structural template rather than duplicating
+it. See
+[`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md)
+§4 and §6.
+
 ---
 
 #### RESOLVER-V2-008: Generic-Food Resolver Trust Diagnosis (review-only)
@@ -8195,6 +8217,243 @@ Fettspeck/Rückenspeck, Schinkenspeck) plus „Nicht sicher". Exact approved cop
 
 ---
 
+## Resolver V3 – AI-First Interpretation & Source-Grounded Retrieval (Benchmark-Gated)
+
+**Goal:** Reconcile the Resolver V2 "deterministic-first, AI-only-as-late-fallback" ordering
+with new product evidence (Amy Food Journal) suggesting AI should be the *first* semantic step
+for inputs that miss the validated fast path — while keeping every existing invariant
+(deterministic calculation, source-grounded data, provider neutrality, AI never authoritative
+over nutrient values) unchanged. Full rationale, Amy evidence classification, and the mapping
+of this epic against the actual current resolver code:
+[`docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](../docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md).
+
+**This epic does not replace RESOLVER-V2-001..010.** It builds on them (see each task's
+"Disposition" note above) and is explicitly benchmark-gated: no task below authorizes a
+large-scale production resolver replacement before RESOLVER-V3-006's three-variant comparison
+exists and shows the hybrid variant (C) actually outperforms the current resolver (A).
+
+**Non-goals (binding, see Decision Record §8):** no Amy clone; no premature provider choice
+(Perplexity or otherwise); no unvalidated LLM output treated as nutrient truth; no removal of
+BLS; no full resolver rewrite in one PR; no DB migration without its own authorized task; no
+new dependency without explicit governance approval; no mixing of logging and evaluation; no
+treating Amy's self-published benchmark as independent validation; no global storage of raw
+personal data without its own privacy design.
+
+#### RESOLVER-V3-001: Benchmark Corpus, Ground Truth & Metrics Definition
+
+Status: `todo`
+Depends on: none
+Verify: VERIFY.md Category 1 (documentation-only)
+
+**Description:** Define the reproducible DACH-focused benchmark corpus, ground-truth rules per
+case category, and the full metrics list from Decision Record §7 (identification accuracy,
+multi-item decomposition, quantity/unit accuracy, energy/macro error, further-nutrient error
+where available, regional accuracy, correction rate, abstention rate, false-confident-decision
+rate, repeat-consistency, p50/p95 latency, cost per new log, cost per validated log, cache-hit
+rate, provenance completeness, source-outage behavior). Amy's category taxonomy (Simple,
+Homemade, Restaurant, International, Typos, Portions) may inspire category *names*, but ground
+truth must never be Amy's own report (Decision Record §2.3/§7).
+
+**DoD:** a documented, versioned corpus + ground-truth file (format TBD by the task, e.g.
+JSON/YAML fixtures under `scripts/` or `reports/`) covering all corpus categories from Decision
+Record §7 including at least one DACH regional-dish case; a documented metrics list with exact
+computation rules; no product code changed.
+
+---
+
+#### RESOLVER-V3-002: Provider-Neutral AI Interpretation & Search-Planning Contract
+
+Status: `todo`
+Depends on: none (can start in parallel with RESOLVER-V3-001; needs it before real evaluation)
+Verify: VERIFY.md Category 4 (product/runtime code) — `npm run verify`
+
+**Recommended first implementable code task of this epic** (see Decision Record's closing
+recommendation). Purely additive: a typed port + Noop default, mirroring the existing
+`AiRerankingProvider`/`FakeAiMealParser` pattern — no production wiring into
+`SequentialFoodCatalogResolver`, no external provider call, no new dependency.
+
+**Description:** Define a typed, provider-neutral interface (no model/provider names in
+domain/application layers, per `AGENTS.md` "Prohibited") for the AI interpretation/search-
+planning step described in Decision Record §5.2: input → structured output containing
+recognized food items, quantities/units, brand/preparation hints, explicit uncertainty/missing-
+information flags, and proposed source types + source-native search queries. The AI never
+computes or returns a nutrient value — output is exhausted by "what to look for and where",
+never "what it contains".
+
+**DoD:** new port interface + types (e.g.
+`src/features/nutrition/application/ports/AiInterpretationProvider.ts`) with a
+`NoopAiInterpretationProvider` default; unit tests for the type contract and the Noop default;
+no change to `SequentialFoodCatalogResolver`'s hot path; `npm run verify` green; no model/
+provider name anywhere in domain or application layer code.
+
+---
+
+#### RESOLVER-V3-003: Reproducible Benchmark Harness — Variant A (current resolver)
+
+Status: `todo`
+Depends on: RESOLVER-V3-001
+
+**Description:** A script (structurally modeled on
+`scripts/benchmark-ai-reranking-providers.mjs`) that runs the RESOLVER-V3-001 corpus through
+the actual merged `SequentialFoodCatalogResolver` and scores results against ground truth using
+the defined metrics. Read-only against the resolver — no product code change.
+
+**DoD:** harness runs the full corpus deterministically; produces a metrics report; documented
+how to re-run it; `npm run test` unaffected (harness is not part of the Jest suite, same
+pattern as the existing AI-reranking benchmark).
+
+---
+
+#### RESOLVER-V3-004: AI-Only Reference Estimation — Variant B
+
+Status: `todo`
+Depends on: RESOLVER-V3-001, RESOLVER-V3-002
+
+**Description:** A deliberately simple AI-only estimator (direct input → estimated foods +
+nutrients, no source grounding) as the *control group* — explicitly not the target system (per
+Decision Record §7 and the original task framing). Uses the RESOLVER-V3-002 contract's
+interpretation output but skips source-grounded retrieval entirely, so its own estimate stands
+in for nutrient data. Isolated from the production resolver path.
+
+**DoD:** harness variant that runs the same corpus through Variant B and scores it with the
+same metrics as Variant A; provider choice for this variant is explicitly non-binding on
+RESOLVER-V3-005/RESOLVER-V2-007-B.
+
+---
+
+#### RESOLVER-V3-005: Source-Grounded Retrieval Spike — Variant C
+
+Status: `todo`
+Depends on: RESOLVER-V3-001, RESOLVER-V3-002; reuses existing `BlsStaticSource`/
+`SupabaseEdgeOffSource`/`SupabaseEdgeUsdaSource` adapters unchanged
+
+**Description:** Implement Decision Record §5 end-to-end as an isolated spike (not wired into
+the production `LogFoodFromRawInputUseCase` path): RESOLVER-V3-002 interpretation/planning →
+existing source adapters queried with AI-proposed source-native queries → existing
+`ScoreCalculator`/`ResolverDecisionPolicy` for evidence-based selection (extended per Decision
+Record §5.4 with contradiction handling + user-history input) → deterministic calculation →
+no persistence beyond what the spike needs for benchmarking.
+
+**DoD:** harness variant that runs the same corpus through Variant C; no changes to the
+production resolver's default wiring in `container.ts`; existing source adapters reused, not
+forked.
+
+---
+
+#### RESOLVER-V3-006: Three-Variant Comparison Report
+
+Status: `todo`
+Depends on: RESOLVER-V3-003, RESOLVER-V3-004, RESOLVER-V3-005
+
+**Description:** Run all three variants against the same corpus and produce a single
+comparison report across every metric from RESOLVER-V3-001. This is the gate: no task below
+(RESOLVER-V3-010 onward) may proceed to production wiring unless this report shows Variant C
+outperforming Variant A on the metrics that matter for the product (not just calorie error —
+see Decision Record §7's full metric list).
+
+**DoD:** report under `reports/`, documented methodology, explicit pass/fail statement against
+the gate above.
+
+---
+
+#### RESOLVER-V3-007: Cost, Latency & Cache Analysis
+
+Status: `todo`
+Depends on: RESOLVER-V3-006
+
+**Description:** Deepen RESOLVER-V3-006's cost/latency/cache-hit-rate findings into a
+standalone analysis usable for a production cost model (per-log cost, per-validated-log cost,
+p50/p95 latency budget, projected cache-hit-rate growth over time as RESOLVER-V3-008 lands).
+
+**DoD:** documented cost/latency model with explicit assumptions; no product code change.
+
+---
+
+#### RESOLVER-V3-008: Persistent Personal Resolver Cache — Read Path
+
+Status: `todo`
+Depends on: RESOLVER-V3-006 (benchmark must justify the investment)
+Extends: RESOLVER-V2-005 (tables already live), does not duplicate them
+
+**Description:** Close the concrete gap identified in Decision Record §5.1/§5.7: a read path
+that consults `food_resolver_runs`/`food_query_cache_results` (already live) for reusable prior
+resolutions before falling through to AI interpretation, so repeated identical or
+near-identical inputs resolve deterministically and without a new AI call — directly addressing
+the consistency gap Amy's own users report (Decision Record §2.1).
+
+**DoD:** cache read path wired ahead of RESOLVER-V3-002/005 in the (still not production-wired)
+pipeline; cache-hit rate measurable via the RESOLVER-V3-001 metrics; no change to
+`food_resolver_runs`' write path (RESOLVER-V2-006) required.
+
+---
+
+#### RESOLVER-V3-009: Curated Knowledge Layer, Correction Loop & Privacy Boundary Decision
+
+Status: `todo`
+Depends on: RESOLVER-V3-008
+
+**Description:** Two things this task must do, not one: (1) wire the existing Correction Log
+(J-003) as a rückkanal into the knowledge layer so user corrections measurably improve future
+resolutions (Decision Record §6, item 6) and design the still-missing `corrections` table
+(RESOLVER-V2-005); (2) produce the explicit privacy-boundary decision Decision Record §5.7/§8
+deliberately leaves open — separating private journal/behavioral data, personal reuse cache,
+and any potentially-global anonymized/curated resolver knowledge. No raw personal data may
+become part of a global dataset without this decision existing first.
+
+**DoD:** `corrections` table design + migration; documented privacy boundary decision (own
+short decision record or an addendum to this one); correction data demonstrably changes a
+subsequent resolution in a test.
+
+---
+
+#### RESOLVER-V3-010: Production Integration Behind Feature Flag
+
+Status: `todo`
+Depends on: RESOLVER-V3-006 (gate must pass), RESOLVER-V3-008
+
+**Description:** Wire the RESOLVER-V3-005 hybrid path into `LogFoodFromRawInputUseCase`/
+`SequentialFoodCatalogResolver` behind a feature flag, default off. Only authorized once
+RESOLVER-V3-006 shows the hybrid variant winning; this task itself does not re-litigate that
+decision.
+
+**DoD:** feature-flagged production wiring; flag default off; existing resolver behavior
+unchanged when the flag is off; `npm run verify` green.
+
+---
+
+#### RESOLVER-V3-011: UX for Assumptions, Clarification & Correction
+
+Status: `todo`
+Depends on: RESOLVER-V3-010
+
+**Description:** Generalize the existing Speck-disambiguation UI pattern (RESOLVER-V2-010) —
+smallest-necessary clarification question (quantity, brand, or preparation only, never a free-
+text re-description) — for the broader set of uncertainty states Decision Record §5.6 requires
+(confident match, plausible match with editable assumption, multiple plausible candidates,
+source-based estimate, not reliably resolvable). Wires the currently dead
+`ResolverDecision.status` signal (RESOLVER-V2-010 finding) into actual UI behavior.
+
+**DoD:** UI states for all five uncertainty levels; no new free-text clarification prompts
+(pattern must stay tappable-choice based, per the Speck precedent); manual testing gap log
+entry per `AGENTS.md`/`VERIFY.md` if not visually verified.
+
+---
+
+#### RESOLVER-V3-012: Controlled Cutover with Regression & Real-Device Verification
+
+Status: `todo`
+Depends on: RESOLVER-V3-010, RESOLVER-V3-011
+
+**Description:** Flip the RESOLVER-V3-010 feature flag on by default after full regression
+coverage and real-device verification (per `VERIFY.md`'s Manual UI Testing Gap Log
+requirement), with an explicit rollback path back to the Resolver V2 behavior.
+
+**DoD:** flag defaults on; regression suite green; real-device verification documented (not a
+gap-log entry — an actual verified session, per `AGENTS.md`'s exception clause); rollback
+procedure documented.
+
+---
+
 # COMPLETED / GOVERNANCE / LEGACY PHASE GROUPS
 
 # PHASE 2 6 GUARDRAILS, AUTH & SUBSCRIPTION
@@ -8267,5 +8526,22 @@ Before marking Resolver V2 as done:
 - **Anon vs. Auth for Food Search:** Food search functions are anon for MVP (`verify_jwt=false`) with strict guardrails.
 - **AI Endpoints gating:** AI endpoints will never be anon. Strictly JWT + subscription/entitlement required.
 - **Deterministic-first:** No LLM calls in core logging pipeline. AI only for complex multi-item parsing when deterministic logic is insufficient.
+  **(2026-07-19 reconciliation, see below):** this line's ordering premise ("AI only … when
+  insufficient") is superseded for the *unknown-input* branch only — see
+  [`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md)
+  §4. The deeper invariant (deterministic calculation, deterministic validated fast path, AI
+  never authoritative over nutrient values) is unchanged and reaffirmed there.
 - **Resolver V2 Architecture:** Multi-source fusion replaces sequential early-return to eliminate translation bias and improve match quality.
+- **AI-First Interpretation for Unknown Inputs (2026-07-19):** For inputs that fail the
+  validated fast path (user alias / saved meal / BLS-DACH-truth / cache), AI runs as the
+  *first* semantic step (interpretation + source-native search planning via a typed,
+  provider-neutral contract) rather than only as a last-resort low-confidence re-ranker.
+  Source-grounded retrieval, evidence-based candidate selection, and deterministic nutrient
+  calculation remain unchanged and binding. No production resolver replacement without a
+  reproducible three-variant benchmark (current resolver / AI-only reference / AI-first
+  source-grounded hybrid) per
+  [`ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md).
+  Full rationale, Amy product-evidence classification, and architecture mapping against the
+  actual current resolver: see that document. New tasks: "Resolver V3 – AI-First
+  Interpretation & Source-Grounded Retrieval (Benchmark-Gated)" epic below.
 - **BLS Live-Status (Stand 2026-07-09):** BLS ist inzwischen aktiv im Resolver verdrahtet (`BlsStaticSource` in `src/infrastructure/di/container.ts`, `resolverSources = [userAliasSource, blsSource, offSource, usdaSource]`) und wird in `SequentialFoodCatalogResolver` mit Priorität vor OFF/USDA berücksichtigt (siehe `BlsResolverIntegration.test.ts`). Der ältere Stand "nur OFF + USDA live" (P0-007 Proof-Points) ist damit überholt.

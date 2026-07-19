@@ -99,6 +99,13 @@ Agents must stop immediately when:
 
 - Neue DACH-spezifische Datenstrategie für generische vs. Marken-Lebensmittel in Resolver und Ranking.
 - Fokus auf locale-aware Matching und Plausibility statt Mittelwertbildung.
+- Food-Resolution-Architekturrichtung (AI-first Interpretation für unbekannte Eingaben,
+  source-grounded Daten, deterministische Berechnung, persistentes Lernen aus validierten
+  Ergebnissen): siehe
+  [`docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md`](docs/domains/ZERA_FOOD_RESOLUTION_DECISION_RECORD_1.md)
+  und die "Resolver V3" Epic in `ROADMAP.md`. Deterministische Berechnung und
+  Quellen-basierte Nährwertwahrheit bleiben bindend; siehe dort für die genaue Auflösung
+  gegenüber dem älteren "Deterministic-first"-Eintrag im `ROADMAP.md`-Decisions-Log.
 
 This repository uses OpenCode-style deterministic edits and agent governance.
 

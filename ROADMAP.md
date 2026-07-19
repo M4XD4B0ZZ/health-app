@@ -8296,7 +8296,7 @@ interface-plus-Noop pattern).
 - **Request (`AiInterpretationRequest`):** `rawInput`, optional `normalizedInput`, `locale`
   (reuses `FoodSearchQuery`'s `'de' | 'en'` vocabulary), optional `knownUserContext` (explicitly
   typed hints only — `KnownUserContextHint { type: 'recent_alias' | 'saved_meal_name' |
-  'preferred_brand'; value: string }`, never a generic user-profile blob), optional `traceId`
+'preferred_brand'; value: string }`, never a generic user-profile blob), optional `traceId`
   (reuses the existing `FoodSearchQuery`/`AiRerankingRequest` trace-id convention). No timezone
   field — no domain justification connects interpretation to timezone today (unlike the
   reminder/day-boundary code that does carry one).
@@ -8318,10 +8318,10 @@ interface-plus-Noop pattern).
   converts a household measure itself, keeping unit conversion deterministic and out of AI
   scope.
 - **Search planning:** `ComponentSearchPlan` reuses the existing `FoodSourceType` (`'user' |
-  'off' | 'bls' | 'usda' | 'ai'`) for `suitableSourceTypes` (ordered by suitability, mirroring
+'off' | 'bls' | 'usda' | 'ai'`) for `suitableSourceTypes` (ordered by suitability, mirroring
   `SequentialFoodCatalogResolver`'s existing `SourceRoutingStrategy.sourcePriority` ordered-array
   convention rather than adding a separate numeric priority field) and `nativeQueries:
-  {sourceType, query}[]`, plus optional `excludedSourceTypes` and a new
+{sourceType, query}[]`, plus optional `excludedSourceTypes` and a new
   `ExpectedResolutionKind` (`generic_food` | `branded_product` | `restaurant_product` |
   `recipe_or_dish` | `reusable_personal_meal` | `unknown` — no existing type covered this
   concept).
@@ -8336,7 +8336,7 @@ interface-plus-Noop pattern).
 - **Composition Root:** **not registered** in
   [`src/infrastructure/di/container.ts`](src/infrastructure/di/container.ts). Evidence: the
   structurally closest existing analog, `AiRerankingProvider`/`NoopAiRerankingProvider`
-  (RESOLVER-V2-007-A, `done`), is *not* registered there either — it is only constructed
+  (RESOLVER-V2-007-A, `done`), is _not_ registered there either — it is only constructed
   directly by `RateLimitedAiReranker`'s own tests. Registering a port nothing yet calls would
   add dead composition-root surface without making the contract any more complete, so this task
   follows the existing precedent instead of introducing a new one.

@@ -10,3 +10,9 @@ export { AiFoodMapper } from './AiFoodMapper';
 export { KeyValueStore } from './KeyValueStore';
 export { ReminderSettingsRepository } from './ReminderSettingsRepository';
 export { ResolverRunLogger, ResolverRunRecord, NoopResolverRunLogger } from './ResolverRunLogger';
+export {
+  AiInterpretationProvider,
+  NoopAiInterpretationProvider,
+  AI_INTERPRETATION_CONTRACT_VERSION,
+  NOOP_AI_INTERPRETER_VERSION,
+} from './AiInterpretationProvider';

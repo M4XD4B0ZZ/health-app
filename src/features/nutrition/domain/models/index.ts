@@ -8,3 +8,4 @@ export * from './ResolverDecision';
 export * from './ResolverDecisionSummary';
 export * from './DecisionMeta';
 export * from './AssumptionTag';
+export * from './AiInterpretationTypes';

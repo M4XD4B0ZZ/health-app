@@ -8263,7 +8263,7 @@ computation rules; no product code changed.
 
 #### RESOLVER-V3-002: Provider-Neutral AI Interpretation & Search-Planning Contract
 
-Status: `todo`
+Status: `done`
 Depends on: none (can start in parallel with RESOLVER-V3-001; needs it before real evaluation)
 Verify: VERIFY.md Category 4 (product/runtime code) — `npm run verify`
 
@@ -8286,7 +8286,70 @@ never "what it contains".
 no change to `SequentialFoodCatalogResolver`'s hot path; `npm run verify` green; no model/
 provider name anywhere in domain or application layer code.
 
----
+**Implementation notes:** Added
+[`AiInterpretationTypes.ts`](src/features/nutrition/domain/models/AiInterpretationTypes.ts)
+(domain types, mirroring the existing `AiMealParser`/`AiMealTypes.ts` split) and
+[`AiInterpretationProvider.ts`](src/features/nutrition/application/ports/AiInterpretationProvider.ts)
+(port + `NoopAiInterpretationProvider`, mirroring `AiRerankingProvider.ts`'s
+interface-plus-Noop pattern).
+
+- **Request (`AiInterpretationRequest`):** `rawInput`, optional `normalizedInput`, `locale`
+  (reuses `FoodSearchQuery`'s `'de' | 'en'` vocabulary), optional `knownUserContext` (explicitly
+  typed hints only — `KnownUserContextHint { type: 'recent_alias' | 'saved_meal_name' |
+  'preferred_brand'; value: string }`, never a generic user-profile blob), optional `traceId`
+  (reuses the existing `FoodSearchQuery`/`AiRerankingRequest` trace-id convention). No timezone
+  field — no domain justification connects interpretation to timezone today (unlike the
+  reminder/day-boundary code that does carry one).
+- **Result (`AiInterpretationResult`):** a discriminated union on `outcome`, not
+  `null`/exceptions/free strings/`any`:
+  `interpreted` | `interpreted_with_assumptions` | `clarification_required` |
+  `not_interpretable` | `unavailable` | `error`. The first two carry
+  `InterpretedFoodComponent[]` + a `ComponentSearchPlan[]`; `clarification_required` carries a
+  structured `ClarificationRequest` (`componentId?`, `missingInformation`, `clarificationKind`);
+  `not_interpretable`/`unavailable`/`error` each carry a plain reason/message string. Every
+  variant carries `meta: AiInterpretationMetadata` (`contractVersion`, provider-neutral
+  `interpreterVersion`, `latencyMs`, optional `traceId`, `executionStatus`).
+- **Components:** `InterpretedFoodComponent` (`id`, `originalSegment`, `interpretedName`,
+  optional `brand`/`preparation`/`modifiers`, `quantity: InterpretedQuantity`, `confidence`
+  0..1, optional `assumptions`/`uncertainties` string arrays — mirroring `ResolverDecision`'s
+  existing `reasonCodes: string[]` convention instead of a new enum). `InterpretedQuantity`
+  covers numeric `value`/`unit` (`'g' | 'ml' | 'piece' | 'portion'`), a verbatim
+  `householdMeasure` (e.g. "2 Scheiben"), and a free-text `portionDescription` fallback — never
+  converts a household measure itself, keeping unit conversion deterministic and out of AI
+  scope.
+- **Search planning:** `ComponentSearchPlan` reuses the existing `FoodSourceType` (`'user' |
+  'off' | 'bls' | 'usda' | 'ai'`) for `suitableSourceTypes` (ordered by suitability, mirroring
+  `SequentialFoodCatalogResolver`'s existing `SourceRoutingStrategy.sourcePriority` ordered-array
+  convention rather than adding a separate numeric priority field) and `nativeQueries:
+  {sourceType, query}[]`, plus optional `excludedSourceTypes` and a new
+  `ExpectedResolutionKind` (`generic_food` | `branded_product` | `restaurant_product` |
+  `recipe_or_dish` | `reusable_personal_meal` | `unknown` — no existing type covered this
+  concept).
+- **Provider neutrality:** enforced structurally — no model/provider identifier field exists
+  anywhere in the contract; `interpreterVersion` is a free provider-neutral string (the Noop
+  default sets it to the literal `'noop'`); a dedicated test serializes a search plan and
+  asserts it contains no known provider/model name.
+- **Noop default:** `NoopAiInterpretationProvider.interpret()` is `async`, allocates nothing
+  beyond the return object, performs no I/O, and deterministically returns
+  `{ outcome: 'unavailable', reason: '...', meta: {...} }` with `latencyMs: 0` — same input
+  always produces the same output, and the raw request is never echoed back or logged.
+- **Composition Root:** **not registered** in
+  [`src/infrastructure/di/container.ts`](src/infrastructure/di/container.ts). Evidence: the
+  structurally closest existing analog, `AiRerankingProvider`/`NoopAiRerankingProvider`
+  (RESOLVER-V2-007-A, `done`), is *not* registered there either — it is only constructed
+  directly by `RateLimitedAiReranker`'s own tests. Registering a port nothing yet calls would
+  add dead composition-root surface without making the contract any more complete, so this task
+  follows the existing precedent instead of introducing a new one.
+- **Tests:**
+  [`AiInterpretationProvider.test.ts`](src/features/nutrition/__tests__/AiInterpretationProvider.test.ts)
+  (+1 suite / +7 tests) — simple single-item input ("200 g Quark"), a composite input ("Zwei
+  Scheiben Toast mit Butter und Gouda") represented as three distinctly separated components,
+  typed quantity/unit/household-measure/assumption shapes, a multi-source search plan asserted
+  to contain no provider name, a structured clarification request, and two Noop tests (
+  deterministic `unavailable` output, no network/persistence side effect and no raw-input echo).
+  Full suite: 133 suites / 1169 tests, all green. `tsc --noEmit`, `eslint .`, `prettier -c .`
+  all clean. `SequentialFoodCatalogResolver`'s existing tests are unchanged and still pass —
+  this task added no import from that file in either direction.
 
 #### RESOLVER-V3-003: Reproducible Benchmark Harness — Variant A (current resolver)
 

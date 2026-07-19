@@ -1,5 +1,6 @@
 import { BenchmarkCase } from './BenchmarkCaseTypes';
 import { CaseEvaluation } from './evaluateVariantACase';
+import { mean, median, percentile } from './benchmarkMetricsShared';
 
 /**
  * RESOLVER-V3-003: pure aggregation of per-case evaluations into corpus-level metrics. No I/O --
@@ -7,15 +8,11 @@ import { CaseEvaluation } from './evaluateVariantACase';
  * unit-testable with small controlled inputs (task instruction).
  */
 
-/** Nearest-rank percentile over a list of latency samples (spec §6.9 p50/p95). Returns `null`
- * for an empty input rather than `0`, since "no data" is not "zero latency". */
-export function percentile(samples: readonly number[], p: number): number | null {
-  if (samples.length === 0) return null;
-  const sorted = [...samples].sort((a, b) => a - b);
-  const rank = Math.ceil((p / 100) * sorted.length);
-  const index = Math.min(Math.max(rank - 1, 0), sorted.length - 1);
-  return sorted[index];
-}
+// RESOLVER-V3-004: `percentile`/`median`/`mean` now live in `benchmarkMetricsShared.ts` (shared
+// with Variant B) -- `percentile` re-exported here unchanged so existing imports of this module
+// keep working (`median`/`mean` were previously module-private, so no re-export is needed for
+// them).
+export { percentile } from './benchmarkMetricsShared';
 
 export interface RepeatGroupConsistency {
   repeatGroupId: string;
@@ -103,18 +100,6 @@ export interface AggregatedVariantAMetrics {
     p95Ms: number | null;
   };
   repeatGroups: RepeatGroupConsistency[];
-}
-
-function median(values: readonly number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-}
-
-function mean(values: readonly number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
 export function aggregateVariantAMetrics(

@@ -1,6 +1,11 @@
-import { BenchmarkCase, ExpectedBehavior, GroundTruthSource } from './BenchmarkCaseTypes';
+import { BenchmarkCase, ExpectedBehavior } from './BenchmarkCaseTypes';
 import { VariantARawResult } from './ResolverV3VariantAAdapter';
 import { ResolverStatus } from '../domain/models/ResolverDecision';
+import { NEAR_ZERO_GUARD, relativeMacroError, toleranceBandFor } from './benchmarkMetricsShared';
+
+// RESOLVER-V3-004: `toleranceBandFor` now lives in `benchmarkMetricsShared.ts` (shared with
+// Variant B) -- re-exported here unchanged so existing imports of this module keep working.
+export { toleranceBandFor } from './benchmarkMetricsShared';
 
 /**
  * RESOLVER-V3-003: pure evaluation of one raw resolver result against its benchmark case's
@@ -141,33 +146,6 @@ export interface MacroEvaluation {
   withinTolerance: boolean | null;
 }
 
-const NEAR_ZERO_GUARD: Record<MacroErrorSample['nutrient'], number> = {
-  kcal: 20,
-  protein_g: 5,
-  fat_g: 5,
-  carbs_g: 5,
-};
-
-/** Tolerance bands, spec §6.4 -- selected by ground-truth level (how the reference number was
- * derived), not by benchmark category, since that is what the spec's own reasoning column keys
- * off ("belastbare Ebene-1/2/3-Ground-Truth erlaubt engere Bänder"). */
-export function toleranceBandFor(
-  groundTruthSource: GroundTruthSource,
-): { kcalPct: number; macroPct: number } | null {
-  switch (groundTruthSource) {
-    case 'manufacturer_label':
-    case 'official_restaurant_data':
-    case 'bls_generic':
-    case 'other_verified_database':
-      return { kcalPct: 0.1, macroPct: 0.15 };
-    case 'documented_recipe':
-      return { kcalPct: 0.2, macroPct: 0.25 };
-    case 'curated_reference_range':
-    case 'no_numeric_ground_truth':
-      return null;
-  }
-}
-
 /**
  * Compares the resolved candidate's macros (if any) against `referenceNutrients`. Returns `null`
  * for the whole evaluation when there is no numeric ground truth or no resolved candidate to
@@ -204,8 +182,7 @@ export function evaluateMacros(
     const predicted = predictedByNutrient[nutrient];
     const absoluteError = Math.abs(predicted - referenceValue);
     const guard = NEAR_ZERO_GUARD[nutrient];
-    const relativeError =
-      Math.abs(referenceValue) >= guard ? absoluteError / Math.abs(referenceValue) : null;
+    const relativeError = relativeMacroError(nutrient, referenceValue, absoluteError);
     samples.push({ nutrient, reference: referenceValue, predicted, absoluteError, relativeError });
 
     if (tolerance && withinTolerance) {

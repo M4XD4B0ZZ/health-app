@@ -8546,8 +8546,9 @@ verify` (DoD requirement), while the harness's _own_ regression tests (schema va
 
 #### RESOLVER-V3-004: AI-Only Reference Estimation — Variant B
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-001, RESOLVER-V3-002
+Verify: VERIFY.md Category 4 (product/runtime code) — `npm run verify`
 
 **Description:** A deliberately simple AI-only estimator (direct input → estimated foods +
 nutrients, no source grounding) as the _control group_ — explicitly not the target system (per
@@ -8558,6 +8559,212 @@ in for nutrient data. Isolated from the production resolver path.
 **DoD:** harness variant that runs the same corpus through Variant B and scores it with the
 same metrics as Variant A; provider choice for this variant is explicitly non-binding on
 RESOLVER-V3-005/RESOLVER-V2-007-B.
+
+**Implementation notes:** New modules alongside RESOLVER-V3-003's Variant-A harness in
+[`src/features/nutrition/benchmark/`](../src/features/nutrition/benchmark/) — Variant B never
+imports `SequentialFoodCatalogResolver`/`BlsStaticSource`/any resolver source, is not registered
+in `container.ts`, does not write journal data, and never produces a BLS/OFF/USDA `sourceId`.
+
+- **Benchmark-local contract, not an extension of RESOLVER-V3-002's port**
+  ([`VariantBTypes.ts`](../src/features/nutrition/benchmark/VariantBTypes.ts)): per the task's
+  explicit instruction not to add macros to `AiInterpretationProvider`/`AiInterpretationTypes.ts`
+  (that contract stays interpretation/search-planning-only), Variant B gets its own small,
+  benchmark-scoped discriminated union. `VariantBRequest` (`caseId`, `rawInput`, `locale`,
+  `regionalContext?`, `runIndex`, `traceId`, `promptVersion`, `schemaVersion`) →
+  `VariantBEstimationResult`, a 7-outcome union: `estimated` | `clarification_required` |
+  `abstained` | `not_interpretable` | `unavailable` | `invalid_response` | `error` — the
+  ROADMAP-required minimum plus one justified addition, `abstained` (the AI understood the food
+  but honestly declines a number, distinct from `not_interpretable`/`clarification_required`;
+  maps to the corpus's `abstention_expected` ground truth, e.g. Zwiebelrostbraten).
+  `VariantBComponentEstimate` macros are `number | null` (never coerced to `0`); meal-level
+  `totals` are kept _alongside_, never merged into, the component list. Provider/model identity
+  and cost/latency/tokens live only in a separate `VariantBRunMetadata` (infra/run area), never on
+  the food-facing result — `VariantBResultMetadata.estimatorVersion` is a provider-neutral string
+  literal (`'variant-b-ai-only-v1'`), mirroring `AiInterpretationMetadata.interpreterVersion`.
+- **Structured-output validation**
+  ([`validateVariantBResponse.ts`](../src/features/nutrition/benchmark/validateVariantBResponse.ts)):
+  hand-written, schema-near validation (no new validation dependency, same precedent as
+  `validateBenchmarkCase.ts`) — rejects missing required fields, wrong types, negative/non-finite
+  numbers, unknown outcome/unit/clarification-kind values, and a missing `componentId`; a
+  structurally invalid raw response normalizes to `outcome: 'invalid_response'` carrying every
+  issue, never a silently-accepted partial result. `checkComponentTotalsConsistency` compares the
+  component-kcal sum against the AI's own asserted `totals.kcal` and flags (never silently
+  overwrites) a >15%-relative mismatch as a documented, provisional Variant-B-internal threshold.
+  Absent macro fields stay `undefined`/`null` through parsing and normalization — never defaulted
+  to `0`.
+- **Adapter + providers**
+  ([`ResolverV3VariantBAdapter.ts`](../src/features/nutrition/benchmark/ResolverV3VariantBAdapter.ts)):
+  a small `VariantBProvider` interface (`call()` + `computeCostUsd()`), a deterministic, no-I/O
+  `FixtureVariantBProvider` (table-driven by `caseId`, mirrors `FixtureFoodCatalogSource`'s
+  test-double pattern) and a `NoopVariantBProvider` (mirrors `NoopAiInterpretationProvider` —
+  deterministically reports an error, so the harness never silently calls the network if a caller
+  forgets to pass a provider). `runVariantBCase()` builds the request, calls the provider,
+  normalizes the response, and attaches run metadata — no ranking/evaluation logic here.
+- **Live provider (infra adapter)**
+  ([`VariantBLiveProvider.ts`](../src/features/nutrition/benchmark/VariantBLiveProvider.ts)):
+  Anthropic Claude via a raw `fetch()` call (same technique as
+  `scripts/lib/ai-reranking-benchmark-providers.mjs`'s `callAnthropic`, hand-ported to TypeScript
+  rather than cross-imported — that file is plain ESM `.mjs` and this harness runs through
+  ts-jest, per RESOLVER-V3-003's documented execution-mechanism deviation, so the two module
+  systems cannot import each other directly). `createLiveVariantBProvider()` reads
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_VARIANT_B_MODEL` and throws a precise,
+  secret-free `VariantBLiveProviderConfigError` when the key is missing — this error is left to
+  propagate out of the orchestrator uncaught (no silent fallback to fixture mode). Default model
+  `claude-haiku-4-5`, price snapshot cross-referenced from the same table already pinned in
+  `ai-reranking-benchmark-providers.mjs`'s `anthropic-haiku` entry (documented as a best-effort
+  snapshot); an overridden model reports `pricingStatus: 'unknown'` rather than silently reusing a
+  stale rate. Provider/model choice here is explicitly non-binding on
+  RESOLVER-V3-005/RESOLVER-V2-007-B per this task's own DoD.
+- **Versioned prompt**
+  ([`variantBPrompt.ts`](../src/features/nutrition/benchmark/variantBPrompt.ts)):
+  `VARIANT_B_PROMPT_VERSION = 'variant-b-prompt-v1'`, a static system prompt +
+  per-request user-turn builder, and a JSON-schema-shaped response description used for the live
+  provider's structured-output request. No ground-truth values, case categories, or tolerances are
+  embedded (leakage rule); the prompt is a plain exported constant, so it cannot change mid-run and
+  any wording change requires a new version string, not an in-place edit.
+- **Evaluation**
+  ([`evaluateVariantBCase.ts`](../src/features/nutrition/benchmark/evaluateVariantBCase.ts)): since
+  Variant B has no `sourceId` to compare exactly (unlike Variant A), identification uses a
+  provisional, documented `namesMatch()` heuristic (exact match → compact-form substring, handling
+  German compound/split-word variance like "Haferflocken"/"Hafer Flocken" → token-overlap ratio
+  `> 0.5`, correctly separating a less-qualified correct name like "Reis (roh)" from a materially
+  different food like "Tomate mit Mozzarella" vs. "Tomate roh"). Component decomposition
+  (`matchComponents`/`precisionRecallF1`, spec §6.2) computes TP/FN/FP with `required: false`
+  misses tracked separately, never as FN. Macro comparison
+  (`predictedPer100g`/`evaluateMacrosB`) normalizes a matched component's macros to a per-100g
+  basis using _its own_ reported gram quantity — necessary because `referenceNutrients` is always
+  a per-100g BLS-style figure (same convention Variant A compares `macrosPer100g` against
+  directly), while Variant B naturally estimates a portion total; a component reported only in
+  `piece`/`portion` units with no gram equivalent is honestly marked `normalizable: false` (never
+  guessed) rather than compared. Reuses the shared near-zero-denominator guard/tolerance bands from
+  `benchmarkMetricsShared.ts` (see refactor note below). False confidence
+  (`isFalseConfidentB`) is a **separate, Variant-B-internal rule** (not shared with Variant A, per
+  task instruction): wrong/unresolved identification, or a confident `estimated` outcome on a case
+  whose ground truth called for `clarification_required`/`abstention_expected`, or (Variant-B-
+  specific, since it can hallucinate plausible numbers even for the _right_ food) a macro result
+  outside tolerance while native confidence ≥ 0.7. `multiple_candidates_acceptable` cases are
+  deliberately **excluded** from the "any non-direct behavior ⇒ false confident" rule Variant A
+  uses literally — picking any one of several acceptable answers confidently is legitimate for a
+  free-text estimator, only a _wrong_ pick is false confidence there. `hasHallucinatedBrand` adds a
+  second, independent critical-failure trigger (spec §7 "erfundenes Markenprodukt").
+  `evaluateProvenanceB` always returns `provenanceType: 'ai_estimate'` — structurally guaranteed
+  (the type has no `sourceId`-shaped field at all).
+- **Shared benchmark-infrastructure refactor** (explicitly permitted by this task's own
+  instructions, scoped narrowly): extracted `percentile`/`median`/`mean`/`NEAR_ZERO_GUARD`/
+  `toleranceBandFor`/`relativeMacroError` out of RESOLVER-V3-003's Variant-A-only
+  `evaluateVariantACase.ts`/`aggregateVariantAMetrics.ts` into a new
+  [`benchmarkMetricsShared.ts`](../src/features/nutrition/benchmark/benchmarkMetricsShared.ts),
+  genuinely needed by both variants' identical near-zero-guard/tolerance-band/percentile math.
+  Variant A's two files re-export the same symbols unchanged, so every pre-existing import path
+  and test still compiles and passes untouched — verified by re-running Variant A's own test
+  suites (unchanged, 63/63 green) and the canonical smoke harness (unchanged baseline, see below)
+  both before committing this task's other changes and again at the end.
+- **Aggregation**
+  ([`aggregateVariantBMetrics.ts`](../src/features/nutrition/benchmark/aggregateVariantBMetrics.ts)):
+  identification/expected-behavior/critical-failure counts (same shape as Variant A for later
+  comparability), corpus-wide component P/R/F1, quantity/unit correctness + median deviation,
+  per-nutrient macro error, cost (total known/estimated, unknown-pricing-call count, per-evaluable-
+  case, per-correct-case, per-correct-complex-case — `null` never silently `0` when pricing is
+  unknown), latency p50/p95 across _every_ recorded run (primary + consistency repeats), two
+  distinct consistency axes (`evaluateRepeatGroupConsistencyB` — cross-case paraphrase pairs like
+  Variant A's, adapted since B has no `sourceId` identity to compare — and
+  `evaluateSameInputConsistency` — same-input repeat-run variance, spec §6.7, tracking
+  outcome/identification consistency plus kcal/confidence range across runs), and an explicit
+  `notEvaluableCases` list (technical-failure outcomes: `error`/`invalid_response`/`unavailable`)
+  with absolute counts, never silently dropped from aggregation.
+- **Reports**
+  ([`buildResolverV3VariantBReports.ts`](../src/features/nutrition/benchmark/buildResolverV3VariantBReports.ts)):
+  separate JSON/Markdown files (`logs/resolver-v3-variant-b-benchmark.{json,md}`, gitignored, never
+  overwrites Variant A's), stable field names, cases sorted by `caseId`. The Markdown report leads
+  with an explicit "AI-only control group, not Zera nutrient truth" banner and, in fixture mode, a
+  second banner stating the run used recorded/synthetic responses and is not real quality evidence
+  — this banner is conditional on `meta.runMode`, so a live run does not carry it.
+- **Fixture corpus**
+  ([`variantBFixtureResponses.ts`](../src/features/nutrition/benchmark/variantBFixtureResponses.ts)):
+  14 hand-authored, clearly-labeled synthetic responses keyed by the RESOLVER-V3-003 corpus's own
+  `caseId`s — mixed quality by design (most plausible/correct, one deliberately wrong-but-confident
+  to exercise false-confidence detection, one `clarification_required`, one `abstained`), never
+  copying a ground-truth numeric value verbatim into what is supposed to represent an independent
+  AI guess. Component names were tuned to be realistic _and_ pass `namesMatch()` against the
+  corpus's official BLS-style `expectedName`s (e.g. "Huehnerei" for "Huehnerei ganz roh",
+  "Himbeere" for "Himbeere roh") — this is fixture engineering to exercise the pipeline correctly,
+  not a claim about real provider naming behavior.
+- **Orchestrator + harness entry**
+  ([`runResolverV3VariantBBenchmark.ts`](../src/features/nutrition/benchmark/runResolverV3VariantBBenchmark.ts),
+  [`runResolverV3VariantBBenchmark.harness.ts`](../src/features/nutrition/benchmark/runResolverV3VariantBBenchmark.harness.ts)):
+  loads the **same** committed `RESOLVER_V3_VARIANT_A_SMOKE_CORPUS` Variant A uses (no separate,
+  more convenient case selection, per explicit task instruction) through `assertValidCorpus()`
+  (identical validator). Cases with a `repeatGroupId` (the `REPEAT_CONSISTENCY` overlay sample —
+  currently the Quark/Magerquark and Ei/Eier pairs) get `repeatConsistencyRuns` runs (default 3,
+  spec §6.7/§8 "≥3 Durchläufe... nicht das gesamte Korpus"); every other case gets exactly 1
+  primary run (spec §8 "1 Primärlauf pro Fall"). `mode` defaults to `'fixture'`; a live run
+  (`mode: 'live'`) constructs `createLiveVariantBProvider()` outside any try/catch, so a missing
+  key aborts the harness rather than silently substituting fixture data. The harness entry file
+  reads `VARIANT_B_MODE`/`VARIANT_B_REPEATS`/`VARIANT_B_CASES` env vars (set by the CLI wrapper) and
+  is deliberately named `*.harness.ts` outside any `__tests__` directory — same
+  documented execution-mechanism deviation as Variant A's entry (invisible to `jest.config.js`'s
+  default `testMatch`, so `npm run test`/`npm run verify` never run it and are never run by it).
+- **CLI**
+  ([`scripts/benchmark-resolver-v3-variant-b.mjs`](../scripts/benchmark-resolver-v3-variant-b.mjs)):
+  `node scripts/benchmark-resolver-v3-variant-b.mjs [--live] [--repeats=<n>] [--cases=ID1,ID2,...] [--help]`.
+  Default (no flags) is a deterministic, zero-network, zero-cost fixture run. `--live` requires
+  `ANTHROPIC_API_KEY` in the environment and exits 1 with a clear, secret-free message if it is
+  absent — verified directly (`node scripts/benchmark-resolver-v3-variant-b.mjs --live` with no key
+  set → exit 1, no stack trace, no fallback run). An unknown flag also exits 1 with usage help. A
+  benchmark case resolving "incorrectly" never causes a non-zero exit (same architecture principle
+  as Variant A: harness success vs. benchmark quality are different things). No `package.json`
+  change — same precedent as RESOLVER-V3-003 (`package.json` is a protected file; the direct `node
+scripts/...` command already satisfies "vom Repository-Root ausführbar"). The existing Variant A
+  command is untouched and still produces the identical baseline (re-verified below).
+- **Tests:** 7 new suites under `src/features/nutrition/benchmark/__tests__/` (+110 tests) —
+  response validation (valid/invalid shapes, negative/non-finite/missing macros never coerced to
+  `0`, component-vs-totals inconsistency flagged not overwritten, all outcome variants normalized
+  correctly), the adapter (fixture/noop providers, request building, no-fallback-on-error), the
+  live provider's credential guard (throws without a key, never touches `global.fetch`, correct
+  `pricingStatus` tri-state), evaluation (`namesMatch` heuristic incl. the "different-food-sharing-
+  one-token" negative case, component P/R/F1, quantity/unit deviation + near-zero guard, macro
+  normalization + not-normalizable path, the Variant-B-internal false-confidence rule incl. the
+  `multiple_candidates_acceptable` exclusion, hallucinated-brand detection), aggregation (repeat-
+  group + same-input consistency, cost/latency across all runs incl. unknown-pricing handling,
+  never-divide-by-zero), report shape/determinism/banner conditionality, and an end-to-end fixture
+  run of the full committed corpus that spies on `global.fetch` and asserts it is never called.
+  Full suite: 146 suites / 1342 tests, all green (`npm run verify`: `tsc --noEmit`, `eslint .`,
+  `prettier -c .`, `jest --runInBand` all clean).
+- **Variant A baseline re-verification (mandatory after the shared-infrastructure refactor):**
+  re-ran `node scripts/benchmark-resolver-v3-variant-a.mjs` after the `benchmarkMetricsShared.ts`
+  extraction — identical to the RESOLVER-V3-003 baseline: 14 cases, 9/12 applicable identifications
+  correct (75.0%), 1 critical (false-confident) failure (Brötchen, unchanged and _not_ touched by
+  this task, per the explicit instruction preceding it), both repeat-consistency groups consistent.
+  Variant A's own 6 pre-existing benchmark test suites (63 tests) also re-ran unchanged and green.
+- **Variant B fixture-mode result (this run, informational only — recorded-fixture evidence, NOT
+  real AI-quality evidence, per this task's own instruction not to present a fixture run as a real
+  quality measurement):** 14 cases, identification accuracy 11/12 applicable (91.7%), 1 critical
+  (false-confident) failure (the deliberately-crafted "Tomate" fixture, matching Variant A's own
+  real Tomate defect direction but independently authored, not copied), component decomposition
+  P=91.7%/R=84.6%/F1=0.88, 9/14 macro comparisons normalizable (2 `piece`-unit cases honestly
+  reported not-normalizable, 3 not evaluable for other reasons), both paraphrase repeat-groups
+  consistent, all same-input repeat runs (3× each, 22 total AI calls) fully consistent, total cost
+  $0 (fixture mode makes zero real calls).
+- **Live-mode result: not run.** No `ANTHROPIC_API_KEY` (or any other provider credential) is
+  configured in this execution environment — confirmed empirically (checked for
+  `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`/`GEMINI_API_KEY` and any related override env vars; none
+  set, no `.env` file present). Per this task's explicit instruction, no live report was fabricated
+  and none is claimed as evidence. `createLiveVariantBProvider()`'s credential guard and the CLI's
+  `--live`-without-key path were both verified directly to fail cleanly (exit 1, secret-free
+  message, no fixture fallback) instead. A real live smoke run remains a documented open item for
+  whoever next has provider credentials — the harness is fully built and tested to support it
+  without further code changes.
+- **Known, documented scope boundaries (not gaps to silently work around):** identical to Variant
+  A's (quantity/unit accuracy for `piece`/`portion` macros is inherently unnormalizable without a
+  gram equivalent; this smoke corpus has no COMPOSED/HOMEMADE/RESTAURANT case, so component P/R/F1
+  is trivially 1:1 per case; cache-hit rate is structurally not applicable before
+  RESOLVER-V3-008); plus Variant-B-specific ones: the `namesMatch()` heuristic is a documented,
+  provisional approximation, not NLP-grade entity resolution — it is good enough for this smoke
+  corpus's naming but will need revisiting once the full 150–200-case corpus (RESOLVER-V3-001 §4
+  target, not built by this task) includes more adversarial/paraphrased food names; Variant B's
+  native `overallConfidence`/component `confidence` are kept in their own raw scale and are not
+  comparable to Variant A's `ScoreCalculator.finalScore` (confidence-scale normalization remains
+  RESOLVER-V3-006's job, per spec §6.6/§13).
 
 ---
 

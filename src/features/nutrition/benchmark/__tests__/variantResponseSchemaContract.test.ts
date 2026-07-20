@@ -9,6 +9,7 @@ import { VARIANT_C_RESPONSE_JSON_SCHEMA } from '../variantCPrompt';
 type JsonSchemaNode = {
   type?: string | readonly string[];
   additionalProperties?: boolean;
+  enum?: readonly unknown[];
   properties?: Record<string, JsonSchemaNode>;
   items?: JsonSchemaNode;
   anyOf?: readonly JsonSchemaNode[];
@@ -21,6 +22,20 @@ type JsonSchemaNode = {
  * to close its properties explicitly. Traverse every schema composition location so a future
  * nested object cannot silently reintroduce the rejected request shape.
  */
+function findMixedNullableEnumPaths(schema: JsonSchemaNode, path = '$'): string[] {
+  const violations: string[] = [];
+  const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+  if (schema.enum?.includes(null) && types.some((type) => type && type !== 'null'))
+    violations.push(path);
+  for (const [name, child] of Object.entries(schema.properties ?? {}))
+    violations.push(...findMixedNullableEnumPaths(child, `${path}.properties.${name}`));
+  if (schema.items) violations.push(...findMixedNullableEnumPaths(schema.items, `${path}.items`));
+  for (const key of ['anyOf', 'oneOf', 'allOf'] as const)
+    for (const [index, child] of (schema[key] ?? []).entries())
+      violations.push(...findMixedNullableEnumPaths(child, `${path}.${key}[${index}]`));
+  return violations;
+}
+
 function findOpenObjectSchemaPaths(schema: JsonSchemaNode, path = '$'): string[] {
   const violations: string[] = [];
   const types = Array.isArray(schema.type) ? schema.type : [schema.type];
@@ -75,8 +90,24 @@ describe('Variant B/C provider-facing JSON-schema contract', () => {
     ]);
   });
 
+  it.each([
+    ['Variant B', VARIANT_B_RESPONSE_JSON_SCHEMA],
+    ['Variant C', VARIANT_C_RESPONSE_JSON_SCHEMA],
+  ])('%s has no mixed nullable enum nodes', (_variant, schema) => {
+    expect(findMixedNullableEnumPaths(schema)).toEqual([]);
+  });
+
+  it('represents the quantity unit nullable enum as separate anyOf branches', () => {
+    const unit =
+      VARIANT_B_RESPONSE_JSON_SCHEMA.properties.components.items.properties.quantity.properties
+        .unit;
+    expect(unit).toEqual({
+      anyOf: [{ type: 'string', enum: ['g', 'ml', 'piece', 'portion'] }, { type: 'null' }],
+    });
+  });
+
   it('versions the provider-facing Variant B schema without changing its prompt version', () => {
-    expect(VARIANT_B_SCHEMA_VERSION).toBe('variant-b-schema-v2');
+    expect(VARIANT_B_SCHEMA_VERSION).toBe('variant-b-schema-v3');
     expect(VARIANT_B_PROMPT_VERSION).toBe('variant-b-prompt-v1');
   });
 

@@ -26,6 +26,7 @@ import {
 } from './buildResolverV3VariantCReports';
 import { VARIANT_C_PROMPT_VERSION, VARIANT_C_SCHEMA_VERSION } from './variantCPrompt';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
+import { LiveProviderUsageRecord, aggregateLiveProviderUsage } from './LiveProviderUsage';
 
 /**
  * RESOLVER-V3-005: canonical orchestrator for the Variant C (AI-first, source-grounded hybrid
@@ -126,6 +127,46 @@ export async function runResolverV3VariantCBenchmark(
     bestSourceIdByCaseId,
   );
 
+  const usageRecords: LiveProviderUsageRecord[] = [...rawByCaseId.values()]
+    .filter((raw) => raw.mealResult.aiInterpretation.called)
+    .map((raw) => ({
+      variant: 'C',
+      caseId: raw.caseId,
+      attempt: 1,
+      httpStatus: raw.mealResult.cost.httpStatus ?? null,
+      providerStatus: raw.mealResult.errors.length
+        ? raw.mealResult.cost.httpStatus
+          ? 'http_error'
+          : 'network_error'
+        : 'success',
+      inputTokens: raw.mealResult.cost.inputTokens,
+      outputTokens: raw.mealResult.cost.outputTokens,
+      cacheCreationTokens: raw.mealResult.cost.cacheCreationTokens ?? null,
+      cacheReadTokens: raw.mealResult.cost.cacheReadTokens ?? null,
+      providerLatencyMs:
+        raw.mealResult.cost.providerLatencyMs ?? raw.mealResult.latencyMs.aiInterpretationMs,
+      endToEndLatencyMs: raw.mealResult.latencyMs.totalMs,
+      retried: false,
+      actualCostUsd: raw.mealResult.cost.costUsd,
+      usageStatus:
+        raw.mealResult.cost.inputTokens === null || raw.mealResult.cost.outputTokens === null
+          ? 'unknown'
+          : 'reported',
+    }));
+  const gateSnapshot = options.budgetGate?.snapshot();
+  const providerUsage = {
+    records: usageRecords,
+    actual: aggregateLiveProviderUsage(usageRecords),
+    reserved: gateSnapshot
+      ? {
+          calls: gateSnapshot.calls,
+          inputTokens: gateSnapshot.inputTokens,
+          outputTokens: gateSnapshot.outputTokens,
+          costUsd: gateSnapshot.reservedCost,
+        }
+      : null,
+  };
+
   const endedAt = new Date().toISOString();
 
   const providerMeta = options.aiInterpreter
@@ -149,6 +190,7 @@ export async function runResolverV3VariantCBenchmark(
     rawByCaseId,
     evaluationsByCaseId,
     metrics,
+    providerUsage,
     meta: {
       harnessVersion: HARNESS_VERSION,
       corpusVersion: RESOLVER_V3_VARIANT_A_CORPUS_MANIFEST.corpusVersion,

@@ -120,7 +120,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         request.traceId,
       );
       reservation?.release();
-      return { result, runMeta: unknownCost() };
+      return { result, runMeta: unknownCost(null, latencyMs) };
     }
 
     const latencyMs = performance.now() - start;
@@ -135,7 +135,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         request.traceId,
       );
       reservation?.release();
-      return { result, runMeta: unknownCost() };
+      return { result, runMeta: unknownCost(null, latencyMs) };
     }
 
     if (!response.ok) {
@@ -148,12 +148,17 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         request.traceId,
       );
       reservation?.release();
-      return { result, runMeta: unknownCost() };
+      return { result, runMeta: unknownCost(null, latencyMs) };
     }
 
     const body = data as {
       content?: { type: string; text?: string }[];
-      usage?: { input_tokens?: number; output_tokens?: number };
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
     };
     const textBlock = body.content?.find((block) => block.type === 'text');
     const result: AiInterpretationResult = parseAndNormalizeVariantCInterpretationResponse(
@@ -165,21 +170,33 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     const usage = {
       inputTokens: body.usage?.input_tokens ?? 0,
       outputTokens: body.usage?.output_tokens ?? 0,
+      cacheCreationTokens: body.usage?.cache_creation_input_tokens ?? null,
+      cacheReadTokens: body.usage?.cache_read_input_tokens ?? null,
     };
     reservation?.release();
-    return { result, runMeta: this.computeCostUsd(usage) };
+    return { result, runMeta: this.computeCostUsd(usage, response.status, latencyMs) };
   }
 
-  private computeCostUsd(usage: {
-    inputTokens: number;
-    outputTokens: number;
-  }): VariantCAiCallMetadata {
+  private computeCostUsd(
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+      cacheCreationTokens: number | null;
+      cacheReadTokens: number | null;
+    },
+    httpStatus: number,
+    providerLatencyMs: number,
+  ): VariantCAiCallMetadata {
     if (this.modelId !== DEFAULT_ANTHROPIC_MODEL) {
       return {
         costUsd: null,
         pricingStatus: 'unknown',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
+        cacheCreationTokens: usage.cacheCreationTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        httpStatus,
+        providerLatencyMs,
       };
     }
     const inputCost = (usage.inputTokens / 1_000_000) * ANTHROPIC_HAIKU_PRICE_PER_M_TOKENS.inputUsd;
@@ -190,10 +207,23 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       pricingStatus: 'estimated',
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
+      cacheCreationTokens: usage.cacheCreationTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      httpStatus,
+      providerLatencyMs,
     };
   }
 }
 
-function unknownCost(): VariantCAiCallMetadata {
-  return { costUsd: null, pricingStatus: 'unknown', inputTokens: null, outputTokens: null };
+function unknownCost(httpStatus: number | null, providerLatencyMs: number): VariantCAiCallMetadata {
+  return {
+    costUsd: null,
+    pricingStatus: 'unknown',
+    inputTokens: null,
+    outputTokens: null,
+    cacheCreationTokens: null,
+    cacheReadTokens: null,
+    httpStatus,
+    providerLatencyMs,
+  };
 }

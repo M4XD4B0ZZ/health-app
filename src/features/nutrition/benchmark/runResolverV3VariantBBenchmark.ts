@@ -29,6 +29,7 @@ import {
 } from './variantBPrompt';
 import { VARIANT_B_FIXTURE_RESPONSES } from './variantBFixtureResponses';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
+import { LiveProviderUsageRecord, aggregateLiveProviderUsage } from './LiveProviderUsage';
 
 /**
  * RESOLVER-V3-004: canonical orchestrator for the Variant B (direct AI-only estimation) benchmark
@@ -141,6 +142,42 @@ export async function runResolverV3VariantBBenchmark(
   }
 
   const metrics = aggregateVariantBMetrics(orderedCases, evaluationsByCaseId, rawByCaseId);
+  const usageRecords: LiveProviderUsageRecord[] = [...rawByCaseId.values()].flat().map((raw) => ({
+    variant: 'B',
+    caseId: raw.request.caseId,
+    attempt: raw.request.runIndex + 1,
+    httpStatus: raw.runMeta.httpStatus ?? null,
+    providerStatus: raw.runMeta.httpError
+      ? raw.runMeta.httpStatus
+        ? 'http_error'
+        : 'network_error'
+      : 'success',
+    inputTokens: raw.runMeta.inputTokens,
+    outputTokens: raw.runMeta.outputTokens,
+    cacheCreationTokens: raw.runMeta.cacheCreationTokens ?? null,
+    cacheReadTokens: raw.runMeta.cacheReadTokens ?? null,
+    providerLatencyMs: raw.runMeta.latencyMs,
+    endToEndLatencyMs: raw.runMeta.latencyMs,
+    retried: raw.request.runIndex > 0,
+    actualCostUsd: raw.runMeta.costUsd,
+    usageStatus:
+      raw.runMeta.inputTokens === null || raw.runMeta.outputTokens === null
+        ? 'unknown'
+        : 'reported',
+  }));
+  const gateSnapshot = options.budgetGate?.snapshot();
+  const providerUsage = {
+    records: usageRecords,
+    actual: aggregateLiveProviderUsage(usageRecords),
+    reserved: gateSnapshot
+      ? {
+          calls: gateSnapshot.calls,
+          inputTokens: gateSnapshot.inputTokens,
+          outputTokens: gateSnapshot.outputTokens,
+          costUsd: gateSnapshot.reservedCost,
+        }
+      : null,
+  };
 
   const endedAt = new Date().toISOString();
 
@@ -149,6 +186,7 @@ export async function runResolverV3VariantBBenchmark(
     primaryRawByCaseId,
     primaryEvaluationByCaseId,
     metrics,
+    providerUsage,
     meta: {
       harnessVersion: HARNESS_VERSION,
       corpusVersion: RESOLVER_V3_VARIANT_A_CORPUS_MANIFEST.corpusVersion,

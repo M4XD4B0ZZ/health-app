@@ -52,6 +52,10 @@ import { SupabaseEdgeUsdaSource } from '../../features/nutrition/infrastructure/
 import { SupabaseUserAliasSource } from '../../features/nutrition/infrastructure/catalog/sources/SupabaseUserAliasSource';
 import { SupabaseResolverRunLogger } from '../../features/nutrition/infrastructure/repositories/SupabaseResolverRunLogger';
 import { NoopResolverRunLogger } from '../../features/nutrition/application/ports/ResolverRunLogger';
+import { SupabaseResolverObservationWriter } from '../../features/nutrition/infrastructure/observations/SupabaseResolverObservationWriter';
+import { SupabaseResolverObservationOwnerProvider } from '../../features/nutrition/infrastructure/observations/SupabaseResolverObservationOwnerProvider';
+import { NoopResolverObservationWriter } from '../../features/nutrition/application/ports/ResolverObservationWriter';
+import { NoopResolverObservationOwnerProvider } from '../../features/nutrition/application/ports/ResolverObservationOwnerProvider';
 import { SupabaseEdgeOffProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeOffProvider';
 import { SupabaseEdgeUsdaProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeUsdaProvider';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
@@ -297,12 +301,23 @@ class Container {
     const resolverRunLogger =
       envName() === 'test' ? new NoopResolverRunLogger() : new SupabaseResolverRunLogger(supabase);
 
+    const resolverObservationWriter =
+      envName() === 'test'
+        ? new NoopResolverObservationWriter()
+        : new SupabaseResolverObservationWriter(supabase);
+    const resolverObservationOwnerProvider =
+      envName() === 'test'
+        ? new NoopResolverObservationOwnerProvider()
+        : new SupabaseResolverObservationOwnerProvider(supabase);
+
     const foodCatalogResolver = new SequentialFoodCatalogResolver(
       resolverSources,
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
       undefined,
       resolverRunLogger,
+      resolverObservationWriter,
+      resolverObservationOwnerProvider,
     );
     if (!foodCatalogResolver) throw new Error('DI_MISSING_FOOD_CATALOG_RESOLVER');
 

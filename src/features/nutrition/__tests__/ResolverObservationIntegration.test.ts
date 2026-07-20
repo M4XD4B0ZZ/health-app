@@ -29,6 +29,7 @@ it('writes exactly one non-authoritative observation without another source call
     undefined,
     undefined,
     writer,
+    { getOwnerId: jest.fn().mockResolvedValue('user-1') },
   );
   const decision = await resolver.resolve({
     raw: '1 Apfel',

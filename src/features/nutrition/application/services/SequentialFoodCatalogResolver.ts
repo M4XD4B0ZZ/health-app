@@ -30,6 +30,10 @@ import {
   ResolverObservationWriter,
 } from '../ports/ResolverObservationWriter';
 import {
+  NoopResolverObservationOwnerProvider,
+  ResolverObservationOwnerProvider,
+} from '../ports/ResolverObservationOwnerProvider';
+import {
   RESOLVER_OBSERVATION_CONTRACT_VERSION,
   toResolverObservationOutcome,
 } from '../../domain/models/ResolverObservation';
@@ -72,6 +76,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     inputConfidenceClassifier?: InputConfidenceClassifier,
     private readonly resolverRunLogger: ResolverRunLogger = new NoopResolverRunLogger(),
     private readonly resolverObservationWriter: ResolverObservationWriter = new NoopResolverObservationWriter(),
+    private readonly resolverObservationOwnerProvider: ResolverObservationOwnerProvider = new NoopResolverObservationOwnerProvider(),
   ) {
     this.circuitBreaker = new CircuitBreakerManager(
       config.circuitBreaker.failureThreshold,
@@ -116,28 +121,36 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     decision: ResolverDecision,
     runId?: string,
   ) {
+    const ownerId = await this.resolverObservationOwnerProvider.getOwnerId();
+    if (!ownerId) return { status: 'failed', code: 'write_failed' } as const;
     return this.resolverObservationWriter.write({
-      contractVersion: RESOLVER_OBSERVATION_CONTRACT_VERSION,
-      observationId: `resolver-observation:${runId ?? decision.createdAt}`,
-      resolverRunId: runId ?? decision.createdAt,
-      occurredAt: decision.createdAt,
-      input: {
-        rawInput: query.raw,
-        normalizedInput: decision.normalizedQuery,
-        locale: query.locale,
-        inputType: query.inputType ?? 'unknown',
+      ownerId,
+      observation: {
+        contractVersion: RESOLVER_OBSERVATION_CONTRACT_VERSION,
+        observationId: `resolver-observation:${runId ?? decision.createdAt}`,
+        resolverRunId: runId ?? decision.createdAt,
+        occurredAt: decision.createdAt,
+        input: {
+          rawInput: query.raw,
+          normalizedInput: decision.normalizedQuery,
+          locale: query.locale,
+          inputType: query.inputType ?? 'unknown',
+        },
+        decision: {
+          outcome: toResolverObservationOutcome(decision),
+          reasonCodes: decision.reasonCodes,
+          candidateCount: decision.candidates.length,
+          selectedSource: decision.best
+            ? {
+                type: decision.best.source,
+                id: decision.best.food.sourceId ?? decision.best.food.id,
+              }
+            : null,
+          provenanceStatus: decision.best ? 'source_grounded' : 'not_resolved',
+        },
+        versions: { resolverVersion: 'v2' },
+        operational: { totalLatencyMs: 'unknown' },
       },
-      decision: {
-        outcome: toResolverObservationOutcome(decision),
-        reasonCodes: decision.reasonCodes,
-        candidateCount: decision.candidates.length,
-        selectedSource: decision.best
-          ? { type: decision.best.source, id: decision.best.food.sourceId ?? decision.best.food.id }
-          : null,
-        provenanceStatus: decision.best ? 'source_grounded' : 'not_resolved',
-      },
-      versions: { resolverVersion: 'v2' },
-      operational: { totalLatencyMs: 'unknown' },
     });
   }
 

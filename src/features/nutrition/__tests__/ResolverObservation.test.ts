@@ -28,8 +28,12 @@ const observation = () => ({
 describe('ResolverObservation v1', () => {
   it('accepts a classified versioned observation and rejects duplicates', async () => {
     const writer = new InMemoryResolverObservationWriter();
-    await expect(writer.write(observation())).resolves.toEqual({ status: 'written' });
-    await expect(writer.write(observation())).resolves.toEqual({ status: 'duplicate' });
+    await expect(writer.write({ ownerId: 'user-1', observation: observation() })).resolves.toEqual({
+      status: 'written',
+    });
+    await expect(writer.write({ ownerId: 'user-1', observation: observation() })).resolves.toEqual({
+      status: 'duplicate',
+    });
     expect(writer.observations).toHaveLength(1);
   });
   it('fails closed for an unknown version and keeps raw input private', async () => {

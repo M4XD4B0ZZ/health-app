@@ -5,6 +5,7 @@ import {
   VARIANT_B_SYSTEM_PROMPT,
   buildVariantBPrompt,
 } from './variantBPrompt';
+import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
 
 /**
  * RESOLVER-V3-004: the one concrete, live Variant B provider adapter -- Infrastructure Adapter
@@ -34,6 +35,9 @@ import {
 const ANTHROPIC_API_KEY_ENV = 'ANTHROPIC_API_KEY';
 const ANTHROPIC_MODEL_ENV = 'ANTHROPIC_VARIANT_B_MODEL';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
+/** Conservative ceiling used solely for pre-request budget reservation. */
+export const VARIANT_B_MAX_INPUT_TOKENS = 8_192;
+export const VARIANT_B_MAX_OUTPUT_TOKENS = 1_536;
 
 /** $/1M-token price snapshot for the default model, cross-referenced from the same table already
  * pinned in `scripts/lib/ai-reranking-benchmark-providers.mjs` (`anthropic-haiku` entry) --
@@ -58,6 +62,7 @@ export class VariantBLiveProviderConfigError extends Error {
  */
 export function createLiveVariantBProvider(
   env: Partial<Record<string, string | undefined>> = process.env,
+  budgetGate?: LiveProviderBudgetGate,
 ): VariantBProvider {
   const apiKey = env[ANTHROPIC_API_KEY_ENV];
   if (!apiKey) {
@@ -67,7 +72,7 @@ export function createLiveVariantBProvider(
     );
   }
   const modelId = env[ANTHROPIC_MODEL_ENV] || DEFAULT_ANTHROPIC_MODEL;
-  return new AnthropicVariantBLiveProvider(apiKey, modelId);
+  return new AnthropicVariantBLiveProvider(apiKey, modelId, budgetGate);
 }
 
 class AnthropicVariantBLiveProvider implements VariantBProvider {
@@ -77,9 +82,15 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
   constructor(
     private readonly apiKey: string,
     public readonly modelId: string,
+    private readonly budgetGate?: LiveProviderBudgetGate,
   ) {}
 
   async call(request: VariantBRequest): Promise<VariantBProviderCallResult> {
+    const reservation = this.budgetGate?.reserve(
+      this.modelId,
+      VARIANT_B_MAX_INPUT_TOKENS,
+      VARIANT_B_MAX_OUTPUT_TOKENS,
+    );
     const start = performance.now();
     let response: Response;
     try {
@@ -92,7 +103,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
         },
         body: JSON.stringify({
           model: this.modelId,
-          max_tokens: 1536,
+          max_tokens: VARIANT_B_MAX_OUTPUT_TOKENS,
           system: VARIANT_B_SYSTEM_PROMPT,
           output_config: {
             format: { type: 'json_schema', schema: VARIANT_B_RESPONSE_JSON_SCHEMA },
@@ -101,6 +112,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
         }),
       });
     } catch (e) {
+      reservation?.release();
       return {
         rawText: null,
         usage: null,
@@ -114,6 +126,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
     try {
       data = await response.json();
     } catch (e) {
+      reservation?.release();
       return {
         rawText: null,
         usage: null,
@@ -125,6 +138,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
     if (!response.ok) {
       const errorMessage =
         (data as { error?: { message?: string } })?.error?.message ?? response.statusText;
+      reservation?.release();
       return { rawText: null, usage: null, latencyMs, httpError: errorMessage };
     }
 
@@ -133,6 +147,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
       usage?: { input_tokens?: number; output_tokens?: number };
     };
     const textBlock = body.content?.find((block) => block.type === 'text');
+    reservation?.release();
     return {
       rawText: textBlock?.text ?? null,
       usage: {

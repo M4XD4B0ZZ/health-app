@@ -13,6 +13,7 @@ import {
   buildVariantCPrompt,
 } from './variantCPrompt';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
+import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
 
 /**
  * RESOLVER-V3-005: the one concrete, optional live Variant C interpretation provider adapter --
@@ -29,6 +30,9 @@ import { parseAndNormalizeVariantCInterpretationResponse } from './validateVaria
 const ANTHROPIC_API_KEY_ENV = 'ANTHROPIC_API_KEY';
 const ANTHROPIC_MODEL_ENV = 'ANTHROPIC_VARIANT_C_MODEL';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
+/** Conservative ceiling used solely for pre-request budget reservation. */
+export const VARIANT_C_MAX_INPUT_TOKENS = 8_192;
+export const VARIANT_C_MAX_OUTPUT_TOKENS = 1_536;
 
 /** Best-effort $/1M-token price snapshot, identical source/caveat as `VariantBLiveProvider.ts`'s
  * constant -- duplicated (not imported) for the same module-system reason documented there. */
@@ -49,6 +53,7 @@ export class VariantCLiveProviderConfigError extends Error {
  */
 export function createLiveVariantCInterpreter(
   env: Partial<Record<string, string | undefined>> = process.env,
+  budgetGate?: LiveProviderBudgetGate,
 ): VariantCAiInterpreter {
   const apiKey = env[ANTHROPIC_API_KEY_ENV];
   if (!apiKey) {
@@ -58,16 +63,22 @@ export function createLiveVariantCInterpreter(
     );
   }
   const modelId = env[ANTHROPIC_MODEL_ENV] || DEFAULT_ANTHROPIC_MODEL;
-  return new AnthropicVariantCLiveInterpreter(apiKey, modelId);
+  return new AnthropicVariantCLiveInterpreter(apiKey, modelId, budgetGate);
 }
 
 class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
   constructor(
     private readonly apiKey: string,
     private readonly modelId: string,
+    private readonly budgetGate?: LiveProviderBudgetGate,
   ) {}
 
   async interpret(request: AiInterpretationRequest): Promise<VariantCAiInterpretationCall> {
+    const reservation = this.budgetGate?.reserve(
+      this.modelId,
+      VARIANT_C_MAX_INPUT_TOKENS,
+      VARIANT_C_MAX_OUTPUT_TOKENS,
+    );
     const start = performance.now();
     let response: Response;
     try {
@@ -80,7 +91,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         },
         body: JSON.stringify({
           model: this.modelId,
-          max_tokens: 1536,
+          max_tokens: VARIANT_C_MAX_OUTPUT_TOKENS,
           system: VARIANT_C_SYSTEM_PROMPT,
           output_config: {
             format: { type: 'json_schema', schema: VARIANT_C_RESPONSE_JSON_SCHEMA },
@@ -96,6 +107,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         latencyMs,
         request.traceId,
       );
+      reservation?.release();
       return { result, runMeta: unknownCost() };
     }
 
@@ -110,6 +122,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         latencyMs,
         request.traceId,
       );
+      reservation?.release();
       return { result, runMeta: unknownCost() };
     }
 
@@ -122,6 +135,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         latencyMs,
         request.traceId,
       );
+      reservation?.release();
       return { result, runMeta: unknownCost() };
     }
 
@@ -140,6 +154,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       inputTokens: body.usage?.input_tokens ?? 0,
       outputTokens: body.usage?.output_tokens ?? 0,
     };
+    reservation?.release();
     return { result, runMeta: this.computeCostUsd(usage) };
   }
 

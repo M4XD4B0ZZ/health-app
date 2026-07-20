@@ -9142,7 +9142,16 @@ or billed B/C live request was made, no fixture fallback was used, and no live-e
 gate reevaluation was created. The unchanged A baseline and B/C fixture regressions passed, and
 the live CLI credential guard failed secret-free before any provider request. Resume only after the
 secret is added to the Codex environment and a hard per-run call/cost gate is configured and
-tested; RESOLVER-V3-010 remains blocked.
+tested; RESOLVER-V3-010 remains blocked. The resumed secret-safe presence check found all three
+required variables unavailable to this execution process, while a non-billed connectivity probe
+reached `api.anthropic.com` (HTTP 404). A shared benchmark-local pre-request gate now reserves
+aggregate B+C calls, input/output token ceilings, worst-case costs, retries and fan-out; it blocks
+unknown model pricing and refuses an unproven USD-to-EUR conversion. Current deterministic
+preflight is documented in `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`: 29 calls maximum
+without retries (22 B and 7 C), 237,568 reserved input tokens, 44,544 output tokens, and USD
+0.460288 at the committed USD pricing, but no safe EUR margin can be computed. No live call or
+fixture fallback occurred, so the task stays `blocked` and the production-wiring gate is
+`INCONCLUSIVE`.
 
 ---
 

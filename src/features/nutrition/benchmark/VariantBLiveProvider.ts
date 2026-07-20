@@ -6,6 +6,7 @@ import {
   buildVariantBPrompt,
 } from './variantBPrompt';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
+import { createAnthropicBenchmarkTransport } from './AnthropicBenchmarkTransport';
 
 /**
  * RESOLVER-V3-004: the one concrete, live Variant B provider adapter -- Infrastructure Adapter
@@ -77,7 +78,12 @@ export function createLiveVariantBProvider(
     );
   }
   const modelId = env[ANTHROPIC_MODEL_ENV] || DEFAULT_ANTHROPIC_MODEL;
-  return new AnthropicVariantBLiveProvider(apiKey, modelId, budgetGate);
+  return new AnthropicVariantBLiveProvider(
+    apiKey,
+    modelId,
+    budgetGate,
+    createAnthropicBenchmarkTransport(env),
+  );
 }
 
 class AnthropicVariantBLiveProvider implements VariantBProvider {
@@ -88,6 +94,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
     private readonly apiKey: string,
     public readonly modelId: string,
     private readonly budgetGate?: LiveProviderBudgetGate,
+    private readonly transport = createAnthropicBenchmarkTransport(),
   ) {}
 
   async call(request: VariantBRequest): Promise<VariantBProviderCallResult> {
@@ -99,7 +106,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
     const start = performance.now();
     let response: Response;
     try {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
+      response = await this.transport.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'x-api-key': this.apiKey,

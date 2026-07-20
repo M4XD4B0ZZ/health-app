@@ -1,43 +1,48 @@
-# RESOLVER-V3-013 — Anthropic Messages Transport Diagnosis Handoff
+# RESOLVER-V3-013 — Proxy-Aware Anthropic Benchmark Transport Handoff
 
 ## Run / Task Identity and Status
 
 - **Task:** RESOLVER-V3-013 — Controlled Live Provider Evidence for Variants B and C
-- **Status:** remains `blocked`. This run diagnosed only the preceding transport failure; it did
-  not run a Variant B/C benchmark or use the real provider key. `RESOLVER-V3-010` remains blocked.
+- **Status:** remains `blocked`. This run implemented and tested only the benchmark-local transport
+  repair; it did not run a Variant B/C benchmark or use the real provider key. `RESOLVER-V3-010`
+  remains blocked.
 
 ## What Changed and Why
 
-- Added a reproducible, secret-safe transport diagnosis report and linked its evidence from the
-  existing live-evidence report and the ROADMAP task record.
-- This isolates the prior generic Node `fetch failed` result without altering a provider adapter,
-  prompt, schema, ground truth, or benchmark result.
+- Added `AnthropicBenchmarkTransport`, the one shared benchmark-local B/C transport factory. It
+  selects only standard proxy-variable presence, injects an Undici `ProxyAgent` dispatcher per
+  request, and leaves direct transport unchanged when no proxy is configured.
+- Both provider adapters retain the credential guard and shared budget reservation before their HTTP
+  request. No prompt, schema, ground truth, fixture, production wiring, or provider decision changed.
 
 ## Changed Files
 
-- `reports/RESOLVER_V3_013_ANTHROPIC_TRANSPORT_DIAGNOSIS.md`
+- `src/features/nutrition/benchmark/AnthropicBenchmarkTransport.ts`
+- `src/features/nutrition/benchmark/VariantBLiveProvider.ts`
+- `src/features/nutrition/benchmark/VariantCLiveInterpretationProvider.ts`
+- `src/features/nutrition/benchmark/__tests__/AnthropicBenchmarkTransport.test.ts`
+- `reports/RESOLVER_V3_013_ANTHROPIC_PROXY_TRANSPORT_EVIDENCE.md`
 - `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`
 - `ROADMAP.md`
 - `handoffs/latest-handoff.md`
 
 ## Validation Executed and Result
 
-- System and Node DNS resolution checks for `api.anthropic.com` passed.
-- A curl dummy-key TLS/POST probe received HTTP 401 with successful TLS verification.
-- Node v20.20.2's benchmark-equivalent global fetch failed before HTTP with `TypeError: fetch
-failed`, caused by `AggregateError` / `ENETUNREACH`; IPv4-first did not change it.
-- The same Node fetch received HTTP 401 when the preconfigured HTTPS proxy was explicitly supplied
-  through Undici's `ProxyAgent`, proving the missing Node/Undici proxy dispatcher is the blocker.
-- Repository secret-pattern scan, whitespace validation, and documentation readback checks passed.
+- Focused transport, B/C live-provider, and shared-budget-gate tests passed.
+- A/B/C fixture regression tests passed offline.
+- One post-change Node/Undici dummy-key POST used the explicit dispatcher and received HTTP 401;
+  no proxy value, key, authorization header, or environment dump was output.
+- `npm run typecheck`, `npm run lint`, and `npm run format:check` passed before full verification.
 
 ## Known Issues / Blockers / Risks
 
 - The real API key was not read, printed, committed, or used. No billed request, fixture fallback,
   prompt/schema/ground-truth change, or B/C live rerun occurred.
-- A separately scoped and reviewed proxy-aware transport change, followed by a dummy-key transport
-  recheck, is required before exactly one future full protocol rerun.
+- `undici` is currently available transitively rather than declared as a direct package dependency;
+  future environment dependency changes could affect this benchmark-local transport.
+- Proxy presence differs by environment. A direct path is deliberately retained when none is set.
 
 ## Human-Review Status
 
-Human review is required before modifying benchmark transport configuration. Do not rerun any
-provider benchmark until that reviewed change and dummy-key recheck succeed.
+The dummy-key recheck succeeded. Human review is still required before one fixed full provider
+protocol run; do not rerun individual cases or start production wiring.

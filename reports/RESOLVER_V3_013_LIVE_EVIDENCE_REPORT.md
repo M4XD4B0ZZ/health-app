@@ -4,6 +4,46 @@
 **Status:** `TECHNICALLY BLOCKED AFTER CONTROLLED LIVE ATTEMPT`
 **Production-wiring gate:** `INCONCLUSIVE`
 
+## Authorized protocol attempt after proxy-transport merge (2026-07-20)
+
+**Tested commit:** `a5f5696111fa23dba6bf190b660de42f4aa3ea86` (merge PR #93).
+
+The credential preflight checked only boolean presence for `ANTHROPIC_API_KEY`,
+`ANTHROPIC_VARIANT_B_MODEL`, and `ANTHROPIC_VARIANT_C_MODEL`; all were present and no values,
+lengths, prefixes, headers, proxy URLs, credentials, or environment dump were emitted. Both model
+selectors were `claude-haiku-4-5`, which is present in the committed pricing table. The shared
+runner constructs exactly one `LiveProviderBudgetGate` and passes that one instance to B and C;
+both providers use `createAnthropicBenchmarkTransport`.
+
+| Preflight / protocol field | Result |
+| --- | --- |
+| Expected B / C / total calls | 22 / 7 / 29 |
+| Reserved input / output ceilings | 237,568 / 44,544 |
+| Worst-case reservation / USD 5.00 margin | USD 0.460288 / USD 4.539712 |
+| Focused transport/provider/budget tests | passed (23 tests) |
+| `npm run verify` | passed |
+| Offline controls | A and B fixture commands completed; C fixture command did not produce a report |
+
+### Result: incomplete technical evidence — do not rerun automatically
+
+The one shared `--live` invocation reached Variant B and recorded **22 actual provider attempts**.
+Anthropic rejected all of them with the schema-validation error that object schemas require an
+explicit `additionalProperties: false`. The B report contains 14 technical-error cases (including
+the fixed repeat overlay), zero evaluable component/quantity/macro/provenance outcomes, zero
+false-confidence cases, p50/p95 observed B error latencies of **222.509 ms / 700.608 ms**, and no
+reported usage. Therefore actual input tokens, output tokens, and provider billing are **unknown**;
+the reserved amount is not reported as actual cost. There were no retries and no fixture fallback.
+
+The run did not produce a Variant C live report, so C's planned 7 AI-routed calls, quality,
+grounding, repeatability, retrieval/AI/end-to-end latency, and p50/p95 cannot be evaluated. Variant
+A remains only the unchanged offline baseline (identification 0.75; false-confidence case
+`RV3-0011`). The B/C fixture figures are regression controls only and are not live evidence.
+
+The result is neither a quality pass nor a provider comparison. The corpus is small, the live B
+responses were schema rejections, and C is absent; the production-wiring gate is **INCONCLUSIVE**.
+`RESOLVER-V3-010` remains blocked. No individual case or full run may be repeated without a
+separately scoped schema fix and a new explicit authorization.
+
 ## Secret-safe credential and network gate
 
 The three required environment-variable presence checks returned `present`. The Anthropic API-key

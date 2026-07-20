@@ -9175,6 +9175,18 @@ provider, budget, and A/B/C fixture regressions passed. This clears the demonstr
 blocker only; RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked` pending human review and one
 separately authorized fixed full protocol. See
 `reports/RESOLVER_V3_013_ANTHROPIC_PROXY_TRANSPORT_EVIDENCE.md`.
+The subsequent schema-only remediation identified the direct cause of the 22 rejected B requests:
+the provider-facing Variant B schema left nested `object` fragments open. It now explicitly closes
+`$.properties.components.items`,
+`$.properties.components.items.properties.quantity`, `$.properties.totals`, and
+`$.properties.clarification` with `additionalProperties: false`; the already-closed top-level
+object is unchanged. `VARIANT_B_SCHEMA_VERSION` is consequently `variant-b-schema-v2` (provider
+compatibility change, not a prompt optimization); `VARIANT_B_PROMPT_VERSION` and the estimator
+version are unchanged. Variant C was recursively inspected and already met the same requirement,
+so it was not changed. A shared recursive B/C schema-contract regression test now checks object
+nodes below `properties`, `items`, `anyOf`, `oneOf`, and `allOf` and reports full schema paths.
+No provider request, fixture fallback, new live evidence, gate reevaluation, or production wiring
+occurred; RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked` and the gate remains `INCONCLUSIVE`.
 
 ---
 

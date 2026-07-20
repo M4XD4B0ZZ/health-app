@@ -3,23 +3,29 @@
 ## Run / Task Identity and Status
 
 - **Task:** RESOLVER-V3-013 — Controlled Live Provider Evidence for Variants B and C
-- **Status:** blocked; no live evidence was collected and the task is not done.
+- **Status:** blocked before any live request; no live evidence was collected and the task is not done.
 
 ## What Changed
 
-- Marked the task blocked in `ROADMAP.md` and recorded the secret-free credential-gate result.
-- Recorded the explicit EUR 5.00 maximum test budget and the conditions required before resuming.
+- Added a shared B/C hard aggregate budget gate and its focused tests; reservations are made before
+  `fetch` for calls, conservative tokens, cost, fan-out, and failed/retry attempts.
+- Added the secret-free preflight report and updated `ROADMAP.md` with the current blocker.
 
 ## Why Changed
 
-- The current live adapters require `ANTHROPIC_API_KEY`, which is absent from this environment.
+- The current live adapters require all three authorized environment variables, which are absent
+  from this environment.
 - Governance and task instructions prohibit a live request, fixture fallback, live-evidence report,
   or completion claim without the credential.
 
 ## Changed Files
 
-- `ROADMAP.md`
-- `handoffs/latest-handoff.md`
+- `src/features/nutrition/benchmark/LiveProviderBudgetGate.ts`
+- `src/features/nutrition/benchmark/VariantBLiveProvider.ts`
+- `src/features/nutrition/benchmark/VariantCLiveInterpretationProvider.ts`
+- `src/features/nutrition/benchmark/runResolverV3Variant{B,C}Benchmark.ts`
+- `src/features/nutrition/benchmark/__tests__/LiveProviderBudgetGate.test.ts`
+- `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`, `ROADMAP.md`, `handoffs/latest-handoff.md`
 
 ## Validation Executed
 
@@ -29,6 +35,7 @@
 - `node scripts/benchmark-resolver-v3-variant-b.mjs --live` (expected credential-gate failure;
   no request)
 - Focused Variant B/C credential-guard and benchmark Jest tests.
+- Focused aggregate gate test and `npm run typecheck`.
 
 ## Validation Result
 
@@ -39,12 +46,11 @@
 
 ## Known Issues / Blockers / Risks
 
-- `ANTHROPIC_API_KEY` must be added exclusively to the Codex environment before live work resumes.
-  Its value must never be printed, committed, or recorded.
-- The existing harness does not yet provide the task-required hard aggregate budget/call gate.
-  Configure and test that gate before any live request, using the authorized EUR 5.00 ceiling.
-- No provider reachability check, live B/C run, live report, gate reevaluation, or
-  RESOLVER-V3-010 change is authorized while blocked.
+- All three required variables are missing from this process; values were never read, printed,
+  committed, or recorded. Network reachability alone passed (HTTP 404 from the provider root).
+- Pricing is USD but the authorized ceiling is EUR 5.00; no FX configuration exists, so the gate
+  blocks rather than inventing a conversion. See the preflight report for exact reservations.
+- No live B/C run or gate reevaluation is authorized while blocked.
 
 ## Human Review Status
 

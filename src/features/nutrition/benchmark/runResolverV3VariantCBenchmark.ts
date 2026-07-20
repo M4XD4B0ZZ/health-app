@@ -25,6 +25,7 @@ import {
   MachineReportC,
 } from './buildResolverV3VariantCReports';
 import { VARIANT_C_PROMPT_VERSION, VARIANT_C_SCHEMA_VERSION } from './variantCPrompt';
+import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
 
 /**
  * RESOLVER-V3-005: canonical orchestrator for the Variant C (AI-first, source-grounded hybrid
@@ -52,6 +53,8 @@ export interface RunResolverV3VariantCBenchmarkOptions {
    * -> `FixtureCostAiInterpreter` over `FixtureAiInterpretationProvider`, `live` ->
    * `createLiveVariantCInterpreter()`. */
   aiInterpreter?: VariantCAiInterpreter;
+  /** Shared experiment gate; callers running B and C together must pass the same instance. */
+  budgetGate?: LiveProviderBudgetGate;
   outputDir?: string;
   writeReports?: boolean;
 }
@@ -77,7 +80,7 @@ export async function runResolverV3VariantCBenchmark(
   const aiInterpreter: VariantCAiInterpreter =
     options.aiInterpreter ??
     (mode === 'live'
-      ? createLiveVariantCInterpreter()
+      ? createLiveVariantCInterpreter(process.env, options.budgetGate)
       : new FixtureCostAiInterpreter(new FixtureAiInterpretationProvider()));
 
   const startedAt = new Date().toISOString();

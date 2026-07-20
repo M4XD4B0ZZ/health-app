@@ -28,6 +28,7 @@ import {
   VARIANT_B_ESTIMATOR_VERSION,
 } from './variantBPrompt';
 import { VARIANT_B_FIXTURE_RESPONSES } from './variantBFixtureResponses';
+import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
 
 /**
  * RESOLVER-V3-004: canonical orchestrator for the Variant B (direct AI-only estimation) benchmark
@@ -59,6 +60,8 @@ export interface RunResolverV3VariantBBenchmarkOptions {
    * `fixture` -> `FixtureVariantBProvider` over the committed fixture table, `live` ->
    * `createLiveVariantBProvider()`. */
   provider?: VariantBProvider;
+  /** Shared experiment gate; callers running B and C together must pass the same instance. */
+  budgetGate?: LiveProviderBudgetGate;
   /** Number of runs for cases in the `REPEAT_CONSISTENCY` overlay sample (cases with a
    * `repeatGroupId`) -- spec §6.7/§8: "mindestens 3 Durchlaeufe pro Fall in der
    * REPEAT_CONSISTENCY-Stichprobe", not the whole corpus (cost control). All other cases get
@@ -91,7 +94,7 @@ export async function runResolverV3VariantBBenchmark(
   const provider =
     options.provider ??
     (mode === 'live'
-      ? createLiveVariantBProvider()
+      ? createLiveVariantBProvider(process.env, options.budgetGate)
       : new FixtureVariantBProvider(VARIANT_B_FIXTURE_RESPONSES));
 
   const startedAt = new Date().toISOString();

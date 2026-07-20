@@ -9003,7 +9003,7 @@ cost/latency field analysis to RESOLVER-V3-007 without setting a production boun
 
 #### RESOLVER-V3-007: Cost, Latency & Cache Analysis
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-006
 
 **Description:** Deepen RESOLVER-V3-006's cost/latency/cache-hit-rate findings into a
@@ -9011,6 +9011,18 @@ standalone analysis usable for a production cost model (per-log cost, per-valida
 p50/p95 latency budget, projected cache-hit-rate growth over time as RESOLVER-V3-008 lands).
 
 **DoD:** documented cost/latency model with explicit assumptions; no product code change.
+
+**Implementation notes (done):** Added the canonical analysis
+[`RESOLVER_V3_COST_LATENCY_CACHE_ANALYSIS.md`](reports/RESOLVER_V3_COST_LATENCY_CACHE_ANALYSIS.md).
+It inventories A/B/C telemetry using measured, fixture-only, assumed, derived, and unknown
+classes; defines variable-based per-new/successful/validated/correct-complex and monthly cost
+formulae; separates fast path, AI, retrieval, ranking, deterministic calculation, cold/warm,
+timeout/retry, and total-flow latency; and keeps C's 7/14 fast-path avoidance separate from the
+unimplemented V3-008 personal cache. Production cost and p95 bounds are **not derivable** without
+live B/C evidence. RESOLVER-V3-013 is therefore added as controlled live evidence before a new
+V3-006 gate review. No product code, provider selection, cache, migration, or wiring changed.
+
+**Verify:** documentation readback checks plus all three canonical benchmark commands passed.
 
 ---
 
@@ -9096,6 +9108,30 @@ requirement), with an explicit rollback path back to the Resolver V2 behavior.
 **DoD:** flag defaults on; regression suite green; real-device verification documented (not a
 gap-log entry — an actual verified session, per `AGENTS.md`'s exception clause); rollback
 procedure documented.
+
+---
+
+#### RESOLVER-V3-013: Controlled Live Provider Evidence for Variants B and C
+
+Status: `todo`
+Depends on: RESOLVER-V3-006, RESOLVER-V3-007
+
+**Description:** Collect a small, controlled, credential-authorized live benchmark evidence set
+for the existing B and C harnesses before any renewed RESOLVER-V3-006 gate review. This is an
+experiment only: it does not choose a permanent provider/model, modify product code, implement a
+cache, or wire production.
+
+**DoD:** run the identical versioned corpus and case order for B and C in explicit `--live` mode,
+with pinned and recorded provider/model/prompt/schema/harness versions; perform multiple repeats
+under a documented cold/warm protocol; preserve real per-request input/output tokens, dated
+pricing/cost status, AI/retrieval/total latency, source request count, retry, timeout, HTTP/error,
+and outcome metadata; prove no fixture fallback occurred; and report development/holdout results
+separately with variant-local quality/safety analysis. Any provider-quality comparison uses an
+identical provider/model configuration or documents a justified difference. No production wiring
+or provider product decision is made.
+
+**Verify:** benchmark commands and documentation readback checks; live evidence is valid only when
+authorized credentials are available and the saved report proves live mode without fixture fallback.
 
 ---
 

@@ -25,7 +25,7 @@
 - System and Node DNS resolution checks for `api.anthropic.com` passed.
 - A curl dummy-key TLS/POST probe received HTTP 401 with successful TLS verification.
 - Node v20.20.2's benchmark-equivalent global fetch failed before HTTP with `TypeError: fetch
-  failed`, caused by `AggregateError` / `ENETUNREACH`; IPv4-first did not change it.
+failed`, caused by `AggregateError` / `ENETUNREACH`; IPv4-first did not change it.
 - The same Node fetch received HTTP 401 when the preconfigured HTTPS proxy was explicitly supplied
   through Undici's `ProxyAgent`, proving the missing Node/Undici proxy dispatcher is the blocker.
 - Repository secret-pattern scan, whitespace validation, and documentation readback checks passed.

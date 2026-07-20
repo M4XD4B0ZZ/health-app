@@ -14,13 +14,13 @@ not a usable provider request.
 
 ## Reproducible results
 
-| Check | Result | Evidence |
-| --- | --- | --- |
-| System DNS | pass | `api.anthropic.com` resolved to IPv6 `2607:6bc0::10` and IPv4 `160.79.104.10`. |
-| Node DNS | pass | Node `dns.lookup(..., { all: true })` returned the same IPv6 and IPv4 addresses. |
-| curl TLS + dummy POST | pass | curl exited `0`, TLS verification result was `0`, and the endpoint returned HTTP `401`. |
-| Benchmark-equivalent Node global `fetch` + dummy POST | fail | Node `v20.20.2` (Undici `6.24.1`) threw `TypeError: fetch failed`. |
-| Node global `fetch` with the configured proxy dispatcher + same dummy POST | pass | Returned HTTP `401`. |
+| Check                                                                      | Result | Evidence                                                                                |
+| -------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| System DNS                                                                 | pass   | `api.anthropic.com` resolved to IPv6 `2607:6bc0::10` and IPv4 `160.79.104.10`.          |
+| Node DNS                                                                   | pass   | Node `dns.lookup(..., { all: true })` returned the same IPv6 and IPv4 addresses.        |
+| curl TLS + dummy POST                                                      | pass   | curl exited `0`, TLS verification result was `0`, and the endpoint returned HTTP `401`. |
+| Benchmark-equivalent Node global `fetch` + dummy POST                      | fail   | Node `v20.20.2` (Undici `6.24.1`) threw `TypeError: fetch failed`.                      |
+| Node global `fetch` with the configured proxy dispatcher + same dummy POST | pass   | Returned HTTP `401`.                                                                    |
 
 The unmodified benchmark-equivalent Node failure is recorded only with the approved secret-free
 technical fields:

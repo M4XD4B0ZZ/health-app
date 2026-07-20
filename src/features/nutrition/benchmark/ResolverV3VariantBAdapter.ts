@@ -15,8 +15,14 @@ import { VARIANT_B_PROMPT_VERSION, VARIANT_B_SCHEMA_VERSION } from './variantBPr
  * here; those live in `VariantBRunMetadata`, attached by the caller after `call()` returns). */
 export interface VariantBProviderCallResult {
   rawText: string | null;
-  usage: { inputTokens: number; outputTokens: number } | null;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens?: number | null;
+    cacheReadTokens?: number | null;
+  } | null;
   latencyMs: number;
+  httpStatus: number | null;
   httpError: string | null;
 }
 
@@ -52,6 +58,7 @@ export class FixtureVariantBProvider implements VariantBProvider {
       rawText,
       usage: rawText === null ? null : { inputTokens: 0, outputTokens: 0 },
       latencyMs: 0,
+      httpStatus: null,
       httpError: null,
     };
   }
@@ -79,6 +86,7 @@ export class NoopVariantBProvider implements VariantBProvider {
       rawText: null,
       usage: null,
       latencyMs: 0,
+      httpStatus: null,
       httpError: 'No Variant B provider configured',
     };
   }
@@ -137,6 +145,9 @@ export async function runVariantBCase(
     latencyMs: callResult.latencyMs,
     inputTokens: callResult.usage?.inputTokens ?? null,
     outputTokens: callResult.usage?.outputTokens ?? null,
+    cacheCreationTokens: callResult.usage?.cacheCreationTokens ?? null,
+    cacheReadTokens: callResult.usage?.cacheReadTokens ?? null,
+    httpStatus: callResult.httpStatus,
     costUsd,
     pricingStatus,
     httpError: callResult.httpError,

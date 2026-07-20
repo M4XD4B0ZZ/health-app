@@ -13,7 +13,7 @@ import { VariantBRequest } from './VariantBTypes';
 
 export const VARIANT_B_PROMPT_VERSION = 'variant-b-prompt-v1';
 // Provider-facing schema compatibility change only: the prompt wording remains v1.
-export const VARIANT_B_SCHEMA_VERSION = 'variant-b-schema-v2';
+export const VARIANT_B_SCHEMA_VERSION = 'variant-b-schema-v3';
 export const VARIANT_B_ESTIMATOR_VERSION = 'variant-b-ai-only-v1';
 
 /** The instructions given to the model, independent of the per-request input. Kept as a single
@@ -73,7 +73,12 @@ export const VARIANT_B_RESPONSE_JSON_SCHEMA = {
             additionalProperties: false,
             properties: {
               value: { type: ['number', 'null'] },
-              unit: { type: ['string', 'null'], enum: ['g', 'ml', 'piece', 'portion', null] },
+              unit: {
+                anyOf: [
+                  { type: 'string', enum: ['g', 'ml', 'piece', 'portion'] },
+                  { type: 'null' },
+                ],
+              },
               householdMeasure: { type: ['string', 'null'] },
               portionDescription: { type: ['string', 'null'] },
             },

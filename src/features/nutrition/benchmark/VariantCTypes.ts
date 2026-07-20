@@ -160,6 +160,10 @@ export interface VariantCCostMetadata {
   pricingStatus: 'known' | 'estimated' | 'unknown' | 'not_applicable';
   inputTokens: number | null;
   outputTokens: number | null;
+  cacheCreationTokens?: number | null;
+  cacheReadTokens?: number | null;
+  httpStatus?: number | null;
+  providerLatencyMs?: number | null;
 }
 
 export interface VariantCMealResult {
@@ -209,6 +213,10 @@ export interface VariantCAiCallMetadata {
   pricingStatus: 'known' | 'estimated' | 'unknown';
   inputTokens: number | null;
   outputTokens: number | null;
+  cacheCreationTokens?: number | null;
+  cacheReadTokens?: number | null;
+  httpStatus?: number | null;
+  providerLatencyMs?: number | null;
 }
 
 export interface VariantCAiInterpretationCall {

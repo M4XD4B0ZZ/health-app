@@ -2,6 +2,11 @@ import { BenchmarkCase } from './BenchmarkCaseTypes';
 import { CaseEvaluationC } from './evaluateVariantCCase';
 import { AggregatedVariantCMetrics } from './aggregateVariantCMetrics';
 import { VariantCRawCaseResult } from './VariantCTypes';
+import {
+  LiveProviderUsageRecord,
+  aggregateLiveProviderUsage,
+  ReservedUsageSummary,
+} from './LiveProviderUsage';
 
 /**
  * RESOLVER-V3-005: machine-readable + human-readable report builders for Variant C. Pure
@@ -59,6 +64,11 @@ export interface MachineReportC {
   meta: HarnessRunMetadataC;
   cases: MachineCaseResultC[];
   metrics: AggregatedVariantCMetrics;
+  providerUsage?: {
+    records: LiveProviderUsageRecord[];
+    actual: ReturnType<typeof aggregateLiveProviderUsage>;
+    reserved: ReservedUsageSummary | null;
+  };
   notEvaluableCases: { caseId: string; reason: string }[];
   warnings: string[];
   errors: string[];
@@ -99,6 +109,11 @@ export function buildMachineReportC(input: {
   rawByCaseId: ReadonlyMap<string, VariantCRawCaseResult>;
   evaluationsByCaseId: ReadonlyMap<string, CaseEvaluationC>;
   metrics: AggregatedVariantCMetrics;
+  providerUsage?: {
+    records: LiveProviderUsageRecord[];
+    actual: ReturnType<typeof aggregateLiveProviderUsage>;
+    reserved: ReservedUsageSummary | null;
+  };
   meta: HarnessRunMetadataC;
   notEvaluableCases: { caseId: string; reason: string }[];
   warnings: string[];
@@ -118,6 +133,11 @@ export function buildMachineReportC(input: {
     meta: input.meta,
     cases: caseResults,
     metrics: input.metrics,
+    providerUsage: input.providerUsage ?? {
+      records: [],
+      actual: aggregateLiveProviderUsage([]),
+      reserved: null,
+    },
     notEvaluableCases: input.notEvaluableCases,
     warnings: input.warnings,
     errors: input.errors,

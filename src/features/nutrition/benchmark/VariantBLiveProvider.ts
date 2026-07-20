@@ -129,6 +129,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
         rawText: null,
         usage: null,
         latencyMs: performance.now() - start,
+        httpStatus: null,
         httpError: `network error calling Anthropic: ${(e as Error).message}`,
       };
     }
@@ -143,6 +144,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
         rawText: null,
         usage: null,
         latencyMs,
+        httpStatus: response.status,
         httpError: `could not parse Anthropic response as JSON: ${(e as Error).message}`,
       };
     }
@@ -151,12 +153,23 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
       const errorMessage =
         (data as { error?: { message?: string } })?.error?.message ?? response.statusText;
       reservation?.release();
-      return { rawText: null, usage: null, latencyMs, httpError: errorMessage };
+      return {
+        rawText: null,
+        usage: null,
+        latencyMs,
+        httpStatus: response.status,
+        httpError: errorMessage,
+      };
     }
 
     const body = data as {
       content?: { type: string; text?: string }[];
-      usage?: { input_tokens?: number; output_tokens?: number };
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
     };
     const textBlock = body.content?.find((block) => block.type === 'text');
     reservation?.release();
@@ -165,8 +178,11 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
       usage: {
         inputTokens: body.usage?.input_tokens ?? 0,
         outputTokens: body.usage?.output_tokens ?? 0,
+        cacheCreationTokens: body.usage?.cache_creation_input_tokens ?? null,
+        cacheReadTokens: body.usage?.cache_read_input_tokens ?? null,
       },
       latencyMs,
+      httpStatus: response.status,
       httpError: null,
     };
   }

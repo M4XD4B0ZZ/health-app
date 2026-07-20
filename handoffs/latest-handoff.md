@@ -47,3 +47,8 @@
 
 Human review is required before any remediation or future controlled provider run; do not start
 production wiring.
+
+## RESOLVER-V3-013 nullable-enum and usage-telemetry follow-up (in progress)
+
+- No provider request or live run was performed. The task remains blocked and the production-wiring gate remains INCONCLUSIVE.
+- The follow-up changes the provider-facing B `quantity.unit` nullable enum to separate `anyOf` branches and persists benchmark-local, secret-safe provider usage fields for future B/C runs. Reserved budget is kept distinct from actual usage cost.

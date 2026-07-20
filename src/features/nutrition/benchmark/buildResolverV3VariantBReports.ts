@@ -3,6 +3,11 @@ import { CaseEvaluationB } from './evaluateVariantBCase';
 import { AggregatedVariantBMetrics } from './aggregateVariantBMetrics';
 import { VariantBRawCaseResult } from './VariantBTypes';
 import { VARIANT_B_ESTIMATOR_VERSION } from './variantBPrompt';
+import {
+  LiveProviderUsageRecord,
+  aggregateLiveProviderUsage,
+  ReservedUsageSummary,
+} from './LiveProviderUsage';
 
 /**
  * RESOLVER-V3-004: machine-readable + human-readable Variant B report builders. Pure functions
@@ -61,6 +66,11 @@ export interface MachineReportB {
   meta: HarnessRunMetadataB;
   cases: MachineCaseResultB[];
   metrics: AggregatedVariantBMetrics;
+  providerUsage?: {
+    records: LiveProviderUsageRecord[];
+    actual: ReturnType<typeof aggregateLiveProviderUsage>;
+    reserved: ReservedUsageSummary | null;
+  };
   warnings: string[];
   errors: string[];
 }
@@ -107,6 +117,11 @@ export function buildMachineReportB(input: {
   primaryRawByCaseId: ReadonlyMap<string, VariantBRawCaseResult>;
   primaryEvaluationByCaseId: ReadonlyMap<string, CaseEvaluationB>;
   metrics: AggregatedVariantBMetrics;
+  providerUsage?: {
+    records: LiveProviderUsageRecord[];
+    actual: ReturnType<typeof aggregateLiveProviderUsage>;
+    reserved: ReservedUsageSummary | null;
+  };
   meta: HarnessRunMetadataB;
   warnings: string[];
   errors: string[];
@@ -125,6 +140,11 @@ export function buildMachineReportB(input: {
     meta: input.meta,
     cases: caseResults,
     metrics: input.metrics,
+    providerUsage: input.providerUsage ?? {
+      records: [],
+      actual: aggregateLiveProviderUsage([]),
+      reserved: null,
+    },
     warnings: input.warnings,
     errors: input.errors,
   };

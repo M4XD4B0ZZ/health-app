@@ -199,6 +199,9 @@ export interface VariantBRunMetadata {
   latencyMs: number;
   inputTokens: number | null;
   outputTokens: number | null;
+  cacheCreationTokens?: number | null;
+  cacheReadTokens?: number | null;
+  httpStatus?: number | null;
   costUsd: number | null;
   pricingStatus: VariantBPricingStatus;
   httpError: string | null;

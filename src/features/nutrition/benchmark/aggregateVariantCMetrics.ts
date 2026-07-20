@@ -89,6 +89,14 @@ export interface AggregatedVariantCMetrics {
     aiCalledCount: number;
   };
   latency: { p50Ms: number | null; p95Ms: number | null };
+  latencyBreakdown: {
+    allCases: ReturnType<typeof latencySummary>;
+    fastPathCases: ReturnType<typeof latencySummary>;
+    aiRoutedCases: ReturnType<typeof latencySummary>;
+    provider: ReturnType<typeof latencySummary>;
+    retrieval: ReturnType<typeof latencySummary>;
+    endToEnd: ReturnType<typeof latencySummary>;
+  };
   cost: {
     totalKnownOrEstimatedUsd: number | null;
     unknownPricingCallCount: number;
@@ -231,6 +239,27 @@ export function aggregateVariantCMetrics(
     'truePositives' | 'falseNegatives' | 'falsePositives'
   > = { truePositives: tp, falseNegatives: fn, falsePositives: fp };
 
+  const latencyBreakdown = {
+    allCases: latencySummary(allRaw.map((raw) => raw.mealResult.latencyMs.totalMs)),
+    fastPathCases: latencySummary(
+      allRaw
+        .filter((raw) => raw.mealResult.fastPath.used)
+        .map((raw) => raw.mealResult.latencyMs.totalMs),
+    ),
+    aiRoutedCases: latencySummary(
+      allRaw
+        .filter((raw) => raw.mealResult.aiInterpretation.called)
+        .map((raw) => raw.mealResult.latencyMs.totalMs),
+    ),
+    provider: latencySummary(
+      allRaw
+        .map((raw) => raw.mealResult.cost.providerLatencyMs)
+        .filter((v): v is number => v !== null && v !== undefined),
+    ),
+    retrieval: latencySummary(allRaw.map((raw) => raw.mealResult.latencyMs.retrievalMs)),
+    endToEnd: latencySummary(allRaw.map((raw) => raw.mealResult.latencyMs.totalMs)),
+  };
+
   return {
     caseCount: cases.length,
     identification: {
@@ -287,6 +316,7 @@ export function aggregateVariantCMetrics(
     },
     fastPath: { usedCount: fastPathUsedCount, avoidedAiCalls, aiCalledCount },
     latency: { p50Ms: percentile(latencySamples, 50), p95Ms: percentile(latencySamples, 95) },
+    latencyBreakdown,
     cost: {
       totalKnownOrEstimatedUsd,
       unknownPricingCallCount,
@@ -299,5 +329,13 @@ export function aggregateVariantCMetrics(
     },
     outcomes,
     repeatGroups: evaluateRepeatGroupConsistencyC(cases, evaluationsByCaseId, bestSourceIdByCaseId),
+  };
+}
+
+function latencySummary(values: readonly number[]) {
+  return {
+    sampleCount: values.length,
+    p50Ms: percentile(values, 50),
+    p95Ms: percentile(values, 95),
   };
 }

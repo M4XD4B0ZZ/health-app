@@ -16,3 +16,8 @@ export {
   AI_INTERPRETATION_CONTRACT_VERSION,
   NOOP_AI_INTERPRETER_VERSION,
 } from './AiInterpretationProvider';
+
+export {
+  ResolverObservationWriter,
+  NoopResolverObservationWriter,
+} from './ResolverObservationWriter';

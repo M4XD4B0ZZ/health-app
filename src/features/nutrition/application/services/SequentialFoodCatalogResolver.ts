@@ -25,6 +25,14 @@ import { ResolverDebugCollector, SourceCandidate, CandidateEvaluation } from './
 import { InputConfidenceClassifier } from '../../domain/confidence/InputConfidenceClassifier';
 import { DefaultInputConfidenceClassifier } from './DefaultInputConfidenceClassifier';
 import { ResolverRunLogger, NoopResolverRunLogger } from '../ports/ResolverRunLogger';
+import {
+  NoopResolverObservationWriter,
+  ResolverObservationWriter,
+} from '../ports/ResolverObservationWriter';
+import {
+  RESOLVER_OBSERVATION_CONTRACT_VERSION,
+  toResolverObservationOutcome,
+} from '../../domain/models/ResolverObservation';
 
 interface LookupMetrics {
   traceId?: string;
@@ -63,6 +71,7 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     private readonly config: FoodCatalogConfig = DEFAULT_CATALOG_CONFIG,
     inputConfidenceClassifier?: InputConfidenceClassifier,
     private readonly resolverRunLogger: ResolverRunLogger = new NoopResolverRunLogger(),
+    private readonly resolverObservationWriter: ResolverObservationWriter = new NoopResolverObservationWriter(),
   ) {
     this.circuitBreaker = new CircuitBreakerManager(
       config.circuitBreaker.failureThreshold,
@@ -95,7 +104,41 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
         winnerName: decision.best?.food.name,
       })
       .catch(() => {});
+    void this.writeObservation(query, decision, ctx?.traceId ?? query.traceId).then((result) => {
+      if (result.status === 'failed')
+        console.warn('[ResolverObservationWriter] write failed', result.code);
+    });
     return decision;
+  }
+
+  private async writeObservation(
+    query: FoodSearchQuery,
+    decision: ResolverDecision,
+    runId?: string,
+  ) {
+    return this.resolverObservationWriter.write({
+      contractVersion: RESOLVER_OBSERVATION_CONTRACT_VERSION,
+      observationId: `resolver-observation:${runId ?? decision.createdAt}`,
+      resolverRunId: runId ?? decision.createdAt,
+      occurredAt: decision.createdAt,
+      input: {
+        rawInput: query.raw,
+        normalizedInput: decision.normalizedQuery,
+        locale: query.locale,
+        inputType: query.inputType ?? 'unknown',
+      },
+      decision: {
+        outcome: toResolverObservationOutcome(decision),
+        reasonCodes: decision.reasonCodes,
+        candidateCount: decision.candidates.length,
+        selectedSource: decision.best
+          ? { type: decision.best.source, id: decision.best.food.sourceId ?? decision.best.food.id }
+          : null,
+        provenanceStatus: decision.best ? 'source_grounded' : 'not_resolved',
+      },
+      versions: { resolverVersion: 'v2' },
+      operational: { totalLatencyMs: 'unknown' },
+    });
   }
 
   private async resolveInternal(

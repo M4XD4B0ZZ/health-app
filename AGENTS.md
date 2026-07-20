@@ -293,3 +293,16 @@ All verification commands are executed from the workspace root:
 ```bash
 npm run verify
 ```
+
+---
+
+## Resolution Knowledge-Growth Invariants (Binding)
+
+Agents changing Resolver, AI interpretation, search planning, Food Catalog, personal cache/memory,
+corrections, knowledge candidates, promotion, review, or food-resolution benchmarks MUST read
+[`docs/domains/ZERA_RESOLUTION_KNOWLEDGE_GROWTH_DECISION_RECORD_1.md`](docs/domains/ZERA_RESOLUTION_KNOWLEDGE_GROWTH_DECISION_RECORD_1.md).
+AI outputs are observations, not canonical facts, and AI MUST NOT provide authoritative nutrients.
+Personal and global knowledge MUST remain separate; unreviewed global candidates MUST have no
+resolver effect, and global activation requires explicit human review. User corrections override
+unconfirmed AI/resolver results. Negative Knowledge is permitted. Personal raw text MUST NOT be
+silently globalized.

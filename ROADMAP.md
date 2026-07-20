@@ -9026,47 +9026,196 @@ V3-006 gate review. No product code, provider selection, cache, migration, or wi
 
 ---
 
-#### RESOLVER-V3-008: Persistent Personal Resolver Cache — Read Path
+#### RESOLVER-V3-008: Persistent Personal Resolver Cache — Read Path (historical scope)
 
-Status: `todo`
-Depends on: RESOLVER-V3-006 (benchmark must justify the investment)
-Extends: RESOLVER-V2-005 (tables already live), does not duplicate them
+Status: `todo` — **superseded for planning by RESOLVER-V3-017..019**
+Depends on: RESOLVER-V3-006
 
-**Description:** Close the concrete gap identified in Decision Record §5.1/§5.7: a read path
-that consults `food_resolver_runs`/`food_query_cache_results` (already live) for reusable prior
-resolutions before falling through to AI interpretation, so repeated identical or
-near-identical inputs resolve deterministically and without a new AI call — directly addressing
-the consistency gap Amy's own users report (Decision Record §2.1).
-
-**DoD:** cache read path wired ahead of RESOLVER-V3-002/005 in the (still not production-wired)
-pipeline; cache-hit rate measurable via the RESOLVER-V3-001 metrics; no change to
-`food_resolver_runs`' write path (RESOLVER-V2-006) required.
+**History preserved:** This task identified the missing read path over `food_resolver_runs` and
+`food_query_cache_results`. Post-V3-013 replanning retains that gap but splits its privacy,
+contract, promotion, correction, invalidation, and read-path work below. It MUST NOT be implemented
+as an unscoped cross-user cache.
 
 ---
 
-#### RESOLVER-V3-009: Curated Knowledge Layer, Correction Loop & Privacy Boundary Decision
+#### RESOLVER-V3-009: Curated Knowledge Layer, Correction Loop & Privacy Boundary Decision (historical scope)
 
-Status: `todo`
+Status: `todo` — **superseded for planning by RESOLVER-V3-015..024**
 Depends on: RESOLVER-V3-008
 
-**Description:** Two things this task must do, not one: (1) wire the existing Correction Log
-(J-003) as a rückkanal into the knowledge layer so user corrections measurably improve future
-resolutions (Decision Record §6, item 6) and design the still-missing `corrections` table
-(RESOLVER-V2-005); (2) produce the explicit privacy-boundary decision Decision Record §5.7/§8
-deliberately leaves open — separating private journal/behavioral data, personal reuse cache,
-and any potentially-global anonymized/curated resolver knowledge. No raw personal data may
-become part of a global dataset without this decision existing first.
+**History preserved:** This task bundled correction feedback, global knowledge, and privacy. The
+accepted RESOLVER-V3-014 decision separates those concerns; it does not reverse the old dependency
+history. No implementation is authorized by this historical task.
 
-**DoD:** `corrections` table design + migration; documented privacy boundary decision (own
-short decision record or an addendum to this one); correction data demonstrably changes a
-subsequent resolution in a test.
+---
+
+#### RESOLVER-V3-014: Knowledge-Growth Architecture & Human-Review Governance
+
+Status: `done`
+Depends on: RESOLVER-V3-013
+
+**Description:** Accepted the four-layer knowledge-growth architecture, personal-memory confidence,
+correction precedence, candidate lifecycle, developer review, shadow mode, privacy, economics, and
+Benchmark V2 requirements in the canonical decision record. This is a governance/documentation task;
+no product implementation, migration, provider run, or provider cost occurred.
+
+**Verify:** VERIFY.md Category 1 documentation checks; Markdown formatting, link/ID/scope checks,
+and secret-safe diff scan.
+
+**Replanning after V3-013:** The final live result remains **NOT PASSED**. The following ordered
+work replaces the bundled future implementation scope without deleting V3-008/009 history. Privacy
+and knowledge contracts precede personal-cache production use and all global knowledge use.
+
+---
+
+#### RESOLVER-V3-015: Observation Contract & Data Classification
+
+Status: `todo`
+Depends on: RESOLVER-V3-014
+
+**Goal:** Specify and implement the auditable resolver-observation contract and data classification.
+**Scope:** Versioned observation writer/contract and tests; no global activation.
+**Non-goals:** Candidate aggregation, cache read path, migration beyond separately approved schema work.
+**Risks:** Raw-text overcollection and incompatible event evolution.
+**Tests/verification:** Contract, versioning, redaction/classification tests; `npm run verify`.
+**Acceptance:** One run yields auditable non-authoritative evidence without a second AI call.
+
+---
+
+#### RESOLVER-V3-016: Privacy Boundary Enforcement
+
+Status: `todo`
+Depends on: RESOLVER-V3-014, RESOLVER-V3-015
+
+**Goal:** Implement classified private versus aggregatable data paths.
+**Scope:** Retention/access/de-identification design and enforcement needed by observations.
+**Non-goals:** Global candidate activation or personal cache optimization.
+**Risks:** Cross-user or raw-text leakage; user-ID removal mistaken for anonymization.
+**Tests/verification:** RLS/privacy-path, deletion, redaction, and no-leak tests; `npm run verify`.
+**Acceptance:** Personal data cannot enter aggregation without classification and approved de-identification.
+
+---
+
+#### RESOLVER-V3-017: Personal Memory Promotion and Correction Precedence
+
+Status: `todo`
+Depends on: RESOLVER-V3-015, RESOLVER-V3-016
+
+**Goal:** Implement private P0/P1/P2 transitions and correction-first behavior.
+**Scope:** Personal-only promotion, negative evidence, correction-driven weakening/invalidation.
+**Non-goals:** Globalization, review UI, or fast-path production wiring.
+**Risks:** Overgeneralizing near matches or treating unchanged save as confirmation.
+**Tests/verification:** Correction/repeat/near-repeat/contradiction tests; `npm run verify`.
+**Acceptance:** Corrections override unconfirmed outcomes and never create global knowledge.
+
+---
+
+#### RESOLVER-V3-018: Personal Memory Invalidation
+
+Status: `todo`
+Depends on: RESOLVER-V3-017
+
+**Goal:** Make private entries reversible, source-aware, and invalidatable.
+**Scope:** Dependency, supersession, rollback, deletion, source-update and contradiction handling.
+**Non-goals:** Shared/global cache or candidate aggregation.
+**Risks:** Stale source identities and irreversible personal decisions.
+**Tests/verification:** Invalidation, rollback, source-update, and deletion tests; `npm run verify`.
+**Acceptance:** Affected personal entries are deterministically weakened/deactivated with audit reason.
+
+---
+
+#### RESOLVER-V3-019: Personal Cache/Memory Read Path
+
+Status: `todo`
+Depends on: RESOLVER-V3-017, RESOLVER-V3-018
+
+**Goal:** Read valid private memory before AI when policy permits.
+**Scope:** User-scoped deterministic lookup, eligibility, telemetry, fallback, and measured avoided calls.
+**Non-goals:** Cross-user cache, global candidates, or hybrid production wiring.
+**Risks:** Privacy breach, stale hit, or unsafe similar-input transfer.
+**Tests/verification:** Isolation, exact/near-match, invalidation, and no-AI-on-P2 tests; `npm run verify`.
+**Acceptance:** Only valid same-user memory affects results and exact confirmed repeats may avoid AI.
+
+---
+
+#### RESOLVER-V3-020: Knowledge Candidate Aggregation
+
+Status: `todo`
+Depends on: RESOLVER-V3-015, RESOLVER-V3-016
+
+**Goal:** Derive inactive, privacy-safe global candidate proposals from observations.
+**Scope:** Candidate evidence, lifecycle/audit, duplicate/rejected/quarantine handling.
+**Non-goals:** Automatic promotion or resolver effect.
+**Risks:** Re-identification and weak-evidence promotion pressure.
+**Tests/verification:** Aggregation, lifecycle, privacy, and no-effect tests; `npm run verify`.
+**Acceptance:** Candidates remain inactive and preserve contradictions/negative evidence.
+
+---
+
+#### RESOLVER-V3-021: Developer Review and Global Promotion
+
+Status: `todo`
+Depends on: RESOLVER-V3-020
+
+**Goal:** Build explicit developer review and approved-payload activation contract.
+**Scope:** Required review material, actions, audit trail, locale restrictions, rollback hooks.
+**Non-goals:** Auto-approval or exposure of raw personal texts.
+**Risks:** Insufficient provenance/privacy context or non-reversible activation.
+**Tests/verification:** Review authorization, audit, rejection, negative-rule, and rollback tests; `npm run verify`.
+**Acceptance:** Only reviewed `approved` payloads can globally influence resolver policy.
+
+---
+
+#### RESOLVER-V3-022: Shadow Mode for Global Candidates
+
+Status: `todo`
+Depends on: RESOLVER-V3-020
+
+**Goal:** Evaluate candidates without user-visible resolver effect.
+**Scope:** Shadow evaluation and development/holdout, locale, false-confidence, and regression metrics.
+**Non-goals:** Ranking mutation, fast path, or automatic approval.
+**Risks:** Accidental production effect or corpus leakage.
+**Tests/verification:** No-effect, metrics, locale, and holdout separation tests; `npm run verify`.
+**Acceptance:** Shadow results are auditable and cannot change any production decision.
+
+---
+
+#### RESOLVER-V3-023: Learning Benchmark V2
+
+Status: `todo`
+Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022
+
+**Goal:** Create separated development/holdout learning-system benchmark evidence.
+**Scope:** Resolution/decomposition, personal sequences, promotion, privacy, and economics measures.
+**Non-goals:** Reclassifying the 14-case smoke corpus as sufficient or enabling V3-010.
+**Risks:** Leakage, unrepresentative corpus, and cost-only optimization.
+**Tests/verification:** Reproducibility, sequence, privacy, shadow, rollback, and metric tests.
+**Acceptance:** Benchmark proves required learning invariants and reports limits separately by corpus.
+
+---
+
+#### RESOLVER-V3-024: Representative Learning/Hybrid Gate Re-decision
+
+Status: `todo`
+Depends on: RESOLVER-V3-013, RESOLVER-V3-023
+
+**Goal:** Re-evaluate the blocked hybrid only with representative Learning Benchmark V2 evidence.
+**Scope:** Documented gate decision against A, safety, provenance, privacy, cost, and latency.
+**Non-goals:** Automatic V3-010 unblocking, provider rerun, or production wiring.
+**Risks:** Repeating smoke-corpus overclaim or overlooking false confidence.
+**Tests/verification:** Canonical benchmark commands and decision-record/report readback per VERIFY.md.
+**Acceptance:** Explicit passed/not-passed decision; only a passed representative gate may satisfy V3-010's gate dependency.
 
 ---
 
 #### RESOLVER-V3-010: Production Integration Behind Feature Flag
 
 Status: `blocked`
-Depends on: RESOLVER-V3-006 (gate must pass), RESOLVER-V3-008
+Depends on: RESOLVER-V3-006 (historical comparison gate), RESOLVER-V3-019, RESOLVER-V3-024
+
+**Replanned dependency:** RESOLVER-V3-008 remains historical scope, but its safe private-memory
+successor is RESOLVER-V3-019. RESOLVER-V3-024 MUST explicitly pass a representative
+Learning-/Hybrid-Gate before this task can proceed; V3-013 alone is **NOT PASSED**.
 
 **Description:** Wire the RESOLVER-V3-005 hybrid path into `LogFoodFromRawInputUseCase`/
 `SequentialFoodCatalogResolver` behind a feature flag, default off. Only authorized once

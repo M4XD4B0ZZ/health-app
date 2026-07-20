@@ -84,3 +84,13 @@ DNS does not change the unconfigured failure. The root cause is consequently the
 proxy dispatcher, not provider reachability, credentials, model configuration, or a benchmark result.
 No live B/C benchmark was rerun and both RESOLVER-V3-013 and RESOLVER-V3-010 remain blocked pending a
 separately scoped, reviewed transport configuration change and a repeat dummy-key probe.
+
+## Proxy-aware transport follow-up (2026-07-20)
+
+The separately scoped benchmark-local follow-up is documented in
+`reports/RESOLVER_V3_013_ANTHROPIC_PROXY_TRANSPORT_EVIDENCE.md`. One shared B/C transport factory
+now uses an explicit, per-request Undici proxy dispatcher when a standard proxy variable is present,
+and otherwise preserves direct transport. The post-change invalid-dummy-key Messages POST received
+HTTP 401 through the configured proxy; no real key, billed request, or benchmark protocol was used.
+This resolves the demonstrated Node transport path only. RESOLVER-V3-013 and RESOLVER-V3-010 remain
+blocked pending human review and a separately authorized fixed full run.

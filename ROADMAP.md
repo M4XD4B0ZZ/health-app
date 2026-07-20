@@ -9166,6 +9166,15 @@ missing Node/Undici proxy dispatcher, not the provider endpoint, model, credenti
 ground truth. No B/C benchmark was rerun; RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked` until
 a separately scoped, reviewed proxy-aware transport change and a passing dummy-key probe are
 available. See `reports/RESOLVER_V3_013_ANTHROPIC_TRANSPORT_DIAGNOSIS.md`.
+The separately scoped benchmark-local proxy transport follow-up added one shared B/C
+`AnthropicBenchmarkTransport`: it selects only standard proxy-variable presence, passes an Undici
+`ProxyAgent` per request without global dispatcher mutation, and otherwise retains direct transport.
+Its one invalid-dummy-key Messages POST received HTTP 401, proving the Node/Undici request reaches
+the endpoint without using a real key or a paid B/C benchmark. Secret-safe focused transport,
+provider, budget, and A/B/C fixture regressions passed. This clears the demonstrated transport
+blocker only; RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked` pending human review and one
+separately authorized fixed full protocol. See
+`reports/RESOLVER_V3_013_ANTHROPIC_PROXY_TRANSPORT_EVIDENCE.md`.
 
 ---
 

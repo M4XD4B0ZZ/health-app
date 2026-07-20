@@ -14,6 +14,7 @@ import {
 } from './variantCPrompt';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
+import { createAnthropicBenchmarkTransport } from './AnthropicBenchmarkTransport';
 
 /**
  * RESOLVER-V3-005: the one concrete, optional live Variant C interpretation provider adapter --
@@ -68,7 +69,12 @@ export function createLiveVariantCInterpreter(
     );
   }
   const modelId = env[ANTHROPIC_MODEL_ENV] || DEFAULT_ANTHROPIC_MODEL;
-  return new AnthropicVariantCLiveInterpreter(apiKey, modelId, budgetGate);
+  return new AnthropicVariantCLiveInterpreter(
+    apiKey,
+    modelId,
+    budgetGate,
+    createAnthropicBenchmarkTransport(env),
+  );
 }
 
 class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
@@ -76,6 +82,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     private readonly apiKey: string,
     private readonly modelId: string,
     private readonly budgetGate?: LiveProviderBudgetGate,
+    private readonly transport = createAnthropicBenchmarkTransport(),
   ) {}
 
   async interpret(request: AiInterpretationRequest): Promise<VariantCAiInterpretationCall> {
@@ -87,7 +94,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     const start = performance.now();
     let response: Response;
     try {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
+      response = await this.transport.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'x-api-key': this.apiKey,

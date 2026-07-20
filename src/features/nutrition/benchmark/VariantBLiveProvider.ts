@@ -71,6 +71,11 @@ export function createLiveVariantBProvider(
         'Set it in the environment (e.g. via `.env`, never committed) before using --live.',
     );
   }
+  if (!budgetGate) {
+    throw new VariantBLiveProviderConfigError(
+      'Live Variant B run requested without the required shared aggregate budget gate.',
+    );
+  }
   const modelId = env[ANTHROPIC_MODEL_ENV] || DEFAULT_ANTHROPIC_MODEL;
   return new AnthropicVariantBLiveProvider(apiKey, modelId, budgetGate);
 }

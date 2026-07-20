@@ -15,14 +15,14 @@ selectors were `claude-haiku-4-5`, which is present in the committed pricing tab
 runner constructs exactly one `LiveProviderBudgetGate` and passes that one instance to B and C;
 both providers use `createAnthropicBenchmarkTransport`.
 
-| Preflight / protocol field | Result |
-| --- | --- |
-| Expected B / C / total calls | 22 / 7 / 29 |
-| Reserved input / output ceilings | 237,568 / 44,544 |
-| Worst-case reservation / USD 5.00 margin | USD 0.460288 / USD 4.539712 |
-| Focused transport/provider/budget tests | passed (23 tests) |
-| `npm run verify` | passed |
-| Offline controls | A and B fixture commands completed; C fixture command did not produce a report |
+| Preflight / protocol field               | Result                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| Expected B / C / total calls             | 22 / 7 / 29                                                                    |
+| Reserved input / output ceilings         | 237,568 / 44,544                                                               |
+| Worst-case reservation / USD 5.00 margin | USD 0.460288 / USD 4.539712                                                    |
+| Focused transport/provider/budget tests  | passed (23 tests)                                                              |
+| `npm run verify`                         | passed                                                                         |
+| Offline controls                         | A and B fixture commands completed; C fixture command did not produce a report |
 
 ### Result: incomplete technical evidence — do not rerun automatically
 

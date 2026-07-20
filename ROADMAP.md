@@ -9096,7 +9096,7 @@ Depends on: RESOLVER-V3-015
 
 #### RESOLVER-V3-016: Privacy Boundary Enforcement
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-014, RESOLVER-V3-015
 
 **Goal:** Implement classified private versus aggregatable data paths.
@@ -9105,6 +9105,7 @@ Depends on: RESOLVER-V3-014, RESOLVER-V3-015
 **Risks:** Cross-user or raw-text leakage; user-ID removal mistaken for anonymization.
 **Tests/verification:** RLS/privacy-path, deletion, redaction, and no-leak tests; `npm run verify`.
 **Acceptance:** Personal data cannot enter aggregation without classification and approved de-identification.
+**Implementation:** `resolver-observation-privacy-v1` supplies complete storage/contract field policy, fail-closed in-memory projection, closed reason/source rules, and current-owner-only deletion. No aggregation, candidate, memory, resolver-read, or global path was added. V3-017 and V3-020 may now be started in parallel on separate branches; both remain `todo` and V3-020 may only consume a later approved privacy-safe path.
 
 ---
 

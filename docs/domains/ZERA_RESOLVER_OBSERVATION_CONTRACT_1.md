@@ -31,3 +31,6 @@ RLS is enabled. `authenticated` receives only select/insert/delete grants: owner
 ## Non-goals and privacy handoff
 
 This does not implement V3-016 de-identification/retention enforcement, personal memory, correction precedence, cache reads, global aggregation/promotion, review UI, new AI providers/prompts, or schema/RLS changes. V3-016 owns enforcement after the storage migration is approved.
+
+Privacy enforcement and the closed in-memory-only future projection are defined by
+[`ZERA_RESOLVER_OBSERVATION_PRIVACY_POLICY_1.md`](ZERA_RESOLVER_OBSERVATION_PRIVACY_POLICY_1.md).

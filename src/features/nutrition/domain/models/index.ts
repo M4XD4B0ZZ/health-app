@@ -9,3 +9,5 @@ export * from './ResolverDecisionSummary';
 export * from './DecisionMeta';
 export * from './AssumptionTag';
 export * from './AiInterpretationTypes';
+
+export * from './ResolverObservation';

@@ -1,34 +1,22 @@
-# RESOLVER-V3-014 — Knowledge-Growth Architecture & Human-Review Governance Handoff
+# Handoff — RESOLVER-V3-015
 
 ## Status
 
-- **Task:** `RESOLVER-V3-014`; **status:** `done`.
-- **Architecture:** The accepted canonical authority is
-  [`ZERA_RESOLUTION_KNOWLEDGE_GROWTH_DECISION_RECORD_1.md`](../docs/domains/ZERA_RESOLUTION_KNOWLEDGE_GROWTH_DECISION_RECORD_1.md).
-  It is Level-2 domain authority and extends, rather than replaces, Food Resolution Decision Record 1.
-- **Production wiring:** Still **blocked**. RESOLVER-V3-013 remains valid evidence and its gate
-  remains **NOT PASSED**; `RESOLVER-V3-010` was not unblocked.
+`RESOLVER-V3-015` is **blocked**, not done: the versioned contract boundary is implemented but durable persistence cannot be safely completed without a dedicated migration. No migration, RLS policy, dependency, provider run, or resolver strategy was changed.
 
-## What Changed
+## Contract inventory and implementation
 
-- Documented four strictly separated layers: authoritative source data, private personal resolution
-  memory, observations/candidates, and approved curated global knowledge.
-- Bound personal P0/P1/P2, correction precedence, invalidation, candidate lifecycle, human review,
-  shadow mode, negative knowledge, privacy/provenance, costs, and Learning Benchmark V2.
-- Added concise binding agent invariants and minimally linked Food Resolution Decision Record 1.
-- Replanned post-V3-013 work as V3-015 through V3-024. V3-008/009 history is preserved and their
-  bundled future scope is explicitly superseded for planning, not silently deleted.
+- Contract: `resolver-observation-v1`; typed, closed fields for identity/run correlation, private input, deterministic decision/source reference, resolver version and operational latency.
+- Classification: `private_raw`, `private_user_scoped`, `aggregatable_only_after_approved_deidentification`, and `non_personal_operational`; the V1 field catalogue is closed and unknown fields fail validation.
+- Existing data: resolver already creates query/locale/input type/candidates/decision. `food_resolver_runs` persists legacy V2 telemetry; `food_query_cache_results` holds catalog cache rankings. FoodEntry snapshot/catalog ref, corrections, aliases and portion hints remain separate private concerns.
+- Storage: `food_resolver_runs` is not reused because its V2 metadata and columns cannot safely carry the typed V1 contract; `food_query_cache_results` is semantically catalog cache data. The implemented adapter is in-memory only.
+- Integration: `SequentialFoodCatalogResolver.resolve`, after the existing decision and beside the legacy logger. It writes exactly one observation per run ID in tests, with no second AI call/source request and no resolver result/ranking/cache/memory/candidate/global effect.
+- Error behavior: writer returns explicit `written`/`duplicate`/safe failure codes; resolver emits only a safe failure code and preserves the user result. No raw input or secrets are logged.
 
-## No Implementation / External Effects
+## Tests
 
-- No product code, database table, migration, RLS policy, dependency, prompt, provider, feature
-  flag, observation writer, cache, candidate aggregator, review UI, shadow runner, promotion engine,
-  correction wiring, benchmark corpus, or live AI run changed.
-- No provider cost was incurred.
+`npm run verify` passed: 160 suites / 1,444 tests. Focused observation contract/integration tests passed: 2 suites / 3 tests; existing SequentialFoodCatalogResolver and SupabaseResolverRunLogger tests passed: 2 suites / 40 tests. `git diff --check`, TypeScript, ESLint and Prettier checks passed. No network/provider request was run.
 
-## Follow-up Order
+## Next dependency
 
-Start with V3-015 (observation contract and data classification), then V3-016 privacy boundary,
-V3-017 personal promotion/correction precedence, V3-018 invalidation, and V3-019 private read path.
-Global aggregation/review/shadow and Benchmark V2 follow through V3-024. Numeric thresholds,
-schemas, retention/access choices, and representative gates remain explicit follow-up decisions.
+`RESOLVER-V3-015A` is the separately scoped private storage/RLS migration. V3-016 must not begin before that migration and privacy enforcement review.

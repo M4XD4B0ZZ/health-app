@@ -10,7 +10,7 @@ export class BlsStaticSource implements FoodCatalogSource {
 
   async search(query: FoodSearchQuery): Promise<FoodCandidate[]> {
     const traceId = query.traceId || 'unknown';
-    console.log(`[DEBUG] BLS CALLED with query="${query.normalized}"`);
+    console.log('[DEBUG] BLS CALLED');
 
     // DACH Strategy: Allow BLS for German generic AND ambiguous inputs
     const allowedInputTypes = ['generic', 'ambiguous'];
@@ -28,9 +28,7 @@ export class BlsStaticSource implements FoodCatalogSource {
 
     const shortcutCandidate = getBlsShortcutCandidate(query.normalized);
     if (shortcutCandidate) {
-      console.log(
-        `[${traceId}] PROOF_CANONICAL_SHORTCUT_USED shortcut="${query.normalized}" source="bls"`,
-      );
+      console.log(`[${traceId}] PROOF_CANONICAL_SHORTCUT_USED source="bls"`);
       console.log(`[DEBUG] BLS RESULTS count=1 (shortcut)`);
       return [shortcutCandidate];
     }
@@ -39,13 +37,10 @@ export class BlsStaticSource implements FoodCatalogSource {
     console.log(`[DEBUG] BLS RESULTS count=${results.length}`);
 
     if (results.length === 0) {
-      console.log(`[DEBUG] BLS NO MATCH for "${query.normalized}"`);
+      console.log('[DEBUG] BLS NO MATCH');
     } else {
       // PROOF_BLS_MATCH logging
-      const bestMatch = results[0];
-      console.log(
-        `[${traceId}] PROOF_BLS_MATCH input="${query.normalized}" candidates_count=${results.length} best_match="${bestMatch.food.name}" score=${bestMatch.match.similarity}`,
-      );
+      console.log(`[${traceId}] PROOF_BLS_MATCH source="bls" candidates_count=${results.length}`);
     }
 
     return results;

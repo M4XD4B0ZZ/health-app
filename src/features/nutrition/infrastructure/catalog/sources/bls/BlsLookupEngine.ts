@@ -118,7 +118,7 @@ export class BlsLookupEngine {
     // Stage 1: Exact alias match (highest priority)
     const exactMatches = this.findExactMatches(normalizedInput);
     if (exactMatches.length > 0) {
-      console.log(`[DEBUG] BLS EXACT_MATCH found for '${normalizedInput}'`);
+      console.log('[DEBUG] BLS EXACT_MATCH');
       return exactMatches;
     }
 
@@ -137,11 +137,11 @@ export class BlsLookupEngine {
         const bestToken = rankedTokenMatches.length > 0 ? rankedTokenMatches[0].score : 0;
         if (bestToken > bestIncludes) {
           console.log(
-            `[DEBUG] BLS TOKEN_OVER_INCLUDES for '${normalizedInput}' (token=${bestToken} > includes=${bestIncludes})`,
+            `[DEBUG] BLS TOKEN_OVER_INCLUDES token=${bestToken} includes=${bestIncludes}`,
           );
           return rankedTokenMatches;
         }
-        console.log(`[DEBUG] BLS INCLUDES_MATCH found for compound '${normalizedInput}'`);
+        console.log('[DEBUG] BLS INCLUDES_MATCH compound');
         return includesMatches;
       }
 
@@ -154,34 +154,25 @@ export class BlsLookupEngine {
     if (inputTokens.length > 1) {
       const includesMatches = this.findIncludesMatches(normalizedInput);
       if (includesMatches.length === 0) {
-        console.log(
-          `[DEBUG] BLS COMPOUND_GUARD: Rejecting unknown multi-token compound '${normalizedInput}'`,
-        );
+        console.log('[DEBUG] BLS COMPOUND_GUARD multi_token');
         return [];
       }
 
-      console.log(`[DEBUG] BLS INCLUDES_MATCH found for multi-token compound '${normalizedInput}'`);
+      console.log('[DEBUG] BLS INCLUDES_MATCH multi_token');
       return includesMatches;
     }
 
     // Stage 4: Token-based matching (only for single tokens after compound guard)
     const tokenMatches = this.findTokenMatches(inputTokens);
     if (tokenMatches.length > 0) {
-      console.log(
-        `[DEBUG] BLS TOKEN_MATCH found ${tokenMatches.length} candidates for '${normalizedInput}'`,
-      );
-      tokenMatches.forEach((result, index) => {
-        console.log(
-          `[DEBUG] BLS TOKEN_MATCH [${index}] '${result.record.displayName}' score=${result.score}`,
-        );
-      });
+      console.log(`[DEBUG] BLS TOKEN_MATCH candidates=${tokenMatches.length}`);
       return tokenMatches;
     }
 
     // Stage 5: Fallback includes matching (lowest priority, single tokens only)
     const fallbackIncludes = this.findIncludesMatches(normalizedInput);
     if (fallbackIncludes.length > 0) {
-      console.log(`[DEBUG] BLS INCLUDES_MATCH found for '${normalizedInput}'`);
+      console.log('[DEBUG] BLS INCLUDES_MATCH');
       return fallbackIncludes;
     }
 
@@ -442,9 +433,7 @@ export class BlsLookupEngine {
         recordDisplayName.toLowerCase().includes('gebacken');
 
       if (isPreparedFood && baseScore >= 0.9) {
-        console.log(
-          `[DEBUG] BLS GUARD: Reducing score for broad input '${inputTokens[0]}' -> '${recordDisplayName}' from ${baseScore} to 0.6`,
-        );
+        console.log(`[DEBUG] BLS GUARD score=${baseScore} adjusted=0.6`);
         return 0.6; // Lower confidence for broad->prepared matches
       }
     }
@@ -467,9 +456,7 @@ export class BlsLookupEngine {
     }
 
     if (potentialMatches.size > 1) {
-      console.log(
-        `[DEBUG] BLS COMPOUND_GUARD: Rejecting unknown compound '${normalizedInput}' (would split into ${potentialMatches.size} foods)`,
-      );
+      console.log(`[DEBUG] BLS COMPOUND_GUARD candidates=${potentialMatches.size}`);
       return true;
     }
 

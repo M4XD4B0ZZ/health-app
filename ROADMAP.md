@@ -9070,26 +9070,27 @@ and knowledge contracts precede personal-cache production use and all global kno
 
 #### RESOLVER-V3-015: Observation Contract & Data Classification
 
-Status: `blocked` — durable V1 persistence requires a dedicated private schema/RLS migration
+Status: `done` — RESOLVER-V3-015A closed the dedicated private schema/RLS persistence blocker
 Depends on: RESOLVER-V3-014
 
 **Goal:** Specify and implement the auditable resolver-observation contract and data classification.
 **Implementation note:** `resolver-observation-v1`, closed classification catalogue, validator, write-only port, in-memory adapter and resolver integration are implemented. `food_resolver_runs` is retained as legacy V2 telemetry; no metadata field is repurposed.
-**Blocker:** Existing `food_resolver_runs` columns/legacy metadata and `food_query_cache_results` cannot safely represent the full typed V1 private observation contract.
+**Persistence blocker (closed):** Existing `food_resolver_runs` columns/legacy metadata and `food_query_cache_results` could not safely represent the full typed V1 private observation contract; RESOLVER-V3-015A now provides the dedicated private boundary.
 **Scope:** Versioned observation writer/contract and tests; no global activation.
 **Non-goals:** Candidate aggregation, cache read path, migration beyond separately approved schema work.
 **Risks:** Raw-text overcollection and incompatible event evolution.
 **Tests/verification:** Contract, versioning, redaction/classification tests; `npm run verify`.
-**Acceptance:** One run yields auditable non-authoritative evidence without a second AI call; durable acceptance awaits RESOLVER-V3-015A.
+**Acceptance:** One run yields auditable non-authoritative evidence without a second AI call; durable acceptance is satisfied by RESOLVER-V3-015A.
 
 #### RESOLVER-V3-015A: Private Resolver Observation Storage Migration
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-015
 
 **Goal:** Add a dedicated, private, typed storage boundary and RLS policies for `resolver-observation-v1`.
 **Scope:** Migration/schema and storage adapter only; no aggregation, promotion, cache read path, or V3-016 enforcement.
 **Acceptance:** The V1 writer can durably persist the complete classified contract without overloading legacy resolver telemetry.
+**Implementation:** `20260720120000_create_resolver_observations.sql` provides private owner-RLS JSONB V1 storage and the write-only Supabase adapter; focused migration, writer, resolver-observation integration, and logger tests plus `npm run verify` passed. The persistence blocker is closed; RESOLVER-V3-016 remains `todo` and may now begin.
 
 ---
 

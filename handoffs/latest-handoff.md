@@ -1,22 +1,25 @@
-# Handoff — RESOLVER-V3-015
+# Handoff — RESOLVER-V3-015A
 
-## Status
+## Status and basis
 
-`RESOLVER-V3-015` is **blocked**, not done: the versioned contract boundary is implemented but durable persistence cannot be safely completed without a dedicated migration. No migration, RLS policy, dependency, provider run, or resolver strategy was changed.
+- Base verified before changes: `54963c176639e90e2041b326032c7048dbdbea6c` on the local `work` checkout (PR #100 merge); task branch: `feat/resolver-v3-015a-private-observation-storage`.
+- `RESOLVER-V3-015A` and its previously blocked prerequisite `RESOLVER-V3-015` are now `done`. `RESOLVER-V3-016` remains `todo` and can safely start; V3-010 remains blocked and V3-013 remains NOT PASSED.
 
-## Contract inventory and implementation
+## Storage boundary
 
-- Contract: `resolver-observation-v1`; typed, closed fields for identity/run correlation, private input, deterministic decision/source reference, resolver version and operational latency.
-- Classification: `private_raw`, `private_user_scoped`, `aggregatable_only_after_approved_deidentification`, and `non_personal_operational`; the V1 field catalogue is closed and unknown fields fail validation.
-- Existing data: resolver already creates query/locale/input type/candidates/decision. `food_resolver_runs` persists legacy V2 telemetry; `food_query_cache_results` holds catalog cache rankings. FoodEntry snapshot/catalog ref, corrections, aliases and portion hints remain separate private concerns.
-- Storage: `food_resolver_runs` is not reused because its V2 metadata and columns cannot safely carry the typed V1 contract; `food_query_cache_results` is semantically catalog cache data. The implemented adapter is in-memory only.
-- Integration: `SequentialFoodCatalogResolver.resolve`, after the existing decision and beside the legacy logger. It writes exactly one observation per run ID in tests, with no second AI call/source request and no resolver result/ranking/cache/memory/candidate/global effect.
-- Error behavior: writer returns explicit `written`/`duplicate`/safe failure codes; resolver emits only a safe failure code and preserves the user result. No raw input or secrets are logged.
+- Exactly one additive migration: `supabase/migrations/20260720120000_create_resolver_observations.sql`; table: `public.resolver_observations`.
+- It separates typed private metadata (`owner_id`, identity/run/version/timestamps) from the complete closed `resolver-observation-v1` JSONB `observation_payload`. The payload is not generic metadata; application validation rejects unknown contract fields and database checks bind payload identity/version to columns.
+- Owner is supplied through the canonical Supabase authenticated-session provider and passed explicitly as `{ ownerId, observation }` to the write-only port. It is not copied into the V1 payload. No session/no owner fails closed without an insert or dummy owner.
+- Private idempotence is `unique (owner_id, observation_id)`. Unique conflicts return `duplicate`; validation failures return `validation_failed`; other persistence failures return secret-safe `write_failed` and log only a stable code.
+- RLS is enabled with authenticated owner-only select/insert/delete policies using `auth.uid() = owner_id`; no anon access, unrestricted policy, update grant, or update policy exists. Delete is intentionally owner-scoped as the safe structural handoff to V3-016 retention/deletion work, not an implementation of V3-016.
 
-## Tests
+## Integration and non-effects
 
-`npm run verify` passed: 160 suites / 1,444 tests. Focused observation contract/integration tests passed: 2 suites / 3 tests; existing SequentialFoodCatalogResolver and SupabaseResolverRunLogger tests passed: 2 suites / 40 tests. `git diff --check`, TypeScript, ESLint and Prettier checks passed. No network/provider request was run.
+- `SupabaseResolverObservationWriter` is write-only and DI-wired outside test mode with `SupabaseResolverObservationOwnerProvider`. Test/local-safe paths are no-op/fail-closed; no actual Supabase connection was made.
+- Resolver writes remain exactly once and post-decision. Owner lookup/write failures cannot affect the resolver/journal result, retry the resolver, or trigger AI/source execution. No resolver code reads the new table.
+- `food_resolver_runs` stays legacy V2 telemetry and `food_query_cache_results` stays cache/ranking data. No legacy migration changed, no backfill/relabel/promotion occurred, and no aggregation, memory, candidate, cache read path, or global knowledge behavior was introduced.
 
-## Next dependency
+## Verification
 
-`RESOLVER-V3-015A` is the separately scoped private storage/RLS migration. V3-016 must not begin before that migration and privacy enforcement review.
+- Focused: 5 suites / 15 tests passed (`ResolverObservation`, integration, new writer/migration, existing resolver-run logger); the integration asserts exactly one source call and full owner-bound observation request.
+- Full runtime verification, diff checks, SQL readback, migration-count/legacy/dependency checks and secret-oriented diff scan are to be recorded after the final implementation review. No live provider or Supabase calls were run.

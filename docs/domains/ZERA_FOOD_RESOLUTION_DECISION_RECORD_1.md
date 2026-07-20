@@ -434,6 +434,10 @@ neuen, breiteren Zweck.
 
 ---
 
+## 8.1 Präzisierung des persistenten Lernens
+
+Die Idee des persistenten Lernens aus validierten Ergebnissen wird verbindlich durch [`ZERA_RESOLUTION_KNOWLEDGE_GROWTH_DECISION_RECORD_1.md`](ZERA_RESOLUTION_KNOWLEDGE_GROWTH_DECISION_RECORD_1.md) präzisiert. Der neue Record erweitert diese Entscheidung; er schreibt weder die source-grounded Nährwertwahrheit noch deterministische Berechnung oder das Benchmark-/Production-Wiring-Gate um.
+
 ## 9. Folgeänderungen an `ROADMAP.md`
 
 Dieses Dokument wird durch einen Verweis im `ROADMAP.md`-Decisions-Log verbindlich verankert

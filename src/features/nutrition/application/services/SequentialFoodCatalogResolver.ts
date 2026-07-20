@@ -172,12 +172,11 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const routingStrategy = this.determineSourceRoutingStrategy(query);
     const orderedSources = this.getOrderedSources(routingStrategy);
     const sources = orderedSources.map((s) => s.type);
-    if (isDebugLoggingEnabled() && traceId) {
+    if (isDebugLoggingEnabled() && traceId)
       console.log(`[${traceId}] ROUTING sources=${sources.join(',')}`);
-      console.log(
-        `[${traceId}] PROOF_SOURCE_ROUTING_DECISION classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
-      );
-    }
+    console.log(
+      `[${traceId ?? 'unknown'}] PROOF_SOURCE_ROUTING_DECISION classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
+    );
 
     // Initialize debug collector if tracing is enabled
     const debugCollector =
@@ -704,16 +703,11 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   private logSummary(metrics: LookupMetrics, decisionBest?: ResolvedFoodCandidate): void {
-    if (
-      isDebugLoggingEnabled() &&
-      decisionBest?.source === RESOLVER_SOURCE_LABELS.BLS &&
-      metrics.traceId
-    ) {
-      console.log(`[${metrics.traceId}] PROOF_BLS_SOURCE_USED`);
+    if (decisionBest?.source === RESOLVER_SOURCE_LABELS.BLS) {
+      console.log(`[${metrics.traceId ?? 'unknown'}] PROOF_BLS_SOURCE_USED source="bls"`);
 
-      if (decisionBest.food.sourceId?.startsWith('shortcut:')) {
-        console.log(`[${metrics.traceId}] PROOF_CANONICAL_SHORTCUT_USED`);
-      }
+      if (isDebugLoggingEnabled() && decisionBest.food.sourceId?.startsWith('shortcut:'))
+        console.log(`[${metrics.traceId ?? 'unknown'}] PROOF_CANONICAL_SHORTCUT_USED`);
     }
 
     if (isDebugLoggingEnabled() && metrics.traceId) {

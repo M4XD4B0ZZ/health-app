@@ -1,58 +1,43 @@
-# RESOLVER-V3-013 — Controlled Live Provider Evidence Handoff
+# RESOLVER-V3-013 — Anthropic Messages Transport Diagnosis Handoff
 
 ## Run / Task Identity and Status
 
 - **Task:** RESOLVER-V3-013 — Controlled Live Provider Evidence for Variants B and C
-- **Status:** technically blocked after one controlled USD 5.00-gated B/C live attempt. The
-  provider POSTs failed locally; no complete live evidence was collected and the task is not done.
+- **Status:** remains `blocked`. This run diagnosed only the preceding transport failure; it did
+  not run a Variant B/C benchmark or use the real provider key. `RESOLVER-V3-010` remains blocked.
 
-## What Changed
+## What Changed and Why
 
-- Added a shared B/C hard aggregate budget gate and its focused tests; reservations are made before
-  `fetch` for calls, conservative tokens, cost, fan-out, and failed/retry attempts. Live provider
-  construction now refuses to run without this shared gate, preventing an un-gated direct live CLI.
-- Added the secret-free preflight report and updated `ROADMAP.md` with the current blocker.
-
-## Why Changed
-
-- The current live adapters have all three authorized environment variables and the maintainer
-  clarified that Anthropic's USD 5.00 provider-currency ceiling is authorized.
-- Governance and task instructions prohibit a live request, fixture fallback, live-evidence report,
-  or completion claim without a safe, tested aggregate budget gate and cost bound.
+- Added a reproducible, secret-safe transport diagnosis report and linked its evidence from the
+  existing live-evidence report and the ROADMAP task record.
+- This isolates the prior generic Node `fetch failed` result without altering a provider adapter,
+  prompt, schema, ground truth, or benchmark result.
 
 ## Changed Files
 
-- `src/features/nutrition/benchmark/VariantBLiveProvider.ts`
-- `src/features/nutrition/benchmark/VariantCLiveInterpretationProvider.ts`
-- `src/features/nutrition/benchmark/__tests__/VariantBLiveProvider.test.ts`
-- `src/features/nutrition/benchmark/__tests__/VariantCLiveInterpretationProvider.test.ts`
-- `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`, `ROADMAP.md`, `handoffs/latest-handoff.md`
+- `reports/RESOLVER_V3_013_ANTHROPIC_TRANSPORT_DIAGNOSIS.md`
+- `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`
+- `ROADMAP.md`
+- `handoffs/latest-handoff.md`
 
-## Validation Executed
+## Validation Executed and Result
 
-- `node scripts/benchmark-resolver-v3-variant-a.mjs`
-- `node scripts/benchmark-resolver-v3-variant-b.mjs`
-- `node scripts/benchmark-resolver-v3-variant-c.mjs`
-- `node scripts/benchmark-resolver-v3-variant-{b,c}.mjs --live` (expected aggregate-gate failure;
-  no request)
-- Focused Variant B/C credential-guard and benchmark Jest tests.
-- Focused aggregate gate test and `npm run typecheck`.
-
-## Validation Result
-
-- A baseline passed unchanged: 14 cases, 75.0% identification accuracy, one critical
-  false-confidence failure.
-- B and C fixture regressions passed. The direct live commands stopped with their secret-free
-  missing-aggregate-gate message before starting the harness; no provider request occurred.
+- System and Node DNS resolution checks for `api.anthropic.com` passed.
+- A curl dummy-key TLS/POST probe received HTTP 401 with successful TLS verification.
+- Node v20.20.2's benchmark-equivalent global fetch failed before HTTP with `TypeError: fetch
+failed`, caused by `AggregateError` / `ENETUNREACH`; IPv4-first did not change it.
+- The same Node fetch received HTTP 401 when the preconfigured HTTPS proxy was explicitly supplied
+  through Undici's `ProxyAgent`, proving the missing Node/Undici proxy dispatcher is the blocker.
+- Repository secret-pattern scan, whitespace validation, and documentation readback checks passed.
 
 ## Known Issues / Blockers / Risks
 
-- All three required variables are present. The API-key value was never read, printed, committed,
-  or recorded. Network reachability alone passed (HTTP 404 from the provider root).
-- The shared gate fixes the total ceiling at USD 5.00; 29 failed provider attempts reserved USD
-  0.460288. Actual billing is unknown because no provider usage metadata was returned.
+- The real API key was not read, printed, committed, or used. No billed request, fixture fallback,
+  prompt/schema/ground-truth change, or B/C live rerun occurred.
+- A separately scoped and reviewed proxy-aware transport change, followed by a dummy-key transport
+  recheck, is required before exactly one future full protocol rerun.
 
-## Human Review Status
+## Human-Review Status
 
-- Human/environment action is required: allow successful Anthropic Messages POST requests, then
-  rerun the full shared-gate protocol exactly once; do not rerun selected cases.
+Human review is required before modifying benchmark transport configuration. Do not rerun any
+provider benchmark until that reviewed change and dummy-key recheck succeed.

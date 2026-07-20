@@ -72,3 +72,15 @@ is valid from this attempt.
 
 `RESOLVER-V3-010` remains blocked. Resume only after the execution environment permits successful
 Anthropic Messages POST requests; do not rerun individual cases outside the fixed protocol.
+
+## Follow-up transport diagnosis (2026-07-20)
+
+The subsequent secret-free transport-only diagnosis is recorded in
+`reports/RESOLVER_V3_013_ANTHROPIC_TRANSPORT_DIAGNOSIS.md`. It established that DNS works and curl
+receives the expected HTTP 401 for a minimal dummy-key Messages POST, while the benchmark-equivalent
+Node v20.20.2 global `fetch` fails with secret-free `ENETUNREACH`. The same Node fetch reaches HTTP
+401 when its configured HTTPS proxy is explicitly supplied through Undici's `ProxyAgent`; IPv4-first
+DNS does not change the unconfigured failure. The root cause is consequently the missing Node/Undici
+proxy dispatcher, not provider reachability, credentials, model configuration, or a benchmark result.
+No live B/C benchmark was rerun and both RESOLVER-V3-013 and RESOLVER-V3-010 remain blocked pending a
+separately scoped, reviewed transport configuration change and a repeat dummy-key probe.

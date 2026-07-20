@@ -9187,6 +9187,21 @@ so it was not changed. A shared recursive B/C schema-contract regression test no
 nodes below `properties`, `items`, `anyOf`, `oneOf`, and `allOf` and reports full schema paths.
 No provider request, fixture fallback, new live evidence, gate reevaluation, or production wiring
 occurred; RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked` and the gate remains `INCONCLUSIVE`.
+The newly authorized complete post-remediation protocol was then run exactly once on commit
+`832c9c37ef1a3f786e194a9ea08e50d2fbd51422` after all focused checks, the A baseline, B/C fixture
+regressions, and `npm run verify` passed. It used the shared 29-attempt / USD 0.460288 maximum
+reservation (22 B, 7 C; one in flight) and no fixture fallback or out-of-protocol retry. All 22 B
+requests reached Anthropic but were rejected before generation because the nullable `quantity.unit`
+enum is incompatible with the provider's union-schema validation. Therefore B returned no usage or
+billing metadata and is not evaluable. C completed its seven AI-routed calls plus seven local fast
+paths: 9/12 identification, 0.733/0.846/0.786 component P/R/F1, 9 macro-within/2 outside/3 not
+evaluable, zero unbacked numeric results, one inherited fast-path false-confidence case
+(`RV3-0011`), estimated USD 0.025792 from returned usage, and 119.014/10,109.354 ms observed
+end-to-end p50/p95. The current committed C aggregate does not persist individual actual token
+counts. This is a technical partial run, not a B/C comparison or a completed evidence set:
+RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked`, and the production-wiring gate is
+`INCONCLUSIVE`. See `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`; no automatic retry is
+authorized.
 
 ---
 

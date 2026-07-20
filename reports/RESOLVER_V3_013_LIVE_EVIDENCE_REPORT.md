@@ -134,3 +134,26 @@ and otherwise preserves direct transport. The post-change invalid-dummy-key Mess
 HTTP 401 through the configured proxy; no real key, billed request, or benchmark protocol was used.
 This resolves the demonstrated Node transport path only. RESOLVER-V3-013 and RESOLVER-V3-010 remain
 blocked pending human review and a separately authorized fixed full run.
+
+## Schema compatibility remediation after the controlled attempt (2026-07-20)
+
+The actual Anthropic schema-validation error from the controlled attempt requires every schema
+fragment whose `type` includes `object` to declare `additionalProperties: false`. Variant B's
+top-level object already complied, but the provider-facing nested objects at
+`$.properties.components.items`, `$.properties.components.items.properties.quantity`,
+`$.properties.totals`, and `$.properties.clarification` did not. These are now explicitly closed.
+
+This changes only the provider-facing structured-output contract, so Variant B's schema version
+increases from `variant-b-schema-v1` to `variant-b-schema-v2`. Its prompt text and
+`VARIANT_B_PROMPT_VERSION` remain unchanged, as does the estimator version. Variant C was checked
+with the same recursive rule and required no change: all of its object fragments were already
+closed. A common offline B/C contract test recursively covers `properties`, `items`, `anyOf`,
+`oneOf`, and `allOf`, emits the complete failing schema path, and includes a regression assertion
+for the rejected nested Variant B shape.
+
+No real credential was used and no Messages request, individual-case retry, complete B/C run,
+fixture fallback, or new live report was produced for this remediation. It removes the observed
+schema-format blocker only; quality, usage, billing, and production-wiring evidence remain
+unknown/inconclusive. A fresh, explicitly authorized full B/C protocol is still required before
+RESOLVER-V3-013 can produce valid live evidence; RESOLVER-V3-013 and RESOLVER-V3-010 remain
+`blocked`.

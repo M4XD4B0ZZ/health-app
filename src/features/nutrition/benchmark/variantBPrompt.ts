@@ -12,7 +12,8 @@ import { VariantBRequest } from './VariantBTypes';
  */
 
 export const VARIANT_B_PROMPT_VERSION = 'variant-b-prompt-v1';
-export const VARIANT_B_SCHEMA_VERSION = 'variant-b-schema-v1';
+// Provider-facing schema compatibility change only: the prompt wording remains v1.
+export const VARIANT_B_SCHEMA_VERSION = 'variant-b-schema-v2';
 export const VARIANT_B_ESTIMATOR_VERSION = 'variant-b-ai-only-v1';
 
 /** The instructions given to the model, independent of the per-request input. Kept as a single
@@ -61,6 +62,7 @@ export const VARIANT_B_RESPONSE_JSON_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
+        additionalProperties: false,
         properties: {
           componentId: { type: 'string' },
           name: { type: 'string' },
@@ -68,6 +70,7 @@ export const VARIANT_B_RESPONSE_JSON_SCHEMA = {
           preparation: { type: ['string', 'null'] },
           quantity: {
             type: 'object',
+            additionalProperties: false,
             properties: {
               value: { type: ['number', 'null'] },
               unit: { type: ['string', 'null'], enum: ['g', 'ml', 'piece', 'portion', null] },
@@ -88,6 +91,7 @@ export const VARIANT_B_RESPONSE_JSON_SCHEMA = {
     },
     totals: {
       type: ['object', 'null'],
+      additionalProperties: false,
       properties: {
         kcal: { type: ['number', 'null'] },
         protein_g: { type: ['number', 'null'] },
@@ -100,6 +104,7 @@ export const VARIANT_B_RESPONSE_JSON_SCHEMA = {
     uncertainties: { type: 'array', items: { type: 'string' } },
     clarification: {
       type: ['object', 'null'],
+      additionalProperties: false,
       properties: {
         componentId: { type: ['string', 'null'] },
         missingInformation: { type: 'string' },

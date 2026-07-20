@@ -9065,7 +9065,7 @@ subsequent resolution in a test.
 
 #### RESOLVER-V3-010: Production Integration Behind Feature Flag
 
-Status: `todo`
+Status: `blocked`
 Depends on: RESOLVER-V3-006 (gate must pass), RESOLVER-V3-008
 
 **Description:** Wire the RESOLVER-V3-005 hybrid path into `LogFoodFromRawInputUseCase`/
@@ -9158,6 +9158,14 @@ every POST failed locally with `fetch failed`; no usage or billed-cost metadata 
 actual cost is unknown and no live comparison is valid. No fixture fallback occurred, so the task
 stays `blocked` and the production-wiring gate is
 `INCONCLUSIVE`.
+The subsequent dummy-key-only transport diagnosis proved DNS and curl TLS/POST connectivity (HTTP
+401), but the benchmark-equivalent Node v20.20.2 global fetch failed before HTTP with secret-free
+`ENETUNREACH`. Explicitly routing that same Node fetch through the already configured HTTPS proxy
+produced HTTP 401; forcing IPv4 first did not fix the direct failure. The demonstrated blocker is a
+missing Node/Undici proxy dispatcher, not the provider endpoint, model, credentials, prompt, or
+ground truth. No B/C benchmark was rerun; RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked` until
+a separately scoped, reviewed proxy-aware transport change and a passing dummy-key probe are
+available. See `reports/RESOLVER_V3_013_ANTHROPIC_TRANSPORT_DIAGNOSIS.md`.
 
 ---
 

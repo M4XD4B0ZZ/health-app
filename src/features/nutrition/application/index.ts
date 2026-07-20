@@ -23,6 +23,7 @@ export { UndoAutoMergeUseCase } from './usecases/UndoAutoMergeUseCase';
 export { ListSavedMealTemplatesUseCase } from './usecases/ListSavedMealTemplatesUseCase';
 export { DeleteSavedMealTemplateUseCase } from './usecases/DeleteSavedMealTemplateUseCase';
 export { RenameSavedMealTemplateUseCase } from './usecases/RenameSavedMealTemplateUseCase';
+export { DeleteResolverObservationsForCurrentOwner } from './usecases/DeleteResolverObservationsForCurrentOwner';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';

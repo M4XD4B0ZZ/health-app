@@ -162,9 +162,8 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       ctx?.traceId ||
       query.traceId ||
       (this.config.enableTracing ? this.generateTraceId() : undefined);
-    console.log(
-      `[${traceId}] PROOF RESOLVER_CALLED query="${query.normalized || query.raw}" sourceCount=${this.sources.length}`,
-    );
+    if (isDebugLoggingEnabled() && traceId)
+      console.log(`[${traceId}] PROOF RESOLVER_CALLED sourceCount=${this.sources.length}`);
     const resolverStartTime = Date.now();
     const normalizedQuery = normalizeText(query.normalized || query.raw);
     const { canonicalId } = detectCanonicalEntity(normalizedQuery, query.locale);
@@ -173,9 +172,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     const routingStrategy = this.determineSourceRoutingStrategy(query);
     const orderedSources = this.getOrderedSources(routingStrategy);
     const sources = orderedSources.map((s) => s.type);
-    console.log(`[DEBUG] ROUTING sources=${sources.join(',')}`);
+    if (isDebugLoggingEnabled() && traceId)
+      console.log(`[${traceId}] ROUTING sources=${sources.join(',')}`);
     console.log(
-      `[${traceId}] PROOF_SOURCE_ROUTING_DECISION rawInput="${query.raw}" classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
+      `[${traceId ?? 'unknown'}] PROOF_SOURCE_ROUTING_DECISION classification="${query.inputType || 'unknown'}" locale="${query.locale}" chosenPriority="${routingStrategy.name}"`,
     );
 
     // Initialize debug collector if tracing is enabled
@@ -668,10 +668,10 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
 
     decision.inputConfidence = inputConfidence;
 
-    // Log input confidence
-    console.log(
-      `PROOF_INPUT_CONFIDENCE input="${query.raw}" level="${inputConfidence.level}" reason="${inputConfidence.reason}"`,
-    );
+    if (isDebugLoggingEnabled())
+      console.log(
+        `PROOF_INPUT_CONFIDENCE level="${inputConfidence.level}" reason="${inputConfidence.reason}"`,
+      );
 
     return decision;
   }
@@ -703,16 +703,11 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   private logSummary(metrics: LookupMetrics, decisionBest?: ResolvedFoodCandidate): void {
-    if (decisionBest?.source === RESOLVER_SOURCE_LABELS.BLS && metrics.traceId) {
-      console.log(
-        `[${metrics.traceId}] PROOF_BLS_SOURCE_USED candidate="${decisionBest.food.name}"`,
-      );
+    if (decisionBest?.source === RESOLVER_SOURCE_LABELS.BLS) {
+      console.log(`[${metrics.traceId ?? 'unknown'}] PROOF_BLS_SOURCE_USED source="bls"`);
 
-      if (decisionBest.food.sourceId?.startsWith('shortcut:')) {
-        console.log(
-          `[${metrics.traceId}] PROOF_CANONICAL_SHORTCUT_USED shortcut="${decisionBest.food.normalizedName}"`,
-        );
-      }
+      if (isDebugLoggingEnabled() && decisionBest.food.sourceId?.startsWith('shortcut:'))
+        console.log(`[${metrics.traceId ?? 'unknown'}] PROOF_CANONICAL_SHORTCUT_USED`);
     }
 
     if (isDebugLoggingEnabled() && metrics.traceId) {

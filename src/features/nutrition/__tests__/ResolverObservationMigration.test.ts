@@ -31,6 +31,15 @@ describe('RESOLVER-V3-015A observation storage migration', () => {
     expect(migration).not.toMatch(/for update/i);
     expect(migration).not.toMatch(/using \(true\)|with check \(true\)/i);
     expect((migration.match(/auth\.uid\(\)\) = owner_id/g) ?? []).length).toBe(3);
+    expect(migration).not.toMatch(/to anon|to public|service_role/i);
+  });
+  it('retains the account-deletion cascade and has no global aggregation object', () => {
+    expect(migration).toMatch(
+      /owner_id uuid not null references auth\.users \(id\) on delete cascade/i,
+    );
+    expect(migration).not.toMatch(
+      /create (materialized )?view|function|aggregate|knowledge candidate/i,
+    );
   });
   it('does not alter legacy telemetry or cache tables', () => {
     expect(migration).not.toMatch(/food_resolver_runs|food_query_cache_results/i);

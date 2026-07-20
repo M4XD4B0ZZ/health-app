@@ -143,7 +143,7 @@ describe('BLS Resolver Integration', () => {
   });
 
   describe('Logging and Tracing', () => {
-    it('should log PROOF_BLS_MATCH when BLS finds candidates', async () => {
+    it('should log a privacy-safe PROOF_BLS_MATCH event when BLS finds candidates', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
       const query: FoodSearchQuery = {
@@ -157,18 +157,15 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_BLS_MATCH input="magerquark"'),
+        expect.stringContaining('PROOF_BLS_MATCH source="bls" candidates_count=1'),
       );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'best_match="Speisequark Magerstufe, Magerquark < 10 % Fett i. Tr."',
-        ),
-      );
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('magerquark'));
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Speisequark'));
 
       consoleSpy.mockRestore();
     });
 
-    it('should log PROOF_BLS_SOURCE_USED when BLS wins', async () => {
+    it('should log a privacy-safe PROOF_BLS_SOURCE_USED event when BLS wins', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
       const query: FoodSearchQuery = {
@@ -182,13 +179,14 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_BLS_SOURCE_USED candidate="Rührei gebraten"'),
+        expect.stringContaining('PROOF_BLS_SOURCE_USED source="bls"'),
       );
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Rührei gebraten'));
 
       consoleSpy.mockRestore();
     });
 
-    it('should log PROOF_CANONICAL_SHORTCUT_USED for shortcuts', async () => {
+    it('should log a privacy-safe PROOF_CANONICAL_SHORTCUT_USED event for shortcuts', async () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
       const query: FoodSearchQuery = {
@@ -202,8 +200,9 @@ describe('BLS Resolver Integration', () => {
       await resolver.resolve(query);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PROOF_CANONICAL_SHORTCUT_USED shortcut="buttertoast"'),
+        expect.stringContaining('PROOF_CANONICAL_SHORTCUT_USED source="bls"'),
       );
+      expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('buttertoast'));
 
       consoleSpy.mockRestore();
     });

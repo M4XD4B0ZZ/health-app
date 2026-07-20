@@ -157,3 +157,71 @@ schema-format blocker only; quality, usage, billing, and production-wiring evide
 unknown/inconclusive. A fresh, explicitly authorized full B/C protocol is still required before
 RESOLVER-V3-013 can produce valid live evidence; RESOLVER-V3-013 and RESOLVER-V3-010 remain
 `blocked`.
+
+## Authorized post-remediation controlled run (2026-07-20)
+
+### Protocol and preflight
+
+The explicitly authorized, single shared-gate command
+`node scripts/benchmark-resolver-v3-live-evidence.mjs --live` was run exactly once on commit
+`832c9c37ef1a3f786e194a9ea08e50d2fbd51422`. It used the existing shared B/C gate with one
+in-flight request maximum. The three required credential checks were performed only as booleans
+and passed; no secret, proxy value, header, or environment dump was recorded.
+
+Both adapters used the same proxy-aware `AnthropicBenchmarkTransport`, the same
+`LiveProviderBudgetGate` instance, Anthropic's `claude-haiku-4-5` model, and the repository price
+snapshot (USD 1.00/M input and USD 5.00/M output). The pinned versions were B
+`variant-b-prompt-v1` / `variant-b-schema-v2` / `variant-b-ai-only-v1` and C
+`variant-c-prompt-v1` / `variant-c-schema-v1` / `variant-c-live-interpreter-v1`.
+
+The recursive B/C schema-contract, B/C provider, transport, and budget tests, the A baseline, and
+both fixture regressions passed before the paid command. Full `npm run verify` also passed
+(157 suites, 1,435 tests). The maximum shared reservation was 29 attempts (22 B + 7 C), 237,568
+input tokens, 44,544 output tokens, and USD 0.460288, below the USD 5.00 authorization.
+
+### Actual execution and technical failure
+
+The runner made the fixed protocol's 22 B requests followed by its 7 C AI-routed requests; it did
+not run a separate command, retry a case outside that protocol, use a fixture fallback, change a
+prompt/schema/ground truth, or touch production wiring. All 22 B requests reached Anthropic but
+were rejected before generation because the provider rejected the nullable `quantity.unit` schema:
+the mixed enum containing strings and `null` is incompatible with that union representation.
+There were no B retries, no B token-usage fields, and no B billing/cost metadata. Consequently,
+B's 14 primary cases are all technical errors and its apparent zero quality figures are **not
+quality evidence**.
+
+C completed its seven AI-routed requests (and seven deterministic fast-path resolutions) without
+technical errors. Its persisted aggregate records 7 AI calls, 14 external requests, no retries,
+an estimated USD 0.025792 from returned usage under the pinned price snapshot, and p50/p95
+end-to-end latency of 119.014 ms / 10,109.354 ms. The current report format does not persist the
+individual returned C input/output token counts, so those counts must be treated as unavailable in
+the committed evidence rather than reconstructed from the estimated cost. The shared gate's
+reservation remains USD 0.460288 and is not reported as actual billing.
+
+### Observed metrics (not a complete B/C comparison)
+
+| Dimension | Variant A baseline | Variant B live | Variant C live |
+| --- | --- | --- | --- |
+| Identification | 9/12 (75.0%) | not evaluable (22 schema rejections) | 9/12 (75.0%) |
+| Component P/R/F1 | n/a in A aggregate | not evaluable | 0.733 / 0.846 / 0.786 |
+| Quantity/unit | n/a | not evaluable | not separately aggregated by C |
+| Macro tolerance | 9 within, 3 outside, 2 n/e | not evaluable | 9 within, 2 outside, 3 n/e |
+| False confidence | RV3-0011 | not evaluable | RV3-0011 (fast path) |
+| Clarification / abstention | baseline control only | not evaluable | 0 clarification / 4 abstentions |
+| Grounding | sourceId present 100%; unbacked numbers 0 | no direct-AI grounding by design; no evaluable output | sourceId present 91.7%; unbacked numbers 0 |
+| Repeat stability | both synonym groups consistent | repeated technical errors only; not model stability | both synonym groups consistent, but both used fast path |
+| p50 / p95 end-to-end | 47.809 / 131.825 ms | 162.077 / 480.794 ms error latency | 119.014 / 10,109.354 ms |
+
+No retrieval-only latency is separately persisted by this harness. C's p50/p95 are the observed
+end-to-end case values and include fast-path and AI-routed cases; they must not be represented as
+provider-only latency. The small 14-case, BLS-only smoke corpus has no COMPOSED/HOMEMADE/
+RESTAURANT coverage and does not support a production conclusion.
+
+### Gate decision
+
+**INCONCLUSIVE.** This was a technical partial run: C supplies limited live-provider evidence, but
+B has no evaluable response, actual B usage/billing is unavailable, and the canonical report does
+not retain C's per-request token counts. Neither an equal C average identification rate nor the
+absence of unbacked C numeric results can satisfy the multi-dimensional gate. `RESOLVER-V3-013`
+and `RESOLVER-V3-010` remain `blocked`. No automatic rerun or individual-case replay is
+authorized.

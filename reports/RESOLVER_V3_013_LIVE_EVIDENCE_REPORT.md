@@ -1,36 +1,38 @@
 # RESOLVER-V3-013 — Controlled Live Evidence Preflight
 
 **Date:** 2026-07-20
-**Status:** `BLOCKED BEFORE LIVE REQUEST`
+**Status:** `TECHNICALLY BLOCKED AFTER CONTROLLED LIVE ATTEMPT`
 **Production-wiring gate:** `INCONCLUSIVE`
 
 ## Secret-safe credential and network gate
 
-The three required environment-variable presence checks returned `missing`: the Anthropic API
-key and both model-selection variables are unavailable to this execution process. Their values
-were neither read nor emitted. A non-billed HTTPS connectivity probe to `api.anthropic.com/`
-returned HTTP 404, which proves reachability only, not authentication or provider readiness.
+The three required environment-variable presence checks returned `present`. The Anthropic API-key
+value was neither read nor emitted. The configured B and C model selectors both name the sole
+repository-priced model, `claude-haiku-4-5`. A non-billed HTTPS connectivity probe to
+`api.anthropic.com/` returned HTTP 404, which proves reachability only, not authentication or
+provider readiness.
 
-Consequently, no live provider, fixture fallback, prompt change, ground-truth change, or
+Consequently, no live provider request, fixture fallback, prompt change, ground-truth change, or
 production wiring was executed. Actual billed calls, tokens, retries, costs, provider latency,
 and B/C live quality metrics are all **0 / not available**.
 
 ## Implemented hard aggregate gate
 
 `LiveProviderBudgetGate` reserves capacity _before_ each B or C `fetch` call. A caller running
-the two variants together passes one shared instance into both benchmark runners. It limits total
+the two variants together must pass one shared instance into both benchmark runners; B and C live
+provider construction fails before any `fetch` if that aggregate gate is absent. It limits total
 calls, input tokens, output tokens, worst-case reserved cost, in-flight fan-out, and every retry
 (failed calls retain their call/token/cost reservation). It rejects absent model pricing and any
-currency mismatch before a request. The configured pricing is USD per million tokens; the
-authorization is EUR 5.00. No FX rate is pinned in the repository, so the gate deliberately
-refuses to invent a conversion and no live run is cost-safely executable yet.
+currency mismatch before a request. The configured pricing is USD per million tokens. The
+maintainer explicitly authorized a provider-currency ceiling of USD 5.00, so the gate uses that
+literal limit without any EUR/USD conversion.
 
 ## Deterministic preflight projection
 
 | Field                                     | Value                                                                            |
 | ----------------------------------------- | -------------------------------------------------------------------------------- |
 | Provider                                  | Anthropic Messages API                                                           |
-| Model B / C                               | unavailable to this process (required selector variables missing)                |
+| Model B / C                               | `claude-haiku-4-5` / `claude-haiku-4-5` (both present and repository-priced)     |
 | Prompt/schema B                           | current committed Variant B prompt/schema                                        |
 | Prompt/schema C                           | current committed Variant C prompt/schema                                        |
 | Corpus                                    | committed 14-case smoke corpus, sorted case order                                |
@@ -41,8 +43,8 @@ refuses to invent a conversion and no live run is cost-safely executable yet.
 | Per-call reservation                      | 8,192 input + 1,536 output tokens                                                |
 | Maximum aggregate reservation             | 237,568 input + 44,544 output tokens                                             |
 | USD worst-case at committed Haiku pricing | USD 0.460288                                                                     |
-| Authorized budget                         | EUR 5.00                                                                         |
-| Safety margin                             | not computable safely without a repository-pinned FX rule                        |
+| Authorized budget                         | USD 5.00                                                                         |
+| Safety margin                             | USD 4.539712 against the maximum reservation                                     |
 
 The 29-call figure is derived from the current runners, not assumed: B's four repeat-overlay
 cases run three times; C currently has no repeat option and makes an AI call only after its
@@ -51,12 +53,22 @@ that is not represented there is intentionally rejected.
 
 ## Results and decision
 
-The rerun A baseline and B/C fixture regressions remain offline controls, not live evidence.
+The rerun A baseline and B/C fixture regressions passed and remain offline controls, not live evidence.
 Their recorded headline results are A identification 0.75 with one critical false-confidence
 failure; B fixture identification 0.9167 with one critical failure; C fixture identification
 0.8333 with one critical failure and 7/14 fast-path cases. These numbers do not establish live
 model quality, repeat stability, provenance changes, cost, or latency.
 
-`RESOLVER-V3-010` remains blocked. Resume only when this execution environment exposes all
-three required variables and the repository has a conservative, documented EUR/USD conversion
-or EUR-denominated pricing configuration that lets the preflight prove the EUR 5.00 limit.
+## Controlled live attempt
+
+The shared-gate runner completed its fixed protocol with 29 reserved attempts: 22 B attempts and
+7 C AI-routed attempts. Every provider POST failed locally with `network error calling Anthropic:
+fetch failed`; the provider returned no usage or billed-cost metadata. Thus the gate reserved USD
+0.460288, but actual provider cost is **unknown**, not USD 0.00. There were no retries and no
+fixture fallback. B has no evaluable live result (14 technical errors). C retains its seven
+deterministic local fast-path results but all seven AI-routed cases are technical errors, so it is
+not live provider evidence. No live latency, token, quality, provenance, or consistency comparison
+is valid from this attempt.
+
+`RESOLVER-V3-010` remains blocked. Resume only after the execution environment permits successful
+Anthropic Messages POST requests; do not rerun individual cases outside the fixed protocol.

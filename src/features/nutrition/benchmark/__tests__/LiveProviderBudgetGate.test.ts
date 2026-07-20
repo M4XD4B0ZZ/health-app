@@ -1,4 +1,9 @@
-import { LiveProviderBudgetGate, LiveProviderBudgetGateError } from '../LiveProviderBudgetGate';
+import {
+  createResolverV3LiveEvidenceBudgetGate,
+  LiveProviderBudgetGate,
+  LiveProviderBudgetGateError,
+  RESOLVER_V3_LIVE_EVIDENCE_LIMITS,
+} from '../LiveProviderBudgetGate';
 
 const limits = {
   currency: 'USD' as const,
@@ -13,6 +18,20 @@ const price = [
 ];
 
 describe('LiveProviderBudgetGate', () => {
+  it('uses the explicitly authorized USD 5.00 aggregate experiment ceiling', () => {
+    expect(RESOLVER_V3_LIVE_EVIDENCE_LIMITS).toMatchObject({
+      currency: 'USD',
+      maxCalls: 29,
+      maxInputTokens: 237_568,
+      maxOutputTokens: 44_544,
+      maxCost: 5,
+      maxInFlight: 1,
+    });
+    expect(createResolverV3LiveEvidenceBudgetGate().snapshot().limits).toBe(
+      RESOLVER_V3_LIVE_EVIDENCE_LIMITS,
+    );
+  });
+
   it('blocks unknown pricing and cost/call/token exhaustion before a request', () => {
     const gate = new LiveProviderBudgetGate(limits, price);
     expect(() => gate.reserve('unknown', 1, 1)).toThrow('unknown model pricing');

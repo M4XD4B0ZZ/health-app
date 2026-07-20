@@ -9113,7 +9113,7 @@ procedure documented.
 
 #### RESOLVER-V3-013: Controlled Live Provider Evidence for Variants B and C
 
-Status: `blocked`
+Status: `done`
 Depends on: RESOLVER-V3-006, RESOLVER-V3-007
 
 **Description:** Collect a small, controlled, credential-authorized live benchmark evidence set
@@ -9202,6 +9202,17 @@ counts. This is a technical partial run, not a B/C comparison or a completed evi
 RESOLVER-V3-013 and RESOLVER-V3-010 remain `blocked`, and the production-wiring gate is
 `INCONCLUSIVE`. See `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`; no automatic retry is
 authorized.
+The final authorized shared B/C protocol was subsequently run exactly once on the PR #97 merge
+commit `2155d322fd685d3e7af53485ff364fd8e7ff0920`. All 22 B and 7 C AI-routed attempts succeeded
+with returned usage; the seven remaining C cases used the deterministic fast path. Actual combined
+usage was 54,728 input tokens and 8,046 output tokens, with USD 0.094958 estimated provider cost
+under the pinned price snapshot; the USD 0.460288 reservation remains a ceiling, not actual cost.
+The 14-case smoke evidence does **not** pass the production-wiring gate: B identification was
+2/12, C was 7/12, both had a false-confidence case, B is not source-grounded by design, and the
+corpus lacks COMPOSED/HOMEMADE/RESTAURANT coverage. The gate is therefore **NOT PASSED** and
+RESOLVER-V3-010 remains blocked (also pending RESOLVER-V3-008). C HTTP status/cache-token fields
+were unavailable and retained as unknown rather than inferred. See the canonical live-evidence
+report; no rerun is authorized.
 
 ---
 

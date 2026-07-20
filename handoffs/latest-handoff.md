@@ -1,26 +1,23 @@
-# RESOLVER-V3-013 — Authorized Post-Remediation Controlled Live Run Handoff
+# RESOLVER-V3-013 — Controlled Live Evidence Handoff
 
 ## Run / Task Identity and Status
 
-- **Task:** RESOLVER-V3-013 — Controlled Live Provider Evidence for Variants B and C
-- **Status:** remains `blocked`. One newly authorized shared B/C live invocation was completed,
-  but it is a technical partial run: B's 22 responses were schema rejections while C completed
-  seven AI-routed calls. `RESOLVER-V3-010` remains blocked.
+- **Task:** RESOLVER-V3-013 — Controlled Live Provider Evidence for Variants B and C.
+- **Status:** `done`. The one explicitly authorized shared B/C protocol completed successfully.
+  The production-wiring gate is **NOT PASSED**; `RESOLVER-V3-010` remains `blocked`.
 
 ## What Changed and Why
 
-- Ran exactly one authorized `node scripts/benchmark-resolver-v3-live-evidence.mjs --live` protocol
-  on commit `832c9c37ef1a3f786e194a9ea08e50d2fbd51422`, after secret-safe boolean credential
-  checks and all required offline verification.
-- The shared gate reserved at most 29 calls, 237,568 input tokens, 44,544 output tokens, and USD
-  0.460288. There was no fixture fallback, prompt/schema/ground-truth edit, individual-case
-  replay, or production wiring.
-- B's 22 fixed attempts reached Anthropic but failed provider schema validation for the mixed
-  nullable `quantity.unit` enum. B has no usage/billing metadata and no evaluable quality result.
-- C completed seven AI-routed calls and seven local fast paths. It recorded 9/12 identification,
-  P/R/F1 0.733/0.846/0.786, one inherited fast-path false-confidence case (`RV3-0011`), no
-  unbacked numeric result, estimated USD 0.025792, and p50/p95 end-to-end latency 119.014 /
-  10,109.354 ms. The current aggregate artifact does not persist actual per-request C token counts.
+- Ran exactly one `node scripts/benchmark-resolver-v3-live-evidence.mjs --live` command on
+  PR #97 merge commit `2155d322fd685d3e7af53485ff364fd8e7ff0920`; no separate B/C command,
+  replay, automatic retry, fixture fallback, prompt/schema/ground-truth change, or production
+  wiring occurred.
+- Updated the canonical live-evidence report and Roadmap with actual usage, estimated cost,
+  quality, latency, telemetry unknowns, and the gate decision.
+- The protocol made 22 B and 7 C AI-routed provider attempts. The remaining 7 C cases used the
+  deterministic fast path. Combined actual returned usage is 54,728 input and 8,046 output tokens,
+  with USD 0.094958 estimated provider cost under pinned pricing. The USD 0.460288 reservation is
+  deliberately reported separately as a ceiling.
 
 ## Changed Files
 
@@ -30,25 +27,29 @@
 
 ## Validation Executed and Result
 
-- Focused B/C schema-contract, live-provider, proxy transport, and shared budget-gate tests passed.
-  Variant-A baseline and B/C fixture regressions passed. `npm run verify` passed (157 suites,
-  1,435 tests). The authorized live command then completed its fixed B/C protocol.
+- All secret-safe required credential-presence, version, pricing, common-gate, and common-transport
+  preflight checks passed.
+- Focused B/C schema-contract, usage, live-provider, proxy-transport, and budget-gate tests passed:
+  6 suites / 34 tests.
+- Variant-A baseline and Variant-B/C fixture regressions passed.
+- `npm run verify` passed: 158 suites / 1,441 tests.
+- The one authorized live command completed its complete fixed 29-attempt protocol.
 
-## Known Issues / Blockers / Risks
+## Result and Risks
 
-- B's provider-facing schema is still not fully accepted by Anthropic: nullable enum compatibility
-  remains a blocker. Actual B token usage and billing are unknown.
-- C's per-request input/output tokens are not retained in the committed aggregate. The C subset
-  cannot repair the absent B evidence; the production-wiring gate is `INCONCLUSIVE`.
-- Do not repeat the full run or individual cases without a new explicit authorization and a
-  separately scoped remediation/review.
+- **Gate: NOT PASSED.** B scored 2/12 identification and C 7/12, versus A's offline 9/12.
+  B false-confidence case: `RV3-0002`; C false-confidence case: `RV3-0011` (fast path).
+  B is ungrounded by its direct-estimation design. C had zero unbacked numeric results but only
+  83.3% sourceId coverage and AI-routed p95 end-to-end latency of 7,430.044 ms.
+- The 14-case corpus lacks COMPOSED, HOMEMADE, and RESTAURANT coverage. It cannot establish a
+  production conclusion and does not justify production wiring.
+- C's persisted HTTP status and cache-token fields are unknown for all seven successful provider
+  calls; this was documented as unknown rather than inferred. It is a separately scoped telemetry
+  follow-up candidate, not a reason to rerun this authorization.
+- No future live request, individual-case replay, or production-wiring work is authorized by this
+  handoff. The next sound work is corpus diversification and/or separately scoped C telemetry work.
 
 ## Human-Review Status
 
-Human review is required before any remediation or future controlled provider run; do not start
-production wiring.
-
-## RESOLVER-V3-013 nullable-enum and usage-telemetry follow-up (in progress)
-
-- No provider request or live run was performed. The task remains blocked and the production-wiring gate remains INCONCLUSIVE.
-- The follow-up changes the provider-facing B `quantity.unit` nullable enum to separate `anyOf` branches and persists benchmark-local, secret-safe provider usage fields for future B/C runs. Reserved budget is kept distinct from actual usage cost.
+Human review is required before any remediation or future controlled provider run. Do not start
+`RESOLVER-V3-010`.

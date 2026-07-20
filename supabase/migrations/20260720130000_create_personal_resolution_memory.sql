@@ -1,0 +1,9 @@
+-- RESOLVER-V3-017: private personal-memory state and append-only evidence/audit boundary.
+begin;
+create table public.personal_resolution_memories (id uuid primary key default extensions.uuid_generate_v4(), owner_id uuid not null references auth.users(id) on delete cascade, memory_id text not null, contract_version text not null check (contract_version = 'personal-resolution-memory-v1'), scope_key text not null, status text not null check (status in ('active','superseded','contradicted','deleted')), level text not null check (level in ('P0_observed','P1_provisional','P2_confirmed')), payload jsonb not null, created_at timestamptz not null, updated_at timestamptz not null, unique(owner_id,memory_id));
+create table public.personal_resolution_memory_events (id uuid primary key default extensions.uuid_generate_v4(), owner_id uuid not null references auth.users(id) on delete cascade, event_id text not null, memory_id text not null, event_type text not null check (event_type in ('evidence','transition','negative_evidence')), payload jsonb not null, occurred_at timestamptz not null, unique(owner_id,event_id));
+alter table public.personal_resolution_memories enable row level security; alter table public.personal_resolution_memory_events enable row level security;
+revoke all on public.personal_resolution_memories, public.personal_resolution_memory_events from anon; grant select,insert,update,delete on public.personal_resolution_memories, public.personal_resolution_memory_events to authenticated;
+create policy "owner private memories" on public.personal_resolution_memories for all to authenticated using ((select auth.uid())=owner_id) with check ((select auth.uid())=owner_id);
+create policy "owner private memory events" on public.personal_resolution_memory_events for all to authenticated using ((select auth.uid())=owner_id) with check ((select auth.uid())=owner_id);
+commit;

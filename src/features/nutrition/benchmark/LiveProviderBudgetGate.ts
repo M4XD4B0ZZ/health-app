@@ -43,6 +43,24 @@ export const ANTHROPIC_MESSAGES_PRICING: readonly LiveProviderPricing[] = [
   { modelId: 'claude-haiku-4-5', currency: 'USD', inputPerMillion: 1, outputPerMillion: 5 },
 ];
 
+/**
+ * RESOLVER-V3-013 authorization. Anthropic bills this experiment in USD; the maintainer has
+ * explicitly authorized the same numeric ceiling in that provider currency. This is deliberately
+ * a provider-currency limit, not a EUR/USD conversion.
+ */
+export const RESOLVER_V3_LIVE_EVIDENCE_LIMITS: LiveProviderBudgetLimits = {
+  currency: 'USD',
+  maxCalls: 29,
+  maxInputTokens: 237_568,
+  maxOutputTokens: 44_544,
+  maxCost: 5,
+  maxInFlight: 1,
+};
+
+export function createResolverV3LiveEvidenceBudgetGate(): LiveProviderBudgetGate {
+  return new LiveProviderBudgetGate(RESOLVER_V3_LIVE_EVIDENCE_LIMITS);
+}
+
 export class LiveProviderBudgetGate {
   private calls = 0;
   private inputTokens = 0;

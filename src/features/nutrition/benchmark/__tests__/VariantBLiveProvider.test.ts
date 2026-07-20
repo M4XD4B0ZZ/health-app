@@ -3,6 +3,20 @@ import {
   createLiveVariantBProvider,
   VariantBLiveProviderConfigError,
 } from '../VariantBLiveProvider';
+import { LiveProviderBudgetGate } from '../LiveProviderBudgetGate';
+
+const budgetGate = () =>
+  new LiveProviderBudgetGate(
+    {
+      currency: 'USD',
+      maxCalls: 10,
+      maxInputTokens: 100_000,
+      maxOutputTokens: 100_000,
+      maxCost: 1,
+      maxInFlight: 1,
+    },
+    [{ modelId: 'claude-haiku-4-5', currency: 'USD', inputPerMillion: 1, outputPerMillion: 5 }],
+  );
 
 /**
  * RESOLVER-V3-004: live-mode credential-guard tests only. No network call is exercised here --
@@ -23,24 +37,33 @@ describe('createLiveVariantBProvider', () => {
   });
 
   it('constructs a live provider when ANTHROPIC_API_KEY is set, without making a network call', () => {
-    const provider = createLiveVariantBProvider({ ANTHROPIC_API_KEY: 'test-key-not-real' });
+    const provider = createLiveVariantBProvider(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      budgetGate(),
+    );
     expect(provider.runMode).toBe('live');
     expect(provider.providerId).toBe('anthropic');
   });
 
   it('honors an overridden model id from the environment', () => {
-    const provider = createLiveVariantBProvider({
-      ANTHROPIC_API_KEY: 'test-key-not-real',
-      ANTHROPIC_VARIANT_B_MODEL: 'claude-custom-model',
-    });
+    const provider = createLiveVariantBProvider(
+      {
+        ANTHROPIC_API_KEY: 'test-key-not-real',
+        ANTHROPIC_VARIANT_B_MODEL: 'claude-custom-model',
+      },
+      budgetGate(),
+    );
     expect(provider.modelId).toBe('claude-custom-model');
   });
 
   it('reports pricing as "unknown" (never a stale/guessed rate) for an overridden model', () => {
-    const provider = createLiveVariantBProvider({
-      ANTHROPIC_API_KEY: 'test-key-not-real',
-      ANTHROPIC_VARIANT_B_MODEL: 'claude-custom-model',
-    });
+    const provider = createLiveVariantBProvider(
+      {
+        ANTHROPIC_API_KEY: 'test-key-not-real',
+        ANTHROPIC_VARIANT_B_MODEL: 'claude-custom-model',
+      },
+      budgetGate(),
+    );
     const { costUsd, pricingStatus } = provider.computeCostUsd({
       inputTokens: 100,
       outputTokens: 50,
@@ -50,7 +73,10 @@ describe('createLiveVariantBProvider', () => {
   });
 
   it('reports pricing as "estimated" (never silently 0) for the default pinned model', () => {
-    const provider = createLiveVariantBProvider({ ANTHROPIC_API_KEY: 'test-key-not-real' });
+    const provider = createLiveVariantBProvider(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      budgetGate(),
+    );
     const { costUsd, pricingStatus } = provider.computeCostUsd({
       inputTokens: 1_000_000,
       outputTokens: 0,
@@ -60,11 +86,20 @@ describe('createLiveVariantBProvider', () => {
   });
 
   it('reports pricing as "unknown" when no usage is available at all', () => {
-    const provider = createLiveVariantBProvider({ ANTHROPIC_API_KEY: 'test-key-not-real' });
+    const provider = createLiveVariantBProvider(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      budgetGate(),
+    );
     const { costUsd, pricingStatus } = provider.computeCostUsd(null);
     expect(pricingStatus).toBe('unknown');
     expect(costUsd).toBeNull();
   });
+});
+
+it('requires the aggregate gate before a live B provider can be constructed', () => {
+  expect(() => createLiveVariantBProvider({ ANTHROPIC_API_KEY: 'test-key-not-real' })).toThrow(
+    'required shared aggregate budget gate',
+  );
 });
 
 // Ensure this suite genuinely never calls the network -- if `fetch` were invoked here, it would
@@ -77,7 +112,10 @@ describe('no accidental network calls from this suite', () => {
     // @ts-expect-error -- test double
     global.fetch = fetchSpy;
     try {
-      const provider = createLiveVariantBProvider({ ANTHROPIC_API_KEY: 'test-key-not-real' });
+      const provider = createLiveVariantBProvider(
+        { ANTHROPIC_API_KEY: 'test-key-not-real' },
+        budgetGate(),
+      );
       provider.computeCostUsd({ inputTokens: 10, outputTokens: 10 });
     } finally {
       global.fetch = originalFetch;

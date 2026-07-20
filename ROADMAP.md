@@ -9143,14 +9143,20 @@ gate reevaluation was created. The unchanged A baseline and B/C fixture regressi
 the live CLI credential guard failed secret-free before any provider request. Resume only after the
 secret is added to the Codex environment and a hard per-run call/cost gate is configured and
 tested; RESOLVER-V3-010 remains blocked. The resumed secret-safe presence check found all three
-required variables unavailable to this execution process, while a non-billed connectivity probe
+required variables present, while a non-billed connectivity probe
 reached `api.anthropic.com` (HTTP 404). A shared benchmark-local pre-request gate now reserves
 aggregate B+C calls, input/output token ceilings, worst-case costs, retries and fan-out; it blocks
-unknown model pricing and refuses an unproven USD-to-EUR conversion. Current deterministic
-preflight is documented in `reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`: 29 calls maximum
-without retries (22 B and 7 C), 237,568 reserved input tokens, 44,544 output tokens, and USD
-0.460288 at the committed USD pricing, but no safe EUR margin can be computed. No live call or
-fixture fallback occurred, so the task stays `blocked` and the production-wiring gate is
+unknown model pricing. Live provider construction also refuses to run without this shared gate.
+The maintainer clarified that Anthropic's USD 5.00 provider-currency ceiling is authorized, so no
+FX conversion is used. Current deterministic preflight is documented in
+`reports/RESOLVER_V3_013_LIVE_EVIDENCE_REPORT.md`: both configured models are the
+repository-priced `claude-haiku-4-5`; 29 calls maximum without retries (22 B and 7 C), 237,568
+reserved input tokens, 44,544 output tokens, and USD 0.460288 at the committed USD pricing,
+leaving USD 4.539712 headroom below the USD 5.00 hard limit. The A baseline and B/C fixture
+regressions passed. One full shared-gate protocol attempted 29 provider calls (22 B + 7 C) but
+every POST failed locally with `fetch failed`; no usage or billed-cost metadata was returned, so
+actual cost is unknown and no live comparison is valid. No fixture fallback occurred, so the task
+stays `blocked` and the production-wiring gate is
 `INCONCLUSIVE`.
 
 ---

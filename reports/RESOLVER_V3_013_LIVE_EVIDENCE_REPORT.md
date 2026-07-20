@@ -200,17 +200,17 @@ reservation remains USD 0.460288 and is not reported as actual billing.
 
 ### Observed metrics (not a complete B/C comparison)
 
-| Dimension | Variant A baseline | Variant B live | Variant C live |
-| --- | --- | --- | --- |
-| Identification | 9/12 (75.0%) | not evaluable (22 schema rejections) | 9/12 (75.0%) |
-| Component P/R/F1 | n/a in A aggregate | not evaluable | 0.733 / 0.846 / 0.786 |
-| Quantity/unit | n/a | not evaluable | not separately aggregated by C |
-| Macro tolerance | 9 within, 3 outside, 2 n/e | not evaluable | 9 within, 2 outside, 3 n/e |
-| False confidence | RV3-0011 | not evaluable | RV3-0011 (fast path) |
-| Clarification / abstention | baseline control only | not evaluable | 0 clarification / 4 abstentions |
-| Grounding | sourceId present 100%; unbacked numbers 0 | no direct-AI grounding by design; no evaluable output | sourceId present 91.7%; unbacked numbers 0 |
-| Repeat stability | both synonym groups consistent | repeated technical errors only; not model stability | both synonym groups consistent, but both used fast path |
-| p50 / p95 end-to-end | 47.809 / 131.825 ms | 162.077 / 480.794 ms error latency | 119.014 / 10,109.354 ms |
+| Dimension                  | Variant A baseline                        | Variant B live                                        | Variant C live                                          |
+| -------------------------- | ----------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| Identification             | 9/12 (75.0%)                              | not evaluable (22 schema rejections)                  | 9/12 (75.0%)                                            |
+| Component P/R/F1           | n/a in A aggregate                        | not evaluable                                         | 0.733 / 0.846 / 0.786                                   |
+| Quantity/unit              | n/a                                       | not evaluable                                         | not separately aggregated by C                          |
+| Macro tolerance            | 9 within, 3 outside, 2 n/e                | not evaluable                                         | 9 within, 2 outside, 3 n/e                              |
+| False confidence           | RV3-0011                                  | not evaluable                                         | RV3-0011 (fast path)                                    |
+| Clarification / abstention | baseline control only                     | not evaluable                                         | 0 clarification / 4 abstentions                         |
+| Grounding                  | sourceId present 100%; unbacked numbers 0 | no direct-AI grounding by design; no evaluable output | sourceId present 91.7%; unbacked numbers 0              |
+| Repeat stability           | both synonym groups consistent            | repeated technical errors only; not model stability   | both synonym groups consistent, but both used fast path |
+| p50 / p95 end-to-end       | 47.809 / 131.825 ms                       | 162.077 / 480.794 ms error latency                    | 119.014 / 10,109.354 ms                                 |
 
 No retrieval-only latency is separately persisted by this harness. C's p50/p95 are the observed
 end-to-end case values and include fast-path and AI-routed cases; they must not be represented as

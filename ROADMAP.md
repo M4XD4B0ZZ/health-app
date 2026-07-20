@@ -9113,7 +9113,7 @@ procedure documented.
 
 #### RESOLVER-V3-013: Controlled Live Provider Evidence for Variants B and C
 
-Status: `todo`
+Status: `blocked`
 Depends on: RESOLVER-V3-006, RESOLVER-V3-007
 
 **Description:** Collect a small, controlled, credential-authorized live benchmark evidence set
@@ -9132,6 +9132,17 @@ or provider product decision is made.
 
 **Verify:** benchmark commands and documentation readback checks; live evidence is valid only when
 authorized credentials are available and the saved report proves live mode without fixture fallback.
+
+**Implementation notes (blocked, 2026-07-20):** The pre-request configuration review confirmed
+that both live adapters use Anthropic's Messages API with the pinned default `claude-haiku-4-5`,
+require `ANTHROPIC_API_KEY`, and use the current Variant B/C prompt and schema versions. The
+authorized maximum experiment budget is **EUR 5.00**. The credential-presence check found the
+required secret absent; its value was not read or logged. Therefore no provider-reachability probe
+or billed B/C live request was made, no fixture fallback was used, and no live-evidence report or
+gate reevaluation was created. The unchanged A baseline and B/C fixture regressions passed, and
+the live CLI credential guard failed secret-free before any provider request. Resume only after the
+secret is added to the Codex environment and a hard per-run call/cost gate is configured and
+tested; RESOLVER-V3-010 remains blocked.
 
 ---
 

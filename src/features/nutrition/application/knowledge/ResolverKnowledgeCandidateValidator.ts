@@ -3,6 +3,7 @@ import {
   RESOLVER_KNOWLEDGE_CANDIDATE_REASON_CODES,
   RESOLVER_KNOWLEDGE_CANDIDATE_STATUSES,
   RESOLVER_KNOWLEDGE_CANDIDATE_TYPES,
+  RESOLVER_KNOWLEDGE_INDEPENDENT_USER_EVIDENCE_STATUSES,
   type ResolverKnowledgeCandidate,
 } from '../../domain/models/ResolverKnowledgeCandidate';
 
@@ -38,7 +39,7 @@ export function validateResolverKnowledgeCandidate(candidate: ResolverKnowledgeC
   if (!RESOLVER_KNOWLEDGE_CANDIDATE_TYPES.includes(candidate.candidateType))
     throw new Error('CANDIDATE_UNKNOWN_TYPE');
   if (
-    (candidate.status as string) === 'approved' ||
+    candidate.status === 'approved' ||
     !RESOLVER_KNOWLEDGE_CANDIDATE_STATUSES.includes(candidate.status)
   )
     throw new Error('CANDIDATE_APPROVAL_NOT_SUPPORTED');
@@ -80,8 +81,12 @@ export function validateResolverKnowledgeCandidate(candidate: ResolverKnowledgeC
     ])
   )
     throw new Error('CANDIDATE_UNKNOWN_EVIDENCE_FIELD');
-  if (candidate.evidence.independentUserEvidence !== 'not_evaluable')
-    throw new Error('CANDIDATE_INDEPENDENT_USERS_NOT_EVALUABLE');
+  if (
+    !RESOLVER_KNOWLEDGE_INDEPENDENT_USER_EVIDENCE_STATUSES.includes(
+      candidate.evidence.independentUserEvidence,
+    )
+  )
+    throw new Error('CANDIDATE_UNKNOWN_INDEPENDENT_USER_EVIDENCE_STATUS');
   if (
     candidate.evidence.contradictionStatus !==
     (candidate.evidence.contradictingEvidenceCount > 0 ? 'present' : 'none')

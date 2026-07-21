@@ -1,5 +1,129 @@
 # Latest Handoff
 
+## RESOLVER-V3-028 — Developer Review Governance and Atomic Promotion
+
+- **Basis and scope:** Started from `chore/clean-arch-structure` HEAD (`339a982`, merge of PR
+  #116), clean working tree, no divergence from origin. Read `SSOK.md`, `AGENTS.md`, `ROADMAP.md`,
+  `VERIFY.md`, `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the Knowledge-Growth Decision
+  Record, the Resolver Knowledge Review Contract, and
+  `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md` before touching code.
+  Only RESOLVER-V3-028's own scope was changed; RESOLVER-V3-029/030/023 were not started.
+- **Pre-implementation inventory (verified by direct code reading, not assumed):**
+  `independentUserEvidence` was typed as the single literal `'not_evaluable'` (not even a union),
+  and the validator threw unless it was exactly that value — i.e. it was structurally impossible
+  to represent any other evidence state. The review service's approval condition
+  (`candidate.evidence.independentUserEvidence !== 'not_evaluable'` → `blocked_privacy`) meant
+  `not_evaluable` was the *passing* condition, backwards from "insufficient evidence must not
+  approve" — though since `not_evaluable` was the only value that could ever exist, this gate
+  never actually blocked anything in practice. All 8 actions were accepted by the service, but
+  only `approve`/`revoke_approval`/`rollback` did anything beyond appending an event;
+  `reject`/`needs_more_evidence`/`quarantine` fell through to the same `appendEvent` call with no
+  candidate-state mutation, and `mark_duplicate`/`supersede` had no target field at all and no
+  distinct handling. The service held only a read-only `ResolverKnowledgeReviewCandidateReader`
+  (`getById` only) — it had no port capable of mutating candidate lifecycle state at all, so
+  reject/etc. could not have transitioned candidate status even if the logic had wanted to.
+  `saveApproved`/`appendEvent` were two separate non-transactional repository calls inside one
+  `try`. No Supabase review repository or production caller exists anywhere in `src/` (grep
+  confirmed only the in-memory adapter and test imports). The RESOLVER-V3-021 migration created
+  3 tables with RLS enabled and no `anon`/`authenticated` grants, but no reviewer/version/reason/
+  snapshot/risk/restriction columns, and its `resolver_knowledge_candidates.status` /
+  `resolver_knowledge_candidate_events.next_status` check constraints excluded `'approved'`
+  entirely — consistent with the domain type's own `Exclude<ResolverKnowledgeCandidateStatus,
+  'approved'>` on `ResolverKnowledgeCandidate.status`, which forced an `as never` cast at
+  `ResolverKnowledgeReviewService.ts:56` to compare a value the type system said could never occur
+  — the exact "cast/exclusion hiding an illegal lifecycle state" pattern the task asked to verify.
+  Duplicate/supersession targets were represented on the candidate domain model
+  (`duplicateOfCandidateId`/`supersededByCandidateId`) but never populated by any code path.
+- **Implementation:** `independentUserEvidence` is now a closed two-value type
+  (`RESOLVER_KNOWLEDGE_INDEPENDENT_USER_EVIDENCE_STATUSES`: `not_evaluable` |
+  `independently_confirmed`); the aggregator still only emits `not_evaluable`, so no candidate can
+  reach `approved` today — intentional fail-closed behavior, no candidate-type exemption
+  implemented (none is authorized by an accepted source). `ResolverKnowledgeCandidate.status` was
+  widened to the full closed status set including `approved`, removing the type-level exclusion
+  and the `as never` cast it forced (the aggregation/`upsertInactive` path still runtime-rejects
+  `approved` candidates via the existing validator, now without the redundant `as string` cast).
+  `ResolverKnowledgeReviewRequest` is now a discriminated union keyed on `action`, requiring
+  `targetCandidateId` only for `mark_duplicate`/`supersede`; self-reference and missing targets
+  fail closed (`validation_failed`/`candidate_not_found`) before persistence. Every request also
+  carries `reviewContractVersion`, `privacyPolicyVersion`, `candidateVersionAtDecision` (checked
+  against the freshly-fetched candidate's `updatedAt` — a stale value fails closed),
+  `riskDecision` (must equal the candidate's own risk), a closed `localeRestriction`
+  (`not_applicable`/`restricted_to_candidate_locale`/`unknown` — no invented region taxonomy;
+  `unknown` fails closed for `approve`), and a closed `reasonCode` legal-per-action via
+  `RESOLVER_KNOWLEDGE_REVIEW_LEGAL_REASONS`. The reviewer identity comes only from
+  `ResolverKnowledgeReviewAuthorizer.authorizeDeveloperReview()`'s trusted result, never from
+  request input. `ResolverKnowledgeReviewRepository` now exposes a single atomic
+  `applyDecision(plan)` method (no more separate `saveApproved`/`appendEvent`); `plan` is a
+  fully-computed `ResolverKnowledgeReviewDecisionPlan` built by the service (candidate transition,
+  approved-payload value, finished event) so the adapter makes no business decisions of its own.
+  The reference `InMemoryResolverKnowledgeReviewRepository` snapshots the candidate row, the
+  candidate's own lifecycle-event log, the approved-payload table, and the review-event table
+  before mutating, and restores all four completely if any internal step throws — proven by tests
+  injecting a failure at each of the three stages (candidate/payload/event). `approve` now
+  transitions `pending_review → approved` together with creating the active payload;
+  `reject`/`needs_more_evidence`/`quarantine`/`mark_duplicate`/`supersede` all transition
+  persisted candidate lifecycle state (previously none did); `revoke_approval`/`rollback`
+  atomically flip only the payload's own status (`active→revoked`/`rolled_back`) without changing
+  `candidate.status` (which stays `approved` as a permanent historical record) or deleting the
+  payload. Every persisted `ResolverKnowledgeReviewEvent` now carries reviewer identity,
+  review-contract/privacy-policy versions, the exact candidate version reviewed, a closed decision
+  reason, risk decision, locale/region restriction, an optional duplicate/supersession target, and
+  an immutable `reviewMaterialSnapshot` built by the service from the fetched candidate (never
+  trusted verbatim from caller input). Private/linkable fields are now rejected via a recursive
+  key-name walk over the entire candidate object at any nesting depth
+  (`containsPrivateField`), not only a top-level check. A decisionId already recorded is compared
+  field-by-field against the incoming request: an exact match returns `already_applied` with zero
+  mutation; any difference returns the new closed result `conflict` instead of a false
+  `already_applied`.
+- **Migration:** one additive migration,
+  `supabase/migrations/20260721160000_extend_resolver_knowledge_review_governance.sql` — widens
+  the `resolver_knowledge_candidates.status` and `resolver_knowledge_candidate_events.next_status`/
+  `reason_code` check constraints to allow `approved`/`APPROVED_BY_REVIEW`, and adds the new audit
+  columns to `resolver_knowledge_review_events`. No historical migration file is edited (verified:
+  the two RESOLVER-V3-020/021 migration files are untouched; their own pre-existing migration
+  tests still pass unmodified). No new `anon`/`authenticated` grant, no view, no trigger. **This
+  migration has not been applied to any live Supabase project as part of this task** — no
+  production Supabase adapter for this port exists (in-memory only), so this remains a
+  server/admin-only schema definition, not operational, production-wired, or live-migrated
+  infrastructure. Its correctness (in particular the assumption that Postgres auto-names an
+  unnamed single-column `CHECK` constraint as `<table>_<column>_check`, which is standard
+  documented Postgres behavior but was never executed against a live database in this task) is a
+  residual, explicitly unverified risk.
+- **Contract doc:** updated
+  [`docs/domains/ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md`](../docs/domains/ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md)
+  with a new "Amendment (RESOLVER-V3-028)" section documenting the evidence-gating fix, the
+  discriminated command/lifecycle-transition table, the atomic decision operation, the persisted
+  audit fields, semantic idempotency, and the additive migration.
+- **Non-effect:** no app-facing (`anon`/`authenticated`) grant; no application view or resolver
+  trigger; no resolver read effect; no feature flag or production resolver integration; no
+  automatic promotion; no live Supabase deployment; no dependency/`package.json` change; no
+  unrelated refactor. RESOLVER-V3-029/030/023 were not started.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run test`
+  all green via `npm run verify` — 183 test suites, 1636 tests, no regressions (up from 182
+  suites/1602 tests). Focused suites:
+  `ResolverKnowledgeReview.test.ts` (rewritten — evidence gating incl. no-numeric-threshold check,
+  unauthorized zero-mutation, all 8 actions' legal transitions, invalid-transition zero-mutation,
+  duplicate/supersede target validation incl. self-reference and missing-target, atomicity via
+  deterministic failure injection at each of 3 stages for `approve` and for `reject`, literal-retry
+  idempotency, conflicting-decisionId-reuse rejection, full audit-field assertions, recursive
+  private-field rejection, unknown-version/enum fail-closed cases, stale-candidate-version
+  rejection, and a source-scan proving no dependency on the production resolver decision path),
+  `ResolverKnowledgeReviewGovernanceMigration.test.ts` (new — additive-only, no historical-migration
+  edit, constraint/column presence, no grant/view/trigger), plus unmodified
+  `ResolverKnowledgeCandidate(Migration).test.ts` and `ResolverKnowledgeReviewMigration.test.ts`
+  (V3-020/021 baseline) still pass unchanged. Full `resolver`-pattern suite (283 tests) and the
+  complete suite both pass with no regressions.
+- **Known/residual limits (explicit, not claimed complete):** no candidate can currently reach
+  `approved` in production because the only evidence-producing pipeline (RESOLVER-V3-020's
+  aggregator) never emits `independently_confirmed` — this is correct fail-closed behavior per the
+  Decision Record, not a bug, but it means approval remains untestable end-to-end outside unit
+  tests that construct a candidate directly. The additive migration's constraint-renaming
+  assumption is unexecuted against a live database (see above). No production Supabase adapter for
+  review exists at all — the atomic contract is enforced by the port shape and proven by the
+  in-memory reference adapter's tests, not by a real transactional adapter. PR/merge-commit
+  reference and the independent post-merge review outcome will be added in a documentation-only
+  follow-up once merged, matching this repository's established RESOLVER-V3-02x pattern.
+
 ## RESOLVER-V3-019 — Personal Cache/Memory Read Path
 
 - **Basis and scope:** Started from `chore/clean-arch-structure` HEAD (`8af09c24ea6c618a65add9bf8784d9def6a33718`,

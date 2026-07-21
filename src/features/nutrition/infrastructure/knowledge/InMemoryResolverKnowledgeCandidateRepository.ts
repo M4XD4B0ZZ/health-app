@@ -106,7 +106,7 @@ export class InMemoryResolverKnowledgeCandidateRepository implements ResolverKno
     ResolverKnowledgeCandidateRepository['transitionInactive']
   >[0]): Promise<ResolverKnowledgeCandidateWriteResult> {
     const candidate = this.candidates.find((value) => value.candidateId === candidateId);
-    if (!candidate || (nextStatus as string) === 'approved')
+    if (!candidate || (nextStatus as string) === 'approved' || candidate.status === 'approved')
       return { status: 'failed', code: 'approval_not_supported' };
     if (!allowed[candidate.status].includes(nextStatus))
       return { status: 'failed', code: 'invalid_transition' };

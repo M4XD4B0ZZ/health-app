@@ -120,9 +120,25 @@
   tests that construct a candidate directly. The additive migration's constraint-renaming
   assumption is unexecuted against a live database (see above). No production Supabase adapter for
   review exists at all — the atomic contract is enforced by the port shape and proven by the
-  in-memory reference adapter's tests, not by a real transactional adapter. PR/merge-commit
-  reference and the independent post-merge review outcome will be added in a documentation-only
-  follow-up once merged, matching this repository's established RESOLVER-V3-02x pattern.
+  in-memory reference adapter's tests, not by a real transactional adapter.
+- **PR/merge:** PR #117, CI green (`verify` check: typecheck+lint+format+full test suite), no
+  review comments, merged as `7814fe0784dca5de93c5208e31d749042186b278`.
+- **Post-merge review (same run, after PR #117 merged):** independently re-read the actual merged
+  diff (`git diff 339a982..7814fe0`) against RESOLVER-V3-028's acceptance criteria, the
+  Knowledge-Growth Decision Record, atomicity, lifecycle correctness, privacy, audit completeness,
+  and idempotency. Specifically traced through: the `already_applied`/`conflict` idempotency
+  comparison deliberately excludes the review-material snapshot from the byte-equivalence check,
+  but this is provably safe — `candidate.updatedAt` only ever advances together with an append to
+  the candidate's own lifecycle-event log (both mutations are gated by the same single
+  `if (plan.candidateTransition)` block inside `InMemoryResolverKnowledgeReviewRepository.applyDecision`),
+  so two requests sharing the same `candidateVersionAtDecision` are guaranteed to have produced an
+  identical snapshot — not a shortcut that reintroduces a gap. The atomic rollback path was traced
+  for all three failure-injection stages and correctly restores all four affected stores (candidate
+  fields, candidate lifecycle-event log, approved-payload table, review-event table). No other call
+  site in the repository depended on the removed `saveApproved`/`appendEvent` methods (confirmed by
+  the full green `npm run verify` run at merge time — 183 suites/1636 tests, no regressions). No
+  defects were found; no follow-up code PR is required. This section itself was added via a
+  documentation-only follow-up PR, per this repository's established RESOLVER-V3-02x pattern.
 
 ## RESOLVER-V3-019 — Personal Cache/Memory Read Path
 

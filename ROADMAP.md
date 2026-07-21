@@ -9541,10 +9541,9 @@ tests in `PersonalResolutionMemoryInvalidationHardening.test.ts` all pass; the p
 
 #### RESOLVER-V3-028: Developer Review Governance and Atomic Promotion
 
-Status: `done` (implemented and tested in this PR; not yet operational/production-wired/live-migrated
-— see "Implementation notes" below; PR/merge-commit reference and independent post-merge review
-outcome to be recorded in a documentation-only follow-up once merged, per this repo's established
-RESOLVER-V3-02x pattern)
+Status: `done` (merged; PR #117, merge commit `7814fe0784dca5de93c5208e31d749042186b278` — CI green,
+no review comments; independent post-merge review of the actual merged diff found no defects, see
+below; not yet operational/production-wired/live-migrated — see "Implementation notes" below)
 Depends on: RESOLVER-V3-021, RESOLVER-V3-025
 
 **Goal:** Align RESOLVER-V3-021 with the Decision Record's single-user/global-rule invariant and make
@@ -9593,6 +9592,19 @@ Supabase adapter for this port exists (in-memory only), so this remains server/a
 operational/production-wired/live-migrated. See
 `docs/domains/ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md` §"Amendment (RESOLVER-V3-028)" for full
 detail.
+**Post-merge review (same run, after PR #117 merged):** independently re-read the actual merged
+diff (`git diff 339a982..7814fe0`) against the acceptance criteria, the Decision Record, atomicity,
+lifecycle correctness, privacy, audit completeness, and idempotency. Specifically verified: (1) the
+`already_applied`/`conflict` comparison deliberately excludes the review-material snapshot, but this
+is provably safe rather than a shortcut — `candidate.updatedAt` only advances together with the
+candidate's own lifecycle-event log (both gated by the same `if (plan.candidateTransition)` block in
+`InMemoryResolverKnowledgeReviewRepository.applyDecision`), so an unchanged `candidateVersionAtDecision`
+guarantees an unchanged snapshot; (2) the atomic rollback path correctly restores all four affected
+stores (candidate fields, candidate lifecycle-event log, approved-payload table, review-event table)
+via pre-call snapshots; (3) no other call site in the repository depended on the removed
+`saveApproved`/`appendEvent` methods (confirmed by the full green `npm run verify` run, 183
+suites/1636 tests). No defects found; no follow-up code PR required. This entry itself was recorded
+via a documentation-only follow-up PR per this repository's established RESOLVER-V3-02x pattern.
 
 ---
 

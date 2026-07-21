@@ -1,5 +1,80 @@
 # Latest Handoff
 
+## RESOLVER-V3-027 — Atomic and Correct Memory Invalidation
+
+- **Basis and scope:** Started from the canonical merge commit of PR #111
+  (`4e4c11196514899359e1d92064cbde45acc73251`, `chore/clean-arch-structure`). Read `SSOK.md`, `AGENTS.md`,
+  `ROADMAP.md`, `VERIFY.md`, `README.md`, `.governance/SYSTEM.md`/`RULES.md`/`SAFETY.md`/`REVIEW_POLICY.md`,
+  this handoff, `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`, the Knowledge-Growth
+  Decision Record, the Personal Resolution Memory Contract, and the Invalidation Contract before touching
+  code. Only RESOLVER-V3-027's own scope (invalidation use case, its port, its in-memory adapter, one
+  additive migration, focused tests, the invalidation contract doc, `ROADMAP.md`, this handoff) was changed.
+- **Technical inventory (pre-implementation):** (1) `PersonalResolutionMemoryInvalidationRepository` is the
+  only invalidation port; (2) its only implementation is
+  `InMemoryPersonalResolutionMemoryInvalidationRepository` — **no production Supabase adapter for this port
+  exists anywhere in `src/`**, confirmed by grep across the repo; (3) consequently there was and is no live
+  persistence implementation to make atomic; (4) the pre-existing in-memory adapter mutated a `Map` directly
+  inside the use case's BFS loop, once per iteration, with no staging/rollback; (5) the only idempotency
+  boundary was per-node event-ID dedup (`actionId:memoryId`), not a whole-action ledger, which could not
+  reproduce a consistent result on retry against already-mutated state; (6) `personal_resolution_memories`
+  (state) and `personal_resolution_memory_events` (audit) tables and RLS already existed from RESOLVER-V3-017;
+  `personal_resolution_memory_dependencies` (edges) existed from RESOLVER-V3-018 with **no foreign key** to
+  the memories table; (7) no RPC/stored-function/`security definer` pattern exists anywhere in this codebase
+  (verified by grep over `src/` and `supabase/migrations/`) — every real Supabase write path in the repo is a
+  plain client-side `.from(...).insert()/.update()` call, so there is no existing atomic-transaction adapter
+  pattern to extend for a production adapter; (8) `personal_resolution_memories` already has a
+  `unique(owner_id, memory_id)` constraint, which is what makes a composite foreign key from the dependency
+  table possible; (9) the request/result/event contract shape from RESOLVER-V3-018 could remain unchanged —
+  only the internal planning/commit mechanics and the repository port needed to change; (10) true all-or-
+  nothing semantics required replacing the immediate-write BFS with a read-only planning phase and a single
+  atomic commit method on the port, plus a whole-action idempotency ledger separate from per-node event dedup.
+- **Implementation:** Rewrote `InvalidatePersonalResolutionMemoryUseCase` as a strict two-phase
+  plan-then-commit: Phase 1 is a pure, read-only pre-order DFS with explicit `visiting`/`done` node coloring
+  (true cycle = revisit while `visiting`; diamond revisit = revisit while `done`, planned once, no duplicate
+  event; already-inactive nodes are classified `noop` but their dependents are still traversed; the 100-node
+  traversal limit is checked as each new node is first discovered, before any write is planned) that produces
+  a single immutable `PersonalResolutionMemoryInvalidationPlan`. Phase 2 is the repository port's only write
+  method, `applyInvalidationPlanAtomically`, which the in-memory adapter implements by staging all writes
+  against copies of its internal maps and swapping them into live state only after the entire plan applies
+  without error — proven via a test-only `injectCommitFailureAtWriteIndex` hook that forces a throw at the
+  first, a middle, and the last planned write, in every case leaving both state and event history unchanged.
+  Idempotence is enforced _before_ planning via a new `findCommittedAction(ownerId, actionId)` port method: a
+  repeated action ID returns the exact previously committed result without re-touching the graph, which
+  matters because re-planning from already-mutated current state would otherwise compute a different (though
+  individually correct) all-noop result on a literal retry. Added `invalid_dependency` (a dangling or
+  cross-owner dependency edge — checked in the use case itself as defense in depth, not only enforced by the
+  migration) and `atomic_commit_failed` (Phase 2 failure) to the closed error-code set.
+- **Migration:** One additive migration,
+  `supabase/migrations/20260721140000_harden_personal_resolution_memory_invalidation.sql`, adds a composite
+  foreign key from both `personal_resolution_memory_dependencies` edge sides
+  (`(owner_id, memory_id)` and `(owner_id, depends_on_memory_id)`) to
+  `personal_resolution_memories(owner_id, memory_id)` with `on delete cascade`. Because both foreign keys
+  force the _same_ `owner_id` column value to resolve to a real memory row, cross-owner edges become
+  structurally impossible, not just application-checked. No RLS, grant, or historical-migration change; the
+  RESOLVER-V3-018 migration file is untouched (verified in a dedicated migration test and by `git diff`).
+- **Non-effect:** No resolver read path, AI avoidance, catalog mutation, candidate effect, ranking/query
+  effect, or new invalidation reason type was introduced. No production Supabase adapter was built for this
+  port — the contract doc now states explicitly that only the in-memory adapter exists, and that a future
+  production adapter would need a `security definer` Postgres function (no precedent for this exists yet in
+  the repo) to get the same atomicity guarantee across multiple tables from client-side Supabase calls. No
+  live Supabase migration was applied or attempted; no provider/network call was made.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run test` were run
+  full-suite via `npm run verify`. Focused suite: `PersonalResolutionMemoryInvalidation.test.ts` — 32 tests
+  (9 pre-existing behavior-preserving + 23 new: diamond/cycle graph correctness, atomicity via failure
+  injection at first/middle/last write, already-inactive-node propagation to active dependents, idempotence
+  including post-commit-failure retry and cross-action-ID safety on an already-inactive graph, and owner
+  isolation including a corrupted-edge fake-repository test for `invalid_dependency`). New
+  `PersonalResolutionMemoryInvalidationHardening.test.ts` — 7 tests on the new migration (reserved prefix,
+  composite FK, cascade count, no anon/grant/view, no RLS/authenticated-grant change, additive-only, prior
+  migration file unchanged). Pre-existing `PersonalResolutionMemoryInvalidationMigration.test.ts` (V3-018) and
+  `PersonalResolutionMemoryPromotionPolicy.test.ts` (V3-017, confirmed unaffected — it only imports
+  `promotionForEvidence` and has no dependency on the invalidation use case/repository) both still pass
+  unmodified. Exact full-suite/CI numbers are recorded in the PR; see the git history for the merge commit.
+- **Known/residual limits (explicit, not claimed complete):** no production Supabase adapter exists for
+  invalidation (unchanged limit, now explicitly documented rather than implied); RESOLVER-V3-026 (production
+  write integration) remains fully separate, `todo`, and still blocks RESOLVER-V3-019 on its own; the audit
+  event table's mutability hardening remains RESOLVER-V3-026's scope, not touched here.
+
 ## RESOLVER-V3-025 — Documentation and Status Reconciliation (post-implementation review)
 
 - **Basis and scope:** Reviewed the canonical branch at `df4accd02c7d79c44a0cb4d6f57f599c1809b458` (HEAD

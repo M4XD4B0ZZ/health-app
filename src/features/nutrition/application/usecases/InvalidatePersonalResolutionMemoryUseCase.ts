@@ -3,6 +3,8 @@ import {
   PERSONAL_RESOLUTION_MEMORY_INVALIDATION_CONTRACT_VERSION as VERSION,
   PERSONAL_RESOLUTION_MEMORY_INVALIDATION_REASONS as REASONS,
   type PersonalResolutionMemoryInvalidationEvent,
+  type PersonalResolutionMemoryInvalidationPlan,
+  type PersonalResolutionMemoryInvalidationPlanEntry,
   type PersonalResolutionMemoryInvalidationReason,
   type PersonalResolutionMemoryInvalidationRequest,
   type PersonalResolutionMemoryInvalidationResult,
@@ -12,8 +14,19 @@ import type { PersonalResolutionMemoryInvalidationRepository } from '../ports/Pe
 const MAX_TRAVERSAL = 100;
 const inactive = new Set(['superseded', 'contradicted', 'deleted']);
 
+type PlanFailureCode =
+  | 'cycle_detected'
+  | 'traversal_limit_exceeded'
+  | 'invalid_dependency'
+  | 'repository_failed';
+
+type PlanBuildResult =
+  | { ok: true; entries: PersonalResolutionMemoryInvalidationPlanEntry[] }
+  | { ok: false; code: PlanFailureCode };
+
 export class InvalidatePersonalResolutionMemoryUseCase {
   constructor(private readonly repository: PersonalResolutionMemoryInvalidationRepository) {}
+
   async execute(
     request: PersonalResolutionMemoryInvalidationRequest,
   ): Promise<PersonalResolutionMemoryInvalidationResult> {
@@ -24,66 +37,185 @@ export class InvalidatePersonalResolutionMemoryUseCase {
     if (!request.ownerId) return result('invalid_request', 'missing_owner');
     if (!request.memoryId || !request.actionId)
       return result('invalid_request', 'missing_memory_id');
+
+    const committed = await safeFindCommittedAction(
+      this.repository,
+      request.ownerId,
+      request.actionId,
+    );
+    if (committed) return committed;
+
     const root = await this.repository.findForInvalidation(request.ownerId, request.memoryId);
     if (root.kind === 'owner_mismatch') return result('blocked_owner_mismatch', 'owner_mismatch');
     if (root.kind === 'not_found') return result('not_found');
-    const visited = new Set<string>();
-    const queue = [request.memoryId];
-    const affected: string[] = [];
-    let rootInactive = false;
-    while (queue.length) {
-      if (visited.size >= MAX_TRAVERSAL)
-        return result('failed', 'traversal_limit_exceeded', affected);
-      const memoryId = queue.shift()!;
-      if (visited.has(memoryId)) return result('failed', 'cycle_detected', affected);
-      visited.add(memoryId);
-      const lookup = await this.repository.findForInvalidation(request.ownerId, memoryId);
-      if (lookup.kind !== 'found') return result('failed', 'repository_failed', affected);
-      const transition = next(
-        lookup.memory,
-        memoryId === request.memoryId
-          ? (request.reason as PersonalResolutionMemoryInvalidationReason)
-          : 'dependency_invalidated',
+
+    const plan = await buildPlan(this.repository, request, root.memory);
+    if (!plan.ok) return result('failed', plan.code);
+
+    const rootEntry = plan.entries.find((entry) => entry.memoryId === request.memoryId);
+    const invalidationResult = summarize(request, rootEntry, plan.entries);
+
+    const invalidationPlan: PersonalResolutionMemoryInvalidationPlan = {
+      contractVersion: VERSION,
+      actionId: request.actionId,
+      ownerId: request.ownerId,
+      rootMemoryId: request.memoryId,
+      occurredAt: request.occurredAt,
+      entries: plan.entries,
+      result: invalidationResult,
+    };
+
+    const outcome = await this.repository.applyInvalidationPlanAtomically(invalidationPlan);
+    if (outcome === 'applied') return invalidationResult;
+    if (outcome === 'duplicate') {
+      const replay = await safeFindCommittedAction(
+        this.repository,
+        request.ownerId,
+        request.actionId,
       );
-      if (!transition) {
-        if (memoryId === request.memoryId) rootInactive = true;
-        continue;
+      return replay ?? result('failed', 'atomic_commit_failed');
+    }
+    return result('failed', 'atomic_commit_failed');
+  }
+}
+
+async function safeFindCommittedAction(
+  repository: PersonalResolutionMemoryInvalidationRepository,
+  ownerId: string,
+  actionId: string,
+): Promise<PersonalResolutionMemoryInvalidationResult | null> {
+  try {
+    return await repository.findCommittedAction(ownerId, actionId);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Phase 1 — plan. Reads the full reachable dependency graph and produces a deterministic,
+ * immutable plan without writing anything. Pre-order DFS with explicit visiting/done coloring:
+ * a node reached while still "visiting" (on the current path) is a true cycle; a node already
+ * "done" (fully planned via another path) is a legitimate diamond revisit and is not replanned.
+ * Already-inactive nodes are still classified and their dependents are still traversed.
+ */
+async function buildPlan(
+  repository: PersonalResolutionMemoryInvalidationRepository,
+  request: PersonalResolutionMemoryInvalidationRequest,
+  rootMemory: PersonalResolutionMemory,
+): Promise<PlanBuildResult> {
+  const state = new Map<string, 'visiting' | 'done'>();
+  const cache = new Map<string, PersonalResolutionMemory>([[request.memoryId, rootMemory]]);
+  const entries: PersonalResolutionMemoryInvalidationPlanEntry[] = [];
+  let failure: PlanFailureCode | null = null;
+  let discovered = 0;
+
+  const visit = async (
+    memoryId: string,
+    reason: PersonalResolutionMemoryInvalidationReason,
+  ): Promise<void> => {
+    if (failure) return;
+    const status = state.get(memoryId);
+    if (status === 'done') return;
+    if (status === 'visiting') {
+      failure = 'cycle_detected';
+      return;
+    }
+    discovered += 1;
+    if (discovered > MAX_TRAVERSAL) {
+      failure = 'traversal_limit_exceeded';
+      return;
+    }
+    state.set(memoryId, 'visiting');
+
+    let memory = cache.get(memoryId);
+    if (!memory) {
+      let lookup;
+      try {
+        lookup = await repository.findForInvalidation(request.ownerId, memoryId);
+      } catch {
+        failure = 'repository_failed';
+        return;
       }
+      if (lookup.kind !== 'found') {
+        failure = 'invalid_dependency';
+        return;
+      }
+      memory = lookup.memory;
+      cache.set(memoryId, memory);
+    }
+
+    const transitioned = next(memory, reason);
+    if (transitioned) {
       const event: PersonalResolutionMemoryInvalidationEvent = {
         contractVersion: VERSION,
         eventId: `${request.actionId}:${memoryId}`,
         actionId: request.actionId,
         memoryId,
-        reason:
-          memoryId === request.memoryId
-            ? (request.reason as PersonalResolutionMemoryInvalidationReason)
-            : 'dependency_invalidated',
-        previousStatus: lookup.memory.status,
-        nextStatus: transition.status,
-        previousLevel: lookup.memory.level,
-        nextLevel: transition.level,
+        reason,
+        previousStatus: memory.status,
+        nextStatus: transitioned.status,
+        previousLevel: memory.level,
+        nextLevel: transitioned.level,
         occurredAt: request.occurredAt,
       };
-      const write = await this.repository.applyInvalidation(request.ownerId, transition, event);
-      if (write === 'failed') return result('failed', 'repository_failed', affected);
-      if (write === 'written') affected.push(memoryId);
-      for (const dependent of await this.repository.findDependents(request.ownerId, memoryId))
-        queue.push(dependent);
+      entries.push({
+        memoryId,
+        reason,
+        previousStatus: memory.status,
+        previousLevel: memory.level,
+        nextStatus: transitioned.status,
+        nextLevel: transitioned.level,
+        classification: 'write',
+        event,
+      });
+    } else {
+      entries.push({
+        memoryId,
+        reason,
+        previousStatus: memory.status,
+        previousLevel: memory.level,
+        nextStatus: memory.status,
+        nextLevel: memory.level,
+        classification: 'noop',
+        event: null,
+      });
     }
-    return {
-      status: affected.length
-        ? affected.includes(request.memoryId) &&
-          next(root.memory, request.reason as PersonalResolutionMemoryInvalidationReason)?.level !==
-            root.memory.level
-          ? 'weakened'
-          : 'invalidated'
-        : rootInactive
-          ? 'already_inactive'
-          : 'already_inactive',
-      affectedMemoryIds: affected,
-    };
-  }
+
+    let dependents: string[];
+    try {
+      dependents = await repository.findDependents(request.ownerId, memoryId);
+    } catch {
+      failure = 'repository_failed';
+      return;
+    }
+    for (const dependent of dependents) {
+      if (failure) return;
+      await visit(dependent, 'dependency_invalidated');
+    }
+    state.set(memoryId, 'done');
+  };
+
+  await visit(request.memoryId, request.reason as PersonalResolutionMemoryInvalidationReason);
+  if (failure) return { ok: false, code: failure };
+  return { ok: true, entries };
 }
+
+function summarize(
+  request: PersonalResolutionMemoryInvalidationRequest,
+  rootEntry: PersonalResolutionMemoryInvalidationPlanEntry | undefined,
+  entries: PersonalResolutionMemoryInvalidationPlanEntry[],
+): PersonalResolutionMemoryInvalidationResult {
+  const affectedMemoryIds = entries
+    .filter((entry) => entry.classification === 'write')
+    .map((entry) => entry.memoryId);
+  if (!rootEntry || rootEntry.classification !== 'write')
+    return { status: 'already_inactive', affectedMemoryIds };
+  const weakened =
+    rootEntry.previousStatus === rootEntry.nextStatus &&
+    rootEntry.previousLevel !== rootEntry.nextLevel;
+  return { status: weakened ? 'weakened' : 'invalidated', affectedMemoryIds };
+}
+
 function next(
   memory: PersonalResolutionMemory,
   reason: PersonalResolutionMemoryInvalidationReason,
@@ -99,6 +231,7 @@ function next(
         : 'deleted';
   return { ...memory, status, updatedAt: memory.updatedAt };
 }
+
 function result(
   status: PersonalResolutionMemoryInvalidationResult['status'],
   code?: PersonalResolutionMemoryInvalidationResult['code'],

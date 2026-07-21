@@ -9111,7 +9111,7 @@ Depends on: RESOLVER-V3-014, RESOLVER-V3-015
 
 #### RESOLVER-V3-017: Personal Memory Promotion and Correction Precedence
 
-Status: `done`
+Status: `done` (merged; PR #104, `e39d6682ade29979096cb3bcae1e23af50acccb0`) — **remediation-required, see RESOLVER-V3-026**
 Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 
 **Goal:** Implement private P0/P1/P2 transitions and correction-first behavior.
@@ -9120,12 +9120,19 @@ Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 **Risks:** Overgeneralizing near matches or treating unchanged save as confirmation.
 **Tests/verification:** Correction/repeat/near-repeat/contradiction tests; `npm run verify`.
 **Acceptance:** Corrections override unconfirmed outcomes and never create global knowledge.
+**Post-implementation findings (2026-07-21, see `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`):**
+contract/migration/tests exist and are merged, but there is no production write-use-case integration into
+any real logging/journal/correction flow yet (write-only port, unused outside tests), and the
+`personal_resolution_memory_events` migration grants `authenticated` `update`/`delete` under a `for all`
+policy, so the audit-event table is not technically append-only. Green CI at merge time did not evaluate
+either gap. Tracked for remediation as **RESOLVER-V3-026**; not yet a complete correction-precedence
+feature.
 
 ---
 
 #### RESOLVER-V3-018: Personal Memory Invalidation
 
-Status: `done`
+Status: `done` (merged; PR #107, `bd5bd7f2281e7aade99d05bcf7a1bfec401e9ff0`) — **remediation-required, see RESOLVER-V3-027**
 Depends on: RESOLVER-V3-017
 
 **Goal:** Make private entries reversible, source-aware, and invalidatable.
@@ -9135,18 +9142,31 @@ Depends on: RESOLVER-V3-017
 **Tests/verification:** Invalidation, rollback, source-update, and deletion tests; `npm run verify`.
 **Acceptance:** Affected personal entries are deterministically weakened/deactivated with audit reason.
 
-**Implementation notes (in progress):** Added the closed `personal-resolution-memory-invalidation-v1`
-contract, owner-private direct dependencies, bounded cycle-safe invalidation traversal, idempotent audit
-events, and migration-level cascade/RLS constraints. No resolver read path, AI behaviour, candidate flow,
-or journal/correction coupling was introduced because a production personal-memory writer and attributable
-memory-ID signals do not yet exist.
+**Implementation:** Added the closed `personal-resolution-memory-invalidation-v1` contract, owner-private
+direct dependencies, a BFS invalidation traversal, idempotent audit events, and migration-level
+cascade/RLS constraints. No resolver read path, AI behaviour, candidate flow, or journal/correction
+coupling was introduced because a production personal-memory writer and attributable memory-ID signals
+do not yet exist.
+**Post-implementation findings (2026-07-21, see `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`):**
+independent code review of `InvalidatePersonalResolutionMemoryUseCase` found the traversal writes each
+transition immediately rather than planning fully first, so a later `cycle_detected`/
+`traversal_limit_exceeded`/`repository_failed` result can be returned after earlier nodes were already
+mutated (no atomicity/rollback); the cycle check treats any node reachable by two valid paths (a diamond
+dependency graph) as a false `cycle_detected`; an already-inactive node's dependents are never enqueued
+for propagation (`continue` short-circuits before the dependents lookup), so active descendants of an
+inactive parent can be silently skipped, particularly on retry after a partial failure; and
+`personal_resolution_memory_dependencies` has no foreign key to `personal_resolution_memories`, allowing
+orphaned edges. These are correctness/safety defects, not documentation issues. CI was green at merge
+because none of the above is exercised by the existing test suite (no diamond-graph test, no
+partial-failure-then-retry test). Tracked for remediation as **RESOLVER-V3-027**. RESOLVER-V3-019 MUST NOT
+build on this invalidation path until RESOLVER-V3-027 is complete.
 
 ---
 
 #### RESOLVER-V3-019: Personal Cache/Memory Read Path
 
-Status: `todo`
-Depends on: RESOLVER-V3-017, RESOLVER-V3-018
+Status: `blocked` — blocked on RESOLVER-V3-026 and RESOLVER-V3-027 (see post-implementation findings above)
+Depends on: RESOLVER-V3-017, RESOLVER-V3-018, RESOLVER-V3-026, RESOLVER-V3-027
 
 **Goal:** Read valid private memory before AI when policy permits.
 **Scope:** User-scoped deterministic lookup, eligibility, telemetry, fallback, and measured avoided calls.
@@ -9154,12 +9174,15 @@ Depends on: RESOLVER-V3-017, RESOLVER-V3-018
 **Risks:** Privacy breach, stale hit, or unsafe similar-input transfer.
 **Tests/verification:** Isolation, exact/near-match, invalidation, and no-AI-on-P2 tests; `npm run verify`.
 **Acceptance:** Only valid same-user memory affects results and exact confirmed repeats may avoid AI.
+**Blocked rationale:** reading from a memory store that can be partially mutated (RESOLVER-V3-018 finding)
+or that has no production write path (RESOLVER-V3-017 finding) is unsafe. Do not start until
+RESOLVER-V3-026 and RESOLVER-V3-027 are both complete and verified.
 
 ---
 
 #### RESOLVER-V3-020: Knowledge Candidate Aggregation
 
-Status: `done`
+Status: `done` (merged; PR #105 + hotfix PR #106, `89c5966aa1231e1a045210925402afd52fe8509d`) — **operational boundary not yet decided, see RESOLVER-V3-030**
 Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 
 **Goal:** Derive inactive, privacy-safe global candidate proposals from observations.
@@ -9174,12 +9197,19 @@ deduplicates with safe-payload fingerprints, preserves contradiction/negative ev
 all lifecycle transitions to inactive states. New server/admin-only RLS tables have no app grants,
 views, resolver read path, or activation trigger. See
 `docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_CONTRACT_1.md`.
+**Post-implementation findings (2026-07-21, see `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`):**
+the aggregator hard-codes `contradictingEvidenceCount: 0` for freshly built candidates and does not itself
+derive contradictions across multiple observation projections; the existing contradiction test constructs
+a pre-contradicted candidate by hand. This is an acceptable isolated architectural boundary, not yet an
+operational aggregation pipeline (no production adapter, no aggregation job, no observation→projection→
+candidate pipeline). Not acutely unsafe like V3-018/021/022, but the operational path must be explicitly
+designed before RESOLVER-V3-023 benchmarks it. Tracked as **RESOLVER-V3-030**.
 
 ---
 
 #### RESOLVER-V3-021: Developer Review and Global Promotion
 
-Status: `done`
+Status: `done` (merged; duplicate-merged as both PR #108 `8af57565f7a62eaacd599f75afe9d569b989ff36` and PR #109 `20f7e30381c419519b9cd6a61031e321bc1d7c15` — confirmed identical file content, no conflicting logic, process error only) — **remediation-required, see RESOLVER-V3-028**
 Depends on: RESOLVER-V3-020
 
 **Goal:** Build explicit developer review and approved-payload activation contract.
@@ -9188,12 +9218,24 @@ Depends on: RESOLVER-V3-020
 **Risks:** Insufficient provenance/privacy context or non-reversible activation.
 **Tests/verification:** Review authorization, audit, rejection, negative-rule, and rollback tests; `npm run verify`.
 **Acceptance:** Only reviewed `approved` payloads can globally influence resolver policy.
+**Post-implementation findings (2026-07-21, see `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`):**
+`ResolverKnowledgeReviewService` currently blocks approval unless
+`candidate.evidence.independentUserEvidence === 'not_evaluable'` — i.e. `not_evaluable` is treated as the
+passing state rather than as insufficient evidence, which conflicts with the Decision Record's requirement
+that a single user cannot found a global rule. `saveApproved`/`saveApproved`(reversal)/`appendEvent` are
+two separate non-transactional writes, so a failure between them can leave an active/revoked/rolled-back
+payload with no corresponding audit event. `reject`/`needs_more_evidence`/`quarantine` write only a review
+event and do not transition the candidate's persisted lifecycle state. The review event itself does not
+record reviewer identity, a closed decision reason, contract/candidate/privacy-policy versions at decision
+time, or a review-material snapshot. None of this is exercised by the current test suite. Tracked as
+**RESOLVER-V3-028**; no production global-promotion activation should build on this service until it is
+fixed.
 
 ---
 
 #### RESOLVER-V3-022: Shadow Mode for Global Candidates
 
-Status: `todo`
+Status: `done` (merged; PR #110, `df4accd02c7d79c44a0cb4d6f57f599c1809b458` — status corrected from a stale `todo`, see post-implementation review) — **remediation-required, see RESOLVER-V3-029**
 Depends on: RESOLVER-V3-020
 
 **Goal:** Evaluate candidates without user-visible resolver effect.
@@ -9202,13 +9244,25 @@ Depends on: RESOLVER-V3-020
 **Risks:** Accidental production effect or corpus leakage.
 **Tests/verification:** No-effect, metrics, locale, and holdout separation tests; `npm run verify`.
 **Acceptance:** Shadow results are auditable and cannot change any production decision.
+**Post-implementation findings (2026-07-21, see `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`):**
+the pure no-production-effect evaluator itself is sound (confirmed: no external ports, no mutation), but
+`ResolverKnowledgeShadowEvaluationRequest.productionDecision` carries the full `ResolverDecision`
+(`normalizedQuery`, candidates, source data), and the privacy check only inspects top-level keys of
+`candidate`/`candidate.payload` — it never inspects `productionDecision` at all, so private/linkable
+resolver data currently flows into every shadow request and result unfiltered. Separately,
+`falseConfidenceRegressionCount`, `falseConfidenceImprovementCount`, and `regressionCount` are hard-coded
+to `0`, and `identificationAccuracy`/`abstentionPrecision`/`clarificationRate` are always `'unknown'`;
+`fixtureExpectedStatus` is threaded through the contract but never used to compute them. Holdout/dev
+separation is currently limited to rejecting duplicate case IDs within one evaluation call, with no
+cross-run leakage protection. Tracked as **RESOLVER-V3-029**; RESOLVER-V3-023 must not benchmark against
+this privacy/metrics gap unresolved.
 
 ---
 
 #### RESOLVER-V3-023: Learning Benchmark V2
 
-Status: `todo`
-Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022
+Status: `blocked` — blocked on RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-030 (see post-implementation findings above)
+Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022, RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-030
 
 **Goal:** Create separated development/holdout learning-system benchmark evidence.
 **Scope:** Resolution/decomposition, personal sequences, promotion, privacy, and economics measures.
@@ -9216,6 +9270,11 @@ Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022
 **Risks:** Leakage, unrepresentative corpus, and cost-only optimization.
 **Tests/verification:** Reproducibility, sequence, privacy, shadow, rollback, and metric tests.
 **Acceptance:** Benchmark proves required learning invariants and reports limits separately by corpus.
+**Blocked rationale:** benchmarking a review system that treats `not_evaluable` as passing evidence
+(RESOLVER-V3-021 finding) and a shadow system that cannot yet compute its required false-confidence/
+regression/accuracy metrics and leaks production-decision data (RESOLVER-V3-022 finding) would not produce
+meaningful or trustworthy benchmark results. Do not start until RESOLVER-V3-028, RESOLVER-V3-029, and
+RESOLVER-V3-030 are complete and verified.
 
 ---
 
@@ -9230,6 +9289,152 @@ Depends on: RESOLVER-V3-013, RESOLVER-V3-023
 **Risks:** Repeating smoke-corpus overclaim or overlooking false confidence.
 **Tests/verification:** Canonical benchmark commands and decision-record/report readback per VERIFY.md.
 **Acceptance:** Explicit passed/not-passed decision; only a passed representative gate may satisfy V3-010's gate dependency.
+
+---
+
+### RESOLVER-V3-025 .. RESOLVER-V3-030: Post-Implementation Remediation Series
+
+Added 2026-07-21 following the post-implementation review of RESOLVER-V3-017/018/020/021/022
+(`reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`). All five source tasks were
+implemented, tested, and merged with green CI, but the review found integration, atomicity, privacy,
+audit, and governance gaps that must close before RESOLVER-V3-019 or RESOLVER-V3-023 begin. No existing
+task description above is reinterpreted by this series; these are new, additive tasks.
+
+#### RESOLVER-V3-025: Documentation and Status Reconciliation
+
+Status: `done` (this review)
+Depends on: RESOLVER-V3-017, RESOLVER-V3-018, RESOLVER-V3-020, RESOLVER-V3-021, RESOLVER-V3-022
+
+**Goal:** Reconcile `ROADMAP.md` and `handoffs/latest-handoff.md` with the actual merge/review state.
+**Scope:** Correct stale/contradictory statuses, add missing V3-021/V3-022 handoff sections, record the
+PR #108/#109 duplicate-merge history, add this remediation series, and produce a standalone
+post-implementation review report distinguishing implemented/tested/merged/operational/production-wired/
+live-migrated/accepted/blocked/remediation-required.
+**Non-goals:** Any product code change; any live Supabase migration.
+**Risks:** Documentation drifting from code again if future PRs don't update both files together.
+**Tests/verification:** `git --no-pager status --short`, `git --no-pager diff --stat`, `git diff --check`
+(documentation-only change per `VERIFY.md` §"Documentation-only").
+**Acceptance:** `ROADMAP.md` and `handoffs/latest-handoff.md` match the actual merge/CI/review state; report exists.
+
+---
+
+#### RESOLVER-V3-026: Personal Memory Write Integration and Audit Hardening
+
+Status: `todo`
+Depends on: RESOLVER-V3-017, RESOLVER-V3-025
+
+**Goal:** Turn RESOLVER-V3-017's contract into an actually-used private memory system.
+**Scope:** Production `record`-personal-memory use case; owner-scoped Supabase adapter; idempotent
+action-ID boundary; integration limited to real, unambiguous existing signals (unchanged logging → P0
+only; deliberate candidate selection → P1 only on a real UI signal; explicit confirmation/correction → P2
+only on a real UI signal — no intent may be invented); negative evidence on correction; correction
+precedence actually enforced; audit events made genuinely append-only.
+**Non-goals:** Any resolver read effect (that is RESOLVER-V3-019/027); any AI-avoidance behavior yet.
+**Risks:** Inferring confirmation/correction from ambiguous signals; treating unchanged save as
+confirmation (explicitly forbidden by the Decision Record).
+**Tests/verification:** Idempotency, owner-isolation, evidence-level-correctness (P0/P1/P2 assigned only
+on the exact signal specified), append-only audit enforcement tests; `npm run verify`.
+**Acceptance:** Real user actions produce correctly-leveled personal memory entries; audit events cannot
+be updated or deleted by `authenticated`; no resolver effect is introduced.
+**Prerequisite:** first inventory which UI/use-case signals actually exist before implementing — do not
+invent signals that aren't real.
+
+---
+
+#### RESOLVER-V3-027: Atomic and Correct Memory Invalidation
+
+Status: `todo`
+Depends on: RESOLVER-V3-018, RESOLVER-V3-025
+
+**Goal:** Make RESOLVER-V3-018's invalidation traversal safe and deterministic.
+**Scope:** Full traversal planning before any write; correct cycle detection that distinguishes
+"already fully processed," "on current path" (true cycle), and "reached via multiple valid paths"
+(diamond, not a cycle); traversal-limit check before any writes; a single atomic write for all planned
+transitions (all-or-nothing on failure); idempotent action ID; already-inactive nodes must not stop
+propagation to their active dependents; a direct foreign-key or equivalent referential-integrity
+constraint from `personal_resolution_memory_dependencies` to `personal_resolution_memories`; no
+cross-owner edges.
+**Non-goals:** Resolver read path (RESOLVER-V3-019); any new invalidation reason types.
+**Risks:** An atomic-transaction design that doesn't fit the existing in-memory/Supabase adapter split.
+**Tests/verification:** Diamond-graph test, true-cycle test, partial-failure-then-retry test,
+inactive-parent-with-active-dependents test, multi-level invalidation test, owner-isolation test;
+`npm run verify`.
+**Acceptance:** No partial mutation is ever observable after a `failed` result; diamond graphs invalidate
+correctly; retries after failure are safe.
+
+---
+
+#### RESOLVER-V3-028: Developer Review Governance and Atomic Promotion
+
+Status: `todo`
+Depends on: RESOLVER-V3-021, RESOLVER-V3-025
+
+**Goal:** Align RESOLVER-V3-021 with the Decision Record's single-user/global-rule invariant and make
+review decisions atomic and auditable.
+**Scope:** `not_evaluable` MUST NOT be treated as positive independent-user evidence — either block
+approval until independent-user evidence is positively and privacy-safely evaluated, or explicitly and
+narrowly exempt only specific candidate types where a multi-user requirement does not apply (with an
+accepted rationale — no numeric threshold is to be invented); persist reviewer identity, review contract
+version, candidate version at decision time, privacy-policy version, a review-material snapshot, closed
+decision reason, risk decision, and locale/region restriction; make review decision + approved payload +
+review event + candidate lifecycle update a single atomic operation; make `reject`/`needs_more_evidence`/
+`quarantine` actually transition candidate lifecycle state, not just log an event; keep revoke/rollback
+atomic; never allow an active payload without a corresponding audit event or an audit event without a
+corresponding state transition.
+**Non-goals:** Any app-facing grants; any resolver-effect wiring.
+**Risks:** Introducing a threshold that isn't yet accepted; under-scoping the exempted candidate types.
+**Tests/verification:** Authorization, idempotency, atomic-failure-injection, lifecycle-transition-for-every-action,
+and independent-user-evidence-gating tests; `npm run verify`.
+**Acceptance:** No candidate can reach `approved` on `not_evaluable` independent-user evidence alone
+(absent an explicit, narrow, accepted exemption); no operation leaves state and audit out of sync.
+
+---
+
+#### RESOLVER-V3-029: Privacy-Safe Shadow Projection and Real Metrics
+
+Status: `todo`
+Depends on: RESOLVER-V3-022, RESOLVER-V3-025
+
+**Goal:** Make RESOLVER-V3-022 privacy-safe and able to compute its required metrics.
+**Scope:** Replace the full `ResolverDecision` in the shadow request/result with a dedicated privacy-safe
+production-decision projection (status, closed reason codes, candidate count, source type without ID,
+provenance, classified input-type information — no query, no food payloads, no source IDs, no candidate
+IDs from personal sources, no owner/observation/run IDs); recursive or schema-based privacy validation
+(not top-level-keys-only); fail-closed contract-version check; typed ground-truth evidence; actually use
+`fixtureExpectedStatus` to compute false-confidence regression/improvement, regression count, accuracy
+(only when ground truth exists), abstention precision (only when ground truth exists), and a correctly
+defined clarification rate; tag every computed metric with an evidence class (`measured`,
+`fixture-derived`, `unknown`, `not_evaluable`) rather than inventing values; a reproducible corpus registry
+that keeps development/holdout separated across runs, not just within one call.
+**Non-goals:** Any change to production ranking/fast-path behavior; shadow failures must never affect
+production.
+**Risks:** Under-scoping the privacy projection and re-permitting a leak in a different field.
+**Tests/verification:** Privacy-projection completeness tests (recursive, not just top-level), metric
+correctness against fixture ground truth, holdout-leakage tests across multiple runs; `npm run verify`.
+**Acceptance:** No shadow request/result contains raw query, source IDs, or food payload data; all stated
+metrics are computed from real evidence or explicitly marked `unknown`/`not_evaluable`.
+
+---
+
+#### RESOLVER-V3-030: Candidate Aggregation Operational Boundary
+
+Status: `todo`
+Depends on: RESOLVER-V3-020, RESOLVER-V3-025
+
+**Goal:** Decide and document how RESOLVER-V3-020's inactive architecture becomes an operational,
+privacy-safe pipeline before RESOLVER-V3-023 benchmarks it.
+**Scope:** Design (not yet implement, unless explicitly authorized in a follow-up task) how multiple
+privacy-safe projections are produced and aggregated server-side; how supports/contradictions are derived
+from real events rather than hand-constructed; how candidates are stored; how private observation rows are
+kept unreadable outside this boundary; how source IDs/text fragments are kept out of fingerprints; how
+rejected candidates avoid endless recreation; how duplicate/supersession is durably managed; which parts
+need a batch job; and what cost/privacy limits apply.
+**Non-goals:** Implementing a service-role batch job over private rows before this boundary is explicitly
+accepted.
+**Risks:** Under-specifying the privacy boundary before authorizing any batch job.
+**Tests/verification:** Design review readback; no code required unless a follow-up implementation task is
+separately authorized.
+**Acceptance:** A written, accepted operational-boundary design exists before any aggregation job is built.
 
 ---
 

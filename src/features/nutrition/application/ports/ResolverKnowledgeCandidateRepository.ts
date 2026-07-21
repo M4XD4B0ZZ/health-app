@@ -12,6 +12,7 @@ export type ResolverKnowledgeCandidateWriteResult =
     };
 /** Server/admin-only future persistence boundary; never injected into resolver composition. */
 export interface ResolverKnowledgeCandidateRepository {
+  getById(candidateId: string): Promise<ResolverKnowledgeCandidate | null>;
   upsertInactive(
     candidate: ResolverKnowledgeCandidate,
   ): Promise<ResolverKnowledgeCandidateWriteResult>;

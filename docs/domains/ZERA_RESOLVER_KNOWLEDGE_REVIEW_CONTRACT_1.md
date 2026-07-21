@@ -25,7 +25,7 @@ This migration grants neither `anon` nor `authenticated`, enables RLS, creates n
 
 A post-implementation review of RESOLVER-V3-021
 (`reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md`) found the originally
-merged service treated `not_evaluable` independent-user evidence as the *passing* condition for
+merged service treated `not_evaluable` independent-user evidence as the _passing_ condition for
 approval (the literal opposite of "insufficient evidence"), performed the approved-payload write and
 the audit-event write as two separate non-transactional calls, only ever appended an event for
 `reject`/`needs_more_evidence`/`quarantine` without transitioning candidate lifecycle state, and
@@ -60,16 +60,16 @@ The candidate's own `status` field (previously type-excluded from ever legally b
 forcing an `as never`-style cast in the review service) is now a full closed status including
 `approved`. Lifecycle transitions:
 
-| Action | Legal source status | Result candidate status | Payload effect |
-| --- | --- | --- | --- |
-| `approve` | `pending_review` | `approved` | creates active `ApprovedResolverKnowledgePayload` |
-| `reject` | `pending_review` | `rejected` | none |
-| `needs_more_evidence` | `pending_review` | `needs_more_evidence` | none |
-| `quarantine` | `pending_review` | `quarantined` (+ quarantine reason) | none |
-| `mark_duplicate` | `pending_review` | `duplicate` (+ `duplicateOfCandidateId`) | none |
-| `supersede` | `pending_review` | `superseded` (+ `supersededByCandidateId`) | none |
-| `revoke_approval` | `approved` (+ active payload) | unchanged (`approved`) | payload → `revoked` |
-| `rollback` | `approved` (+ active payload) | unchanged (`approved`) | payload → `rolled_back` |
+| Action                | Legal source status           | Result candidate status                    | Payload effect                                    |
+| --------------------- | ----------------------------- | ------------------------------------------ | ------------------------------------------------- |
+| `approve`             | `pending_review`              | `approved`                                 | creates active `ApprovedResolverKnowledgePayload` |
+| `reject`              | `pending_review`              | `rejected`                                 | none                                              |
+| `needs_more_evidence` | `pending_review`              | `needs_more_evidence`                      | none                                              |
+| `quarantine`          | `pending_review`              | `quarantined` (+ quarantine reason)        | none                                              |
+| `mark_duplicate`      | `pending_review`              | `duplicate` (+ `duplicateOfCandidateId`)   | none                                              |
+| `supersede`           | `pending_review`              | `superseded` (+ `supersededByCandidateId`) | none                                              |
+| `revoke_approval`     | `approved` (+ active payload) | unchanged (`approved`)                     | payload → `revoked`                               |
+| `rollback`            | `approved` (+ active payload) | unchanged (`approved`)                     | payload → `rolled_back`                           |
 
 `revoke_approval`/`rollback` deliberately leave `candidate.status` at `approved`: it is a permanent
 historical record that the candidate's payload was once approved, while the payload's own `status`

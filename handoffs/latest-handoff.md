@@ -13,7 +13,7 @@
   and the validator threw unless it was exactly that value — i.e. it was structurally impossible
   to represent any other evidence state. The review service's approval condition
   (`candidate.evidence.independentUserEvidence !== 'not_evaluable'` → `blocked_privacy`) meant
-  `not_evaluable` was the *passing* condition, backwards from "insufficient evidence must not
+  `not_evaluable` was the _passing_ condition, backwards from "insufficient evidence must not
   approve" — though since `not_evaluable` was the only value that could ever exist, this gate
   never actually blocked anything in practice. All 8 actions were accepted by the service, but
   only `approve`/`revoke_approval`/`rollback` did anything beyond appending an event;
@@ -29,7 +29,7 @@
   snapshot/risk/restriction columns, and its `resolver_knowledge_candidates.status` /
   `resolver_knowledge_candidate_events.next_status` check constraints excluded `'approved'`
   entirely — consistent with the domain type's own `Exclude<ResolverKnowledgeCandidateStatus,
-  'approved'>` on `ResolverKnowledgeCandidate.status`, which forced an `as never` cast at
+'approved'>` on `ResolverKnowledgeCandidate.status`, which forced an `as never` cast at
   `ResolverKnowledgeReviewService.ts:56` to compare a value the type system said could never occur
   — the exact "cast/exclusion hiding an illegal lifecycle state" pattern the task asked to verify.
   Duplicate/supersession targets were represented on the candidate domain model

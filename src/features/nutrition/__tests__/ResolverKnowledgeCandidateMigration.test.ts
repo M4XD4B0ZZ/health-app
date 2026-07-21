@@ -3,7 +3,7 @@ import path from 'path';
 const migration = fs.readFileSync(
   path.resolve(
     __dirname,
-    '../../../../supabase/migrations/20260720130000_create_resolver_knowledge_candidates.sql',
+    '../../../../supabase/migrations/20260721070000_create_resolver_knowledge_candidates.sql',
   ),
   'utf8',
 );

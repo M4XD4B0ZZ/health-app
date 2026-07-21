@@ -1,5 +1,99 @@
 # Latest Handoff
 
+## RESOLVER-V3-029 — Privacy-Safe Shadow Projection and Real Metrics
+
+- **Basis and scope:** Started from `origin/chore/clean-arch-structure` at `5c2db19` (merge of PR
+  #118), which is also where the pre-existing local `claude/resolver-v3-029-shadow-privacy-c20zyh`
+  branch already sat, clean working tree, no divergence. Read `SSOK.md`, `AGENTS.md`, `ROADMAP.md`,
+  `VERIFY.md`, `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the Knowledge-Growth Decision
+  Record, the Resolver Knowledge Shadow Mode Contract, and
+  `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md` before touching code. Only
+  RESOLVER-V3-029's own scope was changed; RESOLVER-V3-030/023/024/010 were not started.
+- **Pre-implementation inventory (verified by direct code reading):** `ResolverDecision` carried
+  `normalizedQuery` (raw/normalized query), `status`, `reasonCodes: string[]` (open, not closed —
+  real call sites use at least 14 distinct literal codes across `ResolverDecisionPolicy`,
+  `SequentialFoodCatalogResolver`, `FusionCandidateResolver`, `FusionResolverAdapter`), the full
+  `candidates: ResolvedFoodCandidate[]` (each with `id`, `source`, `food: CanonicalFood` —
+  `id`/`name`/`normalizedName`/`macrosPer100g`/`source`/`sourceId` — `score`, and
+  `breakdown.notes: string[]` free text), `best`/`secondBest` (same candidate shape), `createdAt`, and
+  `inputConfidence` (`level`, free-text `reason`, `assumptions?: string[]`).
+  `ResolverKnowledgeShadowEvaluationRequest`/`...Result.productionDecision` were typed as this **full**
+  `ResolverDecision` — confirmed by direct read, matching the post-implementation review's finding. The
+  V1 privacy check (`ResolverKnowledgeShadowEvaluator.ts` pre-change) only inspected
+  `Object.keys(request.candidate)`/`Object.keys(request.candidate.payload)` against a 7-entry top-level
+  `privateKeys` array — it never touched `productionDecision`, did not recurse into nested
+  objects/arrays, and the only file importing any shadow-evaluator symbol anywhere in `src/` was the
+  test file itself (grep-confirmed; no production/benchmark caller exists). Shadow candidate payloads
+  (`ResolverKnowledgeCandidatePayload`, RESOLVER-V3-020/028) were already a closed 5-variant
+  discriminated union (`source-routing-pattern`/`abstention-policy-signal`/
+  `clarification-policy-signal`/`provenance-gap`/`negative-source-routing-rule`), each with `locale`,
+  `inputType: string` (open, not closed at that layer), and type-specific `sourceType`/`reasonCode`
+  enums — no aliases, free decomposition, or independent-user data, consistent with the shadow contract
+  doc. `fixtureExpectedStatus?: ResolverStatus` existed on both request and result types but was never
+  read inside `aggregateResolverKnowledgeShadowMetrics` — confirmed by direct read; `identificationAccuracy`/
+  `abstentionPrecision`/`clarificationRate` were the literal `'unknown'` and
+  `falseConfidenceRegressionCount`/`falseConfidenceImprovementCount`/`regressionCount` were hard-coded
+  `0`, both unconditionally. Development/holdout separation was a single `Set<string>` scoped to one
+  `evaluateShadowCorpus` call, offering no protection across separate calls or process runs — the
+  in-memory evaluator/aggregator had no resolver, provider, network, source, or persistence dependency
+  of any kind (confirmed by the existing source-scan test and by direct read).
+- **Implementation:** See `ROADMAP.md`'s RESOLVER-V3-029 entry and
+  `docs/domains/ZERA_RESOLVER_KNOWLEDGE_SHADOW_MODE_CONTRACT_1.md` §"Amendment (RESOLVER-V3-029)" for
+  full detail (projection field table, privacy-validation design, ground-truth contract, exact metric
+  formulas/denominators/evidence-class rules, corpus-registry design). Summary: a new
+  `ResolverProductionDecisionProjectionV1` (`resolver-production-decision-projection-v1`) is the only
+  representation of a production decision the contract can carry; a new closed contract version
+  `resolver-knowledge-shadow-evaluation-v2` fails closed on `v1`/unknown/mixed versions with no
+  reconstruction fallback; a recursive allowlist-based schema validator
+  (`ResolverKnowledgeShadowPrivacyValidator.ts`) replaced the top-level-only denylist as the primary
+  privacy guarantee (a small recursive denylist remains only as defense in depth); a discriminated,
+  versioned `ResolverKnowledgeShadowGroundTruth` replaced `fixtureExpectedStatus`; every metric formula
+  in the roadmap Scope is implemented with typed `measured`/`fixture-derived`/`unknown`/`not_evaluable`
+  evidence classes and closed reason codes, never a bare `0` for missing evidence; a versioned, immutable
+  `ResolverKnowledgeShadowCorpusRegistry` manifest replaced the one-call `Set`, with `evaluate` now
+  resolving each case's partition from the registry and failing closed on an unregistered case or a
+  partition claim that disagrees with the registry.
+- **Tests added/rewritten:** `ResolverProductionDecisionProjection.test.ts` (10 tests — closed field
+  set, exclusion of every named private field, determinism, non-mutation, unclassified-reason-code
+  fallback, provenance classification for AI/non-AI/absent-selection, candidate count, unknown input
+  confidence); `ResolverKnowledgeShadowPrivacyValidator.test.ts` (18 tests — valid-shape acceptance for
+  every schema, unknown top-level keys, nested private fields in objects and arrays, unknown
+  discriminants on both candidate payload and ground truth, snake_case bypass rejection, valid-top-level/
+  unsafe-nested-content rejection, unsupported ground-truth evidence version, and direct
+  `containsDenylistedField` recursion tests); `ResolverKnowledgeShadowCorpusRegistry.test.ts` (9 tests —
+  cross-instance partition stability, duplicate-case-ID rejection within and across partitions, unknown
+  registry version rejection, determinism from a shared manifest, unregistered-case reporting, exposed
+  version, manifest non-mutation); rewritten `ResolverKnowledgeShadowEvaluator.test.ts` (41 tests —
+  contract-shape/version fail-closed behavior, privacy blocking, every candidate rule, registry
+  integration including partition-move rejection, and every metric formula's positive and negative
+  cases including zero-denominator `null` outcomes, plus the no-production-effect source-scan and
+  no-mutation-on-throw tests).
+- **Verification:** focused suites — `npx jest --testPathPattern="ResolverKnowledgeShadow|ResolverProductionDecisionProjection"`
+  → 4 suites, 78 tests, all green. Full `npm run verify` (typecheck + lint + format:check + full test
+  suite) → 186 suites, 1706 tests, all green, no regressions. `node_modules` was missing at session
+  start; restored via `npm install` (the `supabase` CLI postinstall binary download failed with a
+  network 403 inside this environment's proxy, so `--ignore-scripts` was used on the retry — this
+  affects only the optional `supabase` CLI binary fetch, not any package used by
+  typecheck/lint/format/test).
+- **No-production-effect confirmation:** the evaluator, registry, and privacy validator remain pure,
+  deterministic, and read-only — no resolver, AI/model-backend, network, source, persistence, ranking,
+  query, fast-path, approval, or feature-flag dependency (source-scan test); no production object is
+  mutated on any evaluated or thrown path (dedicated tests); RESOLVER-V3-029 wires shadow mode into no
+  user-visible flow.
+- **Residual limitations:** no measured (non-fixture) ground-truth source exists yet — the `measured`
+  evidence-class variant is structurally available but currently unreachable by any code path; no
+  representative Learning Benchmark V2 corpus exists yet (RESOLVER-V3-023's scope, still blocked on
+  RESOLVER-V3-030 in addition to this task); accuracy/regression/false-confidence metrics remain
+  expected-status agreement, not proof of correct food identity; RESOLVER-V3-010 remains blocked and
+  RESOLVER-V3-013's gate remains NOT PASSED — nothing here changes either.
+- **Not started (as instructed):** RESOLVER-V3-030, RESOLVER-V3-023, RESOLVER-V3-024, RESOLVER-V3-010,
+  and no production shadow wiring was added.
+- **Branch/PR status:** implemented on `claude/resolver-v3-029-shadow-privacy-c20zyh` (the
+  harness-designated branch, already based on `origin/chore/clean-arch-structure` at merge commit
+  `5c2db19`); PR/merge details are recorded in a documentation-only follow-up once merged, per this
+  repository's established RESOLVER-V3-02x pattern (see RESOLVER-V3-028's entry above for the
+  precedent). Pre-existing local branches, including all retained V3-028 branches, were left untouched.
+
 ## RESOLVER-V3-028 — Developer Review Governance and Atomic Promotion
 
 - **Basis and scope:** Started from `chore/clean-arch-structure` HEAD (`339a982`, merge of PR

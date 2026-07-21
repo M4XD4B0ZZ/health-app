@@ -15,3 +15,4 @@ export * from './ResolverKnowledgeCandidate';
 
 export * from './PersonalResolutionMemory';
 export * from './PersonalResolutionMemoryInvalidation';
+export * from './PersonalResolutionMemoryRecording';

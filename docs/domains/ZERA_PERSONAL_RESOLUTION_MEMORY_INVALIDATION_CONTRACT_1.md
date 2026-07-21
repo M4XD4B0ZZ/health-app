@@ -124,3 +124,11 @@ after preserving this inactive-state contract; it must not re-enable invalidated
 now build on this invalidation path once RESOLVER-V3-026 (write integration) is also complete — the previous
 `RESOLVER-V3-027`-in-progress block on V3-019 is lifted as of this task, but V3-026 is untouched and remains a
 separate, still-open dependency (see `ROADMAP.md`).
+
+**Update (RESOLVER-V3-026, 2026-07-21):** a production personal-memory writer now exists (see
+`docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_RECORDING_CONTRACT_1.md`), wired to three real signals
+(unchanged logging, the Speck disambiguation choice, and deliberately saving a named meal template). It
+is still not wired into correction, journal deletion, alias deletion, portion-hint deletion, or
+source-update flows — none of those carry a real memory ID/action mapping today, so this paragraph's
+underlying finding stands for those flows specifically. RESOLVER-V3-026 is now complete; RESOLVER-V3-019
+is unblocked (see `ROADMAP.md`).

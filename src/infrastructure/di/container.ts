@@ -38,6 +38,7 @@ import {
   ListSavedMealTemplatesUseCase,
   DeleteSavedMealTemplateUseCase,
   RenameSavedMealTemplateUseCase,
+  RecordPersonalResolutionMemoryUseCase,
 } from '../../features/nutrition';
 import { PortionKnowledgeService } from '../../features/nutrition/domain/portion/PortionKnowledgeService';
 import { SEED_PORTION_HINTS } from '../../features/nutrition/domain/portion/seedPortionHints';
@@ -56,6 +57,10 @@ import { SupabaseResolverObservationWriter } from '../../features/nutrition/infr
 import { SupabaseResolverObservationOwnerProvider } from '../../features/nutrition/infrastructure/observations/SupabaseResolverObservationOwnerProvider';
 import { NoopResolverObservationWriter } from '../../features/nutrition/application/ports/ResolverObservationWriter';
 import { NoopResolverObservationOwnerProvider } from '../../features/nutrition/application/ports/ResolverObservationOwnerProvider';
+import { SupabasePersonalResolutionMemoryRepository } from '../../features/nutrition/infrastructure/repositories/SupabasePersonalResolutionMemoryRepository';
+import { NoopPersonalResolutionMemoryRepository } from '../../features/nutrition/application/ports/PersonalResolutionMemoryRepository';
+import type { PersonalResolutionMemoryRepository } from '../../features/nutrition/application/ports/PersonalResolutionMemoryRepository';
+import type { ResolverObservationOwnerProvider } from '../../features/nutrition/application/ports/ResolverObservationOwnerProvider';
 import { SupabaseEdgeOffProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeOffProvider';
 import { SupabaseEdgeUsdaProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeUsdaProvider';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
@@ -175,6 +180,11 @@ class Container {
   private _suggestGoalsUseCase: SuggestGoalsUseCase;
   private _setEffectiveGoalsUseCase: SetEffectiveGoalsUseCase;
 
+  // Personal Resolution Memory (RESOLVER-V3-026)
+  private _personalResolutionMemoryRepository: PersonalResolutionMemoryRepository;
+  private _personalResolutionMemoryOwnerProvider: ResolverObservationOwnerProvider;
+  private _recordPersonalResolutionMemoryUseCase: RecordPersonalResolutionMemoryUseCase;
+
   // Saved Meal Use Cases
   private _createSavedMealFromDateUseCase: CreateSavedMealFromDateUseCase;
   private _logSavedMealToDateUseCase: LogSavedMealToDateUseCase;
@@ -216,11 +226,26 @@ class Container {
     );
     this._savedMealRepository = new PersistedSavedMealRepository(this._keyValueStore);
 
+    // RESOLVER-V3-026: private, owner-scoped write boundary; no network calls in test env.
+    this._personalResolutionMemoryRepository =
+      envName() === 'test'
+        ? new NoopPersonalResolutionMemoryRepository()
+        : new SupabasePersonalResolutionMemoryRepository(supabase);
+    this._personalResolutionMemoryOwnerProvider =
+      envName() === 'test'
+        ? new NoopResolverObservationOwnerProvider()
+        : new SupabaseResolverObservationOwnerProvider(supabase);
+    this._recordPersonalResolutionMemoryUseCase = new RecordPersonalResolutionMemoryUseCase(
+      this._personalResolutionMemoryRepository,
+    );
+
     this._createSavedMealFromDateUseCase = new CreateSavedMealFromDateUseCase(
       this._foodEntryRepository,
       this._savedMealRepository,
       this._nutritionClock,
       this._nutritionIdGenerator,
+      this._recordPersonalResolutionMemoryUseCase,
+      this._personalResolutionMemoryOwnerProvider,
     );
     this._logSavedMealToDateUseCase = new LogSavedMealToDateUseCase(
       this._savedMealRepository,
@@ -491,6 +516,14 @@ class Container {
 
   get savedMealRepository(): SavedMealRepository {
     return this._savedMealRepository;
+  }
+
+  get recordPersonalResolutionMemoryUseCase(): RecordPersonalResolutionMemoryUseCase {
+    return this._recordPersonalResolutionMemoryUseCase;
+  }
+
+  get personalResolutionMemoryOwnerProvider(): ResolverObservationOwnerProvider {
+    return this._personalResolutionMemoryOwnerProvider;
   }
 
   // Saved Meal Use Cases

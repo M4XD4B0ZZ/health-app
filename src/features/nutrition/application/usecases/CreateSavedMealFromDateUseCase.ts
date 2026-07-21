@@ -4,6 +4,9 @@ import { FoodEntryRepository } from '../ports/FoodEntryRepository';
 import { SavedMealRepository } from '../ports/SavedMealRepository';
 import { Clock } from '../ports/Clock';
 import { IdGenerator } from '../ports/IdGenerator';
+import { PERSONAL_RESOLUTION_MEMORY_RECORDING_CONTRACT_VERSION } from '../../domain/models/PersonalResolutionMemoryRecording';
+import { RecordPersonalResolutionMemoryUseCase } from './RecordPersonalResolutionMemoryUseCase';
+import type { ResolverObservationOwnerProvider } from '../ports/ResolverObservationOwnerProvider';
 
 /**
  * SM-007: `quantityGrams` only reflects an explicit gram amount typed by the user
@@ -30,6 +33,14 @@ export class CreateSavedMealFromDateUseCase {
     private readonly savedMealRepository: SavedMealRepository,
     private readonly clock: Clock,
     private readonly idGenerator: IdGenerator,
+    /**
+     * RESOLVER-V3-026: naming a meal template from real entries and saving it is exactly the
+     * Decision Record's `deliberately_saved_personal_meal` P2 signal — a deliberate, named user
+     * action, not an inferred one. Optional and best-effort so this use case's core behavior
+     * never depends on private-memory recording succeeding.
+     */
+    private readonly recordPersonalResolutionMemoryUseCase?: RecordPersonalResolutionMemoryUseCase,
+    private readonly personalResolutionMemoryOwnerProvider?: ResolverObservationOwnerProvider,
   ) {}
 
   async execute(dateISO: string, name: string): Promise<SavedMealTemplate> {
@@ -79,6 +90,37 @@ export class CreateSavedMealFromDateUseCase {
     // Persist template
     await this.savedMealRepository.create(template);
 
+    void this.recordSavedMealMemory(template).catch(() => {});
+
     return template;
+  }
+
+  /** Best-effort, never blocks or fails template creation itself. */
+  private async recordSavedMealMemory(template: SavedMealTemplate): Promise<void> {
+    if (!this.recordPersonalResolutionMemoryUseCase || !this.personalResolutionMemoryOwnerProvider)
+      return;
+    const ownerId = await this.personalResolutionMemoryOwnerProvider.getOwnerId();
+    if (!ownerId) return;
+
+    const occurredAt = this.clock.now().toISOString();
+    const sourceGroundedItems = template.items.filter((item) => item.foodCatalogRef);
+
+    await Promise.all(
+      sourceGroundedItems.map((item, index) =>
+        this.recordPersonalResolutionMemoryUseCase!.execute({
+          contractVersion: PERSONAL_RESOLUTION_MEMORY_RECORDING_CONTRACT_VERSION,
+          ownerId,
+          actionId: `${template.id}:${index}`,
+          locale: 'de',
+          target: {
+            sourceType: item.foodCatalogRef!.source,
+            sourceId: item.foodCatalogRef!.sourceId,
+            kind: 'source_grounded',
+          },
+          evidenceType: 'deliberately_saved_personal_meal',
+          occurredAt,
+        }).catch(() => undefined),
+      ),
+    );
   }
 }

@@ -24,6 +24,7 @@ export { ListSavedMealTemplatesUseCase } from './usecases/ListSavedMealTemplates
 export { DeleteSavedMealTemplateUseCase } from './usecases/DeleteSavedMealTemplateUseCase';
 export { RenameSavedMealTemplateUseCase } from './usecases/RenameSavedMealTemplateUseCase';
 export { DeleteResolverObservationsForCurrentOwner } from './usecases/DeleteResolverObservationsForCurrentOwner';
+export { RecordPersonalResolutionMemoryUseCase } from './usecases/RecordPersonalResolutionMemoryUseCase';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';

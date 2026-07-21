@@ -9111,7 +9111,7 @@ Depends on: RESOLVER-V3-014, RESOLVER-V3-015
 
 #### RESOLVER-V3-017: Personal Memory Promotion and Correction Precedence
 
-Status: `done` (merged; PR #104, `e39d6682ade29979096cb3bcae1e23af50acccb0`) — **remediation-required, see RESOLVER-V3-026**
+Status: `done` (merged; PR #104, `e39d6682ade29979096cb3bcae1e23af50acccb0`) — **remediated by RESOLVER-V3-026**
 Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 
 **Goal:** Implement private P0/P1/P2 transitions and correction-first behavior.
@@ -9127,6 +9127,9 @@ any real logging/journal/correction flow yet (write-only port, unused outside te
 policy, so the audit-event table is not technically append-only. Green CI at merge time did not evaluate
 either gap. Tracked for remediation as **RESOLVER-V3-026**; not yet a complete correction-precedence
 feature.
+**Remediated by RESOLVER-V3-026 (2026-07-21):** both gaps are closed — see the RESOLVER-V3-026 entry below
+and `docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_RECORDING_CONTRACT_1.md` for the production use case,
+adapter, and the three real signals it is wired to.
 
 ---
 
@@ -9168,7 +9171,8 @@ plan-then-commit architecture that replaced the single-pass BFS.
 
 #### RESOLVER-V3-019: Personal Cache/Memory Read Path
 
-Status: `blocked` — blocked on RESOLVER-V3-026 (RESOLVER-V3-027 is now complete, see below)
+Status: `todo` — previously blocked; unblocked now that both RESOLVER-V3-026 and RESOLVER-V3-027 are
+complete (see below)
 Depends on: RESOLVER-V3-017, RESOLVER-V3-018, RESOLVER-V3-026, RESOLVER-V3-027
 
 **Goal:** Read valid private memory before AI when policy permits.
@@ -9177,11 +9181,14 @@ Depends on: RESOLVER-V3-017, RESOLVER-V3-018, RESOLVER-V3-026, RESOLVER-V3-027
 **Risks:** Privacy breach, stale hit, or unsafe similar-input transfer.
 **Tests/verification:** Isolation, exact/near-match, invalidation, and no-AI-on-P2 tests; `npm run verify`.
 **Acceptance:** Only valid same-user memory affects results and exact confirmed repeats may avoid AI.
-**Blocked rationale:** reading from a memory store that can be partially mutated (RESOLVER-V3-018 finding)
-or that has no production write path (RESOLVER-V3-017 finding) is unsafe. RESOLVER-V3-027 is now complete
-(atomic plan-then-commit invalidation, correct cycle/diamond handling, referential integrity), so the
-invalidation-safety half of this blocker is resolved. RESOLVER-V3-026 (production write integration) remains
-`todo` and still blocks this task — do not start until it is complete and verified.
+**Blocked rationale (historical):** reading from a memory store that can be partially mutated
+(RESOLVER-V3-018 finding) or that has no production write path (RESOLVER-V3-017 finding) was unsafe.
+RESOLVER-V3-027 resolved the invalidation-safety half (atomic plan-then-commit invalidation, correct
+cycle/diamond handling, referential integrity). RESOLVER-V3-026 (2026-07-21) resolved the remaining half:
+a production write use case and Supabase adapter now exist, wired to three real signals (P0/P1/P2), and
+the audit table is genuinely append-only. Both blockers are cleared; this task is ready to be picked up,
+but starting it is explicitly out of scope for RESOLVER-V3-026's own run (see that task's completion note)
+and is left for a separate task.
 
 ---
 
@@ -9325,7 +9332,7 @@ live-migrated/accepted/blocked/remediation-required.
 
 #### RESOLVER-V3-026: Personal Memory Write Integration and Audit Hardening
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-017, RESOLVER-V3-025
 
 **Goal:** Turn RESOLVER-V3-017's contract into an actually-used private memory system.
@@ -9343,6 +9350,61 @@ on the exact signal specified), append-only audit enforcement tests; `npm run ve
 be updated or deleted by `authenticated`; no resolver effect is introduced.
 **Prerequisite:** first inventory which UI/use-case signals actually exist before implementing — do not
 invent signals that aren't real.
+**Technical inventory (pre-implementation):** a dedicated sub-agent inventory plus direct code reading
+found exactly three real, wired signals and confirmed several others do not exist. `Logged without
+explicit confirmation` (P0): the sole real journal-logging pipeline is `logResolvedNutritionInput` →
+`resolvePreparedNutritionInputs` → `LogFoodFromRawInputUseCase`, used by `InputBar.tsx` and
+`JournalScreen.tsx`'s normal submit. `Deliberate candidate selection` (P1): only the Speck disambiguation
+flow (`JournalScreen.tsx`'s `handleSelectSpeckChoice`) — `ResolverDecision.candidates` is produced
+internally but never surfaced to any general picker UI, so P1 must not be wired anywhere else.
+`Deliberately saved personal meal` (P2): `CreateSavedMealFromDateUseCase`, reachable from
+`SavedMealsScreen.tsx`'s "create from today" action, matches this exact Decision Record evidence type.
+Confirmed absent: any "confirm this food" UI (the post-submit panel is passive display, not a user action;
+`PortionKnowledgeService.confirmUserPrivateHint` confirms a different domain object, a portion hint, not a
+food identity) and any UI that corrects a resolved food's identity rather than its quantity
+(`EditFoodEntryFromNaturalLanguageUseCase`/`ApplyNaturalLanguageEditUseCase` only ever touch
+grams/multiplier/count, never `foodCatalogRef`, and the latter has no caller anywhere in the UI at all).
+`explicit_confirmation` and `explicit_correction` were therefore not wired to any call site.
+**Implementation (2026-07-21):** Added `RecordPersonalResolutionMemoryUseCase` — RESOLVER-V3-017's port's
+first production caller — which derives `memoryId`/`evidenceId`/`transitionId`/`negativeEvidenceId`
+entirely from the caller's `actionId` (idempotent-by-construction: a literal retry re-derives
+byte-identical IDs, absorbed by the tables' existing unique constraints), reuses the existing
+`promotionForEvidence` mapping unchanged, and rejects `explicit_correction` unless the caller names the
+specific prior memory it overrides (`correction_requires_prior_memory_id`), always producing negative
+evidence against that prior memory when it does. Added `SupabasePersonalResolutionMemoryRepository` — the
+port's first production adapter — using plain sequential inserts (no RPC precedent exists in this
+codebase; mirrors `SupabaseResolverObservationWriter`'s duplicate-detection-via-`23505` pattern) across
+`personal_resolution_memories` and `personal_resolution_memory_events`. Wired exactly the three real
+signals found above: P0 fires from `resolvePreparedNutritionInputs.ts` right after a persisted,
+source-grounded entry; P1 fires from `JournalScreen.tsx`'s Speck resubmission via a new optional
+`evidenceType` parameter threaded through `logResolvedNutritionInput`/`resolvePreparedNutritionInputs`; P2
+fires from `CreateSavedMealFromDateUseCase` for each saved item with a `foodCatalogRef`. All three call
+sites are fire-and-forget and owner-gated (skip silently without an authenticated owner) so private-memory
+recording can never block or fail the user-visible action it observes. `explicit_confirmation` and
+`explicit_correction` remain fully implemented and unit-tested in the use case itself (so correction
+precedence is provably enforced) but have no production caller, exactly like RESOLVER-V3-018/027's
+invalidation port — this is stated explicitly, not left implicit, in the new recording contract doc.
+**Migration:** one additive migration,
+`supabase/migrations/20260721150000_harden_personal_resolution_memory_audit_append_only.sql`, revokes
+`update`/`delete` on `personal_resolution_memory_events` from `authenticated` (RLS is evaluated only after
+the table-level privilege check, so this alone closes the gap); no RLS, policy, or historical-migration
+change, and `personal_resolution_memories`' own `update` grant — still needed for invalidation/state
+transitions — is untouched.
+**Contract doc:** [`docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_RECORDING_CONTRACT_1.md`](../docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_RECORDING_CONTRACT_1.md).
+**Verification:** `npm run verify` (typecheck + lint + format:check + full test suite) passed — 178 test
+suites, 1571 tests, all green, no regressions. New/focused suites:
+`RecordPersonalResolutionMemoryUseCase.test.ts` (evidence-level correctness for every evidence type,
+idempotent-retry, cross-owner isolation, correction-requires-prior-memory rejection, correction-precedence
+negative-evidence enforcement, invalid-request closed error codes, repository-failure surfacing);
+`SupabasePersonalResolutionMemoryRepository.test.ts` (multi-table insert sequencing, duplicate-key mapping,
+non-duplicate-failure mapping including after a partial write, owner-required fail-closed);
+`PersonalResolutionMemoryAuditAppendOnlyMigration.test.ts` (reserved unique migration prefix, exact revoke
+statement, no RLS/policy/grant/anon touch, additive-only, prior migration file unchanged);
+`CreateSavedMealFromDateUseCasePersonalMemory.test.ts` (P2 recording per source-grounded item, no owner ⇒
+no recording, template creation unaffected when recording is unwired or throws, no target ⇒ no recording).
+**Non-effect:** no resolver read path, ranking/query effect, or AI-avoidance behavior was introduced; the
+RESOLVER-V3-018/027 invalidation port, its migrations, and its own (still uncalled) production adapter
+boundary are unchanged.
 
 ---
 

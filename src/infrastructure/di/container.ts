@@ -61,6 +61,12 @@ import { SupabasePersonalResolutionMemoryRepository } from '../../features/nutri
 import { NoopPersonalResolutionMemoryRepository } from '../../features/nutrition/application/ports/PersonalResolutionMemoryRepository';
 import type { PersonalResolutionMemoryRepository } from '../../features/nutrition/application/ports/PersonalResolutionMemoryRepository';
 import type { ResolverObservationOwnerProvider } from '../../features/nutrition/application/ports/ResolverObservationOwnerProvider';
+import { ReadPersonalResolutionMemoryUseCase } from '../../features/nutrition/application/usecases/ReadPersonalResolutionMemoryUseCase';
+import { PersonalResolutionMemoryAwareFoodCatalogResolver } from '../../features/nutrition/application/services/PersonalResolutionMemoryAwareFoodCatalogResolver';
+import { SupabasePersonalResolutionMemoryReadRepository } from '../../features/nutrition/infrastructure/repositories/SupabasePersonalResolutionMemoryReadRepository';
+import { NoopPersonalResolutionMemoryReadRepository } from '../../features/nutrition/application/ports/PersonalResolutionMemoryReadRepository';
+import { ConsolePersonalResolutionMemoryReadTelemetry } from '../../features/nutrition/infrastructure/repositories/ConsolePersonalResolutionMemoryReadTelemetry';
+import { NoopPersonalResolutionMemoryReadTelemetry } from '../../features/nutrition/application/ports/PersonalResolutionMemoryReadTelemetry';
 import { SupabaseEdgeOffProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeOffProvider';
 import { SupabaseEdgeUsdaProvider } from '../../features/nutrition/infrastructure/catalog/providers/SupabaseEdgeUsdaProvider';
 import { DEFAULT_CATALOG_CONFIG } from '../../features/nutrition/domain/models/FoodCatalogConfig';
@@ -335,7 +341,7 @@ class Container {
         ? new NoopResolverObservationOwnerProvider()
         : new SupabaseResolverObservationOwnerProvider(supabase);
 
-    const foodCatalogResolver = new SequentialFoodCatalogResolver(
+    const baseFoodCatalogResolver = new SequentialFoodCatalogResolver(
       resolverSources,
       confidenceEngine,
       DEFAULT_CATALOG_CONFIG,
@@ -343,6 +349,28 @@ class Container {
       resolverRunLogger,
       resolverObservationWriter,
       resolverObservationOwnerProvider,
+    );
+
+    // RESOLVER-V3-019: owner-scoped, exact-match personal-memory read boundary wrapped around
+    // the base resolver. Fails open (no owner / no match / any error) to the unchanged base
+    // decision, so this can never make resolution stricter or less available than before.
+    const personalResolutionMemoryReadRepository =
+      envName() === 'test'
+        ? new NoopPersonalResolutionMemoryReadRepository()
+        : new SupabasePersonalResolutionMemoryReadRepository(supabase);
+    const readPersonalResolutionMemoryUseCase = new ReadPersonalResolutionMemoryUseCase(
+      personalResolutionMemoryReadRepository,
+    );
+    const personalResolutionMemoryReadTelemetry =
+      envName() === 'test'
+        ? new NoopPersonalResolutionMemoryReadTelemetry()
+        : new ConsolePersonalResolutionMemoryReadTelemetry();
+
+    const foodCatalogResolver = new PersonalResolutionMemoryAwareFoodCatalogResolver(
+      baseFoodCatalogResolver,
+      readPersonalResolutionMemoryUseCase,
+      resolverObservationOwnerProvider,
+      personalResolutionMemoryReadTelemetry,
     );
     if (!foodCatalogResolver) throw new Error('DI_MISSING_FOOD_CATALOG_RESOLVER');
 

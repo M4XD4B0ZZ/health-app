@@ -1,5 +1,70 @@
 # Latest Handoff
 
+## RESOLVER-V3-019 — Personal Cache/Memory Read Path
+
+- **Basis and scope:** Started from `chore/clean-arch-structure` HEAD (`8af09c24ea6c618a65add9bf8784d9def6a33718`,
+  merge of PR #113). Read `SSOK.md`, `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`, this handoff, the
+  Knowledge-Growth Decision Record, and the Personal Resolution Memory / Invalidation / Recording
+  contract docs before touching code. Only this task's own scope (a read contract, eligibility
+  policy, read port/use case/Supabase adapter, telemetry port/adapter, a new resolver-decorator
+  service, one `container.ts` composition-root wiring change, focused tests, a new read contract
+  doc, an addendum to the invalidation contract doc, `ROADMAP.md`, and this handoff) was changed.
+- **Technical inventory (pre-implementation):** confirmed by direct code reading (see the
+  `ROADMAP.md` entry for the full list) that `personal_resolution_memories.scope_key` is keyed on
+  the **resolved food identity**, not raw query text; that no AI `FoodCatalogSource` is composed
+  into any production resolver (`RESOLVER-V3-010` remains genuinely blocked, unrelated to this
+  task); that `personal_resolution_memories` already grants `authenticated` `select` (no migration
+  needed); and that `LogFoodFromRawInputUseCase`/`LogMealFromRawInputUseCase` gate acceptance on
+  `resolved.score >= 0.7` / `status === 'accepted'` respectively — both had to be satisfied for a
+  memory-confirmed override to actually take effect downstream.
+- **Implementation:** Added the closed `personal-resolution-memory-read-v1` contract (exact-match
+  `{sourceType, sourceId}` targets, identical scope-key shape to the write path),
+  `PersonalResolutionMemoryReadEligibilityPolicy` (P2_confirmed → deterministic reuse + preferred;
+  P1_provisional → preferred only, never a forced override; P0_observed → neither — Decision
+  Record §6 verbatim), the `PersonalResolutionMemoryReadRepository` port (owner-scoped,
+  `active`-status-only, fails closed), `ReadPersonalResolutionMemoryUseCase`, and
+  `SupabasePersonalResolutionMemoryReadRepository` (single read-only `select`, no new grant).
+  Resolver integration is `PersonalResolutionMemoryAwareFoodCatalogResolver`, a decorator around
+  any `FoodCatalogResolver` — deliberately not a change inside `SequentialFoodCatalogResolver`
+  itself. It excludes `'user'`-sourced candidates, fails open (returns the exact original decision
+  object) on no owner/no candidates/no match/any error, and on a `P2_confirmed` match
+  deterministically selects that candidate as `best` (`status: 'accepted'`, fixed `0.95` score,
+  `PERSONAL_MEMORY_P2_CONFIRMED_AVOIDED_AI` reason code) or, for `P1_provisional` only, appends
+  `PERSONAL_MEMORY_P1_PREFERRED` without touching `best`/`status`. `PersonalResolutionMemoryReadTelemetry`
+  records real per-lookup counts plus an honest `avoided` flag (only true when the override
+  actually changed the outcome). The production telemetry adapter,
+  `ConsolePersonalResolutionMemoryReadTelemetry`, is dependency-free and gated behind
+  `isDebugLoggingEnabled()`. `container.ts` now wraps the previously-direct
+  `SequentialFoodCatalogResolver` instance in this decorator; both consuming use cases already
+  depended on the `FoodCatalogResolver` interface, so no other call site changed.
+- **Migration:** none. `personal_resolution_memories` already grants `authenticated` `select`
+  under RESOLVER-V3-017's owner-scoped `for all` RLS policy; the new adapter filters `owner_id` in
+  the query itself and RLS enforces the same scope again independently.
+- **Contract doc:** added
+  [`docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_READ_CONTRACT_1.md`](../docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_READ_CONTRACT_1.md);
+  added a dated update note to the invalidation contract doc pointing at it.
+- **Non-effect:** no resolver read effect on any input the deterministic sources did not already
+  independently resolve as a candidate; no cross-user data; no global candidate path; no change to
+  RESOLVER-V3-017/018/026/027's own contracts, migrations, or adapters; no live Supabase migration
+  or provider/network/AI call was made.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run test`
+  were run full-suite via `npm run verify` — 182 test suites, 1601 tests, all green, no regressions
+  (up from 178 suites/1571 tests). New/focused suites:
+  `PersonalResolutionMemoryReadEligibilityPolicy.test.ts`,
+  `ReadPersonalResolutionMemoryUseCase.test.ts`,
+  `SupabasePersonalResolutionMemoryReadRepository.test.ts`, and
+  `PersonalResolutionMemoryAwareFoodCatalogResolver.test.ts` (fail-open proven via reference
+  identity, `'user'`-source exclusion, deterministic override from both `ambiguous` and `rejected`
+  base status, no redundant override/avoided-flag when already accepted as the same candidate, P1
+  annotate-only behavior, P0 fully ignored, query pass-through unchanged). All 178 pre-existing
+  suites still pass unmodified.
+- **Known/residual limits (explicit, not claimed complete):** this decorator's added reason codes
+  are not persisted into the pre-existing `ResolverRunLogger`/`ResolverObservationWriter` telemetry
+  sinks (those fire inside `SequentialFoodCatalogResolver.resolve()`, before this decorator sees
+  the decision, and correctly record the base/pre-override decision) — a future task may unify the
+  channels. No near-match/fuzzy transfer exists (exact scope-key match only, by design). No
+  AI/hybrid production wiring was added — RESOLVER-V3-010 remains blocked and unrelated.
+
 ## RESOLVER-V3-026 — Personal Memory Write Integration and Audit Hardening
 
 - **Basis and scope:** Started from `chore/clean-arch-structure` HEAD

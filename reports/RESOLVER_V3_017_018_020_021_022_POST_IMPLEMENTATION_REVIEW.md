@@ -20,16 +20,16 @@ live-database claims in this report are attributed to the source handoff, not in
 
 ## 1. Status classification legend
 
-| Term | Meaning |
-|---|---|
-| `implemented` | Code exists matching the contract/type-level design |
-| `tested` | Unit tests exist and pass for the stated behavior |
-| `merged` | PR is merged into the canonical branch |
-| `operational` | Wired into a real, reachable code path (not just an isolated port/adapter) |
-| `production-wired` | Reachable from a real user action (logging, journal, review UI) |
-| `live-migrated` | Migration has been applied to the live Supabase project |
-| `accepted` | Meets its ROADMAP.md acceptance criterion in full |
-| `blocked` | Cannot proceed until a dependency is resolved |
+| Term                   | Meaning                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `implemented`          | Code exists matching the contract/type-level design                                                           |
+| `tested`               | Unit tests exist and pass for the stated behavior                                                             |
+| `merged`               | PR is merged into the canonical branch                                                                        |
+| `operational`          | Wired into a real, reachable code path (not just an isolated port/adapter)                                    |
+| `production-wired`     | Reachable from a real user action (logging, journal, review UI)                                               |
+| `live-migrated`        | Migration has been applied to the live Supabase project                                                       |
+| `accepted`             | Meets its ROADMAP.md acceptance criterion in full                                                             |
+| `blocked`              | Cannot proceed until a dependency is resolved                                                                 |
 | `remediation-required` | Merged, but has a correctness/safety/governance/privacy gap that must be closed before dependents build on it |
 
 ## 2. Per-task findings
@@ -67,11 +67,11 @@ Three defects were independently reproduced by reading
    `affected` remain committed. There is no planning phase and no rollback.
 2. **False positive cycle detection on diamond graphs.** `visited` (line 30/38) is a single global
    BFS-visited set; the check `if (visited.has(memoryId)) return result('failed', 'cycle_detected', ...)`
-   fires on *any* re-visited node, not only true back-edges. A diamond dependency (`A → B → D`, `A → C →
-   D`) reaches `D` twice through two valid, acyclic paths and is incorrectly reported as
+   fires on _any_ re-visited node, not only true back-edges. A diamond dependency (`A → B → D`, `A → C →
+D`) reaches `D` twice through two valid, acyclic paths and is incorrectly reported as
    `cycle_detected`, aborting the whole traversal.
 3. **Inactive parent silently stops dependent propagation.** When `next()` returns `null` for an
-   already-inactive node (line 48-51), the code does `continue` *before* reaching the
+   already-inactive node (line 48-51), the code does `continue` _before_ reaching the
    `findDependents`/enqueue step at the bottom of the loop (line 70-71). Dependents of an already-inactive
    node are therefore never enqueued, so active entries that depend on an already-invalidated parent are
    left untouched — most dangerous on a retry after a partial failure (defect #1), where some nodes are
@@ -110,7 +110,7 @@ built on this invalidation path until it is fixed.** Remediation tracked as **RE
 `implemented` · `tested` · `merged` · **not** `accepted` — governance, audit, and atomicity gaps
 
 - **Duplicate merge confirmed.** `git diff 8af57565f7a62eaacd599f75afe9d569b989ff36
-  20f7e30381c419519b9cd6a61031e321bc1d7c15 --stat` is empty: PR #109 merged no additional file changes
+20f7e30381c419519b9cd6a61031e321bc1d7c15 --stat` is empty: PR #109 merged no additional file changes
   beyond PR #108. Both PRs implemented the identical `RESOLVER-V3-021` work from near-identical branch
   names (`codex/implementiere-developer-review-vertrag` and
   `codex/implementiere-developer-review-vertrag-rqhv0v`). This is a process error (duplicate-merge
@@ -119,7 +119,7 @@ built on this invalidation path until it is fixed.** Remediation tracked as **RE
   the approval-eligibility check is
   `candidate.evidence.independentUserEvidence !== 'not_evaluable'` → `blocked_privacy`. Read literally,
   this means a candidate is only allowed to proceed toward `approve` when its independent-user-evidence
-  field equals exactly `not_evaluable` — i.e. when it is *not evaluated at all*. `not_evaluable` is being
+  field equals exactly `not_evaluable` — i.e. when it is _not evaluated at all_. `not_evaluable` is being
   used as a passing state rather than as "insufficient evidence, do not approve." This directly conflicts
   with Decision Record §7 / this project's invariant that a single user must not be able to found a global
   rule, since nothing currently requires positive, privacy-safe, multi-user evidence before approval.

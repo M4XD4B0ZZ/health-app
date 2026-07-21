@@ -1,5 +1,94 @@
 # Latest Handoff
 
+## RESOLVER-V3-030 — Candidate Aggregation Operational Boundary
+
+- **Basis and scope:** The harness-designated branch `claude/resolver-v3-030-operational-boundary-hs0dve`
+  was already present locally and on `origin`, sitting exactly at `origin/chore/clean-arch-structure`'s tip
+  (`7c886d7e55c71d30e047758657b3963ba5c0b14f`, merge of PR #120), clean working tree, no divergence, no
+  existing PR for this branch. Read `SSOK.md`, `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`,
+  `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the Knowledge-Growth Decision Record, the Candidate/
+  Review/Shadow-Mode contracts, and
+  `reports/RESOLVER_V3_017_018_020_021_022_POST_IMPLEMENTATION_REVIEW.md` before writing anything. Only
+  RESOLVER-V3-030's own scope (documentation/architecture/governance) was changed; RESOLVER-V3-023/024/010
+  and every candidate-aggregation implementation follow-up were not started.
+- **Pre-design inventory (verified by direct code reading, not assumed):** confirmed
+  `ResolverObservationPrivacyEnforcer.project()` is the sole producer of
+  `ResolverObservationAggregationProjectionV1` and has no production caller (grep across `src/` found only
+  test imports and each other); confirmed the current projection still carries
+  `selectedSource: {type, id}` — the source ID is present in the projection object even though
+  `ResolverKnowledgeCandidateAggregator.payloadFor()` only ever reads `.type`; confirmed the aggregator
+  hard-codes `supportingEvidenceCount: 1`/`contradictingEvidenceCount: 0`/`independentUserEvidence:
+  'not_evaluable'` for every candidate and never derives contradictions itself; confirmed
+  `InMemoryResolverKnowledgeCandidateRepository.upsertInactive()` additively merges evidence counters with
+  no idempotency key (a literal retry double-counts) and keeps no per-contribution ledger, so summaries
+  cannot be reconstructed from anything but themselves; confirmed `duplicateOfCandidateId`/
+  `supersededByCandidateId` exist on the schema/type but are never populated by any code path; confirmed no
+  production Supabase candidate-repository adapter, no aggregation batch job, no scheduling/cursor/retry/
+  quarantine mechanism, and no RPC/stored-function precedent exist anywhere in this codebase (grep across
+  `supabase/migrations` and `src` for `create function`/`.rpc(`); confirmed the five
+  candidate/review/candidate-event/approved-knowledge/review-event tables all enable RLS and revoke every
+  `anon`/`authenticated` grant, with no view or trigger; confirmed no live Supabase migration is claimed
+  applied by this task (this session did not query a live project).
+- **Design produced:** a new, distinct canonical document,
+  [`docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md`](../docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md)
+  (it does not rewrite or amend the RESOLVER-V3-020 Candidate Contract). Summary: a 22-point verified
+  present-state inventory; a private-aggregation-zone vs. global-candidate-zone trust boundary and
+  data-flow sequence; a versioned V2 aggregation-projection contract decision (V1 is not reinterpreted;
+  unknown/mixed versions fail closed, mirroring the RESOLVER-V3-029 shadow-projection fail-closed pattern);
+  a private, append-only contribution-ledger model from which global evidence summaries must always be
+  re-derivable (never a mutable additive counter); a closed support/contradiction/orthogonal/not_evaluable
+  relation matrix per candidate-type pairing, with unenumerated pairs defaulting to `not_evaluable`, never
+  guessed; a fingerprint-versioning decision (V1 FNV-1a stays exactly as merged, confirmed deduplication-only
+  and unchanged; a versioned SHA-256-class V2 digest is decided — not implemented — as the operational
+  successor, because an operational fingerprint is also an idempotency/durable-identity key where collisions
+  have a real correctness cost); an independent-user pseudonymous-contributor-token design that remains
+  fail-closed to `not_evaluable` until a separately accepted sufficiency policy exists (RESOLVER-V3-035);
+  rejection-suppression rules (a candidate's fingerprint is its durable identity; matching post-rejection
+  contributions attach to the retained candidate, never spawn a new ID; reconsideration requires an
+  explicit developer/review action or a genuinely different, differently-fingerprinted payload); duplicate/
+  supersession terminal-chain resolution with explicit self-reference/cycle/missing-target prohibitions;
+  a deletion/retraction table covering every named trigger (owner deletion, observation invalidation,
+  unsafe-contract revocation, source-update invalidation, correction-as-new-contradictory-evidence,
+  privacy-policy revocation); an atomic single-Postgres-RPC boundary decision — explicitly the first RPC/
+  stored-function precedent this codebase would ever have, chosen only after confirming no existing
+  transaction precedent exists (every prior "atomic" write in this repo is either a single-table insert with
+  a `23505`-duplicate catch, or an in-memory snapshot/restore simulation) — not implemented here; a full
+  batch-execution model (server-only run lease, deterministic cursor, quarantine/poison-row handling,
+  dry-run, crash recovery, a scheduling-substrate comparison against this repo's only two existing
+  server-side-process precedents, both found unsuitable as-is); privacy-safe operational metrics and cost-
+  bound categories with no numeric value invented; a benchmark-interface section that critically assesses
+  and concludes this design **alone does not** unblock RESOLVER-V3-023 (the benchmark's required
+  classification/duplicate/supersession logic does not exist as callable code yet); and a conflict-analysis
+  section explicitly reconciling `.governance/SAFETY.md`'s absolute "no git push" language with
+  `AGENTS.md`'s Ralph-Loop-scoped Dual Governance rule (this is a product task, not a `RALPH-XXX` task, so
+  the push/PR/merge workflow precedent set by RESOLVER-V3-025 through -029 applies) — reported explicitly,
+  not treated as blocking.
+- **Follow-up decomposition:** six new tasks added to `ROADMAP.md`
+  (RESOLVER-V3-031 through RESOLVER-V3-036 — projection V2/fingerprint/classification logic; private
+  contribution ledger and rejection/duplicate/deletion logic; server-side atomic persistence adapter;
+  supervised batch worker; independent-user evidence policy decision; operational smoke verification), each
+  with a stable ID, status, dependencies, goal, exact scope, non-goals, risks, tests/verification, and
+  acceptance criteria. None is started. `RESOLVER-V3-023`'s dependency list gained explicit new entries for
+  RESOLVER-V3-031 and RESOLVER-V3-032 (the benchmark needs their classification/lifecycle logic to exist as
+  real code, not just a design), while RESOLVER-V3-033/034/035 were deliberately **not** added as benchmark
+  blockers (live infrastructure and an independent-user threshold are outside the benchmark's fixture/
+  dev-holdout scope).
+- **Verification:** documentation-only change (Category 1/2 per `VERIFY.md`) —
+  `git --no-pager status --short`, `git --no-pager diff --stat`, `git --no-pager diff --name-only`, and
+  `git diff --check` all run and recorded in `ROADMAP.md`'s RESOLVER-V3-030 entry. `npm run verify` was not
+  required by `VERIFY.md` for this documentation-only change and was not run; repository searches confirmed
+  no `src/`, test, migration, `package.json`/`package-lock.json`, or environment file changed, no task was
+  silently marked unblocked beyond the explicit RESOLVER-V3-030 `done` status itself, and no implementation
+  task was started.
+- **Non-effect:** no product code, migration, live database, production resolver behavior, package,
+  dependency, or environment state changed. RESOLVER-V3-023, RESOLVER-V3-024, RESOLVER-V3-010, and every
+  candidate-aggregation implementation follow-up were not started.
+- **Branch/PR status:** implemented on `claude/resolver-v3-030-operational-boundary-hs0dve` (the
+  harness-designated branch, based on `origin/chore/clean-arch-structure` at `7c886d7e...`); PR/merge-commit
+  details to be recorded in a follow-up documentation update once the PR opened for this branch merges,
+  per this repository's established RESOLVER-V3-02x/03x precedent (see the RESOLVER-V3-029 section below
+  for the pattern this follows).
+
 ## RESOLVER-V3-029 — Privacy-Safe Shadow Projection and Real Metrics
 
 - **Basis and scope:** Started from `origin/chore/clean-arch-structure` at `5c2db19` (merge of PR

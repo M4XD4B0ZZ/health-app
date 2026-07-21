@@ -9350,8 +9350,10 @@ this privacy/metrics gap unresolved.
 
 #### RESOLVER-V3-023: Learning Benchmark V2
 
-Status: `blocked` — blocked on RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-030 (see post-implementation findings above)
-Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022, RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-030
+Status: `blocked` — blocked on RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-031, RESOLVER-V3-032 (see
+post-implementation findings above and the RESOLVER-V3-030 operational-boundary design)
+Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022, RESOLVER-V3-028, RESOLVER-V3-029,
+RESOLVER-V3-030, RESOLVER-V3-031, RESOLVER-V3-032
 
 **Goal:** Create separated development/holdout learning-system benchmark evidence.
 **Scope:** Resolution/decomposition, personal sequences, promotion, privacy, and economics measures.
@@ -9362,8 +9364,19 @@ Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022, RESOLVER-V3-028, 
 **Blocked rationale:** benchmarking a review system that treats `not_evaluable` as passing evidence
 (RESOLVER-V3-021 finding) and a shadow system that cannot yet compute its required false-confidence/
 regression/accuracy metrics and leaks production-decision data (RESOLVER-V3-022 finding) would not produce
-meaningful or trustworthy benchmark results. Do not start until RESOLVER-V3-028, RESOLVER-V3-029, and
-RESOLVER-V3-030 are complete and verified.
+meaningful or trustworthy benchmark results. Do not start until RESOLVER-V3-028 and RESOLVER-V3-029 are
+complete and verified.
+**RESOLVER-V3-030 dependency update (2026-07-21):** RESOLVER-V3-030's operational-boundary design
+(`docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md` §23) is complete,
+but a design document alone gives this benchmark no callable code — the deterministic contribution
+support/contradiction classification and the duplicate/rejection/supersession logic the benchmark needs to
+exercise (per the Decision Record §10) do not exist anywhere in `src/` yet. RESOLVER-V3-031 (projection
+V2/fingerprint versioning/classification logic) and RESOLVER-V3-032 (contribution ledger,
+rejection-suppression, duplicate/supersession, deletion/retraction logic) are therefore added as explicit
+new dependencies; RESOLVER-V3-030 itself is satisfied (design accepted) but does **not** alone unblock this
+task. RESOLVER-V3-033/034 (server-side persistence adapter/batch worker, live infrastructure) and
+RESOLVER-V3-035 (independent-user policy) are deliberately not added here, since this benchmark's
+fixture/dev-holdout scope does not require live infrastructure or a settled independent-user threshold.
 
 ---
 
@@ -9710,7 +9723,7 @@ precedent).
 
 #### RESOLVER-V3-030: Candidate Aggregation Operational Boundary
 
-Status: `todo`
+Status: `done` (documentation-only; see PR/merge commit recorded below once merged)
 Depends on: RESOLVER-V3-020, RESOLVER-V3-025
 
 **Goal:** Decide and document how RESOLVER-V3-020's inactive architecture becomes an operational,
@@ -9727,6 +9740,215 @@ accepted.
 **Tests/verification:** Design review readback; no code required unless a follow-up implementation task is
 separately authorized.
 **Acceptance:** A written, accepted operational-boundary design exists before any aggregation job is built.
+**Implementation (2026-07-21):** Read all mandatory governance/domain sources and inventoried the complete
+current candidate-aggregation surface (aggregator, validator, repository port, in-memory adapter, privacy
+projection/enforcer, candidate/observation domain models, migrations, and every caller/import — confirmed
+by `grep` that no production caller exists anywhere in `src/` outside tests) before writing the design.
+Produced
+[`docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md`](../docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md),
+a new, distinct document (it does not amend or rewrite the RESOLVER-V3-020 Candidate Contract) covering: a
+22-point verified present-state inventory (confirming, among other things, that the current
+`ResolverObservationAggregationProjectionV1` still carries a selected-source ID even though the aggregator
+discards it, that the current repository additively merges evidence with no idempotency key so retries can
+double-count, and that no immutable per-contribution record exists anywhere); a private-aggregation-zone
+vs. global-candidate-zone trust boundary and data-flow; a versioned V2 aggregation-projection contract
+decision (V1 is not reinterpreted; unknown/mixed versions fail closed); a private, append-only contribution-
+ledger model from which global evidence summaries must always be re-derivable; a closed support/contradiction/
+orthogonal/not_evaluable relation matrix per candidate-type pairing; a fingerprint-versioning decision (V1
+FNV-1a stays deduplication-only and unchanged; a versioned SHA-256-class V2 digest is decided, not
+implemented, as the operational successor); an independent-user pseudonymous-contributor-token design that
+remains fail-closed to `not_evaluable` until a separately accepted policy exists; rejection-suppression,
+duplicate/supersession, and deletion/retraction rules; an atomic single-Postgres-RPC boundary decision
+(explicitly the first RPC/stored-function precedent in this codebase — not implemented here) chosen after
+confirming no existing RPC/transaction precedent exists anywhere in the repo; a full batch-execution model
+(cursor, lease, quarantine, dry-run, crash recovery); privacy-safe operational metrics and cost-bound
+categories (no numeric values invented); a benchmark-interface section that critically assesses and
+concludes this design **alone does not** unblock RESOLVER-V3-023; and a conflict-analysis section
+explicitly reconciling `.governance/SAFETY.md`'s absolute "no git push" language with `AGENTS.md`'s
+Ralph-Loop-scoped Dual Governance rule (this task is a product task, not a `RALPH-XXX` task, so the
+existing push/PR/merge workflow precedent set by RESOLVER-V3-025 through -029 applies).
+**Follow-up decomposition:** six new tasks added (RESOLVER-V3-031 through RESOLVER-V3-036, below); none
+started. RESOLVER-V3-023's dependency list is updated to add RESOLVER-V3-031 and RESOLVER-V3-032 as
+explicit new blockers, because the benchmark's required deterministic contribution-classification and
+duplicate/rejection/supersession logic do not exist as callable code yet — this design document alone does
+not make them executable. RESOLVER-V3-033/034 (server-side persistence adapter/batch worker) and
+RESOLVER-V3-035 (independent-user policy) are deliberately **not** added as RESOLVER-V3-023 blockers, since
+the benchmark's fixture/dev-holdout scope does not require live infrastructure or a settled independent-user
+threshold.
+**Verification:** documentation-only change (Category 1/2 per `VERIFY.md`) —
+`git --no-pager status --short`, `git --no-pager diff --stat`, `git --no-pager diff --name-only`, and
+`git diff --check` all run; no `src/`, test, migration, `package.json`/`package-lock.json`, or environment
+file changed (confirmed by `git diff --name-only` review). `npm run verify` was not required by `VERIFY.md`
+for this documentation-only change and was not run.
+**Non-effect:** no product code, migration, live database, production resolver behavior, package,
+dependency, or environment state changed. RESOLVER-V3-023, RESOLVER-V3-024, and RESOLVER-V3-010 were not
+started; no candidate-aggregation implementation follow-up was started.
+
+---
+
+### RESOLVER-V3-031 .. RESOLVER-V3-036: Candidate Aggregation Operational Implementation Series
+
+Added 2026-07-21 by the RESOLVER-V3-030 operational-boundary design
+(`docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md`). None of these six
+tasks is started by RESOLVER-V3-030 itself; each requires its own separate task authorization, and none may
+begin until an authorized agent explicitly selects it. `RESOLVER-V3-010` remains blocked and unrelated to
+all six.
+
+#### RESOLVER-V3-031: Aggregation Projection V2, Fingerprint Versioning, and Closed Support/Contradiction Classification
+
+Status: `todo`
+Depends on: RESOLVER-V3-030
+
+**Goal:** Replace the implicit V1 aggregation-projection versioning with an explicit, fail-closed
+`resolver-observation-aggregation-projection-v2` contract (own `projectionVersion` field, dropping
+`selectedSource.id` entirely — see design §6/§7), decide and implement a versioned fingerprint successor
+(design §9), and implement the closed support/contradiction/orthogonal/not_evaluable relation function
+(design §10) as pure, testable domain/application logic.
+**Scope:** New `ResolverObservationAggregationProjectionV2` type and producer; a versioned fingerprint
+function (e.g. SHA-256-based `resolver-knowledge-fingerprint-v2`) alongside the unchanged V1
+`fingerprintFor`; a pure `classifyContributionRelation(candidateType, existingPayload, newPayload)` function
+implementing the design's closed relation matrix; unit tests for every cell of that matrix including the
+explicit `not_evaluable` default for unenumerated pairs.
+**Non-goals:** Any Supabase adapter, migration, batch worker, or live wiring; reinterpreting or deleting the
+existing V1 aggregator/projection (`ResolverKnowledgeCandidateAggregator`,
+`ResolverObservationPrivacyEnforcer` stay exactly as merged for RESOLVER-V3-020).
+**Risks:** Silently reinterpreting V1 data as V2; inventing a contradiction rule not authorized by the
+design's matrix.
+**Tests/verification:** Version fail-closed tests (v1/unknown/mixed all rejected); full relation-matrix
+coverage; fingerprint-version determinism and exclusion-of-private-fields tests; `npm run verify`.
+**Acceptance:** A V2 projection and a versioned fingerprint function exist and are unit-tested; contradiction/
+support/orthogonal/not_evaluable classification is computed by real code, not hand-constructed test fixtures;
+no candidate-aggregation code path is wired into any production caller.
+
+---
+
+#### RESOLVER-V3-032: Private Contribution Ledger, Rejection Suppression, Duplicate/Supersession, and Deletion/Retraction Recomputation
+
+Status: `todo`
+Depends on: RESOLVER-V3-030, RESOLVER-V3-031
+
+**Goal:** Implement the private, append-only contribution-ledger model (design §8) and the pure
+domain/application logic for rejection suppression (§13), duplicate/supersession chain resolution (§14),
+and deletion/retraction recomputation (§15) — all as in-memory-testable logic, without requiring a live
+Supabase adapter.
+**Scope:** A contribution-ledger domain model and a reference in-memory repository (mirroring the existing
+`InMemoryResolverKnowledgeCandidateRepository`/`InMemoryResolverKnowledgeReviewRepository` pattern); global
+candidate evidence summaries computed as a pure function over active ledger rows (never a mutable additive
+counter); rejected-candidate durable-identity handling; duplicate/supersession terminal-chain resolution
+with cycle/self-reference/missing-target detection; retraction handling for each trigger in design §15's
+table, recomputing affected summaries.
+**Non-goals:** Any Supabase migration, RPC, or production adapter (that is RESOLVER-V3-033); any batch
+scheduling (RESOLVER-V3-034); any independent-user token implementation (RESOLVER-V3-035, though this task
+must leave a slot for it per design §11).
+**Risks:** Reintroducing additive-counter double-counting; silently reactivating a rejected/duplicate/
+superseded candidate; a supersession-chain cycle that isn't detected.
+**Tests/verification:** Idempotent-retry-no-double-count test; summary-recomputation-equals-replay test;
+rejection-suppression (retry vs. materially-changed-payload) tests; duplicate/supersession chain, cycle,
+self-reference, and missing-target tests; every design §15 retraction-trigger test; `npm run verify`.
+**Acceptance:** Global candidate evidence summaries are always re-derivable from the private ledger; no
+retry can double-count; a rejected candidate's matching fingerprint never spawns a new candidate ID; a
+duplicate/superseded candidate never silently reactivates; retraction never leaves user linkage in the
+global zone.
+
+---
+
+#### RESOLVER-V3-033: Server-Side Atomic Aggregation Persistence Adapter
+
+Status: `todo`
+Depends on: RESOLVER-V3-030, RESOLVER-V3-031, RESOLVER-V3-032
+
+**Goal:** Build the first Postgres RPC/stored-function precedent in this codebase (design §16), wiring
+RESOLVER-V3-032's ledger/summary/rejection/duplicate logic into a single atomic transaction boundary, plus
+the private-zone and global-zone migrations the design requires.
+**Scope:** A migration creating `resolver_knowledge_contribution_ledger` (private zone, RLS, no
+`anon`/`authenticated` grant) and any quarantine/run-lease tables the batch worker needs; a `SECURITY
+DEFINER` Postgres function implementing the atomic insert-ledger-row/upsert-summary/append-event/advance-
+checkpoint sequence (design §16); a production repository adapter implementing the existing
+`ResolverKnowledgeCandidateRepository` port (or an extended port, if the design's ledger-based summary model
+requires new methods) by calling that RPC via `supabase.rpc(...)`, never by separate client-side statements.
+**Non-goals:** Any batch scheduling or worker process (RESOLVER-V3-034); any app-facing grant; any resolver-
+effect wiring; applying the migration to any live Supabase project without separate explicit authorization.
+**Risks:** Introducing the codebase's first RPC without adequate review of `SECURITY DEFINER` privilege
+scope; a partial-failure gap between the RPC boundary and the caller.
+**Tests/verification:** Migration RLS/grant tests (mirroring `ResolverKnowledgeCandidateMigration.test.ts`);
+RPC atomicity tests via failure injection at each internal stage (mirroring RESOLVER-V3-028's
+`applyDecision` snapshot/restore test pattern, but proving real single-transaction behavior, not simulated
+snapshot/restore); idempotent-retry-via-RPC tests; `npm run verify`; `npm run verify:schema` if run against
+a linked project.
+**Acceptance:** A single atomic RPC call performs the full contribution-write sequence with no partial-state
+outcome under injected failure; no app client can invoke it; no live migration is applied without separate
+explicit authorization.
+
+---
+
+#### RESOLVER-V3-034: Supervised Aggregation Batch Worker
+
+Status: `todo`
+Depends on: RESOLVER-V3-030, RESOLVER-V3-033
+
+**Goal:** Implement the batch execution model (design §17) as a server-only, service-role process: run
+lease, bounded/cursor-ordered page reads over `resolver_observations`, projection/quarantine, classification,
+atomic RPC writes, checkpointing, and privacy-safe metrics (design §21).
+**Scope:** The worker process itself (scheduling substrate to be chosen per design §17's comparison,
+subject to the binding constraint that no app client may hold service-role credentials or invoke the
+aggregation operation directly); dry-run mode; the numeric cost/privacy bounds from design §22 as an
+explicit pre-implementation policy gate to be proposed and accepted as part of this task's own scope (no
+number is inherited from RESOLVER-V3-030, which invented none); crash-recovery/lease-reclaim behavior.
+**Non-goals:** Any independent-user-evidence threshold (RESOLVER-V3-035); any resolver-effect wiring; any
+automatic candidate promotion; any AI/provider call.
+**Risks:** Choosing a scheduling substrate that is reachable by an app client; an unbounded run without the
+required cost/privacy caps.
+**Tests/verification:** Cursor/replay determinism tests; lease/crash-recovery tests; quarantine-bound tests;
+dry-run-makes-no-database-write tests; metrics-contain-no-identifier tests; `npm run verify`.
+**Acceptance:** The worker runs end-to-end against fixture/sandbox data with all design §17 properties
+verified; every design §22 bound has an accepted numeric value before any non-dry-run execution; the worker
+is not reachable by any app client.
+
+---
+
+#### RESOLVER-V3-035: Independent-User Evidence Aggregation Policy Decision
+
+Status: `blocked` — requires a separate, explicit maintainer policy decision before implementation
+Depends on: RESOLVER-V3-030
+
+**Goal:** Decide and document what privacy-safe evidence is sufficient to mark
+`independentUserEvidence: 'independently_confirmed'` (design §11), and design the pseudonymous
+contributor-token mechanism (key management, rotation, deletion-compatibility) that would compute it inside
+the private aggregation zone only.
+**Scope:** A policy document deciding sufficiency criteria (no numeric threshold is inherited from
+RESOLVER-V3-030, which invented none); a token derivation/rotation/deletion design; explicit confirmation
+that the token never crosses into the global zone, logs, fingerprints, review material, or benchmark
+artifacts.
+**Non-goals:** Implementing the token mechanism in code (a further follow-up once this policy is accepted);
+changing the current fail-closed `not_evaluable` default before this policy is accepted.
+**Risks:** Inventing a threshold without sufficient accepted evidence; under-specifying key rotation/deletion
+compatibility.
+**Tests/verification:** Design-review readback only, unless implementation is separately authorized as part
+of this task's own future amendment.
+**Acceptance:** An explicit, accepted sufficiency policy and token design exist, or this task remains
+`blocked`/`todo` and the pipeline continues emitting `not_evaluable` — never `independently_confirmed`
+without this policy.
+
+---
+
+#### RESOLVER-V3-036: Aggregation Operational Smoke Verification
+
+Status: `todo`
+Depends on: RESOLVER-V3-030, RESOLVER-V3-033, RESOLVER-V3-034
+
+**Goal:** Verify the assembled operational pipeline (RESOLVER-V3-031 through -034) end-to-end without any
+production or live-user-data effect, before any candidate produced by it is ever handed to developer review.
+**Scope:** A sandbox/dry-run smoke run against non-production fixture or synthetic data; confirmation of
+every design §17-§21 property (atomicity, idempotency, quarantine, metrics, no-production-effect); a written
+verification report.
+**Non-goals:** Any production wiring, any live-user-data run, any change to `approved_resolver_knowledge` or
+resolver behavior; RESOLVER-V3-010 remains blocked and unrelated.
+**Risks:** Mistaking a sandbox-clean run for production readiness without a corresponding explicit
+production-authorization decision.
+**Tests/verification:** The smoke run itself, plus `npm run verify`; a written report distinguishing
+sandbox-verified from production-authorized.
+**Acceptance:** A documented, reproducible smoke-verification report exists; no production or live-user-data
+effect occurred; RESOLVER-V3-023 and RESOLVER-V3-010 remain unaffected by this task.
 
 ---
 

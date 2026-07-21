@@ -88,30 +88,34 @@ export class PersonalResolutionMemoryAwareFoodCatalogResolver implements FoodCat
       return decision;
     }
 
-    const deterministicMatch = result.matches.find((m) => m.eligibility.deterministicReuse);
-    const preferredMatch = result.matches.find((m) => m.eligibility.preferred);
+    // Look the match up per-candidate, walking `eligibleCandidates` in the base resolver's own
+    // (already deterministic, score-sorted) order — never `result.matches`' own order, which is
+    // unordered SQL row order and must not be allowed to decide the outcome when an owner
+    // happens to have more than one active memory among this single decision's candidates.
+    const matchByScopeKey = new Map<string, (typeof result.matches)[number]>(
+      result.matches.map((m) => [`${m.sourceType}:${m.sourceId}`, m]),
+    );
+    const deterministicCandidate = eligibleCandidates.find(
+      (c) => matchByScopeKey.get(candidateScopeKey(c))?.eligibility.deterministicReuse,
+    );
+    const preferredCandidate = eligibleCandidates.find(
+      (c) => matchByScopeKey.get(candidateScopeKey(c))?.eligibility.preferred,
+    );
 
     let next = decision;
     let avoided = false;
 
-    if (deterministicMatch) {
-      const confirmedCandidate = eligibleCandidates.find(
-        (c) =>
-          candidateScopeKey(c) ===
-          `${deterministicMatch.sourceType}:${deterministicMatch.sourceId}`,
-      );
-      if (confirmedCandidate) {
-        const alreadyAcceptedAsThis =
-          decision.status === 'accepted' && decision.best === confirmedCandidate;
-        avoided = !alreadyAcceptedAsThis;
-        next = {
-          ...decision,
-          status: 'accepted',
-          best: alreadyAcceptedAsThis ? decision.best : boostCandidate(confirmedCandidate),
-          reasonCodes: [...decision.reasonCodes, REASON_CODE_P2_CONFIRMED],
-        };
-      }
-    } else if (preferredMatch) {
+    if (deterministicCandidate) {
+      const alreadyAcceptedAsThis =
+        decision.status === 'accepted' && decision.best === deterministicCandidate;
+      avoided = !alreadyAcceptedAsThis;
+      next = {
+        ...decision,
+        status: 'accepted',
+        best: alreadyAcceptedAsThis ? decision.best : boostCandidate(deterministicCandidate),
+        reasonCodes: [...decision.reasonCodes, REASON_CODE_P2_CONFIRMED],
+      };
+    } else if (preferredCandidate) {
       next = { ...decision, reasonCodes: [...decision.reasonCodes, REASON_CODE_P1_PREFERRED] };
     }
 

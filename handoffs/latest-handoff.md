@@ -64,6 +64,14 @@
   the decision, and correctly record the base/pre-override decision) — a future task may unify the
   channels. No near-match/fuzzy transfer exists (exact scope-key match only, by design). No
   AI/hybrid production wiring was added — RESOLVER-V3-010 remains blocked and unrelated.
+- **Post-merge review (same run, after PR #114 merged):** independent self-review found that
+  `SupabasePersonalResolutionMemoryReadRepository`'s query has no `ORDER BY`, so
+  `PersonalResolutionMemoryAwareFoodCatalogResolver`'s original `result.matches.find(...)` picked
+  the winner among multiple active matches by unspecified Postgres row order, not a deterministic
+  rule. Fixed in follow-up PR #115 (merged, `738740d`): the decorator now walks `eligibleCandidates`
+  in the base resolver's own already-deterministic, score-sorted order instead. Added a regression
+  test for the exact two-match, reversed-row-order scenario. No other defects were found; `npm run
+verify` stayed green (182 suites/1602 tests) after the fix. No other findings required action.
 
 ## RESOLVER-V3-026 — Personal Memory Write Integration and Audit Hardening
 

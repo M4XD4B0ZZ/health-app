@@ -9256,6 +9256,16 @@ pass-through unchanged).
 independently resolve as a candidate; no cross-user data; no global candidate path; no change to
 RESOLVER-V3-017/018/026/027's own contracts, migrations, or adapters; no live Supabase migration was
 applied or attempted; no provider/network/AI call was made.
+**Post-merge review (2026-07-21, same run):** an independent self-review after merging PR #114 found that
+`SupabasePersonalResolutionMemoryReadRepository`'s query has no `ORDER BY`, so when an owner has more than
+one active personal-memory match among a single decision's candidates,
+`PersonalResolutionMemoryAwareFoodCatalogResolver`'s original `result.matches.find(...)` picked the winner
+by unspecified Postgres row order rather than any deterministic rule — a real (if narrow) violation of this
+task's own "Only valid same-user memory affects results" acceptance criterion. Fixed in a follow-up commit
+(PR #115, merged, `738740d`) by walking `eligibleCandidates` in the base resolver's own already-deterministic,
+score-sorted order instead of `result.matches`' order; a regression test constructs exactly this two-match
+scenario with rows returned in the opposite order and asserts the resolver-ranked candidate still wins. No
+other defects were found on review; `npm run verify` remained green (182 suites/1602 tests) after the fix.
 
 ---
 

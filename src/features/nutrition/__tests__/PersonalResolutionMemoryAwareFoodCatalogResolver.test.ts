@@ -238,6 +238,38 @@ describe('RESOLVER-V3-019 PersonalResolutionMemoryAwareFoodCatalogResolver', () 
     expect(telemetry.events[0]).toMatchObject({ avoided: false, preferredMatchCount: 1 });
   });
 
+  it("picks the deterministic match by the resolver's own candidate order, not by repository row order", async () => {
+    const { inner, readRepo, resolver } = build();
+    const lowerRankedCandidate = candidate({
+      id: 'off:lower-ranked',
+      score: 0.8,
+      food: {
+        id: 'lower-ranked',
+        name: 'Lower Ranked',
+        normalizedName: 'lower ranked',
+        macrosPer100g: { kcal: 100, protein: 1, carbs: 1, fat: 1 },
+        source: 'off',
+        sourceId: 'lower-ranked',
+      },
+      breakdown: { ...candidate().breakdown, finalScore: 0.8 },
+    });
+    const higherRankedCandidate = candidate({ score: 0.85 }); // default: bls:egg-raw
+    // Resolver's own order is already score-sorted: higher-ranked candidate first.
+    inner.decisionToReturn = decision({
+      candidates: [higherRankedCandidate, lowerRankedCandidate],
+      best: higherRankedCandidate,
+    });
+    // Repository returns rows in the opposite order — must not decide the outcome.
+    readRepo.rows = [
+      { memoryId: 'memory-lower', scopeKey: 'off:lower-ranked', level: 'P2_confirmed' },
+      { memoryId: 'memory-higher', scopeKey: 'bls:egg-raw', level: 'P2_confirmed' },
+    ];
+
+    const result = await resolver.resolve(query);
+
+    expect(result.best?.food.sourceId).toBe('egg-raw'); // the resolver-ranked candidate, not row order
+  });
+
   it('ignores a P0_observed-only match entirely (no reason code, no override)', async () => {
     const { inner, readRepo, resolver } = build();
     readRepo.rows = [{ memoryId: 'memory-1', scopeKey: 'bls:egg-raw', level: 'P0_observed' }];

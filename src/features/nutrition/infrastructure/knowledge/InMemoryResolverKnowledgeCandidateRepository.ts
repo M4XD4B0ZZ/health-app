@@ -32,6 +32,9 @@ const unique = <T>(values: readonly T[]) => [...new Set(values)];
 export class InMemoryResolverKnowledgeCandidateRepository implements ResolverKnowledgeCandidateRepository {
   readonly candidates: ResolverKnowledgeCandidate[] = [];
   readonly events: ResolverKnowledgeCandidateLifecycleEvent[] = [];
+  async getById(candidateId: string): Promise<ResolverKnowledgeCandidate | null> {
+    return this.candidates.find((candidate) => candidate.candidateId === candidateId) ?? null;
+  }
   async upsertInactive(
     candidate: ResolverKnowledgeCandidate,
   ): Promise<ResolverKnowledgeCandidateWriteResult> {

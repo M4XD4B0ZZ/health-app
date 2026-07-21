@@ -3,6 +3,7 @@ export { LogMealFromRawInputUseCase } from './LogMealFromRawInputUseCase';
 export { GetDailySummaryUseCase } from './GetDailySummaryUseCase';
 export { DeleteFoodEntryUseCase } from './DeleteFoodEntryUseCase';
 export { InvalidatePersonalResolutionMemoryUseCase } from './InvalidatePersonalResolutionMemoryUseCase';
+export { RecordPersonalResolutionMemoryUseCase } from './RecordPersonalResolutionMemoryUseCase';
 export { EnrichFoodEntryMacrosUseCase } from './EnrichFoodEntryMacrosUseCase';
 export { ApplyNaturalLanguageEditUseCase } from './ApplyNaturalLanguageEditUseCase';
 export { CreateSavedMealFromDateUseCase } from './CreateSavedMealFromDateUseCase';

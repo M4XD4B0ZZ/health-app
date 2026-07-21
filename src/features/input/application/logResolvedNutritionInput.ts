@@ -2,7 +2,10 @@ import {
   prepareNutritionResolverDispatch,
   PreparedNutritionResolverDispatch,
 } from './prepareNutritionResolverDispatch';
-import { resolvePreparedNutritionInputs } from './resolvePreparedNutritionInputs';
+import {
+  resolvePreparedNutritionInputs,
+  ResolvePreparedNutritionInputsOptions,
+} from './resolvePreparedNutritionInputs';
 import { LogFoodFromRawInputUseCase } from '../../nutrition/application/usecases/LogFoodFromRawInputUseCase';
 import { PortionNeedsEditItem } from '../../nutrition/domain/portion/PortionNeedsEdit';
 import { SpeckClarificationItem } from '../../nutrition/domain/catalog/SpeckAmbiguity';
@@ -24,12 +27,16 @@ export interface LogResolvedNutritionInputResult {
  */
 export async function logResolvedNutritionInput(
   rawInputOrDispatch: string | PreparedNutritionResolverDispatch,
+  options?: ResolvePreparedNutritionInputsOptions,
 ): Promise<LogResolvedNutritionInputResult> {
   // Resolve prepared inputs first
   const { dispatch, resolvedResults, needsEditItems, speckClarificationItems } =
     typeof rawInputOrDispatch === 'string'
-      ? await resolvePreparedNutritionInputs(prepareNutritionResolverDispatch(rawInputOrDispatch))
-      : await resolvePreparedNutritionInputs(rawInputOrDispatch);
+      ? await resolvePreparedNutritionInputs(
+          prepareNutritionResolverDispatch(rawInputOrDispatch),
+          options,
+        )
+      : await resolvePreparedNutritionInputs(rawInputOrDispatch, options);
 
   const persistedEntries = resolvedResults.filter((resolved) => resolved.calories > 0);
   const blockedEntries = Math.max(0, dispatch.readyRequests.length - persistedEntries.length);

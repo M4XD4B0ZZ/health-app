@@ -468,7 +468,12 @@ const JournalScreen: React.FC = () => {
     setSpeckActionInFlight(true);
     try {
       const resubmissionText = buildSpeckChoiceResubmissionText(item.rawInput, choice);
-      const result = await logResolvedNutritionInput(resubmissionText);
+      // RESOLVER-V3-026: the user just made a deliberate disambiguation choice between named
+      // qualified terms — a real `deliberate_candidate_selection` (P1) signal, not the plain
+      // unchanged-logging default this pipeline otherwise records.
+      const result = await logResolvedNutritionInput(resubmissionText, {
+        evidenceType: 'deliberate_candidate_selection',
+      });
 
       setSpeckClarificationItems((prev) => prev.filter((pending) => pending !== item));
 

@@ -9610,7 +9610,9 @@ via a documentation-only follow-up PR per this repository's established RESOLVER
 
 #### RESOLVER-V3-029: Privacy-Safe Shadow Projection and Real Metrics
 
-Status: `in_progress`
+Status: `done` (merged; PR #119, merge commit `95d5d643872872e22a0fbe5504ac043c55452d66` — CI green
+("verify" check success), no review comments; independent post-merge review of the actual merged diff
+found no defects, see below)
 Depends on: RESOLVER-V3-022, RESOLVER-V3-025
 
 **Goal:** Make RESOLVER-V3-022 privacy-safe and able to compute its required metrics.
@@ -9631,8 +9633,7 @@ production.
 correctness against fixture ground truth, holdout-leakage tests across multiple runs; `npm run verify`.
 **Acceptance:** No shadow request/result contains raw query, source IDs, or food payload data; all stated
 metrics are computed from real evidence or explicitly marked `unknown`/`not_evaluable`.
-**Implementation (2026-07-21, pending merge — see follow-up documentation PR for final merged/reviewed
-status):** Introduced `ResolverProductionDecisionProjectionV1`
+**Implementation (2026-07-21):** Introduced `ResolverProductionDecisionProjectionV1`
 (`src/features/nutrition/domain/models/ResolverProductionDecisionProjection.ts`,
 `resolver-production-decision-projection-v1`) as the sole, deterministic, side-effect-free projection of
 a full `ResolverDecision` permitted to cross the shadow boundary (status, closed safe-reason-code array,
@@ -9683,6 +9684,27 @@ rejection, contract-version fail-closed behavior, every metric formula (includin
 registry determinism and partition-move rejection, and the no-production-effect source-scan boundary.
 **Verification:** focused suites (78 tests across the four files above) plus full `npm run verify`
 (typecheck + lint + format:check + full test suite) — 186 suites, 1706 tests, all green, no regressions.
+**Post-merge review (same run, after PR #119 merged):** independently re-read the actual merged diff
+(`git diff 5c2db19..95d5d64`, confirmed empty against the pre-merge working tree) against the
+acceptance criteria above, the Knowledge-Growth Decision Record, the projection boundary, the
+recursive/schema validation design, every metric formula and its denominators, evidence-class rules,
+cross-run partition integrity, and the no-production-effect boundary. Specifically re-verified by direct
+read of the merged files: (1) `ResolverDecision` does not appear anywhere in
+`ResolverKnowledgeShadowEvaluation.ts`/the shadow `application/shadow/*` layer except as an import of
+the already-closed `ResolverStatus` type and in historical doc comments — grep-confirmed no other
+reference; (2) the false-confidence-regression/-improvement/regression-count boolean conditions in
+`aggregateResolverKnowledgeShadowMetrics` match this entry's Scope transitions exactly, algebraically
+re-derived from first principles during review, not just re-read; (3) `ResolverKnowledgeShadowCorpusRegistry`'s
+constructor only reads its manifest argument (no mutation), and `evaluate` resolves partition from the
+registry rather than trusting the request, so a case cannot move partitions across calls as long as the
+same manifest is reused; (4) `candidateType`/`candidateVersion` are intentionally left as opaque-string
+(not enum/literal) checks in the schema validator — reviewed and confirmed this is not a privacy gap:
+those two fields carry no personal/linkable data, and the evaluator's own dedicated checks
+(`supported.has(...)`, contract-version equality) still fail them closed with more specific
+`not_evaluable`/`invalid_candidate` categories instead of a generic `privacy_blocked`. No defects found;
+no follow-up code change required. This entry itself was recorded via a documentation-only follow-up PR
+per this repository's established RESOLVER-V3-02x pattern (see RESOLVER-V3-028's entry above for the
+precedent).
 
 ---
 

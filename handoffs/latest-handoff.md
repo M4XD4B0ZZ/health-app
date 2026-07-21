@@ -89,10 +89,19 @@
 - **Not started (as instructed):** RESOLVER-V3-030, RESOLVER-V3-023, RESOLVER-V3-024, RESOLVER-V3-010,
   and no production shadow wiring was added.
 - **Branch/PR status:** implemented on `claude/resolver-v3-029-shadow-privacy-c20zyh` (the
-  harness-designated branch, already based on `origin/chore/clean-arch-structure` at merge commit
-  `5c2db19`); PR/merge details are recorded in a documentation-only follow-up once merged, per this
-  repository's established RESOLVER-V3-02x pattern (see RESOLVER-V3-028's entry above for the
-  precedent). Pre-existing local branches, including all retained V3-028 branches, were left untouched.
+  harness-designated branch, based on `origin/chore/clean-arch-structure` at `5c2db19`); merged as
+  **PR #119**, merge commit `95d5d643872872e22a0fbe5504ac043c55452d66` — CI ("verify" check) green,
+  no review comments. Independent post-merge review of the actual merged diff (empty diff between the
+  merged commit and the pre-merge working tree, confirmed) found no defects — see `ROADMAP.md`'s
+  RESOLVER-V3-029 entry for the detailed post-merge review notes. This documentation-only follow-up
+  (recording the merged/reviewed state, per the RESOLVER-V3-028 precedent) restarts the same
+  harness-designated branch name from the new `origin/chore/clean-arch-structure` tip
+  (`95d5d64`), per this repository's rule for reusing a designated branch after its PR merges.
+  Pre-existing local branches, including all retained V3-028 branches, were left untouched. Remote
+  branch deletion for the merged `claude/resolver-v3-029-shadow-privacy-c20zyh` ref was not attempted
+  in this session — per `AGENTS.md`'s documented incident, this environment's git proxy has previously
+  rejected `git push origin --delete` with HTTP 403 for merged branches, and no workaround was to be
+  attempted; it is left for an authorized cleanup channel.
 
 ## RESOLVER-V3-028 — Developer Review Governance and Atomic Promotion
 

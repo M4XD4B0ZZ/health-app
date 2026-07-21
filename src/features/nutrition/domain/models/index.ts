@@ -12,3 +12,5 @@ export * from './AiInterpretationTypes';
 
 export * from './ResolverObservation';
 export * from './ResolverKnowledgeCandidate';
+
+export * from './PersonalResolutionMemory';

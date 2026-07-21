@@ -9111,7 +9111,7 @@ Depends on: RESOLVER-V3-014, RESOLVER-V3-015
 
 #### RESOLVER-V3-017: Personal Memory Promotion and Correction Precedence
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 
 **Goal:** Implement private P0/P1/P2 transitions and correction-first behavior.

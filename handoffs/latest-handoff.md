@@ -1,12 +1,5 @@
 # Latest Handoff
 
-## RESOLVER-V3-022 — Shadow Mode for Global Candidates
-
-- **Scope:** Added the versioned, pure `resolver-knowledge-shadow-evaluation-v1` contract, deterministic evaluator, partition guard, and separate per-partition metrics. Production `ResolverDecision` is received after resolution and retained unchanged; no composition, resolver, AI, source, provider, database, migration, or telemetry wiring was added.
-- **Inventory:** V3-020 supports only source-routing, abstention, clarification, provenance-gap, and negative source-route payloads. Aliases, typo/query terms, meal names, free decomposition, and independent-user counts remain `not_evaluable`. Stable benchmark `caseId`s are used; duplicate IDs across development/holdout fail closed.
-- **Privacy/evidence:** Requests exclude raw input, owner/observation/run identifiers, personal source IDs, and private observations. Private payload fields return `privacy_blocked`; unknown evaluation version throws fail-closed. Metrics report unknown identification/precision/rate unless explicit fixture truth exists; no fixture value is production telemetry.
-- **Follow-up:** V3-023 owns the representative Learning Benchmark V2 and V3-024 the gate re-decision. V3-010 remains blocked and V3-013 remains NOT PASSED. No persistence is required: in-memory evaluation and local reports suffice.
-
 ## RESOLVER-V3-018 — Personal Memory Invalidation
 
 - **Basis and scope:** Started from the required `4c960d0b6a3abf78906661a660ea4fbde7963958` and created `codex/resolver-v3-018-personal-memory-invalidation`. Only the V3-018 private-memory contract, one authorized additive migration, focused tests, canonical documentation, roadmap status, and this handoff changed.

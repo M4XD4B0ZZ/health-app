@@ -1,0 +1,95 @@
+name: Resolve PR 105 conflicts
+
+on:
+  push:
+    branches:
+      - codex/implementiere-resolver-v3-020-wissen-kandidaten
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/implementiere-resolver-v3-020-wissen-kandidaten
+          fetch-depth: 0
+
+      - name: Merge canonical base and resolve all known parallel-lane conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin chore/clean-arch-structure
+
+          set +e
+          git merge origin/chore/clean-arch-structure --no-ff --no-commit
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ] && ! git diff --name-only --diff-filter=U | grep -q .; then
+            echo "Merge failed without resolvable file conflicts."
+            exit 1
+          fi
+
+          if git ls-files -u -- ROADMAP.md | grep -q .; then
+            git checkout --ours ROADMAP.md
+            python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("ROADMAP.md")
+          text = path.read_text(encoding="utf-8")
+          heading = "#### RESOLVER-V3-017: Personal Memory Promotion and Correction Precedence"
+          start = text.index(heading)
+          end = text.index("\n---", start)
+          section = text[start:end]
+          section = section.replace("Status: `todo`", "Status: `done`", 1)
+          text = text[:start] + section + text[end:]
+          path.write_text(text, encoding="utf-8")
+          PY
+            git add ROADMAP.md
+          fi
+
+          if git ls-files -u -- handoffs/latest-handoff.md | grep -q .; then
+            git show :2:handoffs/latest-handoff.md > /tmp/handoff-ours.md
+            git show :3:handoffs/latest-handoff.md > /tmp/handoff-theirs.md
+            {
+              echo "# Latest Handoff"
+              echo
+              sed '/^# Latest Handoff$/d' /tmp/handoff-ours.md
+              echo
+              sed '/^# Latest Handoff$/d' /tmp/handoff-theirs.md
+            } > handoffs/latest-handoff.md
+            git add handoffs/latest-handoff.md
+          fi
+
+          if git ls-files -u -- src/features/nutrition/domain/models/index.ts | grep -q .; then
+            git checkout --ours src/features/nutrition/domain/models/index.ts
+            grep -q "export \* from './PersonalResolutionMemory';" src/features/nutrition/domain/models/index.ts || \
+              printf "\nexport * from './PersonalResolutionMemory';\n" >> src/features/nutrition/domain/models/index.ts
+            git add src/features/nutrition/domain/models/index.ts
+          fi
+
+          remaining="$(git diff --name-only --diff-filter=U)"
+          if [ -n "$remaining" ]; then
+            echo "Unexpected unresolved conflicts remain:"
+            echo "$remaining"
+            exit 1
+          fi
+
+          grep -A3 -F "#### RESOLVER-V3-017: Personal Memory Promotion and Correction Precedence" ROADMAP.md | grep -F 'Status: `done`'
+          grep -A3 -F "#### RESOLVER-V3-020: Knowledge Candidate Aggregation" ROADMAP.md | grep -F 'Status: `done`'
+          grep -F "export * from './PersonalResolutionMemory';" src/features/nutrition/domain/models/index.ts
+          grep -F "export * from './ResolverKnowledgeCandidate';" src/features/nutrition/domain/models/index.ts
+          test -f supabase/migrations/20260720130000_create_personal_resolution_memory.sql
+          test -f supabase/migrations/20260720130000_create_resolver_knowledge_candidates.sql
+
+          rm .github/workflows/resolve-pr105-conflicts.yml
+          git add .github/workflows/resolve-pr105-conflicts.yml
+          git diff --cached --check
+          git commit -m "chore(resolver): sync V3-020 after V3-017 merge"
+          git push origin HEAD:codex/implementiere-resolver-v3-020-wissen-kandidaten

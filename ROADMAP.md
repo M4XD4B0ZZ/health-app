@@ -9179,7 +9179,7 @@ views, resolver read path, or activation trigger. See
 
 #### RESOLVER-V3-021: Developer Review and Global Promotion
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-020
 
 **Goal:** Build explicit developer review and approved-payload activation contract.

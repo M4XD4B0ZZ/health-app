@@ -9610,7 +9610,7 @@ via a documentation-only follow-up PR per this repository's established RESOLVER
 
 #### RESOLVER-V3-029: Privacy-Safe Shadow Projection and Real Metrics
 
-Status: `todo`
+Status: `in_progress`
 Depends on: RESOLVER-V3-022, RESOLVER-V3-025
 
 **Goal:** Make RESOLVER-V3-022 privacy-safe and able to compute its required metrics.
@@ -9631,6 +9631,58 @@ production.
 correctness against fixture ground truth, holdout-leakage tests across multiple runs; `npm run verify`.
 **Acceptance:** No shadow request/result contains raw query, source IDs, or food payload data; all stated
 metrics are computed from real evidence or explicitly marked `unknown`/`not_evaluable`.
+**Implementation (2026-07-21, pending merge — see follow-up documentation PR for final merged/reviewed
+status):** Introduced `ResolverProductionDecisionProjectionV1`
+(`src/features/nutrition/domain/models/ResolverProductionDecisionProjection.ts`,
+`resolver-production-decision-projection-v1`) as the sole, deterministic, side-effect-free projection of
+a full `ResolverDecision` permitted to cross the shadow boundary (status, closed safe-reason-code array,
+candidate count, closed source-type classification, closed provenance classification derived only from
+that source type, closed input-confidence level) — `normalizedQuery`, `candidates`, `best`/`secondBest`,
+food payloads, source IDs, and free text are structurally absent, not merely unread. Bumped the shadow
+contract to a new closed version `resolver-knowledge-shadow-evaluation-v2`
+(`RESOLVER_KNOWLEDGE_SHADOW_EVALUATION_VERSION`); the historical `v1` literal is retained only as
+`RESOLVER_KNOWLEDGE_SHADOW_EVALUATION_VERSION_V1` for fail-closed version tests — `v1`, unknown, and
+mixed-version requests all throw `SHADOW_UNKNOWN_EVALUATION_VERSION`, with no reconstruction fallback.
+Replaced the V1 top-level-only `privateKeys` denylist with a recursive, allowlist-based schema validator
+(`src/features/nutrition/application/shadow/ResolverKnowledgeShadowPrivacyValidator.ts`): every validated
+shape (the production-decision projection, the candidate snapshot, its nested discriminated-union
+`payload`, and the ground-truth object) declares a closed key set; unknown keys, unknown discriminants,
+and type-mismatched values fail closed at any nesting depth; a small recursive key-name denylist remains
+only as defense in depth. Replaced `fixtureExpectedStatus?: ResolverStatus` with a discriminated,
+versioned `ResolverKnowledgeShadowGroundTruth`
+(`src/features/nutrition/domain/models/ResolverKnowledgeShadowGroundTruth.ts`,
+`resolver-knowledge-shadow-ground-truth-v1`: `fixture-derived`/`measured`/`unknown`/`not_evaluable` —
+`measured` is structurally distinct from `fixture-derived` but currently unreachable by any code path, no
+production telemetry source exists). Implemented all metric formulas from this entry's Scope with typed
+`ResolverKnowledgeShadowCountMetric`/`ResolverKnowledgeShadowRateMetric` results (never a bare `0` for
+"unknown"; `null` value/numerator/denominator together with a closed reason code when not computable):
+`identificationAccuracy` (usable-ground-truth status-agreement rate, documented as status agreement, not
+food-identity accuracy), `falseConfidenceRegressionCount`/`falseConfidenceImprovementCount`/
+`regressionCount` (each gated to the exact transition defined in this entry's Scope, computed only over
+usable-ground-truth cases), `abstentionPrecision` (hypothetical-`rejected` cases with ground truth only),
+`clarificationRate` (eligible-case denominator excluding privacy-blocked/invalid/locale-blocked/
+not-evaluable cases, not ground-truth dependent). Replaced the one-call `Set` partition guard with a
+reproducible, versioned corpus registry
+(`src/features/nutrition/domain/models/ResolverKnowledgeShadowCorpusRegistry.ts` for the manifest/version
+types, `src/features/nutrition/application/shadow/ResolverKnowledgeShadowCorpusRegistry.ts` for the
+`ResolverKnowledgeShadowCorpusRegistry` class): built from an immutable manifest, fails closed on an
+unknown registry version or a case ID listed more than once; `evaluate` now resolves each case's
+partition from the registry (not the request alone) and fails closed
+(`SHADOW_REGISTRY_UNKNOWN_CASE_ID`/`SHADOW_REGISTRY_PARTITION_MISMATCH`) if the case is unregistered or
+the request's claimed partition disagrees, so a case cannot move partitions across calls or process runs
+as long as the same manifest is reused; every result and the aggregated metrics carry the registry
+version. See `docs/domains/ZERA_RESOLVER_KNOWLEDGE_SHADOW_MODE_CONTRACT_1.md` §"Amendment
+(RESOLVER-V3-029)" for the full field/formula/evidence-class specification. This task builds the
+registry mechanism only, not the RESOLVER-V3-023 Learning Benchmark V2 corpus; no database persistence,
+Supabase adapter, or production wiring was added; no `package.json`/dependency change. **New/rewritten
+tests:** `ResolverProductionDecisionProjection.test.ts`, `ResolverKnowledgeShadowPrivacyValidator.test.ts`,
+`ResolverKnowledgeShadowCorpusRegistry.test.ts`, and a rewritten `ResolverKnowledgeShadowEvaluator.test.ts`
+covering projection exclusion/determinism/non-mutation, schema-validator recursion/discriminant/unknown-key
+rejection, contract-version fail-closed behavior, every metric formula (including zero-denominator
+`null`/reason-code cases and non-regression/non-improvement negative cases), cross-call/cross-instance
+registry determinism and partition-move rejection, and the no-production-effect source-scan boundary.
+**Verification:** focused suites (78 tests across the four files above) plus full `npm run verify`
+(typecheck + lint + format:check + full test suite) — 186 suites, 1706 tests, all green, no regressions.
 
 ---
 

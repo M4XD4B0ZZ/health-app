@@ -115,7 +115,7 @@ Wenn:
 
 ### RALPH-034V Docs-Only Verification Hardening
 
-Status: `done`
+Status: `in_progress`
 
 Harden the supervised docs-only executor after the first real docs-only smoke write so BOM-related input/content ambiguity and validation diagnostics are handled deterministically.
 
@@ -9125,7 +9125,7 @@ Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 
 #### RESOLVER-V3-018: Personal Memory Invalidation
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-017
 
 **Goal:** Make private entries reversible, source-aware, and invalidatable.
@@ -9134,6 +9134,12 @@ Depends on: RESOLVER-V3-017
 **Risks:** Stale source identities and irreversible personal decisions.
 **Tests/verification:** Invalidation, rollback, source-update, and deletion tests; `npm run verify`.
 **Acceptance:** Affected personal entries are deterministically weakened/deactivated with audit reason.
+
+**Implementation notes (in progress):** Added the closed `personal-resolution-memory-invalidation-v1`
+contract, owner-private direct dependencies, bounded cycle-safe invalidation traversal, idempotent audit
+events, and migration-level cascade/RLS constraints. No resolver read path, AI behaviour, candidate flow,
+or journal/correction coupling was introduced because a production personal-memory writer and attributable
+memory-ID signals do not yet exist.
 
 ---
 
@@ -9173,7 +9179,7 @@ views, resolver read path, or activation trigger. See
 
 #### RESOLVER-V3-021: Developer Review and Global Promotion
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-020
 
 **Goal:** Build explicit developer review and approved-payload activation contract.
@@ -9187,7 +9193,7 @@ Depends on: RESOLVER-V3-020
 
 #### RESOLVER-V3-022: Shadow Mode for Global Candidates
 
-Status: `done`
+Status: `todo`
 Depends on: RESOLVER-V3-020
 
 **Goal:** Evaluate candidates without user-visible resolver effect.

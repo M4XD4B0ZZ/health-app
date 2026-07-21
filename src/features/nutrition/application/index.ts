@@ -25,8 +25,10 @@ export { DeleteSavedMealTemplateUseCase } from './usecases/DeleteSavedMealTempla
 export { RenameSavedMealTemplateUseCase } from './usecases/RenameSavedMealTemplateUseCase';
 export { DeleteResolverObservationsForCurrentOwner } from './usecases/DeleteResolverObservationsForCurrentOwner';
 export { RecordPersonalResolutionMemoryUseCase } from './usecases/RecordPersonalResolutionMemoryUseCase';
+export { ReadPersonalResolutionMemoryUseCase } from './usecases/ReadPersonalResolutionMemoryUseCase';
 
 // Services
 export { FoodCatalogResolver } from './services/FoodCatalogResolver';
 export { DefaultFoodCatalogResolver } from './services/DefaultFoodCatalogResolver';
 export { SequentialFoodCatalogResolver } from './services/SequentialFoodCatalogResolver';
+export { PersonalResolutionMemoryAwareFoodCatalogResolver } from './services/PersonalResolutionMemoryAwareFoodCatalogResolver';

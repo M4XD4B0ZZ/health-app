@@ -132,3 +132,11 @@ is still not wired into correction, journal deletion, alias deletion, portion-hi
 source-update flows — none of those carry a real memory ID/action mapping today, so this paragraph's
 underlying finding stands for those flows specifically. RESOLVER-V3-026 is now complete; RESOLVER-V3-019
 is unblocked (see `ROADMAP.md`).
+
+**Update (RESOLVER-V3-019, 2026-07-21):** the read path this section anticipated now exists — see
+`docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_READ_CONTRACT_1.md`. It is exact-match only, reads only
+`status = 'active'` rows (this invalidation contract's inactive-state guarantee is what makes that
+safe), and never re-activates an invalidated entry. It is wired into production as a decorator around
+`FoodCatalogResolver` (`PersonalResolutionMemoryAwareFoodCatalogResolver`), not as a change to this
+invalidation path or its still-uncalled production adapter, both of which remain exactly as this
+contract describes them.

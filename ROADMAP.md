@@ -9187,7 +9187,7 @@ Depends on: RESOLVER-V3-020
 
 #### RESOLVER-V3-022: Shadow Mode for Global Candidates
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-020
 
 **Goal:** Evaluate candidates without user-visible resolver effect.

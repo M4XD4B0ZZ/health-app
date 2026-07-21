@@ -34,6 +34,8 @@ export type PersonalResolutionMemoryInvalidationErrorCode =
   | 'owner_mismatch'
   | 'cycle_detected'
   | 'traversal_limit_exceeded'
+  | 'invalid_dependency'
+  | 'atomic_commit_failed'
   | 'repository_failed';
 
 export interface PersonalResolutionMemoryInvalidationRequest {
@@ -60,4 +62,32 @@ export interface PersonalResolutionMemoryInvalidationResult {
   status: PersonalResolutionMemoryInvalidationStatus;
   code?: PersonalResolutionMemoryInvalidationErrorCode;
   affectedMemoryIds: string[];
+}
+
+/**
+ * Plan-then-commit contract (RESOLVER-V3-027): the full reachable dependency graph is read and
+ * classified into an immutable, deterministic plan before any write. Only the atomic repository
+ * commit phase may mutate state, and it applies every entry in one all-or-nothing operation.
+ */
+export type PersonalResolutionMemoryInvalidationPlanClassification = 'write' | 'noop';
+
+export interface PersonalResolutionMemoryInvalidationPlanEntry {
+  memoryId: string;
+  reason: PersonalResolutionMemoryInvalidationReason;
+  previousStatus: PersonalResolutionMemoryStatus;
+  previousLevel: PersonalResolutionMemoryLevel;
+  nextStatus: PersonalResolutionMemoryStatus;
+  nextLevel: PersonalResolutionMemoryLevel;
+  classification: PersonalResolutionMemoryInvalidationPlanClassification;
+  event: PersonalResolutionMemoryInvalidationEvent | null;
+}
+
+export interface PersonalResolutionMemoryInvalidationPlan {
+  contractVersion: typeof PERSONAL_RESOLUTION_MEMORY_INVALIDATION_CONTRACT_VERSION;
+  actionId: string;
+  ownerId: string;
+  rootMemoryId: string;
+  occurredAt: string;
+  entries: PersonalResolutionMemoryInvalidationPlanEntry[];
+  result: PersonalResolutionMemoryInvalidationResult;
 }

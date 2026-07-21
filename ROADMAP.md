@@ -9160,12 +9160,15 @@ orphaned edges. These are correctness/safety defects, not documentation issues. 
 because none of the above is exercised by the existing test suite (no diamond-graph test, no
 partial-failure-then-retry test). Tracked for remediation as **RESOLVER-V3-027**. RESOLVER-V3-019 MUST NOT
 build on this invalidation path until RESOLVER-V3-027 is complete.
+**Remediated by RESOLVER-V3-027 (2026-07-21):** all four defects above are fixed — see the RESOLVER-V3-027
+entry below and `docs/domains/ZERA_PERSONAL_RESOLUTION_MEMORY_INVALIDATION_CONTRACT_1.md` for the
+plan-then-commit architecture that replaced the single-pass BFS.
 
 ---
 
 #### RESOLVER-V3-019: Personal Cache/Memory Read Path
 
-Status: `blocked` — blocked on RESOLVER-V3-026 and RESOLVER-V3-027 (see post-implementation findings above)
+Status: `blocked` — blocked on RESOLVER-V3-026 (RESOLVER-V3-027 is now complete, see below)
 Depends on: RESOLVER-V3-017, RESOLVER-V3-018, RESOLVER-V3-026, RESOLVER-V3-027
 
 **Goal:** Read valid private memory before AI when policy permits.
@@ -9175,8 +9178,10 @@ Depends on: RESOLVER-V3-017, RESOLVER-V3-018, RESOLVER-V3-026, RESOLVER-V3-027
 **Tests/verification:** Isolation, exact/near-match, invalidation, and no-AI-on-P2 tests; `npm run verify`.
 **Acceptance:** Only valid same-user memory affects results and exact confirmed repeats may avoid AI.
 **Blocked rationale:** reading from a memory store that can be partially mutated (RESOLVER-V3-018 finding)
-or that has no production write path (RESOLVER-V3-017 finding) is unsafe. Do not start until
-RESOLVER-V3-026 and RESOLVER-V3-027 are both complete and verified.
+or that has no production write path (RESOLVER-V3-017 finding) is unsafe. RESOLVER-V3-027 is now complete
+(atomic plan-then-commit invalidation, correct cycle/diamond handling, referential integrity), so the
+invalidation-safety half of this blocker is resolved. RESOLVER-V3-026 (production write integration) remains
+`todo` and still blocks this task — do not start until it is complete and verified.
 
 ---
 
@@ -9343,7 +9348,7 @@ invent signals that aren't real.
 
 #### RESOLVER-V3-027: Atomic and Correct Memory Invalidation
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-018, RESOLVER-V3-025
 
 **Goal:** Make RESOLVER-V3-018's invalidation traversal safe and deterministic.
@@ -9361,6 +9366,37 @@ inactive-parent-with-active-dependents test, multi-level invalidation test, owne
 `npm run verify`.
 **Acceptance:** No partial mutation is ever observable after a `failed` result; diamond graphs invalidate
 correctly; retries after failure are safe.
+**Implementation (2026-07-21):** Replaced `InvalidatePersonalResolutionMemoryUseCase`'s single-pass BFS
+(which wrote each transition immediately) with a strict plan-then-commit design. Phase 1 (pure read, no
+writes) performs a pre-order DFS with explicit `visiting`/`done` node coloring: a node re-encountered while
+still `visiting` (on the current path) is a true cycle (whole plan discarded, `cycle_detected`, zero
+mutations); a node already `done` is a legitimate diamond revisit (planned exactly once, no duplicate
+event); an already-inactive node is classified `noop` but its dependents are still traversed, so an
+inactive parent can no longer block propagation to active dependents; the 100-node traversal limit is
+checked as each new node is first discovered, strictly before any write is planned. Phase 1 produces a
+single immutable `PersonalResolutionMemoryInvalidationPlan`. Phase 2 is the repository port's only write
+operation, `applyInvalidationPlanAtomically`: the in-memory adapter stages every write against copies of
+its internal maps and only swaps them into live state after the full plan applies without error, so any
+failure (proven via a test-only `injectCommitFailureAtWriteIndex` hook at the first, a middle, and the
+last planned write) leaves both state and event history completely unchanged. Idempotence is enforced
+before planning via a new `findCommittedAction(ownerId, actionId)` port method: a repeated action ID
+returns the exact previously committed result without touching the graph again, which is necessary because
+re-planning from already-mutated current state would otherwise (correctly, but not idempotently) compute a
+different, all-noop result on a literal retry. Added `invalid_dependency` (dangling/cross-owner edge — also
+defended in the use case itself, not just the migration) and `atomic_commit_failed` (Phase 2 failure) error
+codes. One additive migration
+(`supabase/migrations/20260721140000_harden_personal_resolution_memory_invalidation.sql`) adds a composite
+foreign key from both `personal_resolution_memory_dependencies` edge sides to `personal_resolution_memories
+(owner_id, memory_id)` with `on delete cascade`, structurally ruling out cross-owner and dangling edges; no
+RLS, grant, or historical-migration change. **No production Supabase adapter for this port exists** (only
+the in-memory contract adapter existed before or after this task; there is no RPC/stored-function precedent
+anywhere in this codebase to build one against) — this boundary is stated explicitly in the contract doc so
+it is not mistaken for operational production wiring. 32 tests in
+`PersonalResolutionMemoryInvalidation.test.ts` (9 pre-existing + 23 new: graph correctness, atomicity via
+failure injection, already-inactive-node propagation, idempotence, owner isolation) and 7 new migration
+tests in `PersonalResolutionMemoryInvalidationHardening.test.ts` all pass; the pre-existing
+`PersonalResolutionMemoryInvalidationMigration.test.ts` (V3-018) and
+`PersonalResolutionMemoryPromotionPolicy.test.ts` (V3-017, unaffected/unmodified) both still pass unchanged.
 
 ---
 

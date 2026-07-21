@@ -9723,7 +9723,9 @@ precedent).
 
 #### RESOLVER-V3-030: Candidate Aggregation Operational Boundary
 
-Status: `done` (documentation-only; see PR/merge commit recorded below once merged)
+Status: `done` (documentation-only; merged PR #121, merge commit
+`5ca0d6c35dfff617523db28fecab58da668d0ddc` — CI ("verify") green after one prettier-formatting fix, no
+review comments; independent post-merge review of the actual merged diff found no defects, see below)
 Depends on: RESOLVER-V3-020, RESOLVER-V3-025
 
 **Goal:** Decide and document how RESOLVER-V3-020's inactive architecture becomes an operational,
@@ -9783,6 +9785,30 @@ for this documentation-only change and was not run.
 **Non-effect:** no product code, migration, live database, production resolver behavior, package,
 dependency, or environment state changed. RESOLVER-V3-023, RESOLVER-V3-024, and RESOLVER-V3-010 were not
 started; no candidate-aggregation implementation follow-up was started.
+**CI note:** the first CI run on PR #121 (`b1ee2b1`) failed `npm run verify`'s `format:check` step
+(`prettier -c .`) on the two touched markdown files — a pure line-wrapping issue, no content change. Fixed
+by running `prettier --write` on exactly those two files (commit `a771432`); re-verified locally with
+`prettier -c` and `git diff --check` before pushing, and the second CI run was green.
+**Post-merge review (2026-07-21, same run, after PR #121 merged):** independently re-read the actual merged
+diff (`git diff 7c886d7e55c71d30e047758657b3963ba5c0b14f..5ca0d6c35dfff617523db28fecab58da668d0ddc`) against
+this task's acceptance criteria, the Knowledge-Growth Decision Record, privacy separation, idempotency,
+atomicity, contradiction derivation, independent-user evidence, rejected-candidate suppression, deletion/
+retraction, batch boundaries, follow-up decomposition, and RESOLVER-V3-023 dependency correctness.
+Specifically verified: (1) the merged diff touches exactly three files (`ROADMAP.md`, the new design
+document, `handoffs/latest-handoff.md`) — confirmed by `git diff --name-only` — with no `src/`, test,
+migration, `package.json`/`package-lock.json`, or environment-file change; (2) all 28 required document
+sections are present in the merged file, unmodified in substance by the prettier re-wrap (spot-checked
+against the pre-format-fix content); (3) the six new task headers (`#### RESOLVER-V3-031:` through
+`RESOLVER-V3-036:`) each appear exactly once in the merged `ROADMAP.md`, so no ID collides with any
+pre-existing task; (4) every dependency reference the new tasks and the RESOLVER-V3-023 update introduce
+(RESOLVER-V3-030, -031, -032, -033, -034 as referenced) resolves to an existing task section; (5) no task
+was silently marked unblocked beyond the explicit, justified RESOLVER-V3-030 `done` status itself —
+RESOLVER-V3-023 remains `blocked`, now with two additional explicit blockers rather than fewer; (6) the
+document's §11/§22 independent-user-evidence and cost-bound sections invent no numeric threshold, consistent
+with the Decision Record's explicit prohibition; (7) the document's §13 rejection-suppression and §14
+duplicate/supersession rules forbid self-reference, cycles, and silent reactivation, matching this task's
+mandate verbatim. No defects were found; no follow-up fix is required beyond the formatting commit already
+included in the merged PR.
 
 ---
 

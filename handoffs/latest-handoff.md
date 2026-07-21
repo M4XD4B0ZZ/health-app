@@ -84,10 +84,23 @@
   dependency, or environment state changed. RESOLVER-V3-023, RESOLVER-V3-024, RESOLVER-V3-010, and every
   candidate-aggregation implementation follow-up were not started.
 - **Branch/PR status:** implemented on `claude/resolver-v3-030-operational-boundary-hs0dve` (the
-  harness-designated branch, based on `origin/chore/clean-arch-structure` at `7c886d7e...`); PR/merge-commit
-  details to be recorded in a follow-up documentation update once the PR opened for this branch merges,
-  per this repository's established RESOLVER-V3-02x/03x precedent (see the RESOLVER-V3-029 section below
-  for the pattern this follows).
+  harness-designated branch, based on `origin/chore/clean-arch-structure` at `7c886d7e...`); merged as
+  **PR #121**, merge commit `5ca0d6c35dfff617523db28fecab58da668d0ddc`. The first CI run (`b1ee2b1`) failed
+  `npm run verify`'s `format:check` (`prettier -c .`) on the two touched markdown files — a pure
+  line-wrapping issue with no content change — fixed by running `prettier --write` on exactly those two
+  files (commit `a771432`), re-verified locally, and the second CI run was green with no review comments.
+  Independent post-merge review of the actual merged diff
+  (`git diff 7c886d7e...5ca0d6c...`) found no defects — see `ROADMAP.md`'s RESOLVER-V3-030 entry for the
+  detailed post-merge review notes (file-scope, section-completeness, task-ID-uniqueness, dependency-
+  resolution, no-silent-unblocking, and no-invented-threshold checks). This documentation-only follow-up
+  (recording the merged/reviewed state, per the RESOLVER-V3-028/029 precedent) restarts the same
+  harness-designated branch name from the new `origin/chore/clean-arch-structure` tip (`5ca0d6c`), per this
+  repository's rule for reusing a designated branch after its PR merges. Pre-existing local branches were
+  left untouched. Remote branch deletion for the merged
+  `claude/resolver-v3-030-operational-boundary-hs0dve` ref was not attempted in this session — per
+  `AGENTS.md`'s documented incident, this environment's git proxy has previously rejected
+  `git push origin --delete` with HTTP 403 for merged branches, and no workaround was to be attempted; it is
+  left for an authorized cleanup channel.
 
 ## RESOLVER-V3-029 — Privacy-Safe Shadow Projection and Real Metrics
 

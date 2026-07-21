@@ -9541,7 +9541,10 @@ tests in `PersonalResolutionMemoryInvalidationHardening.test.ts` all pass; the p
 
 #### RESOLVER-V3-028: Developer Review Governance and Atomic Promotion
 
-Status: `todo`
+Status: `done` (implemented and tested in this PR; not yet operational/production-wired/live-migrated
+— see "Implementation notes" below; PR/merge-commit reference and independent post-merge review
+outcome to be recorded in a documentation-only follow-up once merged, per this repo's established
+RESOLVER-V3-02x pattern)
 Depends on: RESOLVER-V3-021, RESOLVER-V3-025
 
 **Goal:** Align RESOLVER-V3-021 with the Decision Record's single-user/global-rule invariant and make
@@ -9562,6 +9565,34 @@ corresponding state transition.
 and independent-user-evidence-gating tests; `npm run verify`.
 **Acceptance:** No candidate can reach `approved` on `not_evaluable` independent-user evidence alone
 (absent an explicit, narrow, accepted exemption); no operation leaves state and audit out of sync.
+**Implementation notes:** `independentUserEvidence` is now a closed two-value type
+(`not_evaluable`/`independently_confirmed`); the aggregation pipeline still only ever produces
+`not_evaluable`, so no candidate can currently reach `approved` — intentional fail-closed behavior, no
+exemption implemented. `ResolverKnowledgeReviewRequest` is a discriminated union per action;
+`mark_duplicate`/`supersede` require an explicit `targetCandidateId`, and self-reference/missing targets
+fail closed before persistence. The candidate's own `status` field now legally includes `approved`
+(removing the prior `Exclude<...,'approved'>` type hack and the `as never` cast it forced); `approve`
+transitions `pending_review → approved` together with the payload; `reject`/`needs_more_evidence`/
+`quarantine`/`mark_duplicate`/`supersede` all transition persisted candidate lifecycle state (not just an
+event); `revoke_approval`/`rollback` atomically flip the payload's own status without deleting it.
+`ResolverKnowledgeReviewRepository` exposes a single atomic `applyDecision(plan)` method (no more
+separate `saveApproved`/`appendEvent` calls); the in-memory reference adapter snapshots all affected
+stores and restores them completely if any internal step throws, proven by tests injecting a failure at
+each of the three internal stages. Every event now persists reviewer identity (from the trusted
+authorizer, never request input), review-contract/privacy-policy versions, the exact candidate version
+reviewed, a closed decision reason, risk decision, locale/region restriction, and an immutable
+review-material snapshot; private/linkable fields are rejected via a recursive key-name walk, not just a
+top-level check. A stored decisionId is compared field-by-field on retry: an exact match returns
+`already_applied` with zero mutation; any difference returns the new closed result `conflict` rather than
+a false idempotent success. An additive migration
+(`20260721160000_extend_resolver_knowledge_review_governance.sql`) widens the candidate/candidate-event
+check constraints to allow `approved`/`APPROVED_BY_REVIEW` and adds the new audit columns to
+`resolver_knowledge_review_events`; no historical migration is edited, no new `anon`/`authenticated`
+grant, no view/trigger, and **it has not been applied to any live Supabase project** — no production
+Supabase adapter for this port exists (in-memory only), so this remains server/admin-only schema, not
+operational/production-wired/live-migrated. See
+`docs/domains/ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md` §"Amendment (RESOLVER-V3-028)" for full
+detail.
 
 ---
 

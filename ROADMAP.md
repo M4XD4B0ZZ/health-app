@@ -9153,7 +9153,7 @@ Depends on: RESOLVER-V3-017, RESOLVER-V3-018
 
 #### RESOLVER-V3-020: Knowledge Candidate Aggregation
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 
 **Goal:** Derive inactive, privacy-safe global candidate proposals from observations.
@@ -9162,6 +9162,12 @@ Depends on: RESOLVER-V3-015, RESOLVER-V3-016
 **Risks:** Re-identification and weak-evidence promotion pressure.
 **Tests/verification:** Aggregation, lifecycle, privacy, and no-effect tests; `npm run verify`.
 **Acceptance:** Candidates remain inactive and preserve contradictions/negative evidence.
+**Implementation:** `resolver-knowledge-candidate-v1` accepts only validated
+`ResolverObservationAggregationProjectionV1` input, derives a closed privacy-safe candidate set,
+deduplicates with safe-payload fingerprints, preserves contradiction/negative evidence, and limits
+all lifecycle transitions to inactive states. New server/admin-only RLS tables have no app grants,
+views, resolver read path, or activation trigger. See
+`docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_CONTRACT_1.md`.
 
 ---
 

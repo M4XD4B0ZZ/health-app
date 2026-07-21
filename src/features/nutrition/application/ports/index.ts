@@ -21,3 +21,4 @@ export {
   ResolverObservationWriter,
   NoopResolverObservationWriter,
 } from './ResolverObservationWriter';
+export { ResolverKnowledgeCandidateRepository } from './ResolverKnowledgeCandidateRepository';

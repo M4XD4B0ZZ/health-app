@@ -11,3 +11,4 @@ export * from './AssumptionTag';
 export * from './AiInterpretationTypes';
 
 export * from './ResolverObservation';
+export * from './ResolverKnowledgeCandidate';

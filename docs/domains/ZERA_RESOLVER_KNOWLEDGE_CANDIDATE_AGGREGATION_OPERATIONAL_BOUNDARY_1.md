@@ -74,8 +74,8 @@ interfaces/in-memory adapters/migrations alone.
    `reasonCodes` (`ResolverObservationAggregationProjectionV1`, `domain/models/ResolverObservationPrivacy.ts`).
 5. **Confirmed: the current projection still carries a selected source ID.**
    `ResolverObservationAggregationProjectionV1.selectedSource` is typed `{ type: 'bls' | 'off' | 'usda'; id:
-   string } | null`, and `ResolverObservationPrivacyEnforcer.project()` copies `observation.decision
-   .selectedSource` through unchanged (line 76). The candidate aggregator (`payloadFor()` in
+string } | null`, and `ResolverObservationPrivacyEnforcer.project()` copies `observation.decision
+.selectedSource` through unchanged (line 76). The candidate aggregator (`payloadFor()` in
    `ResolverKnowledgeCandidateAggregator.ts`) only ever reads `projection.selectedSource.type`, never
    `.id`, so the ID never reaches a candidate payload — but it is present in the projection object itself,
    which is exactly the shape decision #2 in this document's mandate requires closing (see §6).
@@ -103,12 +103,11 @@ interfaces/in-memory adapters/migrations alone.
    - Anything else → `null` (no candidate produced).
 10. **Confirmed: one projection currently produces exactly one candidate with
     `supportingEvidenceCount: 1`, `contradictingEvidenceCount: 0`, `independentUserEvidence:
-    'not_evaluable'`** — hard-coded in `ResolverKnowledgeCandidateAggregator.aggregate()`'s evidence object
+'not_evaluable'`** — hard-coded in `ResolverKnowledgeCandidateAggregator.aggregate()`'s evidence object
     literal (lines 131-138), for every non-null payload, regardless of projection content.
 11. **Confirmed: current contradiction evidence is not derived across real observations by the
     aggregator.** `contradictingEvidenceCount` is always `0` from `aggregate()`; the only way a candidate's
-    persisted `contradictingEvidenceCount` becomes nonzero is by additive merge in the repository (finding
-    12) or by a test hand-constructing a candidate object directly
+    persisted `contradictingEvidenceCount` becomes nonzero is by additive merge in the repository (finding 12) or by a test hand-constructing a candidate object directly
     (confirmed by reading `ResolverKnowledgeCandidate.test.ts`).
 12. **In-memory repository merge behavior:** `InMemoryResolverKnowledgeCandidateRepository.upsertInactive()`
     looks up an existing row by `fingerprint` (not by any per-contribution key). If found, it **additively
@@ -236,20 +235,20 @@ RLS boundary.
 
 ## 6. Public/global versus private field matrix
 
-| Field / concept                                            | Private aggregation zone | Global candidate zone | Notes |
-| ------------------------------------------------------------ | :---: | :---: | --- |
-| `ownerId`                                                     | never stored here either | never | Not needed by either zone; the batch worker reads it only transiently from `resolver_observations` to scope its own read, never persists it downstream. |
-| `observationId` / `resolverRunId`                             | yes (as private contribution key material) | never | Needed for idempotency/replay/retraction (§8); MUST NOT appear in any global row. |
-| raw/normalized input text                                     | never persisted past the projection step | never | Excluded by the V2 projection boundary itself (§6.1) — not merely filtered later. |
-| `decision.selectedSource.id` (source ID)                      | never — the V2 projection drops it entirely | never | Present-state finding 5: V1's projection still carries it even though the aggregator ignores it. V2 must not carry it at all. |
-| `decision.selectedSource.type`                                | pass-through (operational) | pass-through (operational) | Classification only, matches existing `sourceType` closed enum. |
-| locale, input type, outcome, provenance status, reason codes  | pass-through (already closed enums) | pass-through (already closed enums) | Unchanged from V1's closed set. |
-| exact private timestamps (`occurredAt`)                       | private-zone-only, for cursor/replay ordering | never (only lifecycle `occurredAt`, which is operational metadata about the aggregation event itself, not the private observation's timestamp) | |
-| candidate fingerprint (safe, versioned)                       | stored as a foreign reference key | authoritative identity | Safe in both zones by construction (§9). |
-| contribution relation classification (support/contradiction/…)| stored per-contribution | summarized as aggregate counts | Global zone never sees which private contribution produced which count. |
-| pseudonymous contributor token (§11)                          | private-zone-only | never | Never crosses into logs, fingerprints, review material, or benchmark artifacts. |
-| aggregate evidence counts, lifecycle status, risk             | derived, not authoritative | authoritative | Global row is a materialized view over active private-zone contributions. |
-| contract/privacy-policy/fingerprint-algorithm versions        | recorded per-contribution | recorded per-candidate | Both zones are version-stamped independently. |
+| Field / concept                                                |           Private aggregation zone            |                                                             Global candidate zone                                                              | Notes                                                                                                                                                   |
+| -------------------------------------------------------------- | :-------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ownerId`                                                      |           never stored here either            |                                                                     never                                                                      | Not needed by either zone; the batch worker reads it only transiently from `resolver_observations` to scope its own read, never persists it downstream. |
+| `observationId` / `resolverRunId`                              |  yes (as private contribution key material)   |                                                                     never                                                                      | Needed for idempotency/replay/retraction (§8); MUST NOT appear in any global row.                                                                       |
+| raw/normalized input text                                      |   never persisted past the projection step    |                                                                     never                                                                      | Excluded by the V2 projection boundary itself (§6.1) — not merely filtered later.                                                                       |
+| `decision.selectedSource.id` (source ID)                       |  never — the V2 projection drops it entirely  |                                                                     never                                                                      | Present-state finding 5: V1's projection still carries it even though the aggregator ignores it. V2 must not carry it at all.                           |
+| `decision.selectedSource.type`                                 |          pass-through (operational)           |                                                           pass-through (operational)                                                           | Classification only, matches existing `sourceType` closed enum.                                                                                         |
+| locale, input type, outcome, provenance status, reason codes   |      pass-through (already closed enums)      |                                                      pass-through (already closed enums)                                                       | Unchanged from V1's closed set.                                                                                                                         |
+| exact private timestamps (`occurredAt`)                        | private-zone-only, for cursor/replay ordering | never (only lifecycle `occurredAt`, which is operational metadata about the aggregation event itself, not the private observation's timestamp) |                                                                                                                                                         |
+| candidate fingerprint (safe, versioned)                        |       stored as a foreign reference key       |                                                             authoritative identity                                                             | Safe in both zones by construction (§9).                                                                                                                |
+| contribution relation classification (support/contradiction/…) |            stored per-contribution            |                                                         summarized as aggregate counts                                                         | Global zone never sees which private contribution produced which count.                                                                                 |
+| pseudonymous contributor token (§11)                           |               private-zone-only               |                                                                     never                                                                      | Never crosses into logs, fingerprints, review material, or benchmark artifacts.                                                                         |
+| aggregate evidence counts, lifecycle status, risk              |          derived, not authoritative           |                                                                 authoritative                                                                  | Global row is a materialized view over active private-zone contributions.                                                                               |
+| contract/privacy-policy/fingerprint-algorithm versions         |           recorded per-contribution           |                                                             recorded per-candidate                                                             | Both zones are version-stamped independently.                                                                                                           |
 
 ## 7. Contract-version strategy
 
@@ -257,7 +256,7 @@ Three independent version axes exist and must not be conflated:
 
 1. **Observation contract version** (`resolver-observation-v1`, unchanged) — governs what a
    `ResolverObservation` looks like before any projection.
-2. **Aggregation projection version** — today implicitly `resolver-observation-privacy-v1` (a *policy*
+2. **Aggregation projection version** — today implicitly `resolver-observation-privacy-v1` (a _policy_
    version string reused as if it were a projection version; there is no explicit `projectionVersion`
    discriminant field on `ResolverObservationAggregationProjectionV1` today, unlike the shadow-mode
    pattern's explicit `projectionVersion` literal). This document requires a new, explicit
@@ -270,7 +269,7 @@ Three independent version axes exist and must not be conflated:
    documented in the Candidate Contract; it is simply never fed by any operational job.
 3. **Candidate contract version** (`resolver-knowledge-candidate-v1`, unchanged) — the closed candidate
    payload/evidence shape stays as accepted. Nothing in this design requires a new candidate contract
-   version; the operational boundary changes *how* candidates are produced and stored, not their shape.
+   version; the operational boundary changes _how_ candidates are produced and stored, not their shape.
 4. **Fingerprint algorithm version** — new, independent of all the above (§9).
 
 Any future code that cannot determine all four versions for a given row MUST treat it as unsafe and
@@ -284,7 +283,7 @@ implementation scope, not decided here), append-only per contribution:
 - `contribution_id` (private, deterministic from `{observationId, resolverRunId}` — a literal retry of the
   same observation re-derives the identical ID, so a unique constraint on it makes retries idempotent
   no-ops, exactly like `SupabaseResolverObservationWriter`'s existing `23505`-duplicate pattern).
-- `candidate_fingerprint` (references the global zone's safe fingerprint — this is the *only* link back to
+- `candidate_fingerprint` (references the global zone's safe fingerprint — this is the _only_ link back to
   the global zone, and it is safe by construction).
 - `relation` (`support` | `contradiction` | `orthogonal` | `not_evaluable`, §10).
 - `contributor_token` (pseudonymous, §11; nullable if independent-user evidence is out of scope for this
@@ -335,13 +334,13 @@ reconstructed from anything) and finding 13 (today, there is no immutable contri
 
 Closed relation type: `support | contradiction | orthogonal | not_evaluable`. Applied per candidate type:
 
-| Candidate type | Support rule | Contradiction rule | Orthogonal | Not evaluable |
-| --- | --- | --- | --- | --- |
-| `source-routing-pattern` | Identical safe payload and fingerprint (same locale, input type, source type) | An accepted `negative-source-routing-rule` contribution exists for the **same** `{locale, inputType, sourceType}` (positive routing vs. negative routing for the identical scope key) | A `source-routing-pattern` for a **different** `sourceType`, `inputType`, or `locale` is never automatically a contradiction — different source types are not automatically contradictions (explicit requirement) | Any relation this matrix does not explicitly enumerate |
-| `negative-source-routing-rule` | Identical safe payload and fingerprint | A `source-routing-pattern` contribution exists for the same `{locale, inputType, sourceType}` (mirror of the rule above) | Different `sourceType`/`inputType`/`locale` | Unclassified combinations |
-| `abstention-policy-signal` | Identical safe payload and fingerprint | No closed contradiction rule is defined for this type in this design | A `source-routing-pattern`/`clarification-policy-signal` for the same scope is a distinct signal, not a contradiction, unless a future closed rule says otherwise | Everything else — **clarification, abstention, and provenance-gap signals must not be treated as contradictory unless an explicit closed rule says so** (explicit requirement; none is authorized here) |
-| `clarification-policy-signal` | Identical safe payload and fingerprint | No closed contradiction rule defined here | As above | As above |
-| `provenance-gap` | Identical safe payload and fingerprint | No closed contradiction rule defined here | As above | As above (routing signals for the same scope are not automatically contradictory with a provenance-gap signal) |
+| Candidate type                 | Support rule                                                                  | Contradiction rule                                                                                                                                                                    | Orthogonal                                                                                                                                                                                                        | Not evaluable                                                                                                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source-routing-pattern`       | Identical safe payload and fingerprint (same locale, input type, source type) | An accepted `negative-source-routing-rule` contribution exists for the **same** `{locale, inputType, sourceType}` (positive routing vs. negative routing for the identical scope key) | A `source-routing-pattern` for a **different** `sourceType`, `inputType`, or `locale` is never automatically a contradiction — different source types are not automatically contradictions (explicit requirement) | Any relation this matrix does not explicitly enumerate                                                                                                                                                  |
+| `negative-source-routing-rule` | Identical safe payload and fingerprint                                        | A `source-routing-pattern` contribution exists for the same `{locale, inputType, sourceType}` (mirror of the rule above)                                                              | Different `sourceType`/`inputType`/`locale`                                                                                                                                                                       | Unclassified combinations                                                                                                                                                                               |
+| `abstention-policy-signal`     | Identical safe payload and fingerprint                                        | No closed contradiction rule is defined for this type in this design                                                                                                                  | A `source-routing-pattern`/`clarification-policy-signal` for the same scope is a distinct signal, not a contradiction, unless a future closed rule says otherwise                                                 | Everything else — **clarification, abstention, and provenance-gap signals must not be treated as contradictory unless an explicit closed rule says so** (explicit requirement; none is authorized here) |
+| `clarification-policy-signal`  | Identical safe payload and fingerprint                                        | No closed contradiction rule defined here                                                                                                                                             | As above                                                                                                                                                                                                          | As above                                                                                                                                                                                                |
+| `provenance-gap`               | Identical safe payload and fingerprint                                        | No closed contradiction rule defined here                                                                                                                                             | As above                                                                                                                                                                                                          | As above (routing signals for the same scope are not automatically contradictory with a provenance-gap signal)                                                                                          |
 
 Unknown or unclassified relationships between any two candidate types, or between two payloads that do not
 match one of the rules above exactly, MUST resolve to `not_evaluable` — **never guessed**, per the explicit
@@ -414,7 +413,7 @@ candidate reaches `rejected`:
 - the rejected candidate row and its full lifecycle/review history are retained, never deleted.
 - new evidence MAY accumulate in the candidate's evidence summary (it is still derived from the ledger, §8),
   but the batch job MUST NOT automatically transition the candidate out of `rejected` — `rejected →
-  pending_review`/`approved` transitions remain forbidden to any automated process.
+pending_review`/`approved` transitions remain forbidden to any automated process.
 - **Reconsideration requires either** an explicit, audited developer action (a new review decision, itself
   atomic and audited per RESOLVER-V3-028) **or** a new candidate-contract/payload version whose payload
   differs and therefore fingerprints differently, with an explicit supersession relation recorded (§14) —
@@ -466,14 +465,14 @@ is definitionally a new candidate, and any exact repeat is definitionally the sa
 
 ## 15. Deletion and retraction behavior
 
-| Trigger | Private aggregation zone effect | Global candidate zone effect |
-| --- | --- | --- |
-| User deletes their data | Every ledger row whose `contributor_token` traces to that user (via key-scoped lookup, never a reverse index stored globally) is marked `retracted` with reason `owner_deletion`; the token's own key material is destroyed/rotated so it cannot be recomputed | Affected candidates' evidence summaries are recomputed from remaining `active` rows; no user linkage ever existed here to remove |
-| A private observation is invalidated | The specific ledger row(s) derived from that `observationId` are retracted (`observation_invalidated`) | Summary recomputed |
-| An observation contract is found unsafe | All ledger rows produced under the affected `projection_version`/`observation_contract_version` are retracted in bulk (`observation_invalidated`), and that version is marked unsafe for any future run (§7 fail-closed) | Summaries recomputed for every affected fingerprint |
-| A source update invalidates prior evidence | Ledger rows referencing the affected `sourceType` scope are retracted (`source_update_invalidated`) | Summary recomputed; may drop the candidate to `needs_more_evidence` per a closed transition rule (not authorized further here) |
-| A correction contradicts an earlier observation | A **new** contribution is recorded with `relation: contradiction` against the appropriate fingerprint (§10); the earlier contribution is not deleted — contradictory evidence is additive history, not a retraction | Contradiction count increases; existing support count is unchanged (the earlier support was real evidence at the time) |
-| A privacy-policy version is revoked | All ledger rows produced under that `privacyPolicyVersion` are retracted (`privacy_policy_revoked`) in bulk | Summaries recomputed |
+| Trigger                                         | Private aggregation zone effect                                                                                                                                                                                                                                | Global candidate zone effect                                                                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| User deletes their data                         | Every ledger row whose `contributor_token` traces to that user (via key-scoped lookup, never a reverse index stored globally) is marked `retracted` with reason `owner_deletion`; the token's own key material is destroyed/rotated so it cannot be recomputed | Affected candidates' evidence summaries are recomputed from remaining `active` rows; no user linkage ever existed here to remove |
+| A private observation is invalidated            | The specific ledger row(s) derived from that `observationId` are retracted (`observation_invalidated`)                                                                                                                                                         | Summary recomputed                                                                                                               |
+| An observation contract is found unsafe         | All ledger rows produced under the affected `projection_version`/`observation_contract_version` are retracted in bulk (`observation_invalidated`), and that version is marked unsafe for any future run (§7 fail-closed)                                       | Summaries recomputed for every affected fingerprint                                                                              |
+| A source update invalidates prior evidence      | Ledger rows referencing the affected `sourceType` scope are retracted (`source_update_invalidated`)                                                                                                                                                            | Summary recomputed; may drop the candidate to `needs_more_evidence` per a closed transition rule (not authorized further here)   |
+| A correction contradicts an earlier observation | A **new** contribution is recorded with `relation: contradiction` against the appropriate fingerprint (§10); the earlier contribution is not deleted — contradictory evidence is additive history, not a retraction                                            | Contradiction count increases; existing support count is unchanged (the earlier support was real evidence at the time)           |
+| A privacy-policy version is revoked             | All ledger rows produced under that `privacyPolicyVersion` are retracted (`privacy_policy_revoked`) in bulk                                                                                                                                                    | Summaries recomputed                                                                                                             |
 
 **For already-`approved` curated knowledge:** the aggregation job MUST NOT silently change production
 behavior when evidence underlying an approved payload is retracted. It MAY emit a server-side reassessment
@@ -491,7 +490,7 @@ procedure, or multi-statement transaction precedent** anywhere (confirmed by `gr
 codebase is one of two patterns: (a) a single-table insert relying on a unique constraint and a `23505`
 duplicate-code catch (`SupabaseResolverObservationWriter`, `SupabasePersonalResolutionMemoryRepository`), or
 (b) an in-memory reference adapter that snapshots and restores multiple internal maps around a `try`/`catch`
-to *simulate* multi-step atomicity for tests (`InMemoryResolverKnowledgeReviewRepository`, per RESOLVER-V3-028).
+to _simulate_ multi-step atomicity for tests (`InMemoryResolverKnowledgeReviewRepository`, per RESOLVER-V3-028).
 Neither pattern, as-is, can atomically span the ledger insert + candidate summary upsert + lifecycle event +
 checkpoint advance this design requires across **two separate tables in two zones**.
 
@@ -562,7 +561,7 @@ no partial state to reason about beyond "committed" or "not committed."
 - **Deterministic ordering:** guaranteed by the cursor (step 2); no worker may reorder within a page.
 - **Schema and policy version changes:** any row whose `contract_version`/`privacy_policy_version`/
   `projection_version` the current worker does not recognize is quarantined (step 4), never guessed.
-- **Dry-run behavior:** a `--dry-run` mode runs steps 1-5 and computes what *would* be written, emitting
+- **Dry-run behavior:** a `--dry-run` mode runs steps 1-5 and computes what _would_ be written, emitting
   metrics only, with the RPC boundary never invoked — useful for verifying a new projection/classification
   version before it can mutate anything.
 - **Operator-visible diagnostics without private data:** all diagnostics come from the metrics set in §21,
@@ -584,15 +583,15 @@ binding constraint that it must not be client-reachable.
 
 ## 18. Failure and recovery matrix
 
-| Failure | Detection | Recovery |
-| --- | --- | --- |
-| Worker crashes mid-page | Lease expiry (no heartbeat) | A later run reclaims the lease and resumes from the last committed checkpoint; already-committed contributions are untouched (idempotent) |
-| RPC call fails mid-transaction | Postgres rolls back the whole function body | Retry the same row(s) safely — idempotent by `contribution_id` |
-| Unrecognized contract/policy/projection version | Version check in the projection boundary (§6/§7) | Row quarantined, never processed; run continues; version added to an explicit denylist for operator triage |
-| Poison row (malformed observation) | Projection/validation failure (existing fail-closed pattern from `ResolverObservationPrivacyEnforcer`) | Quarantined (private zone only), counted, run continues unless quarantine bound (§22) exceeded |
-| Duplicate/supersession cycle detected | Chain-walk cycle check (§14) | Write refused for that contribution; flagged for operator/developer triage, never silently resolved |
-| Checkpoint and ledger disagree after a crash (should be structurally impossible given §16) | Startup consistency check comparing checkpoint cursor against the ledger's max committed row | Run refuses to proceed automatically; escalates for manual review rather than guessing which is correct |
-| Independent-user token key rotation mid-run | Key epoch mismatch on token derivation | Contributions in that run's remaining rows use the new epoch; already-recorded tokens under the prior epoch are unaffected unless an explicit incident-response retraction is triggered (§15) |
+| Failure                                                                                    | Detection                                                                                              | Recovery                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker crashes mid-page                                                                    | Lease expiry (no heartbeat)                                                                            | A later run reclaims the lease and resumes from the last committed checkpoint; already-committed contributions are untouched (idempotent)                                                     |
+| RPC call fails mid-transaction                                                             | Postgres rolls back the whole function body                                                            | Retry the same row(s) safely — idempotent by `contribution_id`                                                                                                                                |
+| Unrecognized contract/policy/projection version                                            | Version check in the projection boundary (§6/§7)                                                       | Row quarantined, never processed; run continues; version added to an explicit denylist for operator triage                                                                                    |
+| Poison row (malformed observation)                                                         | Projection/validation failure (existing fail-closed pattern from `ResolverObservationPrivacyEnforcer`) | Quarantined (private zone only), counted, run continues unless quarantine bound (§22) exceeded                                                                                                |
+| Duplicate/supersession cycle detected                                                      | Chain-walk cycle check (§14)                                                                           | Write refused for that contribution; flagged for operator/developer triage, never silently resolved                                                                                           |
+| Checkpoint and ledger disagree after a crash (should be structurally impossible given §16) | Startup consistency check comparing checkpoint cursor against the ledger's max committed row           | Run refuses to proceed automatically; escalates for manual review rather than guessing which is correct                                                                                       |
+| Independent-user token key rotation mid-run                                                | Key epoch mismatch on token derivation                                                                 | Contributions in that run's remaining rows use the new epoch; already-recorded tokens under the prior epoch are unaffected unless an explicit incident-response retraction is triggered (§15) |
 
 ## 19. Security and access-control model
 

@@ -18,7 +18,7 @@
   `selectedSource: {type, id}` — the source ID is present in the projection object even though
   `ResolverKnowledgeCandidateAggregator.payloadFor()` only ever reads `.type`; confirmed the aggregator
   hard-codes `supportingEvidenceCount: 1`/`contradictingEvidenceCount: 0`/`independentUserEvidence:
-  'not_evaluable'` for every candidate and never derives contradictions itself; confirmed
+'not_evaluable'` for every candidate and never derives contradictions itself; confirmed
   `InMemoryResolverKnowledgeCandidateRepository.upsertInactive()` additively merges evidence counters with
   no idempotency key (a literal retry double-counts) and keeps no per-contribution ledger, so summaries
   cannot be reconstructed from anything but themselves; confirmed `duplicateOfCandidateId`/

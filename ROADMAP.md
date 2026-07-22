@@ -9996,7 +9996,10 @@ ResolverKnowledgeCandidateContributionRelationClassifier.ts` (the classifier),
 
 #### RESOLVER-V3-032: Private Contribution Ledger, Rejection Suppression, Duplicate/Supersession, and Deletion/Retraction Recomputation
 
-Status: `todo`
+Status: `in_progress` (implemented, tested, `npm run verify` green — 197 suites / 1953 tests; PR not
+yet opened/merged in this session — see the implementation notes below; final merge commit and
+independent post-merge review will be recorded in a documentation-only follow-up, per the
+RESOLVER-V3-030/031 precedent)
 Depends on: RESOLVER-V3-030, RESOLVER-V3-031
 
 **Goal:** Implement the private, append-only contribution-ledger model (design §8) and the pure
@@ -10021,6 +10024,120 @@ self-reference, and missing-target tests; every design §15 retraction-trigger t
 retry can double-count; a rejected candidate's matching fingerprint never spawns a new candidate ID; a
 duplicate/superseded candidate never silently reactivates; retraction never leaves user linkage in the
 global zone.
+
+**Implementation notes (RESOLVER-V3-032, 2026-07-22):**
+
+- **New files only (13 source, 6 test), zero V1/RESOLVER-V3-028/029/031 production file touched**
+  except one pre-existing test's allowlist (see below):
+  `domain/models/ResolverKnowledgeContributionLedger.ts` (contribution/retraction-event/retraction-
+  request types, closed reason/selector-kind sets), `domain/models/
+ResolverKnowledgeContributionReplaySummary.ts`, `domain/models/ResolverKnowledgeCandidateTerminalChain.ts`,
+  `application/knowledge/ResolverKnowledgeContributionIdCalculator.ts`, `application/knowledge/
+ResolverKnowledgeContributionLedgerValidator.ts`, `application/knowledge/
+ResolverKnowledgeContributionLedgerEquality.ts`, `application/knowledge/
+ResolverKnowledgeCandidateFingerprintV2IdentityMapper.ts`, `application/knowledge/
+ResolverKnowledgeCandidateTerminalChainResolver.ts`, `application/knowledge/
+ResolverKnowledgeContributionReplaySummaryCalculator.ts`, `application/knowledge/
+ResolverKnowledgeContributionRecordingPlanner.ts`, `application/knowledge/
+ResolverKnowledgeContributionRetractionPlanner.ts`, `application/ports/
+ResolverKnowledgeContributionLedgerRepository.ts`, `infrastructure/knowledge/
+InMemoryResolverKnowledgeContributionLedgerRepository.ts`.
+- **Append-only/retraction tension resolved explicitly:** the design's §8 text describes the ledger
+  as append-only while also describing a row moving `active → retracted`. Resolved as the strictest
+  auditable representation: `ResolverKnowledgeContribution` has no mutable status field at all
+  (fully immutable); retraction is a separate, immutable, append-only
+  `ResolverKnowledgeContributionRetractionEvent` keyed by contribution ID; effective active/
+  retracted state is derived, never mutated in place; no reactivation/"unretract" operation exists
+  anywhere. Full rationale:
+  [`ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md`](../docs/domains/ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md)
+  §4.
+- **Private contribution-ID derivation:** `sha256Hex(JSON.stringify(['resolver-knowledge-
+contribution-id-input-v1', 'resolver-knowledge-contribution-ledger-v1', observationId,
+  resolverRunId, fingerprintVersion, digest]))` — keyed by the **original** matched candidate's V2
+  fingerprint (correcting the design §8 text's looser "`{observationId, resolverRunId}`" phrasing to
+  match its own §10 text, which explicitly says "not from the observation alone"), never a mutable
+  terminal-target identity, so a duplicate/supersession chain change can never manufacture a second
+  contribution from the same observation/target pair.
+- **Semantic idempotency:** same `{observationId, resolverRunId, originalCandidateFingerprint}` and
+  identical remaining content (timestamps excluded) → `already_recorded`, zero mutation; any other
+  field differing → `conflict`, zero mutation; verified via a key-order-independent stable-stringify
+  equality check, never a bare `Set.has()` shortcut. The same closed idempotency/conflict semantics
+  apply to retraction action IDs.
+- **Candidate identity:** global candidate ID `rkc-v2:<fingerprintVersion>::<digest>`, keyed by both
+  the fingerprint-algorithm version and the digest (never the digest alone), never colliding with
+  V1's `rkc-v1-XXXXXXXX` IDs; V1 candidate IDs/fingerprints are never modified.
+- **Rejection suppression:** a new contribution for an existing fingerprint always routes to the
+  existing candidate row (whatever its status), never creates a new one, and never auto-transitions
+  its status/links/lifecycle history; only its `evidence` field is recomputed via pure replay.
+- **Terminal-chain resolution:** a pure resolver walks `duplicateOfCandidateId`/
+  `supersededByCandidateId` to a terminal candidate with 9 closed failure codes (`start_not_found`,
+  `target_not_found`, `self_reference`, `cycle`, `both_links_present`, `link_status_inconsistency`,
+  `duplicate_without_target`, `superseded_without_target`, `non_terminal_corruption`); the
+  visited-set bound is the finite candidate array itself, never a fixed invented threshold; never
+  mutates candidates; never guesses on an invalid graph.
+- **Replay-summary derivation:** a pure function recomputes each contribution's relation via the
+  RESOLVER-V3-031 classifier against the **current terminal candidate's payload** — never trusting a
+  contribution's own stored `relation` — so a duplicate/supersession chain change is reflected
+  correctly on the next replay; historical contributions recorded before a chain decision are never
+  rewritten but are logically included in the terminal's summary once replayed. Orthogonal and
+  not-evaluable counts are retained on the richer `ResolverKnowledgeContributionReplaySummary` and
+  intentionally dropped (documented, not silent) when mapped to the legacy
+  `ResolverKnowledgeCandidateEvidence` shape, which has no field for them.
+- **Retraction:** closed reason set (`owner_deletion`, `observation_invalidated`,
+  `privacy_policy_revoked`, `source_update_invalidated`, `developer_action`) and closed selector-kind
+  set (`contribution_ids`, `observation_id`, `observation_contract_version`, `projection_version`,
+  `privacy_policy_version`, `source_type`), with a closed reason→selector-kind mapping so the
+  "unsafe observation/projection contract" bulk case reuses `observation_invalidated` rather than
+  inventing a new reason. Owner deletion is implemented purely as handling of an explicitly supplied
+  private contribution-ID set — no owner ID is ever derived, stored, or searched by; end-to-end
+  owner→contribution lookup remains unimplemented (RESOLVER-V3-035 is still blocked). A correction is
+  recorded as a new `contradiction` contribution, never a retraction of the earlier support.
+- **Atomicity:** `recordContribution`/`retractContributions` each stage every internal step
+  (candidate creation, contribution append, retraction-event append, chain resolution, summary
+  recomputation, cached-summary replacement) against a pre-call snapshot, restoring exactly on any
+  thrown error (including test-injected failures at every stage) — this proves only the reference
+  in-memory contract, **not** database atomicity (RESOLVER-V3-033's own scope; no RPC/stored-
+  procedure precedent exists anywhere in this codebase today, exactly as the operational-boundary
+  design's §16 already found).
+- **Approved-candidate handling:** retraction/replay recomputes only an approved candidate's
+  `evidence` field; it never changes `status`, revokes approval, or touches the separate approved-
+  payload/review-event records — a residual limitation, not a bug.
+- **One pre-existing test updated:** `ResolverKnowledgeAggregationV2Isolation.test.ts`'s "no V2
+  module referenced anywhere outside its own source/tests" check predates this task and would
+  otherwise contradict the explicit binding requirement to depend on the RESOLVER-V3-031 classifier/
+  fingerprint calculator rather than reimplementing them; it was updated to add exactly the 6 new
+  RESOLVER-V3-032 files that legitimately import V2 symbols to an "authorized consumer" allowlist,
+  leaving its DI-container and Supabase/resolver-execution/provider-import checks unchanged. This is
+  the only pre-existing file this task modified besides `ROADMAP.md`, `handoffs/latest-handoff.md`,
+  and the operational-boundary design doc's implementation-note section.
+- **Tests added (103 new, all green):** `ResolverKnowledgeContributionLedger.test.ts` (21, contract/
+  privacy/validator), `ResolverKnowledgeContributionIdCalculator.test.ts` (7, identity/idempotency),
+  `ResolverKnowledgeCandidateTerminalChainResolver.test.ts` (15, chain resolution incl. every closed
+  failure code), `ResolverKnowledgeContributionReplaySummaryCalculator.test.ts` (8, pure replay),
+  `InMemoryResolverKnowledgeContributionLedgerRepository.test.ts` (36, the full recording/rejection-
+  suppression/relation-handling/duplicate-supersession-routing/retraction/correction/failure-injected-
+  atomicity integration suite), `ResolverKnowledgeContributionLedgerIsolation.test.ts` (17, static
+  isolation/regression checks mirroring the RESOLVER-V3-031 isolation-test pattern).
+- **Focused-test and full-verify results:** the six new suites run first (103 tests green, zero
+  regressions against the pre-existing 1850), then `npm run verify` (typecheck + lint + format:check +
+  test) ran clean: **197 suites / 1953 tests passed**, 0 type errors, 0 lint errors, 0 format
+  violations. `npm install --ignore-scripts` was required first to restore missing `node_modules`
+  (the same environment-level Supabase-CLI-postinstall network block already documented in the
+  RESOLVER-V3-031 entry above — unrelated to this task).
+- **No-production-effect confirmation:** `git diff --name-only` against
+  `origin/chore/clean-arch-structure` touches only the 13 new source files, 6 new test files, one
+  pre-existing test's allowlist update, the new contract doc, and this `ROADMAP.md`/`handoffs/
+latest-handoff.md`/operational-boundary-doc entries — zero changes to `supabase/migrations/**`,
+  `supabase/functions/**`, `package.json`, `package-lock.json`, any environment file,
+  `src/infrastructure/di/container.ts`, or any journal/UI file (verified directly). No contribution
+  ledger reached any production path; `independentUserEvidence` remains `not_evaluable` everywhere;
+  no HMAC/owner-ID/independent-user-count logic was added. RESOLVER-V3-033 through RESOLVER-V3-036,
+  RESOLVER-V3-023, RESOLVER-V3-024, and RESOLVER-V3-010 were not started.
+- **Branch/PR status:** implemented on `claude/resolver-v3-032-contribution-ledger-nvdqus` (based on
+  `origin/chore/clean-arch-structure` at `133584933154cf72c79aed6fd11ceab20a0e99bf`). PR number, merge
+  commit, and the independent post-merge review outcome — including the final RESOLVER-V3-023
+  dependency reassessment — will be recorded in a documentation-only follow-up entry once the PR is
+  merged, per the RESOLVER-V3-030/031 precedent.
 
 ---
 

@@ -10,6 +10,15 @@ alongside it by RESOLVER-V3-031 as new, isolated modules; see
 [`ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md`](ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md)
 §29 and the RESOLVER-V3-031 entry in `ROADMAP.md`.
 
+**Cross-reference (RESOLVER-V3-032, does not amend this document):** the `evidence` field this document
+describes (`supportingEvidenceCount`, `contradictingEvidenceCount`, etc.) remains exactly the shape defined
+below. RESOLVER-V3-032 added a private, structurally separate contribution-ledger contract
+(`resolver-knowledge-contribution-ledger-v1`) whose in-memory reference implementation recomputes this
+existing `evidence` field via pure replay over active ledger contributions — it never adds a new field to,
+or changes the shape of, `ResolverKnowledgeCandidate`/`ResolverKnowledgeCandidateEvidence` themselves. See
+[`ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md`](ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md)
+and the RESOLVER-V3-032 entry in `ROADMAP.md`.
+
 ## Candidate inventory and privacy boundary
 
 The sole accepted aggregation input is the validated in-memory

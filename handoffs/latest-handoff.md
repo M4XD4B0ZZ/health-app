@@ -1,5 +1,88 @@
 # Latest Handoff
 
+## RESOLVER-V3-032 — Private Contribution Ledger, Rejection Suppression, Duplicate/Supersession, and Deletion/Retraction Recomputation
+
+- **Basis and scope:** Branch `claude/resolver-v3-032-contribution-ledger-nvdqus` was already present
+  locally and on `origin`, sitting exactly at `origin/chore/clean-arch-structure`'s tip
+  (`133584933154cf72c79aed6fd11ceab20a0e99bf`, merge of PR #124), clean working tree. Read `SSOK.md`,
+  `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`, `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the
+  Knowledge-Growth Decision Record, the Candidate/Review contracts, the Shadow Mode contract, the
+  accepted operational-boundary design (especially §6, §8-§16), and the ROADMAP entries for
+  RESOLVER-V3-020/023/028/030/031/032/033/035 before writing anything. Only RESOLVER-V3-032's own
+  scope (in-memory, deterministic ledger/rejection-suppression/duplicate-supersession/retraction
+  logic) was implemented; RESOLVER-V3-033 through -036, RESOLVER-V3-023/024/010, and any production
+  wiring were not started.
+- **Pre-implementation inventory (verified by direct code reading, delegated to a research pass and
+  independently spot-checked):** confirmed `InMemoryResolverKnowledgeCandidateRepository.upsertInactive`
+  additively sums evidence counters on fingerprint match with no idempotency key (a retry can double-
+  count); confirmed no per-contribution immutable record exists anywhere in the codebase; confirmed
+  `duplicateOfCandidateId`/`supersededByCandidateId` are set by the review service but never read/
+  chain-walked anywhere; confirmed `ResolverKnowledgeCandidateValidator` fails closed on `status:
+'approved'` (only the review service's `applyDecision` may legally set it); confirmed zero
+  `contributorToken`/independent-user-count code exists anywhere; confirmed no Supabase migration,
+  RPC, or batch worker touches this domain beyond the three existing V3-020/021/028 migrations.
+- **Implemented (13 new source files, 6 new test files, zero existing production files touched
+  besides one isolation test's authorized-consumer allowlist — see below):**
+  - Domain: `ResolverKnowledgeContributionLedger.ts` (contribution/retraction-event/retraction-
+    request types, closed reason/selector-kind sets), `ResolverKnowledgeContributionReplaySummary.ts`,
+    `ResolverKnowledgeCandidateTerminalChain.ts`.
+  - Application: `ResolverKnowledgeContributionIdCalculator.ts` (deterministic private contribution/
+    retraction-event IDs), `ResolverKnowledgeContributionLedgerValidator.ts` (closed runtime
+    validation), `ResolverKnowledgeContributionLedgerEquality.ts` (idempotency-comparison helper),
+    `ResolverKnowledgeCandidateFingerprintV2IdentityMapper.ts` (deterministic `rkc-v2:` candidate ID
+    from the versioned V2 fingerprint — new RESOLVER-V3-032 logic, kept out of the untouched
+    RESOLVER-V3-031 fingerprint files), `ResolverKnowledgeCandidateTerminalChainResolver.ts` (pure
+    duplicate/supersession chain walk with 9 closed failure codes), `ResolverKnowledgeContribution
+ReplaySummaryCalculator.ts` (pure summary derivation + legacy-evidence mapping),
+    `ResolverKnowledgeContributionRecordingPlanner.ts` / `...RetractionPlanner.ts` (pure planning
+    functions returning closed plan objects, consumed by the repository).
+  - Ports/infrastructure: `ResolverKnowledgeContributionLedgerRepository.ts` (port),
+    `InMemoryResolverKnowledgeContributionLedgerRepository.ts` (reference adapter — staged/snapshot-
+    restore atomicity for both `recordContribution` and `retractContributions`, sharing candidate
+    state with the existing candidate/review repositories through the same typed shared-store
+    boundary pattern, never a divergent copy).
+  - One pre-existing test file, `ResolverKnowledgeAggregationV2Isolation.test.ts`, was updated to add
+    6 new RESOLVER-V3-032 files to its "authorized consumer" allowlist — its strict "no file
+    anywhere references a V2 symbol" check predates this task and would otherwise contradict the
+    explicit binding requirement to consume the V3-031 classifier/fingerprint calculator as a
+    dependency rather than reimplementing it. The DI-container and Supabase/resolver-execution/
+    provider-import checks in that file were left unchanged.
+- **Append-only/retraction resolution:** contributions are fully immutable (no status field);
+  retraction is a separate, immutable, append-only event keyed by contribution ID; effective state
+  is derived, never mutated; no reactivation operation exists. Full rationale in the new contract
+  doc §4.
+- **Contribution identity:** `sha256Hex(canonicalJson([idFormatVersion, ledgerContractVersion,
+observationId, resolverRunId, fingerprintVersion, digest]))` — keyed by the **original** matched
+  candidate's fingerprint, never a mutable terminal-target identity, so chain changes never
+  manufacture a second contribution and routing can change during replay without mutating identity.
+- **Rejection suppression / duplicate-supersession / retraction:** implemented exactly per the
+  contract doc's §12-§17; the pure terminal-chain resolver never mutates candidates and never
+  guesses on cycles/missing targets/link-status corruption; replay always recomputes relation
+  against the _current_ terminal payload rather than trusting a contribution's stored relation.
+- **Tests:** 103 new tests across 6 new suites (contract/privacy validator, contribution-ID
+  determinism, terminal-chain resolver, replay-summary calculator, the large in-memory-repository
+  integration suite covering recording/idempotency/rejection-suppression/relation-handling/
+  duplicate-supersession-routing/retraction/correction/failure-injected-atomicity, and a static
+  isolation/regression suite).
+- **Verification:** focused new suites run first (all green), then full `npm run verify` (typecheck +
+  lint + format:check + test) — **green: 197 suites / 1953 tests**, 0 type/lint/format errors.
+  `npm install --ignore-scripts` was required first to restore missing `node_modules` (same
+  environment-level Supabase-CLI-postinstall network block already documented in the RESOLVER-V3-031
+  handoff entry below — unrelated to this task).
+- **Git readbacks:** `git --no-pager status --short` / `--diff --stat` / `--diff --name-only` /
+  `diff --check` confirm only the new source/test files, the one isolation-test allowlist update, the
+  new contract doc, and `ROADMAP.md`/this handoff/the operational-boundary doc changed — zero changes
+  to `supabase/migrations/**`, `supabase/functions/**`, `package.json`, `package-lock.json`, any
+  environment file, `src/infrastructure/di/container.ts`, or any journal/UI file.
+- **Non-effect confirmation:** no persistence, RPC, batch worker, migration, AI/provider call, or
+  production resolver-effect was introduced; `independentUserEvidence` remains `not_evaluable`
+  everywhere; RESOLVER-V3-033 through RESOLVER-V3-036, RESOLVER-V3-023, RESOLVER-V3-024, and
+  RESOLVER-V3-010 were not started.
+- **Branch/PR status:** implemented on `claude/resolver-v3-032-contribution-ledger-nvdqus` (based on
+  `origin/chore/clean-arch-structure` at `133584933154cf72c79aed6fd11ceab20a0e99bf`). PR/merge-commit
+  details and the independent post-merge review outcome are recorded in `ROADMAP.md`'s RESOLVER-V3-032
+  entry once available, following the RESOLVER-V3-030/031 documentation-follow-up precedent.
+
 ## RESOLVER-V3-031 — Aggregation Projection V2, Fingerprint Versioning, and Closed Support/Contradiction Classification
 
 - **Basis and scope:** The harness-designated branch

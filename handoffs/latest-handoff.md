@@ -79,9 +79,14 @@ observationId, resolverRunId, fingerprintVersion, digest]))` — keyed by the **
   everywhere; RESOLVER-V3-033 through RESOLVER-V3-036, RESOLVER-V3-023, RESOLVER-V3-024, and
   RESOLVER-V3-010 were not started.
 - **Branch/PR status:** implemented on `claude/resolver-v3-032-contribution-ledger-nvdqus` (based on
-  `origin/chore/clean-arch-structure` at `133584933154cf72c79aed6fd11ceab20a0e99bf`). PR/merge-commit
-  details and the independent post-merge review outcome are recorded in `ROADMAP.md`'s RESOLVER-V3-032
-  entry once available, following the RESOLVER-V3-030/031 documentation-follow-up precedent.
+  `origin/chore/clean-arch-structure` at `133584933154cf72c79aed6fd11ceab20a0e99bf`); merged as **PR
+  #125**, merge commit `7c108f05f3fe0b011cfe1963861030e2e723349a`. CI failed once on the first push
+  (a `prettier -c .` violation on two hand-written markdown files not run through `prettier -w`),
+  fixed in a same-PR follow-up commit, then green with no review comments. Independent post-merge
+  review of the actual merged diff found no defects (full detail in `ROADMAP.md`'s RESOLVER-V3-032
+  entry). **RESOLVER-V3-023 changed from `blocked` to `todo`** — both explicit blockers
+  (RESOLVER-V3-031, RESOLVER-V3-032) are now satisfied; it is eligible for separate authorization,
+  not completed or begun. RESOLVER-V3-010 remains `blocked`.
 
 ## RESOLVER-V3-031 — Aggregation Projection V2, Fingerprint Versioning, and Closed Support/Contradiction Classification
 

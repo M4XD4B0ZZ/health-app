@@ -9350,8 +9350,10 @@ this privacy/metrics gap unresolved.
 
 #### RESOLVER-V3-023: Learning Benchmark V2
 
-Status: `blocked` — blocked on RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-031, RESOLVER-V3-032 (see
-post-implementation findings above and the RESOLVER-V3-030 operational-boundary design)
+Status: `todo` — RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-031, and RESOLVER-V3-032 are all now
+`done`, satisfying every explicit blocker added below; RESOLVER-V3-023 is newly **eligible for
+separate authorization**, not completed, passed, or begun by this change (see the RESOLVER-V3-032
+dependency update below)
 Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022, RESOLVER-V3-028, RESOLVER-V3-029,
 RESOLVER-V3-030, RESOLVER-V3-031, RESOLVER-V3-032
 
@@ -9383,6 +9385,20 @@ ROADMAP entry). This satisfies one of the two explicit blockers added above, but
 `blocked`**: RESOLVER-V3-032 (the private contribution ledger, rejection suppression, duplicate/supersession,
 and deletion/retraction recomputation logic) is still required before the benchmark has real
 duplicate/rejection/supersession behavior to exercise. RESOLVER-V3-031 alone does not unblock RESOLVER-V3-023.
+**RESOLVER-V3-032 dependency update (2026-07-22):** RESOLVER-V3-032 is now `done` (PR #125, merge commit
+`7c108f05f3fe0b011cfe1963861030e2e723349a`, 197 suites / 1953 tests, independent post-merge review found no
+defects — see its own ROADMAP entry). This satisfies the second and last explicit blocker this task's
+RESOLVER-V3-030/031 dependency updates added: the private contribution-ledger model, rejection suppression,
+duplicate/supersession terminal-chain resolution, and deletion/retraction recomputation now exist as real,
+fixture-testable, in-memory code — the benchmark has real duplicate/rejection/supersession behavior to
+exercise, as the operational-boundary design's own §23 anticipated. No new concrete fixture-level dependency
+was discovered during RESOLVER-V3-032's implementation or post-merge review. Per the RESOLVER-V3-030 design's
+explicit instruction that RESOLVER-V3-033/034 (live infrastructure) and RESOLVER-V3-035 (independent-user
+policy) are deliberately not benchmark blockers, and per this task's own binding instruction to move a fully
+satisfied `blocked` task to `todo` (never `in_progress`) when no new blocker is found: **RESOLVER-V3-023 is
+changed from `blocked` to `todo`**. This makes RESOLVER-V3-023 eligible for separate authorization — it is
+not thereby completed, passed, or begun; no RESOLVER-V3-023 work was started by this change. RESOLVER-V3-010
+remains `blocked`, unaffected.
 
 ---
 
@@ -9996,10 +10012,11 @@ ResolverKnowledgeCandidateContributionRelationClassifier.ts` (the classifier),
 
 #### RESOLVER-V3-032: Private Contribution Ledger, Rejection Suppression, Duplicate/Supersession, and Deletion/Retraction Recomputation
 
-Status: `in_progress` (implemented, tested, `npm run verify` green — 197 suites / 1953 tests; PR not
-yet opened/merged in this session — see the implementation notes below; final merge commit and
-independent post-merge review will be recorded in a documentation-only follow-up, per the
-RESOLVER-V3-030/031 precedent)
+Status: `done` (implemented, tested, `npm run verify` green — 197 suites / 1953 tests; merged PR #125,
+merge commit `7c108f05f3fe0b011cfe1963861030e2e723349a`; CI ("verify") failed once on the first push
+— a `prettier -c .` format violation on two hand-written markdown files that were never run through
+`prettier -w` — fixed in a same-PR follow-up commit, then green with no review comments; independent
+post-merge review of the actual merged diff found no defects, see below)
 Depends on: RESOLVER-V3-030, RESOLVER-V3-031
 
 **Goal:** Implement the private, append-only contribution-ledger model (design §8) and the pure
@@ -10134,10 +10151,39 @@ latest-handoff.md`/operational-boundary-doc entries — zero changes to `supabas
   no HMAC/owner-ID/independent-user-count logic was added. RESOLVER-V3-033 through RESOLVER-V3-036,
   RESOLVER-V3-023, RESOLVER-V3-024, and RESOLVER-V3-010 were not started.
 - **Branch/PR status:** implemented on `claude/resolver-v3-032-contribution-ledger-nvdqus` (based on
-  `origin/chore/clean-arch-structure` at `133584933154cf72c79aed6fd11ceab20a0e99bf`). PR number, merge
-  commit, and the independent post-merge review outcome — including the final RESOLVER-V3-023
-  dependency reassessment — will be recorded in a documentation-only follow-up entry once the PR is
-  merged, per the RESOLVER-V3-030/031 precedent.
+  `origin/chore/clean-arch-structure` at `133584933154cf72c79aed6fd11ceab20a0e99bf`); merged as **PR
+  #125**, merge commit `7c108f05f3fe0b011cfe1963861030e2e723349a`. CI (`verify`) failed once on the
+  first push (a `prettier -c .` violation on two hand-written markdown files — the new contract doc
+  and the handoff entry — that had not been run through `prettier -w` alongside the `.ts` files);
+  fixed in a same-PR follow-up commit (`b99aab3`), re-verified locally (`npm run verify` green, 197
+  suites / 1953 tests) before pushing, then CI passed with no review comments. **Independent
+  post-merge review** of the actual merged diff (`git diff 133584933...7c108f0...`) confirmed: exactly
+  25 files changed (13 new source files, 6 new test files, one pre-existing test's allowlist update,
+  one new contract doc, and four existing docs — `ROADMAP.md`, both operational-boundary/candidate-
+  contract docs, `handoffs/latest-handoff.md`) — zero other files touched; in particular no V1 file
+  (`ResolverKnowledgeCandidateAggregator.ts`, `ResolverObservationPrivacyEnforcer.ts`) and no
+  global-facing model file (`ResolverKnowledgeCandidate.ts`, `ResolverKnowledgeReview.ts`) shows any
+  diff; `git diff --check` clean; no `supabase/migrations/**`, `supabase/functions/**`,
+  `package.json`, `package-lock.json`, environment file, `src/infrastructure/di/container.ts`, or
+  UI/journal file touched; the merge commit's tree is byte-identical to the PR branch's final commit
+  (confirmed via a zero-line `git diff`), so the locally-verified 197-suite/1953-test green result is
+  evidence for the merged state itself, not merely the pre-merge branch. No defects were found
+  requiring a follow-up fix. This documentation-only follow-up (recording the merged/reviewed state,
+  per the RESOLVER-V3-030/031 precedent) restarts the same harness-designated branch name from the
+  new `origin/chore/clean-arch-structure` tip (`7c108f0`). Pre-existing local branches were left
+  untouched. Remote branch deletion for the merged
+  `claude/resolver-v3-032-contribution-ledger-nvdqus` ref was not attempted in this session — per
+  `AGENTS.md`'s documented incident, this environment's git proxy has previously rejected `git push
+origin --delete` with HTTP 403 for merged branches; it is left for an authorized cleanup channel.
+- **RESOLVER-V3-023 dependency reassessment:** RESOLVER-V3-032 fully satisfies its acceptance
+  criteria (§10023-10024 above) and no new concrete benchmark blocker was discovered during
+  implementation or post-merge review. Per the accepted RESOLVER-V3-030 design's own §23 ("this
+  document adds RESOLVER-V3-031 and RESOLVER-V3-032 as new, explicit dependencies of
+  RESOLVER-V3-023... RESOLVER-V3-033/034/035 are not added as RESOLVER-V3-023 blockers"), both of
+  RESOLVER-V3-023's additional blockers are now satisfied. **RESOLVER-V3-023 is changed from
+  `blocked` to `todo`** (see its own entry below) — eligible for separate authorization, not
+  completed, passed, or begun. RESOLVER-V3-023 is not marked `in_progress` and was not started.
+  RESOLVER-V3-010 remains `blocked`, unaffected by this change.
 
 ---
 

@@ -760,3 +760,27 @@ future implementation of RESOLVER-V3-020's operational successor, as encoded in 
 itself authorizes planning only — no product code, migration, live database change, or aggregation job. The
 follow-up tasks in §25/§26 are the only sanctioned path to implementation, each requiring its own separate
 task authorization, verification, and review before it may proceed.
+
+## 29. Implementation note (RESOLVER-V3-031)
+
+RESOLVER-V3-031 implemented exactly the §6/§7 projection-version decision, the §9 fingerprint-versioning
+decision, and the §10 relation matrix as real, tested, pure domain/application code — see the
+RESOLVER-V3-031 entry in `ROADMAP.md` for the full field list, blocked-result codes, canonical-serialization
+format, golden SHA-256 vector, and complete implemented relation matrix. This note records only that the
+implementation exists and matches this design; it does not amend any decision in §1-§28 above, and it does
+not authorize anything beyond RESOLVER-V3-031's own scope:
+
+- No persistence, contribution ledger, batch worker, migration, RPC, or independent-user policy was
+  introduced — §8 (contribution-ledger model), §11 (independent-user evidence), §16 (atomicity/RPC), and §17
+  (batch execution) remain undecided-in-code and are RESOLVER-V3-032/033/034/035's scope, unchanged by this
+  note.
+- The V1 projection/fingerprint/aggregator this document describes throughout §3-§9 (as RESOLVER-V3-020
+  history) are untouched; RESOLVER-V3-031 added new, separate V2 modules alongside them, never a
+  reinterpretation.
+- §23's critical assessment ("a design document alone gives the benchmark no callable code") is now half
+  resolved: the deterministic contribution-classification logic RESOLVER-V3-023 needs exists and is tested.
+  RESOLVER-V3-023 remains `blocked` on RESOLVER-V3-032 (duplicate/rejection/supersession/retraction logic),
+  per that same section and per `ROADMAP.md`'s RESOLVER-V3-023 entry.
+- The V2 fingerprint's concrete SHA-256 adapter uses Node's built-in `crypto` module, consistent with §16's
+  and §17's framing of the aggregation pipeline as a server-only process — not `expo-crypto`, which is a
+  client-side/Expo-native API and would be the wrong dependency for that future server-only worker boundary.

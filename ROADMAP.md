@@ -9350,10 +9350,8 @@ this privacy/metrics gap unresolved.
 
 #### RESOLVER-V3-023: Learning Benchmark V2
 
-Status: `todo` — RESOLVER-V3-028, RESOLVER-V3-029, RESOLVER-V3-031, and RESOLVER-V3-032 are all now
-`done`, satisfying every explicit blocker added below; RESOLVER-V3-023 is newly **eligible for
-separate authorization**, not completed, passed, or begun by this change (see the RESOLVER-V3-032
-dependency update below)
+Status: `done` (implemented, tested, `npm run verify` green — 209 suites / 2041 tests; see
+"Implementation notes" below for corpus/harness details, discovered defect, and merge status)
 Depends on: RESOLVER-V3-019, RESOLVER-V3-021, RESOLVER-V3-022, RESOLVER-V3-028, RESOLVER-V3-029,
 RESOLVER-V3-030, RESOLVER-V3-031, RESOLVER-V3-032
 
@@ -9399,6 +9397,71 @@ satisfied `blocked` task to `todo` (never `in_progress`) when no new blocker is 
 changed from `blocked` to `todo`**. This makes RESOLVER-V3-023 eligible for separate authorization — it is
 not thereby completed, passed, or begun; no RESOLVER-V3-023 work was started by this change. RESOLVER-V3-010
 remains `blocked`, unaffected.
+
+**Implementation notes (RESOLVER-V3-023, 2026-07-22):** Implemented the versioned, closed Learning
+Benchmark V2 corpus contract (`resolver-learning-benchmark-v2-corpus-1.0.0`), an immutable dev/holdout
+registry mirroring the RESOLVER-V3-029 shadow-corpus-registry pattern
+(`resolver-learning-benchmark-v2-registry-v1`), and a canonical harness/CLI under
+`src/features/nutrition/benchmark/learningV2/` and `scripts/benchmark-resolver-v3-learning-v2.mjs`.
+41 scenarios (32 development, 9 holdout, ~22%) across all five required scenario classes
+(resolution/decomposition, personal-memory sequences, global-candidate/review/shadow, privacy/
+deletion, economics). The historical 14-case Variant A smoke corpus is not imported, not pooled into
+any V2 metric, and was independently rerun via the pre-existing
+`scripts/benchmark-resolver-v3-variant-a.mjs` (unchanged result: 14 cases, 75% identification
+accuracy, 1 critical false-confidence failure). All five domains reuse real production code rather
+than reimplementing it: resolution/decomposition runs through the real, unmodified
+`SequentialFoodCatalogResolver` (RESOLVER-V3-003 Variant A adapter, zero AI); personal-memory
+sequences drive the real `RecordPersonalResolutionMemoryUseCase`/`ReadPersonalResolutionMemoryUseCase`/
+`InvalidatePersonalResolutionMemoryUseCase` (the latter over its real in-memory repository; a new
+benchmark-only in-memory adapter supplies storage for the write/read ports, which have no production
+in-memory implementation today); global-candidate/review/shadow sequences drive the real
+RESOLVER-V3-031/032 contribution-recording planner, terminal-chain resolver, replay-summary
+calculator, the real `ResolverKnowledgeReviewService`, and the real `ResolverKnowledgeShadowEvaluator`
+through one dedicated adapter file (`LearningBenchmarkV2GlobalCandidateAdapter.ts`) — the sole
+authorized consumer of those otherwise-unwired reference implementations, added to the
+`authorizedV3032ConsumerFiles`-style allowlists in `ResolverKnowledgeAggregationV2Isolation.test.ts`
+and `ResolverKnowledgeContributionLedgerIsolation.test.ts`, mirroring the existing RESOLVER-V3-032
+precedent exactly (no other file was added to those allowlists, and neither isolation test's
+DI-container/Supabase/provider-import checks were weakened). A deterministic, zero-network, counting
+fixture `AiInterpretationProvider` implementation proves avoided-call economics from actual
+invocation counts. Invariant evaluation (`evaluateLearningBenchmarkV2Invariants.ts`) is
+scenario-agnostic: it selects relevant scenarios/steps by generic corpus tags and step properties
+(`action`, `forcedContradiction`, `forcedIndependentUserEvidence`), never by a hardcoded scenarioId
+literal — verified by a dedicated leakage-prevention test suite
+(`LearningBenchmarkV2Leakage.test.ts`).
+
+**Discovered defect (real, not fixed here):** a fixture-only, clearly-labeled candidate with
+`independentUserEvidence` forced to `independently_confirmed` and nonzero contradiction evidence was
+submitted to the real `ResolverKnowledgeReviewService.review()` with `action: 'approve'`. The
+service's approve branch checks only `independentUserEvidence` and `localeRestriction` — it never
+inspects `contradictionStatus`/`contradictingEvidenceCount` — so approval succeeded. This does not
+imply any production candidate can currently reach this state (the real aggregation pipeline only
+ever produces `not_evaluable`), but the code path itself has no defense against it. Recorded as
+invariant `INV-07: failed` in the canonical report. Per this task's binding instruction, production
+review-policy code was **not** changed; a narrowly scoped remediation task,
+**RESOLVER-V3-037: Contradiction-Aware Review Approval Gate**, is added below (status `todo`) to
+close this gap in a future, separately authorized task.
+
+**Verification:** `npm run verify` — 209 suites / 2041 tests, 0 type errors, 0 lint errors, 0 format
+violations (baseline before this task: 197 suites / 1953 tests — RESOLVER-V3-032's own verified
+count). Historical Variant A/B/C fixture-mode regressions rerun clean and unchanged. `git diff
+--name-only` against `origin/chore/clean-arch-structure` touches only: new files under
+`src/features/nutrition/benchmark/learningV2/**`, the new `scripts/benchmark-resolver-v3-learning-v2.mjs`,
+two pre-existing isolation tests' allowlist additions (`ResolverKnowledgeAggregationV2Isolation.test.ts`,
+`ResolverKnowledgeContributionLedgerIsolation.test.ts`), a new domain spec doc
+(`docs/domains/ZERA_RESOLVER_LEARNING_BENCHMARK_V2_SPEC_1.md`), the two new canonical report artifacts
+(`reports/RESOLVER_V3_LEARNING_BENCHMARK_V2_REPORT.md`, `reports/resolver-v3-learning-v2-benchmark.json`),
+and this `ROADMAP.md`/`handoffs/latest-handoff.md` entry — zero changes to `supabase/migrations/**`,
+`supabase/functions/**`, `package.json`, `package-lock.json`, any environment file,
+`src/infrastructure/di/container.ts`, or any journal/UI file (verified directly). No feature flag was
+changed; no provider was chosen; RESOLVER-V3-010 remains blocked and unaffected.
+
+**System verdict (separate from task completion):** `NOT_PASSED` — 19 of 20 required invariants
+passed; `INV-07` (contradiction-specific promotion gate) failed as described above. This is a
+legitimate, complete benchmark outcome per this task's own binding interpretation ("a successful
+implementation may legitimately conclude NOT_PASSED"). **RESOLVER-V3-024 is now eligible for
+separate authorization** (not begun by this task) to re-evaluate the representative gate using this
+evidence; **RESOLVER-V3-010 remains blocked**.
 
 ---
 
@@ -10284,6 +10347,35 @@ production-authorization decision.
 sandbox-verified from production-authorized.
 **Acceptance:** A documented, reproducible smoke-verification report exists; no production or live-user-data
 effect occurred; RESOLVER-V3-023 and RESOLVER-V3-010 remain unaffected by this task.
+
+---
+
+#### RESOLVER-V3-037: Contradiction-Aware Review Approval Gate
+
+Status: `todo`
+Depends on: RESOLVER-V3-023, RESOLVER-V3-028
+
+**Goal:** Close the review-policy gap RESOLVER-V3-023 discovered: `ResolverKnowledgeReviewService.review()`'s
+`approve` action checks only `candidate.evidence.independentUserEvidence` and `request.localeRestriction`
+before approving — it never inspects `candidate.evidence.contradictionStatus`/`contradictingEvidenceCount`.
+A fixture-only candidate with `independentUserEvidence: independently_confirmed` and nonzero contradiction
+evidence was approved by the real, unmodified service in RESOLVER-V3-023's benchmark (see its report,
+invariant `INV-07`, scenario `LBV2-GC-DEV-006`).
+**Scope:** Add an explicit contradiction check to the `approve` branch (e.g. block approval, or route to a
+narrower `needs_more_evidence`/`quarantine`-style outcome, when `contradictionStatus === 'present'`), with
+an accepted rationale for the chosen closed behavior — no numeric threshold invented. Update
+`ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md` accordingly.
+**Non-goals:** Any change to independent-user-evidence semantics (RESOLVER-V3-035 remains blocked); any
+aggregation/ledger change; any production wiring (this service remains unwired — see RESOLVER-V3-023's own
+finding that it has zero production callers today).
+**Risks:** Loosening the gate instead of tightening it; inventing a contradiction-count threshold not
+authorized by any accepted decision record.
+**Tests/verification:** A regression test reproducing RESOLVER-V3-023's exact fixture scenario (independently-
+confirmed + nonzero contradiction) asserting the new blocked/closed result; full existing
+`ResolverKnowledgeReview*` suite green; `npm run verify`.
+**Acceptance:** The real review service blocks (or otherwise closes, per an explicitly accepted rationale)
+approval whenever contradiction evidence is present, regardless of independent-user-evidence state; no
+existing review test regresses.
 
 ---
 

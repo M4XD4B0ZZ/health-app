@@ -1,5 +1,38 @@
 # Latest Handoff
 
+## RESOLVER-V3-040 — Cost/Latency Acceptance Policy
+
+- **Session context:** continuation of the same unattended, user-authorized in-flight session as the
+  RESOLVER-V3-038 entry below. After reconciling with the parallel session's already-merged
+  RESOLVER-V3-038 (see that entry's parallel-session note), this session also attempted RESOLVER-V3
+  UT-001's `A0` technical baseline pass and found it genuinely blocked (no Supabase credentials
+  available in this execution environment — see the UT-001 ROADMAP.md entry's "Attempted A0 run,
+  blocked" note; no code was changed by that attempt). It then picked up RESOLVER-V3-040 as the next
+  unblocked, non-colliding, credential-free task (`git fetch origin chore/clean-arch-structure`
+  confirmed no new commits landed there in the meantime).
+- **Produced:** `docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md`. Full detail is
+  in the RESOLVER-V3-040 ROADMAP.md entry's "Implementation notes" and the document itself.
+- **Method:** grounded entirely in the two existing accepted evidence reports (RESOLVER-V3-007's
+  cost/latency formula framework; RESOLVER-V3-013's one real controlled live-provider run), reusing
+  RESOLVER-V3-007's own measured/fixture-only/assumed/derived/unknown evidence-labeling convention
+  rather than inventing numbers. Every numeric threshold traces to a measured value plus a stated,
+  explicit safety margin; every value that would require unmeasured production telemetry (`F`, `C`,
+  `N`, `e`, `v`, `k`) or a genuine business decision (product-tier pricing) is left explicitly
+  deferred rather than guessed, with the reason stated inline.
+- **Verification:** documentation-only change (Category 1 per `VERIFY.md`); `git --no-pager status
+--short` / `--diff --stat` confirm the change is limited to `ROADMAP.md`, this handoff entry, and
+  the one new policy document.
+- **Effect on RESOLVER-V3-039:** its RESOLVER-V3-038/040 dependency is now fully satisfied (both
+  `done`); RESOLVER-V3-039 itself remains `todo`, not started, not authorized here — it is
+  credential-gated live-provider work requiring separate explicit authorization, which this
+  unattended session did not have standing permission to grant itself even under the user's broad
+  "keep working" instruction (spending real provider budget is exactly the kind of consequential,
+  side-effecting action that instruction did not cover).
+- **Branch/PR status:** committed to this session's designated branch,
+  `claude/autonomous-tasks-flight-hdewii`; no PR opened (none was requested).
+
+---
+
 ## RESOLVER-V3-038 — Representative Hybrid Benchmark Successor Corpus & Harness
 
 **Parallel-session note (this session, `claude/autonomous-tasks-flight-hdewii`):** this task was

@@ -7081,6 +7081,21 @@ mirroring the `DI-009` pattern.
 
 **Verify:** n/a for this planning entry (Category 1, Documentation-only, per `VERIFY.md`).
 
+**Attempted A0 run, blocked (2026-07-22):** an unattended session tried to start `A0` (`expo start
+--web` + headless Playwright) and found no valid Supabase credentials are available in this
+execution environment — no `.env` (only the gitignored-and-absent `.env.example` template is
+committed), and the connected Supabase MCP server itself returns `Unauthorized` for
+`get_publishable_keys` (no access token configured for it either). Per
+`src/infrastructure/supabase/supabaseClient.ts`'s intentional P2-001/NATIVE-001 fail-fast design,
+the app is "never usable" without valid `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`
+— it blocks on a visible configuration-error screen before any navigator/tab renders, so none of
+`A0`'s checklist (navigation, core flow, templates, journal, persistence) is reachable this way. No
+app code was changed by this attempt. Unblocking `A0` requires either a real (or disposable
+dev/staging) Supabase project's URL + anon key supplied to a future session's `.env`, or an
+access-token-scoped Supabase MCP connection — a human decision, not something this session should
+invent a workaround for (e.g. bypassing `supabaseConfigError` would defeat the P2-001 fail-fast
+guarantee it exists to enforce).
+
 ---
 
 # TIER 2 — CORE ARCHITECTURE
@@ -9680,7 +9695,7 @@ successor corpus, with no fixture fallback and no production effect, sufficient 
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 
-Status: `todo`
+Status: `done`
 Depends on: none
 
 **Goal:** Define, before any future live Hybrid run's results are seen, the accepted production
@@ -9696,6 +9711,31 @@ invalidate the point of a pre-declared threshold.
 **Acceptance:** An explicit, accepted cost/latency acceptance policy exists, authored independently
 of any not-yet-run RESOLVER-V3-039 results. This policy must exist before RESOLVER-V3-039's results
 can be judged against G2-D/G2-E without inventing a threshold post hoc.
+
+**Implementation notes (2026-07-22):** Added
+`docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md`, grounded entirely in the two
+existing canonical evidence reports (RESOLVER-V3-007's cost/latency formula framework and
+RESOLVER-V3-013's one real live-provider run) rather than inventing numbers, reusing
+RESOLVER-V3-007's own measured/fixture-only/assumed/derived/unknown evidence-labeling convention
+throughout. Pinned, numeric engineering thresholds: AI-routed path p95 ≤ 10,000 ms end-to-end
+(≈1.35x the measured 7,430 ms p95, n=7), fast-path p95 ≤ 1,000 ms, 15 s provider timeout with at
+most one retry and a 20 s total wall-clock ceiling that must fail closed to abstention/clarification
+(never a false-confident guess), and cost per attempted AI-routed log ≤ USD 0.02 (≈5.3x the measured
+USD 0.00376 baseline, n=7, single pinned `claude-haiku-4-5` price snapshot dated 2026-07-20).
+Deliberately left **not** numerically set, each with a stated reason rather than a silent gap: any
+absolute monthly dollar ceiling (`F`/`C`/`N` all unknown in production per RESOLVER-V3-007 — see
+§4/§6 of the new doc), `K_validated`/`K_successful`/`K_correct_complex` numeric ceilings (`e`/`v`/`k`
+unknown — formula only, no number), and product-tier economics (§5, an explicit business-owner
+decision, cross-referenced to `P2-010`, still `todo`). §8 states the exact pass/fail rule
+RESOLVER-V3-039 will be judged against for G2-D/G2-E, including the requirement to re-verify
+provider pricing rather than reuse the 2026-07-20 snapshot verbatim if it has changed.
+**Verification:** documentation-only change (Category 1 per `VERIFY.md`) — `git --no-pager status
+--short` / `--diff --stat` / `--diff --name-only` confirm the change is limited to `ROADMAP.md`,
+this file's own entry, `handoffs/latest-handoff.md`, and the one new doc file.
+**Effect on RESOLVER-V3-039:** its dependency on RESOLVER-V3-040 is now satisfied (RESOLVER-V3-038
+was already `done`); RESOLVER-V3-039 itself remains `todo`, not started, not authorized by this
+task — collecting real live evidence is a separate, credential-gated task requiring its own
+authorization.
 
 ---
 

@@ -1,5 +1,66 @@
 # Latest Handoff
 
+## RESOLVER-V3-031 — Aggregation Projection V2, Fingerprint Versioning, and Closed Support/Contradiction Classification
+
+- **Basis and scope:** The harness-designated branch
+  `claude/resolver-v3-031-projection-fingerprint-da2zyh` was already present locally and on `origin`, sitting
+  exactly at `origin/chore/clean-arch-structure`'s tip (`af842de3f7e4e37e4615d4d27a8900f978305e67`, merge of
+  PR #122), clean working tree, no divergence. Read `SSOK.md`, `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`,
+  `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the Knowledge-Growth Decision Record, the Candidate/
+  Review contracts, the accepted operational-boundary design
+  (`docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md`, especially §6/§7/
+  §9/§10), the post-implementation review, and the ROADMAP entries for RESOLVER-V3-020/023/030/031/032
+  before writing anything. Only RESOLVER-V3-031's own scope (pure V2 projection/fingerprint/classifier logic)
+  was implemented; RESOLVER-V3-032 through -036, RESOLVER-V3-023/024/010, and any production wiring were not
+  started.
+- **Pre-implementation inventory (verified by direct code reading):** confirmed
+  `ResolverObservationPrivacyEnforcer.project()` is the sole V1 producer with no production caller; confirmed
+  V1's projection has no independent `projectionVersion` field and still types `selectedSource` as
+  `{type, id}` even though the aggregator only ever reads `.type`; confirmed V1's `fingerprintFor` is 32-bit
+  FNV-1a over `JSON.stringify(payload)` with no privacy property, and V1's own runtime validators
+  (`ResolverObservationValidator`, the V1 enforcer) do not runtime-check `locale`/`provenanceStatus`/latency
+  values against their closed sets (only structural key checks and `outcome`); confirmed the closed
+  candidate-type/source-type/reason-code allowlists; confirmed `expo-crypto` is the only crypto dependency
+  already present (`digestStringAsync`, async, client-side/Expo-native) and no Node-crypto import exists in
+  any app-reachable source outside `test-setup.ts`'s Jest-only mock; confirmed no production caller invokes
+  aggregation anywhere in `src/`.
+- **Implemented (new files only, zero existing files touched besides `ROADMAP.md`/docs):** an explicit
+  `ResolverObservationAggregationProjectionV2` contract and a dedicated producer that structurally cannot
+  carry a source ID; a recursive closed-allowlist runtime validator for it; a versioned canonical-input
+  builder plus a real SHA-256 `resolver-knowledge-fingerprint-v2` digest (via an injected hasher port and a
+  concrete, currently-unwired `node:crypto` adapter — deliberately not `expo-crypto`, since the fingerprint's
+  real execution boundary is the future server-only aggregation worker, never the Expo app); a dedicated
+  fingerprint/payload validator (not the full candidate validator, to avoid coupling to lifecycle/evidence);
+  and a pure, closed `support`/`contradiction`/`orthogonal`/`not_evaluable` relation classifier implementing
+  the design's §10 matrix exactly, with no invented rule. Full details, exact field lists, blocked-result
+  codes, the canonical-serialization format, the golden SHA-256 vector, and the complete relation matrix are
+  recorded in `ROADMAP.md`'s RESOLVER-V3-031 entry (not duplicated here).
+- **V1 preservation:** verified byte-for-byte — no existing source file was modified; the full pre-existing
+  observation-privacy/candidate/review test suites remain green unmodified; a new test asserts the V1
+  fingerprint for a fixture payload equals a hard-coded literal computed once, independently.
+- **Tests:** 144 new tests across 5 new suites (V2 producer, V2 validator, fingerprint/canonical
+  serialization + golden vector, relation-matrix classifier, and a static isolation/regression suite that
+  greps for Supabase/resolver-execution/provider imports and confirms no V2 symbol is referenced by the DI
+  container or by any file outside its own source/tests).
+- **Verification:** focused new suites plus the full pre-existing Resolver observation/candidate/review
+  suites run first (207 tests, zero regressions), then `npm run verify` (typecheck + lint + format:check +
+  test) — **green: 191 suites / 1850 tests**, 0 type/lint/format errors. `npm install --ignore-scripts` was
+  required first to restore missing `node_modules` (the `supabase` package's own postinstall CLI-binary
+  download is blocked by this environment's proxy — unrelated to this task, and `verify`/`test`/`typecheck`/
+  `lint` do not depend on that CLI).
+- **Git readbacks:** `git --no-pager status --short` / `--diff --stat` / `--diff --name-only` / `diff --check`
+  all confirm only the 10 new source/test files plus `ROADMAP.md` and the two docs above changed — zero
+  changes to `supabase/migrations/**`, `supabase/functions/**`, `package.json`, `package-lock.json`, any
+  environment file, `src/infrastructure/di/container.ts`, or any journal/UI file.
+- **Non-effect confirmation:** no persistence, contribution ledger, batch worker, migration, RPC, AI/provider
+  call, or production resolver-effect was introduced; `independentUserEvidence` remains `not_evaluable` in
+  the unchanged V1 aggregator; RESOLVER-V3-032 through RESOLVER-V3-036, RESOLVER-V3-023, RESOLVER-V3-024, and
+  RESOLVER-V3-010 were not started. RESOLVER-V3-023 remains `blocked` (still needs RESOLVER-V3-032).
+- **Branch/PR status:** implemented on `claude/resolver-v3-031-projection-fingerprint-da2zyh` (based on
+  `origin/chore/clean-arch-structure` at `af842de3...`); PR number/merge commit and independent post-merge
+  review outcome to be recorded in a documentation-only follow-up, per the RESOLVER-V3-030/031 precedent
+  (PR #121 → PR #122).
+
 ## RESOLVER-V3-030 — Candidate Aggregation Operational Boundary
 
 - **Basis and scope:** The harness-designated branch `claude/resolver-v3-030-operational-boundary-hs0dve`

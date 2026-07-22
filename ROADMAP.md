@@ -9377,6 +9377,12 @@ new dependencies; RESOLVER-V3-030 itself is satisfied (design accepted) but does
 task. RESOLVER-V3-033/034 (server-side persistence adapter/batch worker, live infrastructure) and
 RESOLVER-V3-035 (independent-user policy) are deliberately not added here, since this benchmark's
 fixture/dev-holdout scope does not require live infrastructure or a settled independent-user threshold.
+**RESOLVER-V3-031 dependency update (2026-07-22):** RESOLVER-V3-031 is now `done` — the V2 projection,
+versioned SHA-256 fingerprint, and closed relation classifier exist as real, tested code (see its own
+ROADMAP entry). This satisfies one of the two explicit blockers added above, but **this task remains
+`blocked`**: RESOLVER-V3-032 (the private contribution ledger, rejection suppression, duplicate/supersession,
+and deletion/retraction recomputation logic) is still required before the benchmark has real
+duplicate/rejection/supersession behavior to exercise. RESOLVER-V3-031 alone does not unblock RESOLVER-V3-023.
 
 ---
 
@@ -9822,7 +9828,8 @@ all six.
 
 #### RESOLVER-V3-031: Aggregation Projection V2, Fingerprint Versioning, and Closed Support/Contradiction Classification
 
-Status: `todo`
+Status: `done` (implemented, tested, `npm run verify` green — 191 suites / 1850 tests; PR/merge-commit
+recorded in a documentation-only follow-up per the RESOLVER-V3-030/031 precedent, see below)
 Depends on: RESOLVER-V3-030
 
 **Goal:** Replace the implicit V1 aggregation-projection versioning with an explicit, fail-closed
@@ -9845,6 +9852,122 @@ coverage; fingerprint-version determinism and exclusion-of-private-fields tests;
 **Acceptance:** A V2 projection and a versioned fingerprint function exist and are unit-tested; contradiction/
 support/orthogonal/not_evaluable classification is computed by real code, not hand-constructed test fixtures;
 no candidate-aggregation code path is wired into any production caller.
+
+**Implementation notes (RESOLVER-V3-031, 2026-07-22):**
+
+- **New files only, no V1 file touched:**
+  `domain/models/ResolverObservationAggregationProjectionV2.ts` (V2 projection type + closed enums +
+  blocked-reason/result types), `domain/models/ResolverKnowledgeCandidateFingerprintV2.ts` (fingerprint
+  version + canonical-input builder), `domain/models/ResolverKnowledgeCandidateContributionRelation.ts`
+  (closed relation type), `application/observations/ResolverObservationAggregationProjectorV2.ts` (V2
+  producer), `application/observations/ResolverObservationAggregationProjectionV2Validator.ts` (recursive
+  runtime allowlist validator), `application/knowledge/ResolverKnowledgeFingerprintPayloadValidator.ts`
+  (dedicated payload/fingerprint-input validator, deliberately not the full candidate validator),
+  `application/knowledge/ResolverKnowledgeCandidateFingerprintV2Calculator.ts` (orchestrates
+  validate→canonicalize→hash via an injected port), `application/knowledge/
+ResolverKnowledgeCandidateContributionRelationClassifier.ts` (the classifier),
+  `application/ports/ResolverKnowledgeFingerprintHasher.ts` (hasher port),
+  `infrastructure/knowledge/NodeCryptoResolverKnowledgeFingerprintHasher.ts` (concrete SHA-256 adapter).
+- **V2 projection schema (12 root fields, closed):** `projectionVersion` (literal
+  `resolver-observation-aggregation-projection-v2`), `privacyPolicyVersion`, `observationContractVersion`
+  (kept as two distinct fields — never the ambiguous V1 name `contractVersion` — so projection/privacy-
+  policy/observation-contract versions can never be conflated), `locale` (`de`/`en`), `inputType`
+  (`generic`/`branded`/`ambiguous`/`unknown`), `outcome` (`accepted`/`ambiguous`/`abstained`/
+  `technical_error`), `candidateCount` (non-negative finite integer), `selectedSource` (`{ type:
+'bls'|'off'|'usda' } | null` — the type has **no** `id` field at all, so a source ID cannot be represented,
+  not merely omitted at runtime), `provenanceStatus` (`source_grounded`/`not_resolved`), `resolverVersion`,
+  `totalLatencyMs` (finite number or literal `'unknown'`), `reasonCodes` (the existing V1 safe-reason-code
+  allowlist, unchanged). Verified absent by test: source ID, observation ID, resolver-run ID, owner ID, raw/
+  normalized input, exact private timestamp, candidate/food payloads, metadata bag.
+- **Blocked-result codes (closed union):** `unknown_contract_version`, `unknown_privacy_policy_version`,
+  `unclassified_field`, `invalid_observation`, `unsafe_free_text`, `personal_source`, `unknown_source_type`,
+  `unsafe_reason_code`, `invalid_locale`, `invalid_input_type`, `invalid_outcome`, `invalid_provenance_status`,
+  `invalid_latency`. Unlike V1 (which only runtime-validates via `ResolverObservationValidator`'s structural
+  checks), the V2 producer additionally runtime-validates locale/input-type/outcome/provenance/latency against
+  closed sets rather than trusting the static `ResolverObservation` type — closing a gap the RESOLVER-V3-031
+  pre-implementation inventory found in V1.
+- **Runtime V2 validation:** `validateResolverObservationAggregationProjectionV2` is a standalone,
+  closed-allowlist, `unknown`-accepting validator (mirrors the RESOLVER-V3-029
+  `ResolverKnowledgeShadowPrivacyValidator` recursive-schema precedent) — exact root keys, exact nested
+  `selectedSource` keys (rejects `id`), closed literals/enums for every field, no unknown root or nested
+  field silently stripped. The V2 producer calls it as a final invariant gate (throws on an internal
+  producer bug rather than leaking a partially-safe projection); it is also exported and directly
+  unit-tested against adversarial runtime-cast objects (V1 shape, missing/unknown/mixed projection version,
+  V1-only fields combined with a correct V2 literal, unknown contract/privacy-policy version combined with a
+  correct V2 literal).
+- **V1 preservation (verified, not merely assumed):** `ResolverObservationPrivacyEnforcer`,
+  `ResolverObservationAggregationProjectionV1`, `ResolverKnowledgeCandidateAggregator`, and the V1
+  `fingerprintFor`/`resolverKnowledgeCandidateFingerprintFor` export are byte-for-byte unmodified (`git diff`
+  touches zero existing files besides this `ROADMAP.md` entry). The full pre-existing
+  `ResolverKnowledgeCandidate*`/`ResolverObservation*`/`ResolverKnowledgeReview*` test suites remain green
+  unmodified. A dedicated test asserts the V1 FNV-1a fingerprint for a fixture payload equals the hard-coded
+  literal `rkc-v1-d1832578` (computed once, independently, outside the test).
+- **Canonical serialization format (documented for byte-for-byte server reproduction):**
+  `JSON.stringify([formatVersion, candidateContractVersion, candidateType, orderedPayloadValues])` where
+  `formatVersion` is the literal `resolver-knowledge-candidate-canonical-input-v2`, and
+  `orderedPayloadValues` is the payload's own closed fields picked **by name, in a fixed per-type order**
+  (`['type','locale','inputType','sourceType'?,'reasonCode'?]` depending on candidate type) — never
+  `Object.keys()` — so property-insertion order on the runtime object can never change the canonical string.
+  This is never `JSON.stringify(payload)` directly. Unknown extra payload fields are rejected before
+  canonicalization by `ResolverKnowledgeFingerprintPayloadValidator` (an exact-key-set check per candidate
+  type), not merely ignored.
+- **Fingerprint version and algorithm:** `resolver-knowledge-fingerprint-v2`, computed as the SHA-256 hex
+  digest of the canonical input above. Returns a versioned `{ fingerprintVersion, digest }` object, never a
+  bare string. Input is exactly `{candidateContractVersion, candidateType, closedPayload}` — excludes source/
+  observation/owner/run IDs, raw/normalized text, timestamps, evidence counts, lifecycle, risk, candidate ID,
+  the existing V1 fingerprint, and resolver/model/provider identifiers (none of these exist on a candidate
+  _payload_ to begin with, so the exclusion is structural, not merely code discipline).
+- **Crypto/runtime/layering decision:** the concrete adapter uses Node's built-in `crypto` module
+  (`NodeCryptoResolverKnowledgeFingerprintHasher`), not `expo-crypto`. This is deliberate: `expo-crypto`'s
+  `digestStringAsync` is a client-side/Expo-native API, but per the accepted operational-boundary design
+  (§16/§17/§19), the V2 fingerprint's real execution boundary is the future server-only aggregation worker
+  (RESOLVER-V3-033/034), which will never run inside the Expo app — using `expo-crypto` here would make that
+  future server-only worker depend on an Expo-only contract, which this task's binding requirements forbid.
+  `node:crypto` is imported only by this isolated, currently-unwired infrastructure adapter — never by domain
+  or application code, which depend only on the injected `ResolverKnowledgeFingerprintHasher` port. The V2
+  fingerprint function is `async` (V1's `fingerprintFor` remains synchronous and untouched).
+- **Golden digest vector (hard-coded, independently computed):** for candidate-contract version
+  `resolver-knowledge-candidate-v1`, type `source-routing-pattern`, payload `{locale:'de', inputType:
+'generic', sourceType:'bls'}`, the SHA-256 hex digest is
+  `2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146` — computed via a standalone `node -e
+"...crypto.createHash('sha256')..."` invocation outside this codebase's own hashing code, then hard-coded
+  into the test as the expected value (not computed by the same function under test).
+- **Implemented relation matrix (RESOLVER-V3-030 design §10, no invented rule):** `support` — identical
+  type and canonically-identical payload, for all five candidate types. `contradiction` — only the mirrored
+  `source-routing-pattern`/`negative-source-routing-rule` pair when locale, input type, and source type all
+  match (both directions, symmetric). `orthogonal` — two same-type `source-routing-pattern` or
+  `negative-source-routing-rule` payloads with a differing locale/input-type/source-type; a routing/negative-
+  routing pair with a non-matching scope; a `source-routing-pattern` paired with an `abstention-policy-signal`/
+  `clarification-policy-signal`/`provenance-gap` sharing the same locale/input-type scope (the design's §10
+  Orthogonal-column text for the explicit "distinct signal, not a contradiction" rule). `not_evaluable` —
+  every other valid pairing: two same non-routing-type candidates that differ (e.g. two abstention signals
+  with different reason codes), two negative-routing rules that differ only by reason code (locale/input-
+  type/source-type identical), clarification-vs-abstention, clarification-vs-provenance-gap, and any
+  `negative-source-routing-rule` paired with a non-routing type — none of these are explicitly authorized as
+  `orthogonal` by the design text, so they fall to the residual default rather than being guessed. Both
+  payloads are validated first (the same fingerprint-input validator); a malformed/unsafe payload throws
+  rather than becoming `support`/`not_evaluable`.
+- **Tests added (144 new, all green):** `ResolverObservationAggregationProjectorV2.test.ts` (28),
+  `ResolverObservationAggregationProjectionV2Validator.test.ts` (44, several table-driven),
+  `ResolverKnowledgeCandidateFingerprintV2.test.ts` (24, including the golden vector and the V1-byte-
+  identical fixture), `ResolverKnowledgeCandidateContributionRelationClassifier.test.ts` (35, table-driven
+  across the full matrix), `ResolverKnowledgeAggregationV2Isolation.test.ts` (13, grep/AST-free static checks
+  that no V2 module imports Supabase/resolver-execution/provider code, that the DI container/composition root
+  never references any V2 symbol, and that no V2 symbol appears anywhere outside its own source/tests).
+- **Focused-test and full-verify results:** the five new suites plus the full pre-existing
+  `ResolverKnowledgeCandidate*`/`ResolverObservation*`/`ResolverKnowledgeReview*` suites were run focused
+  first (207 tests green, zero regressions), then `npm run verify` (typecheck + lint + format:check + test)
+  ran clean: **191 suites / 1850 tests passed**, 0 type errors, 0 lint errors, 0 format violations.
+- **No-production-effect confirmation:** `git diff --name-only` against `origin/chore/clean-arch-structure`
+  touches only the 10 new source/test files above plus this `ROADMAP.md` entry — zero changes to
+  `supabase/migrations/**`, `supabase/functions/**`, `package.json`, `package-lock.json`, any environment
+  file, `src/infrastructure/di/container.ts`, or any journal/UI file (verified directly, not merely
+  asserted). `independentUserEvidence` in the unchanged V1 aggregator remains `not_evaluable`; no V2 logic
+  emits `independently_confirmed`. No contribution ledger, batch worker, migration, RPC, AI/provider call, or
+  candidate-repository mutation was introduced — RESOLVER-V3-032 through RESOLVER-V3-036, RESOLVER-V3-023,
+  RESOLVER-V3-024, and RESOLVER-V3-010 were not started. **RESOLVER-V3-023 remains `blocked`** — this task
+  satisfies its RESOLVER-V3-031 dependency but RESOLVER-V3-032 (contribution ledger/duplicate/supersession/
+  retraction logic) is still required before the benchmark is unblocked.
 
 ---
 

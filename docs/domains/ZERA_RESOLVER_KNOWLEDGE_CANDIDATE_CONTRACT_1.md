@@ -2,6 +2,14 @@
 
 **Status:** accepted for RESOLVER-V3-020. **Contract:** `resolver-knowledge-candidate-v1`.
 
+**Cross-reference (RESOLVER-V3-031, does not amend this document):** everything below describes the V1
+projection/fingerprint exactly as merged for RESOLVER-V3-020 — this history is unchanged. A separate,
+explicit V2 successor (own `projectionVersion`, no `selectedSource.id` field at all, a versioned SHA-256
+fingerprint, and a closed support/contradiction/orthogonal/not_evaluable relation classifier) was added
+alongside it by RESOLVER-V3-031 as new, isolated modules; see
+[`ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md`](ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md)
+§29 and the RESOLVER-V3-031 entry in `ROADMAP.md`.
+
 ## Candidate inventory and privacy boundary
 
 The sole accepted aggregation input is the validated in-memory

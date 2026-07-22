@@ -1,5 +1,84 @@
 # Latest Handoff
 
+## RESOLVER-V3-024 — Representative Learning/Hybrid Gate Re-decision
+
+- **Basis and scope:** Branch `claude/resolver-v3-024-representative-gate-redecision`, created
+  directly from `origin/chore/clean-arch-structure` at
+  `34178e87e6222f22510acafa99c19d8cba72913d` (merge of PR #130, the RESOLVER-V3-037 documentation
+  follow-up). This is a documentation and evidence-synthesis task only: no resolver behavior,
+  review behavior, benchmark corpus, canonical historical report, or production wiring was
+  changed.
+- **Mandatory reading completed before drafting the decision:** `SSOK.md`, `AGENTS.md`,
+  `ROADMAP.md`, `VERIFY.md`, `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the Food
+  Resolution Decision Record and Benchmark Spec, the V3-006/V3-007/V3-013 reports, the
+  Resolution Knowledge-Growth Decision Record, the Learning Benchmark V2 Spec, the V3-023
+  canonical report and its JSON companion, the V3-037 remediation report, the review/personal-
+  memory-recording/personal-memory-invalidation/personal-memory-read/contribution-ledger/shadow-
+  mode contracts, and the complete current ROADMAP entries for RESOLVER-V3-006/007/010/013/019/
+  023/024/037.
+- **Pre-implementation inventory:** delegated to three parallel research passes (V3-006/007/013
+  report facts; V3-023/037/contract facts; code-level executable-evidence verification), each
+  cross-checked directly — in particular, independently re-read `container.ts` (`resolverSources`
+  is exactly `[userAliasSource, blsSource, offSource, usdaSource]`, no `'ai'`-typed source
+  registered), `evaluateLearningBenchmarkV2ResolutionScenario.ts` (confirms real, unmodified
+  `SequentialFoodCatalogResolver`/zero-AI execution for all Learning Benchmark V2
+  resolution/decomposition scenarios, not live Hybrid C), `ResolverKnowledgeReviewService.ts`
+  (confirms the RESOLVER-V3-037 `blocked_contradiction` gate is implemented and runs before the
+  independent-user-evidence check), and `ResolverKnowledgeCandidateAggregator.ts`/
+  `ResolverKnowledgeCandidate.ts` (confirms `independentUserEvidence` is hard-coded to
+  `'not_evaluable'` in production with no other writer, so RESOLVER-V3-035 remaining blocked keeps
+  the global-candidate pipeline architecturally inert regardless of this task's outcome). Also
+  independently counted `reports/resolver-v3-learning-v2-benchmark.json`'s scenario arrays and the
+  five Learning Benchmark V2 corpus source files' `scenarioId:` occurrences (both total 39 — 30
+  development, 9 holdout — versus the spec/implementation-notes' narrated "41 (32 dev, 9
+  holdout)"); recorded as a disclosed, non-corrected documentation-inventory discrepancy that does
+  not affect the gate decision.
+- **Produced:** the canonical re-decision report
+  [`reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md`](../reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md)
+  containing all 29 required sections: the complete 38-question pre-decision inventory, a temporal
+  evidence timeline across RESOLVER-V3-006/007/013/023/037, a full G2 gate matrix, a
+  learning/governance invariant matrix, a G3 prerequisite matrix, and the explicit overall verdict.
+- **Gate verdict:** **`NOT_PASSED`**. G2: two dimensions `failed` (G2-A representative quality —
+  live Hybrid C underperformed Variant A, 58.3% vs 75.0% identification, on the only corpus it has
+  ever been executed against, which itself lacks COMPOSED/HOMEMADE/RESTAURANT coverage; G2-B false
+  confidence — live C retained the identical critical false-confidence case A already has,
+  `RV3-0011`, inherited rather than resolved), four `not_evaluable` (G2-C friction, G2-D latency,
+  G2-E cost, G2-G consistency — each blocked by missing representative-corpus evidence or the
+  explicit absence of an accepted threshold per RESOLVER-V3-007), one `passed` (G2-F provenance/
+  nutrient authority — zero unbacked authoritative numeric results across every executed evidence
+  source). G3: `NOT_PASSED` as a direct consequence (prerequisites 1 and 4 fail; prerequisites 2
+  and 3 are independently satisfied but cannot compensate, per the binding rule).
+- **Frozen-fixture coupling (INV-10/INV-11):** treated exactly as RESOLVER-V3-037's own report
+  discloses it — a diagnostic artifact of `LBV2-GC-DEV-006` combining contradiction-gate and
+  rollback concerns in one scenario, not a newly discovered rollback defect; the frozen V3-023
+  corpus/report are unmodified; legitimate rollback/revocation remains independently proven by the
+  dedicated `ResolverKnowledgeReview.test.ts` suite.
+- **Follow-up tasks added (none started):** RESOLVER-V3-038 (Representative Hybrid Benchmark
+  Successor Corpus & Harness), RESOLVER-V3-039 (Controlled Representative Live Hybrid Evidence,
+  depends on RESOLVER-V3-038/040 — not authorized or executed here), RESOLVER-V3-040 (Cost/Latency
+  Acceptance Policy). Repository-wide search confirmed all three IDs were unused before this
+  addition.
+- **Effect on RESOLVER-V3-010:** its gate dependency on this task is **not satisfied**;
+  **RESOLVER-V3-010 remains `blocked`**. Its ROADMAP entry's blocked rationale was updated to cite
+  this report directly.
+- **Verification:** documentation-only change (Category 1/2 per `VERIFY.md`). Canonical zero-
+  network benchmark regressions
+  (`scripts/benchmark-resolver-v3-variant-{a,b,c}.mjs`, fixture/default modes only), the focused
+  `ResolverKnowledgeReview.test.ts` suite, and the Learning Benchmark V2 test suites were rerun to
+  confirm the historical V3-023 report remains unchanged, the RESOLVER-V3-037 contradiction gate
+  remains fixed, and the frozen-fixture coupling remains documented rather than hidden. `git
+--no-pager status --short` / `--diff --stat` / `--diff --name-only` / `diff --check` confirm
+  changes are limited to the new report, `ROADMAP.md`, and this handoff entry. Exact command
+  output is recorded in the RESOLVER-V3-024 ROADMAP.md entry's "Verification" note.
+- **No production effect:** no resolver behavior, review behavior, benchmark corpus/registry,
+  canonical historical report, feature flag, migration, RPC, Supabase adapter, package/dependency,
+  or provider call was changed or made. RESOLVER-V3-038/039/040 were not started.
+- **Branch/PR status:** to be recorded after push/PR/merge (this entry is written before that step
+  completes; see the ROADMAP.md RESOLVER-V3-024 entry and the final task report for the eventual
+  PR number and merge commit once available).
+
+---
+
 ## RESOLVER-V3-037 — Contradiction-Aware Review Approval Gate
 
 - **Basis and scope:** Branch `claude/resolver-v3-037-contradiction-gate-sxo59r`, created directly

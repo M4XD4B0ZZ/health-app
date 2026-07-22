@@ -9489,7 +9489,8 @@ channel.
 
 #### RESOLVER-V3-024: Representative Learning/Hybrid Gate Re-decision
 
-Status: `todo`
+Status: `done` (task completion) — **gate verdict: `NOT_PASSED`** (separate from task completion,
+per this task's own binding distinction)
 Depends on: RESOLVER-V3-013, RESOLVER-V3-023, RESOLVER-V3-037
 
 **RESOLVER-V3-037 dependency update (2026-07-22):** RESOLVER-V3-037 (Contradiction-Aware Review
@@ -9506,6 +9507,134 @@ remains `todo` and was **not** started by this change.
 **Risks:** Repeating smoke-corpus overclaim or overlooking false confidence.
 **Tests/verification:** Canonical benchmark commands and decision-record/report readback per VERIFY.md.
 **Acceptance:** Explicit passed/not-passed decision; only a passed representative gate may satisfy V3-010's gate dependency.
+
+**Implementation notes (RESOLVER-V3-024, 2026-07-22):** Added the canonical re-decision report
+[`RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md`](reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md),
+built from a completed 38-question pre-decision inventory, a temporal evidence timeline across
+RESOLVER-V3-006/007/013/023/037, a full G2 gate matrix, a learning/governance invariant matrix, and
+a G3 prerequisite matrix. Independently re-verified in code (not merely cited from prior reports)
+that: Variant A/B/C harnesses are fixture-default with explicit `--live` gating and no silent
+fixture fallback; Learning Benchmark V2's resolution/decomposition scenarios run the real,
+unmodified, zero-AI `SequentialFoodCatalogResolver` (not live Hybrid C) for all five scenario
+classes; `container.ts`'s `resolverSources` array is exactly `[user, bls, off, usda]` with no
+`'ai'`-typed source registered; `ResolverKnowledgeReviewService`/candidate/ledger code has zero
+production callers; and `ResolverKnowledgeCandidateAggregator` hard-codes
+`independentUserEvidence: 'not_evaluable'` with no other production writer, so RESOLVER-V3-035
+remaining blocked keeps the entire global-candidate pipeline architecturally inert in production
+regardless of this task's outcome.
+**G2 verdict:** NOT PASSED — G2-A (representative quality) and G2-B (false confidence) `failed`;
+G2-C (friction), G2-D (latency), G2-E (cost), G2-G (consistency) `not_evaluable`; only G2-F
+(provenance/nutrient authority) `passed`. Live Hybrid C underperformed Variant A (58.3% vs 75.0%
+identification) on the only corpus it has ever been executed against (RESOLVER-V3-013's 14-case
+smoke set, which itself lacks COMPOSED/HOMEMADE/RESTAURANT coverage), and retained the same
+critical false-confidence case A already has (`RV3-0011`) rather than resolving it. No corpus
+combining representative category coverage with live Hybrid C execution exists.
+**G3 verdict:** NOT PASSED — prerequisite 1 (G2 passed) and prerequisite 4 (this task's own
+representative-gate decision) both fail; prerequisites 2 (cost/latency model reviewed, V3-007) and
+3 (safe personal-memory/cache read path exists, V3-019/026/027) are independently satisfied but
+cannot compensate for the two failed prerequisites, per the binding rule.
+**Frozen-fixture coupling (INV-10/INV-11):** treated exactly as a disclosed diagnostic artifact of
+`LBV2-GC-DEV-006` combining contradiction-gate and rollback concerns in one scenario, per
+RESOLVER-V3-037's own disclosure — not a newly discovered rollback defect; the frozen V3-023 corpus
+and canonical report are unmodified, and legitimate rollback/revocation remains independently
+proven by the dedicated `ResolverKnowledgeReview.test.ts` suite.
+**Documentation-inventory discrepancy (disclosed, not corrected):** `ZERA_RESOLVER_LEARNING_BENCHMARK_V2_SPEC_1.md`
+and RESOLVER-V3-023's own implementation notes narratively state "41 scenarios (32 development, 9
+holdout)"; independent counting of `reports/resolver-v3-learning-v2-benchmark.json`'s
+`development`/`holdout` arrays and of the five corpus source files' `scenarioId:` occurrences both
+total 39 (30 development, 9 holdout). This report does not edit either frozen artifact to reconcile
+this; it is recorded as a residual limitation only, since it does not affect Hybrid C
+representativeness, false confidence, cost, or latency.
+**Effect on RESOLVER-V3-010:** RESOLVER-V3-010's gate dependency on this task is **not satisfied**.
+RESOLVER-V3-010 remains `blocked`.
+**Follow-up tasks added (none started):** RESOLVER-V3-038 (Representative Hybrid Benchmark
+Successor Corpus & Harness), RESOLVER-V3-039 (Controlled Representative Live Hybrid Evidence,
+depends on RESOLVER-V3-038/040), RESOLVER-V3-040 (Cost/Latency Acceptance Policy) — see their own
+ROADMAP entries below.
+**Verification:** documentation-only change (Category 1/2 per `VERIFY.md`). Canonical zero-network
+benchmark regressions (`scripts/benchmark-resolver-v3-variant-{a,b,c}.mjs`, fixture/default modes
+only) rerun; focused `ResolverKnowledgeReview.test.ts` and Learning Benchmark V2 suites rerun to
+confirm the historical report is unchanged, the current contradiction gate remains fixed, and the
+frozen-fixture coupling remains documented rather than hidden; `git --no-pager status --short` /
+`--diff --stat` / `--diff --name-only` / `diff --check` confirm no changes outside this report,
+`ROADMAP.md`, and `handoffs/latest-handoff.md`. Exact command results recorded in the handoff entry.
+**No production effect:** no resolver behavior, review behavior, benchmark corpus/registry, canonical
+historical report, feature flag, migration, RPC, Supabase adapter, package/dependency, or provider
+call was changed or made. See the report's §29 for the complete statement.
+
+---
+
+### RESOLVER-V3-038 .. RESOLVER-V3-040: Representative Hybrid Gate Follow-Up Series
+
+Added 2026-07-22 as the required concrete follow-up from RESOLVER-V3-024's `NOT_PASSED` gate
+verdict (see `reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md` §26/§27).
+Repository-wide search confirmed `RESOLVER-V3-038`, `RESOLVER-V3-039`, and `RESOLVER-V3-040` do not
+appear anywhere in `ROADMAP.md` or elsewhere before this addition — no ID collides with any
+pre-existing task. None of the three is started by this addition.
+
+#### RESOLVER-V3-038: Representative Hybrid Benchmark Successor Corpus & Harness
+
+Status: `todo`
+Depends on: RESOLVER-V3-024
+
+**Goal:** Create a successor benchmark contract/corpus version that closes the representative-
+corpus gap RESOLVER-V3-024 identified: no corpus combining representative category coverage with
+live Hybrid C execution currently exists.
+**Scope:** A new, versioned corpus/harness design that (a) preserves the RESOLVER-V3-023 Learning
+Benchmark V2 v1 corpus as immutable history, unedited; (b) separates contradiction-gate and
+rollback scenarios into distinct fixtures, so the frozen-fixture coupling RESOLVER-V3-024 §24
+documented cannot recur; (c) specifies that resolution/decomposition scenarios run live Hybrid C
+rather than Variant A; (d) retains development/holdout separation; (e) includes `DACH`,
+`COMPOSED`, `HOMEMADE`, `RESTAURANT`, `SIMPLE`, `HOUSEHOLD`, vague, clarification, and abstention
+case coverage; (f) includes no production wiring.
+**Non-goals:** Any live provider call (that is RESOLVER-V3-039); any production resolver wiring;
+any change to the frozen RESOLVER-V3-023 v1 corpus, registry, hash, or canonical reports.
+**Risks:** Under-specifying the contradiction/rollback scenario separation and reintroducing the
+same coupling; accidentally importing or mutating V1 corpus history.
+**Tests/verification:** Contract/schema/registry tests; documentation readback per `VERIFY.md`;
+`npm run verify`.
+**Acceptance:** A versioned, immutable successor corpus contract exists with the required category
+coverage and contradiction/rollback separation, with zero production or live-provider effect.
+
+#### RESOLVER-V3-039: Controlled Representative Live Hybrid Evidence
+
+Status: `todo`
+Depends on: RESOLVER-V3-038, RESOLVER-V3-040
+
+**Goal:** Collect the controlled, representative live Hybrid C evidence RESOLVER-V3-024 found
+missing, using the RESOLVER-V3-038 successor corpus.
+**Scope:** Pin provider/model/prompt/schema/harness versions; define an explicit budget before
+execution; prevent fixture fallback; preserve token/cost/latency/retry/error/provenance data for
+every case; run development and holdout under a predeclared protocol; avoid case-specific tuning;
+remain benchmark-only.
+**Non-goals:** Any production wiring or feature-flag change; any provider/model product decision;
+any modification of the RESOLVER-V3-038 corpus after this task's protocol is declared.
+**Risks:** Fixture fallback masquerading as live evidence; post-hoc threshold invention; corpus
+overfitting to observed results.
+**Tests/verification:** Live-mode credential/budget-gate tests; documentation readback; no
+automatic rerun without separate authorization.
+**Acceptance:** A complete, honestly reported live Hybrid C evidence set against the representative
+successor corpus, with no fixture fallback and no production effect. **This task is not authorized
+or executed by RESOLVER-V3-024.**
+
+#### RESOLVER-V3-040: Cost/Latency Acceptance Policy
+
+Status: `todo`
+Depends on: none
+
+**Goal:** Define, before any future live Hybrid run's results are seen, the accepted production
+cost/latency thresholds RESOLVER-V3-007 and RESOLVER-V3-024 both found missing.
+**Scope:** A policy document deciding acceptable p50/p95 latency, timeout/retry budget, cost per
+attempted/validated/complex log, monthly volume scenarios, product-tier economics, source/database
+costs, and cache/fast-path assumptions.
+**Non-goals:** Any implementation change; any live provider call; any retroactive threshold applied
+to RESOLVER-V3-013's already-recorded evidence.
+**Risks:** Setting thresholds after seeing RESOLVER-V3-039's results instead of before, which would
+invalidate the point of a pre-declared threshold.
+**Tests/verification:** Design-review readback only.
+**Acceptance:** An explicit, accepted cost/latency acceptance policy exists, authored independently
+of any not-yet-run RESOLVER-V3-039 results. This policy must exist before RESOLVER-V3-039's results
+can be judged against G2-D/G2-E without inventing a threshold post hoc.
 
 ---
 
@@ -10515,6 +10644,16 @@ origin --delete` with HTTP 403 for merged branches; it is left for an authorized
 
 Status: `blocked`
 Depends on: RESOLVER-V3-006 (historical comparison gate), RESOLVER-V3-019, RESOLVER-V3-024
+
+**RESOLVER-V3-024 dependency update (2026-07-22):** RESOLVER-V3-024 (Representative Learning/
+Hybrid Gate Re-decision) is now `done` (task completion), with an explicit gate verdict of
+**`NOT_PASSED`** (see `reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md`
+and its own ROADMAP entry). G2 failed on representative quality (live Hybrid C underperformed
+Variant A, 58.3% vs 75.0% identification, on the only corpus it has ever been executed against)
+and on false confidence (C retained the identical critical false-confidence case A already has);
+G3 failed as a direct consequence. RESOLVER-V3-024's gate dependency is therefore **not
+satisfied**, and **this task remains `blocked`** — it was not started, and no feature-flag
+implementation, provider selection, or production resolver wiring is authorized by this update.
 
 **Replanned dependency:** RESOLVER-V3-008 remains historical scope, but its safe private-memory
 successor is RESOLVER-V3-019. RESOLVER-V3-024 MUST explicitly pass a representative

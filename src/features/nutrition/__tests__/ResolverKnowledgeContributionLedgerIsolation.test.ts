@@ -38,7 +38,15 @@ describe('RESOLVER-V3-032 contribution-ledger isolation', () => {
     );
   });
 
-  it('is not referenced by any file outside its own source/tests', () => {
+  it('is not referenced by any file outside its own source/tests or an authorized RESOLVER-V3-023 consumer', () => {
+    // RESOLVER-V3-023 (Learning Benchmark V2) is the first real caller of this reference ledger
+    // implementation (it is otherwise unwired -- see this task's own ROADMAP notes). Its single
+    // adapter file is a sanctioned consumer, mirroring the `authorizedV3032ConsumerFiles` pattern
+    // in `ResolverKnowledgeAggregationV2Isolation.test.ts`: it depends on this logic rather than
+    // rewriting it, and every other Learning Benchmark V2 file only sees its plain-data outcomes.
+    const authorizedV3023ConsumerFiles = [
+      '../benchmark/learningV2/LearningBenchmarkV2GlobalCandidateAdapter.ts',
+    ].map((relative) => path.resolve(__dirname, relative));
     const srcRoot = path.resolve(__dirname, '../../../../src');
     const ledgerSymbols = [
       'ResolverKnowledgeContribution',
@@ -59,6 +67,7 @@ describe('RESOLVER-V3-032 contribution-ledger isolation', () => {
         if (!entry.name.endsWith('.ts') && !entry.name.endsWith('.tsx')) continue;
         if (fullPath.includes(`${path.sep}__tests__${path.sep}`)) continue;
         if (ledgerFiles.includes(fullPath)) continue;
+        if (authorizedV3023ConsumerFiles.includes(fullPath)) continue;
         const source = fs.readFileSync(fullPath, 'utf8');
         if (ledgerSymbols.some((symbol) => source.includes(symbol))) offenders.push(fullPath);
       }

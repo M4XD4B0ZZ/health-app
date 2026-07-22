@@ -9766,6 +9766,29 @@ authorization.
 registry, canonical historical report, production wiring, feature flag, Supabase migration/RPC/
 adapter, package/dependency, or provider call of any kind was changed or made by this task.
 
+**Branch/PR status:** implemented on `claude/resolver-v3-040-cost-latency-policy-lpfnw3` (based on
+`origin/chore/clean-arch-structure` at `9df3d6c8d6318aa5d35895de02723d1b4bd9026c`); merged as **PR
+#134**, merge commit `81e0b05bf561595f8c0ba9d151a12bf1fec57ceb`. CI (`verify` check) was green (single
+check, `success`, no retries needed); no review comments were posted. **Independent post-merge
+review** of the actual merged diff confirmed the merge commit's tree is byte-identical to the
+pre-merge branch tip (`git diff 5e30d30..81e0b05` — zero lines) and that exactly the three expected
+files changed against the pre-PR base (`git diff 9df3d6c..81e0b05 --name-only`) — `ROADMAP.md`,
+`handoffs/latest-handoff.md`, and the one new policy document — with no other file touched; in
+particular no `src/**`, `scripts/**`, `supabase/**`, `package.json`, `package-lock.json`, or
+environment file shows any diff (re-verified directly). Because the merge commit's tree is
+content-identical to the already-verified pre-merge branch tip, the pre-merge `npm run verify` result
+(219 suites / 2158 tests, 0 type errors, 0 lint errors, 0 format violations) is evidence for the
+merged state itself, not merely the pre-merge branch. No defects were found requiring a follow-up
+code fix. PR #133 (`codex/vervollstandige-letzten-task-von-claude`) was closed without merging,
+rebasing, resolving its conflicts, cherry-picking from it, or reopening it, and its branch was left
+undeleted, per this task's own instructions. This documentation-only follow-up (recording the
+merged/reviewed state, per the RESOLVER-V3-023/028/032/037 precedent) restarts the same
+harness-designated branch name from the new `origin/chore/clean-arch-structure` tip (`81e0b05`).
+Pre-existing local branches were left untouched. Remote branch deletion for the merged
+`claude/resolver-v3-040-cost-latency-policy-lpfnw3` ref was not attempted in this session — per
+`AGENTS.md`'s documented incident, this environment's git proxy has previously rejected `git push
+origin --delete` with HTTP 403 for merged branches; it is left for an authorized cleanup channel.
+
 ---
 
 ### RESOLVER-V3-025 .. RESOLVER-V3-030: Post-Implementation Remediation Series

@@ -9463,6 +9463,28 @@ implementation may legitimately conclude NOT_PASSED"). **RESOLVER-V3-024 is now 
 separate authorization** (not begun by this task) to re-evaluate the representative gate using this
 evidence; **RESOLVER-V3-010 remains blocked**.
 
+**Branch/PR status:** implemented on `claude/resolver-v3-023-learning-benchmark-v2-f11n1l` (based on
+`origin/chore/clean-arch-structure` at `69f0a91f58853866a37419decf7d62c56a977ee3`); merged as **PR
+#127**, merge commit `10bcc4d69fc811dd599837410f3de20f6377ffc8`. CI (`verify` check) was green.
+**Independent post-merge review** of the actual merged diff (`git diff 69f0a91..10bcc4d`, confirmed
+byte-identical to the pre-merge branch tip via a zero-line `git diff 845e2cc..origin/chore/clean-arch-structure`)
+confirmed: exactly 44 files changed against the pre-PR base — new files under
+`src/features/nutrition/benchmark/learningV2/**`, the new `scripts/benchmark-resolver-v3-learning-v2.mjs`,
+two pre-existing isolation tests' allowlist additions, one new domain spec doc, two new canonical
+report artifacts, and this `ROADMAP.md`/`handoffs/latest-handoff.md` — zero other files touched; in
+particular no `supabase/migrations/**`, `supabase/functions/**`, `package.json`, `package-lock.json`,
+environment file, `src/infrastructure/di/container.ts`, or UI/journal file shows any diff (re-verified
+directly). `npm run verify` was independently rerun against the actual merged tree (not merely the
+pre-merge branch): 209 suites / 2041 tests, 0 type errors, 0 lint errors, 0 format violations — the
+same result as the pre-merge verification, confirming it is evidence for the merged state itself. No
+defects were found requiring a follow-up code fix. This documentation-only follow-up (recording the
+merged/reviewed state, per the RESOLVER-V3-030/031/032 precedent) was authored directly on a new
+branch restarted from the merged `origin/chore/clean-arch-structure` tip. Remote branch deletion for
+the merged `claude/resolver-v3-023-learning-benchmark-v2-f11n1l` ref was not attempted in this
+session — per `AGENTS.md`'s documented incident, this environment's git proxy has previously rejected
+`git push origin --delete` with HTTP 403 for merged branches; it is left for an authorized cleanup
+channel.
+
 ---
 
 #### RESOLVER-V3-024: Representative Learning/Hybrid Gate Re-decision

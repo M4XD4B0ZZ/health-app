@@ -1,0 +1,128 @@
+{
+  "protocolVersion": "resolver-representative-hybrid-live-protocol-v1",
+  "executionPlanVersion": "1",
+  "taskId": "RESOLVER-V3-039",
+  "corpusVersion": "resolver-representative-hybrid-benchmark-corpus-1.0.0",
+  "registryVersion": "resolver-representative-hybrid-benchmark-registry-v1",
+  "harnessVersion": "1.0.0",
+  "sourceManifestVersion": "resolver-representative-hybrid-benchmark-source-manifest-v1",
+  "corpusHash": "f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a",
+  "sourceManifestHash": "11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52",
+  "planHash": "214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e",
+  "provider": {
+    "providerId": "anthropic",
+    "modelId": "claude-haiku-4-5",
+    "modelSnapshotId": "claude-haiku-4-5-20251001"
+  },
+  "pricing": {
+    "currency": "USD",
+    "inputPerMillion": 1,
+    "outputPerMillion": 5,
+    "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "modelIdSourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
+    "retrievedAtUtc": "2026-07-22",
+    "matchesExistingRepositoryConstants": true
+  },
+  "pinnedVersions": {
+    "variantBPromptVersion": "variant-b-prompt-v1",
+    "variantBSchemaVersion": "variant-b-schema-v3",
+    "variantBEstimatorVersion": "variant-b-ai-only-v1",
+    "variantBContractVersion": "1",
+    "variantCPromptVersion": "variant-c-prompt-v1",
+    "variantCSchemaVersion": "variant-c-schema-v1",
+    "variantCInterpreterVersion": "variant-c-live-interpreter-v1",
+    "variantCContractVersion": "1"
+  },
+  "requestReservation": {
+    "variantBMaxInputTokens": 8192,
+    "variantBMaxOutputTokens": 1536,
+    "variantCMaxInputTokens": 8192,
+    "variantCMaxOutputTokens": 1536
+  },
+  "timeoutPolicy": {
+    "perRequestTimeoutMs": 15000,
+    "wallClockCeilingMs": 20000,
+    "automaticRetries": 0
+  },
+  "population": {
+    "totalScenarios": 114,
+    "resolutionBaseCases": 88,
+    "repeatOverlayCases": 16,
+    "governanceOnlyScenarios": 10,
+    "primaryResolutionScenarios": 104,
+    "developmentBaseCases": 66,
+    "holdoutBaseCases": 22,
+    "developmentOverlayCases": 14,
+    "holdoutOverlayCases": 2
+  },
+  "callPlan": {
+    "variantBCalls": 136,
+    "variantBCallsByPartition": { "development": 108, "holdout": 28 },
+    "variantCPrimaryAttempts": 136,
+    "variantCFastPathAttempts": 12,
+    "variantCMaxAiRoutedCalls": 127,
+    "variantCMaxAiRoutedCallsByPartition": { "development": 97, "holdout": 30 },
+    "sampleFloorSupplementCount": 3,
+    "sampleFloorSupplementNote": "3 deterministic lexicographic-cycle repeats added to the holdout partition's Variant C AI-routed population (27 -> 30) to satisfy the V3-040 n>=30 minimum-sample rule. No supplementation was needed for development (already 97).",
+    "totalPlannedObservations": 275
+  },
+  "budget": {
+    "currency": "USD",
+    "maxCalls": 263,
+    "maxInputTokens": 2154496,
+    "maxOutputTokens": 403968,
+    "maxCost": 4.174336,
+    "maxInFlight": 1,
+    "authorizedCeilingUsd": 5.0,
+    "arithmetic": "maxCalls = variantBCalls(136) + variantCMaxAiRoutedCalls(127) = 263. maxInputTokens = 263 * 8192 = 2154496. maxOutputTokens = 263 * 1536 = 403968. perRequestWorstCaseCostUsd = (8192/1e6)*1 + (1536/1e6)*5 = 0.015872. maxCost = 263 * 0.015872 = 4.174336, which is <= 5.00 (headroom 0.825664)."
+  },
+  "consistencyProtocol": {
+    "overlayGroupCount": 16,
+    "minObservationsPerOverlayScenario": 3,
+    "variantBObservationsPerOverlay": 3,
+    "variantCObservationsPerOverlay": 3
+  },
+  "minimumSampleProtocol": {
+    "minSampleSize": 30,
+    "supplementationRule": "select eligible (already ai_routed) scenario IDs lexicographically by scenarioId; cycle through them deterministically; add only enough repeated Variant C AI-routed observations to reach 30 per partition; never fabricate a route population for a structurally empty path/partition."
+  },
+  "credential": {
+    "envVar": "ANTHROPIC_API_KEY",
+    "presenceCheckedOnly": true
+  },
+  "isolation": {
+    "frozenArtifacts": [
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1*Corpus.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1RepeatOverlayCorpus.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1GovernanceCorpus.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1Manifest.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1Registry.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1SourceSnapshotManifest.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1Types.ts",
+      "src/features/nutrition/benchmark/learningV2/**",
+      "reports/RESOLVER_V3_023_*",
+      "reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md",
+      "docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md"
+    ],
+    "additiveOnly": [
+      "src/features/nutrition/benchmark/representativeHybridV1/live/**",
+      "src/features/nutrition/benchmark/VariantBLiveProvider.ts (additive optional transport param only)",
+      "src/features/nutrition/benchmark/VariantCLiveInterpretationProvider.ts (additive optional transport param only)",
+      "scripts/benchmark-resolver-v3-representative-hybrid-live.mjs"
+    ]
+  },
+  "governance": {
+    "requiredMinimumEvidenceComparison": "C must be strictly lower false-confidence rate than BOTH A and B",
+    "gateDimensions": [
+      "G2-A representative quality",
+      "G2-B false confidence",
+      "G2-C user friction",
+      "G2-D latency",
+      "G2-E cost",
+      "G2-F provenance/nutrient authority",
+      "G2-G consistency"
+    ],
+    "doesNotReplace": "RESOLVER-V3-024 historical gate decision",
+    "followUpTask": "RESOLVER-V3-041 (todo, not started by this task)"
+  }
+}

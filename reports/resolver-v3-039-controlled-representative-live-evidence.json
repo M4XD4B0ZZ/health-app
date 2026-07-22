@@ -1,0 +1,88 @@
+{
+  "reportVersion": "resolver-representative-hybrid-live-evidence-report-v1",
+  "protocolVersion": "resolver-representative-hybrid-live-protocol-v1",
+  "executionPlanVersion": "1",
+  "corpusVersion": "resolver-representative-hybrid-benchmark-corpus-1.0.0",
+  "registryVersion": "resolver-representative-hybrid-benchmark-registry-v1",
+  "harnessVersion": "1.0.0",
+  "sourceManifestVersion": "resolver-representative-hybrid-benchmark-source-manifest-v1",
+  "corpusHash": "f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a",
+  "sourceManifestHash": "11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52",
+  "planHash": "214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e",
+  "protocolFreezeCommit": "da3bae6939bd5514e7a7521597ae670940e45ea6",
+  "evidenceCommit": null,
+  "providerId": "anthropic",
+  "modelId": "claude-haiku-4-5",
+  "modelSnapshotId": "claude-haiku-4-5-20251001",
+  "pricing": {
+    "providerId": "anthropic",
+    "modelId": "claude-haiku-4-5",
+    "modelSnapshotId": "claude-haiku-4-5-20251001",
+    "currency": "USD",
+    "inputPerMillion": 1,
+    "outputPerMillion": 5,
+    "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "modelIdSourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
+    "retrievedAtUtc": "2026-07-22"
+  },
+  "pinnedVersions": {
+    "variantBPromptVersion": "variant-b-prompt-v1",
+    "variantBSchemaVersion": "variant-b-schema-v3",
+    "variantBEstimatorVersion": "variant-b-ai-only-v1",
+    "variantBContractVersion": "1",
+    "variantCPromptVersion": "variant-c-prompt-v1",
+    "variantCSchemaVersion": "variant-c-schema-v1",
+    "variantCInterpreterVersion": "variant-c-live-interpreter-v1",
+    "variantCContractVersion": "1"
+  },
+  "timeoutPolicy": {
+    "perRequestTimeoutMs": 15000,
+    "wallClockCeilingMs": 20000,
+    "automaticRetries": 0
+  },
+  "budgetLimits": {
+    "currency": "USD",
+    "maxCalls": 263,
+    "maxInputTokens": 2154496,
+    "maxOutputTokens": 403968,
+    "maxCost": 4.174336,
+    "maxInFlight": 1
+  },
+  "budgetReservation": {
+    "currency": "USD",
+    "maxCalls": 263,
+    "maxInputTokens": 2154496,
+    "maxOutputTokens": 403968,
+    "worstCaseReservedCostUsd": 4.174336,
+    "perRequestCostUsd": 0.015872
+  },
+  "executionStatus": {
+    "phase": "protocol_frozen_only",
+    "blockerReason": "ANTHROPIC_API_KEY is not set in this execution environment. Phase B (development/holdout live execution) was not attempted: the live CLI and harness both fail closed on a missing credential before any request, network call, or budget reservation (verified: `node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs --partition=development --protocol=reports/resolver-v3-039-controlled-live-protocol.json` exits 1 with a secret-free message, before spawning the harness). No paid request occurred. Zero of the 263 planned calls were made; the full USD 4.174336 worst-case reservation and the USD 5.00 authorized ceiling remain entirely unused."
+  },
+  "actualUsage": {
+    "calls": 0,
+    "inputTokens": null,
+    "outputTokens": null,
+    "estimatedCostUsd": null,
+    "technicalFailureCount": 0,
+    "timeoutCount": 0,
+    "retryCount": 0
+  },
+  "rawTelemetry": [],
+  "development": null,
+  "holdout": null,
+  "consistency": null,
+  "gateVerdicts": {
+    "g2a_representativeQuality": "not_evaluable",
+    "g2b_falseConfidence": "not_evaluable",
+    "g2c_userFriction": "not_evaluable",
+    "g2d_latency": "not_evaluable",
+    "g2e_cost": "not_evaluable",
+    "g2f_provenance": "not_evaluable",
+    "g2g_consistency": "not_evaluable"
+  },
+  "noFixtureFallbackProof": "Live B/C providers were constructed exclusively via createLiveVariantBProvider/createLiveVariantCInterpreter, which throw a config error before any network call when ANTHROPIC_API_KEY or the shared budget gate is missing; neither FixtureVariantBProvider/NoopVariantBProvider nor FixtureCostAiInterpreter/NoopAiInterpretationProvider was ever passed into the live runner.",
+  "noProductionEffectProof": "No production DI registration, feature flag, migration, RPC, Supabase adapter, or UI/journal change was made. This report and its underlying runner exist only under src/features/nutrition/benchmark/representativeHybridV1/live/ and scripts/, never imported by any production code path.",
+  "generatedAt": "2026-07-22T23:17:27.358Z"
+}

@@ -1,5 +1,71 @@
 # Latest Handoff
 
+## RESOLVER-V3-038 — Representative Hybrid Benchmark Successor Corpus & Harness
+
+- **Basis and scope:** Branch `claude/resolver-v3-038-representative-hybrid-benchmark-a9csqu`,
+  created directly from `origin/chore/clean-arch-structure` at
+  `a37312b211232ead4ac1e288bbb42f7fbcda0035` (merge of PR #131, the RESOLVER-V3-024 gate
+  re-decision). A real benchmark implementation task: new successor corpus/registry/harness under
+  `src/features/nutrition/benchmark/representativeHybridV1/`. `learningV2/**` (RESOLVER-V3-023) is
+  unmodified. No production resolver, feature flag, migration, RPC, Supabase adapter, DI
+  registration, or package/dependency change was made; no live provider or source-network call
+  occurred at any point.
+- **Mandatory reading:** all governance files (`SSOK.md`, `AGENTS.md`, `.governance/*`), the food-
+  resolution authority set (Decision Record, Benchmark Spec §§2–11, Three-Variant Comparison, Cost/
+  Latency/Cache Analysis, V3-013 Live Evidence Report, V3-024 Re-decision Report), the learning/
+  governance authority set (Knowledge-Growth Decision Record, Learning Benchmark V2 Spec, V3-023
+  report + JSON, V3-037 remediation report, Review/Contribution-Ledger/Shadow-Mode contracts), and
+  the complete existing A/B/C and Learning Benchmark V2 implementation (adapters, evaluators,
+  retrieval, quantity scaling, budget gate, provider usage, CLIs, corpus/registry/manifest files,
+  all `learningV2/**` source files) — delegated to three parallel research passes, each read the
+  real source files directly rather than summarizing from memory.
+- **Mandatory A/B/C / G2-B decision:** confirmed the accepted Benchmark Spec §11 G2 false-
+  confidence dimension requires C strictly better than **both** A and B, and no binding authority
+  removes B from scope (RESOLVER-V3-024 §9/§338 restates the identical requirement). Built a
+  genuine three-arm A/B/C harness boundary accordingly — the existing ROADMAP wording (which
+  mentioned only A/C) was reconciled and updated.
+- **Corpus-freeze commit:** `639e940ed22a30d1146ba295b898569ffabec589`. Corpus hash
+  `f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a`. Source-manifest hash
+  `11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52`. Harness/evaluators/CLI/tests/
+  docs implemented in a separate commit on top of the frozen corpus.
+- **Delivered:** 114 total scenarios (86 development / 28 holdout) — 88 resolution base cases (8
+  per category across all 11 taxonomy categories, in both partitions), 16 repeat/paraphrase overlay
+  cases (~18.2%), 10 governance-fixture scenarios (2 personal-memory, 4 global-candidate, 2
+  privacy, 2 economics). Holdout is 25.0% of the resolution base. Contradiction-gate
+  (`RH-GC-DEV-CONTRA-001`) and rollback (`RH-GC-DEV-ROLLBACK-001`) scenarios are independent, each
+  with its own candidate, closing the RESOLVER-V3-024 §24 `LBV2-GC-DEV-006` coupling finding
+  structurally. `RH-RES-DACH-DEV-006` reproduces the real, historically-documented RV3-0011 false-
+  confidence defect end-to-end through the new harness. Source-snapshot manifest with 6 committed
+  manufacturer-label/official-restaurant-data snapshots. Three-arm harness
+  (`RepresentativeHybridV1ThreeArmRunner.ts`) reuses the real, unmodified Variant A/B/C adapters and
+  evaluators verbatim. Six-case harness-conformance fixture set, structurally excluded from
+  representative-quality metrics. Canonical CLI:
+  `scripts/benchmark-resolver-v3-representative-hybrid.mjs` (`--validate`, `--coverage`,
+  `--partition`, `--conformance`, `--final-evaluation`; no `--live` flag exists).
+- **Documented deviation:** corpus is 88 base cases (spec floor: 8/category), not the 150–200
+  target, due to session time constraints on responsibly authoring verified ground truth. Every
+  minimum condition the spec allows a deviation under is met except DACH weighting (14.8% vs.
+  25–30% target) — disclosed, not claimed as met. Full detail in
+  `docs/domains/ZERA_REPRESENTATIVE_HYBRID_BENCHMARK_SPEC_1.md` §5.2/§17 and the readiness report.
+- **Tests/verification:** 87 new tests added, all passing (versioning/preservation, exact-key
+  schema validation, registry/freeze/hash-determinism, A/B/C execution boundary + fast-path
+  inheritance + provenance, contradiction/rollback separation, isolation/zero-network, holdout-
+  leakage prevention, report-schema/fixture-labeling, generated coverage/counts, full-corpus
+  smoke). Full existing suite (2158 tests, 219 suites) remains green. Historical regressions run
+  clean in fixture mode: `benchmark-resolver-v3-variant-{a,b,c}.mjs`,
+  `benchmark-resolver-v3-learning-v2.mjs` (unchanged `NOT_PASSED` verdict, matching the documented
+  post-V3-037 state). `npm run verify` (typecheck + lint + format:check + test) passes clean.
+- **Produced:** `docs/domains/ZERA_REPRESENTATIVE_HYBRID_BENCHMARK_SPEC_1.md` (canonical successor
+  spec) and
+  `reports/RESOLVER_V3_038_REPRESENTATIVE_HYBRID_BENCHMARK_READINESS_REPORT.md` (readiness report
+  with exact hashes/counts/matrices).
+- **Status:** RESOLVER-V3-038 → `done`. RESOLVER-V3-039 remains `todo`, scope updated to require
+  collecting both live B and live C evidence on this successor corpus (G2-B reconciliation) — not
+  started. RESOLVER-V3-040 remains `todo`, unaffected. RESOLVER-V3-010 remains `blocked`,
+  unaffected. No live provider call, source-network call, production resolver change, feature flag,
+  migration, RPC, Supabase adapter, package/dependency change, V3-023 rewrite, or canonical
+  historical-report rewrite occurred.
+
 ## RESOLVER-V3-024 — Representative Learning/Hybrid Gate Re-decision
 
 - **Basis and scope:** Branch `claude/resolver-v3-024-representative-gate-redecision`, created

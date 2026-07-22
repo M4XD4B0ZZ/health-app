@@ -9574,7 +9574,7 @@ pre-existing task. None of the three is started by this addition.
 
 #### RESOLVER-V3-038: Representative Hybrid Benchmark Successor Corpus & Harness
 
-Status: `todo`
+Status: `in_progress` (implementation complete; full verification environment-blocked)
 Depends on: RESOLVER-V3-024
 
 **Goal:** Create a successor benchmark contract/corpus version that closes the representative-
@@ -9595,6 +9595,26 @@ same coupling; accidentally importing or mutating V1 corpus history.
 `npm run verify`.
 **Acceptance:** A versioned, immutable successor corpus contract exists with the required category
 coverage and contradiction/rollback separation, with zero production or live-provider effect.
+
+**Implementation notes (RESOLVER-V3-038, 2026-07-22):** Added the independent, versioned
+`learningV3/` data-only corpus, fail-closed validator, source-controlled development/holdout
+registry, deterministic corpus hash, and planning harness. The corpus has twelve resolution cases
+covering SIMPLE, HOUSEHOLD, DACH, BRANDED, COMPOSED, HOMEMADE, RESTAURANT, VAGUE, PREPARATION,
+NEGATION_MODIFIER, and UNRELIABLE inputs across German/English and both partitions. Its two review
+fixtures deliberately separate contradiction-blocks-approval from rollback of a legitimately
+approved candidate. All resolution scenarios set `requiresLiveHybrid: true`; the harness can only
+validate/select scenarios and `runLearningBenchmarkV3()` refuses with a closed
+`LEARNING_BENCHMARK_V3_LIVE_EXECUTOR_NOT_AUTHORIZED` error, making fixture fallback impossible.
+RESOLVER-V3-039 remains solely responsible for a pinned, budget-authorized live executor; no
+provider call, production wiring, V2 change, migration, or review-policy change occurred.
+
+**Verification:** the focused V3 contract suite (5 tests) passed. `npm run verify` was invoked
+repeatedly but the execution runner terminated during its silent `tsc --noEmit` phase before an
+exit status or later lint/format/test stages was available. This is documented as an environment
+limitation, so the task remains `in_progress` rather than being claimed done. The focused tests
+prove corpus/registry validation, order-independent hash, required coverage, partition isolation,
+separate review fixtures, live-only requirement, and fail-closed execution boundary. See
+`docs/domains/ZERA_RESOLVER_LEARNING_BENCHMARK_V3_SPEC_1.md` for the binding successor contract.
 
 #### RESOLVER-V3-039: Controlled Representative Live Hybrid Evidence
 
@@ -9619,7 +9639,7 @@ or executed by RESOLVER-V3-024.**
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 
-Status: `todo`
+Status: `done` (accepted pre-results policy)
 Depends on: none
 
 **Goal:** Define, before any future live Hybrid run's results are seen, the accepted production
@@ -9635,6 +9655,17 @@ invalidate the point of a pre-declared threshold.
 **Acceptance:** An explicit, accepted cost/latency acceptance policy exists, authored independently
 of any not-yet-run RESOLVER-V3-039 results. This policy must exist before RESOLVER-V3-039's results
 can be judged against G2-D/G2-E without inventing a threshold post hoc.
+
+**Implementation notes (RESOLVER-V3-040, 2026-07-22):** Added the accepted, pre-results policy at
+`docs/domains/ZERA_RESOLVER_COST_LATENCY_ACCEPTANCE_POLICY_1.md`. It defines independent AI-route
+p50/p95, fast-path p95, timeout/retry and error-rate gates; all-inclusive attempted/validated/complex
+log cost ceilings; low/base/high monthly variable-cost guardrails; 0% assumed cache-hit rates; a
+no-average/no-unknown-pass decision rule; and mandatory per-attempt evidence fields. It explicitly
+does not authorize or execute RESOLVER-V3-039, choose a provider, alter production wiring, or
+retroactively judge V3-013.
+
+**Verification:** documentation-only required readback checks passed (`git status --short`,
+`git diff --stat`, `git diff --name-only`, and `git diff --check`).
 
 ---
 

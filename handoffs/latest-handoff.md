@@ -1,6 +1,28 @@
 # Latest Handoff
 
-## RESOLVER-V3-024 — Representative Learning/Hybrid Gate Re-decision
+## RESOLVER-V3-040 — Cost/Latency Acceptance Policy
+
+- **Status:** completed as the explicit pre-results policy decision required to make future V3-039 evidence auditable.
+- **Changed:** added `docs/domains/ZERA_RESOLVER_COST_LATENCY_ACCEPTANCE_POLICY_1.md` and marked the ROADMAP task done. The policy fixes independent latency/error, retry/timeout, cost-per-denominator, monthly variable-cost, cache-assumption, data-completeness, and no-averaging rules.
+- **Safety:** this is documentation-only. No provider was called, no secret was read, no production behavior/configuration/feature flag was modified, and no prior live evidence was regraded.
+- **Validation:** documentation readback and `git diff --check` passed. No UI test applies.
+- **Follow-up:** RESOLVER-V3-039 is now dependency-eligible only after RESOLVER-V3-038 receives its still-required full `npm run verify` evidence; it must not run live without a separately authorized budget guard and pinned protocol.
+- **Human review:** continued autonomous execution per user instruction; next work remains constrained by live-provider authorization.
+
+---
+
+## Prior Handoff: RESOLVER-V3-038 — Representative Hybrid Benchmark Successor Corpus & Harness
+
+- **Status:** implementation complete; full verification environment-blocked. Followed RESOLVER-V3-024's `NOT_PASSED` evidence with one isolated successor-corpus task; the preceding Claude task (RESOLVER-V3-024, PR #131) was already merged at `a37312b` and needed no code completion.
+- **Changed:** added `src/features/nutrition/benchmark/learningV3/` with a versioned data-only corpus, validator, authoritative dev/holdout registry, deterministic manifest hash, and planning-only harness. Added the V3 benchmark specification and focused contract test.
+- **Safety/design:** V2 remains untouched frozen history. Resolution fixtures cover every required category and both locales/partitions. Contradiction approval blocking and legitimate rollback are separate review scenarios. Every resolution scenario requires live Hybrid C; execution fails closed until RESOLVER-V3-039 provides a separately authorized pinned/budget-gated live executor. No provider call, production wiring, migration, dependency, UI, or credential change occurred.
+- **Validation:** focused `LearningBenchmarkV3Contract.test.ts` passed (5 tests). `npm run verify` was invoked repeatedly but this runner terminated during silent `tsc --noEmit` before reporting an exit status or reaching lint/format/full Jest; therefore no full-verify pass is claimed. No visual test applies.
+- **Follow-up/risk:** RESOLVER-V3-039 remains blocked on its declared V3-038/V3-040 dependencies and must not treat this corpus contract as live Hybrid evidence. RESOLVER-V3-040 remains the independent policy decision for accepted cost/latency thresholds.
+- **Human review:** required to rerun full verification before marking the task done; no subsequent task was started.
+
+---
+
+## Prior Handoff: RESOLVER-V3-024 — Representative Learning/Hybrid Gate Re-decision
 
 - **Basis and scope:** Branch `claude/resolver-v3-024-representative-gate-redecision`, created
   directly from `origin/chore/clean-arch-structure` at

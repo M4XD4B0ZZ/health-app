@@ -18,7 +18,7 @@
   count); confirmed no per-contribution immutable record exists anywhere in the codebase; confirmed
   `duplicateOfCandidateId`/`supersededByCandidateId` are set by the review service but never read/
   chain-walked anywhere; confirmed `ResolverKnowledgeCandidateValidator` fails closed on `status:
-  'approved'` (only the review service's `applyDecision` may legally set it); confirmed zero
+'approved'` (only the review service's `applyDecision` may legally set it); confirmed zero
   `contributorToken`/independent-user-count code exists anywhere; confirmed no Supabase migration,
   RPC, or batch worker touches this domain beyond the three existing V3-020/021/028 migrations.
 - **Implemented (13 new source files, 6 new test files, zero existing production files touched
@@ -52,13 +52,13 @@ ReplaySummaryCalculator.ts` (pure summary derivation + legacy-evidence mapping),
   is derived, never mutated; no reactivation operation exists. Full rationale in the new contract
   doc §4.
 - **Contribution identity:** `sha256Hex(canonicalJson([idFormatVersion, ledgerContractVersion,
-  observationId, resolverRunId, fingerprintVersion, digest]))` — keyed by the **original** matched
+observationId, resolverRunId, fingerprintVersion, digest]))` — keyed by the **original** matched
   candidate's fingerprint, never a mutable terminal-target identity, so chain changes never
   manufacture a second contribution and routing can change during replay without mutating identity.
 - **Rejection suppression / duplicate-supersession / retraction:** implemented exactly per the
   contract doc's §12-§17; the pure terminal-chain resolver never mutates candidates and never
   guesses on cycles/missing targets/link-status corruption; replay always recomputes relation
-  against the *current* terminal payload rather than trusting a contribution's stored relation.
+  against the _current_ terminal payload rather than trusting a contribution's stored relation.
 - **Tests:** 103 new tests across 6 new suites (contract/privacy validator, contribution-ID
   determinism, terminal-chain resolver, replay-summary calculator, the large in-memory-repository
   integration suite covering recording/idempotency/rejection-suppression/relation-handling/

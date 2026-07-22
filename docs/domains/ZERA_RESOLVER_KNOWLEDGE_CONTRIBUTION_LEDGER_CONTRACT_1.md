@@ -48,24 +48,24 @@ outside its own source/tests, the DI container, or the two global-facing model f
 `ResolverKnowledgeContribution`
 (`src/features/nutrition/domain/models/ResolverKnowledgeContributionLedger.ts`):
 
-| Field                        | Type                                                     | Notes                                                              |
-| ----------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------- |
-| `ledgerContractVersion`       | `'resolver-knowledge-contribution-ledger-v1'`             | closed literal                                                     |
-| `contributionId`              | `string`                                                  | deterministic, private (§5)                                         |
-| `observationId`               | `string`                                                  | private-zone-only                                                   |
-| `resolverRunId`                | `string`                                                  | private-zone-only                                                   |
-| `originalCandidateFingerprint` | `{ fingerprintVersion, digest }`                          | the V2 fingerprint of the **originally matched** candidate           |
-| `originalCandidateId`          | `string`                                                  | the originally matched candidate's ID (may later become duplicate/superseded) |
-| `candidatePayload`             | `ResolverKnowledgeCandidatePayload`                       | the incoming payload, validated                                     |
+| Field                          | Type                                                              | Notes                                                                                         |
+| ------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `ledgerContractVersion`        | `'resolver-knowledge-contribution-ledger-v1'`                     | closed literal                                                                                |
+| `contributionId`               | `string`                                                          | deterministic, private (§5)                                                                   |
+| `observationId`                | `string`                                                          | private-zone-only                                                                             |
+| `resolverRunId`                | `string`                                                          | private-zone-only                                                                             |
+| `originalCandidateFingerprint` | `{ fingerprintVersion, digest }`                                  | the V2 fingerprint of the **originally matched** candidate                                    |
+| `originalCandidateId`          | `string`                                                          | the originally matched candidate's ID (may later become duplicate/superseded)                 |
+| `candidatePayload`             | `ResolverKnowledgeCandidatePayload`                               | the incoming payload, validated                                                               |
 | `relation`                     | `'support' \| 'contradiction' \| 'orthogonal' \| 'not_evaluable'` | computed once at record time against the original target; replay always recomputes fresh (§9) |
-| `projectionVersion`            | `string`                                                  | from the V2 projection                                              |
-| `privacyPolicyVersion`         | `string`                                                  | from the V2 projection                                              |
-| `observationContractVersion`   | `string`                                                  | from the V2 projection                                              |
-| `candidateContractVersion`     | `string`                                                  | `resolver-knowledge-candidate-v1`                                    |
-| `fingerprintVersion`           | `string`                                                  | `resolver-knowledge-fingerprint-v2`                                  |
-| `evidenceSnapshot`             | `ResolverKnowledgeContributionSafeEvidenceSnapshot`       | globally-safe fields only (§6)                                       |
-| `contributorToken`             | `null`                                                    | reserved slot; fails closed on any non-null value (§11)              |
-| `recordedAt`                   | `string` (ISO timestamp)                                 | aggregation-event time, not the observation's own timestamp          |
+| `projectionVersion`            | `string`                                                          | from the V2 projection                                                                        |
+| `privacyPolicyVersion`         | `string`                                                          | from the V2 projection                                                                        |
+| `observationContractVersion`   | `string`                                                          | from the V2 projection                                                                        |
+| `candidateContractVersion`     | `string`                                                          | `resolver-knowledge-candidate-v1`                                                             |
+| `fingerprintVersion`           | `string`                                                          | `resolver-knowledge-fingerprint-v2`                                                           |
+| `evidenceSnapshot`             | `ResolverKnowledgeContributionSafeEvidenceSnapshot`               | globally-safe fields only (§6)                                                                |
+| `contributorToken`             | `null`                                                            | reserved slot; fails closed on any non-null value (§11)                                       |
+| `recordedAt`                   | `string` (ISO timestamp)                                          | aggregation-event time, not the observation's own timestamp                                   |
 
 Never present on this type (verified by closed-key validation and dedicated tests): owner ID, raw
 input, normalized input, exact food name, source ID, journal text, correction text, provider
@@ -269,13 +269,13 @@ Closed reason set: `owner_deletion`, `observation_invalidated`, `privacy_policy_
 `source_type`. Closed reason→selector-kind mapping
 (`RESOLVER_KNOWLEDGE_CONTRIBUTION_RETRACTION_ALLOWED_SELECTOR_KINDS`):
 
-| Reason                    | Allowed selector kind(s)                                             |
-| -------------------------- | ----------------------------------------------------------------------- |
-| `owner_deletion`           | `contribution_ids` (a pre-resolved private ID set — see §15)             |
-| `observation_invalidated`  | `observation_id`, `observation_contract_version`, `projection_version`    |
-| `privacy_policy_revoked`   | `privacy_policy_version`                                                 |
-| `source_update_invalidated` | `source_type`                                                            |
-| `developer_action`         | `contribution_ids`                                                      |
+| Reason                      | Allowed selector kind(s)                                               |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `owner_deletion`            | `contribution_ids` (a pre-resolved private ID set — see §15)           |
+| `observation_invalidated`   | `observation_id`, `observation_contract_version`, `projection_version` |
+| `privacy_policy_revoked`    | `privacy_policy_version`                                               |
+| `source_update_invalidated` | `source_type`                                                          |
+| `developer_action`          | `contribution_ids`                                                     |
 
 The "unsafe observation/projection contract" bulk case is expressed through the existing
 `observation_invalidated` reason with a bulk (`observation_contract_version`/`projection_version`)

@@ -6,7 +6,10 @@ import {
   buildVariantBPrompt,
 } from './variantBPrompt';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
-import { createAnthropicBenchmarkTransport } from './AnthropicBenchmarkTransport';
+import {
+  AnthropicBenchmarkTransport,
+  createAnthropicBenchmarkTransport,
+} from './AnthropicBenchmarkTransport';
 
 /**
  * RESOLVER-V3-004: the one concrete, live Variant B provider adapter -- Infrastructure Adapter
@@ -64,6 +67,9 @@ export class VariantBLiveProviderConfigError extends Error {
 export function createLiveVariantBProvider(
   env: Partial<Record<string, string | undefined>> = process.env,
   budgetGate?: LiveProviderBudgetGate,
+  /** Optional transport override (RESOLVER-V3-039): lets a caller supply its own timeout-enforcing
+   * transport instead of the plain proxy-aware default. Never used by RESOLVER-V3-013 callers. */
+  transport?: AnthropicBenchmarkTransport,
 ): VariantBProvider {
   const apiKey = env[ANTHROPIC_API_KEY_ENV];
   if (!apiKey) {
@@ -82,7 +88,7 @@ export function createLiveVariantBProvider(
     apiKey,
     modelId,
     budgetGate,
-    createAnthropicBenchmarkTransport(env),
+    transport ?? createAnthropicBenchmarkTransport(env),
   );
 }
 

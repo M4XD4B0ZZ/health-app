@@ -11,6 +11,16 @@ function allSourceFiles(): string[] {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
+        // RESOLVER-V3-039 added a deliberately separate, explicitly live-authorized subtree here
+        // (`representativeHybridV1/live/**`) that legitimately imports the live transport/budget
+        // gate and reads ANTHROPIC_API_KEY's presence -- that is its entire purpose, and it is
+        // never wired into this fixture-only harness (`runRepresentativeHybridV1.ts`/
+        // `.harness.ts` never import it). Its own isolation properties (no production DI import,
+        // no fixture fallback, secret-free errors) are proven by its own
+        // `live/__tests__/RepresentativeHybridV1LiveIsolation.test.ts`. This scan's purpose is the
+        // FIXTURE-ONLY tree (RESOLVER-V3-038); excluding the live subtree keeps that purpose
+        // intact rather than making this assertion vacuously fail on out-of-scope files.
+        if (entry.name === 'live') continue;
         walk(fullPath);
         continue;
       }

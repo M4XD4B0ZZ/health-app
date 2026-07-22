@@ -9638,7 +9638,7 @@ with the DACH-weighting deviation disclosed above.
 
 #### RESOLVER-V3-039: Controlled Representative Live Hybrid Evidence
 
-Status: `todo`
+Status: `in_progress` (started 2026-07-22; branch `claude/resolver-v3-039-live-evidence-f4cz4a`)
 Depends on: RESOLVER-V3-038, RESOLVER-V3-040
 
 **Goal:** Collect the controlled, representative live evidence RESOLVER-V3-024 found missing, using

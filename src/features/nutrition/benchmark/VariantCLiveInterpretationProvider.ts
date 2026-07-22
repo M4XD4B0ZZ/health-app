@@ -14,7 +14,10 @@ import {
 } from './variantCPrompt';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
-import { createAnthropicBenchmarkTransport } from './AnthropicBenchmarkTransport';
+import {
+  AnthropicBenchmarkTransport,
+  createAnthropicBenchmarkTransport,
+} from './AnthropicBenchmarkTransport';
 
 /**
  * RESOLVER-V3-005: the one concrete, optional live Variant C interpretation provider adapter --
@@ -55,6 +58,9 @@ export class VariantCLiveProviderConfigError extends Error {
 export function createLiveVariantCInterpreter(
   env: Partial<Record<string, string | undefined>> = process.env,
   budgetGate?: LiveProviderBudgetGate,
+  /** Optional transport override (RESOLVER-V3-039): lets a caller supply its own timeout-enforcing
+   * transport instead of the plain proxy-aware default. Never used by RESOLVER-V3-013 callers. */
+  transport?: AnthropicBenchmarkTransport,
 ): VariantCAiInterpreter {
   const apiKey = env[ANTHROPIC_API_KEY_ENV];
   if (!apiKey) {
@@ -73,7 +79,7 @@ export function createLiveVariantCInterpreter(
     apiKey,
     modelId,
     budgetGate,
-    createAnthropicBenchmarkTransport(env),
+    transport ?? createAnthropicBenchmarkTransport(env),
   );
 }
 

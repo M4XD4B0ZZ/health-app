@@ -57,9 +57,17 @@
   the unchanged V1 aggregator; RESOLVER-V3-032 through RESOLVER-V3-036, RESOLVER-V3-023, RESOLVER-V3-024, and
   RESOLVER-V3-010 were not started. RESOLVER-V3-023 remains `blocked` (still needs RESOLVER-V3-032).
 - **Branch/PR status:** implemented on `claude/resolver-v3-031-projection-fingerprint-da2zyh` (based on
-  `origin/chore/clean-arch-structure` at `af842de3...`); PR number/merge commit and independent post-merge
-  review outcome to be recorded in a documentation-only follow-up, per the RESOLVER-V3-030/031 precedent
-  (PR #121 → PR #122).
+  `origin/chore/clean-arch-structure` at `af842de3...`); merged as **PR #123**, merge commit
+  `330deb37473b1030e0feb5718a9c7f0a6c0ef4a7`. CI (`verify`) green on the first run, no review comments.
+  Independent post-merge review of the actual merged diff found no defects — see `ROADMAP.md`'s
+  RESOLVER-V3-031 entry for the detailed post-merge review notes. This documentation-only follow-up (recording
+  the merged/reviewed state, per the RESOLVER-V3-030/031 precedent) restarts the same harness-designated
+  branch name from the new `origin/chore/clean-arch-structure` tip (`330deb3`). Pre-existing local branches
+  were left untouched. Remote branch deletion for the merged
+  `claude/resolver-v3-031-projection-fingerprint-da2zyh` ref was not attempted in this session — per
+  `AGENTS.md`'s documented incident, this environment's git proxy has previously rejected
+  `git push origin --delete` with HTTP 403 for merged branches, and no workaround was to be attempted; it is
+  left for an authorized cleanup channel.
 
 ## RESOLVER-V3-030 — Candidate Aggregation Operational Boundary
 

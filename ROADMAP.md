@@ -9828,8 +9828,9 @@ all six.
 
 #### RESOLVER-V3-031: Aggregation Projection V2, Fingerprint Versioning, and Closed Support/Contradiction Classification
 
-Status: `done` (implemented, tested, `npm run verify` green — 191 suites / 1850 tests; PR/merge-commit
-recorded in a documentation-only follow-up per the RESOLVER-V3-030/031 precedent, see below)
+Status: `done` (implemented, tested, `npm run verify` green — 191 suites / 1850 tests; merged PR #123,
+merge commit `330deb37473b1030e0feb5718a9c7f0a6c0ef4a7` — CI ("verify") green on the first run, no review
+comments; independent post-merge review of the actual merged diff found no defects, see below)
 Depends on: RESOLVER-V3-030
 
 **Goal:** Replace the implicit V1 aggregation-projection versioning with an explicit, fail-closed
@@ -9968,6 +9969,28 @@ ResolverKnowledgeCandidateContributionRelationClassifier.ts` (the classifier),
   RESOLVER-V3-024, and RESOLVER-V3-010 were not started. **RESOLVER-V3-023 remains `blocked`** — this task
   satisfies its RESOLVER-V3-031 dependency but RESOLVER-V3-032 (contribution ledger/duplicate/supersession/
   retraction logic) is still required before the benchmark is unblocked.
+- **Branch/PR status:** implemented on `claude/resolver-v3-031-projection-fingerprint-da2zyh` (based on
+  `origin/chore/clean-arch-structure` at `af842de3...`); merged as **PR #123**, merge commit
+  `330deb37473b1030e0feb5718a9c7f0a6c0ef4a7`. CI (`verify` check) was green on the first run with no review
+  comments. **Independent post-merge review** of the actual merged diff
+  (`git diff af842de3...330deb3...`) confirmed: exactly 15 new files added and 4 existing docs (`ROADMAP.md`,
+  the two design docs, `handoffs/latest-handoff.md`) modified — zero other files touched, and in particular
+  `ResolverObservationPrivacyEnforcer.ts`, `ResolverKnowledgeCandidateAggregator.ts`,
+  `ResolverObservationPrivacy.ts`, and `ResolverKnowledgeCandidate.ts` (the V1 surface) show an empty diff;
+  the V2 projection has no `id`-capable field anywhere in its type; the fingerprint canonical builder picks
+  payload fields by fixed name/order rather than `Object.keys()`; the relation classifier's matrix
+  implementation was re-read against operational-boundary §10 line-by-line and matches the "no invented rule"
+  requirement (routing↔non-routing cross-type orthogonality is scoped to `source-routing-pattern` only, not
+  `negative-source-routing-rule`, matching the design text's literal wording); no V2 module or symbol is
+  referenced by `src/infrastructure/di/container.ts` or by any file outside its own source/tests (re-verified
+  directly, not only via the isolation test); `git diff --check` clean. No defects were found requiring a
+  follow-up fix. This documentation-only follow-up (recording the merged/reviewed state, per the
+  RESOLVER-V3-030/031 precedent) restarts the same harness-designated branch name from the new
+  `origin/chore/clean-arch-structure` tip (`330deb3`). Pre-existing local branches were left untouched. Remote
+  branch deletion for the merged `claude/resolver-v3-031-projection-fingerprint-da2zyh` ref was not attempted
+  in this session — per `AGENTS.md`'s documented incident, this environment's git proxy has previously
+  rejected `git push origin --delete` with HTTP 403 for merged branches; it is left for an authorized cleanup
+  channel.
 
 ---
 

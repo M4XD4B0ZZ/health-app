@@ -538,3 +538,325 @@ describe('RESOLVER-V3-028 developer knowledge review governance', () => {
     });
   });
 });
+
+describe('RESOLVER-V3-037 contradiction-aware review approval gate', () => {
+  function candidateWithEvidence(
+    overrides: Partial<ResolverKnowledgeCandidate['evidence']> = {},
+    candidateOverrides: Partial<ResolverKnowledgeCandidate> = {},
+  ): ResolverKnowledgeCandidate {
+    return buildCandidate({
+      evidence: { ...buildCandidate().evidence, ...overrides },
+      ...candidateOverrides,
+    });
+  }
+
+  describe('exact RESOLVER-V3-023 / LBV2-GC-DEV-006 defect reproduction', () => {
+    it('blocks the exact fixture state (independently_confirmed + present + count 1) as blocked_contradiction with zero mutation', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 1,
+      });
+      const { service, store, repository } = subject({ candidates: [candidate] });
+      const before = snapshotOf(store, repository);
+      let applyDecisionCalled = false;
+      const originalApplyDecision = repository.applyDecision.bind(repository);
+      repository.applyDecision = async (plan) => {
+        applyDecisionCalled = true;
+        return originalApplyDecision(plan);
+      };
+
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'blocked_contradiction',
+      );
+
+      expect(applyDecisionCalled).toBe(false);
+      expect(candidate.status).toBe('pending_review');
+      expect(snapshotOf(store, repository)).toEqual(before);
+      expect(store.events).toHaveLength(0);
+      expect(repository.events).toHaveLength(0);
+      expect(repository.approved).toHaveLength(0);
+    });
+  });
+
+  describe('independent gate ordering (contradiction checked before independent-user evidence)', () => {
+    it.each([
+      ['independently_confirmed', 'blocked_contradiction'],
+      ['not_evaluable', 'blocked_contradiction'],
+    ] as const)(
+      'contradiction present + independentUserEvidence=%s -> %s (contradiction result is unaffected by evidence state)',
+      async (independentUserEvidence, expected) => {
+        const candidate = candidateWithEvidence({
+          independentUserEvidence,
+          contradictionStatus: 'present',
+          contradictingEvidenceCount: 3,
+        });
+        const { service, store, repository } = subject({ candidates: [candidate] });
+        const before = snapshotOf(store, repository);
+        await expect(service.review(request(candidate, 'approve'))).resolves.toBe(expected);
+        expect(snapshotOf(store, repository)).toEqual(before);
+      },
+    );
+
+    it('no contradiction + not_evaluable -> existing blocked_privacy (unchanged)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'not_evaluable',
+        contradictionStatus: 'none',
+        contradictingEvidenceCount: 0,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe('blocked_privacy');
+    });
+
+    it('no contradiction + independently_confirmed -> existing successful approval (unchanged)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'none',
+        contradictingEvidenceCount: 0,
+      });
+      const { service, repository } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe('applied');
+      expect(repository.approved).toHaveLength(1);
+    });
+
+    it('no contradiction + confirmed + unknown locale -> existing blocked_privacy (unchanged)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'none',
+        contradictingEvidenceCount: 0,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(
+        service.review(request(candidate, 'approve', { localeRestriction: 'unknown' })),
+      ).resolves.toBe('blocked_privacy');
+    });
+  });
+
+  describe('zero threshold (no acceptable contradiction count)', () => {
+    it('a contradiction count of 1 blocks', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 1,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'blocked_contradiction',
+      );
+    });
+
+    it('a large contradiction count blocks identically to a count of 1 (no threshold)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 1_000_000,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'blocked_contradiction',
+      );
+    });
+
+    it('a large supportingEvidenceCount cannot override a coherent contradiction', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 1,
+        supportingEvidenceCount: 1_000_000,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'blocked_contradiction',
+      );
+    });
+
+    it('does not invent a numeric contradiction-count threshold in source', () => {
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../application/knowledge/ResolverKnowledgeReviewService.ts'),
+        'utf8',
+      );
+      // Legitimate runtime coherence checks compare only against 0 (`>= 0`, `=== 0`, `!== 0`); no
+      // comparison against any nonzero number (a threshold) is permitted.
+      expect(source).not.toMatch(/contradictingEvidenceCount\s*[<>]=?\s*[1-9]/);
+      expect(source).not.toMatch(/contradictionThreshold/i);
+    });
+  });
+
+  describe('runtime evidence coherence for approve', () => {
+    it('none + 0 is valid (contradiction gate passes)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'none',
+        contradictingEvidenceCount: 0,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe('applied');
+    });
+
+    it('present + positive integer is valid, but blocked', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 4,
+      });
+      const { service } = subject({ candidates: [candidate] });
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'blocked_contradiction',
+      );
+    });
+
+    it.each([
+      ['none + positive count', 'none', 2],
+      ['present + zero count', 'present', 0],
+      ['negative count', 'present', -1],
+      ['fractional count', 'present', 1.5],
+      ['NaN count', 'present', NaN],
+      ['positive infinity count', 'present', Infinity],
+      ['negative infinity count', 'present', -Infinity],
+    ] as const)(
+      '%s -> validation_failed with zero mutation',
+      async (_label, contradictionStatus, contradictingEvidenceCount) => {
+        const candidate = candidateWithEvidence({
+          independentUserEvidence: 'independently_confirmed',
+          contradictionStatus,
+          contradictingEvidenceCount,
+        });
+        const { service, store, repository } = subject({ candidates: [candidate] });
+        const before = snapshotOf(store, repository);
+        await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+          'validation_failed',
+        );
+        expect(snapshotOf(store, repository)).toEqual(before);
+      },
+    );
+
+    it('a non-number contradiction count -> validation_failed with zero mutation (adversarial runtime cast)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+      });
+      (candidate.evidence as unknown as Record<string, unknown>).contradictingEvidenceCount =
+        '3' as unknown;
+      const { service, store, repository } = subject({ candidates: [candidate] });
+      const before = snapshotOf(store, repository);
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'validation_failed',
+      );
+      expect(snapshotOf(store, repository)).toEqual(before);
+    });
+
+    it('an unknown contradiction status -> validation_failed with zero mutation (adversarial runtime cast)', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictingEvidenceCount: 1,
+      });
+      (candidate.evidence as unknown as Record<string, unknown>).contradictionStatus =
+        'unknown' as unknown;
+      const { service, store, repository } = subject({ candidates: [candidate] });
+      const before = snapshotOf(store, repository);
+      await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+        'validation_failed',
+      );
+      expect(snapshotOf(store, repository)).toEqual(before);
+    });
+  });
+
+  describe('applies to every candidate type; no candidate-type exemption', () => {
+    it.each([
+      [
+        'source-routing-pattern',
+        { type: 'source-routing-pattern', locale: 'de', inputType: 'generic', sourceType: 'bls' },
+      ],
+      [
+        'abstention-policy-signal',
+        {
+          type: 'abstention-policy-signal',
+          locale: 'de',
+          inputType: 'generic',
+          reasonCode: 'NO_CANDIDATES',
+        },
+      ],
+      [
+        'clarification-policy-signal',
+        {
+          type: 'clarification-policy-signal',
+          locale: 'de',
+          inputType: 'generic',
+          reasonCode: 'MULTIPLE_CLOSE_MATCHES',
+        },
+      ],
+      ['provenance-gap', { type: 'provenance-gap', locale: 'de', inputType: 'generic' }],
+      [
+        'negative-source-routing-rule',
+        {
+          type: 'negative-source-routing-rule',
+          locale: 'de',
+          inputType: 'generic',
+          sourceType: 'bls',
+          reasonCode: 'NO_CANDIDATES',
+        },
+      ],
+    ] as const)(
+      '%s is blocked when coherent contradiction evidence is present',
+      async (candidateType, payload) => {
+        const candidate = candidateWithEvidence(
+          {
+            independentUserEvidence: 'independently_confirmed',
+            contradictionStatus: 'present',
+            contradictingEvidenceCount: 1,
+          },
+          { candidateType, payload: payload as ResolverKnowledgeCandidate['payload'] },
+        );
+        const { service } = subject({ candidates: [candidate] });
+        await expect(service.review(request(candidate, 'approve'))).resolves.toBe(
+          'blocked_contradiction',
+        );
+      },
+    );
+  });
+
+  describe('non-approve actions remain legal for contradicting evidence', () => {
+    it('needs_more_evidence with CONTRADICTING_EVIDENCE remains legal', async () => {
+      const candidate = candidateWithEvidence({
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 2,
+      });
+      const { service, store } = subject({ candidates: [candidate] });
+      await expect(
+        service.review(
+          request(candidate, 'needs_more_evidence', { reasonCode: 'CONTRADICTING_EVIDENCE' }),
+        ),
+      ).resolves.toBe('applied');
+      expect(store.candidates[0].status).toBe('needs_more_evidence');
+    });
+
+    it('reject with CONTRADICTING_EVIDENCE remains legal', async () => {
+      const candidate = candidateWithEvidence({
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 2,
+      });
+      const { service, store } = subject({ candidates: [candidate] });
+      await expect(
+        service.review(request(candidate, 'reject', { reasonCode: 'CONTRADICTING_EVIDENCE' })),
+      ).resolves.toBe('applied');
+      expect(store.candidates[0].status).toBe('rejected');
+    });
+  });
+
+  describe('idempotency of a blocked contradiction attempt', () => {
+    it('repeating the exact same blocked request returns blocked_contradiction again, not already_applied, with zero mutation both times', async () => {
+      const candidate = candidateWithEvidence({
+        independentUserEvidence: 'independently_confirmed',
+        contradictionStatus: 'present',
+        contradictingEvidenceCount: 1,
+      });
+      const { service, store, repository } = subject({ candidates: [candidate] });
+      const req = request(candidate, 'approve');
+      const before = snapshotOf(store, repository);
+      await expect(service.review(req)).resolves.toBe('blocked_contradiction');
+      expect(snapshotOf(store, repository)).toEqual(before);
+      await expect(service.review(req)).resolves.toBe('blocked_contradiction');
+      expect(snapshotOf(store, repository)).toEqual(before);
+    });
+  });
+});

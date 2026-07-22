@@ -63,8 +63,15 @@
   invariants passed, `INV-07` failed as described above) — these are explicitly distinct per this
   task's own binding interpretation. RESOLVER-V3-024 is now eligible for separate authorization
   (not begun). RESOLVER-V3-010 remains blocked, unaffected. RESOLVER-V3-037 added as `todo`.
-- **Branch/PR status:** not yet opened as of this handoff entry; see ROADMAP.md for the merge
-  commit once available.
+- **Branch/PR status:** merged as **PR #127**, merge commit `10bcc4d69fc811dd599837410f3de20f6377ffc8`.
+  CI (`verify`) green. Independent post-merge review confirmed the merge commit's tree is
+  byte-identical to the pre-merge branch tip (44 files changed against the pre-PR base, zero
+  forbidden-path changes), and `npm run verify` was independently rerun against the actual merged
+  tree (209 suites / 2041 tests, all green) rather than only the pre-merge branch. No defects found;
+  no follow-up code fix required. Remote deletion of the merged
+  `claude/resolver-v3-023-learning-benchmark-v2-f11n1l` branch was not attempted (per `AGENTS.md`'s
+  documented git-proxy HTTP 403 incident for merged branches); left for an authorized cleanup
+  channel.
 
 ---
 

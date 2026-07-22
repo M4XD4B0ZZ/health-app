@@ -9669,7 +9669,7 @@ successor corpus, with no fixture fallback and no production effect, sufficient 
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 
-Status: `todo`
+Status: `done`
 Depends on: none
 
 **Goal:** Define, before any future live Hybrid run's results are seen, the accepted production
@@ -9685,6 +9685,86 @@ invalidate the point of a pre-declared threshold.
 **Acceptance:** An explicit, accepted cost/latency acceptance policy exists, authored independently
 of any not-yet-run RESOLVER-V3-039 results. This policy must exist before RESOLVER-V3-039's results
 can be judged against G2-D/G2-E without inventing a threshold post hoc.
+
+**Implementation notes (2026-07-22):** Superseded the redundant, closed-without-merging PR #133
+(`codex/vervollstandige-letzten-task-von-claude`) and the discarded reference draft on
+`claude/autonomous-tasks-flight-hdewii` (never PR'd; three commits ahead of canonical, touching only
+`ROADMAP.md`, this policy document, and `handoffs/latest-handoff.md`). Selectively reapplied only the
+valid RESOLVER-V3-040 content from that reference branch onto a fresh branch created directly from
+`origin/chore/clean-arch-structure` at `9df3d6c8d6318aa5d35895de02723d1b4bd9026c` (PR #132 tip, after
+RESOLVER-V3-038 merged); excluded that branch's unrelated UT-001/`A0` blocked-run note and its
+RESOLVER-V3-038 "parallel-session" discarded-implementation note, neither of which belongs in a
+RESOLVER-V3-040-only diff. Added
+[`docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md`](docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md),
+grounded entirely in RESOLVER-V3-007's cost/latency formula framework and RESOLVER-V3-013's one real
+live-provider run, reusing RESOLVER-V3-007's measured/fixture-only/assumed/derived/unknown
+evidence-labeling convention plus an added `normative policy choice` class for values this document
+deliberately sets on top of measured evidence.
+
+**Critical factual correction (personal-memory/cache):** the reference draft's cache section claimed
+no personal-cache read path exists and that `C=0` was therefore an architectural fact. Independent
+code reading of `src/infrastructure/di/container.ts` (confirming
+`PersonalResolutionMemoryAwareFoodCatalogResolver` wired outside test env,
+`SupabasePersonalResolutionMemoryReadRepository`/`NoopPersonalResolutionMemoryReadRepository`) and
+RESOLVER-V3-024 §20/§27/§28 both show the read path is production-wired (RESOLVER-V3-019/026/027),
+performs exact `P2_confirmed` reuse, and has working invalidation/owner isolation — but its real
+production hit rate is unknown (RESOLVER-V3-010 is `blocked`, so no production Hybrid traffic exists
+to measure a hit rate against). The policy now states this distinction explicitly (implementation
+exists / hit rate unknown / `C=0` is a deliberately chosen worst-case scenario input in the
+`N_low` monthly-volume bucket only, never presented as an architectural fact).
+
+**Accepted thresholds (all reviewed against V3-013 evidence, sample size, and retry-tail
+implications; see the policy document's own classification table, §12, for measured vs. derived vs.
+assumed vs. normative-choice vs. unknown tagging of every value):**
+
+- Latency: fast-path p95 ≤ 1,000 ms; AI-routed single-attempt p95 ≤ 12,000 ms (**widened from the
+  reference draft's 10,000 ms** — n=7 is too small a sample to trust a bare ~1.35x margin as durable
+  headroom; 12,000 ms is a deliberately wider, still-tight, ~1.6x predeclared bound); retrieval-phase
+  p95 ≤ 2,000 ms; all-attempts p95 ≤ 12,000 ms.
+- Timeout/retry: 15 s provider timeout per attempt; at most one automatic transient retry; ≤500 ms
+  backoff; 20 s total wall-clock ceiling **made explicitly authoritative over the per-attempt
+  timeout** — an internal inconsistency in the reference draft (two full 15 s attempts plus backoff
+  can exceed a bare 20 s ceiling) is resolved by requiring any in-flight attempt to fail closed at the
+  20 s wall-clock boundary regardless of its own unexpired 15 s timeout, and by only initiating a
+  retry when enough wall-clock budget remains.
+- Cost: ≤ USD 0.02 per attempted AI-routed log, evaluated as a **partition-level mean** (an explicit
+  aggregation-rule choice this task made, since the reference draft left "per attempted log" open to
+  a per-case-vs-mean reading); no numeric ceiling for successful/validated/correct-complex logs
+  (`e`/`v`/`k` unknown, formula only); source-request cost assumed USD 0 today (BLS local, OFF/USDA
+  free public APIs), explicitly not a fact; no absolute monthly dollar ceiling (`F`/`C`/`N` unknown in
+  production, and a monthly ceiling would additionally require an unmade product-tier economics
+  decision).
+- Monthly-volume scenario structure: `N_low`/`N_base`/`N_high` symbolic buckets reused from
+  RESOLVER-V3-007, `N_low` alone using `F=0,C=0` as a deliberate conservative input, not a claim about
+  what is implemented.
+- Product-tier economics: deferred to the product owner; cross-referenced to `P2-010` (confirmed
+  still `todo`); RESOLVER-V3-039 may still be judged against the latency/cost thresholds without this
+  being resolved.
+- Provider-price freshness: this document performs no live provider lookup; RESOLVER-V3-039 must
+  re-check current pricing, pin its own dated snapshot, fail closed if pricing is unknown, and compare
+  its measured usage against the USD 0.02 ceiling using its own current price, not the 2026-07-20
+  snapshot, unless independently reconfirmed.
+- G2-D/G2-E mapping: fully specified, non-ambiguous pass/fail rules in the policy document's §10 —
+  development/holdout evaluated separately (both must pass); technical failures and retries counted
+  in the population, never excluded; a minimum `n ≥ 30` per gate-evaluable path/partition (reused from
+  RESOLVER-V3-013's own small-sample convention) below which that combination is `not_evaluable`, not
+  a default pass; a single ceiling violation in any gate-evaluable combination fails that dimension for
+  that partition (non-averageable, mirroring the G2-B false-confidence hard-criterion treatment);
+  missing token usage or billing metadata is `unknown`/`not_evaluable`, never `$0` and never a default
+  pass; every cost figure is explicitly labeled an estimate, never an invoice.
+
+**Verification:** documentation-only change (Category 1 per `VERIFY.md`) — `git --no-pager status
+--short` / `--diff --stat` / `--diff --name-only` confirm the change is limited to `ROADMAP.md`, this
+file's own entry, `handoffs/latest-handoff.md`, and the one new policy document; `git diff --check`
+reports no whitespace errors; `npm run verify` was additionally run for extra confidence even though
+not required by the Category 1 decision table (see the handoff for the exact result).
+**Effect on RESOLVER-V3-039:** its dependency on RESOLVER-V3-040 is now satisfied (RESOLVER-V3-038
+was already `done`); RESOLVER-V3-039 itself remains `todo`, not started, not authorized by this
+task — collecting real live evidence is a separate, credential-gated task requiring its own
+authorization.
+**No-production-effect statement:** no resolver behavior, review behavior, benchmark corpus,
+registry, canonical historical report, production wiring, feature flag, Supabase migration/RPC/
+adapter, package/dependency, or provider call of any kind was changed or made by this task.
 
 ---
 

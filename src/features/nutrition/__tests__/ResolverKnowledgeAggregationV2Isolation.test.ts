@@ -38,7 +38,21 @@ describe('RESOLVER-V3-031 V2 module isolation', () => {
     );
   });
 
-  it('no V2 module is referenced anywhere outside its own source/tests', () => {
+  it('no V2 module is referenced anywhere outside its own source/tests or an authorized RESOLVER-V3-032 consumer', () => {
+    // RESOLVER-V3-032 is explicitly required to depend on the V3-031 fingerprint/classifier logic
+    // as a consumer ("use V3-031 logic as a dependency, not as code to rewrite") rather than
+    // duplicating it, so its pure domain/application files are sanctioned additional consumers of
+    // these symbols. This does not weaken the check for any other file: the DI container, UI,
+    // journal, and resolver-execution code remain forbidden from referencing any V2 symbol (see
+    // the two prior tests and the isolation test below), and no new production caller was added.
+    const authorizedV3032ConsumerFiles = [
+      '../domain/models/ResolverKnowledgeContributionLedger.ts',
+      '../application/knowledge/ResolverKnowledgeCandidateFingerprintV2IdentityMapper.ts',
+      '../application/knowledge/ResolverKnowledgeContributionIdCalculator.ts',
+      '../application/knowledge/ResolverKnowledgeContributionLedgerValidator.ts',
+      '../application/knowledge/ResolverKnowledgeContributionRecordingPlanner.ts',
+      '../application/knowledge/ResolverKnowledgeContributionReplaySummaryCalculator.ts',
+    ].map((relative) => path.resolve(__dirname, relative));
     const srcRoot = path.resolve(__dirname, '../../../../src');
     const v2Symbols = [
       'ResolverObservationAggregationProjectionV2',
@@ -59,6 +73,7 @@ describe('RESOLVER-V3-031 V2 module isolation', () => {
         if (!entry.name.endsWith('.ts') && !entry.name.endsWith('.tsx')) continue;
         if (fullPath.includes(`${path.sep}__tests__${path.sep}`)) continue;
         if (v2ModuleFiles.includes(fullPath)) continue;
+        if (authorizedV3032ConsumerFiles.includes(fullPath)) continue;
         const source = fs.readFileSync(fullPath, 'utf8');
         if (v2Symbols.some((symbol) => source.includes(symbol))) offenders.push(fullPath);
       }

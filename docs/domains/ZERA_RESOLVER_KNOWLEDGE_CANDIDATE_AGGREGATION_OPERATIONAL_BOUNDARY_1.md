@@ -784,3 +784,42 @@ not authorize anything beyond RESOLVER-V3-031's own scope:
 - The V2 fingerprint's concrete SHA-256 adapter uses Node's built-in `crypto` module, consistent with §16's
   and §17's framing of the aggregation pipeline as a server-only process — not `expo-crypto`, which is a
   client-side/Expo-native API and would be the wrong dependency for that future server-only worker boundary.
+
+## 30. Implementation note (RESOLVER-V3-032)
+
+RESOLVER-V3-032 implemented §8 (contribution-ledger model), §9's candidate-identity consequences for a
+durable global candidate ID, §13 (rejection suppression), §14 (duplicate/supersession terminal-chain
+resolution), and §15 (deletion/retraction recomputation) as real, tested, pure domain/application code plus
+an in-memory reference repository — see the RESOLVER-V3-032 entry in `ROADMAP.md` and the new dedicated
+contract document
+([`ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md`](ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md))
+for the full schema, the append-only/retraction representation decision, and the complete implemented
+behavior. This note records only that the implementation exists and matches this design; it does not amend
+any decision in §1-§29 above, and it does not authorize anything beyond RESOLVER-V3-032's own scope:
+
+- **§8's own text tension resolved:** §8 describes the ledger as append-only while also describing a row
+  moving `active → retracted`. RESOLVER-V3-032 resolves this as the strictest auditable representation —
+  the contribution record itself has no mutable status field; retraction is a separate, immutable,
+  append-only event; effective state is derived, never mutated in place. See the new contract doc §4 for the
+  full rationale.
+- **§8's contribution-ID text corrected against §10:** §8's own prose says the contribution ID is "derived
+  from `{observationId, resolverRunId}`," but §10's own text already says "not from the observation alone" —
+  the contribution ID must include the candidate fingerprint so one observation contributing to two
+  candidates does not collide. RESOLVER-V3-032 follows the more specific, later §10 wording, as this
+  document's own internal cross-reference already implies it should.
+- **No persistence, RPC, migration, batch worker, or independent-user policy was introduced.** §11
+  (independent-user evidence/contributor token), §16 (atomicity/RPC), and §17 (batch execution) remain
+  undecided-in-code and are RESOLVER-V3-033/034/035's scope, unchanged by this note — exactly as the
+  RESOLVER-V3-031 implementation note (§29) already stated for its own scope.
+- **§23's critical assessment is now fully resolved for the two concrete blockers it named:** "duplicate/
+  rejection/supersession behavior (§13/§14)" and "deletion/retraction sequences (§15)" now exist as real,
+  fixture-testable code, alongside RESOLVER-V3-031's already-implemented projection/fingerprint/
+  classification logic. Per §23's own reasoning (RESOLVER-V3-033/034/035 were deliberately not added as
+  RESOLVER-V3-023 blockers, since the benchmark's fixture/dev-holdout scope does not require live production
+  infrastructure or a settled independent-user threshold), RESOLVER-V3-023 is reassessed against its explicit
+  dependency list once RESOLVER-V3-032 is merged and independently post-merge reviewed; the reassessment
+  outcome is recorded in `ROADMAP.md`'s RESOLVER-V3-023 entry, not decided further in this note.
+- The candidate-durable-identity scheme this document's §9 anticipated ("a future migration path from v1 to
+  v2 fingerprints... is out of scope here") remains out of scope: RESOLVER-V3-032 mints a new global
+  candidate ID format (`rkc-v2:<fingerprintVersion>::<digest>`) for V2-fingerprinted candidates without
+  touching any existing V1 candidate ID.

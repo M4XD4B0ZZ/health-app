@@ -61,7 +61,17 @@
   `claude/resolver-v3-037-contradiction-gate-sxo59r` (this task's branch coincided with a
   pre-existing empty branch of the same name, already in sync with
   `origin/chore/clean-arch-structure` at the time this task began — no rebase, reset, or history
-  repair was performed).
+  repair was performed). Merged as **PR #129**, merge commit
+  `27db42338af7f6f2bfe68026e581ee63149eb006`. CI (`verify`) was green with no review comments.
+  **Independent post-merge review** confirmed the merge commit's tree is byte-identical to the
+  pre-merge branch tip (zero-line diff) and that exactly the 10 expected files changed against the
+  pre-PR base, with zero forbidden-path changes (migrations, Supabase functions, package/lockfile,
+  environment, DI/container, UI/journal, or Learning Benchmark V2 corpus/registry/canonical-report
+  files) — see the RESOLVER-V3-037 ROADMAP.md entry's "Branch/PR status" note for full detail. No
+  defects found; no follow-up code fix required. This documentation-only follow-up restarts the same
+  branch name from the new merged tip via a fast-forward reset. Remote deletion of the merged branch
+  was not attempted (per `AGENTS.md`'s documented git-proxy HTTP 403 incident); left for an
+  authorized cleanup channel.
 
 ---
 

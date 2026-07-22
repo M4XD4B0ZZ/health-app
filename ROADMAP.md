@@ -10485,6 +10485,30 @@ benchmark was rerun, or that any production resolver effect now exists.
 `RESOLVER-V3-024`'s dependency list is updated below to add `RESOLVER-V3-037`; RESOLVER-V3-024 itself
 remains `todo` and was not started. `RESOLVER-V3-010` remains `blocked`, unaffected.
 
+**Branch/PR status:** implemented on `claude/resolver-v3-037-contradiction-gate-sxo59r` (based on
+`origin/chore/clean-arch-structure` at `d85d6f6c6f88b6f5a779ae5d1544e0bdfca4f0e6`); merged as **PR
+#129**, merge commit `27db42338af7f6f2bfe68026e581ee63149eb006`. CI (`verify` check) was green (single
+check, `success`, no retries needed); no review comments were posted. **Independent post-merge
+review** of the actual merged diff confirmed the merge commit's tree is byte-identical to the
+pre-merge branch tip (`git diff 024c59d..27db423` — zero lines) and that exactly the 10 expected
+files changed against the pre-PR base (`git diff d85d6f6..27db423 --name-only`) — the same nine
+implementation/docs/report files plus this `ROADMAP.md`/handoff entry, with no other file touched; in
+particular no `supabase/migrations/**`, `supabase/functions/**`, `package.json`,
+`package-lock.json`, environment file, `src/infrastructure/di/container.ts`, or UI/journal file shows
+any diff (re-verified directly), and the frozen Learning Benchmark V2 corpus/registry and canonical
+V3-023 reports remain untouched. Because the merge commit's tree is content-identical to the
+already-verified pre-merge branch tip, the pre-merge `npm run verify` result (209 suites / 2071
+tests, 0 type errors, 0 lint errors, 0 format violations) is evidence for the merged state itself,
+not merely the pre-merge branch. No defects were found requiring a follow-up code fix. This
+documentation-only follow-up (recording the merged/reviewed state, per the RESOLVER-V3-023/028/032
+precedent) restarts the same harness-designated branch name from the new
+`origin/chore/clean-arch-structure` tip (`27db423`) via a fast-forward reset (no force-push
+required, since the merge commit is a descendant of the pre-merge branch tip). Pre-existing local
+branches were left untouched. Remote branch deletion for the merged
+`claude/resolver-v3-037-contradiction-gate-sxo59r` ref was not attempted in this session — per
+`AGENTS.md`'s documented incident, this environment's git proxy has previously rejected `git push
+origin --delete` with HTTP 403 for merged branches; it is left for an authorized cleanup channel.
+
 ---
 
 #### RESOLVER-V3-010: Production Integration Behind Feature Flag

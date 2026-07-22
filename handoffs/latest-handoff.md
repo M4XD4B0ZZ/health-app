@@ -1,5 +1,65 @@
 # Latest Handoff
 
+## RESOLVER-V3-040 — Cost/Latency Acceptance Policy
+
+- **PR #133 closure:** Closed `codex/vervollstandige-letzten-task-von-claude` without merging,
+  rebasing, resolving its conflicts, cherry-picking from it, or reopening it, and without deleting
+  its branch. Closing comment recorded: superseded/redundant relative to the already-merged
+  RESOLVER-V3-038 (PR #132) and the separately-submitted RESOLVER-V3-040 below; its stale ROADMAP
+  state and incomplete `npm run verify` were called out explicitly. Its proposed policy numbers
+  (e.g. USD 0.010/log, fixed USD 100/500/2,000 monthly ceilings) were reviewed for comparison only —
+  none were reused; they are unrelated to, and not derivable from, this task's accepted thresholds.
+- **Branch/base:** `claude/resolver-v3-040-cost-latency-policy-lpfnw3`, created directly from
+  `origin/chore/clean-arch-structure` at `9df3d6c8d6318aa5d35895de02723d1b4bd9026c` (PR #132 merge,
+  RESOLVER-V3-038 `done`).
+- **Source branch inspected:** `claude/autonomous-tasks-flight-hdewii` (three commits ahead of
+  canonical at inspection time, never PR'd). `git diff origin/chore/clean-arch-structure..origin/
+claude/autonomous-tasks-flight-hdewii` touched exactly `ROADMAP.md`,
+  `docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md`, and
+  `handoffs/latest-handoff.md`.
+- **Selective-transfer method:** reused only the RESOLVER-V3-040 policy content and its own
+  ROADMAP/handoff entries from that branch; excluded its unrelated UT-001 "Attempted A0 run, blocked"
+  ROADMAP note and its RESOLVER-V3-038 "parallel-session" discarded-implementation note (neither
+  belongs in a RESOLVER-V3-040-only diff). No `learningV2/**`/`learningV3/**`, benchmark corpus, test,
+  or production code file was touched. UT-001 does not appear anywhere in the final diff.
+- **Corrections made:** (1) the obsolete "no personal-cache read path exists, so `C=0` is the only
+  defensible assumption" claim was replaced with the required distinction — implementation exists
+  (production-wired `PersonalResolutionMemoryAwareFoodCatalogResolver` in `container.ts`, confirmed by
+  direct code reading), measured production hit rate is unknown, and `C=0` is presented only as a
+  deliberate conservative scenario input in the `N_low` monthly-volume bucket, never as an
+  architectural fact. (2) the AI-routed p95 ceiling was widened from 10,000 ms to 12,000 ms (and the
+  all-attempts ceiling to match) because n=7 is too small a sample to trust a bare ~1.35x margin as
+  durable headroom. (3) an internal inconsistency between the 15 s per-attempt timeout, one retry, and
+  the 20 s total wall-clock ceiling (two full-length attempts plus backoff can exceed 20 s) was
+  resolved by making the wall-clock ceiling authoritative over the per-attempt timeout. (4) the cost
+  ceiling's aggregation rule was made explicit (partition-level mean over attempted AI-routed logs,
+  not a per-case cap). (5) a full, non-ambiguous G2-D/G2-E pass/fail mapping was added — separate
+  development/holdout evaluation, retries and technical failures counted in the population, a
+  minimum `n ≥ 30` gate-evaluability floor, a single-violation-fails rule, and an explicit
+  never-zero-on-missing-data rule.
+- **Accepted thresholds:** see the ROADMAP.md RESOLVER-V3-040 entry's "Accepted thresholds" list and
+  the policy document itself (`docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md`
+  §3–§10, §12 for the full measured/derived/assumed/normative-choice/unknown classification of every
+  numeric value).
+- **Unknowns retained:** production `F`, `C`, `N`; `e`/`v`/`k`; current (post-2026-07-20) provider
+  pricing; cold/warm latency separation; provider tail behavior under real concurrency; product-tier
+  economics. None are guessed; all are explicitly left `unknown` in the policy document (§13).
+- **Verification:** documentation-only change per `VERIFY.md` Category 1 —
+  `git --no-pager status --short` / `--diff --stat` / `--diff --name-only` / `git diff --check` all
+  confirm the diff is limited to `ROADMAP.md`, `handoffs/latest-handoff.md`, and the one new policy
+  document. `npm run verify` was additionally run for extra confidence; see the PR description/commit
+  history for the exact recorded result on this isolated branch (not copied from any other branch's
+  prior run).
+- **PR/merge state:** see the ROADMAP.md RESOLVER-V3-040 entry and, once available, the follow-up
+  merge/post-merge-review record for the exact PR number, merge commit, CI status, and independent
+  post-merge review outcome.
+- **RESOLVER-V3-039:** remains `todo`, not started, not authorized by this task. Its dependency on
+  RESOLVER-V3-040 is now satisfied; its dependency on RESOLVER-V3-038 was already satisfied.
+- **RESOLVER-V3-010:** remains `blocked`, unaffected by this task.
+- **RESOLVER-V3-038:** remains `done`, unmodified by this task.
+
+---
+
 ## RESOLVER-V3-038 — Representative Hybrid Benchmark Successor Corpus & Harness
 
 - **Basis and scope:** Branch `claude/resolver-v3-038-representative-hybrid-benchmark-a9csqu`,

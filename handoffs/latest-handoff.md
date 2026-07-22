@@ -1,5 +1,65 @@
 # Latest Handoff
 
+## RESOLVER-V3-038 — Representative Hybrid Benchmark Successor Corpus & Harness
+
+- **Session context:** this task was executed unattended, on the user's explicit standing
+  authorization, while they were offline (in-flight, no connectivity) for roughly two hours. The user
+  asked the agent to pick up ROADMAP.md's next logical task after the most recent ChatGPT-authored
+  work (RESOLVER-V3-024's `NOT_PASSED` gate re-decision and its RESOLVER-V3-038/039/040 follow-up
+  series) and to keep working through further tasks autonomously, documenting any limits rather than
+  stopping. Developed directly on this session's designated branch,
+  `claude/autonomous-tasks-flight-hdewii` (per this session's explicit branch assignment, not a new
+  per-task branch), diverging from `chore/clean-arch-structure` at the same commit RESOLVER-V3-024
+  merged from (`a37312b`, PR #131).
+- **Mandatory reading completed before implementing:** `SSOK.md`, `AGENTS.md`, `VERIFY.md`, the
+  RESOLVER-V3-024 canonical re-decision report (`reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md`,
+  §12-§27), its ROADMAP.md RESOLVER-V3-038/039/040 entries, the complete
+  `resolver-learning-benchmark-v2-corpus-1.0.0` type/registry/validator/manifest/corpus/spec files
+  (including the exact `LBV2-GC-DEV-006` fixture that RESOLVER-V3-024 §24 found coupled contradiction
+  and rollback concerns), `BenchmarkCaseTypes.ts`, `evaluateVariantCCase.ts`, and — read directly from
+  source, not assumed — `ResolverKnowledgeReviewService.review()`'s real, current (post-RESOLVER-V3-037)
+  `approve` branch and `ResolverKnowledgeReview.ts`'s `ResolverKnowledgeReviewResult` type (confirming
+  `'blocked_contradiction'` was added by RESOLVER-V3-037 and is absent from V1's frozen
+  `LearningBenchmarkV2GlobalCandidateStep` step type).
+- **Produced:** a wholly new, additive module,
+  `src/features/nutrition/benchmark/representativeHybrid/` (12 source files, 4 test files: types,
+  registry, validator, three scenario-corpus files, manifest/hash, harness contract), and
+  `docs/domains/ZERA_REPRESENTATIVE_HYBRID_BENCHMARK_SPEC_1.md`. Full implementation detail, corpus
+  size/coverage table, and the explicit scope boundary this task drew (no live execution wiring — see
+  below) are in the RESOLVER-V3-038 ROADMAP.md entry's "Implementation notes" and the spec doc.
+- **Core design decisions:** (1) `executionEngine: 'hybrid_c'` is a fixed literal on every resolution
+  scenario, closing RESOLVER-V3-024's finding that Learning Benchmark V2 only ever exercised Variant
+  A; (2) `global_candidate_sequence` is split into two disjoint, validator-enforced scenario types
+  (`contradiction_gate_sequence`, `rollback_sequence`) so the exact `LBV2-GC-DEV-006` coupling
+  RESOLVER-V3-024 §24 documented is structurally impossible to reintroduce in this corpus; (3) a new,
+  locally-owned candidate-step type was built from the real, current `ResolverKnowledgeReviewAction`/
+  `ResolverKnowledgeReviewResult` domain types instead of reusing V1's step type, because V1's
+  `expectedResult` union predates and lacks `'blocked_contradiction'`.
+- **Explicit scoping decision (documented limitation, not silently dropped):** this task did not wire
+  a working in-process harness that actually executes contradiction-gate/rollback steps against the
+  real `ResolverKnowledgeReviewService` (i.e. did not build a RESOLVER-V3-032-style adapter). RESOLVER-
+  V3-038's own non-goals scope it as design/corpus-authoring only ("no production wiring"); the only
+  concrete function this task provides is a pure, zero-I/O structural self-check
+  (`selfCheckRepresentativeHybridBenchmarkCorpus`). Building that adapter is left for RESOLVER-V3-039
+  or a small dedicated follow-up — flagged here explicitly per this session's standing instruction to
+  document limits rather than silently expand scope.
+- **Did not touch:** any `../learningV2/*` file (V1 corpus/registry/hash remain byte-identical —
+  confirmed by `git diff --stat` touching only `ROADMAP.md`, the new spec doc, and the new directory),
+  any migration, `src/infrastructure/di/container.ts`, `package.json`/`package-lock.json`, any Supabase
+  adapter, or any live provider credential/flag.
+- **Verification:** `node_modules` did not exist in this session; `npm install --ignore-scripts` was
+  required to restore JS dependencies (the Supabase CLI postinstall binary download 403'd through the
+  environment's egress proxy, which only allow-lists a fixed set of package registries — unrelated to
+  this task's code, so scripts were skipped rather than routed around; lockfile unchanged). `npm run
+verify` (typecheck + lint + format:check + full test suite) — green: 0 type errors, 0 lint errors, 0
+  format violations, 213 suites / 2100 tests passed, including the new module's own 29 tests.
+- **Effect on RESOLVER-V3-039/040:** both remain `todo`, not started, not authorized here.
+  RESOLVER-V3-039 may proceed once RESOLVER-V3-040 is also done, per its own stated dependency.
+- **Branch/PR status:** to be recorded after push/PR (this entry is written before that step
+  completes).
+
+---
+
 ## RESOLVER-V3-024 — Representative Learning/Hybrid Gate Re-decision
 
 - **Basis and scope:** Branch `claude/resolver-v3-024-representative-gate-redecision`, created

@@ -9574,7 +9574,7 @@ pre-existing task. None of the three is started by this addition.
 
 #### RESOLVER-V3-038: Representative Hybrid Benchmark Successor Corpus & Harness
 
-Status: `todo`
+Status: `done`
 Depends on: RESOLVER-V3-024
 
 **Goal:** Create a successor benchmark contract/corpus version that closes the representative-
@@ -9595,6 +9595,85 @@ same coupling; accidentally importing or mutating V1 corpus history.
 `npm run verify`.
 **Acceptance:** A versioned, immutable successor corpus contract exists with the required category
 coverage and contradiction/rollback separation, with zero production or live-provider effect.
+
+**Implementation notes (2026-07-22):** Implemented as a wholly new, additive module,
+`src/features/nutrition/benchmark/representativeHybrid/` (12 source files, 4 test files), under
+corpus contract `resolver-representative-hybrid-benchmark-corpus-1.0.0` / registry
+`resolver-representative-hybrid-benchmark-registry-v1`. Full design rationale and coverage table:
+`docs/domains/ZERA_REPRESENTATIVE_HYBRID_BENCHMARK_SPEC_1.md`.
+
+- **(a) V1 preserved as immutable history:** no file under `../learningV2/` was read-modified,
+  imported at runtime, or re-exported; `git --no-pager diff --stat` for this task touches only
+  `ROADMAP.md`, the new spec doc, and the new `representativeHybrid/` directory. Only two type-only
+  imports cross into `learningV2/` (`LearningBenchmarkV2FixtureObservationInput` and, transitively,
+  nothing else) — enforced by a dedicated isolation-test assertion that no other `learningV2/` import
+  path appears anywhere in the new module.
+- **(b) Contradiction/rollback split:** two new disjoint scenario types,
+  `contradiction_gate_sequence` and `rollback_sequence`, replace V1's single
+  `global_candidate_sequence` use for this corpus. `RepresentativeHybridBenchmarkValidator.ts`
+  enforces the split structurally (on the raw steps array, not just via the TS union): a
+  `contradiction_gate_sequence` scenario fails validation if any step's `action` is
+  `rollback`/`revoke_approval`; a `rollback_sequence` scenario fails validation if any step sets
+  `forceContradiction: true`. A locally-defined candidate-step type
+  (`RepresentativeHybridBenchmarkCandidateStep`) was introduced rather than reusing V1's
+  `LearningBenchmarkV2GlobalCandidateStep`, because that V1 type's `expectedResult` union predates
+  RESOLVER-V3-037 and has no `'blocked_contradiction'` literal — reusing it would have made it
+  impossible to correctly express the very gate this corpus exists to exercise. `expectedResult`
+  values were derived by reading `ResolverKnowledgeReviewService.review()`'s real, current approve
+  branch directly (not run): a forced-contradiction approve attempt returns `blocked_contradiction`
+  unconditionally (no risk-level threshold); a default-evidence approve attempt returns
+  `blocked_privacy`.
+- **(c) Hybrid C, not Variant A:** every `resolution_decomposition_hybrid_c` scenario carries a fixed
+  `executionEngine: 'hybrid_c'` literal (not a per-scenario free-form field, so a future task cannot
+  quietly default back to Variant A), validated by `RepresentativeHybridBenchmarkValidator.ts`.
+- **(d) Dev/holdout retained:** `RepresentativeHybridBenchmarkRegistry.ts` mirrors
+  `LearningBenchmarkV2Registry.ts` exactly (immutable manifest, fail-closed on version mismatch or a
+  scenario assigned to two partitions).
+- **(e) Category coverage:** 12 resolution scenarios (8 dev, 4 holdout) cover `DACH`, `COMPOSED`,
+  `HOMEMADE`, `RESTAURANT`, `SIMPLE`, `HOUSEHOLD` (all six present in `development` alone, checked by
+  a dedicated corpus-level validator function, not by convention), plus a `VAGUE`
+  clarification-required case and two abstention-required cross-locale (English) cases. 3
+  contradiction-gate scenarios (2 dev, 1 holdout) and 3 rollback scenarios (2 dev, 1 holdout) — 18
+  scenarios total, 12 development / 6 holdout (33%). Ground-truth honesty: no BLS `sourceId`, recipe,
+  or "official restaurant data" figure is invented anywhere in the corpus; unverifiable cases use
+  `no_numeric_ground_truth` (see spec §6).
+- **(f) No production wiring / non-goals:** zero live provider calls, zero production wiring. A
+  harness _contract_ (`RepresentativeHybridBenchmarkHarnessContract.ts`) fixes the function
+  signatures a future live executor (RESOLVER-V3-039) and review-service adapter must implement, but
+  the only concrete function provided today is `selfCheckRepresentativeHybridBenchmarkCorpus()` — a
+  pure, zero-I/O structural self-test (corpus validity + registry cross-check), calling no resolver,
+  AI provider, or review service. `RepresentativeHybridBenchmarkIsolation.test.ts` (mirroring the
+  RESOLVER-V3-023/031/032 isolation-test pattern) asserts: no Supabase/live-transport/`fetch` import
+  anywhere in the module; not referenced by `src/infrastructure/di/container.ts`; no `--live` flag or
+  provider credential env var; no migration/edge-function/RPC added.
+- **Explicit scoping decision (documented limitation):** this task deliberately does not build a
+  working in-process harness wiring (i.e. it does not reuse/extend
+  `LearningBenchmarkV2GlobalCandidateAdapter.ts`'s pattern to actually execute
+  contradiction-gate/rollback steps against the real `ResolverKnowledgeReviewService`). RESOLVER-V3-038's
+  own non-goals scope it as "design/corpus-authoring only... no production wiring"; building and
+  wiring that adapter is left to a follow-up (either folded into RESOLVER-V3-039's live-execution work
+  or a small dedicated task), tracked here rather than silently expanded into scope.
+- **Verification:** `npm install --ignore-scripts` was required first (`node_modules` did not exist in
+  this session; the Supabase CLI postinstall binary download failed with a 403 through the
+  environment's egress proxy, which only allows a fixed set of package registries — `--ignore-scripts`
+  restores all JS dependencies needed for `npm run verify` without needing that unrelated CLI binary;
+  `package.json`/`package-lock.json` were not modified). `npm run verify` (typecheck + lint +
+  format:check + test) — green: 0 type errors, 0 lint errors, 0 format violations, 213 test suites /
+  2100 tests passed (full suite, not just the new module). The new module's own 4 test files (29
+  tests: validator structural + contradiction/rollback-separation rejection, registry
+  uniqueness/version, harness self-check, isolation) all pass. `git --no-pager status --short` /
+  `--diff --stat` confirm the change is limited to `ROADMAP.md`, the new spec doc, and the new
+  `representativeHybrid/` directory — no `learningV2/` file, migration, `container.ts`,
+  `package.json`, or `package-lock.json` was touched.
+- **No UI/presentation-layer files touched:** `docs/MANUAL_TESTING_GAPS.md` entry not required per
+  `AGENTS.md`/`VERIFY.md`.
+- **Effect on RESOLVER-V3-039/040:** RESOLVER-V3-039 (controlled representative live Hybrid evidence)
+  remains `todo`, not started, and not authorized by this task — it may now proceed once
+  RESOLVER-V3-040 (cost/latency acceptance policy) is also done. RESOLVER-V3-040 is independent and
+  was not started by this task either.
+- **Branch/PR status:** implemented directly on this session's designated autonomous-work branch
+  (`claude/autonomous-tasks-flight-hdewii`); see `handoffs/latest-handoff.md` for the session context
+  (unattended continuation while the requesting user was offline) and PR status once opened.
 
 #### RESOLVER-V3-039: Controlled Representative Live Hybrid Evidence
 

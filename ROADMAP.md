@@ -9667,6 +9667,50 @@ automatic rerun without separate authorization.
 successor corpus, with no fixture fallback and no production effect, sufficient to evaluate G2-B.
 **This task is not authorized or executed by RESOLVER-V3-024 or RESOLVER-V3-038.**
 
+**Phase A result (2026-07-22, protocol-freeze commit `da3bae6939bd5514e7a7521597ae670940e45ea6`):**
+complete. Additive live orchestration/reporting layer implemented under
+`src/features/nutrition/benchmark/representativeHybridV1/live/**`; task-specific
+`LiveProviderBudgetGate` computed from the frozen execution plan (263 max calls, USD 4.174336
+worst-case reservation, within the USD 5.00 ceiling); official Anthropic pricing verified
+2026-07-22 (`https://platform.claude.com/docs/en/about-claude/pricing`) with no drift from existing
+repo constants; 15s/20s timeout+wall-clock enforcement with true fetch-abort; 50 new focused tests
+pass; full historical regression suite (2,208 tests) and `npm run verify` pass. See
+`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL.md` /
+`reports/resolver-v3-039-controlled-live-protocol.json` for the frozen protocol.
+
+**Phase B result:** **blocked — `ANTHROPIC_API_KEY` is not set in this execution environment.**
+Verified directly: both `--preflight` (zero-network, reports `apiKeyPresent: false`) and
+`--partition=development --protocol=...` (fails closed, exit 1, secret-free message, before any
+process spawn) were run against the frozen commit. Zero of the 263 planned calls were made; zero
+cost incurred. Per this task's own rule, it is **not marked `done`** merely because the protocol
+was frozen — status remains `in_progress` with this recorded blocker, pending an authorized
+environment with the credential. See
+`reports/RESOLVER_V3_039_CONTROLLED_REPRESENTATIVE_LIVE_EVIDENCE.md` for the full evidence-level
+report (all G2 dimensions `not_evaluable`) and
+`reports/resolver-v3-039-controlled-representative-live-evidence.json` for the machine-readable
+form.
+
+#### RESOLVER-V3-041: Representative Hybrid Gate Re-Decision After Controlled Live Evidence
+
+Status: `todo`
+Depends on: RESOLVER-V3-039
+
+**Goal:** Re-decide the RESOLVER-V3-024 G2 gate (representative quality, false confidence, user
+friction, latency, cost, provenance/nutrient authority, consistency) once RESOLVER-V3-039 has
+produced a complete live evidence set (development + holdout, both partitions evaluable for every
+mandatory dimension).
+**Non-goals:** Any production wiring, feature-flag change, or provider/model product decision;
+rewriting RESOLVER-V3-024's historical verdict (it stands as a separate, unmodified record); this
+task does not begin RESOLVER-V3-010, which remains `blocked` until this task explicitly passes.
+**Risks:** Treating a partial or `not_evaluable`-heavy RESOLVER-V3-039 result as sufficient for a
+gate decision; silently declaring the gate passed.
+**Acceptance:** An explicit, evidence-cited pass/fail re-decision for every G2 dimension, using
+RESOLVER-V3-039's actual live results (not the fixture-only RESOLVER-V3-038 report, not the
+14-case RESOLVER-V3-013 smoke evidence).
+**This task is not started. RESOLVER-V3-039's Phase B has not run (blocked on a missing
+`ANTHROPIC_API_KEY` — see that task's entry above), so this task has no live evidence to re-decide
+against yet.**
+
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 
 Status: `done`

@@ -1,5 +1,73 @@
 # Latest Handoff
 
+## RESOLVER-V3-023 — Learning Benchmark V2
+
+- **Basis and scope:** Branch `claude/resolver-v3-023-learning-benchmark-v2-f11n1l`, based on
+  `origin/chore/clean-arch-structure` at `69f0a91f58853866a37419decf7d62c56a977ee3` (merge of PR
+  #126). Read `SSOK.md`, `AGENTS.md`, `ROADMAP.md`, `VERIFY.md`,
+  `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the Knowledge-Growth Decision Record, the
+  Food Resolution Decision Record/Benchmark Spec, the Personal-Memory contracts, the
+  Contribution-Ledger/Candidate/Review/Shadow-Mode contracts, the accepted operational-boundary
+  design, the three-variant comparison and cost/latency reports, and the ROADMAP entries for
+  RESOLVER-V3-001..036 before writing anything. This is an evidence-generation task: a `NOT_PASSED`
+  system verdict is a legitimate, complete outcome and is exactly what this run produced.
+- **Pre-implementation inventory:** delegated to three parallel research passes (existing
+  benchmark-harness conventions; personal-memory production code; global-candidate/ledger/review/
+  shadow production code), each independently cross-checked by direct file reads. Key finding used
+  directly: no production in-memory adapter exists for the personal-memory write/read ports (only
+  Supabase adapters and inline test fakes); the RESOLVER-V3-031/032 in-memory reference
+  implementations have zero production callers today (confirmed by grep and by the two existing
+  isolation tests' own source); and — read directly from `ResolverKnowledgeReviewService.ts` — the
+  real `approve` branch never inspects `contradictionStatus`/`contradictingEvidenceCount`, only
+  `independentUserEvidence` and `localeRestriction`.
+- **Implemented:** the closed Learning Benchmark V2 corpus contract
+  (`resolver-learning-benchmark-v2-corpus-1.0.0`), an immutable dev/holdout registry mirroring the
+  RESOLVER-V3-029 shadow-corpus-registry pattern, and a canonical harness/CLI under
+  `src/features/nutrition/benchmark/learningV2/` (18 source files, 12 test files) plus
+  `scripts/benchmark-resolver-v3-learning-v2.mjs`. 41 scenarios (32 development, 9 holdout, ~22%)
+  across all five required scenario classes. See `docs/domains/ZERA_RESOLVER_LEARNING_BENCHMARK_V2_SPEC_1.md`
+  and the RESOLVER-V3-023 ROADMAP.md entry's "Implementation notes" for full detail.
+- **Reuses real production logic throughout** (never reimplemented): the real, unmodified
+  `SequentialFoodCatalogResolver` for resolution/decomposition; the real
+  `RecordPersonalResolutionMemoryUseCase`/`ReadPersonalResolutionMemoryUseCase`/
+  `InvalidatePersonalResolutionMemoryUseCase` (the last over its real in-memory repository) for
+  personal-memory sequences; the real RESOLVER-V3-031/032 contribution-recording planner,
+  terminal-chain resolver, replay-summary calculator, `ResolverKnowledgeReviewService`, and
+  `ResolverKnowledgeShadowEvaluator` for global-candidate/review/shadow sequences, all behind one
+  dedicated adapter file (`LearningBenchmarkV2GlobalCandidateAdapter.ts`) added as the sole
+  authorized consumer to the two existing isolation tests' allowlists
+  (`ResolverKnowledgeAggregationV2Isolation.test.ts`, `ResolverKnowledgeContributionLedgerIsolation.test.ts`),
+  mirroring the existing RESOLVER-V3-032 precedent exactly.
+- **Discovered a real defect, did not fix it:** a fixture-only candidate with
+  `independentUserEvidence` forced to `independently_confirmed` and nonzero contradiction evidence
+  was approved by the real review service (`INV-07: failed`). This does not imply any production
+  candidate can currently reach this state. Recorded honestly in the canonical report; a narrowly
+  scoped remediation task, **RESOLVER-V3-037: Contradiction-Aware Review Approval Gate**, was added
+  (`todo`) rather than fixing production review-policy code inside this task.
+- **Corpus freeze:** committed corpus/registry/validator/corpus-fixture files in a dedicated commit
+  before implementing the harness/evaluators; holdout scenario inputs/expected outcomes were not
+  modified after that commit.
+- **Verification:** `npm run verify` — 209 suites / 2041 tests, 0 type errors, 0 lint errors, 0
+  format violations (baseline before this task: 197 suites / 1953 tests, per RESOLVER-V3-032's own
+  verified count). Historical Variant A/B/C fixture-mode regressions rerun clean and byte-identical
+  to their previously recorded results (Variant A: 14 cases, 75% identification accuracy, 1 critical
+  false-confidence failure). Final holdout evaluation run once via
+  `node scripts/benchmark-resolver-v3-learning-v2.mjs --partition=all --final-evaluation`.
+  `git diff --name-only` against `origin/chore/clean-arch-structure` touches only new
+  `learningV2/**` files, the new CLI script, the two isolation tests' allowlist additions, one new
+  domain spec doc, two new canonical report artifacts, and this `ROADMAP.md`/handoff entry — zero
+  changes to `supabase/migrations/**`, `supabase/functions/**`, `package.json`,
+  `package-lock.json`, any environment file, `src/infrastructure/di/container.ts`, or any
+  journal/UI file.
+- **Final status:** RESOLVER-V3-023 `done` (task completion); system verdict `NOT_PASSED` (19/20
+  invariants passed, `INV-07` failed as described above) — these are explicitly distinct per this
+  task's own binding interpretation. RESOLVER-V3-024 is now eligible for separate authorization
+  (not begun). RESOLVER-V3-010 remains blocked, unaffected. RESOLVER-V3-037 added as `todo`.
+- **Branch/PR status:** not yet opened as of this handoff entry; see ROADMAP.md for the merge
+  commit once available.
+
+---
+
 ## RESOLVER-V3-032 — Private Contribution Ledger, Rejection Suppression, Duplicate/Supersession, and Deletion/Retraction Recomputation
 
 - **Basis and scope:** Branch `claude/resolver-v3-032-contribution-ledger-nvdqus` was already present

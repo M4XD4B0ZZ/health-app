@@ -53,6 +53,14 @@ describe('RESOLVER-V3-031 V2 module isolation', () => {
       '../application/knowledge/ResolverKnowledgeContributionRecordingPlanner.ts',
       '../application/knowledge/ResolverKnowledgeContributionReplaySummaryCalculator.ts',
     ].map((relative) => path.resolve(__dirname, relative));
+    // RESOLVER-V3-023 (Learning Benchmark V2) is the first real caller of the V3-031/032
+    // in-memory reference implementations (they are otherwise unwired, per those tasks' own
+    // ROADMAP notes). Its single adapter file is a sanctioned additional consumer for exactly the
+    // same reason as the RESOLVER-V3-032 files above ("depend on the logic, don't rewrite it") --
+    // every other Learning Benchmark V2 file only sees this adapter's plain-data outcome types.
+    const authorizedV3023ConsumerFiles = [
+      '../benchmark/learningV2/LearningBenchmarkV2GlobalCandidateAdapter.ts',
+    ].map((relative) => path.resolve(__dirname, relative));
     const srcRoot = path.resolve(__dirname, '../../../../src');
     const v2Symbols = [
       'ResolverObservationAggregationProjectionV2',
@@ -74,6 +82,7 @@ describe('RESOLVER-V3-031 V2 module isolation', () => {
         if (fullPath.includes(`${path.sep}__tests__${path.sep}`)) continue;
         if (v2ModuleFiles.includes(fullPath)) continue;
         if (authorizedV3032ConsumerFiles.includes(fullPath)) continue;
+        if (authorizedV3023ConsumerFiles.includes(fullPath)) continue;
         const source = fs.readFileSync(fullPath, 'utf8');
         if (v2Symbols.some((symbol) => source.includes(symbol))) offenders.push(fullPath);
       }

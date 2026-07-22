@@ -1,0 +1,1710 @@
+{
+  "harnessVersion": "1.0.0",
+  "corpusVersion": "resolver-learning-benchmark-v2-corpus-1.0.0",
+  "corpusHash": "6daad25ad83d7789391604d3628933f720562399a484026de9d0831039c45255",
+  "registryVersion": "resolver-learning-benchmark-v2-registry-v1",
+  "partitionsRun": ["development", "holdout"],
+  "generatedAt": "2026-07-22T10:59:31.380Z",
+  "benchmarkRuntimeMeasuredMs": 427.457061,
+  "systemVerdict": "NOT_PASSED",
+  "taskCompletionStatus": "complete",
+  "development": {
+    "partition": "development",
+    "resolution": [
+      {
+        "scenarioId": "LBV2-RES-DEV-001",
+        "caseId": "LBV2-RES-DEV-001",
+        "category": "BRANDED",
+        "difficulty": "easy",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-001",
+          "status": "accepted",
+          "identification": "correct",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "accepted_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": {
+            "samples": [
+              {
+                "nutrient": "kcal",
+                "reference": 539,
+                "predicted": 539,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "protein_g",
+                "reference": 6.3,
+                "predicted": 6.3,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "fat_g",
+                "reference": 30.9,
+                "predicted": 30.9,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "carbs_g",
+                "reference": 57.5,
+                "predicted": 57.5,
+                "absoluteError": 0,
+                "relativeError": 0
+              }
+            ],
+            "excludedNutrients": [],
+            "withinTolerance": true
+          },
+          "provenance": {
+            "sourceIdPresent": true,
+            "sourceTypePresent": true,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 14.79719
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-002",
+        "caseId": "LBV2-RES-DEV-002",
+        "category": "COMPOSED",
+        "difficulty": "medium",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-002",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "partial",
+            "note": "abstained_instead_of_asking_but_not_falsely_confident"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 20.237902
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-003",
+        "caseId": "LBV2-RES-DEV-003",
+        "category": "HOMEMADE",
+        "difficulty": "hard",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-003",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 15.976011
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-004",
+        "caseId": "LBV2-RES-DEV-004",
+        "category": "RESTAURANT",
+        "difficulty": "hard",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-004",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 12.012931
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-005",
+        "caseId": "LBV2-RES-DEV-005",
+        "category": "VAGUE",
+        "difficulty": "medium",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-005",
+          "status": "ambiguous",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "partial",
+            "note": "resolver_ambiguous_status_used_as_clarification_proxy"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": true,
+            "sourceTypePresent": true,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 41.109914
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-006",
+        "caseId": "LBV2-RES-DEV-006",
+        "category": "PREPARATION",
+        "difficulty": "medium",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-006",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "partial",
+            "note": "abstained_instead_of_asking_but_not_falsely_confident"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 12.506429
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-007",
+        "caseId": "LBV2-RES-DEV-007",
+        "category": "NEGATION_MODIFIER",
+        "difficulty": "medium",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-007",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "partial",
+            "note": "abstained_instead_of_asking_but_not_falsely_confident"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 14.314666
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-008",
+        "caseId": "LBV2-RES-DEV-008",
+        "category": "UNRELIABLE",
+        "difficulty": "adversarial",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-008",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 11.853389
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-009",
+        "caseId": "LBV2-RES-DEV-009",
+        "category": "SIMPLE",
+        "difficulty": "medium",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-009",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 2.897609
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-010",
+        "caseId": "LBV2-RES-DEV-010",
+        "category": "HOUSEHOLD",
+        "difficulty": "medium",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-010",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "mismatch",
+            "note": "status_rejected_but_direct_resolution_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 14.558214
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-011",
+        "caseId": "LBV2-RES-DEV-011",
+        "category": "BRANDED",
+        "difficulty": "easy",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-011",
+          "status": "accepted",
+          "identification": "correct",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "accepted_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": {
+            "samples": [
+              {
+                "nutrient": "kcal",
+                "reference": 539,
+                "predicted": 539,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "protein_g",
+                "reference": 6.3,
+                "predicted": 6.3,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "fat_g",
+                "reference": 30.9,
+                "predicted": 30.9,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "carbs_g",
+                "reference": 57.5,
+                "predicted": 57.5,
+                "absoluteError": 0,
+                "relativeError": 0
+              }
+            ],
+            "excludedNutrients": [],
+            "withinTolerance": true
+          },
+          "provenance": {
+            "sourceIdPresent": true,
+            "sourceTypePresent": true,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 2.866736
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-012",
+        "caseId": "LBV2-RES-DEV-012",
+        "category": "DACH",
+        "difficulty": "hard",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-012",
+          "status": "ambiguous",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "ambiguous_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": true,
+            "sourceTypePresent": true,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 68.628756
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-013",
+        "caseId": "LBV2-RES-DEV-013",
+        "category": "SIMPLE",
+        "difficulty": "easy",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-013",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "mismatch",
+            "note": "status_rejected_but_direct_resolution_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 14.521183
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-014",
+        "caseId": "LBV2-RES-DEV-014",
+        "category": "DACH",
+        "difficulty": "medium",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-014",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "mismatch",
+            "note": "status_rejected_but_direct_resolution_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 13.85067
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-015",
+        "caseId": "LBV2-RES-DEV-015",
+        "category": "COMPOSED",
+        "difficulty": "hard",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-015",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "partial",
+            "note": "abstained_instead_of_asking_but_not_falsely_confident"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 16.161404
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-DEV-016",
+        "caseId": "LBV2-RES-DEV-016",
+        "category": "RESTAURANT",
+        "difficulty": "hard",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-DEV-016",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 11.920031
+        }
+      }
+    ],
+    "personalMemory": [
+      {
+        "scenarioId": "LBV2-PM-DEV-001",
+        "sequenceKind": "exact_confirmed_repeat",
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "firstRead",
+            "kind": "read",
+            "expected": "anyMatch=false,deterministicReuse=false",
+            "actual": "anyMatch=false,deterministicReuse=false",
+            "matched": true,
+            "deterministicReuse": false,
+            "matchCount": 0,
+            "interpretationCallAvoided": false
+          },
+          {
+            "stepId": "confirm",
+            "kind": "record",
+            "expected": "written",
+            "actual": "written",
+            "matched": true
+          },
+          {
+            "stepId": "exactRepeat",
+            "kind": "read",
+            "expected": "anyMatch=true,deterministicReuse=true",
+            "actual": "anyMatch=true,deterministicReuse=true",
+            "matched": true,
+            "deterministicReuse": true,
+            "matchCount": 1,
+            "interpretationCallAvoided": true
+          }
+        ],
+        "avoidedInterpretationCallCount": 1,
+        "interpretationCallsInvoked": 1
+      },
+      {
+        "scenarioId": "LBV2-PM-DEV-002",
+        "sequenceKind": "near_repeat",
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "confirm",
+            "kind": "record",
+            "expected": "written",
+            "actual": "written",
+            "matched": true
+          },
+          {
+            "stepId": "nearRepeat",
+            "kind": "read",
+            "expected": "anyMatch=false,deterministicReuse=false",
+            "actual": "anyMatch=false,deterministicReuse=false",
+            "matched": true,
+            "deterministicReuse": false,
+            "matchCount": 0,
+            "interpretationCallAvoided": false
+          }
+        ],
+        "avoidedInterpretationCallCount": 0,
+        "interpretationCallsInvoked": 1
+      },
+      {
+        "scenarioId": "LBV2-PM-DEV-003",
+        "sequenceKind": "later_contradiction_invalidation",
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "confirm",
+            "kind": "record",
+            "expected": "written",
+            "actual": "written",
+            "matched": true
+          },
+          {
+            "stepId": "confirmedRepeat",
+            "kind": "read",
+            "expected": "anyMatch=true,deterministicReuse=true",
+            "actual": "anyMatch=true,deterministicReuse=true",
+            "matched": true,
+            "deterministicReuse": true,
+            "matchCount": 1,
+            "interpretationCallAvoided": true
+          },
+          {
+            "stepId": "contradict",
+            "kind": "invalidate",
+            "expected": "invalidated",
+            "actual": "invalidated",
+            "matched": true
+          },
+          {
+            "stepId": "afterContradiction",
+            "kind": "read",
+            "expected": "anyMatch=false,deterministicReuse=false",
+            "actual": "anyMatch=false,deterministicReuse=false",
+            "matched": true,
+            "deterministicReuse": false,
+            "matchCount": 0,
+            "interpretationCallAvoided": false
+          }
+        ],
+        "avoidedInterpretationCallCount": 1,
+        "interpretationCallsInvoked": 1
+      }
+    ],
+    "globalCandidate": [
+      {
+        "scenarioId": "LBV2-GC-DEV-001",
+        "tags": ["candidate-creation", "idempotency"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "first",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "retry",
+            "kind": "record_contribution",
+            "actualStatus": "already_recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "already_recorded",
+            "matched": true
+          },
+          {
+            "stepId": "assert",
+            "kind": "assert_replay_summary",
+            "actualStatus": "candidate",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "supportingEvidenceCount": 1,
+              "contradictingEvidenceCount": 0,
+              "contradictionStatus": "none"
+            },
+            "matched": true
+          },
+          {
+            "stepId": "shadow",
+            "kind": "shadow_evaluate",
+            "actualStatus": "no_change",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "hypotheticalShadowStatus": "ambiguous"
+            },
+            "expected": "no_change",
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 1,
+          "idempotentRetriesSkipped": 1,
+          "contributionConflicts": 0,
+          "candidatesCreated": 1,
+          "reviewOperations": 0,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 1,
+          "replayComputations": 1
+        },
+        "replaySummaryInvariantsHold": true
+      },
+      {
+        "scenarioId": "LBV2-GC-DEV-002",
+        "tags": ["contradiction"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "positive",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "negative",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "assert",
+            "kind": "assert_replay_summary",
+            "actualStatus": "candidate",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "supportingEvidenceCount": 1,
+              "contradictingEvidenceCount": 1,
+              "contradictionStatus": "present"
+            },
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 2,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 1,
+          "reviewOperations": 0,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 0,
+          "replayComputations": 1
+        },
+        "replaySummaryInvariantsHold": true
+      },
+      {
+        "scenarioId": "LBV2-GC-DEV-003",
+        "tags": ["rejection-suppression"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "create",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "reject",
+            "kind": "review_decision",
+            "actualStatus": "applied",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "action": "reject",
+            "decisionId": "decision-3-reject",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "applied",
+            "matched": true
+          },
+          {
+            "stepId": "newEvidence",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "assert",
+            "kind": "assert_replay_summary",
+            "actualStatus": "rejected",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "observed": {
+              "supportingEvidenceCount": 2,
+              "contradictingEvidenceCount": 0,
+              "contradictionStatus": "none"
+            },
+            "expected": "rejected",
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 2,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 1,
+          "reviewOperations": 1,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 0,
+          "replayComputations": 1
+        },
+        "replaySummaryInvariantsHold": true
+      },
+      {
+        "scenarioId": "LBV2-GC-DEV-004",
+        "tags": ["duplicate-supersession"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "first",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "second",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::b9a90c67ed01365553ccb90cf499bdac78d1d8e5e4250605bf518199129e8fff",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "selfLinkAttempt",
+            "kind": "review_decision",
+            "actualStatus": "validation_failed",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::b9a90c67ed01365553ccb90cf499bdac78d1d8e5e4250605bf518199129e8fff",
+            "action": "mark_duplicate",
+            "decisionId": "decision-4-self",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "validation_failed",
+            "matched": true
+          },
+          {
+            "stepId": "markDuplicate",
+            "kind": "review_decision",
+            "actualStatus": "applied",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::b9a90c67ed01365553ccb90cf499bdac78d1d8e5e4250605bf518199129e8fff",
+            "action": "mark_duplicate",
+            "decisionId": "decision-4-duplicate",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "applied",
+            "matched": true
+          },
+          {
+            "stepId": "historicalEvidence",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "assert",
+            "kind": "assert_replay_summary",
+            "actualStatus": "candidate",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "supportingEvidenceCount": 1,
+              "contradictingEvidenceCount": 0,
+              "contradictionStatus": "none"
+            },
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 3,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 2,
+          "reviewOperations": 2,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 0,
+          "replayComputations": 1
+        },
+        "replaySummaryInvariantsHold": true
+      },
+      {
+        "scenarioId": "LBV2-GC-DEV-005",
+        "tags": ["retraction"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "first",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "retract",
+            "kind": "retract_contributions",
+            "actualStatus": "applied",
+            "expected": "applied",
+            "matched": true
+          },
+          {
+            "stepId": "retractRetry",
+            "kind": "retract_contributions",
+            "actualStatus": "already_recorded",
+            "expected": "already_recorded",
+            "matched": true
+          },
+          {
+            "stepId": "assert",
+            "kind": "assert_replay_summary",
+            "actualStatus": "candidate",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "supportingEvidenceCount": 0,
+              "contradictingEvidenceCount": 0,
+              "contradictionStatus": "none"
+            },
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 1,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 1,
+          "reviewOperations": 0,
+          "retractionsApplied": 1,
+          "retractionIdempotentRetries": 1,
+          "shadowEvaluations": 0,
+          "replayComputations": 1
+        },
+        "replaySummaryInvariantsHold": true
+      },
+      {
+        "scenarioId": "LBV2-GC-DEV-006",
+        "tags": ["single-user-block", "contradiction-gate", "review-rollback"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "singleUserCandidate",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "singleUserApproveAttempt",
+            "kind": "review_decision",
+            "actualStatus": "blocked_privacy",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "action": "approve",
+            "decisionId": "decision-6-single-user",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "blocked_privacy",
+            "matched": true
+          },
+          {
+            "stepId": "contradictionGateCandidate",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "contradictionGateApprove",
+            "kind": "review_decision",
+            "actualStatus": "applied",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "action": "approve",
+            "decisionId": "decision-6-contradiction-gate",
+            "forcedIndependentUserEvidence": true,
+            "forcedContradiction": true,
+            "expected": "applied",
+            "matched": true
+          },
+          {
+            "stepId": "rollback",
+            "kind": "review_decision",
+            "actualStatus": "applied",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "action": "rollback",
+            "decisionId": "decision-6-rollback",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "applied",
+            "matched": true
+          },
+          {
+            "stepId": "rollbackRetry",
+            "kind": "review_decision",
+            "actualStatus": "already_applied",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "action": "rollback",
+            "decisionId": "decision-6-rollback",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "already_applied",
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 2,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 2,
+          "reviewOperations": 4,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 0,
+          "replayComputations": 0
+        },
+        "replaySummaryInvariantsHold": true
+      }
+    ],
+    "privacy": [
+      {
+        "scenarioId": "LBV2-PRIV-DEV-001",
+        "passed": true,
+        "crossUserLeakCount": 0,
+        "deletionRemovesEffect": null,
+        "globalCandidatePrivacyLeakDetected": false,
+        "personalMemoryStepsMatched": true
+      },
+      {
+        "scenarioId": "LBV2-PRIV-DEV-002",
+        "passed": true,
+        "crossUserLeakCount": 0,
+        "deletionRemovesEffect": true,
+        "globalCandidatePrivacyLeakDetected": false,
+        "personalMemoryStepsMatched": true
+      },
+      {
+        "scenarioId": "LBV2-PRIV-DEV-003",
+        "passed": true,
+        "crossUserLeakCount": 0,
+        "deletionRemovesEffect": null,
+        "globalCandidatePrivacyLeakDetected": false,
+        "personalMemoryStepsMatched": null
+      }
+    ],
+    "economics": [
+      {
+        "scenarioId": "LBV2-ECON-DEV-001",
+        "passed": true,
+        "avoidedInterpretationCallCount": 2,
+        "interpretationCallsInvoked": 1,
+        "personalMemoryReads": 3,
+        "personalMemoryWrites": 1,
+        "personalMemoryInvalidations": 0
+      },
+      {
+        "scenarioId": "LBV2-ECON-DEV-002",
+        "passed": true,
+        "avoidedInterpretationCallCount": 1,
+        "interpretationCallsInvoked": 1,
+        "personalMemoryReads": 2,
+        "personalMemoryWrites": 1,
+        "personalMemoryInvalidations": 0
+      }
+    ],
+    "metrics": {
+      "scenarioCount": 30,
+      "resolution": {
+        "count": 16,
+        "matchCount": 8,
+        "falseConfidenceCount": 0,
+        "categoryBreakdown": {
+          "BRANDED": 2,
+          "COMPOSED": 2,
+          "HOMEMADE": 1,
+          "RESTAURANT": 2,
+          "VAGUE": 1,
+          "PREPARATION": 1,
+          "NEGATION_MODIFIER": 1,
+          "UNRELIABLE": 1,
+          "SIMPLE": 2,
+          "HOUSEHOLD": 1,
+          "DACH": 2
+        },
+        "difficultyBreakdown": {
+          "easy": 3,
+          "medium": 7,
+          "hard": 5,
+          "adversarial": 1
+        }
+      },
+      "personalMemory": {
+        "sequenceCount": 3,
+        "passedCount": 3,
+        "avoidedInterpretationCallCount": 2,
+        "interpretationCallsInvoked": 3
+      },
+      "globalCandidate": {
+        "scenarioCount": 6,
+        "passedCount": 6,
+        "contributionsRecorded": 11,
+        "idempotentRetriesSkipped": 1,
+        "contributionConflicts": 0,
+        "candidatesCreated": 8,
+        "reviewOperations": 7,
+        "retractionsApplied": 1,
+        "retractionIdempotentRetries": 1,
+        "shadowEvaluations": 1,
+        "replayComputations": 5
+      },
+      "privacy": {
+        "scenarioCount": 3,
+        "passedCount": 3,
+        "crossUserLeakCountTotal": 0,
+        "globalCandidatePrivacyLeakDetectedCount": 0
+      },
+      "economics": {
+        "scenarioCount": 2,
+        "passedCount": 2,
+        "avoidedInterpretationCallCountTotal": 3,
+        "interpretationCallsInvokedTotal": 2,
+        "fixtureBilledCostUsd": 0,
+        "productionCostUsd": "unknown",
+        "databaseBatchCostUsd": "not_evaluable"
+      }
+    }
+  },
+  "holdout": {
+    "partition": "holdout",
+    "resolution": [
+      {
+        "scenarioId": "LBV2-RES-HOLD-001",
+        "caseId": "LBV2-RES-HOLD-001",
+        "category": "BRANDED",
+        "difficulty": "adversarial",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-HOLD-001",
+          "status": "accepted",
+          "identification": "correct",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "accepted_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": {
+            "samples": [
+              {
+                "nutrient": "kcal",
+                "reference": 539,
+                "predicted": 539,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "protein_g",
+                "reference": 6.3,
+                "predicted": 6.3,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "fat_g",
+                "reference": 30.9,
+                "predicted": 30.9,
+                "absoluteError": 0,
+                "relativeError": 0
+              },
+              {
+                "nutrient": "carbs_g",
+                "reference": 57.5,
+                "predicted": 57.5,
+                "absoluteError": 0,
+                "relativeError": 0
+              }
+            ],
+            "excludedNutrients": [],
+            "withinTolerance": true
+          },
+          "provenance": {
+            "sourceIdPresent": true,
+            "sourceTypePresent": true,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 36.265717
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-HOLD-002",
+        "caseId": "LBV2-RES-HOLD-002",
+        "category": "UNRELIABLE",
+        "difficulty": "adversarial",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-HOLD-002",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 16.496703
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-HOLD-003",
+        "caseId": "LBV2-RES-HOLD-003",
+        "category": "COMPOSED",
+        "difficulty": "hard",
+        "passed": false,
+        "evaluation": {
+          "caseId": "LBV2-RES-HOLD-003",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "partial",
+            "note": "abstained_instead_of_asking_but_not_falsely_confident"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 13.077502
+        }
+      },
+      {
+        "scenarioId": "LBV2-RES-HOLD-004",
+        "caseId": "LBV2-RES-HOLD-004",
+        "category": "SIMPLE",
+        "difficulty": "hard",
+        "passed": true,
+        "evaluation": {
+          "caseId": "LBV2-RES-HOLD-004",
+          "status": "rejected",
+          "identification": "not_applicable",
+          "expectedBehavior": {
+            "result": "match",
+            "note": "abstained_as_expected"
+          },
+          "falseConfident": false,
+          "isCriticalFailure": false,
+          "macros": null,
+          "provenance": {
+            "sourceIdPresent": false,
+            "sourceTypePresent": false,
+            "usedAiAsSource": false,
+            "hasUnbackedNumericResult": false
+          },
+          "latencyMs": 2.385662
+        }
+      }
+    ],
+    "personalMemory": [
+      {
+        "scenarioId": "LBV2-PM-HOLD-001",
+        "sequenceKind": "exact_confirmed_repeat",
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "firstRead",
+            "kind": "read",
+            "expected": "anyMatch=false,deterministicReuse=false",
+            "actual": "anyMatch=false,deterministicReuse=false",
+            "matched": true,
+            "deterministicReuse": false,
+            "matchCount": 0,
+            "interpretationCallAvoided": false
+          },
+          {
+            "stepId": "confirm",
+            "kind": "record",
+            "expected": "written",
+            "actual": "written",
+            "matched": true
+          },
+          {
+            "stepId": "exactRepeat",
+            "kind": "read",
+            "expected": "anyMatch=true,deterministicReuse=true",
+            "actual": "anyMatch=true,deterministicReuse=true",
+            "matched": true,
+            "deterministicReuse": true,
+            "matchCount": 1,
+            "interpretationCallAvoided": true
+          }
+        ],
+        "avoidedInterpretationCallCount": 1,
+        "interpretationCallsInvoked": 1
+      }
+    ],
+    "globalCandidate": [
+      {
+        "scenarioId": "LBV2-GC-HOLD-001",
+        "tags": ["duplicate-supersession", "holdout"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "first",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "second",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "supersede",
+            "kind": "review_decision",
+            "actualStatus": "applied",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::416b4a27dcb4b4fe6b0d2f196450163bb89c5243dfba2b32323aeda1d8b6a906",
+            "action": "supersede",
+            "decisionId": "decision-h1-supersede",
+            "forcedIndependentUserEvidence": false,
+            "forcedContradiction": false,
+            "expected": "applied",
+            "matched": true
+          },
+          {
+            "stepId": "assert",
+            "kind": "assert_replay_summary",
+            "actualStatus": "candidate",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "supportingEvidenceCount": 1,
+              "contradictingEvidenceCount": 0,
+              "contradictionStatus": "none"
+            },
+            "matched": true
+          },
+          {
+            "stepId": "shadow",
+            "kind": "shadow_evaluate",
+            "actualStatus": "no_change",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "observed": {
+              "hypotheticalShadowStatus": "accepted"
+            },
+            "expected": "no_change",
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 2,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 2,
+          "reviewOperations": 1,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 1,
+          "replayComputations": 1
+        },
+        "replaySummaryInvariantsHold": true
+      },
+      {
+        "scenarioId": "LBV2-GC-HOLD-002",
+        "tags": ["retraction", "holdout"],
+        "passed": true,
+        "stepOutcomes": [
+          {
+            "stepId": "first",
+            "kind": "record_contribution",
+            "actualStatus": "recorded",
+            "candidateId": "rkc-v2:resolver-knowledge-fingerprint-v2::2e119200e1412214ce5073da5bdb930a3e7ef9f1cf30e6890977c5b558de4146",
+            "expected": "recorded",
+            "matched": true
+          },
+          {
+            "stepId": "retract",
+            "kind": "retract_contributions",
+            "actualStatus": "no_op",
+            "expected": "no_op",
+            "matched": true
+          },
+          {
+            "stepId": "retractConflict",
+            "kind": "retract_contributions",
+            "actualStatus": "conflict",
+            "expected": "conflict",
+            "matched": true
+          }
+        ],
+        "operationCounts": {
+          "contributionsRecorded": 1,
+          "idempotentRetriesSkipped": 0,
+          "contributionConflicts": 0,
+          "candidatesCreated": 1,
+          "reviewOperations": 0,
+          "retractionsApplied": 0,
+          "retractionIdempotentRetries": 0,
+          "shadowEvaluations": 0,
+          "replayComputations": 0
+        },
+        "replaySummaryInvariantsHold": true
+      }
+    ],
+    "privacy": [
+      {
+        "scenarioId": "LBV2-PRIV-HOLD-001",
+        "passed": true,
+        "crossUserLeakCount": 0,
+        "deletionRemovesEffect": null,
+        "globalCandidatePrivacyLeakDetected": false,
+        "personalMemoryStepsMatched": true
+      }
+    ],
+    "economics": [
+      {
+        "scenarioId": "LBV2-ECON-HOLD-001",
+        "passed": true,
+        "avoidedInterpretationCallCount": 1,
+        "interpretationCallsInvoked": 0,
+        "personalMemoryReads": 1,
+        "personalMemoryWrites": 1,
+        "personalMemoryInvalidations": 0
+      }
+    ],
+    "metrics": {
+      "scenarioCount": 9,
+      "resolution": {
+        "count": 4,
+        "matchCount": 3,
+        "falseConfidenceCount": 0,
+        "categoryBreakdown": {
+          "BRANDED": 1,
+          "UNRELIABLE": 1,
+          "COMPOSED": 1,
+          "SIMPLE": 1
+        },
+        "difficultyBreakdown": {
+          "adversarial": 2,
+          "hard": 2
+        }
+      },
+      "personalMemory": {
+        "sequenceCount": 1,
+        "passedCount": 1,
+        "avoidedInterpretationCallCount": 1,
+        "interpretationCallsInvoked": 1
+      },
+      "globalCandidate": {
+        "scenarioCount": 2,
+        "passedCount": 2,
+        "contributionsRecorded": 3,
+        "idempotentRetriesSkipped": 0,
+        "contributionConflicts": 0,
+        "candidatesCreated": 3,
+        "reviewOperations": 1,
+        "retractionsApplied": 0,
+        "retractionIdempotentRetries": 0,
+        "shadowEvaluations": 1,
+        "replayComputations": 1
+      },
+      "privacy": {
+        "scenarioCount": 1,
+        "passedCount": 1,
+        "crossUserLeakCountTotal": 0,
+        "globalCandidatePrivacyLeakDetectedCount": 0
+      },
+      "economics": {
+        "scenarioCount": 1,
+        "passedCount": 1,
+        "avoidedInterpretationCallCountTotal": 1,
+        "interpretationCallsInvokedTotal": 0,
+        "fixtureBilledCostUsd": 0,
+        "productionCostUsd": "unknown",
+        "databaseBatchCostUsd": "not_evaluable"
+      }
+    }
+  },
+  "invariantVerdicts": [
+    {
+      "invariantId": "INV-01",
+      "description": "Personal memory remains owner-private (no cross-user read hit).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [
+        "LBV2-PRIV-DEV-001",
+        "LBV2-PRIV-DEV-002",
+        "LBV2-PRIV-DEV-003",
+        "LBV2-PRIV-HOLD-001"
+      ],
+      "reasonCode": "CROSS_USER_LEAK_COUNT",
+      "observedValue": "0",
+      "expectedInvariant": "0",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-02",
+      "description": "A P2-confirmed exact repeat may avoid an interpretation call.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-PM-DEV-001", "LBV2-PM-HOLD-001"],
+      "reasonCode": "AVOIDED_CALL_OBSERVED",
+      "observedValue": "2",
+      "expectedInvariant": ">0",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-03",
+      "description": "A near (non-exact) repeat does not deterministically overgeneralize.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-PM-DEV-002"],
+      "reasonCode": "NEAR_REPEAT_ELIGIBILITY_MATCH",
+      "observedValue": "true",
+      "expectedInvariant": "true",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-04",
+      "description": "Correction/contradiction invalidation weakens or deactivates stale memory.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-PM-DEV-003"],
+      "reasonCode": "INVALIDATION_TRANSITION_MATCH",
+      "observedValue": "true",
+      "expectedInvariant": "true",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-05",
+      "description": "Deletion removes personal-memory effect (no stale avoided-call claim survives).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-PRIV-DEV-002"],
+      "reasonCode": "DELETION_READ_MATCH_COUNT",
+      "observedValue": "true",
+      "expectedInvariant": "true",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-06",
+      "description": "One user (`independentUserEvidence: not_evaluable`) cannot create a global rule.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-006"],
+      "reasonCode": "REVIEW_SERVICE_RESULT",
+      "observedValue": "blocked_privacy",
+      "expectedInvariant": "blocked_privacy",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-07",
+      "description": "Once independent-user evidence is hypothetically satisfied, contradiction still prevents promotion.",
+      "status": "failed",
+      "evidenceClass": "fixture-derived",
+      "supportingScenarioIds": ["LBV2-GC-DEV-006"],
+      "reasonCode": "APPROVAL_SUCCEEDED_DESPITE_CONTRADICTION",
+      "observedValue": "applied",
+      "expectedInvariant": "not applied (blocked)",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-08",
+      "description": "Shadow evaluation has no production effect (pure, read-only evaluator).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-001", "LBV2-GC-HOLD-001"],
+      "reasonCode": "EVALUATOR_HAS_NO_WRITE_PORT",
+      "observedValue": "2",
+      "expectedInvariant": "no mutation",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-09",
+      "description": "Review is auditable (every decision produces an immutable event).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [
+        "LBV2-GC-DEV-003",
+        "LBV2-GC-DEV-004",
+        "LBV2-GC-DEV-006",
+        "LBV2-GC-HOLD-001"
+      ],
+      "reasonCode": "REPOSITORY_APPEND_ONLY_EVENT_LOG",
+      "observedValue": "8",
+      "expectedInvariant": ">0",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-10",
+      "description": "Review decision and candidate/payload state transition remain atomic and idempotent.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-006"],
+      "reasonCode": "IDEMPOTENT_RETRY_MATCH",
+      "observedValue": "applied/already_applied",
+      "expectedInvariant": "applied/already_applied",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-11",
+      "description": "Rollback/revocation deactivates the approved payload without deletion.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-006"],
+      "reasonCode": "ROLLBACK_APPLIED",
+      "observedValue": "applied",
+      "expectedInvariant": "applied",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-12",
+      "description": "Rejected candidates are not endlessly recreated (new evidence preserves rejected status).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-003"],
+      "reasonCode": "REJECTED_STATUS_PRESERVED",
+      "observedValue": "rejected",
+      "expectedInvariant": "rejected",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-13",
+      "description": "Duplicate/supersession chains resolve safely (self-link/missing-target/cycle fail closed).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-004", "LBV2-GC-HOLD-001"],
+      "reasonCode": "CHAIN_STEP_MATCH",
+      "observedValue": "true",
+      "expectedInvariant": "true",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-14",
+      "description": "Retractions recompute affected candidate summaries.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": ["LBV2-GC-DEV-005"],
+      "reasonCode": "SUMMARY_RECOMPUTED",
+      "observedValue": "1",
+      "expectedInvariant": ">0",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-15",
+      "description": "Global candidate output contains no user/owner reference.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [
+        "LBV2-PRIV-DEV-001",
+        "LBV2-PRIV-DEV-002",
+        "LBV2-PRIV-DEV-003",
+        "LBV2-PRIV-HOLD-001"
+      ],
+      "reasonCode": "RECURSIVE_PRIVATE_FIELD_SCAN",
+      "observedValue": "false",
+      "expectedInvariant": "false",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-16",
+      "description": "Raw personal text never crosses the global candidate/shadow boundary.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [
+        "LBV2-GC-DEV-001",
+        "LBV2-GC-DEV-002",
+        "LBV2-GC-DEV-003",
+        "LBV2-GC-DEV-004",
+        "LBV2-GC-DEV-005",
+        "LBV2-GC-DEV-006",
+        "LBV2-GC-HOLD-001",
+        "LBV2-GC-HOLD-002"
+      ],
+      "reasonCode": "STRUCTURAL_PROJECTION_HAS_NO_RAW_TEXT_FIELD",
+      "observedValue": "false",
+      "expectedInvariant": "false",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-17",
+      "description": "Development and holdout remain separated (registry-enforced, no partition move).",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [],
+      "reasonCode": "REGISTRY_PARTITION_ENFORCEMENT",
+      "observedValue": "development,holdout",
+      "expectedInvariant": "development,holdout",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-18",
+      "description": "No live network/provider call occurs.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [],
+      "reasonCode": "ZERO_NETWORK_CONFIRMED",
+      "observedValue": "false",
+      "expectedInvariant": "false",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-19",
+      "description": "No AI-generated nutrient value becomes authoritative.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [],
+      "reasonCode": "FIXTURE_PROVIDER_NEVER_WIRED_AS_NUTRIENT_SOURCE",
+      "observedValue": "false",
+      "expectedInvariant": "false",
+      "affectedPartitions": ["development", "holdout"]
+    },
+    {
+      "invariantId": "INV-20",
+      "description": "RESOLVER-V3-010 remains blocked and unaffected by this benchmark.",
+      "status": "passed",
+      "evidenceClass": "measured",
+      "supportingScenarioIds": [],
+      "reasonCode": "NO_PRODUCTION_WIRING_CHANGE",
+      "observedValue": "blocked",
+      "expectedInvariant": "blocked",
+      "affectedPartitions": ["development", "holdout"]
+    }
+  ],
+  "failedInvariantCount": 1,
+  "notEvaluableInvariantCount": 0,
+  "noLiveNetworkConfirmed": true,
+  "noProductionEffectConfirmed": true
+}

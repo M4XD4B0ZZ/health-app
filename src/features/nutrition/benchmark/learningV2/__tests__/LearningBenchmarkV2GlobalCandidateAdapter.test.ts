@@ -93,7 +93,7 @@ describe('LearningBenchmarkV2GlobalCandidateAdapter (real ledger/review/shadow, 
   });
 
   it(
-    'CONFIRMED GAP: contradiction does not independently block approval once independent-user evidence is ' +
+    'RESOLVER-V3-037 REMEDIATED: contradiction independently blocks approval once independent-user evidence is ' +
       'hypothetically satisfied (fixture-only isolation; does not imply RESOLVER-V3-035 exists)',
     async () => {
       const outcome = await runLearningBenchmarkV2GlobalCandidateScenario(
@@ -101,19 +101,35 @@ describe('LearningBenchmarkV2GlobalCandidateAdapter (real ledger/review/shadow, 
       );
       const approve = outcomeFor(outcome.stepOutcomes, 'contradictionGateApprove');
       // Honest, evidence-based assertion: this documents the real review service's current
-      // behavior. It is a required-invariant FAILURE recorded at the report level, not a defect in
-      // this benchmark harness -- see RESOLVER-V3-023 report + new remediation task.
-      expect(approve.actualStatus).toBe('applied');
+      // behavior after RESOLVER-V3-037's contradiction-aware approval gate. INV-07 now records
+      // `passed` at the report level -- see the RESOLVER-V3-037 remediation report. This scenario's
+      // frozen fixture data (`LearningBenchmarkV2GlobalCandidateCorpus.ts`) is untouched; only this
+      // test's assertion of the real service's current behavior is updated, per the RESOLVER-V3-023
+      // report's own instruction not to leave the discovered defect encoded as current behavior.
+      expect(approve.actualStatus).toBe('blocked_contradiction');
     },
   );
 
-  it('rollback deactivates the approved payload without deletion, and the exact retry is idempotent', async () => {
-    const outcome = await runLearningBenchmarkV2GlobalCandidateScenario(
-      scenarioById('LBV2-GC-DEV-006'),
-    );
-    expect(outcomeFor(outcome.stepOutcomes, 'rollback').actualStatus).toBe('applied');
-    expect(outcomeFor(outcome.stepOutcomes, 'rollbackRetry').actualStatus).toBe('already_applied');
-  });
+  it(
+    "RESOLVER-V3-037 historical-fixture consequence: this scenario's rollback steps become unreachable " +
+      'now that contradiction correctly blocks approval (rollback/revoke coverage for a legitimately ' +
+      'approved, contradiction-free candidate remains in ResolverKnowledgeReview.test.ts)',
+    async () => {
+      const outcome = await runLearningBenchmarkV2GlobalCandidateScenario(
+        scenarioById('LBV2-GC-DEV-006'),
+      );
+      // The candidate was never approved (blocked_contradiction, zero mutation), so there is no
+      // active approved payload left to roll back -- both the rollback and its retry now correctly
+      // fail closed as `invalid_transition`, not `applied`/`already_applied`. This is a documented
+      // consequence of the frozen historical fixture combining the `contradiction-gate` and
+      // `review-rollback` tags on the same scenario; it is not a regression in rollback logic
+      // itself (see RESOLVER_V3_037_CONTRADICTION_APPROVAL_GATE_REMEDIATION_REPORT.md).
+      expect(outcomeFor(outcome.stepOutcomes, 'rollback').actualStatus).toBe('invalid_transition');
+      expect(outcomeFor(outcome.stepOutcomes, 'rollbackRetry').actualStatus).toBe(
+        'invalid_transition',
+      );
+    },
+  );
 
   it('shadow evaluation uses the real evaluator and never mutates candidate state', async () => {
     const before = await runLearningBenchmarkV2GlobalCandidateScenario(

@@ -100,6 +100,29 @@ export class ResolverKnowledgeReviewService {
       return 'blocked_privacy';
 
     if (request.action === 'approve') {
+      // RESOLVER-V3-037: the contradiction gate is checked first, independent of independent-user
+      // evidence — a contradictory candidate must be refused as `blocked_contradiction` regardless
+      // of whether independent-user evidence is `not_evaluable` or `independently_confirmed`. Runtime
+      // coherence is validated defensively (not only trusted from the candidate's own static type),
+      // since this service accepts whatever `ResolverKnowledgeReviewCandidateReader.getById` returns.
+      const { contradictionStatus, contradictingEvidenceCount } = candidate.evidence;
+      const contradictionCountIsValid =
+        typeof contradictingEvidenceCount === 'number' &&
+        Number.isFinite(contradictingEvidenceCount) &&
+        Number.isInteger(contradictingEvidenceCount) &&
+        contradictingEvidenceCount >= 0;
+      if (!contradictionCountIsValid) return 'validation_failed';
+      if (contradictionStatus === 'none') {
+        if (contradictingEvidenceCount !== 0) return 'validation_failed';
+      } else if (contradictionStatus === 'present') {
+        if (contradictingEvidenceCount === 0) return 'validation_failed';
+        // No numerical threshold: any coherent nonzero contradiction count blocks approval, for
+        // every candidate type, regardless of risk or supporting-evidence count.
+        return 'blocked_contradiction';
+      } else {
+        return 'validation_failed';
+      }
+
       // Fail closed: `not_evaluable` (not evaluated / insufficient) must never approve. Only the
       // closed, positively-evaluated, privacy-safe independent-user state may proceed. The current
       // aggregation pipeline (RESOLVER-V3-020) only ever produces `not_evaluable`, so no candidate

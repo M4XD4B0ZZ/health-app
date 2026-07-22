@@ -1,5 +1,70 @@
 # Latest Handoff
 
+## RESOLVER-V3-037 — Contradiction-Aware Review Approval Gate
+
+- **Basis and scope:** Branch `claude/resolver-v3-037-contradiction-gate-sxo59r`, created directly
+  from `origin/chore/clean-arch-structure` at `d85d6f6c6f88b6f5a779ae5d1544e0bdfca4f0e6` (merge of
+  PR #128, the RESOLVER-V3-023 post-merge documentation follow-up). Read `SSOK.md`, `AGENTS.md`,
+  `ROADMAP.md`, `VERIFY.md`, `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`, the review
+  contract doc, the RESOLVER-V3-023 report/JSON evidence and its ROADMAP entry, and the complete
+  current implementation of `ResolverKnowledgeReview.ts`, `ResolverKnowledgeCandidate.ts`,
+  `ResolverKnowledgeReviewService.ts`, `ResolverKnowledgeCandidateValidator.ts`,
+  `ResolverKnowledgeReviewPorts.ts`, `InMemoryResolverKnowledgeReviewRepository.ts`, and
+  `ResolverKnowledgeReview.test.ts` before writing anything.
+- **Pre-implementation inventory confirmed directly from source:** the `approve` branch checked only
+  `independentUserEvidence`/`localeRestriction`, never `contradictionStatus`/
+  `contradictingEvidenceCount`; the service does not call
+  `ResolverKnowledgeCandidateValidator.validateResolverKnowledgeCandidate` (which throws rather than
+  returning a closed result, so unsuitable to reuse directly); the review-event `result` column
+  (`supabase/migrations/20260721120000_create_resolver_knowledge_reviews.sql`) is `text not null`
+  with no enumerated check constraint, so no migration is required to add a result value; a blocked
+  pre-persistence result already returns before `applyDecision` for every existing block
+  (`blocked_unauthorized`/`blocked_privacy`/`invalid_transition`/`validation_failed`), so the same
+  pattern extends cleanly to the new gate; zero production callers of
+  `ResolverKnowledgeReviewService` exist anywhere in `src/` (confirmed by grep).
+- **Implemented:** added `blocked_contradiction` to `ResolverKnowledgeReviewResult`
+  (`src/features/nutrition/domain/models/ResolverKnowledgeReview.ts`); added a runtime-validated
+  contradiction gate to the `approve` branch of `ResolverKnowledgeReviewService.review()`
+  (`src/features/nutrition/application/knowledge/ResolverKnowledgeReviewService.ts`), running before
+  the independent-user-evidence check. See the RESOLVER-V3-037 ROADMAP.md entry's "Implementation
+  notes" for the exact gate table, ordering rationale, and zero-mutation proof, and
+  `docs/domains/ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md` §"Amendment (RESOLVER-V3-037)" for the
+  full contract amendment.
+- **Tests:** 29 new tests added to `ResolverKnowledgeReview.test.ts` (63 total in that file, all
+  green) covering exact defect reproduction, gate ordering, zero-threshold behavior, all seven
+  runtime-coherence cases (valid/blocked/invalid, including adversarial runtime casts), all five
+  candidate types, non-approve-action preservation, and idempotency. Two RESOLVER-V3-023 benchmark
+  tests that encoded the discovered defect as current behavior were updated to assert the real,
+  fixed service's behavior instead (`LearningBenchmarkV2GlobalCandidateAdapter.test.ts`); one new
+  test was added to `runLearningBenchmarkV2.test.ts` documenting that INV-07 now passes while
+  INV-10/INV-11 newly fail against the same frozen fixture (a disclosed historical-fixture
+  consequence, not a rollback-logic regression — see the remediation report and ROADMAP entry for
+  full detail). One narrow pre-existing reporting bug this consequence exposed was fixed in
+  `buildLearningBenchmarkV2Reports.ts` (its "Discovered defects" narrative no longer falsely claims
+  zero failures when a non-INV-07 invariant fails).
+- **Did not touch:** the frozen Learning Benchmark V2 corpus/registry/hash, the canonical
+  `reports/RESOLVER_V3_LEARNING_BENCHMARK_V2_REPORT.md`/`reports/resolver-v3-learning-v2-benchmark.json`
+  (both remain historical evidence of the pre-fix state, unmodified), any migration, any Supabase
+  adapter, `src/infrastructure/di/container.ts`, package/lockfile, environment file, or any
+  journal/UI file. RESOLVER-V3-024, RESOLVER-V3-033..036, and RESOLVER-V3-010 were not started.
+- **Verification:** `npm run verify` (typecheck + lint + format:check + test) — green, 0 type
+  errors, 0 lint errors, 0 format violations. Focused suites also run directly and green: the full
+  `ResolverKnowledgeReview.test.ts` (63 tests) and all 12 Learning Benchmark V2 suites under
+  `src/features/nutrition/benchmark/learningV2/` (89 tests).
+- **Final status:** RESOLVER-V3-037 `done`. Focused `INV-07` remediation verdict: `PASSED` (see
+  `reports/RESOLVER_V3_037_CONTRADICTION_APPROVAL_GATE_REMEDIATION_REPORT.md`) — this does not mean
+  the original V3-023 report is retroactively `PASSED`, that the full benchmark was rerun, or that
+  any production resolver effect now exists. RESOLVER-V3-024's dependency list is updated to add
+  RESOLVER-V3-037; RESOLVER-V3-024 itself remains `todo` and was not started. RESOLVER-V3-010
+  remains `blocked`.
+- **Branch/PR status:** implemented directly on the harness-designated branch
+  `claude/resolver-v3-037-contradiction-gate-sxo59r` (this task's branch coincided with a
+  pre-existing empty branch of the same name, already in sync with
+  `origin/chore/clean-arch-structure` at the time this task began — no rebase, reset, or history
+  repair was performed).
+
+---
+
 ## RESOLVER-V3-023 — Learning Benchmark V2
 
 - **Basis and scope:** Branch `claude/resolver-v3-023-learning-benchmark-v2-f11n1l`, based on

@@ -22,13 +22,21 @@ export const RESOLVER_KNOWLEDGE_REVIEW_ACTIONS = [
 export type ResolverKnowledgeReviewAction = (typeof RESOLVER_KNOWLEDGE_REVIEW_ACTIONS)[number];
 
 /** `conflict` (RESOLVER-V3-028) is distinct from `already_applied`: a decision-id reused with
- * different decision content must never be reported as an idempotent no-op. */
+ * different decision content must never be reported as an idempotent no-op.
+ *
+ * `blocked_contradiction` (RESOLVER-V3-037) is distinct from `blocked_privacy`,
+ * `validation_failed`, and `invalid_transition`: it is a dedicated evidence-governance refusal for
+ * `approve` when the candidate carries valid, coherent contradiction evidence
+ * (`contradictionStatus: 'present'`, `contradictingEvidenceCount > 0`) — never reused for privacy
+ * errors, malformed requests, or automatic lifecycle commands. See
+ * `docs/domains/ZERA_RESOLVER_KNOWLEDGE_REVIEW_CONTRACT_1.md` §"Amendment (RESOLVER-V3-037)". */
 export type ResolverKnowledgeReviewResult =
   | 'applied'
   | 'already_applied'
   | 'conflict'
   | 'blocked_unauthorized'
   | 'blocked_privacy'
+  | 'blocked_contradiction'
   | 'invalid_transition'
   | 'candidate_not_found'
   | 'validation_failed'

@@ -1,9 +1,10 @@
 # Zera Resolver Knowledge Review Contract 1
 
 **Contract:** `resolver-knowledge-review-v1`. **Status:** accepted for RESOLVER-V3-021; amended and
-hardened by RESOLVER-V3-028 (2026-07-21, see §"Amendment" below). The contract version identifier
-itself is unchanged — the RESOLVER-V3-028 amendment adds fields/enforcement, it does not replace
-the payload/event schema wholesale, so no `v2` was minted.
+hardened by RESOLVER-V3-028 (2026-07-21, see §"Amendment" below), and further amended by
+RESOLVER-V3-037 (2026-07-22, see §"Amendment (RESOLVER-V3-037)" below). The contract version
+identifier itself is unchanged by either amendment — each adds fields/enforcement to the existing
+`approve` gate, it does not replace the payload/event schema wholesale, so no `v2` was minted.
 
 ## Inventory and boundary
 
@@ -13,7 +14,7 @@ The repository boundary is server/admin-only: `ResolverKnowledgeReviewAuthorizer
 
 ## Closed review contract
 
-Requests have a decision ID, candidate ID, action, and time. Actions are `approve`, `reject`, `needs_more_evidence`, `quarantine`, `mark_duplicate`, `supersede`, `revoke_approval`, and `rollback`; results are closed as `applied`, `already_applied`, `blocked_unauthorized`, `blocked_privacy`, `invalid_transition`, `candidate_not_found`, `validation_failed`, or `persistence_failed`. There are no free reason or metadata fields. Unknown candidate/privacy versions, private fields, personal sources, unknown reason codes, or incomplete privacy-safe evidence fail closed.
+Requests have a decision ID, candidate ID, action, and time. Actions are `approve`, `reject`, `needs_more_evidence`, `quarantine`, `mark_duplicate`, `supersede`, `revoke_approval`, and `rollback`; results are closed as `applied`, `already_applied`, `conflict`, `blocked_unauthorized`, `blocked_privacy`, `blocked_contradiction` (RESOLVER-V3-037, see amendment below), `invalid_transition`, `candidate_not_found`, `validation_failed`, or `persistence_failed`. There are no free reason or metadata fields. Unknown candidate/privacy versions, private fields, personal sources, unknown reason codes, or incomplete privacy-safe evidence fail closed.
 
 Approval creates a separate `ApprovedResolverKnowledgePayload` tied to candidate and decision, with closed discriminated payload, locale, risk, provenance, and active/revoked/rolled-back state. Rejection, quarantine, and evidence requests preserve candidate history. Negative knowledge is reviewable but never automatically active. Every decision is append-only audited and a Decision ID is idempotent. Revocation and rollback deactivate the curated payload without deletion.
 
@@ -126,3 +127,100 @@ remains a server/admin-only schema definition, not operational or live-migrated 
 No app-facing grant, no resolver-effect wiring, no aggregation batch job, no production Supabase
 adapter, and no dependency/`package.json` change. RESOLVER-V3-029 (shadow privacy/metrics) and
 RESOLVER-V3-030 (aggregation operational boundary) remain separate, unstarted tasks.
+
+## Amendment (RESOLVER-V3-037): contradiction-aware approval gate
+
+RESOLVER-V3-023's Learning Benchmark V2 exercised the real, unmodified
+`ResolverKnowledgeReviewService.review()` through fixture scenario `LBV2-GC-DEV-006` with a
+`pending_review` candidate carrying `independentUserEvidence: 'independently_confirmed'`,
+`contradictionStatus: 'present'`, and `contradictingEvidenceCount: 1` (otherwise valid locale, risk,
+versions, provenance, and authorization). The service's `approve` branch checked only
+`independentUserEvidence` and `localeRestriction` and never inspected
+`contradictionStatus`/`contradictingEvidenceCount`, so the candidate was approved
+(`'applied'`) — recorded as invariant `INV-07: failed`, reason
+`APPROVAL_SUCCEEDED_DESPITE_CONTRADICTION`, in the canonical
+`reports/RESOLVER_V3_LEARNING_BENCHMARK_V2_REPORT.md`. This section is authoritative for the
+current implementation; the sections above (RESOLVER-V3-021 baseline, RESOLVER-V3-028 amendment)
+describe the state this further amends. **The historical V3-023 report, its JSON companion, and its
+recorded `NOT_PASSED` system verdict are unchanged and remain historical evidence of the pre-fix
+state** — this amendment does not retroactively alter them.
+
+### Closed result: `blocked_contradiction`
+
+`ResolverKnowledgeReviewResult` gains a tenth closed value, `blocked_contradiction`, distinct from
+`blocked_privacy` (a privacy/provenance-risk block), `validation_failed` (a malformed/incoherent
+request or candidate), and `invalid_transition` (an illegal lifecycle source-state). Contradiction is
+an evidence-governance block in its own right — reusing any of those three would have conflated a
+distinct failure class. The contract version remains `resolver-knowledge-review-v1`: this is a
+fail-closed behavioral tightening of the existing `approve` gate, following the RESOLVER-V3-028
+amendment precedent of adding enforcement without minting a new contract version.
+
+### Binding policy: zero contradiction evidence required for approval
+
+Approval requires exactly `contradictionStatus === 'none'` and `contradictingEvidenceCount === 0`. A
+coherent contradictory state — `contradictionStatus === 'present'` and
+`contradictingEvidenceCount > 0` — returns `blocked_contradiction`. **No numerical threshold is
+authorized**: a contradiction count of `1` and a count far larger than `1` are refused identically,
+regardless of candidate type, risk, supporting-evidence count, or independent-user-evidence state.
+This applies to all five reviewable candidate types (`source-routing-pattern`,
+`abstention-policy-signal`, `clarification-policy-signal`, `provenance-gap`,
+`negative-source-routing-rule`) with no exemption.
+
+### Runtime coherence validation (adversarial-cast defense)
+
+Because the service accepts whatever its candidate-reader port returns, `approve` also validates
+`contradictionStatus`/`contradictingEvidenceCount` coherence at runtime rather than trusting the
+candidate's static type alone:
+
+| `contradictionStatus`   | `contradictingEvidenceCount`                            | Result                    |
+| ----------------------- | ------------------------------------------------------- | ------------------------- |
+| `none`                  | `0`                                                     | contradiction gate passes |
+| `present`               | integer `> 0`                                           | `blocked_contradiction`   |
+| `none`                  | nonzero                                                 | `validation_failed`       |
+| `present`               | `0`                                                     | `validation_failed`       |
+| any other/unknown value | any                                                     | `validation_failed`       |
+| `none` or `present`     | negative, fractional, `NaN`, `±Infinity`, or non-number | `validation_failed`       |
+
+No incoherent or malformed evidence is silently normalized; every invalid case above produces zero
+mutation, exactly like every other pre-persistence fail-closed result in this contract.
+
+### Gate ordering
+
+Within the `approve` branch, the contradiction check runs **before** the independent-user-evidence
+check (both within the existing "approval evidence checks" stage, ahead of the stale
+candidate-version check and lifecycle validation). This makes the contradiction gate genuinely
+independent: a contradictory candidate is refused as `blocked_contradiction` regardless of whether
+`independentUserEvidence` is `not_evaluable` or `independently_confirmed`. After the contradiction
+gate passes, the pre-existing independent-user-evidence and locale-restriction checks are unchanged:
+`not_evaluable` still returns `blocked_privacy`, only `independently_confirmed` may proceed, and
+`localeRestriction: 'unknown'` still returns `blocked_privacy`.
+
+### No automatic lifecycle transition; zero persistence
+
+A blocked `approve` request does **not** automatically transition the candidate to
+`needs_more_evidence`, `quarantined`, or `rejected`; does not mutate candidate evidence, lifecycle
+history, or the approved-payload store; and does not append a review event.
+`ResolverKnowledgeReviewRepository.applyDecision()` is never called for this result. `approve`,
+`needs_more_evidence`, `quarantine`, and `reject` remain distinct, explicit reviewer commands;
+silently converting one into another would create an unaudited decision the reviewer never
+submitted. A reviewer who observes `blocked_contradiction` may subsequently submit a separate,
+explicit `needs_more_evidence` or `reject` decision with reason code `CONTRADICTING_EVIDENCE` (both
+already legal per the existing `RESOLVER_KNOWLEDGE_REVIEW_LEGAL_REASONS` map) — this amendment does
+not add, remove, or change any reason-code legality.
+
+### Idempotency of a blocked attempt
+
+Because a blocked `approve` request is never persisted, an exact repeated attempt with the same
+`decisionId` is re-evaluated from scratch and returns `blocked_contradiction` again — never
+`already_applied`, since no decision event was ever committed for it. Pre-existing idempotency
+semantics for genuinely applied decisions (`already_applied` for an exact retry, `conflict` for a
+differing reuse of the same `decisionId`) are unchanged.
+
+### Scope explicitly not touched by this amendment
+
+No change to independent-user-evidence semantics (RESOLVER-V3-035 remains blocked/`todo`); no
+aggregation/ledger change; no production wiring (this service remains unwired — zero production
+callers); no migration (the review-event `result` column has no enumerated database check
+constraint, confirmed directly from `supabase/migrations/20260721120000_create_resolver_knowledge_reviews.sql`);
+no Supabase adapter; no DI/container change; no candidate-type exemption; no numeric threshold. The
+original RESOLVER-V3-021/RESOLVER-V3-028 sections above are unmodified by this amendment.

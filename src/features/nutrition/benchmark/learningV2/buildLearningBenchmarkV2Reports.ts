@@ -149,15 +149,17 @@ export function buildLearningBenchmarkV2HumanReport(result: RunLearningBenchmark
     '',
     '## Discovered defects and required follow-up',
     '',
-    failed.some((v) => v.invariantId === 'INV-07')
-      ? "- **INV-07 FAILED**: `ResolverKnowledgeReviewService.review()`'s `approve` action checks only " +
-        '`independentUserEvidence` and `localeRestriction`; it never inspects `contradictionStatus`/' +
-        '`contradictingEvidenceCount`. A fixture-only candidate with `independentUserEvidence: ' +
-        "independently_confirmed` and nonzero contradiction evidence was approved (`'applied'`). This does not " +
-        'claim any production candidate can currently reach this state (aggregation only ever produces ' +
-        '`not_evaluable`), but the review-policy gap is real. Tracked as a new, narrowly scoped remediation ' +
-        'task (see `ROADMAP.md`); production review-policy code was NOT changed by this task.'
-      : '- No invariant failures were recorded in this run.',
+    failed.length === 0
+      ? '- No invariant failures were recorded in this run.'
+      : failed.some((v) => v.invariantId === 'INV-07')
+        ? "- **INV-07 FAILED**: `ResolverKnowledgeReviewService.review()`'s `approve` action checks only " +
+          '`independentUserEvidence` and `localeRestriction`; it never inspects `contradictionStatus`/' +
+          '`contradictingEvidenceCount`. A fixture-only candidate with `independentUserEvidence: ' +
+          "independently_confirmed` and nonzero contradiction evidence was approved (`'applied'`). This does not " +
+          'claim any production candidate can currently reach this state (aggregation only ever produces ' +
+          '`not_evaluable`), but the review-policy gap is real. Tracked as a new, narrowly scoped remediation ' +
+          'task (see `ROADMAP.md`); production review-policy code was NOT changed by this task.'
+        : '- See the "Failed invariants" section above for the invariant(s) that did not pass in this run.',
     '',
     '## Residual limitations',
     '',

@@ -9579,122 +9579,104 @@ Depends on: RESOLVER-V3-024
 
 **Goal:** Create a successor benchmark contract/corpus version that closes the representative-
 corpus gap RESOLVER-V3-024 identified: no corpus combining representative category coverage with
-live Hybrid C execution currently exists.
+Hybrid C execution (fixture-mode, offline) currently existed.
 **Scope:** A new, versioned corpus/harness design that (a) preserves the RESOLVER-V3-023 Learning
 Benchmark V2 v1 corpus as immutable history, unedited; (b) separates contradiction-gate and
 rollback scenarios into distinct fixtures, so the frozen-fixture coupling RESOLVER-V3-024 §24
-documented cannot recur; (c) specifies that resolution/decomposition scenarios run live Hybrid C
-rather than Variant A; (d) retains development/holdout separation; (e) includes `DACH`,
-`COMPOSED`, `HOMEMADE`, `RESTAURANT`, `SIMPLE`, `HOUSEHOLD`, vague, clarification, and abstention
-case coverage; (f) includes no production wiring.
+documented cannot recur; (c) runs resolution/decomposition scenarios through a genuine three-arm
+A/B/C harness boundary (reconciled during the mandatory inventory against the accepted G2
+false-confidence criterion, which requires C strictly better than both A **and** B — an A/C-only
+harness would leave G2-B structurally unevaluable); (d) retains development/holdout separation
+with a corpus-freeze protocol; (e) includes `SIMPLE`, `HOUSEHOLD`, `DACH`, `BRANDED`, `COMPOSED`,
+`HOMEMADE`, `RESTAURANT`, `VAGUE`, `PREPARATION`, `NEGATION_MODIFIER`, `UNRELIABLE` category
+coverage plus a repeat/paraphrase overlay; (f) includes no production wiring, no live provider
+call, and zero-network execution by construction (no `--live` flag exists at all).
 **Non-goals:** Any live provider call (that is RESOLVER-V3-039); any production resolver wiring;
 any change to the frozen RESOLVER-V3-023 v1 corpus, registry, hash, or canonical reports.
+**Implementation notes (RESOLVER-V3-038, 2026-07-22):** Implemented under
+`src/features/nutrition/benchmark/representativeHybridV1/`. Corpus-freeze commit
+`639e940ed22a30d1146ba295b898569ffabec589`; corpus hash
+`f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a`; source-manifest hash
+`11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52`. 114 total scenarios (86
+development / 28 holdout): 88 resolution base cases (8 per category, all in both partitions), 16
+repeat/paraphrase overlay cases (~18.2%), 10 governance-fixture scenarios. Holdout is 25.0% of the
+resolution base. **Documented deviation from the accepted 150–200 base-case target:** this
+successor's 88 base cases sit at the spec's per-category floor (8/category), not the 8–12/category
+target, due to session time constraints on responsibly authoring verified ground truth (real BLS
+`sourceId`s, hand-derived deterministic multi-component totals, committed source snapshots) rather
+than placeholder data. Every minimum condition the spec requires for an accepted deviation is met
+(every category ≥8 and in both partitions; every behavior/difficulty in both partitions; holdout
+≥20%; complex-meal weighting 27.3%, consistent with target) except DACH weighting, which reached
+14.8% against a 25–30% target — disclosed as a residual limitation, not claimed as met (see the
+readiness report §15 and the spec doc §5.2/§17). The three-arm harness reuses the real, unmodified
+RESOLVER-V3-003/004/005 adapter/evaluator pairs verbatim (no simplified simulator). Contradiction-
+gate (`RH-GC-DEV-CONTRA-001`) and rollback (`RH-GC-DEV-ROLLBACK-001`) are independent scenarios with
+independent candidates and no shared decision-ID namespace, both referencing
+`predecessorScenarioId: LBV2-GC-DEV-006` for provenance; the contradiction fixture's expected result
+is the current, already-fixed `blocked_contradiction` (RESOLVER-V3-037), not the predecessor's stale
+pre-fix literal. `RH-RES-DACH-DEV-006` ("Brötchen") deliberately reproduces the real, historically-
+documented RV3-0011 false-confidence defect end-to-end through the real harness. A documented
+architecture finding from authoring: Variant A's fast path does not strip a leading quantity/article
+token before searching BLS, so natural "quantity + food" phrasing generally falls through to
+Variant C's AI branch rather than the fast path — a real, disclosed characteristic, not a corpus
+defect. No `learningV2/**` file was modified (verified via `git diff` against the frozen base). 87
+new tests added (all passing); the full existing suite (2158 tests) remains green; `npm run verify`
+passes clean. See `docs/domains/ZERA_REPRESENTATIVE_HYBRID_BENCHMARK_SPEC_1.md` and
+`reports/RESOLVER_V3_038_REPRESENTATIVE_HYBRID_BENCHMARK_READINESS_REPORT.md` for full detail.
+**Not started or affected by this task:** RESOLVER-V3-039, RESOLVER-V3-040 (still `todo`),
+RESOLVER-V3-010 (still `blocked`). No live provider call, source-network call, production resolver
+change, feature flag, migration, RPC, Supabase adapter, or package/dependency change occurred.
 **Risks:** Under-specifying the contradiction/rollback scenario separation and reintroducing the
-same coupling; accidentally importing or mutating V1 corpus history.
-**Tests/verification:** Contract/schema/registry tests; documentation readback per `VERIFY.md`;
-`npm run verify`.
+same coupling; accidentally importing or mutating V1 corpus history. Both mitigated as described
+above and proven by `RepresentativeHybridV1Governance.test.ts`/`RepresentativeHybridV1Versioning.test.ts`.
+**Tests/verification:** Contract/schema/registry tests; A/B/C boundary tests; governance-separation
+tests; isolation/leakage tests; coverage/count tests; report-builder tests; full-corpus smoke test;
+historical Variant A/B/C and Learning Benchmark V2 regressions (fixture mode); `npm run verify`.
 **Acceptance:** A versioned, immutable successor corpus contract exists with the required category
-coverage and contradiction/rollback separation, with zero production or live-provider effect.
+coverage and contradiction/rollback separation, with zero production or live-provider effect. Met,
+with the DACH-weighting deviation disclosed above.
 
-**Implementation notes (2026-07-22):** Implemented as a wholly new, additive module,
-`src/features/nutrition/benchmark/representativeHybrid/` (12 source files, 4 test files), under
-corpus contract `resolver-representative-hybrid-benchmark-corpus-1.0.0` / registry
-`resolver-representative-hybrid-benchmark-registry-v1`. Full design rationale and coverage table:
-`docs/domains/ZERA_REPRESENTATIVE_HYBRID_BENCHMARK_SPEC_1.md`.
-
-- **(a) V1 preserved as immutable history:** no file under `../learningV2/` was read-modified,
-  imported at runtime, or re-exported; `git --no-pager diff --stat` for this task touches only
-  `ROADMAP.md`, the new spec doc, and the new `representativeHybrid/` directory. Only two type-only
-  imports cross into `learningV2/` (`LearningBenchmarkV2FixtureObservationInput` and, transitively,
-  nothing else) — enforced by a dedicated isolation-test assertion that no other `learningV2/` import
-  path appears anywhere in the new module.
-- **(b) Contradiction/rollback split:** two new disjoint scenario types,
-  `contradiction_gate_sequence` and `rollback_sequence`, replace V1's single
-  `global_candidate_sequence` use for this corpus. `RepresentativeHybridBenchmarkValidator.ts`
-  enforces the split structurally (on the raw steps array, not just via the TS union): a
-  `contradiction_gate_sequence` scenario fails validation if any step's `action` is
-  `rollback`/`revoke_approval`; a `rollback_sequence` scenario fails validation if any step sets
-  `forceContradiction: true`. A locally-defined candidate-step type
-  (`RepresentativeHybridBenchmarkCandidateStep`) was introduced rather than reusing V1's
-  `LearningBenchmarkV2GlobalCandidateStep`, because that V1 type's `expectedResult` union predates
-  RESOLVER-V3-037 and has no `'blocked_contradiction'` literal — reusing it would have made it
-  impossible to correctly express the very gate this corpus exists to exercise. `expectedResult`
-  values were derived by reading `ResolverKnowledgeReviewService.review()`'s real, current approve
-  branch directly (not run): a forced-contradiction approve attempt returns `blocked_contradiction`
-  unconditionally (no risk-level threshold); a default-evidence approve attempt returns
-  `blocked_privacy`.
-- **(c) Hybrid C, not Variant A:** every `resolution_decomposition_hybrid_c` scenario carries a fixed
-  `executionEngine: 'hybrid_c'` literal (not a per-scenario free-form field, so a future task cannot
-  quietly default back to Variant A), validated by `RepresentativeHybridBenchmarkValidator.ts`.
-- **(d) Dev/holdout retained:** `RepresentativeHybridBenchmarkRegistry.ts` mirrors
-  `LearningBenchmarkV2Registry.ts` exactly (immutable manifest, fail-closed on version mismatch or a
-  scenario assigned to two partitions).
-- **(e) Category coverage:** 12 resolution scenarios (8 dev, 4 holdout) cover `DACH`, `COMPOSED`,
-  `HOMEMADE`, `RESTAURANT`, `SIMPLE`, `HOUSEHOLD` (all six present in `development` alone, checked by
-  a dedicated corpus-level validator function, not by convention), plus a `VAGUE`
-  clarification-required case and two abstention-required cross-locale (English) cases. 3
-  contradiction-gate scenarios (2 dev, 1 holdout) and 3 rollback scenarios (2 dev, 1 holdout) — 18
-  scenarios total, 12 development / 6 holdout (33%). Ground-truth honesty: no BLS `sourceId`, recipe,
-  or "official restaurant data" figure is invented anywhere in the corpus; unverifiable cases use
-  `no_numeric_ground_truth` (see spec §6).
-- **(f) No production wiring / non-goals:** zero live provider calls, zero production wiring. A
-  harness _contract_ (`RepresentativeHybridBenchmarkHarnessContract.ts`) fixes the function
-  signatures a future live executor (RESOLVER-V3-039) and review-service adapter must implement, but
-  the only concrete function provided today is `selfCheckRepresentativeHybridBenchmarkCorpus()` — a
-  pure, zero-I/O structural self-test (corpus validity + registry cross-check), calling no resolver,
-  AI provider, or review service. `RepresentativeHybridBenchmarkIsolation.test.ts` (mirroring the
-  RESOLVER-V3-023/031/032 isolation-test pattern) asserts: no Supabase/live-transport/`fetch` import
-  anywhere in the module; not referenced by `src/infrastructure/di/container.ts`; no `--live` flag or
-  provider credential env var; no migration/edge-function/RPC added.
-- **Explicit scoping decision (documented limitation):** this task deliberately does not build a
-  working in-process harness wiring (i.e. it does not reuse/extend
-  `LearningBenchmarkV2GlobalCandidateAdapter.ts`'s pattern to actually execute
-  contradiction-gate/rollback steps against the real `ResolverKnowledgeReviewService`). RESOLVER-V3-038's
-  own non-goals scope it as "design/corpus-authoring only... no production wiring"; building and
-  wiring that adapter is left to a follow-up (either folded into RESOLVER-V3-039's live-execution work
-  or a small dedicated task), tracked here rather than silently expanded into scope.
-- **Verification:** `npm install --ignore-scripts` was required first (`node_modules` did not exist in
-  this session; the Supabase CLI postinstall binary download failed with a 403 through the
-  environment's egress proxy, which only allows a fixed set of package registries — `--ignore-scripts`
-  restores all JS dependencies needed for `npm run verify` without needing that unrelated CLI binary;
-  `package.json`/`package-lock.json` were not modified). `npm run verify` (typecheck + lint +
-  format:check + test) — green: 0 type errors, 0 lint errors, 0 format violations, 213 test suites /
-  2100 tests passed (full suite, not just the new module). The new module's own 4 test files (29
-  tests: validator structural + contradiction/rollback-separation rejection, registry
-  uniqueness/version, harness self-check, isolation) all pass. `git --no-pager status --short` /
-  `--diff --stat` confirm the change is limited to `ROADMAP.md`, the new spec doc, and the new
-  `representativeHybrid/` directory — no `learningV2/` file, migration, `container.ts`,
-  `package.json`, or `package-lock.json` was touched.
-- **No UI/presentation-layer files touched:** `docs/MANUAL_TESTING_GAPS.md` entry not required per
-  `AGENTS.md`/`VERIFY.md`.
-- **Effect on RESOLVER-V3-039/040:** RESOLVER-V3-039 (controlled representative live Hybrid evidence)
-  remains `todo`, not started, and not authorized by this task — it may now proceed once
-  RESOLVER-V3-040 (cost/latency acceptance policy) is also done. RESOLVER-V3-040 is independent and
-  was not started by this task either.
-- **Branch/PR status:** implemented directly on this session's designated autonomous-work branch
-  (`claude/autonomous-tasks-flight-hdewii`); see `handoffs/latest-handoff.md` for the session context
-  (unattended continuation while the requesting user was offline) and PR status once opened.
+**Parallel-session note:** an independent, unattended session (`claude/autonomous-tasks-flight-hdewii`,
+running while the requesting user was offline in-flight) picked up this same task concurrently and
+built a smaller, design/corpus-authoring-only implementation under
+`src/features/nutrition/benchmark/representativeHybrid/` (contract
+`resolver-representative-hybrid-benchmark-corpus-1.0.0`). Before opening a PR, that session fetched
+`origin/chore/clean-arch-structure` (per `AGENTS.md`'s branch-sync rule) and found this task already
+merged here as PR #132 with materially more coverage (a three-arm A/B/C harness satisfying the G2-B
+false-confidence criterion, 114 scenarios, a source-snapshot manifest, a readiness report) — its own
+module was discarded unmerged rather than duplicated; see `handoffs/latest-handoff.md` for the full
+note.
 
 #### RESOLVER-V3-039: Controlled Representative Live Hybrid Evidence
 
 Status: `todo`
 Depends on: RESOLVER-V3-038, RESOLVER-V3-040
 
-**Goal:** Collect the controlled, representative live Hybrid C evidence RESOLVER-V3-024 found
-missing, using the RESOLVER-V3-038 successor corpus.
-**Scope:** Pin provider/model/prompt/schema/harness versions; define an explicit budget before
-execution; prevent fixture fallback; preserve token/cost/latency/retry/error/provenance data for
-every case; run development and holdout under a predeclared protocol; avoid case-specific tuning;
-remain benchmark-only.
+**Goal:** Collect the controlled, representative live evidence RESOLVER-V3-024 found missing, using
+the RESOLVER-V3-038 successor corpus.
+**Scope (updated by RESOLVER-V3-038's G2-B reconciliation, 2026-07-22):** The accepted Benchmark
+Spec §11 G2 false-confidence dimension requires Hybrid C to be strictly better than **both** Variant
+A and Variant B ("streng niedriger als A und B") — no binding authority removes B from G2 scope
+(confirmed during RESOLVER-V3-038's mandatory inventory; RESOLVER-V3-024 §9/§338 states the
+identical requirement). RESOLVER-V3-038 therefore built a genuine three-arm A/B/C harness boundary,
+not an A/C-only one, specifically so this task can satisfy G2-B. This task's later controlled
+protocol **must run both live B and live C** on the same RESOLVER-V3-038 successor corpus, under the
+same pinned provider/model where required, injecting live `VariantBProvider`/`VariantCAiInterpreter`
+implementations through the exact `RepresentativeHybridV1RunnerDependencies` interface
+(`RepresentativeHybridV1ThreeArmRunner.ts`) already exposed for this purpose — no harness-code
+change is required to go from fixture to live. Pin provider/model/prompt/schema/harness versions;
+define an explicit budget before execution; prevent fixture fallback; preserve token/cost/latency/
+retry/error/provenance data for every case, every arm; run development and holdout under a
+predeclared protocol; avoid case-specific tuning; remain benchmark-only.
 **Non-goals:** Any production wiring or feature-flag change; any provider/model product decision;
 any modification of the RESOLVER-V3-038 corpus after this task's protocol is declared.
 **Risks:** Fixture fallback masquerading as live evidence; post-hoc threshold invention; corpus
-overfitting to observed results.
+overfitting to observed results; running only C and treating G2-B as satisfied without a real B run.
 **Tests/verification:** Live-mode credential/budget-gate tests; documentation readback; no
 automatic rerun without separate authorization.
-**Acceptance:** A complete, honestly reported live Hybrid C evidence set against the representative
-successor corpus, with no fixture fallback and no production effect. **This task is not authorized
-or executed by RESOLVER-V3-024.**
+**Acceptance:** A complete, honestly reported live B and C evidence set against the representative
+successor corpus, with no fixture fallback and no production effect, sufficient to evaluate G2-B.
+**This task is not authorized or executed by RESOLVER-V3-024 or RESOLVER-V3-038.**
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 

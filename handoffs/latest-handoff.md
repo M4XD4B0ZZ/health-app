@@ -1,5 +1,27 @@
 # Latest Handoff
 
+## QUEUE-001 / QUEUE-002 — Queue Contract, Issue Intake and Worker Skill
+
+- **Task IDs:** `QUEUE-001` (queue contract + issue intake), `QUEUE-002` (worker skill).
+- **Scope:** Successor to the retired Ralph-Loop / Overnight Worker. Added
+  `.github/ISSUE_TEMPLATE/queue-task.yml` (task ID, objective, DoD, dependencies,
+  allowed/forbidden paths, verify commands, risk class, merge authorization, max fix attempts,
+  stop conditions), `docs/automation/CLAUDE_QUEUE_CONTRACT.md` (labels, risk-class exclusions,
+  lifecycle, merge-authorization rule, fix-attempt limits, explicit relationship to
+  `ROADMAP.md`), and `.claude/skills/queue-run/SKILL.md` (the reusable worker, following the
+  existing `cleanup-branches` skill convention). No custom orchestrator, scheduler, or
+  runtime-state file was added — the design relies entirely on GitHub Issues/labels as the queue
+  and this environment's own PR-activity subscription / scheduled wake-up capabilities for
+  unattended operation.
+- **Known gap (documented, not blocking):** GitHub labels (`queue:approved` etc.) are not created
+  by this task — no label-management tool is available to the worker. One-time manual creation
+  via GitHub → Settings → Labels is documented in the contract.
+- **Not done here:** `QUEUE-003` (two-task unattended smoke) and `QUEUE-004` (evaluation/
+  hardening) are added to `ROADMAP.md` as `todo`, not started. No queue issue was created or run.
+- **Verification:** `npm run verify` green (typecheck, lint, format, full test suite — no `src/`
+  change in this task). Git readbacks clean.
+- **No-product-effect:** no `src/`, Supabase, dependency, or GitHub Actions workflow change.
+
 ## RALPH-RETIRE-001 — Remove Dead RALPH Runtime, Simulators and Historical Noise
 
 - **Task ID:** `RALPH-RETIRE-001`.

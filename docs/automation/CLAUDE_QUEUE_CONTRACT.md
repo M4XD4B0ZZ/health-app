@@ -169,6 +169,51 @@ two-stage run. Stage A passed the full supervised lifecycle; the unattended cont
   before the dependent stage (as `QUEUE-004` did with Stage B, issue #149, closed unexecuted) is
   the correct outcome, and an unexecuted stage must never be cited as completed queue work.
 
+## External-Controller Mode (`QUEUE-005`)
+
+`.github/workflows/claude-queue-wake.yml` is the external wake mechanism justified by
+`GITHUB_ACTIONS_CONTROLLER_JUSTIFIED` above. It wakes every 15 minutes (plus `workflow_dispatch`),
+runs a small deterministic, read-only preflight
+(`scripts/automation/claude-queue-preflight.mjs`) to decide whether AI work is actually
+actionable, and invokes the official Claude Code Action **only** when it is. See
+`reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md` for the full design, permissions,
+authentication modes, and cost-bound mechanism. This section defines the narrow behavioral
+contract for a queue worker invoked _by that controller_, distinct from a manually-invoked
+`queue-run` session:
+
+- **This is the only way a run may honestly be called `externally triggered unattended`** (see
+  the `queue-run` skill). A session invoked interactively — even one that calls `/queue-run` — is
+  always `semi-attended`, regardless of how it describes itself.
+- **One durable transition per invocation, strictly.** A controller-invoked worker claims/resumes
+  exactly one issue and performs exactly one bounded transition (claim-and-implement-to-waiting-ci,
+  one CI-failure fix-and-push, CI-green resolve-merge-and-post-merge-review, post-merge
+  completion, or confirming a human-merge wait) and then stops — it never remains running to poll
+  CI, and never claims a second task in the same invocation. This is what makes duplicate-tick
+  safety, predictable turn/cost bounds, and later-tick resumption provable.
+- **Preflight output is a hint, not a fact.** The invoked worker must re-fetch and reconcile
+  actual GitHub state (labels, state comment, branch, PR, head SHA, checks) before acting — the
+  preflight's reason code/issue/task/phase reflect state at workflow start and may already be
+  stale by the time the Claude job runs. Newer GitHub state always wins, exactly as for a manual
+  session (see "Resuming an in-flight task" in the `queue-run` skill).
+- **The preflight never selects ROADMAP.md tasks and never mutates GitHub state.** It only reads
+  issues, labels, comments, branches, PRs, and check-runs, and only decides among the same
+  `queue:approved`/dependency/risk rules already defined above in this contract — it is a
+  deterministic re-implementation of "Task selection order" and "Active-task reconciliation" for
+  a context with no chat memory between ticks, not a new selection policy.
+- **Authentication is repository-configured, never assumed.** The controller supports exactly two
+  modes, selected by the `CLAUDE_QUEUE_AUTH_MODE` repository variable (`oauth` using
+  `CLAUDE_CODE_OAUTH_TOKEN`, or `api` using `ANTHROPIC_API_KEY`) — see the report for the human
+  setup steps. A worker invoked by the controller never has access to whichever secret its mode
+  did not select, and the workflow fails closed (no Claude request made) before the Action step
+  if the configured mode, its secret, or `CLAUDE_QUEUE_MODEL` is missing/invalid.
+- **Correction to prior `ANTHROPIC_API_KEY`-only framing:** earlier `ROADMAP.md` text mentioned
+  only `ANTHROPIC_API_KEY`. The official Claude Code Action also supports
+  `CLAUDE_CODE_OAUTH_TOKEN` (generated via `claude setup-token`, documented for Pro/Max
+  subscribers) as an alternative to a direct API key. This contract does not claim that OAuth
+  usage from GitHub Actions is free or is definitely charged against a particular interactive
+  subscription quota — that must be observed and reported honestly (see the report's "Cost
+  limitations" section), not assumed.
+
 ## Relationship to `ROADMAP.md`
 
 `ROADMAP.md` is unaffected by this contract. Product feature planning, task IDs, and status still

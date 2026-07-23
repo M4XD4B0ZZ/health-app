@@ -682,6 +682,18 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     );
   });
 
+  test('all four transition steps allow the claude bot actor, scoped (not wildcard)', () => {
+    // Every queue PR is authored by claude[bot], so the workflow_run wake (CI completing on
+    // that PR) always has a Bot actor in its event chain. Without allowed_bots, the action's
+    // own anti-abuse check refuses to run at all ("non-human actor: claude (type: Bot)") —
+    // exactly what the QUEUE-007/008 multi-task smoke test caught: every CI-completion wake
+    // failed in ~1s. Must be scoped to 'claude', never '*' (the action's own docs warn '*' lets
+    // any external App on the repo invoke it with attacker-controlled prompts).
+    const occurrences = (WORKFLOW_SOURCE.match(/allowed_bots: 'claude'/g) ?? []).length;
+    assert.equal(occurrences, 4, 'expected allowed_bots on all four transition steps');
+    assert.doesNotMatch(WORKFLOW_SOURCE, /allowed_bots: '\*'/);
+  });
+
   test('25) claude job is conditional on preflight should_invoke -> idle path cannot reach it', () => {
     const claudeJobMatch = WORKFLOW_SOURCE.match(/\n {2}claude:\n([\s\S]*)/);
     assert.ok(claudeJobMatch, 'claude job not found');

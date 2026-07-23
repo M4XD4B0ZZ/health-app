@@ -32,6 +32,29 @@ export const REPRESENTATIVE_HYBRID_V1_LIVE_EXECUTION_PLAN_VERSION =
 export const REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION =
   'resolver-representative-hybrid-live-evidence-report-v1';
 
+/**
+ * RESOLVER-V3-039 Phase-B continuation remediation (protocol v1 pre-execution defect: the
+ * documented two-phase Development -> inspect -> Holdout workflow could not safely execute --
+ * see `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`). Protocol v1 is preserved,
+ * unexecuted, as invalidated history (zero paid calls occurred under it). These v2 identifiers
+ * are the corrected, closed protocol/checkpoint/ledger/report contract that replaces it for any
+ * future live execution. v1 constants above are kept, unmodified, so historical artifacts that
+ * reference them remain byte-valid.
+ */
+export const REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2 =
+  'resolver-representative-hybrid-live-protocol-v2';
+export const REPRESENTATIVE_HYBRID_V1_LIVE_EXECUTION_PLAN_VERSION_V2 =
+  'resolver-representative-hybrid-live-execution-plan-v1';
+export const REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2 =
+  'resolver-representative-hybrid-live-evidence-report-v2';
+export const REPRESENTATIVE_HYBRID_V1_LIVE_CHECKPOINT_SCHEMA_VERSION =
+  'resolver-representative-hybrid-live-development-checkpoint-v1';
+export const REPRESENTATIVE_HYBRID_V1_LIVE_HOLDOUT_CHECKPOINT_SCHEMA_VERSION =
+  'resolver-representative-hybrid-live-holdout-checkpoint-v1';
+export const REPRESENTATIVE_HYBRID_V1_LIVE_LEDGER_SCHEMA_VERSION =
+  'resolver-representative-hybrid-live-call-ledger-v1';
+export const REPRESENTATIVE_HYBRID_V1_LIVE_HARNESS_VERSION_V2 = '2.0.0';
+
 /** Re-exported so the protocol/report can pin the exact prompt/schema/contract/interpreter
  * versions without a second, drift-prone copy of these literals. */
 export const REPRESENTATIVE_HYBRID_V1_LIVE_PINNED_VERSIONS = {

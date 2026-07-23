@@ -9690,6 +9690,42 @@ report (all G2 dimensions `not_evaluable`) and
 `reports/resolver-v3-039-controlled-representative-live-evidence.json` for the machine-readable
 form.
 
+**Phase-B continuation remediation (2026-07-23, pre-execution — zero calls, zero cost throughout):**
+before authorizing any paid request, re-reading the merged Phase-A implementation found that its
+own documented two-phase Development → inspect → Holdout workflow could not actually execute: the
+documented Holdout command was refused once Development's output existed (a fixed-path
+already-exists guard with no merge path), and the only two workarounds were both unsafe
+(`--allow-rerun` discarded Development's evidence when Holdout rebuilt the report from only its own
+partition; `--partition=all` either skipped the required inspection boundary or would have repeated
+billed Development calls on a second invocation). Budget enforcement was also process-local (a
+fresh, full 263-call/$4.174336 `LiveProviderBudgetGate` was constructed in every separate CLI
+process, with no cumulative state persisted between Development and Holdout), and paid-call evidence
+was not durable during execution (nothing was written to disk until an entire partition's loop
+finished, so a crash after real billed calls could lose their identities/usage/cost with no way to
+tell "never attempted" apart from "billed but lost"). Full defect analysis, corrected architecture,
+and remediation detail: `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`. Protocol v1
+(`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL.md` /
+`resolver-v3-039-controlled-live-protocol.json`) and its evidence documents are preserved unedited
+as invalidated pre-execution history; a corrected, closed protocol v2
+(`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL_V2.md` /
+`resolver-v3-039-controlled-live-protocol-v2.json`, `planHash` unchanged at
+`214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e`, new
+`executionTreeHash: 9c3da0fed1ae33d66bf6a9499f679ce67829c80e054d0fd180e2e4a65fcd5b9e`) adds a
+durable, atomic Development checkpoint; a tamper-evident, append-only call ledger shared across both
+phases (states `reserved → dispatched → {completed | terminal_failure}`, plus
+`indeterminate_after_interruption` on interruption — never automatically rerun, requiring explicit
+human resolution); a cumulative-budget reconstruction that replays every already-consumed call
+through the same, unmodified `LiveProviderBudgetGate` so Holdout's allowance is the frozen ceiling
+minus Development's actual consumption, never a fresh full ceiling; and a corrected two-phase CLI
+(`scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`) that refuses `--partition=all` and
+`--allow-rerun` outright and requires `--development-checkpoint=<path>` for Holdout. 69 new focused
+tests added (208/208 tests, 26/26 suites green across the full `representativeHybridV1/**` tree);
+`npm run verify` passes clean; no `ANTHROPIC_API_KEY` was read or set anywhere in this remediation;
+every new test uses fake transports/providers only. **RESOLVER-V3-039 remains `in_progress`** — this
+remediation corrects the continuation defect and re-freezes a corrected protocol; it collects no
+live evidence itself. RESOLVER-V3-041 remains `todo`, not started. RESOLVER-V3-010 remains
+`blocked`. RESOLVER-V3-038 and RESOLVER-V3-040 remain `done`, unmodified.
+
 #### RESOLVER-V3-041: Representative Hybrid Gate Re-Decision After Controlled Live Evidence
 
 Status: `todo`

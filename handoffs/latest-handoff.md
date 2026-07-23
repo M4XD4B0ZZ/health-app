@@ -1,5 +1,79 @@
 # Latest Handoff
 
+## RESOLVER-V3-039 — Phase-B Continuation Remediation (protocol v2)
+
+- **Basis and scope:** Branch `claude/resolver-v3-039-phase-b-remediation-yva0my`, created directly
+  from `origin/chore/clean-arch-structure` at `f8c5e678ff3d555829a5548ae57ffcb30d0a2c7e` (merge of
+  PR #136, the RESOLVER-V3-039 Phase-A implementation). Before authorizing any paid provider
+  request, re-read the merged Phase-A implementation end to end (protocol MD/JSON, evidence
+  MD/JSON, CLI, harness, every file under `representativeHybridV1/live/**`) and traced the
+  documented Development → inspect → Holdout workflow line by line rather than assuming it was
+  executable as written.
+- **Defect found (pre-execution, zero calls, zero cost):** the documented Holdout command was
+  refused once Development's fixed-path output existed (no merge path); the only two workarounds
+  were both unsafe (`--allow-rerun` discarded Development's evidence when Holdout rebuilt the report
+  from only its own partition — `developmentCaseRecords` was unconditionally `null`;
+  `--partition=all` either skipped the required inspection boundary or would have repeated billed
+  Development calls on a second invocation). Budget enforcement was also process-local (a fresh,
+  full 263-call/$4.174336 gate per CLI process, no cumulative state across Development/Holdout), and
+  paid-call evidence was not durable during execution (nothing written to disk until an entire
+  partition's loop finished). Full analysis:
+  `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`.
+- **Zero-calls confirmation:** verified directly from the still-committed, unmodified v1 evidence
+  artifact (`actualUsage.calls: 0`, `rawTelemetry: []`, every gate `not_evaluable`) and independently
+  asserted by a new regression test reading that same file. This remediation itself made no provider
+  request either — no `ANTHROPIC_API_KEY` was read or set anywhere in this branch's work; every new
+  test uses fake transports/providers exclusively.
+- **Protocol v1 disposition:** preserved unedited as invalidated pre-execution history (frozen,
+  never executed, no quality evidence to invalidate because none existed). Superseded for live
+  execution by protocol v2 — the harness refuses any `protocolVersion` other than
+  `resolver-representative-hybrid-live-protocol-v2`.
+- **Corrected architecture (protocol v2):** a durable, atomically-written Development checkpoint
+  (`RepresentativeHybridV1LiveCheckpoint.ts`); a tamper-evident, append-only call ledger shared
+  across both phases and every process invocation (`RepresentativeHybridV1LiveCallLedger.ts`,
+  states `reserved → dispatched → {completed | terminal_failure}` plus
+  `indeterminate_after_interruption` on interruption — never auto-rerun, requiring an explicit,
+  separate human resolution); deterministic call IDs
+  (`RepresentativeHybridV1LiveCallId.ts`); a cumulative-budget reconstruction
+  (`RepresentativeHybridV1LiveCumulativeBudget.ts`) that replays every already-consumed call through
+  the same, unmodified `LiveProviderBudgetGate`, so Holdout's allowance is the frozen ceiling minus
+  Development's actual consumption, never a fresh full ceiling; an execution-tree drift hash
+  (`RepresentativeHybridV1LiveExecutionTreeHash.ts`) covering prompts/schemas/provider/pricing/
+  harness logic not already covered by the existing corpus/source-manifest/plan hashes; and a
+  corrected two-phase CLI (`scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`) that
+  refuses `--partition=all` and `--allow-rerun` outright and requires
+  `--development-checkpoint=<path>` for Holdout. `RepresentativeHybridV1LiveReportBuilder.ts`/
+  `RepresentativeHybridV1LiveReportValidator.ts` received small, additive, backward-compatible
+  changes (optional `reportVersion`/`protocolVersion` parameters; validator accepts either version)
+  — every pre-existing caller/test is byte-identical in output.
+  `planHash` unchanged (`214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e`); new
+  `executionTreeHash: 9c3da0fed1ae33d66bf6a9499f679ce67829c80e054d0fd180e2e4a65fcd5b9e`.
+- **Tests:** 69 new focused tests across 8 new suites (defect reproduction, checkpoint, ledger,
+  ledger-recording providers, cumulative budget, execution-tree hash, call ID, and an end-to-end
+  two-phase workflow composition test) — all green. Full regression: **208/208 tests, 26/26 suites**
+  across the entire `representativeHybridV1/**` tree (139 pre-existing + 69 new).
+- **Verification:** `npm install --ignore-scripts` (no `node_modules` present in this environment;
+  Supabase CLI postinstall network fetch blocked — documented precedent, unrelated to this task),
+  `npm run typecheck` (0 errors), `npm run lint` (0 errors), `npm run format:check` (clean after one
+  `prettier -w` pass), `npx jest --testPathPattern="representativeHybridV1"` (208/208 green),
+  `npm run verify` (green). `git --no-pager status --short` / `--diff --stat` / `--diff --name-only`
+  / `diff --check` confirm the diff is limited to the files listed in the remediation report's §13 —
+  zero changes to `supabase/migrations/**`, `supabase/functions/**`, `package.json`,
+  `package-lock.json`, any environment file, `src/infrastructure/di/container.ts`, any journal/UI
+  file, or any RESOLVER-V3-038/023/024/040 frozen artifact.
+- **No production effect:** no DI/container registration, feature flag, migration, RPC, Supabase
+  adapter, or UI/journal change was made. Every new file lives under
+  `representativeHybridV1/live/**` or `reports/**`.
+- **Final status:** **RESOLVER-V3-039 remains `in_progress`** — this remediation corrects the
+  Phase-B continuation defect and re-freezes a corrected protocol; it collects no live evidence
+  itself. RESOLVER-V3-041 remains `todo`, not started. RESOLVER-V3-010 remains `blocked`.
+  RESOLVER-V3-038 and RESOLVER-V3-040 remain `done`, unmodified.
+- **Branch/PR status:** to be recorded after push/PR/merge (this entry is written before that step
+  completes; see the ROADMAP.md RESOLVER-V3-039 entry and the final task report for the eventual PR
+  number and merge commit once available).
+
+---
+
 ## RESOLVER-V3-040 — Cost/Latency Acceptance Policy
 
 - **PR #133 closure:** Closed `codex/vervollstandige-letzten-task-von-claude` without merging,

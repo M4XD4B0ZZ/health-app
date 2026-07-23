@@ -223,22 +223,70 @@ regardless of an issue's own wording.
 
 ### QUEUE-003 Two-Task Unattended Smoke
 
-Status: `todo`
+Status: `done`
 
-Validate the queue end-to-end with two small, real tasks before trusting it with anything larger
-(e.g. one docs/governance task such as `RALPH-RETIRE-002`, plus one small deterministic
-test/cleanup task). Record: whether CI events reliably wake the session, whether task B starts
-only after task A fully completes, whether any duplicate branches/PRs/sessions occur, whether a
-long wait (including overnight) is survived, and how much usage the run consumed. Depends on
-QUEUE-002.
+Validated the queue end-to-end with two real tasks: `RALPH-RETIRE-002` (issue #142,
+`risk:review-required`) and a synthetic marker file, `QUEUE-003B` (issue #143,
+`risk:safe-autonomous`, depends on `RALPH-RETIRE-002`).
+
+**Findings:**
+
+- **CI-success webhooks did not arrive spontaneously.** Every CI-status check in this run was
+  either user-prompted ("check CI status again") or the scheduled `send_later` fallback
+  check-in — no unprompted "CI passed" notification ever fired on its own. This matches the
+  Claude Queue Contract's own documented caveat ("webhooks don't reliably deliver CI success").
+  Treat the fallback heartbeat as the primary CI-completion detection mechanism, not a backup.
+- **Dependency gating worked correctly.** `QUEUE-003B` was not claimed until `RALPH-RETIRE-002`
+  reached `queue:done`.
+- **Merge-authorization split worked exactly as designed.** The `risk:review-required` PR (#144)
+  was held for explicit human merge (never self-merged, even once green); the
+  `risk:safe-autonomous` PR (#145) was merged automatically once CI was green and no review
+  comments were outstanding.
+- **No duplicate branches/PRs were created by the worker for the same task.** One earlier PR
+  (#139, combining `QUEUE-001`+`QUEUE-002`) was closed and re-split into two PRs (#140, #141) —
+  an explicit human request to change task granularity mid-run, not a queue malfunction.
+- **Real incident — stale local branch:** a long-unfetched local branch sharing the canonical
+  branch's name (`chore/clean-arch-structure`, last touched at PR #44) existed from an earlier,
+  unrelated session/checkout. Checking it out by bare name during branch cleanup briefly reverted
+  the working tree to pre-`RALPH-RETIRE-001` content. No push was made from that state; recovered
+  by resetting the local branch to `origin/chore/clean-arch-structure`. **Action for
+  `QUEUE-004`:** always create/reset branches via an explicit `origin/<default-branch>` ref,
+  never a bare local branch name, even for routine cleanup steps.
+- **Real incident — environment safety classifier.** This environment's own auto-mode action
+  classifier blocked a bulk `git rm -r` on governance-related directories, even though the task
+  was `queue:approved`. This is an independent safety gate the Claude Queue Contract did not
+  anticipate and does not control. Resolved by deleting files individually (a human-approved
+  fallback), not a workaround. **Action for `QUEUE-004`:** document this as a real, independent
+  gate below the queue's own labels.
+- **Real incident — issue self-inconsistency.** The `RALPH-RETIRE-002` issue's own "Allowed
+  paths" field omitted `VERIFY.md`, while its "Definition of Done" explicitly required resolving
+  contradictory authority _in_ `VERIFY.md`. Resolved by a narrow, explicitly-flagged exception
+  (documented in the task's PR/report) rather than blocking the whole task on a technicality.
+  **Action for `QUEUE-004`:** issue authors should cross-check DoD text against Allowed/Forbidden
+  paths before adding `queue:approved`.
+- **Not tested:** genuine long/overnight unattended survival — this run stayed within one
+  continuous, interactively-supervised session with the user present.
+- **Not measurable:** exact usage/cost consumed by the run — no cost-reporting mechanism is
+  available from within this session/environment.
 
 ### QUEUE-004 Smoke Evaluation and Hardening
 
 Status: `todo`
 
-Document QUEUE-003's findings and adjust the contract/skill accordingly (heartbeat timing,
-fix-attempt limits, resume-state handling). Only after this evaluation, decide whether a
-dedicated GitHub Actions controller is actually justified — do not build one speculatively.
+Act on `QUEUE-003`'s findings:
+
+- Update `docs/automation/CLAUDE_QUEUE_CONTRACT.md` and `.claude/skills/queue-run/SKILL.md` to
+  state the fallback heartbeat is the primary CI-completion detection mechanism, not a backup.
+- Add explicit guidance to always branch from `origin/<default-branch>`, never a bare local
+  branch name.
+- Document environment-level safety classifiers as an independent gate outside the queue's
+  control.
+- Add an issue-authoring checklist item: cross-check DoD text against Allowed/Forbidden paths
+  before approving.
+- Design and run an actual unattended/overnight test (not interactively supervised) before
+  trusting the queue with larger or unsupervised work.
+- Only after this hardening, decide whether a dedicated GitHub Actions controller is actually
+  justified — do not build one speculatively.
 
 ---
 

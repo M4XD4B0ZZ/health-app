@@ -174,13 +174,36 @@ jobs:
             only the reconciled issue identified above (or the single active issue being
             resumed) is in scope. If you hit ambiguity this prompt did not anticipate, stop and
             set queue:needs-human per the contract's stop conditions — do not guess.
+
+            Once your single transition is durably recorded on GitHub (labels updated, state
+            comment posted, and the branch/PR pushed where applicable), end this run immediately
+            with a brief summary. Do not spend remaining turns on extra verification passes,
+            re-reading files, or tidying beyond what the contract requires for this transition —
+            exhausting the turn limit after a completed transition makes this job report a
+            spurious failure.
           claude_args: |
             --model ${{ vars.CLAUDE_QUEUE_MODEL }}
-            --max-turns 24
+            --max-turns 50
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
-      # Runtime fallback: only reached if the oauth step above actually failed (see the auth
-      # precheck step's comment for what this can and can't safely retry).
+      # Deterministic recheck before the runtime fallback: re-runs the same read-only preflight
+      # decision script against live GitHub state. A primary attempt can fail *after* durably
+      # completing its transition (the QUEUE-006 smoke test hit exactly this: the transition
+      # finished, then the run died on max-turns and reported failure) — in that case the
+      # recheck returns should_invoke=false and the fallback below is skipped instead of
+      # burning a full Claude run just to no-op. No log parsing, no error-text matching: the
+      # same tested decision code that gates the whole job also gates the retry.
+      - name: Recheck queue state after failed oauth attempt (deterministic, read-only)
+        id: recheck-oauth
+        if: always() && steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/automation/claude-queue-preflight.mjs
+
+      # Runtime fallback: only reached if the oauth step above actually failed AND the recheck
+      # confirms an AI transition is still required (see the auth precheck step's comment for
+      # what this can and can't safely retry).
       - name: Claude queue transition (oauth failed — runtime fallback to api)
         id: fallback-oauth-to-api
         # always() is required here: GitHub Actions implicitly ANDs success() onto any custom
@@ -188,7 +211,7 @@ jobs:
         # step would silently never run once run-oauth failed — exactly the bug the QUEUE-006
         # smoke test caught (job summary showed run-oauth: failure, runtime_fallback_configured:
         # api, but this step: skipped).
-        if: always() && steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api'
+        if: always() && steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api' && steps.recheck-oauth.outputs.should_invoke == 'true'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -230,9 +253,16 @@ jobs:
             identified above (or the single active issue being resumed) is in scope. If you hit
             ambiguity this prompt did not anticipate, stop and set queue:needs-human per the
             contract's stop conditions — do not guess.
+
+            Once your single transition is durably recorded on GitHub (labels updated, state
+            comment posted, and the branch/PR pushed where applicable), end this run immediately
+            with a brief summary. Do not spend remaining turns on extra verification passes,
+            re-reading files, or tidying beyond what the contract requires for this transition —
+            exhausting the turn limit after a completed transition makes this job report a
+            spurious failure.
           claude_args: |
             --model ${{ steps.auth.outputs.runtime_fallback_model }}
-            --max-turns 24
+            --max-turns 50
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
       - name: Claude queue transition (api mode)
@@ -275,18 +305,35 @@ jobs:
             only the reconciled issue identified above (or the single active issue being
             resumed) is in scope. If you hit ambiguity this prompt did not anticipate, stop and
             set queue:needs-human per the contract's stop conditions — do not guess.
+
+            Once your single transition is durably recorded on GitHub (labels updated, state
+            comment posted, and the branch/PR pushed where applicable), end this run immediately
+            with a brief summary. Do not spend remaining turns on extra verification passes,
+            re-reading files, or tidying beyond what the contract requires for this transition —
+            exhausting the turn limit after a completed transition makes this job report a
+            spurious failure.
           claude_args: |
             --model ${{ vars.CLAUDE_QUEUE_MODEL }}
-            --max-turns 24
+            --max-turns 50
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
-      # Runtime fallback: only reached if the api step above actually failed. Symmetric to the
-      # oauth->api fallback above; only relevant when CLAUDE_QUEUE_AUTH_MODE=api with
-      # CLAUDE_QUEUE_AUTH_MODE_FALLBACK=oauth configured.
+      # Deterministic recheck before the api->oauth runtime fallback; see recheck-oauth above.
+      - name: Recheck queue state after failed api attempt (deterministic, read-only)
+        id: recheck-api
+        if: always() && steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/automation/claude-queue-preflight.mjs
+
+      # Runtime fallback: only reached if the api step above actually failed AND the recheck
+      # confirms an AI transition is still required. Symmetric to the oauth->api fallback above;
+      # only relevant when CLAUDE_QUEUE_AUTH_MODE=api with CLAUDE_QUEUE_AUTH_MODE_FALLBACK=oauth
+      # configured.
       - name: Claude queue transition (api failed — runtime fallback to oauth)
         id: fallback-api-to-oauth
         # See the fallback-oauth-to-api step above for why always() is required here.
-        if: always() && steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth'
+        if: always() && steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth' && steps.recheck-api.outputs.should_invoke == 'true'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -327,9 +374,16 @@ jobs:
             identified above (or the single active issue being resumed) is in scope. If you hit
             ambiguity this prompt did not anticipate, stop and set queue:needs-human per the
             contract's stop conditions — do not guess.
+
+            Once your single transition is durably recorded on GitHub (labels updated, state
+            comment posted, and the branch/PR pushed where applicable), end this run immediately
+            with a brief summary. Do not spend remaining turns on extra verification passes,
+            re-reading files, or tidying beyond what the contract requires for this transition —
+            exhausting the turn limit after a completed transition makes this job report a
+            spurious failure.
           claude_args: |
             --model ${{ steps.auth.outputs.runtime_fallback_model }}
-            --max-turns 24
+            --max-turns 50
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
       - name: Write job summary
@@ -346,6 +400,8 @@ jobs:
             echo "- runtime_fallback_configured: \`${{ steps.auth.outputs.runtime_fallback_mode }}\`"
             echo "- run-oauth outcome: \`${{ steps.run-oauth.outcome }}\`"
             echo "- run-api outcome: \`${{ steps.run-api.outcome }}\`"
+            echo "- recheck-oauth: \`${{ steps.recheck-oauth.outcome }}\` (should_invoke: \`${{ steps.recheck-oauth.outputs.should_invoke }}\`, reason: \`${{ steps.recheck-oauth.outputs.reason_code }}\`)"
+            echo "- recheck-api: \`${{ steps.recheck-api.outcome }}\` (should_invoke: \`${{ steps.recheck-api.outputs.should_invoke }}\`, reason: \`${{ steps.recheck-api.outputs.reason_code }}\`)"
             echo "- fallback-oauth-to-api outcome: \`${{ steps.fallback-oauth-to-api.outcome }}\`"
             echo "- fallback-api-to-oauth outcome: \`${{ steps.fallback-api-to-oauth.outcome }}\`"
             echo "- run_id: \`${{ github.run_id }}\`"

@@ -10,98 +10,36 @@
 
 ---
 
-## Ralph-Loop Governance Transition
+## Ralph-Loop Governance (Retired)
 
-**⚠️ TRANSITION IN PROGRESS:** This repository is migrating from Roo-first governance to repository-first, agent-neutral Ralph-Loop governance.
+The Ralph-Loop agent-neutral governance migration this section used to describe is **retired**.
+See the "Ralph-Loop Governance / Overnight Worker (Retired)" section in
+[`ROADMAP.md`](ROADMAP.md) and
+[`reports/RALPH_RETIRE_001_DEAD_RUNTIME_CLEANUP.md`](reports/RALPH_RETIRE_001_DEAD_RUNTIME_CLEANUP.md)
+for what it was and why. The runtime paths it referenced (`tasks/`, `runs/`, `validation/`,
+`.agent/`) no longer exist in this repository.
 
-### Current Transition Status
+### Active Governance Authority Hierarchy
 
-- **Roo remains the temporary legacy adapter** during migration
-- **Repository governance is becoming authoritative** - tools are adapters, not sources of truth
-- **Ralph-Loop foundation established** in [`.governance/`](.governance/), [`tasks/`](tasks/), [`runs/`](runs/), [`handoffs/`](handoffs/), [`validation/`](validation/), [`reports/`](reports/), [`.agent/`](.agent/)
+1. **Level 1 — Repository Governance Constitution:** [`SSOK.md`](SSOK.md), [`AGENTS.md`](AGENTS.md)
+2. **Level 2 — Canonical Domain Authorities:** [`ROADMAP.md`](ROADMAP.md) (planning),
+   [`VERIFY.md`](VERIFY.md) (verification), [`.governance/*`](.governance/) (safety policy,
+   pending consolidation in `RALPH-RETIRE-002`)
+3. **Level 3 — Operational Guides / Checklists:** non-canonical operational guidance
 
-### Canonical Governance Authority Hierarchy (Active)
-
-This hierarchy is the active authority order for governance decisions in this repository.
-
-#### Level 1 — Repository Governance Constitution
-
-- [`SSOK.md`](SSOK.md)
-- [`AGENTS.md`](AGENTS.md)
-
-#### Level 2 — Canonical Domain Authorities
-
-- [`ROADMAP.md`](ROADMAP.md) (planning authority)
-- [`VERIFY.md`](VERIFY.md) (verification authority)
-- [`.governance/*`](.governance/) (Ralph operational governance + safety policy)
-
-#### Level 3 — Runtime Execution State
-
-- [`tasks/task-state.json`](tasks/task-state.json)
-- [`runs/current-run.json`](runs/current-run.json)
-
-#### Level 4 — Adapter Execution Rules
-
-- [`.agent/adapters/*`](.agent/adapters/)
-
-#### Level 5 — Operational Guides / Checklists
-
-- Non-canonical operational guidance and checklists
-
-### Legacy Roo References (Historical / Transition Context)
-
-- [`.roo/`](.roo/) and [`.roomodes`](.roomodes) are retained as historical transition context and legacy adapter implementation.
-- They are **not active top-level authority** over the canonical hierarchy above.
+[`.roo/`](.roo/) and [`.roomodes`](.roomodes) are retained as historical/legacy context and are
+**not** active top-level authority over the hierarchy above; their final disposition is decided
+in `RALPH-RETIRE-002`, not here.
 
 ### Conflict Resolution Order (Deterministic)
 
-When sources disagree, resolve in this order:
-
-1. **Safety wins first**
-   - [`.governance/SAFETY.md`](.governance/SAFETY.md) and protected-file constraints override conflicting operational instructions.
-2. **Canonical domain authority wins second**
-   - Planning conflicts → [`ROADMAP.md`](ROADMAP.md)
-   - Verification conflicts → [`VERIFY.md`](VERIFY.md)
-   - Cross-agent governance interpretation → [`AGENTS.md`](AGENTS.md), constrained by this `SSOK.md`
-3. **Runtime state never overrides planning authority**
-   - [`tasks/task-state.json`](tasks/task-state.json) and [`runs/current-run.json`](runs/current-run.json) govern execution state only.
-4. **Historical evidence never overrides current authority**
-   - Histories are evidence/audit, not current planning or policy truth.
-5. **Adapter docs never override governance**
-   - Adapter files and operational guides are implementation guidance beneath governance policy.
-
-### Runtime Contract (Formalized, Non-Behavioral)
-
-- **Planning Authority:** [`ROADMAP.md`](ROADMAP.md)
-- **Runtime Execution Authority:** [`tasks/task-state.json`](tasks/task-state.json), [`runs/current-run.json`](runs/current-run.json)
-- **Evidence Authority:** [`tasks/task-history.jsonl`](tasks/task-history.jsonl), [`runs/run-history.jsonl`](runs/run-history.jsonl)
-- **Verification Authority:** [`VERIFY.md`](VERIFY.md)
-- **Safety Authority:** [`.governance/SAFETY.md`](.governance/SAFETY.md)
-
-This section formalizes authority ownership only. It does not change runtime behavior, task selection mechanics, or workflow.
-
-### Future Governance Hierarchy
-
-1. **Root project truth:** [`README.md`](README.md), [`ROADMAP.md`](ROADMAP.md), [`AGENTS.md`](AGENTS.md), [`VERIFY.md`](VERIFY.md), [`package.json`](package.json)
-2. **Ralph-Loop governance:** [`.governance/`](.governance/)
-3. **Runtime state:** [`tasks/`](tasks/), [`runs/`](runs/), [`handoffs/`](handoffs/), [`validation/`](validation/), [`reports/`](reports/)
-4. **Tool adapters:** [`.agent/adapters/`](.agent/adapters/)
-5. **Legacy Roo adapter:** [`.roo/`](.roo/) and [`.roomodes`](.roomodes) until explicitly retired
-
-### Tool Neutrality Principle
-
-- **Cline, OpenCode, Codex, and Roo are worker adapters**, not sources of truth
-- **Repository contracts define work requirements**, tools implement them
-- **[`ROADMAP.md`](ROADMAP.md) remains the product/task SSOK**
-- **[`VERIFY.md`](VERIFY.md) remains the verification SSOK**
-- **Tool-specific files are adapters**, not permanent project truth
-
-### Transition Notes
-
-- **Existing Roo sections below are legacy/current-transition context**, not the desired future target
-- **See [`docs/RALPH_LOOP_TRANSITION_NOTES.md`](docs/RALPH_LOOP_TRANSITION_NOTES.md)** for detailed transition documentation
-- **No product code or scripts changed** during foundation establishment
-- **Rollback principle:** Remove Ralph-Loop documentation files to return to pure Roo-first governance
+1. **Safety wins first** — [`.governance/SAFETY.md`](.governance/SAFETY.md) and protected-file
+   constraints override conflicting operational instructions.
+2. **Canonical domain authority wins second** — planning conflicts → [`ROADMAP.md`](ROADMAP.md);
+   verification conflicts → [`VERIFY.md`](VERIFY.md); cross-agent governance interpretation →
+   [`AGENTS.md`](AGENTS.md), constrained by this `SSOK.md`.
+3. **Historical evidence never overrides current authority** — histories are evidence/audit, not
+   current planning or policy truth.
 
 ---
 

@@ -12,9 +12,7 @@ For deterministic governance decisions, apply this authority hierarchy:
 
 1. **Level 1 — Repository Governance Constitution:** `SSOK.md`, `AGENTS.md`
 2. **Level 2 — Canonical Domain Authorities:** `ROADMAP.md`, `VERIFY.md`, `.governance/*`
-3. **Level 3 — Runtime Execution State:** `tasks/task-state.json`, `runs/current-run.json`
-4. **Level 4 — Adapter Execution Rules:** `.agent/adapters/*`
-5. **Level 5 — Operational Guides/Checklists:** non-canonical implementation guidance
+3. **Level 3 — Operational Guides/Checklists:** non-canonical implementation guidance
 
 Legacy Roo artifacts (`.roo/`, `.roomodes`) are historical/transition context and not active top-level authority.
 
@@ -24,15 +22,11 @@ When sources conflict, resolve in this order:
 
 1. **Safety wins first** (`.governance/SAFETY.md` + protected-file constraints)
 2. **Canonical domain authority wins second** (`ROADMAP.md` for planning, `VERIFY.md` for verification)
-3. **Runtime state never overrides planning authority**
-4. **Historical evidence never overrides current authority**
-5. **Adapter docs never override governance**
+3. **Historical evidence never overrides current authority**
 
 ### Runtime Contract (Formalized)
 
 - **Planning Authority:** `ROADMAP.md`
-- **Runtime Execution Authority:** `tasks/task-state.json`, `runs/current-run.json`
-- **Evidence Authority:** `tasks/task-history.jsonl`, `runs/run-history.jsonl`
 - **Verification Authority:** `VERIFY.md`
 - **Safety Authority:** `.governance/SAFETY.md`
 
@@ -40,58 +34,16 @@ This formalization clarifies authority ownership only and does not change runtim
 
 ---
 
-## Ralph-Loop Governance
+## Ralph-Loop Governance (Retired)
 
-**⚠️ TRANSITION IN PROGRESS:** This repository is implementing Ralph-Loop governance alongside existing Roo-first governance.
-
-### Agent Neutrality Principle
-
-- **Agents must read [`.governance/`](.governance/) before Ralph-Loop migration/autonomous-loop work**
-- **Agents must work on exactly one assigned task** per run
-- **Agents must respect [`tasks/task-state.json`](tasks/task-state.json)** when operating in Ralph-Loop mode
-- **Agents must provide required handoff documentation** in [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md); canonical handoff schema owner: [`.governance/RULES.md`](.governance/RULES.md)
-- **Agents must stop for required human review gates**; canonical review acceptance-gate owner: [`.governance/REVIEW_POLICY.md`](.governance/REVIEW_POLICY.md)
-- **Agents must not claim done without required verification evidence/check outcomes**; canonical completion-gate owner: [`VERIFY.md`](VERIFY.md)
-- **Agents must respect [`.agent/config/protected-files.json`](.agent/config/protected-files.json)** and [`.governance/SAFETY.md`](.governance/SAFETY.md)
-- **Agents must stop on human-review, protected-file, ambiguity, or validation-failure conditions**
-
-### Tool Adapter Principle
-
-- **Roo, Cline, OpenCode, and Codex are adapters/workers**, not source of truth
-- **Repository governance in [`.governance/`](.governance/) is authoritative**, not tool-specific logic
-- **Task definitions in [`tasks/task-state.json`](tasks/task-state.json)** override agent assumptions
-- **Safety policies in [`.governance/SAFETY.md`](.governance/SAFETY.md)** supersede tool defaults
-- **Validation rules in [`validation/validation-rules.json`](validation/validation-rules.json)** are binding
-
-### Ralph-Loop Task Execution
-
-When working on Ralph-Loop migration tasks (RALPH-XXX), agents must:
-
-1. **Read governance files first:** [`.governance/SYSTEM.md`](.governance/SYSTEM.md), [`.governance/RULES.md`](.governance/RULES.md), [`.governance/SAFETY.md`](.governance/SAFETY.md)
-2. **Check task assignment:** [`runs/current-run.json`](runs/current-run.json) for current task details
-3. **Respect scope boundaries:** Only modify files listed in task's `allowed_files`
-4. **Follow safety policies:** Never modify files in task's `forbidden_files`
-5. **Execute validation:** Run required validation checks per task definition
-6. **Write handoff:** Document work in [`handoffs/latest-handoff.md`](handoffs/latest-handoff.md) following canonical handoff schema ownership in [`.governance/RULES.md`](.governance/RULES.md)
-7. **Stop for review:** Never continue to next task automatically
-
-### Dual Governance During Transition
-
-- **For Ralph-Loop tasks (RALPH-XXX):** Follow [`.governance/`](.governance/) policies
-- **For existing product tasks:** Continue using [`.roo/`](.roo/) operational logic
-- **For conflicts:** [`.governance/`](.governance/) takes precedence on Ralph-Loop tasks
-- **Roo preservation:** Never delete or rewrite [`.roo/`](.roo/) or [`.roomodes`](.roomodes) unless explicitly tasked
-
-### Stop Conditions for Ralph-Loop Work
-
-Agents must stop immediately when:
-
-- **Task requirements are ambiguous** or conflicting
-- **Validation failures cannot be resolved** within scope
-- **Safety policy violations are detected**
-- **Task requires forbidden file modifications**
-- **Implementation exceeds allowed scope**
-- **Human review is required** per task definition
+The Ralph-Loop / Overnight Worker initiative (`RALPH-001` … `RALPH-047B`) is **retired**; see the
+"Ralph-Loop Governance / Overnight Worker (Retired)" section in `ROADMAP.md` and
+`reports/RALPH_RETIRE_001_DEAD_RUNTIME_CLEANUP.md` for what it was and why it was retired. The
+runtime scaffolding it referenced (`tasks/task-state.json`, `runs/current-run.json`,
+`validation/validation-rules.json`, `.agent/adapters/*`, `.agent/config/protected-files.json`)
+no longer exists in this repository. Do not resume Ralph-Loop-style task execution or recreate
+that scaffolding. `.governance/**` still exists and remains binding per the hierarchy above
+until `RALPH-RETIRE-002` (tracked in `ROADMAP.md`) consolidates it.
 
 ---
 

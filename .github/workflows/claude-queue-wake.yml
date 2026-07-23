@@ -164,6 +164,13 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           additional_permissions: 'actions: read'
+          # Every queue PR (branch, commits, comments) is authored by claude[bot] itself, so the
+          # workflow_run wake — firing when Verify completes on that PR — always has a Bot actor
+          # in its event chain. Without this, the action's own anti-abuse check refuses to run
+          # ("Workflow initiated by non-human actor: claude (type: Bot)"), which the QUEUE-007/008
+          # multi-task smoke test caught: every CI-completion wake failed in ~1s, before doing
+          # anything. Scoped to the one bot this repo's own automation runs as, not '*'.
+          allowed_bots: 'claude'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: externally triggered unattended (QUEUE-005 controller)
@@ -239,6 +246,13 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           additional_permissions: 'actions: read'
+          # Every queue PR (branch, commits, comments) is authored by claude[bot] itself, so the
+          # workflow_run wake — firing when Verify completes on that PR — always has a Bot actor
+          # in its event chain. Without this, the action's own anti-abuse check refuses to run
+          # ("Workflow initiated by non-human actor: claude (type: Bot)"), which the QUEUE-007/008
+          # multi-task smoke test caught: every CI-completion wake failed in ~1s, before doing
+          # anything. Scoped to the one bot this repo's own automation runs as, not '*'.
+          allowed_bots: 'claude'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: externally triggered unattended (QUEUE-005 controller), runtime auth fallback
@@ -295,6 +309,13 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           additional_permissions: 'actions: read'
+          # Every queue PR (branch, commits, comments) is authored by claude[bot] itself, so the
+          # workflow_run wake — firing when Verify completes on that PR — always has a Bot actor
+          # in its event chain. Without this, the action's own anti-abuse check refuses to run
+          # ("Workflow initiated by non-human actor: claude (type: Bot)"), which the QUEUE-007/008
+          # multi-task smoke test caught: every CI-completion wake failed in ~1s, before doing
+          # anything. Scoped to the one bot this repo's own automation runs as, not '*'.
+          allowed_bots: 'claude'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: externally triggered unattended (QUEUE-005 controller)
@@ -361,6 +382,13 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           additional_permissions: 'actions: read'
+          # Every queue PR (branch, commits, comments) is authored by claude[bot] itself, so the
+          # workflow_run wake — firing when Verify completes on that PR — always has a Bot actor
+          # in its event chain. Without this, the action's own anti-abuse check refuses to run
+          # ("Workflow initiated by non-human actor: claude (type: Bot)"), which the QUEUE-007/008
+          # multi-task smoke test caught: every CI-completion wake failed in ~1s, before doing
+          # anything. Scoped to the one bot this repo's own automation runs as, not '*'.
+          allowed_bots: 'claude'
           prompt: |
             REPO: ${{ github.repository }}
             MODE: externally triggered unattended (QUEUE-005 controller), runtime auth fallback

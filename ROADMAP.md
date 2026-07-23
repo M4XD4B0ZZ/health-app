@@ -193,15 +193,17 @@ Define the task queue's shape and gating rules before any worker automation exis
 
 ### QUEUE-002 Claude Worker Skill (`queue-run`)
 
-Status: `todo`
+Status: `done`
 
-Implement the reusable worker as a checked-in Claude Code skill (following the existing
-`.claude/skills/cleanup-branches/` convention) that claims the next eligible approved issue,
+Implement the reusable worker as a checked-in Claude Code skill, following the existing
+`.claude/skills/cleanup-branches/` convention.
+
+**Delivered:** `.claude/skills/queue-run/SKILL.md` — claims the next eligible approved issue,
 implements it within its declared scope, verifies, opens a PR, subscribes to PR activity so CI
 failures and review comments wake the session, merges only when explicitly authorized, performs
 an independent post-merge review and handoff, then proceeds to the next eligible issue or stops
-cleanly. Must enforce "exactly one active task" and the risk-class exclusions from QUEUE-001
-regardless of an issue's own wording. Depends on QUEUE-001's contract.
+cleanly. Enforces "exactly one active task" and the risk-class exclusions from QUEUE-001
+regardless of an issue's own wording.
 
 ### QUEUE-003 Two-Task Unattended Smoke
 

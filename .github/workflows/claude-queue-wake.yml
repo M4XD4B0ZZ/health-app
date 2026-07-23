@@ -101,15 +101,25 @@ jobs:
       #
       # If CLAUDE_QUEUE_AUTH_MODE_FALLBACK is set, this step picks it as the effective mode
       # when (and only when) the primary mode's own secret is absent — decided entirely here,
-      # before the Claude Code Action step runs. The two transition steps below select on
-      # steps.auth.outputs.effective_mode, never directly on vars.CLAUDE_QUEUE_AUTH_MODE, so a
-      # fallback never re-invokes the action a second time in the same job.
+      # before the Claude Code Action step runs. The two primary transition steps below select
+      # on steps.auth.outputs.effective_mode, never directly on vars.CLAUDE_QUEUE_AUTH_MODE, so
+      # that config-time fallback never re-invokes the action a second time in the same job.
+      #
+      # Separately, if the primary mode IS usable but its Claude Code Action step fails during
+      # execution (e.g. an oauth Pro/Max plan usage limit — the action exposes no distinct
+      # signal for this, only a generic failure), the two RUNTIME fallback steps further below
+      # retry once with the other mode. This is safe against duplicating a queue transition only
+      # because every invocation reconciles actual GitHub state before acting (see
+      # docs/automation/CLAUDE_QUEUE_CONTRACT.md) — a retry can continue or no-op, never redo
+      # completed work. It is not usage-limit-specific: any failure of the primary step triggers
+      # it, including unrelated transient errors, which just costs one extra bounded attempt.
       - name: Auth precheck (fail closed, no secret values printed)
         id: auth
         env:
           CLAUDE_QUEUE_AUTH_MODE: ${{ vars.CLAUDE_QUEUE_AUTH_MODE }}
           CLAUDE_QUEUE_AUTH_MODE_FALLBACK: ${{ vars.CLAUDE_QUEUE_AUTH_MODE_FALLBACK }}
           CLAUDE_QUEUE_MODEL: ${{ vars.CLAUDE_QUEUE_MODEL }}
+          CLAUDE_QUEUE_MODEL_FALLBACK: ${{ vars.CLAUDE_QUEUE_MODEL_FALLBACK }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node scripts/automation/claude-queue-auth-precheck.mjs
@@ -120,6 +130,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Claude queue transition (oauth mode)
+        id: run-oauth
         if: steps.auth.outputs.effective_mode == 'oauth'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
@@ -163,7 +174,59 @@ jobs:
             --max-turns 24
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
+      # Runtime fallback: only reached if the oauth step above actually failed (see the auth
+      # precheck step's comment for what this can and can't safely retry).
+      - name: Claude queue transition (oauth failed — runtime fallback to api)
+        id: fallback-oauth-to-api
+        if: steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api'
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          additional_permissions: 'actions: read'
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: externally triggered unattended (QUEUE-005 controller), runtime auth fallback
+
+            This is a fallback retry: the primary oauth-mode attempt for this invocation failed
+            (possibly a Pro/Max plan usage limit, possibly an unrelated error — this workflow
+            cannot distinguish the two). You are now running in api mode instead. Re-fetch and
+            reconcile the ACTUAL current GitHub state before doing anything — the failed primary
+            attempt may have made partial, already-durable progress (a branch, a commit, a PR),
+            or none at all. Continue from whatever the real state shows; do not assume the prior
+            attempt did nothing, and do not redo a transition that already completed.
+
+            PREFLIGHT REASON CODE: ${{ needs.preflight.outputs.reason_code }}
+            SELECTED ISSUE NUMBER: ${{ needs.preflight.outputs.issue_number }}
+            SELECTED TASK ID: ${{ needs.preflight.outputs.task_id }}
+            CURRENT PHASE: ${{ needs.preflight.outputs.phase }}
+            PR NUMBER (if applicable): ${{ needs.preflight.outputs.pr_number }}
+            HEAD SHA (if applicable): ${{ needs.preflight.outputs.head_sha }}
+            WORKFLOW RUN ID: ${{ github.run_id }}
+
+            Before doing anything else, read in full: AGENTS.md, then
+            docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
+            (specifically its "externally triggered unattended" mode).
+
+            You are the externally triggered unattended queue controller for this run, not an
+            interactive session. Perform exactly ONE bounded, durable queue transition for the
+            issue identified above, per the contract's one-transition-per-invocation rule for
+            external-controller mode: either claim-and-implement-to-waiting-ci, or one
+            CI-failure fix-and-push, or a CI-green resolve-merge-and-post-merge-review, or a
+            post-merge review/handoff/completion, or confirming a human-merge-required PR is
+            still correctly waiting, or confirming there is nothing left to do because the
+            failed primary attempt already completed it — whichever matches the reconciled
+            state. Do not remain running to poll CI. Do not claim a second task in this
+            invocation. Do not select any task from ROADMAP.md — only the reconciled issue
+            identified above (or the single active issue being resumed) is in scope. If you hit
+            ambiguity this prompt did not anticipate, stop and set queue:needs-human per the
+            contract's stop conditions — do not guess.
+          claude_args: |
+            --model ${{ steps.auth.outputs.runtime_fallback_model }}
+            --max-turns 24
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+
       - name: Claude queue transition (api mode)
+        id: run-api
         if: steps.auth.outputs.effective_mode == 'api'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
@@ -207,6 +270,57 @@ jobs:
             --max-turns 24
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
+      # Runtime fallback: only reached if the api step above actually failed. Symmetric to the
+      # oauth->api fallback above; only relevant when CLAUDE_QUEUE_AUTH_MODE=api with
+      # CLAUDE_QUEUE_AUTH_MODE_FALLBACK=oauth configured.
+      - name: Claude queue transition (api failed — runtime fallback to oauth)
+        id: fallback-api-to-oauth
+        if: steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth'
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          additional_permissions: 'actions: read'
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: externally triggered unattended (QUEUE-005 controller), runtime auth fallback
+
+            This is a fallback retry: the primary api-mode attempt for this invocation failed.
+            You are now running in oauth mode instead. Re-fetch and reconcile the ACTUAL current
+            GitHub state before doing anything — the failed primary attempt may have made
+            partial, already-durable progress (a branch, a commit, a PR), or none at all.
+            Continue from whatever the real state shows; do not assume the prior attempt did
+            nothing, and do not redo a transition that already completed.
+
+            PREFLIGHT REASON CODE: ${{ needs.preflight.outputs.reason_code }}
+            SELECTED ISSUE NUMBER: ${{ needs.preflight.outputs.issue_number }}
+            SELECTED TASK ID: ${{ needs.preflight.outputs.task_id }}
+            CURRENT PHASE: ${{ needs.preflight.outputs.phase }}
+            PR NUMBER (if applicable): ${{ needs.preflight.outputs.pr_number }}
+            HEAD SHA (if applicable): ${{ needs.preflight.outputs.head_sha }}
+            WORKFLOW RUN ID: ${{ github.run_id }}
+
+            Before doing anything else, read in full: AGENTS.md, then
+            docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
+            (specifically its "externally triggered unattended" mode).
+
+            You are the externally triggered unattended queue controller for this run, not an
+            interactive session. Perform exactly ONE bounded, durable queue transition for the
+            issue identified above, per the contract's one-transition-per-invocation rule for
+            external-controller mode: either claim-and-implement-to-waiting-ci, or one
+            CI-failure fix-and-push, or a CI-green resolve-merge-and-post-merge-review, or a
+            post-merge review/handoff/completion, or confirming a human-merge-required PR is
+            still correctly waiting, or confirming there is nothing left to do because the
+            failed primary attempt already completed it — whichever matches the reconciled
+            state. Do not remain running to poll CI. Do not claim a second task in this
+            invocation. Do not select any task from ROADMAP.md — only the reconciled issue
+            identified above (or the single active issue being resumed) is in scope. If you hit
+            ambiguity this prompt did not anticipate, stop and set queue:needs-human per the
+            contract's stop conditions — do not guess.
+          claude_args: |
+            --model ${{ steps.auth.outputs.runtime_fallback_model }}
+            --max-turns 24
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+
       - name: Write job summary
         if: always()
         run: |
@@ -217,7 +331,12 @@ jobs:
             echo "- issue_number: \`${{ needs.preflight.outputs.issue_number }}\`"
             echo "- task_id: \`${{ needs.preflight.outputs.task_id }}\`"
             echo "- effective_auth_mode: \`${{ steps.auth.outputs.effective_mode }}\`"
-            echo "- used_auth_fallback: \`${{ steps.auth.outputs.used_fallback }}\`"
+            echo "- used_config_time_fallback: \`${{ steps.auth.outputs.used_fallback }}\`"
+            echo "- runtime_fallback_configured: \`${{ steps.auth.outputs.runtime_fallback_mode }}\`"
+            echo "- run-oauth outcome: \`${{ steps.run-oauth.outcome }}\`"
+            echo "- run-api outcome: \`${{ steps.run-api.outcome }}\`"
+            echo "- fallback-oauth-to-api outcome: \`${{ steps.fallback-oauth-to-api.outcome }}\`"
+            echo "- fallback-api-to-oauth outcome: \`${{ steps.fallback-api-to-oauth.outcome }}\`"
             echo "- run_id: \`${{ github.run_id }}\`"
             echo "- job status: \`${{ job.status }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

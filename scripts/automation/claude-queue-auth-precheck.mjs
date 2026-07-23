@@ -17,10 +17,24 @@ const SECRET_NAME_BY_MODE = { oauth: 'CLAUDE_CODE_OAUTH_TOKEN', api: 'ANTHROPIC_
  * Pure decision function. `hasOauthToken` / `hasApiKey` must be booleans (presence only),
  * never the secret values themselves.
  *
- * `authModeFallback` (optional) is a second mode to use, deterministically, when the primary
- * mode's own secret is absent — decided here, before any Claude turn starts. This is a
- * config-level fallback only: it never re-runs a Claude turn that already started, so it cannot
- * cause the same queue transition to be attempted twice in one invocation.
+ * `authModeFallback` (optional) is a second mode, backed by its own secret, that this repo can
+ * fall back to when the primary mode becomes unusable — e.g. an oauth (Pro/Max plan) usage limit
+ * being hit. There are two distinct fallback paths:
+ *
+ * - Config-time fallback: the primary mode's own secret isn't present at all. `effectiveMode`
+ *   becomes the fallback mode for the whole run and `usedFallback` is true. No further runtime
+ *   fallback is offered, since the fallback mode is already the one in use.
+ * - Runtime fallback: the primary mode's secret IS present (so it's used as `effectiveMode`),
+ *   but the caller also wants to know whether a distinct fallback mode is available to retry
+ *   with if the primary mode's Claude Code Action step itself fails during execution (e.g. a
+ *   usage-limit error, which this action does not expose as a distinct, detectable signal — see
+ *   `runtimeFallbackMode`/`runtimeFallbackModel`). That retry is safe against duplicating a queue
+ *   transition because every invocation is required to reconcile actual GitHub state before
+ *   acting (see docs/automation/CLAUDE_QUEUE_CONTRACT.md) — it can only continue or no-op, never
+ *   redo completed work.
+ *
+ * `modelFallback` (optional) is the model to use only when actually running in the fallback
+ * mode (config-time or runtime); it defaults to `model` when unset.
  */
 export function resolveAuthDecision({
   authMode,
@@ -28,6 +42,7 @@ export function resolveAuthDecision({
   hasOauthToken,
   hasApiKey,
   authModeFallback,
+  modelFallback,
 }) {
   if (!authMode || !VALID_AUTH_MODES.has(authMode)) {
     return {
@@ -64,13 +79,21 @@ export function resolveAuthDecision({
   }
 
   const hasSecretFor = (mode) => (mode === 'oauth' ? hasOauthToken : hasApiKey);
+  const resolvedFallbackModel = (modelFallback || '').trim() || model;
 
   if (hasSecretFor(authMode)) {
+    const runtimeFallbackAvailable = Boolean(fallback) && hasSecretFor(fallback);
     return {
       ok: true,
       effectiveMode: authMode,
       usedFallback: false,
-      message: `Auth precheck passed for mode "${authMode}".`,
+      runtimeFallbackMode: runtimeFallbackAvailable ? fallback : '',
+      runtimeFallbackModel: runtimeFallbackAvailable ? resolvedFallbackModel : '',
+      message:
+        `Auth precheck passed for mode "${authMode}".` +
+        (runtimeFallbackAvailable
+          ? ` Runtime fallback to "${fallback}" is configured and will be tried if this run's Claude Code Action step fails.`
+          : ''),
     };
   }
 
@@ -79,6 +102,8 @@ export function resolveAuthDecision({
       ok: true,
       effectiveMode: fallback,
       usedFallback: true,
+      runtimeFallbackMode: '',
+      runtimeFallbackModel: '',
       message: `CLAUDE_QUEUE_AUTH_MODE=${authMode} but ${SECRET_NAME_BY_MODE[authMode]} is not set; falling back to mode "${fallback}" (CLAUDE_QUEUE_AUTH_MODE_FALLBACK), whose secret is present.`,
     };
   }
@@ -96,6 +121,7 @@ function main() {
   const authMode = (process.env.CLAUDE_QUEUE_AUTH_MODE || '').trim();
   const authModeFallback = (process.env.CLAUDE_QUEUE_AUTH_MODE_FALLBACK || '').trim();
   const model = process.env.CLAUDE_QUEUE_MODEL || '';
+  const modelFallback = (process.env.CLAUDE_QUEUE_MODEL_FALLBACK || '').trim();
   const hasOauthToken = Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN);
   const hasApiKey = Boolean(process.env.ANTHROPIC_API_KEY);
 
@@ -105,6 +131,7 @@ function main() {
     hasOauthToken,
     hasApiKey,
     authModeFallback,
+    modelFallback,
   });
   console.log(decision.message);
 
@@ -113,6 +140,14 @@ function main() {
     appendFileSync(outPath, `auth_ok=${decision.ok}\n`);
     appendFileSync(outPath, `effective_mode=${decision.ok ? decision.effectiveMode : ''}\n`);
     appendFileSync(outPath, `used_fallback=${decision.ok ? decision.usedFallback : false}\n`);
+    appendFileSync(
+      outPath,
+      `runtime_fallback_mode=${decision.ok ? decision.runtimeFallbackMode : ''}\n`,
+    );
+    appendFileSync(
+      outPath,
+      `runtime_fallback_model=${decision.ok ? decision.runtimeFallbackModel : ''}\n`,
+    );
   }
 
   if (!decision.ok) {

@@ -514,7 +514,7 @@ describe('auth precheck — resolveAuthDecision (26-30)', () => {
     assert.equal(d.ok, true);
   });
 
-  test('primary mode secret present -> effective mode is the primary mode, no fallback used', () => {
+  test('primary mode secret present, fallback secret also present -> primary is effective, runtime fallback offered', () => {
     const d = resolveAuthDecision({
       authMode: 'oauth',
       model: 'claude-sonnet-5',
@@ -525,6 +525,71 @@ describe('auth precheck — resolveAuthDecision (26-30)', () => {
     assert.equal(d.ok, true);
     assert.equal(d.effectiveMode, 'oauth');
     assert.equal(d.usedFallback, false);
+    assert.equal(d.runtimeFallbackMode, 'api');
+    assert.equal(d.runtimeFallbackModel, 'claude-sonnet-5');
+  });
+
+  test('runtime fallback model falls back to the primary model when CLAUDE_QUEUE_MODEL_FALLBACK is unset', () => {
+    const d = resolveAuthDecision({
+      authMode: 'oauth',
+      model: 'claude-sonnet-5',
+      hasOauthToken: true,
+      hasApiKey: true,
+      authModeFallback: 'api',
+      modelFallback: '',
+    });
+    assert.equal(d.runtimeFallbackModel, 'claude-sonnet-5');
+  });
+
+  test('runtime fallback model uses CLAUDE_QUEUE_MODEL_FALLBACK when set', () => {
+    const d = resolveAuthDecision({
+      authMode: 'oauth',
+      model: 'claude-sonnet-5',
+      hasOauthToken: true,
+      hasApiKey: true,
+      authModeFallback: 'api',
+      modelFallback: 'claude-haiku-4-5-20251001',
+    });
+    assert.equal(d.runtimeFallbackModel, 'claude-haiku-4-5-20251001');
+  });
+
+  test('primary secret present but no fallback mode configured -> no runtime fallback offered', () => {
+    const d = resolveAuthDecision({
+      authMode: 'oauth',
+      model: 'claude-sonnet-5',
+      hasOauthToken: true,
+      hasApiKey: true,
+    });
+    assert.equal(d.ok, true);
+    assert.equal(d.runtimeFallbackMode, '');
+    assert.equal(d.runtimeFallbackModel, '');
+  });
+
+  test('primary secret present but fallback mode has no matching secret -> no runtime fallback offered', () => {
+    const d = resolveAuthDecision({
+      authMode: 'oauth',
+      model: 'claude-sonnet-5',
+      hasOauthToken: true,
+      hasApiKey: false,
+      authModeFallback: 'api',
+    });
+    assert.equal(d.ok, true);
+    assert.equal(d.runtimeFallbackMode, '');
+    assert.equal(d.runtimeFallbackModel, '');
+  });
+
+  test('config-time fallback used -> no further runtime fallback offered', () => {
+    const d = resolveAuthDecision({
+      authMode: 'oauth',
+      model: 'claude-sonnet-5',
+      hasOauthToken: false,
+      hasApiKey: true,
+      authModeFallback: 'api',
+    });
+    assert.equal(d.ok, true);
+    assert.equal(d.usedFallback, true);
+    assert.equal(d.runtimeFallbackMode, '');
+    assert.equal(d.runtimeFallbackModel, '');
   });
 
   test('primary secret missing, fallback secret present -> falls back deterministically', () => {
@@ -662,19 +727,77 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     assert.ok(authIdx < actionIdx, 'auth precheck must run before the Claude Code Action step');
   });
 
-  test('transition steps gate on the resolved effective_mode output, never directly on the raw auth-mode variable', () => {
+  test('primary transition steps gate on the resolved effective_mode output, never directly on the raw auth-mode variable', () => {
     // Gating on steps.auth.outputs.effective_mode (computed once, pre-invocation) rather than
-    // vars.CLAUDE_QUEUE_AUTH_MODE is what makes fallback config-level only: it can never cause
-    // both the oauth and api transition steps to run in the same job.
+    // vars.CLAUDE_QUEUE_AUTH_MODE is what makes config-time fallback selection safe: it can
+    // never cause both the oauth and api PRIMARY transition steps to run in the same job.
     assert.match(WORKFLOW_SOURCE, /if:\s*steps\.auth\.outputs\.effective_mode == 'oauth'/);
     assert.match(WORKFLOW_SOURCE, /if:\s*steps\.auth\.outputs\.effective_mode == 'api'/);
     assert.doesNotMatch(WORKFLOW_SOURCE, /if:\s*vars\.CLAUDE_QUEUE_AUTH_MODE ==/);
   });
 
-  test('auth precheck step reads the optional fallback variable', () => {
+  test('auth precheck step reads the optional fallback variables', () => {
     assert.match(
       WORKFLOW_SOURCE,
       /CLAUDE_QUEUE_AUTH_MODE_FALLBACK:\s*\$\{\{\s*vars\.CLAUDE_QUEUE_AUTH_MODE_FALLBACK\s*\}\}/,
     );
+    assert.match(
+      WORKFLOW_SOURCE,
+      /CLAUDE_QUEUE_MODEL_FALLBACK:\s*\$\{\{\s*vars\.CLAUDE_QUEUE_MODEL_FALLBACK\s*\}\}/,
+    );
+  });
+
+  test('runtime fallback steps only gate on the primary step of the SAME mode having failed, plus a configured fallback', () => {
+    // Each runtime fallback step must reference the outcome of its own primary step (not the
+    // other one) — otherwise a failure on one mode could spuriously trigger the wrong fallback.
+    assert.match(
+      WORKFLOW_SOURCE,
+      /if:\s*steps\.run-oauth\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'api'/,
+    );
+    assert.match(
+      WORKFLOW_SOURCE,
+      /if:\s*steps\.run-api\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'oauth'/,
+    );
+  });
+
+  test('runtime fallback steps use the resolved fallback model, not the primary CLAUDE_QUEUE_MODEL', () => {
+    const fallbackModelUses = (
+      WORKFLOW_SOURCE.match(/--model \$\{\{ steps\.auth\.outputs\.runtime_fallback_model \}\}/g) ??
+      []
+    ).length;
+    assert.equal(
+      fallbackModelUses,
+      2,
+      'expected exactly the two runtime fallback steps to use the fallback model',
+    );
+  });
+
+  test('the oauth->api runtime fallback step authenticates with the api key, and the api->oauth one with the oauth token', () => {
+    const oauthFallbackMatch = WORKFLOW_SOURCE.match(
+      /id: fallback-oauth-to-api\n([\s\S]*?)\n {6}- name:/,
+    );
+    assert.ok(oauthFallbackMatch, 'fallback-oauth-to-api step not found');
+    assert.match(
+      oauthFallbackMatch[1],
+      /anthropic_api_key: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}/,
+    );
+    assert.doesNotMatch(oauthFallbackMatch[1], /claude_code_oauth_token:/);
+
+    const apiFallbackMatch = WORKFLOW_SOURCE.match(
+      /id: fallback-api-to-oauth\n([\s\S]*?)\n {6}- name: Write job summary/,
+    );
+    assert.ok(apiFallbackMatch, 'fallback-api-to-oauth step not found');
+    assert.match(
+      apiFallbackMatch[1],
+      /claude_code_oauth_token: \$\{\{ secrets\.CLAUDE_CODE_OAUTH_TOKEN \}\}/,
+    );
+    assert.doesNotMatch(apiFallbackMatch[1], /anthropic_api_key:/);
+  });
+
+  test('job summary reports both primary and both fallback step outcomes', () => {
+    assert.match(WORKFLOW_SOURCE, /steps\.run-oauth\.outcome/);
+    assert.match(WORKFLOW_SOURCE, /steps\.run-api\.outcome/);
+    assert.match(WORKFLOW_SOURCE, /steps\.fallback-oauth-to-api\.outcome/);
+    assert.match(WORKFLOW_SOURCE, /steps\.fallback-api-to-oauth\.outcome/);
   });
 });

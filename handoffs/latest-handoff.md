@@ -1,5 +1,36 @@
 # Latest Handoff
 
+## RALPH-RETIRE-002 — Consolidate Governance After RALPH Retirement
+
+- **Task ID:** `RALPH-RETIRE-002`. Run as the first real task through the Claude Queue
+  (`queue-run` skill, issue #142, `risk:review-required`).
+- **What changed:** Deleted `.governance/**` (4 files) and `.roo/`/`.roomodes` (13 files)
+  entirely. Merged `.governance/RULES.md`'s normative handoff schema and
+  `.governance/SAFETY.md`'s protected-files list into new `AGENTS.md` sections ("Handoff
+  Requirements", "Protected Files") — the latter also corrects `SAFETY.md`'s stale blanket
+  "never push" rule, which contradicted the push/PR/merge workflow `AGENTS.md` already
+  documents and this session has practiced throughout. Compressed `SSOK.md`'s ~540-line
+  Roo-specific historical section to a short note (591 → 69 lines). Corrected two now-dangling
+  `.governance/` references in `VERIFY.md` (narrow, explicitly-flagged scope addition beyond the
+  originating issue's allowed-paths list, justified by the issue's own DoD). Flipped
+  `RALPH-RETIRE-002` to `done` in `ROADMAP.md`.
+- **Why:** `.governance/**` still referenced paths RALPH-RETIRE-001 had removed; `.roo/`/
+  `.roomodes` had no active-usage evidence and duplicated `AGENTS.md`; "dual governance during
+  transition" framing needed to resolve to one unambiguous workflow.
+- **Files changed:** `.governance/SYSTEM.md`, `.governance/RULES.md`, `.governance/SAFETY.md`,
+  `.governance/REVIEW_POLICY.md` (deleted); `.roomodes`, `.roo/**` (13 files, deleted);
+  `AGENTS.md`, `SSOK.md`, `VERIFY.md`, `ROADMAP.md` (edited);
+  `reports/RALPH_RETIRE_002_GOVERNANCE_CONSOLIDATION_REPORT.md` (new).
+- **Verification:** documentation/governance-only (Category 2) — git readbacks plus `npm run
+verify` for extra confidence per the issue's own verify-command field. See PR for the actual
+  result.
+- **Known residual (documented, not blocking):** `README.md` and
+  `plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md` still reference the deleted
+  `.governance/SAFETY.md` by path; left unedited as outside this task's allowed-paths scope (see
+  the consolidation report §7 for detail).
+- **Human-review status:** `risk:review-required` — PR opened, not auto-merged; human merge
+  required per the Claude Queue Contract.
+
 ## QUEUE-002 — Claude Worker Skill (`queue-run`)
 
 - **Task ID:** `QUEUE-002`.

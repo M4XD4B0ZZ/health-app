@@ -146,23 +146,39 @@ new tasks.
 
 ### RALPH-RETIRE-002 Consolidate Governance After RALPH Retirement
 
-Status: `todo`
+Status: `done`
 
-`.governance/**` (`SYSTEM.md`, `RULES.md`, `SAFETY.md`, `REVIEW_POLICY.md`) still exists and
-still references paths removed by `RALPH-RETIRE-001` (e.g. `.agent/config/protected-files.json`,
-`tasks/task-state.json`). `AGENTS.md` and `SSOK.md` still carry Roo/Cline/OpenCode transition
-language. This follow-up task must:
+`.governance/**` (`SYSTEM.md`, `RULES.md`, `SAFETY.md`, `REVIEW_POLICY.md`) existed and still
+referenced paths removed by `RALPH-RETIRE-001`. `AGENTS.md` and `SSOK.md` still carried
+Roo/Cline/OpenCode transition language.
 
-- Compare `.governance/**` against `AGENTS.md`, `SSOK.md`, and `VERIFY.md` and retain only
-  rules that are still uniquely valuable and generally applicable (not Ralph-specific).
-- Remove duplicate or obsolete Ralph-specific authority from `.governance/**`, deciding
-  per-file whether it is deleted, merged into `AGENTS.md`, or left as historical-only.
-- Remove remaining Roo/Cline/OpenCode transition language from `AGENTS.md` and `SSOK.md`
-  (decide the status of `.roo/`, `.roomodes` explicitly rather than leaving them "legacy" by
-  default).
-- Define one unambiguous repository workflow for current product tasks and cloud coding
-  agents, replacing the "dual governance during transition" framing.
-- Do not introduce a new orchestration framework as part of this task.
+**Delivered:**
+
+- `.governance/**` deleted entirely. `SYSTEM.md` and `REVIEW_POLICY.md` were fully
+  Ralph-lifecycle-specific or superseded by the Claude Queue Contract's risk classes and were
+  dropped outright. `RULES.md`'s normative 8-field handoff schema and `SAFETY.md`'s protected-file
+  list were merged into `AGENTS.md` as new "Handoff Requirements" and "Protected Files" sections
+  (the latter also corrects `SAFETY.md`'s stale blanket "never push" rule, which contradicted the
+  push/PR/merge workflow already established elsewhere in `AGENTS.md`).
+- `.roo/` and `.roomodes` (Roo VS Code extension configuration) deleted entirely — no evidence of
+  active Roo usage in this repository's recent history, and their operational content was already
+  covered by `AGENTS.md`'s Core Rules. `SSOK.md`'s ~540-line Roo-specific "Historical Context /
+  Legacy Workflow" section was compressed to a short historical note.
+- `AGENTS.md` and `SSOK.md` updated: authority hierarchies no longer reference `.governance/*` or
+  `.roo/`/`.roomodes`; "dual governance during transition" framing replaced by a single workflow
+  statement (Claude Code / cloud coding agents operating uniformly under `AGENTS.md`, `SSOK.md`,
+  `ROADMAP.md`, `VERIFY.md`).
+- `VERIFY.md`'s two dangling references to `.governance/RULES.md` and `.governance/*.md`
+  corrected (narrow addition beyond this task's original allowed-paths list, justified by the
+  DoD's own "no duplicate/contradictory authority between `.governance/**`, `AGENTS.md`,
+  `SSOK.md`, `VERIFY.md`" requirement).
+- Full disposition rationale and file-by-file decisions:
+  `reports/RALPH_RETIRE_002_GOVERNANCE_CONSOLIDATION_REPORT.md`.
+
+**Known residual (documented, not blocking):** `README.md` (MCP `.mcp.json` read-only rationale)
+and `plans/ACC-001_LOCAL_FIRST_ACCOUNT_BACKUP_SYNC_PLAN.md` still reference
+`.governance/SAFETY.md` by path; left unedited as outside this task's allowed-paths scope — see
+the report for detail.
 
 ---
 

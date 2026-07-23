@@ -11,16 +11,17 @@
 For deterministic governance decisions, apply this authority hierarchy:
 
 1. **Level 1 — Repository Governance Constitution:** `SSOK.md`, `AGENTS.md`
-2. **Level 2 — Canonical Domain Authorities:** `ROADMAP.md`, `VERIFY.md`, `.governance/*`
+2. **Level 2 — Canonical Domain Authorities:** `ROADMAP.md`, `VERIFY.md`
 3. **Level 3 — Operational Guides/Checklists:** non-canonical implementation guidance
 
-Legacy Roo artifacts (`.roo/`, `.roomodes`) are historical/transition context and not active top-level authority.
+Roo-specific artifacts (`.roo/`, `.roomodes`) were retired as part of `RALPH-RETIRE-002` — see
+"Ralph-Loop Governance (Retired)" below.
 
 ### Conflict Resolution (Binding)
 
 When sources conflict, resolve in this order:
 
-1. **Safety wins first** (`.governance/SAFETY.md` + protected-file constraints)
+1. **Safety wins first** (this document's "Protected Files" section below)
 2. **Canonical domain authority wins second** (`ROADMAP.md` for planning, `VERIFY.md` for verification)
 3. **Historical evidence never overrides current authority**
 
@@ -28,7 +29,7 @@ When sources conflict, resolve in this order:
 
 - **Planning Authority:** `ROADMAP.md`
 - **Verification Authority:** `VERIFY.md`
-- **Safety Authority:** `.governance/SAFETY.md`
+- **Safety Authority:** this document's "Protected Files" section below
 
 This formalization clarifies authority ownership only and does not change runtime behavior or workflow mechanics.
 
@@ -42,8 +43,54 @@ The Ralph-Loop / Overnight Worker initiative (`RALPH-001` … `RALPH-047B`) is *
 runtime scaffolding it referenced (`tasks/task-state.json`, `runs/current-run.json`,
 `validation/validation-rules.json`, `.agent/adapters/*`, `.agent/config/protected-files.json`)
 no longer exists in this repository. Do not resume Ralph-Loop-style task execution or recreate
-that scaffolding. `.governance/**` still exists and remains binding per the hierarchy above
-until `RALPH-RETIRE-002` (tracked in `ROADMAP.md`) consolidates it.
+that scaffolding.
+
+`RALPH-RETIRE-002` (see `ROADMAP.md`) consolidated `.governance/**` into this document — its
+still-valuable content (protected files, handoff schema) now lives in the "Protected Files" and
+"Handoff Requirements" sections below; the rest was Ralph-specific or already duplicated
+elsewhere in this document and was removed. `.governance/**` no longer exists. The same task
+retired the Roo-specific `.roo/` and `.roomodes` files (see `SSOK.md`'s "Legacy Roo Workflow
+(Retired)" section) — this repository's active workflow is Claude Code / cloud coding agents
+operating uniformly under `AGENTS.md`, `SSOK.md`, `ROADMAP.md`, and `VERIFY.md`; there is no
+separate Roo-specific or Ralph-Loop-specific governance layer anymore. Full disposition
+rationale: `reports/RALPH_RETIRE_002_GOVERNANCE_CONSOLIDATION_REPORT.md`.
+
+---
+
+## Protected Files (Binding)
+
+**Gate ownership (safety):** this section owns safety-gate policy and safety-triggered
+immediate-stop conditions for this repository. Other governance documents may reference it but
+do not redefine it.
+
+### Absolute protection — never modify
+
+- `.env`, `.env.*` — environment variables
+- `secrets/**`, `credentials/**` — secrets and credentials
+- `node_modules/**` — package dependencies
+- `.git/**` — Git metadata and history
+- `package.json`, `package-lock.json` — unless the task explicitly allows dependency changes (see "Dependency Command Safety" below)
+- `supabase/migrations/**` — unless the task explicitly allows database migrations
+
+### Conditional protection — explicit task authorization required
+
+- `package.json`, `package-lock.json`, `npm-shrinkwrap.json` — only with an explicit dependency-management task
+- `supabase/migrations/**` and other database schema files — only with an explicit schema/migration task
+- `.github/workflows/**` — only with an explicit CI/CD task
+- `Dockerfile` / container or deployment configuration — only with an explicit containerization/deployment task
+- `babel.config.js`, `metro.config.js`, `webpack.config.js` — only with an explicit build-configuration task
+
+### Forbidden actions
+
+- Never expose or log secrets, API keys, credentials, or environment variables.
+- Never perform destructive Git history rewrites (`git rebase`, `git reset --hard`, force-push to a shared branch) without an explicit human request.
+- Never install new dependencies without explicit task authorization — see "Dependency Command Safety" below for the narrower exception (restoring already-declared dependencies).
+- Never perform direct production deployments, database drops/truncates, or other destructive external side effects without explicit task authorization.
+
+Pushing to remote, opening/merging pull requests, and normal branch lifecycle operations are
+governed by this document's "Git Branch Sync After Push/Pull" rules above, not by a blanket
+prohibition — routine push/PR/merge under human oversight is expected practice here, not an
+exception.
 
 ---
 
@@ -206,6 +253,26 @@ If package files drift accidentally:
 - Completed tasks are marked `done` in ROADMAP.md — never deleted.
 - Update ROADMAP.md task status when work starts (`in_progress`) and when done (`done`).
 - Update relevant documentation when behavior changes.
+
+### Handoff Requirements (Binding)
+
+**Gate ownership (handoff schema):** this section owns the normative handoff schema for this
+repository.
+
+Every completed task must produce a clear handoff (in `handoffs/latest-handoff.md`, prepended
+above the previous entry per existing convention) containing:
+
+1. Task ID and status
+2. What changed
+3. Why it changed
+4. Files changed
+5. Verification executed
+6. Verification result
+7. Known issues, blockers, or residual risks
+8. Human-review status / next steps
+
+A task must never be marked done without a handoff meeting these fields, and never marked done
+without passing verification (see `VERIFY.md`).
 
 ### Definition of Done
 

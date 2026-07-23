@@ -166,6 +166,64 @@ language. This follow-up task must:
 
 ---
 
+## Claude Queue (GitHub-Issue-Driven Worker)
+
+Successor to the retired Ralph-Loop / Overnight Worker (see above). Built entirely on
+GitHub-native primitives and this environment's own session capabilities (PR-activity
+subscriptions, scheduled wake-ups) — no custom orchestrator, scheduler, or runtime-state files
+added to this repository. Full contract: `docs/automation/CLAUDE_QUEUE_CONTRACT.md`. Worker
+skill (QUEUE-002): `.claude/skills/queue-run/SKILL.md`.
+
+### QUEUE-001 Queue Contract and GitHub Issue Intake
+
+Status: `done`
+
+Define the task queue's shape and gating rules before any worker automation exists.
+
+**Delivered:**
+
+- Issue form `.github/ISSUE_TEMPLATE/queue-task.yml` (task ID, objective, DoD, dependencies,
+  allowed/forbidden paths, verify commands, risk class, merge authorization, max fix attempts,
+  stop conditions).
+- `docs/automation/CLAUDE_QUEUE_CONTRACT.md`: labels, risk classes and their exclusions,
+  lifecycle, merge-authorization rule, fix-attempt/stop-condition limits, and the explicit
+  relationship to `ROADMAP.md` (the queue never selects tasks from the roadmap automatically).
+- Note: GitHub labels themselves (`queue:approved` etc.) are not created by this task — no
+  label-management tool is available to the worker; see the contract's one-time setup note.
+
+### QUEUE-002 Claude Worker Skill (`queue-run`)
+
+Status: `todo`
+
+Implement the reusable worker as a checked-in Claude Code skill (following the existing
+`.claude/skills/cleanup-branches/` convention) that claims the next eligible approved issue,
+implements it within its declared scope, verifies, opens a PR, subscribes to PR activity so CI
+failures and review comments wake the session, merges only when explicitly authorized, performs
+an independent post-merge review and handoff, then proceeds to the next eligible issue or stops
+cleanly. Must enforce "exactly one active task" and the risk-class exclusions from QUEUE-001
+regardless of an issue's own wording. Depends on QUEUE-001's contract.
+
+### QUEUE-003 Two-Task Unattended Smoke
+
+Status: `todo`
+
+Validate the queue end-to-end with two small, real tasks before trusting it with anything larger
+(e.g. one docs/governance task such as `RALPH-RETIRE-002`, plus one small deterministic
+test/cleanup task). Record: whether CI events reliably wake the session, whether task B starts
+only after task A fully completes, whether any duplicate branches/PRs/sessions occur, whether a
+long wait (including overnight) is survived, and how much usage the run consumed. Depends on
+QUEUE-002.
+
+### QUEUE-004 Smoke Evaluation and Hardening
+
+Status: `todo`
+
+Document QUEUE-003's findings and adjust the contract/skill accordingly (heartbeat timing,
+fix-attempt limits, resume-state handling). Only after this evaluation, decide whether a
+dedicated GitHub Actions controller is actually justified — do not build one speculatively.
+
+---
+
 ## Principles
 
 - Deterministic-first: prefer deterministic logic over AI/LLM calls

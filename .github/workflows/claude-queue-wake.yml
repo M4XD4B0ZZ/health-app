@@ -1,0 +1,214 @@
+name: Claude Queue Wake Controller
+
+# QUEUE-005 — Minimal External Queue Wake Controller. See
+# reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md and
+# docs/automation/CLAUDE_QUEUE_CONTRACT.md for the design this implements. This workflow only
+# ever runs from the default-branch version of this file (GitHub Actions' own `schedule`
+# behavior); it does not select ROADMAP.md tasks and does not run a background daemon — it
+# wakes every 15 minutes, runs a deterministic read-only preflight, and invokes the official
+# Claude Code Action only when that preflight says an AI decision/implementation step is
+# actually required.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+concurrency:
+  group: claude-queue-wake-controller
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  preflight:
+    name: Preflight (deterministic, read-only)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      checks: read
+      actions: read
+    outputs:
+      should_invoke: ${{ steps.preflight.outputs.should_invoke }}
+      reason_code: ${{ steps.preflight.outputs.reason_code }}
+      issue_number: ${{ steps.preflight.outputs.issue_number }}
+      task_id: ${{ steps.preflight.outputs.task_id }}
+      phase: ${{ steps.preflight.outputs.phase }}
+      pr_number: ${{ steps.preflight.outputs.pr_number }}
+      head_sha: ${{ steps.preflight.outputs.head_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+
+      # Read-only: never invokes a Claude secret, never mutates issues/branches/PRs. See
+      # scripts/automation/claude-queue-preflight.mjs and its tests.
+      - name: Run deterministic queue preflight
+        id: preflight
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/automation/claude-queue-preflight.mjs
+
+      - name: Write job summary
+        run: |
+          {
+            echo "### Claude Queue Preflight"
+            echo ""
+            echo "- reason_code: \`${{ steps.preflight.outputs.reason_code }}\`"
+            echo "- should_invoke: \`${{ steps.preflight.outputs.should_invoke }}\`"
+            echo "- issue_number: \`${{ steps.preflight.outputs.issue_number }}\`"
+            echo "- task_id: \`${{ steps.preflight.outputs.task_id }}\`"
+            echo "- phase: \`${{ steps.preflight.outputs.phase }}\`"
+            echo "- run_id: \`${{ github.run_id }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  claude:
+    name: Claude queue transition
+    needs: preflight
+    if: needs.preflight.outputs.should_invoke == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      checks: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+
+      # Fails closed before the Action step on any invalid/missing auth-mode configuration.
+      # Only ever prints presence booleans (see claude-queue-auth-precheck.mjs) — never a
+      # secret value, length, prefix, or hash, and never an environment dump.
+      - name: Auth precheck (fail closed, no secret values printed)
+        id: auth
+        env:
+          CLAUDE_QUEUE_AUTH_MODE: ${{ vars.CLAUDE_QUEUE_AUTH_MODE }}
+          CLAUDE_QUEUE_MODEL: ${{ vars.CLAUDE_QUEUE_MODEL }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node scripts/automation/claude-queue-auth-precheck.mjs
+
+      # This job only runs typecheck/lint/format/test (npm run verify), same as .github/workflows/verify.yml.
+      # --ignore-scripts skips the `supabase` package's postinstall CLI download, irrelevant to this job's gate.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Claude queue transition (oauth mode)
+        if: vars.CLAUDE_QUEUE_AUTH_MODE == 'oauth'
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          additional_permissions: 'actions: read'
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: externally triggered unattended (QUEUE-005 controller)
+
+            PREFLIGHT REASON CODE: ${{ needs.preflight.outputs.reason_code }}
+            SELECTED ISSUE NUMBER: ${{ needs.preflight.outputs.issue_number }}
+            SELECTED TASK ID: ${{ needs.preflight.outputs.task_id }}
+            CURRENT PHASE: ${{ needs.preflight.outputs.phase }}
+            PR NUMBER (if applicable): ${{ needs.preflight.outputs.pr_number }}
+            HEAD SHA (if applicable): ${{ needs.preflight.outputs.head_sha }}
+            WORKFLOW RUN ID: ${{ github.run_id }}
+
+            Before doing anything else, read in full: AGENTS.md, then
+            docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
+            (specifically its "externally triggered unattended" mode).
+
+            You are the externally triggered unattended queue controller for this run, not an
+            interactive session. Re-fetch and reconcile the ACTUAL current GitHub state (issue
+            labels, the pinned state comment, the real branch, the real PR, its head SHA, its
+            CI/check-run state) before taking any action. The preflight values above reflect the
+            state at the moment this workflow started and may already be stale — newer GitHub
+            state always overrides this prompt and always overrides the preflight's own output.
+
+            Perform exactly ONE bounded, durable queue transition for the issue identified above,
+            per the contract's one-transition-per-invocation rule for external-controller mode:
+            either claim-and-implement-to-waiting-ci, or one CI-failure fix-and-push, or a
+            CI-green resolve-merge-and-post-merge-review, or a post-merge review/handoff/
+            completion, or confirming a human-merge-required PR is still correctly waiting —
+            whichever matches the reconciled state. Do not remain running to poll CI. Do not
+            claim a second task in this invocation. Do not select any task from ROADMAP.md —
+            only the reconciled issue identified above (or the single active issue being
+            resumed) is in scope. If you hit ambiguity this prompt did not anticipate, stop and
+            set queue:needs-human per the contract's stop conditions — do not guess.
+          claude_args: |
+            --model ${{ vars.CLAUDE_QUEUE_MODEL }}
+            --max-turns 24
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+
+      - name: Claude queue transition (api mode)
+        if: vars.CLAUDE_QUEUE_AUTH_MODE == 'api'
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          additional_permissions: 'actions: read'
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: externally triggered unattended (QUEUE-005 controller)
+
+            PREFLIGHT REASON CODE: ${{ needs.preflight.outputs.reason_code }}
+            SELECTED ISSUE NUMBER: ${{ needs.preflight.outputs.issue_number }}
+            SELECTED TASK ID: ${{ needs.preflight.outputs.task_id }}
+            CURRENT PHASE: ${{ needs.preflight.outputs.phase }}
+            PR NUMBER (if applicable): ${{ needs.preflight.outputs.pr_number }}
+            HEAD SHA (if applicable): ${{ needs.preflight.outputs.head_sha }}
+            WORKFLOW RUN ID: ${{ github.run_id }}
+
+            Before doing anything else, read in full: AGENTS.md, then
+            docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
+            (specifically its "externally triggered unattended" mode).
+
+            You are the externally triggered unattended queue controller for this run, not an
+            interactive session. Re-fetch and reconcile the ACTUAL current GitHub state (issue
+            labels, the pinned state comment, the real branch, the real PR, its head SHA, its
+            CI/check-run state) before taking any action. The preflight values above reflect the
+            state at the moment this workflow started and may already be stale — newer GitHub
+            state always overrides this prompt and always overrides the preflight's own output.
+
+            Perform exactly ONE bounded, durable queue transition for the issue identified above,
+            per the contract's one-transition-per-invocation rule for external-controller mode:
+            either claim-and-implement-to-waiting-ci, or one CI-failure fix-and-push, or a
+            CI-green resolve-merge-and-post-merge-review, or a post-merge review/handoff/
+            completion, or confirming a human-merge-required PR is still correctly waiting —
+            whichever matches the reconciled state. Do not remain running to poll CI. Do not
+            claim a second task in this invocation. Do not select any task from ROADMAP.md —
+            only the reconciled issue identified above (or the single active issue being
+            resumed) is in scope. If you hit ambiguity this prompt did not anticipate, stop and
+            set queue:needs-human per the contract's stop conditions — do not guess.
+          claude_args: |
+            --model ${{ vars.CLAUDE_QUEUE_MODEL }}
+            --max-turns 24
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "### Claude Queue Transition"
+            echo ""
+            echo "- reason_code: \`${{ needs.preflight.outputs.reason_code }}\`"
+            echo "- issue_number: \`${{ needs.preflight.outputs.issue_number }}\`"
+            echo "- task_id: \`${{ needs.preflight.outputs.task_id }}\`"
+            echo "- run_id: \`${{ github.run_id }}\`"
+            echo "- job status: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

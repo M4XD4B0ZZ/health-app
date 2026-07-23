@@ -34,8 +34,10 @@ reports:
 
 - **`semi-attended`** — invoked manually (or by an unreliable/one-shot wake); a human may need to
   re-invoke it for the queue to progress. This is the default mode today.
-- **`externally triggered unattended`** — invoked by an external scheduler (e.g. a future
-  GitHub Actions controller, `QUEUE-005` in `ROADMAP.md`) that guarantees periodic reactivation.
+- **`externally triggered unattended`** — invoked by `.github/workflows/claude-queue-wake.yml`
+  (`QUEUE-005`), the GitHub Actions controller that wakes every 15 minutes, runs a deterministic
+  preflight, and invokes this skill's worker only when actionable. This guarantees periodic
+  reactivation; no other invocation path may claim this mode.
 
 Never describe a run as unattended merely because it used this skill, and never fabricate an
 unattended result. **Fail closed on missing wake mechanisms:** if completing or reaching a task
@@ -43,6 +45,27 @@ depends on a future scheduled wake (a delayed release gate, a dependent task aft
 supported wake mechanism exists, do not approve or claim that task — stop before it, record why,
 and leave it for a human or an external trigger. The skill itself remains usable both manually
 and from a future external trigger; nothing in it may assume one mode or the other.
+
+### External-controller mode (`QUEUE-005`)
+
+When this skill is invoked by `claude-queue-wake.yml`'s Claude job, the following narrows the
+run above the normal "One run of this skill" steps — see
+`docs/automation/CLAUDE_QUEUE_CONTRACT.md`'s "External-Controller Mode (`QUEUE-005`)" section for
+the full contract; this is the same rule stated operationally:
+
+- Treat the workflow's preflight reason code / issue number / task ID / phase as a starting
+  point only, never as ground truth — step 1 ("Establish queue state") still applies in full:
+  re-fetch and reconcile actual GitHub state before acting, because the preflight ran, and the
+  Claude job started, at an earlier moment that may already be stale.
+- Perform **exactly one** bounded transition (see the contract's "One durable transition per
+  invocation" for the precise boundaries per case — new/resumed implementation, one CI-fix
+  attempt, CI-green resolve, or post-merge completion) and then stop. Do not loop back to step 1
+  for a second issue in the same invocation, even if this one reaches `queue:done` quickly — the
+  next scheduled tick's preflight will pick up the next eligible issue on its own.
+  This differs from manual "semi-attended" runs of this skill, which may legitimately loop
+  through step 6 ("Loop or stop") to process multiple tasks in one sitting.
+  - Do not poll CI in-process while running under this mode; stop at `queue:waiting-ci` and let
+    the next scheduled tick observe the outcome.
 
 ## One run of this skill
 

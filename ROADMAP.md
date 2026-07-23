@@ -316,7 +316,7 @@ hardening** — not because unattended execution passed (it did not; see below).
 
 ### QUEUE-005 Minimal External Queue Wake Controller
 
-Status: `todo`
+Status: `in_progress`
 
 Provide the smallest external 15-minute trigger needed to invoke the existing queue worker only
 when actionable work exists.
@@ -336,14 +336,39 @@ when actionable work exists.
 
 **Prerequisites and cost notes:**
 
-- The official Claude Code GitHub Action supports scheduled prompts; direct Anthropic API use
-  requires an `ANTHROPIC_API_KEY` repository secret — a human-performed setup prerequisite. This
-  creates token-based API charges separate from ordinary interactive Claude subscription use; do
-  not assume an interactive subscription funds GitHub-hosted action calls unless current official
-  documentation explicitly establishes that.
+- The official Claude Code GitHub Action supports scheduled prompts, and (corrected from an
+  earlier draft of this entry) supports two authentication modes: a direct `ANTHROPIC_API_KEY`
+  repository secret, or a `CLAUDE_CODE_OAUTH_TOKEN` repository secret generated via
+  `claude setup-token` (documented for Pro/Max subscribers) — see
+  `docs/automation/CLAUDE_QUEUE_CONTRACT.md`'s "External-Controller Mode" section. Both are
+  human-performed setup prerequisites. Direct API use creates token-based charges separate from
+  ordinary interactive Claude subscription use; OAuth-token quota/billing behavior is not assumed
+  and must be observed and reported honestly, per
+  `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md`.
 - The task must verify current official action syntax, pin action versions safely, and verify the
   current model and price before the first paid smoke.
 - Secrets must never be printed or passed into issue text, PR text, reports, or prompts.
+
+**Phase A — implementation and zero-Claude verification (this entry):**
+
+- Delivered: `.github/workflows/claude-queue-wake.yml` (two-job split: read-only deterministic
+  `preflight`, then a conditional `claude` job with write permissions only when actionable),
+  `scripts/automation/claude-queue-preflight.mjs` (pure, tested decision function plus a
+  read-only GitHub-fetch layer), `scripts/automation/claude-queue-auth-precheck.mjs` (fails
+  closed on invalid/missing `CLAUDE_QUEUE_AUTH_MODE`/secret/`CLAUDE_QUEUE_MODEL` before the
+  Claude Code Action step, without ever handling a raw secret value), 50 passing
+  `node --test` cases in
+  `scripts/automation/__tests__/claude-queue-preflight.test.mjs`, contract/skill updates
+  defining "externally triggered unattended" precisely, and
+  `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md`.
+- No Claude secret was read and no Claude API/OAuth request was made while producing this PR —
+  see the report's "Phase-A result" section.
+- **Not yet done:** a live zero-Claude `workflow_dispatch` run against the merged workflow
+  (proving the idle path never reaches the Claude job on the real repository), the human
+  authentication/model setup (`CLAUDE_QUEUE_AUTH_MODE`, its secret, `CLAUDE_QUEUE_MODEL`), and
+  the Phase-B authenticated two-stage unattended smoke (fresh `QUEUE-005A`/`QUEUE-005B` issues —
+  `QUEUE-004B`/issue #149 remains unexecuted and is not reused as proof). QUEUE-005 may only be
+  marked `done` after all of Phase B's acceptance criteria pass.
 
 ---
 

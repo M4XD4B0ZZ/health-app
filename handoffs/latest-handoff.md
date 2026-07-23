@@ -1,5 +1,81 @@
 # Latest Handoff
 
+## QUEUE-005 — Minimal External Queue Wake Controller (Phase A, In Progress)
+
+- **Task ID:** `QUEUE-005` (Phase A: implementation and zero-Claude verification only).
+- **What changed:**
+  - New `.github/workflows/claude-queue-wake.yml` — `workflow_dispatch` + 15-minute cron
+    controller, two-job split (read-only `preflight` job with no Claude secret access; a
+    conditional `claude` job with write permissions gated on `needs.preflight.outputs.should_invoke
+== 'true'`), one repository-wide concurrency group (`cancel-in-progress: false`), all
+    third-party actions pinned to immutable commit SHAs with version comments
+    (`actions/checkout@…` v5.1.0, `actions/setup-node@…` v4.4.0,
+    `anthropics/claude-code-action@…` v1.0.181 — retrieved and verified 2026-07-23), 24 max
+    turns, 45-minute job timeout, bounded `--allowedTools`.
+  - New `scripts/automation/claude-queue-preflight.mjs` — dependency-free, pure decision
+    function (`decidePreflight`) implementing the queue contract's task-selection and
+    active-task-reconciliation rules deterministically, plus a read-only (`GET`-only) GitHub
+    REST fetch layer. Emits `should_invoke`, `reason_code`, `issue_number`, `task_id`, `phase`,
+    `pr_number`, `head_sha` via `$GITHUB_OUTPUT`.
+  - New `scripts/automation/claude-queue-auth-precheck.mjs` — fails closed before the Claude
+    Code Action step on invalid/missing `CLAUDE_QUEUE_AUTH_MODE`, its corresponding secret
+    (`CLAUDE_CODE_OAUTH_TOKEN` for `oauth`, `ANTHROPIC_API_KEY` for `api`), or missing
+    `CLAUDE_QUEUE_MODEL` — `resolveAuthDecision()`'s signature only accepts secret-presence
+    booleans, so it cannot leak a secret value even by accident.
+  - New `scripts/automation/__tests__/claude-queue-preflight.test.mjs` — 50 passing `node:test`
+    cases covering all 30 required scenarios (idle/actionable decision paths, dependency
+    gating, multi-active-task blocking, CI check-run interpretation incl. check-runs-over-legacy-
+    status, malformed/ambiguous/duplicate-PR fail-closed cases, stable-output shape, preflight
+    purity/no-mutation, auth-precheck fail-closed behavior, and workflow-YAML structural checks
+    including pinned SHAs and idle-path unreachability of the Claude job).
+  - `docs/automation/CLAUDE_QUEUE_CONTRACT.md` — new "External-Controller Mode (`QUEUE-005`)"
+    section: defines "externally triggered unattended" precisely (only a
+    `claude-queue-wake.yml`-invoked run may claim it), the one-transition-per-invocation rule,
+    "preflight output is a hint, not a fact," and corrects the prior `ANTHROPIC_API_KEY`-only
+    framing to include `CLAUDE_CODE_OAUTH_TOKEN` (via `claude setup-token`) without claiming its
+    billing/quota behavior in advance.
+  - `.claude/skills/queue-run/SKILL.md` — new "External-controller mode (`QUEUE-005`)"
+    subsection: re-fetch/reconcile before acting even under this mode, exactly one bounded
+    transition then stop (no in-process CI polling, no second issue in the same invocation),
+    contrasted with manual semi-attended runs which may loop through multiple tasks.
+  - `ROADMAP.md` — `QUEUE-005` moved `todo` → `in_progress` (not `done` — Phase B unattended
+    smoke has not run yet); Prerequisites section corrected for the OAuth-token authentication
+    option; new "Phase A" subsection records what was delivered and what remains outstanding
+    (zero-Claude live dispatch, human auth/model setup, Phase-B smoke).
+  - New `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md` — full design/decision-table/
+    permissions/concurrency/auth/cost/pinning/test-results report; §13.1 and §15 are placeholders
+    to be filled in after merge (zero-Claude dispatch) and after maintainer-authorized Phase B.
+- **Why:** `QUEUE-004`'s closeout evidence (`GITHUB_ACTIONS_CONTROLLER_JUSTIFIED`) established
+  that the queue is only semi-attended without an external trigger; this task builds the smallest
+  such trigger, per the task's own explicit "do not build" list (no RALPH-style runtime, no
+  committed per-run state, no custom task database, no long-running daemon/VPS service, no
+  independent queue engine, no automatic ROADMAP task selection, no parallel execution, no
+  product features).
+- **Files changed:** `.github/workflows/claude-queue-wake.yml`,
+  `scripts/automation/claude-queue-preflight.mjs`,
+  `scripts/automation/claude-queue-auth-precheck.mjs`,
+  `scripts/automation/__tests__/claude-queue-preflight.test.mjs`,
+  `docs/automation/CLAUDE_QUEUE_CONTRACT.md`, `.claude/skills/queue-run/SKILL.md`, `ROADMAP.md`,
+  `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md`, `handoffs/latest-handoff.md`.
+- **Verification:** `node --test scripts/automation/__tests__/claude-queue-preflight.test.mjs`
+  (50/50 pass); `npm run verify` (full repository, unaffected product suite green); git
+  readbacks (`status --short`, `diff --stat`, `diff --name-only`, `diff --check`) confirmed no
+  `src/**`, Supabase/migration, or dependency file changed.
+- **Known issues/risks:** a local live read-only dry-run of the preflight script against the
+  real repository could not be completed from inside this interactive session (this session's
+  `GITHUB_TOKEN` authenticates via `curl` but is rejected by Node's `fetch` from this specific
+  sandbox — a session-local quirk, not a script or GitHub Actions defect); the authoritative
+  live proof is the post-merge zero-Claude `workflow_dispatch` run required before Phase B, not
+  yet performed as of this PR. No Claude secret was read and no Claude API/OAuth request was
+  made anywhere in this task's Phase-A work.
+- **Human-review status:** implementation-only PR; per the task's explicit sequencing, work stops
+  at the human setup boundary (§14 of the report) after the zero-Claude dispatch passes — no
+  Phase-B smoke begins without explicit maintainer authorization and confirmed secret/variable
+  setup.
+- **Next steps:** merge this PR; perform the zero-Claude `workflow_dispatch` proof and record it
+  in the report; hand the human setup instructions (§14) to the maintainer; wait for explicit
+  Phase-B authorization before creating any `QUEUE-005A`/`QUEUE-005B` smoke issue.
+
 ## QUEUE-004 — Smoke Evaluation and Hardening (Closeout, Done)
 
 - **Task ID:** `QUEUE-004` (closeout of the unattended-smoke evaluation).

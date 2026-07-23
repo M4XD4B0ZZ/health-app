@@ -28,14 +28,14 @@ repository, no scheduler code.
 
 ## Labels
 
-| Label               | Meaning                                                                                                                                 |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `queue:approved`    | Human has authorized this task to run. Required before any worker touches it.                                                           |
-| `queue:running`     | A worker is actively on this task (branch created and/or PR open).                                                                      |
-| `queue:waiting-ci`  | PR open, waiting on CI or review; the worker is not actively running (it will be woken by a CI/review event or the fallback heartbeat). |
-| `queue:blocked`     | Human paused this task. Worker must not act on it until this label is removed and `queue:approved` re-confirmed present.                |
-| `queue:needs-human` | Worker stopped: ambiguity, exhausted fix attempts, or a stop condition fired. Requires human action before it can resume.               |
-| `queue:done`        | Task merged (or otherwise completed) and the worker's handoff is written.                                                               |
+| Label               | Meaning                                                                                                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `queue:approved`    | Human has authorized this task to run. Required before any worker touches it.                                                                                                                                                               |
+| `queue:running`     | A worker is actively on this task (branch created and/or PR open).                                                                                                                                                                          |
+| `queue:waiting-ci`  | PR open, waiting on CI or review; the worker is not actively running (it will be woken by a CI-failure/review event, but treat the fallback heartbeat as the primary way CI **success** is ever noticed — see "Operational Lessons" below). |
+| `queue:blocked`     | Human paused this task. Worker must not act on it until this label is removed and `queue:approved` re-confirmed present.                                                                                                                    |
+| `queue:needs-human` | Worker stopped: ambiguity, exhausted fix attempts, or a stop condition fired. Requires human action before it can resume.                                                                                                                   |
+| `queue:done`        | Task merged (or otherwise completed) and the worker's handoff is written.                                                                                                                                                                   |
 
 Risk classes (exactly one per issue, set via the issue template dropdown):
 
@@ -109,6 +109,39 @@ one active task" the worker will not start a new one while any issue sits in `qu
   requirements, a required forbidden-path change, a risk-class exclusion triggered mid-task, a
   protected/governance file needing modification, or genuine architectural ambiguity. All of
   these produce `queue:needs-human`, never a silent skip or a guess.
+
+## Operational Lessons (from `QUEUE-003`)
+
+Learned from the first real end-to-end run of the queue (`RALPH-RETIRE-002` / `QUEUE-003B`, see
+`ROADMAP.md`'s `QUEUE-003` entry and `reports/QUEUE-003_SMOKE_TEST_MARKER.md`). These are binding
+operational guidance, not just historical notes:
+
+- **CI-success webhooks are not reliable — treat the fallback heartbeat as primary, not backup.**
+  In the smoke test, no CI-success notification ever arrived on its own; every check happened
+  either because a human asked or because a scheduled fallback check-in fired. CI-failure and
+  review-comment events are more likely to arrive via subscription, but a green run finishing
+  quietly is the common case and must not be assumed to self-report. Always arm a fallback
+  check-in when opening a PR, and do not treat its absence as evidence nothing has happened.
+- **Always branch from an explicit `origin/<default-branch>` ref, never a bare local branch
+  name.** A stale local branch that happened to share the canonical branch's name (left over from
+  an unrelated, much earlier session) was checked out by name during routine cleanup and briefly
+  reverted the working tree to old content. No push occurred, but the fix was only re-syncing to
+  `origin/<default-branch>` — this must be the default habit, not a recovery step.
+- **Environment-level safety classifiers are a real, independent gate the queue does not
+  control.** A `queue:approved` label does not bypass this environment's own auto-mode action
+  classifier — a bulk destructive command (e.g. `git rm -r` across multiple directories) can
+  still be blocked outright, requiring either an alternative approach (e.g. deleting files one at
+  a time) or explicit human confirmation. Do not treat `queue:approved` as authorization that
+  overrides environment-level safety mechanisms.
+- **Cross-check an issue's Definition of Done against its Allowed/Forbidden paths before
+  approving.** One smoke-test issue's DoD required resolving contradictory authority in a file
+  that its own Allowed-paths list omitted. When this happens, the worker should make a narrow,
+  explicitly-flagged exception in service of the DoD rather than blocking the whole task on a
+  self-inconsistent issue — but this should be caught at issue-authoring time, not discovered
+  mid-task.
+- **Genuine unattended/overnight survival remains untested.** The `QUEUE-003` smoke test ran
+  entirely within one continuous, interactively-supervised session. Do not assume the queue
+  survives a genuinely unattended multi-hour gap until that has actually been exercised.
 
 ## Relationship to `ROADMAP.md`
 

@@ -31,7 +31,11 @@ body:
     id: dod
     attributes:
       label: Definition of Done
-      description: What must be true for this task to count as complete (tests, docs, behavior).
+      description: >-
+        What must be true for this task to count as complete (tests, docs, behavior). Before
+        approving, check that every file this DoD requires touching is actually listed in
+        "Allowed paths" below — a DoD/allowed-paths mismatch was a real issue found during the
+        QUEUE-003 smoke test.
     validations:
       required: true
 

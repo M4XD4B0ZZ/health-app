@@ -15,12 +15,14 @@ This skill is deliberately not a background daemon. Each invocation drives the q
 until either nothing is left to do, or a task needs a human. Long unattended operation comes from
 two orthogonal mechanisms, not from this skill looping forever in one turn:
 
-- **PR activity subscription** (`subscribe_pr_activity`) wakes this session on CI results and
-  review comments while a PR is open — this is the primary mechanism, already proven live on
-  this repository (PR #138).
-- **A scheduled Routine or `send_later`** re-invokes `/queue-run` later (e.g. nightly, or as a
-  fallback heartbeat) so a fresh or resumed session keeps the queue moving even if the webhook
-  path misses an event or the session ended.
+- **PR activity subscription** (`subscribe_pr_activity`) reliably delivers CI-**failure** and
+  review-comment events while a PR is open. It does **not** reliably deliver CI-**success**
+  events — in the `QUEUE-003` smoke test, no unprompted "CI passed" notification ever arrived.
+  Treat it as the mechanism for catching problems early, not for detecting a green run.
+- **A scheduled Routine or `send_later`** re-invokes `/queue-run` (or just re-checks the open
+  PR's status) later. Given the above, this is the **primary** way a green, quiet CI run is ever
+  noticed — always arm one when opening a PR, sized to roughly how long this repo's CI takes, not
+  as an afterthought "just in case" backup.
 
 ## One run of this skill
 
@@ -43,8 +45,14 @@ two orthogonal mechanisms, not from this skill looping forever in one turn:
   it is fine; the running/waiting labels are what gate re-claiming).
 - Post (or update) the pinned state comment with: task ID, start time, planned branch name,
   attempt count `0`.
-- Create the task branch directly from the current canonical tip (never from a stale local
-  branch). Branch name convention: `queue/<task-id-lowercase>-<short-slug>`.
+- Create the task branch directly from an explicit `origin/<default-branch>` ref (e.g.
+  `git checkout -B <branch> origin/<default-branch>`), never from a bare local branch name —
+  even one that looks like the canonical branch. A `QUEUE-003` smoke-test incident found a
+  long-stale local branch sharing the canonical branch's exact name (left over from an unrelated,
+  much earlier checkout); checking it out by name silently reverted the working tree to old
+  content. Always fetch and re-derive from `origin/<default-branch>` explicitly, every time, not
+  just when something looks wrong. Branch name convention:
+  `queue/<task-id-lowercase>-<short-slug>`.
 
 ### 3. Implement
 
@@ -55,7 +63,17 @@ two orthogonal mechanisms, not from this skill looping forever in one turn:
   bump, a governance-file edit), stop, set `queue:needs-human`, and explain why in a comment. Do
   not reclassify the issue yourself.
 - Respect allowed/forbidden paths literally. If the work genuinely requires touching a forbidden
-  path, that is a stop condition, not a judgment call to override.
+  path, that is a stop condition, not a judgment call to override — with one narrow exception: if
+  the issue's own Definition of Done explicitly requires something its Allowed-paths list
+  omitted (an authoring inconsistency, not a scope decision), make the smallest possible addition
+  needed to satisfy the DoD and say so explicitly in the PR/report — do not silently expand scope
+  beyond what the DoD itself demands, and do not use this as a general escape hatch.
+- `queue:approved` does not override this environment's own action-safety classifier. A bulk or
+  otherwise flagged command can still be blocked even on an approved, in-scope task — this is an
+  independent layer the queue does not control. If blocked, do not attempt a workaround; either
+  find an equivalent unblocked approach (e.g. one file at a time instead of a bulk operation) or
+  ask the human how to proceed, per the same "no workarounds around a hard restriction" principle
+  used elsewhere in this repository.
 - Run the issue's verify command(s) (default: `npm run verify`) before opening a PR. Do not open
   a PR on a red local verify.
 

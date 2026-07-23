@@ -1,5 +1,29 @@
 # Latest Handoff
 
+## RALPH-RETIRE-001 — Remove Dead RALPH Runtime, Simulators and Historical Noise
+
+- **Task ID:** `RALPH-RETIRE-001`.
+- **Scope:** Removed the retired Ralph-Loop / Overnight Worker runtime and historical noise:
+  `scripts/agent/**`, `.agent/**`, `tasks/`, `runs/`, `validation/`, `review/`, 6 RALPH planning
+  docs under `plans/`, 70 `RALPH-*`/`CLINE-*` reports plus `reports/morning-review.md`, and 3
+  RALPH/Cline transition docs under `docs/`. Removed all 13 `agent:*` scripts from
+  `package.json`. Compressed `ROADMAP.md`'s "Ralph-Loop Governance / Overnight Worker" section
+  from 1,940 lines to a short retirement note plus one new `todo` follow-up task
+  (`RALPH-RETIRE-002`, governance consolidation). Repaired the resulting dangling references in
+  `AGENTS.md`, `SSOK.md`, `reports/README.md`, and one stale pointer at the top of `ROADMAP.md`.
+  Full inventory, evidence, and reasoning: `reports/RALPH_RETIRE_001_DEAD_RUNTIME_CLEANUP.md`.
+- **Retained exceptions:** `.governance/**`, `.roo/`, `.roomodes` left untouched (disposition
+  deferred to `RALPH-RETIRE-002`, not this task); `handoffs/latest-handoff.md` untouched by the
+  cleanup itself; all `RESOLVER-V3-*`/`P1-*`/`P2-*`/product reports untouched.
+- **Verification:** Baseline `npm run verify` (after `npm ci --ignore-scripts` to restore
+  missing `node_modules` in this container) was fully green before any change: typecheck, lint,
+  format, 235 suites / 2,279 tests. Post-cleanup re-run and Git readbacks are recorded in the
+  cleanup report and this session's final summary.
+- **No-product-effect:** No `src/**`, Supabase/migration, GitHub workflow, or dependency change.
+  No secret accessed. `.governance/**` unchanged.
+- **Follow-up:** `RALPH-RETIRE-002` (governance consolidation) added to `ROADMAP.md` as `todo`,
+  not started.
+
 ## RESOLVER-V3-039 — Phase-B Continuation Remediation (protocol v2)
 
 - **Basis and scope:** Branch `claude/resolver-v3-039-phase-b-remediation-yva0my`, created directly

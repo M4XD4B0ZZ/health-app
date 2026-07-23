@@ -24,20 +24,7 @@
     "supabase:link": "npx supabase link --project-ref kbplfcqluqqowmvchvhc",
     "deploy:edge": "npx supabase functions deploy food-off-search --no-verify-jwt && npx supabase functions deploy food-usda-search --no-verify-jwt",
     "deploy:edge:verify": "npm run deploy:edge && npm run verify:edge",
-    "doctor": "node scripts/doctor.mjs",
-    "agent:next": "node scripts/agent/select-next-task.mjs",
-    "agent:prompt": "node scripts/agent/build-roo-prompt.mjs",
-    "agent:verify": "node scripts/agent/run-verify.mjs",
-    "agent:handoff": "node scripts/agent/write-handoff-template.mjs",
-    "agent:run": "node scripts/agent/run-agent-loop.mjs",
-    "agent:worker": "node scripts/agent/run-opencode-worker.mjs",
-    "agent:worker:debug": "node scripts/agent/run-opencode-worker.mjs --debug",
-    "agent:worker:matrix": "node scripts/agent/run-opencode-worker.mjs --matrix",
-    "agent:worker-prompt": "node scripts/agent/build-worker-prompt.mjs",
-    "agent:model": "node scripts/agent/select-model.mjs",
-    "agent:auto": "node scripts/agent/run-auto-task.mjs",
-    "agent:milestone": "node scripts/agent/run-milestone.mjs",
-    "agent:watch": "node scripts/agent/watch-agent.mjs"
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

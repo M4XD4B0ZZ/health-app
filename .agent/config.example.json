@@ -1,8 +1,0 @@
-{
-  "opencode": {
-    "model": "openai/gpt-4.1",
-    "agent": null,
-    "command": "opencode",
-    "maxFixAttempts": 1
-  }
-}

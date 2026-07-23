@@ -1,5 +1,32 @@
 # Latest Handoff
 
+## QUEUE-005 — Zero-Claude Idle Dispatch Proof (Phase A follow-up, In Progress)
+
+- **Task ID:** `QUEUE-005` (Phase A follow-up: post-merge zero-Claude dispatch proof only).
+- **What changed:** `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md` §13.1 and
+  `ROADMAP.md`'s `QUEUE-005` entry updated with real evidence from a manual `workflow_dispatch`
+  of the merged `.github/workflows/claude-queue-wake.yml` (PR #152, merge commit
+  `f0037eb1d3d2a282e9286580d9bcb828b218f1ec`), run while zero issues carried `queue:approved`:
+  the preflight job returned `reason_code=IDLE_NO_APPROVED_TASK`, `should_invoke=false`; its own
+  `GITHUB_TOKEN` carried only read permissions; the `claude` job's status was `skipped` with zero
+  steps executed — no Claude secret was ever referenced by a running step, no issue/branch/PR/
+  comment changed. Run: `https://github.com/M4XD4B0ZZ/health-app/actions/runs/30020861364`.
+- **Why:** the task's required sequencing: prove the idle path cannot reach the Claude job on the
+  real repository before handing off the human authentication-setup instructions, and before any
+  Phase-B smoke may be authorized.
+- **Files changed:** `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md`, `ROADMAP.md`,
+  `handoffs/latest-handoff.md`.
+- **Verification:** documentation-only (Category 1) — git readbacks only; no product/runtime code
+  touched; this update itself made no Claude API/OAuth request and read no Claude secret.
+- **Known issues/risks:** none. No repository mutation occurred during the dispatch being
+  documented.
+- **Human-review status:** this task now stops at the human setup boundary (report §14) —
+  `CLAUDE_QUEUE_AUTH_MODE`, its secret, and `CLAUDE_QUEUE_MODEL` must be configured, and the
+  maintainer must explicitly authorize Phase B, before any `QUEUE-005A`/`QUEUE-005B` smoke issue
+  is created.
+- **Next steps:** await maintainer confirmation of the human setup steps in the report, then
+  await explicit authorization before starting the Phase-B smoke protocol (report §15).
+
 ## QUEUE-005 — Minimal External Queue Wake Controller (Phase A, In Progress)
 
 - **Task ID:** `QUEUE-005` (Phase A: implementation and zero-Claude verification only).

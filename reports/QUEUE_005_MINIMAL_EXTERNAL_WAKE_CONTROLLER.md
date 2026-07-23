@@ -262,21 +262,49 @@ and is green — see §13.
   carry `queue:approved` in this repository, so the live dispatch is expected to return
   `IDLE_NO_APPROVED_TASK`.
 
-### 13.1 Post-merge zero-Claude dispatch
+### 13.1 Post-merge zero-Claude dispatch — PASSED
 
-Per the task's required sequencing, this section is completed **after** this PR merges, by
-manually triggering `.github/workflows/claude-queue-wake.yml` via `workflow_dispatch` while no
-issue is `queue:approved`, and recording here:
+Performed immediately after PR #152 merged (merge commit `f0037eb1d3d2a282e9286580d9bcb828b218f1ec`),
+via `workflow_dispatch` on `chore/clean-arch-structure`, with zero issues carrying
+`queue:approved` at dispatch time (confirmed via a fresh `list_issues` call immediately before
+dispatching).
 
-- the preflight's actual `reason_code` and `should_invoke` output from that real run;
-- confirmation the `claude` job was skipped (job list shows it as skipped, not merely
-  cancelled/failed);
-- confirmation neither Claude secret was read (no such job ran at all);
-- confirmation no issue/branch/PR/comment changed as a result of the dispatch.
+- **Run:** `https://github.com/M4XD4B0ZZ/health-app/actions/runs/30020861364` (run #1, event
+  `workflow_dispatch`, head SHA `f0037eb1d3d2a282e9286580d9bcb828b218f1ec`). Overall run
+  `status: completed`, `conclusion: success`.
+- **Preflight job** (`Preflight (deterministic, read-only)`, job id `89252909006`): `completed` /
+  `success`. Its own job log shows the runner-issued `GITHUB_TOKEN` permissions were exactly
+  `Actions: read, Checks: read, Contents: read, Issues: read, Metadata: read, PullRequests: read`
+  — no write scope of any kind, confirming the job-level `permissions:` block took effect exactly
+  as declared. The `Run deterministic queue preflight` step's own output, read directly from the
+  job log:
+  ```
+  should_invoke=false
+  reason_code=IDLE_NO_APPROVED_TASK
+  issue_number=
+  task_id=
+  phase=
+  pr_number=
+  head_sha=
+  ```
+- **Claude job** (`Claude queue transition`, job id `89252990518`): `completed` / **`skipped`**
+  (GitHub Actions' own "condition not met" outcome for the `if:
+needs.preflight.outputs.should_invoke == 'true'` gate) — with **zero steps executed** (the job
+  record carries no `steps` array at all, unlike the preflight job's 8 recorded steps). This
+  means: no checkout, no `npm ci`, no auth-precheck step, and no Claude Code Action step ran —
+  neither `CLAUDE_CODE_OAUTH_TOKEN` nor `ANTHROPIC_API_KEY` was ever referenced by a running step,
+  because the job that references them never started.
+- **No repository mutation:** a follow-up `list_issues`/`list_pull_requests` check found no new
+  or changed issue, label, comment, branch, or PR attributable to this run — consistent with the
+  preflight's own read-only design (no write permission was even available to it) and the
+  Claude job never running.
 
-_(This subsection is filled in as a follow-up update to this same report file, not a new PR, per
-the task's instruction to stop at the human-setup boundary immediately after this proof —
-see §14/§15.)_
+**This satisfies the task's primary acceptance criterion for idle behavior**: an idle scheduled
+(or, here, manually dispatched) tick completed successfully, invoked no Claude action step,
+accessed no Claude secret, and created no comment/label/branch/PR/commit.
+
+If the Claude job had started on this idle repository, that would have been treated as a
+blocking defect requiring a fix before Phase B — it did not.
 
 ## 14. Human setup instructions (stop here until confirmed)
 

@@ -363,12 +363,19 @@ when actionable work exists.
   `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md`.
 - No Claude secret was read and no Claude API/OAuth request was made while producing this PR —
   see the report's "Phase-A result" section.
-- **Not yet done:** a live zero-Claude `workflow_dispatch` run against the merged workflow
-  (proving the idle path never reaches the Claude job on the real repository), the human
-  authentication/model setup (`CLAUDE_QUEUE_AUTH_MODE`, its secret, `CLAUDE_QUEUE_MODEL`), and
-  the Phase-B authenticated two-stage unattended smoke (fresh `QUEUE-005A`/`QUEUE-005B` issues —
-  `QUEUE-004B`/issue #149 remains unexecuted and is not reused as proof). QUEUE-005 may only be
-  marked `done` after all of Phase B's acceptance criteria pass.
+- **Zero-Claude idle dispatch: passed.** PR #152 merged as `f0037eb1d3d2a282e9286580d9bcb828b218f1ec`;
+  a manual `workflow_dispatch` against the merged workflow (run
+  `https://github.com/M4XD4B0ZZ/health-app/actions/runs/30020861364`, no issue carrying
+  `queue:approved` at dispatch time) returned `reason_code=IDLE_NO_APPROVED_TASK`,
+  `should_invoke=false`; the `claude` job's own status was `skipped` with zero steps executed —
+  neither Claude secret was ever referenced by a running step. See
+  `reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md`'s §13.1 for full evidence.
+- **Not yet done:** the human authentication/model setup (`CLAUDE_QUEUE_AUTH_MODE`, its secret,
+  `CLAUDE_QUEUE_MODEL` — see the report's §14) and the Phase-B authenticated two-stage unattended
+  smoke (fresh `QUEUE-005A`/`QUEUE-005B` issues — `QUEUE-004B`/issue #149 remains unexecuted and
+  is not reused as proof). QUEUE-005 may only be marked `done` after all of Phase B's acceptance
+  criteria pass. This task now stops at the human setup boundary per its own instructions — no
+  further action here without explicit maintainer authorization.
 
 ---
 

@@ -98,10 +98,17 @@ jobs:
       # Fails closed before the Action step on any invalid/missing auth-mode configuration.
       # Only ever prints presence booleans (see claude-queue-auth-precheck.mjs) — never a
       # secret value, length, prefix, or hash, and never an environment dump.
+      #
+      # If CLAUDE_QUEUE_AUTH_MODE_FALLBACK is set, this step picks it as the effective mode
+      # when (and only when) the primary mode's own secret is absent — decided entirely here,
+      # before the Claude Code Action step runs. The two transition steps below select on
+      # steps.auth.outputs.effective_mode, never directly on vars.CLAUDE_QUEUE_AUTH_MODE, so a
+      # fallback never re-invokes the action a second time in the same job.
       - name: Auth precheck (fail closed, no secret values printed)
         id: auth
         env:
           CLAUDE_QUEUE_AUTH_MODE: ${{ vars.CLAUDE_QUEUE_AUTH_MODE }}
+          CLAUDE_QUEUE_AUTH_MODE_FALLBACK: ${{ vars.CLAUDE_QUEUE_AUTH_MODE_FALLBACK }}
           CLAUDE_QUEUE_MODEL: ${{ vars.CLAUDE_QUEUE_MODEL }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -113,7 +120,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Claude queue transition (oauth mode)
-        if: vars.CLAUDE_QUEUE_AUTH_MODE == 'oauth'
+        if: steps.auth.outputs.effective_mode == 'oauth'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -157,7 +164,7 @@ jobs:
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
 
       - name: Claude queue transition (api mode)
-        if: vars.CLAUDE_QUEUE_AUTH_MODE == 'api'
+        if: steps.auth.outputs.effective_mode == 'api'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -209,6 +216,8 @@ jobs:
             echo "- reason_code: \`${{ needs.preflight.outputs.reason_code }}\`"
             echo "- issue_number: \`${{ needs.preflight.outputs.issue_number }}\`"
             echo "- task_id: \`${{ needs.preflight.outputs.task_id }}\`"
+            echo "- effective_auth_mode: \`${{ steps.auth.outputs.effective_mode }}\`"
+            echo "- used_auth_fallback: \`${{ steps.auth.outputs.used_fallback }}\`"
             echo "- run_id: \`${{ github.run_id }}\`"
             echo "- job status: \`${{ job.status }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

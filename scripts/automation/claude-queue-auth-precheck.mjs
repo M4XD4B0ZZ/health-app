@@ -11,11 +11,24 @@ import { appendFileSync } from 'node:fs';
 
 const VALID_AUTH_MODES = new Set(['oauth', 'api']);
 
+const SECRET_NAME_BY_MODE = { oauth: 'CLAUDE_CODE_OAUTH_TOKEN', api: 'ANTHROPIC_API_KEY' };
+
 /**
  * Pure decision function. `hasOauthToken` / `hasApiKey` must be booleans (presence only),
  * never the secret values themselves.
+ *
+ * `authModeFallback` (optional) is a second mode to use, deterministically, when the primary
+ * mode's own secret is absent — decided here, before any Claude turn starts. This is a
+ * config-level fallback only: it never re-runs a Claude turn that already started, so it cannot
+ * cause the same queue transition to be attempted twice in one invocation.
  */
-export function resolveAuthDecision({ authMode, model, hasOauthToken, hasApiKey }) {
+export function resolveAuthDecision({
+  authMode,
+  model,
+  hasOauthToken,
+  hasApiKey,
+  authModeFallback,
+}) {
   if (!authMode || !VALID_AUTH_MODES.has(authMode)) {
     return {
       ok: false,
@@ -32,37 +45,74 @@ export function resolveAuthDecision({ authMode, model, hasOauthToken, hasApiKey 
     };
   }
 
-  if (authMode === 'oauth' && !hasOauthToken) {
+  const fallback = (authModeFallback || '').trim();
+  if (fallback) {
+    if (!VALID_AUTH_MODES.has(fallback)) {
+      return {
+        ok: false,
+        message:
+          'CLAUDE_QUEUE_AUTH_MODE_FALLBACK is set but is not a valid value (expected "oauth" or "api"). Stopping before the Claude Code Action step.',
+      };
+    }
+    if (fallback === authMode) {
+      return {
+        ok: false,
+        message:
+          'CLAUDE_QUEUE_AUTH_MODE_FALLBACK must differ from CLAUDE_QUEUE_AUTH_MODE. Stopping before the Claude Code Action step.',
+      };
+    }
+  }
+
+  const hasSecretFor = (mode) => (mode === 'oauth' ? hasOauthToken : hasApiKey);
+
+  if (hasSecretFor(authMode)) {
     return {
-      ok: false,
-      message:
-        'CLAUDE_QUEUE_AUTH_MODE=oauth but the CLAUDE_CODE_OAUTH_TOKEN repository secret is not set. Stopping before the Claude Code Action step.',
+      ok: true,
+      effectiveMode: authMode,
+      usedFallback: false,
+      message: `Auth precheck passed for mode "${authMode}".`,
     };
   }
 
-  if (authMode === 'api' && !hasApiKey) {
+  if (fallback && hasSecretFor(fallback)) {
     return {
-      ok: false,
-      message:
-        'CLAUDE_QUEUE_AUTH_MODE=api but the ANTHROPIC_API_KEY repository secret is not set. Stopping before the Claude Code Action step.',
+      ok: true,
+      effectiveMode: fallback,
+      usedFallback: true,
+      message: `CLAUDE_QUEUE_AUTH_MODE=${authMode} but ${SECRET_NAME_BY_MODE[authMode]} is not set; falling back to mode "${fallback}" (CLAUDE_QUEUE_AUTH_MODE_FALLBACK), whose secret is present.`,
     };
   }
 
-  return { ok: true, message: `Auth precheck passed for mode "${authMode}".` };
+  const fallbackHint = fallback
+    ? ` A fallback mode "${fallback}" is configured via CLAUDE_QUEUE_AUTH_MODE_FALLBACK, but ${SECRET_NAME_BY_MODE[fallback]} is not set either.`
+    : '';
+  return {
+    ok: false,
+    message: `CLAUDE_QUEUE_AUTH_MODE=${authMode} but the ${SECRET_NAME_BY_MODE[authMode]} repository secret is not set.${fallbackHint} Stopping before the Claude Code Action step.`,
+  };
 }
 
 function main() {
   const authMode = (process.env.CLAUDE_QUEUE_AUTH_MODE || '').trim();
+  const authModeFallback = (process.env.CLAUDE_QUEUE_AUTH_MODE_FALLBACK || '').trim();
   const model = process.env.CLAUDE_QUEUE_MODEL || '';
   const hasOauthToken = Boolean(process.env.CLAUDE_CODE_OAUTH_TOKEN);
   const hasApiKey = Boolean(process.env.ANTHROPIC_API_KEY);
 
-  const decision = resolveAuthDecision({ authMode, model, hasOauthToken, hasApiKey });
+  const decision = resolveAuthDecision({
+    authMode,
+    model,
+    hasOauthToken,
+    hasApiKey,
+    authModeFallback,
+  });
   console.log(decision.message);
 
   const outPath = process.env.GITHUB_OUTPUT;
   if (outPath) {
     appendFileSync(outPath, `auth_ok=${decision.ok}\n`);
+    appendFileSync(outPath, `effective_mode=${decision.ok ? decision.effectiveMode : ''}\n`);
+    appendFileSync(outPath, `used_fallback=${decision.ok ? decision.usedFallback : false}\n`);
   }
 
   if (!decision.ok) {

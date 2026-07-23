@@ -1,5 +1,25 @@
 # Latest Handoff
 
+## QUEUE-004A — Overnight Smoke Stage A (In Progress)
+
+- **Task ID:** `QUEUE-004A` (issue #148, part of `QUEUE-004`'s unattended overnight smoke test).
+- **What changed:** Added `reports/QUEUE_004_OVERNIGHT_STAGE_A.md`, a synthetic evidence marker
+  confirming the first half of a genuinely unattended sequential two-task queue run. No product
+  behavior or queue infrastructure changed.
+- **Why:** `QUEUE-004`'s own scope requires an actual unattended/overnight run, not just
+  documentation hardening (see the prior `QUEUE-004` entry below). This is Stage A of that test;
+  Stage B (`QUEUE-004B`, issue #149) is gated on this task reaching `queue:done` and on a
+  predeclared release time (`stageBReleaseAtUtc = 2026-07-23T17:29:13Z`) so the test also exercises
+  a real multi-hour scheduled-wake gap.
+- **Files changed:** `reports/QUEUE_004_OVERNIGHT_STAGE_A.md`, `handoffs/latest-handoff.md`.
+- **Verification:** documentation-only (Category 1) — git readbacks; `npm run verify` also run per
+  this task's issue-level verify command.
+- **Known issues/risks:** none — synthetic, no product surface touched.
+- **Human-review status:** `risk:safe-autonomous`, auto-merge authorized by the issue; independent
+  post-merge review performed by the worker after merge per the queue contract.
+- **Next steps:** once merged and `queue:done`, the queue worker waits for `stageBReleaseAtUtc`
+  before claiming `QUEUE-004B`.
+
 ## QUEUE-004 — Smoke Evaluation and Hardening (Partial)
 
 - **Task ID:** `QUEUE-004`.

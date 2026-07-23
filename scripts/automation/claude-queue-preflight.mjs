@@ -260,10 +260,27 @@ async function githubGet(pathname, token, { allow404 = false } = {}) {
   return res.json();
 }
 
+/**
+ * Matches a real GitHub auto-close reference ("Closes #160", "fixes: #160", "Resolved #160",
+ * case-insensitive) to the given issue number — not a bare "#160" appearing anywhere in text.
+ * A prior version of findLinkedPullRequest() searched PR bodies for bare "#<issueNumber>",
+ * which false-matched any PR whose description merely *mentioned* the issue for context (e.g.
+ * "QUEUE-007's transition stopped at queue:needs-human (issue #160)" in an unrelated fix PR),
+ * producing a spurious BLOCKED_AMBIGUOUS_STATE (duplicate PR) that could never resolve itself.
+ * Exported for unit testing without needing to mock the search fetch.
+ */
+export function matchesClosingKeyword(body, issueNumber) {
+  const pattern = new RegExp(
+    `\\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s*:?\\s*#${issueNumber}\\b`,
+    'i',
+  );
+  return pattern.test(body ?? '');
+}
+
 async function findLinkedPullRequest(owner, repo, issueNumber, token) {
   const query = encodeURIComponent(`repo:${owner}/${repo} type:pr in:body #${issueNumber}`);
   const search = await githubGet(`/search/issues?q=${query}&per_page=10`, token);
-  const items = search?.items ?? [];
+  const items = (search?.items ?? []).filter((i) => matchesClosingKeyword(i.body, issueNumber));
   const open = items.filter((i) => i.state === 'open');
   const candidates = open.length > 0 ? open : items;
   return { items: candidates, duplicate: candidates.length > 1 };

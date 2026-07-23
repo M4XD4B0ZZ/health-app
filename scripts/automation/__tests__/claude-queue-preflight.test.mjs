@@ -9,6 +9,7 @@ import {
   classifyChecks,
   parseQueueIssueBody,
   fetchRelevantIssues,
+  matchesClosingKeyword,
   REASON_CODES,
 } from '../claude-queue-preflight.mjs';
 import { resolveAuthDecision } from '../claude-queue-auth-precheck.mjs';
@@ -432,6 +433,43 @@ describe('classifyChecks', () => {
       ]),
       'failure',
     );
+  });
+});
+
+describe('matchesClosingKeyword — real issue links vs. incidental mentions', () => {
+  // Regression coverage for the QUEUE-007 follow-up bug: an unrelated PR's own description
+  // mentioning "(issue #160)" for context was previously enough to make the preflight script
+  // think it was #160's linked PR, producing a spurious "duplicate PR" BLOCKED_AMBIGUOUS_STATE
+  // once a genuinely linked PR also existed.
+
+  test('matches "Closes #N"', () => {
+    assert.equal(matchesClosingKeyword('Some summary.\n\nCloses #160', 160), true);
+  });
+
+  test('matches other GitHub auto-close keywords, case-insensitively', () => {
+    assert.equal(matchesClosingKeyword('fixes #160', 160), true);
+    assert.equal(matchesClosingKeyword('FIXED #160', 160), true);
+    assert.equal(matchesClosingKeyword('Resolves: #160', 160), true);
+    assert.equal(matchesClosingKeyword('resolved #160', 160), true);
+  });
+
+  test('does not match a bare mention of the issue number in prose', () => {
+    assert.equal(
+      matchesClosingKeyword(
+        "QUEUE-007's transition stopped at queue:needs-human (issue #160) because...",
+        160,
+      ),
+      false,
+    );
+  });
+
+  test('does not match an unrelated issue number, even with a real keyword', () => {
+    assert.equal(matchesClosingKeyword('Closes #161', 160), false);
+  });
+
+  test('handles a missing/undefined body without throwing', () => {
+    assert.equal(matchesClosingKeyword(undefined, 160), false);
+    assert.equal(matchesClosingKeyword(null, 160), false);
   });
 });
 

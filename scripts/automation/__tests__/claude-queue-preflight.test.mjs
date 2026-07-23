@@ -694,6 +694,39 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     assert.doesNotMatch(WORKFLOW_SOURCE, /allowed_bots: '\*'/);
   });
 
+  test('all four transition steps can fall back to the preflight script for CI status when gh pr checks fails', () => {
+    // gh pr checks uses GraphQL statusCheckRollup, which this action's own GitHub App token
+    // cannot read for check-runs created by a different app (e.g. the plain GITHUB_TOKEN that
+    // verify.yml runs under) — a real platform limitation the QUEUE-007/008 smoke test hit,
+    // not an ambiguity the worker should stop for. Each transition step needs: the read-only
+    // env vars the script requires, the script itself allow-listed as a Bash command, and the
+    // prompt text telling the worker to use it instead of stopping.
+    // recheck-oauth/recheck-api already carry this env pair (they run the same script directly);
+    // check each of the four Claude Code Action transition steps specifically, by id.
+    const envPair =
+      /env:\n\s*GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}\n\s*GITHUB_REPOSITORY: \$\{\{ github\.repository \}\}/;
+    for (const id of ['run-oauth', 'fallback-oauth-to-api', 'run-api', 'fallback-api-to-oauth']) {
+      const stepMatch = WORKFLOW_SOURCE.match(new RegExp(`id: ${id}\\n([\\s\\S]*?)\\n {6}- name:`));
+      assert.ok(stepMatch, `step ${id} not found`);
+      assert.match(stepMatch[1], envPair, `step ${id} missing GITHUB_TOKEN/GITHUB_REPOSITORY env`);
+    }
+
+    const allowlistOccurrences = (
+      WORKFLOW_SOURCE.match(/Bash\(node scripts\/automation\/claude-queue-preflight\.mjs:\*\)/g) ??
+      []
+    ).length;
+    assert.equal(
+      allowlistOccurrences,
+      4,
+      'expected the preflight script allow-listed on all four transition steps',
+    );
+
+    const promptOccurrences = (
+      WORKFLOW_SOURCE.match(/run `node scripts\/automation\/claude-queue-preflight\.mjs`/g) ?? []
+    ).length;
+    assert.equal(promptOccurrences, 4, 'expected the fallback instruction in all four prompts');
+  });
+
   test('25) claude job is conditional on preflight should_invoke -> idle path cannot reach it', () => {
     const claudeJobMatch = WORKFLOW_SOURCE.match(/\n {2}claude:\n([\s\S]*)/);
     assert.ok(claudeJobMatch, 'claude job not found');

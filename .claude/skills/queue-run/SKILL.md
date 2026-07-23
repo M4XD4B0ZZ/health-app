@@ -12,17 +12,37 @@ Read it before the first run in any session that hasn't already read it this con
 this file and that document disagree, the contract document wins.
 
 This skill is deliberately not a background daemon. Each invocation drives the queue forward
-until either nothing is left to do, or a task needs a human. Long unattended operation comes from
-two orthogonal mechanisms, not from this skill looping forever in one turn:
+until either nothing is left to do, or a task needs a human. **One invocation processes the
+currently actionable state; it does not guarantee any future reactivation.** Whether the queue
+keeps moving after this turn depends on mechanisms outside this skill:
 
 - **PR activity subscription** (`subscribe_pr_activity`) reliably delivers CI-**failure** and
   review-comment events while a PR is open. It does **not** reliably deliver CI-**success**
-  events — in the `QUEUE-003` smoke test, no unprompted "CI passed" notification ever arrived.
-  Treat it as the mechanism for catching problems early, not for detecting a green run.
-- **A scheduled Routine or `send_later`** re-invokes `/queue-run` (or just re-checks the open
-  PR's status) later. Given the above, this is the **primary** way a green, quiet CI run is ever
-  noticed — always arm one when opening a PR, sized to roughly how long this repo's CI takes, not
-  as an afterthought "just in case" backup.
+  events — in both the `QUEUE-003` and `QUEUE-004` smoke tests, no unprompted "CI passed"
+  notification ever arrived. Treat it as the mechanism for catching problems early, not for
+  detecting a green run.
+- **A scheduled Routine or `send_later`** can re-invoke `/queue-run` (or just re-check the open
+  PR's status) later, and is the primary way a green, quiet CI run is ever noticed — arm one when
+  opening a PR, sized to roughly how long this repo's CI takes. But these native mechanisms are
+  **not sufficient for proven overnight operation**: the `QUEUE-004` smoke found this
+  environment's recurring Routines refuse sub-hourly cadences (minimum interval one hour), and
+  the run never survived an unattended multi-hour gap on native capabilities alone
+  (`reports/QUEUE_004_UNATTENDED_SMOKE_CLOSEOUT.md`).
+
+Because of this, the worker must distinguish two operating modes honestly, in state comments and
+reports:
+
+- **`semi-attended`** — invoked manually (or by an unreliable/one-shot wake); a human may need to
+  re-invoke it for the queue to progress. This is the default mode today.
+- **`externally triggered unattended`** — invoked by an external scheduler (e.g. a future
+  GitHub Actions controller, `QUEUE-005` in `ROADMAP.md`) that guarantees periodic reactivation.
+
+Never describe a run as unattended merely because it used this skill, and never fabricate an
+unattended result. **Fail closed on missing wake mechanisms:** if completing or reaching a task
+depends on a future scheduled wake (a delayed release gate, a dependent task after a gap) and no
+supported wake mechanism exists, do not approve or claim that task — stop before it, record why,
+and leave it for a human or an external trigger. The skill itself remains usable both manually
+and from a future external trigger; nothing in it may assume one mode or the other.
 
 ## One run of this skill
 

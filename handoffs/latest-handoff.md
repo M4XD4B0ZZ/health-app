@@ -1,5 +1,41 @@
 # Latest Handoff
 
+## QUEUE-004 — Smoke Evaluation and Hardening (Closeout, Done)
+
+- **Task ID:** `QUEUE-004` (closeout of the unattended-smoke evaluation).
+- **What changed:**
+  - New `reports/QUEUE_004_UNATTENDED_SMOKE_CLOSEOUT.md` — full report: Stage A (issue #148,
+    PR #150, merge `c652b05`) passed the complete supervised lifecycle; the unattended
+    continuation failed before Stage B because no native 15-minute recurring wake exists in this
+    environment (Routine minimum interval: one hour; `send_later` fallback not a valid substitute
+    for an unattended test); Stage B (issue #149) was never executed and is closed `not planned`;
+    verdict `GITHUB_ACTIONS_CONTROLLER_JUSTIFIED`.
+  - `docs/automation/CLAUDE_QUEUE_CONTRACT.md` — new "Operational Lessons (from `QUEUE-004`)"
+    section: the queue is semi-attended without an external trigger; no task may be described as
+    unattended merely because it uses `queue-run`; quiet CI success was again not surfaced by
+    subscriptions; fail closed on missing wake mechanisms.
+  - `.claude/skills/queue-run/SKILL.md` — no longer describes native scheduled wake-ups as
+    sufficient for proven overnight operation; requires distinguishing `semi-attended` vs
+    `externally triggered unattended`; fail-closed rule before claiming delayed/dependent tasks;
+    stays usable manually and from a future external trigger.
+  - `ROADMAP.md` — `QUEUE-004` marked `done` (objective was evaluation/hardening, not a passed
+    unattended run — recorded explicitly); new `QUEUE-005 — Minimal External Queue Wake
+Controller` added as `todo` (one workflow, deterministic preflight, 15-min schedule +
+    `workflow_dispatch`, official Claude Code GitHub Action only on actionable ticks,
+    `ANTHROPIC_API_KEY` as human prerequisite with API-cost note). Not started.
+- **Why:** The smoke reached a valid terminal result; the evaluation objective is complete and
+  the evidence-backed controller decision needed to be recorded before any further queue work.
+- **Files changed:** `reports/QUEUE_004_UNATTENDED_SMOKE_CLOSEOUT.md`,
+  `docs/automation/CLAUDE_QUEUE_CONTRACT.md`, `.claude/skills/queue-run/SKILL.md`, `ROADMAP.md`,
+  `handoffs/latest-handoff.md`.
+- **Verification:** documentation-only — git readbacks + `npm run verify` (issue-level
+  requirement).
+- **Known issues/risks:** remote deletion of the merged Stage A branch
+  (`queue/queue-004a-overnight-smoke-stage-a`) remains blocked by the git proxy (HTTP 403) —
+  left for an authorized channel per `AGENTS.md`. No API key was read; no workflow was added.
+- **Human-review status:** maintainer-directed closeout; merged per instruction after green CI.
+- **Next steps:** `QUEUE-005` (not started here); its controller gets fresh smoke issues.
+
 ## QUEUE-004A — Overnight Smoke Stage A (In Progress)
 
 - **Task ID:** `QUEUE-004A` (issue #148, part of `QUEUE-004`'s unattended overnight smoke test).

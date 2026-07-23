@@ -271,9 +271,10 @@ Validated the queue end-to-end with two real tasks: `RALPH-RETIRE-002` (issue #1
 
 ### QUEUE-004 Smoke Evaluation and Hardening
 
-Status: `in_progress`
+Status: `done`
 
-Act on `QUEUE-003`'s findings.
+Act on `QUEUE-003`'s findings. Marked `done` because the task's objective was **evaluation and
+hardening** — not because unattended execution passed (it did not; see below).
 
 **Delivered (documentation/contract hardening):**
 
@@ -290,13 +291,59 @@ Act on `QUEUE-003`'s findings.
 - `.github/ISSUE_TEMPLATE/queue-task.yml`: the Definition of Done field now prompts authors to
   cross-check against Allowed paths before approving.
 
-**Still outstanding (not done):**
+**Delivered (unattended smoke evaluation — see
+`reports/QUEUE_004_UNATTENDED_SMOKE_CLOSEOUT.md`):**
 
-- **An actual unattended/overnight test has not been run.** Everything in `QUEUE-003` happened
-  within one continuous, interactively-supervised session. This remains open and is a
-  precondition for trusting the queue with larger or genuinely unsupervised work.
-- **The GitHub Actions controller decision remains deferred** until the above test has actually
-  run — do not build one speculatively before then.
+- **Stage A lifecycle passed.** `QUEUE-004A` (issue #148, PR #150, merge commit `c652b05`)
+  completed the full supervised queue lifecycle — intake, approval gate, dependency gate, branch
+  from explicit remote canonical, implementation, verification, PR, CI observation, authorized
+  auto-merge, independent post-merge review, `queue:done`.
+- **Genuine unattended continuation did not pass.** Stage A completed within the initiating
+  interactive turn; no scheduled wake-up ever fired; the run required maintainer messages to
+  reach a terminal state.
+- **Stage B was not executed.** `QUEUE-004B` (issue #149) was never approved, claimed, branched,
+  or implemented — closed `not planned` as an unexecuted smoke stage; it must never be cited as
+  completed queue work. A fresh smoke after `QUEUE-005` supersedes it.
+- **Native sub-hourly wake is unavailable.** The environment's recurring Routines rejected a
+  15-minute cadence (minimum recurring interval: one hour), which does not meet the required
+  ~15-minute progress-check/recovery target; the `send_later` fallback was not a valid substitute
+  for an unattended test.
+- **Verdict: `GITHUB_ACTIONS_CONTROLLER_JUSTIFIED`** — a minimal external wake layer only
+  (`QUEUE-005`), not a RALPH-style orchestrator, runtime-state files, or a workflow engine.
+- **No claim is made that the queue is ready for unattended product work.** Until an external
+  trigger exists, the queue is semi-attended (see the contract's "Operational Lessons (from
+  `QUEUE-004`)" section).
+
+### QUEUE-005 Minimal External Queue Wake Controller
+
+Status: `todo`
+
+Provide the smallest external 15-minute trigger needed to invoke the existing queue worker only
+when actionable work exists.
+
+**Dependencies:** QUEUE-001 through QUEUE-004 done.
+
+**Scope (strictly limited to):**
+
+- One GitHub Actions workflow; one small deterministic queue-state/preflight script if needed.
+- `workflow_dispatch` plus a 15-minute schedule; concurrency protection; fail-closed permissions.
+- Invocation of the official Claude Code GitHub Action **only** when the deterministic preflight
+  says Claude work is required — no Claude invocation on idle ticks.
+- No committed per-run state — GitHub Issues/branches/PRs remain the only durable state.
+- Bounded turns, timeout, and cost exposure.
+- A new two-stage unattended smoke after implementation (fresh smoke issues — Stage B issue #149
+  will not be reused as proof).
+
+**Prerequisites and cost notes:**
+
+- The official Claude Code GitHub Action supports scheduled prompts; direct Anthropic API use
+  requires an `ANTHROPIC_API_KEY` repository secret — a human-performed setup prerequisite. This
+  creates token-based API charges separate from ordinary interactive Claude subscription use; do
+  not assume an interactive subscription funds GitHub-hosted action calls unless current official
+  documentation explicitly establishes that.
+- The task must verify current official action syntax, pin action versions safely, and verify the
+  current model and price before the first paid smoke.
+- Secrets must never be printed or passed into issue text, PR text, reports, or prompts.
 
 ---
 

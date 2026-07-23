@@ -271,22 +271,32 @@ Validated the queue end-to-end with two real tasks: `RALPH-RETIRE-002` (issue #1
 
 ### QUEUE-004 Smoke Evaluation and Hardening
 
-Status: `todo`
+Status: `in_progress`
 
-Act on `QUEUE-003`'s findings:
+Act on `QUEUE-003`'s findings.
 
-- Update `docs/automation/CLAUDE_QUEUE_CONTRACT.md` and `.claude/skills/queue-run/SKILL.md` to
-  state the fallback heartbeat is the primary CI-completion detection mechanism, not a backup.
-- Add explicit guidance to always branch from `origin/<default-branch>`, never a bare local
-  branch name.
-- Document environment-level safety classifiers as an independent gate outside the queue's
-  control.
-- Add an issue-authoring checklist item: cross-check DoD text against Allowed/Forbidden paths
-  before approving.
-- Design and run an actual unattended/overnight test (not interactively supervised) before
-  trusting the queue with larger or unsupervised work.
-- Only after this hardening, decide whether a dedicated GitHub Actions controller is actually
-  justified — do not build one speculatively.
+**Delivered (documentation/contract hardening):**
+
+- `docs/automation/CLAUDE_QUEUE_CONTRACT.md`: new "Operational Lessons (from `QUEUE-003`)"
+  section states the fallback heartbeat is the primary CI-completion detection mechanism (not a
+  backup), documents environment-level safety classifiers as an independent gate outside the
+  queue's control, and records the DoD/allowed-paths cross-check lesson. `queue:waiting-ci`
+  label description updated to match.
+- `.claude/skills/queue-run/SKILL.md`: step 4 (open/watch PR) reframes the heartbeat as primary;
+  step 2 (claim/branch) requires an explicit `origin/<default-branch>` ref, never a bare local
+  branch name, with the incident cited; step 3 (implement) documents that `queue:approved` does
+  not override the environment's own safety classifier, and defines the narrow DoD/allowed-paths
+  exception precisely (not a general escape hatch).
+- `.github/ISSUE_TEMPLATE/queue-task.yml`: the Definition of Done field now prompts authors to
+  cross-check against Allowed paths before approving.
+
+**Still outstanding (not done):**
+
+- **An actual unattended/overnight test has not been run.** Everything in `QUEUE-003` happened
+  within one continuous, interactively-supervised session. This remains open and is a
+  precondition for trusting the queue with larger or genuinely unsupervised work.
+- **The GitHub Actions controller decision remains deferred** until the above test has actually
+  run — do not build one speculatively before then.
 
 ---
 

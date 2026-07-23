@@ -1,5 +1,37 @@
 # Latest Handoff
 
+## QUEUE-004 — Smoke Evaluation and Hardening (Partial)
+
+- **Task ID:** `QUEUE-004`.
+- **What changed:** Acted on `QUEUE-003`'s findings by hardening the contract, the worker skill,
+  and the issue template:
+  - `docs/automation/CLAUDE_QUEUE_CONTRACT.md` — new "Operational Lessons (from `QUEUE-003`)"
+    section; `queue:waiting-ci` label description corrected to say the heartbeat is the primary
+    CI-success detection mechanism, not a backup.
+  - `.claude/skills/queue-run/SKILL.md` — step 4 reframes the heartbeat as primary; step 2 now
+    requires an explicit `origin/<default-branch>` ref for every branch creation, citing the
+    stale-local-branch incident; step 3 documents that `queue:approved` does not override this
+    environment's own safety classifier, and precisely scopes the narrow DoD/allowed-paths
+    exception (not a general escape hatch).
+  - `.github/ISSUE_TEMPLATE/queue-task.yml` — DoD field now prompts authors to cross-check
+    against Allowed paths.
+  - `ROADMAP.md` — `QUEUE-004` set to `in_progress` (not `done`): the hardening above is
+    complete, but the task's own scope also requires an actual unattended/overnight test, which
+    has **not** been run — everything so far happened within one continuous, supervised session.
+    Documented explicitly as outstanding rather than silently dropped.
+- **Why:** Turn the real findings from the first live queue run into binding guidance before
+  trusting the queue further, per the plan agreed with the user.
+- **Files changed:** `docs/automation/CLAUDE_QUEUE_CONTRACT.md`, `.claude/skills/queue-run/SKILL.md`,
+  `.github/ISSUE_TEMPLATE/queue-task.yml`, `ROADMAP.md`.
+- **Verification:** documentation-only — git readbacks; `npm run verify` also run for confidence.
+- **Known issues/risks:** the unattended/overnight test remains the one real gap before the queue
+  can be trusted with larger or unsupervised work; the GitHub Actions controller decision stays
+  deferred until that test runs.
+- **Human-review status:** docs-only update, following this session's established direct-commit
+  convention for governance/contract bookkeeping.
+- **Next steps:** design and run a genuine overnight/unattended test, then close out `QUEUE-004`
+  and revisit the GitHub Actions controller question.
+
 ## QUEUE-003 — Two-Task Unattended Smoke Test (Complete)
 
 - **Task ID:** `QUEUE-003` (plus its second sub-task `QUEUE-003B`, issue #143).

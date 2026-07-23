@@ -1,0 +1,106 @@
+name: Claude Queue Task
+description: A single task for the Claude queue worker (see docs/automation/CLAUDE_QUEUE_CONTRACT.md).
+title: '[QUEUE] '
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue defines one task for the Claude queue worker. It stays inert until you add
+        the `queue:approved` label — nothing here is picked up automatically before that.
+        See `docs/automation/CLAUDE_QUEUE_CONTRACT.md` for the full contract.
+
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      description: A stable ID, e.g. QUEUE-003. Never reused, even if this issue is closed unmerged.
+      placeholder: QUEUE-003
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Task / objective
+      description: The full work order. Be as specific as you would be in a direct prompt.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done
+      description: What must be true for this task to count as complete (tests, docs, behavior).
+    validations:
+      required: true
+
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Other Task IDs (or PR/issue numbers) that must land first. Leave empty if none.
+      placeholder: none
+
+  - type: textarea
+    id: allowed_paths
+    attributes:
+      label: Allowed paths
+      description: Glob(s) or exact paths this task may touch. Be specific, not "src/**" for a small task.
+    validations:
+      required: true
+
+  - type: textarea
+    id: forbidden_paths
+    attributes:
+      label: Forbidden paths
+      description: Anything explicitly off-limits beyond the baseline (.governance/**, .env*, migrations, package.json/-lock unless this task is specifically a dependency task).
+      placeholder: none beyond baseline
+
+  - type: input
+    id: verify_commands
+    attributes:
+      label: Verify command(s)
+      description: What must pass before a PR is opened. Defaults to the repo standard if left empty.
+      placeholder: npm run verify
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk_class
+    attributes:
+      label: Risk class
+      description: See docs/automation/CLAUDE_QUEUE_CONTRACT.md for exclusions per class.
+      options:
+        - safe-autonomous
+        - review-required
+        - human-only
+    validations:
+      required: true
+
+  - type: dropdown
+    id: merge_authorization
+    attributes:
+      label: Merge authorization
+      description: Whether the worker may merge its own PR once CI is green and no comments are outstanding.
+      options:
+        - 'No — stop at PR, human merges'
+        - 'Yes — auto-merge when green'
+    validations:
+      required: true
+
+  - type: input
+    id: max_attempts
+    attributes:
+      label: Max fix attempts
+      description: How many times the worker may re-push a fix for a failing CI run before stopping as needs-human.
+      placeholder: '3'
+    validations:
+      required: true
+
+  - type: textarea
+    id: stop_conditions
+    attributes:
+      label: Stop conditions
+      description: Anything specific to this task that should make the worker stop and ask, beyond the standard contract stop conditions.
+      placeholder: none beyond the standard contract

@@ -1,5 +1,23 @@
 # Latest Handoff
 
+## QUEUE-001 — Queue Contract and GitHub Issue Intake
+
+- **Task ID:** `QUEUE-001`.
+- **Scope:** First step of the successor to the retired Ralph-Loop / Overnight Worker. Added
+  `.github/ISSUE_TEMPLATE/queue-task.yml` (task ID, objective, DoD, dependencies,
+  allowed/forbidden paths, verify commands, risk class, merge authorization, max fix attempts,
+  stop conditions) and `docs/automation/CLAUDE_QUEUE_CONTRACT.md` (labels, risk-class
+  exclusions, lifecycle, merge-authorization rule, fix-attempt limits, explicit relationship to
+  `ROADMAP.md`). Added the "Claude Queue" `ROADMAP.md` section listing `QUEUE-001` (done, this
+  task) through `QUEUE-004` (todo, not started).
+- **Known gap (documented, not blocking):** GitHub labels (`queue:approved` etc.) are not
+  created by this task — no label-management tool is available. One-time manual creation via
+  GitHub → Settings → Labels is documented in the contract.
+- **Not done here:** `QUEUE-002` (worker skill) is a separate task/PR, not started here.
+- **Verification:** `npm run verify` green (typecheck, lint, format, full test suite — no `src/`
+  change). Git readbacks clean.
+- **No-product-effect:** no `src/`, Supabase, dependency, or GitHub Actions workflow change.
+
 ## RALPH-RETIRE-001 — Remove Dead RALPH Runtime, Simulators and Historical Noise
 
 - **Task ID:** `RALPH-RETIRE-001`.

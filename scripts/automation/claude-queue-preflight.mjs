@@ -269,12 +269,44 @@ async function findLinkedPullRequest(owner, repo, issueNumber, token) {
   return { items: candidates, duplicate: candidates.length > 1 };
 }
 
-async function buildContext({ owner, repo, token }) {
+// Labels that make a CLOSED issue still relevant to the queue: `queue:running`/
+// `queue:waiting-ci` mean a task is mid-flight (e.g. a human merged its PR out of band —
+// GitHub's "Closes #N" auto-close fires at merge time, before the worker's own post-merge
+// review/handoff runs, orphaning the issue from a plain state=open fetch), and `queue:done`
+// means it may be another issue's declared dependency. Fetched with three narrow REST calls
+// (not state=all) so this never pulls in the repo's full closed-issue history.
+const CLOSED_ISSUE_RELEVANT_LABELS = ['queue:running', 'queue:waiting-ci', 'queue:done'];
+
+/**
+ * Fetches every open issue plus any closed issue still relevant to the queue (see
+ * CLOSED_ISSUE_RELEVANT_LABELS), deduplicated by issue number, with pull requests filtered out.
+ * Isolated from buildContext()'s per-issue enrichment loop so it's cheaply testable with a
+ * mocked fetch — this exact merge logic is what QUEUE-007 found missing (a human-merged PR's
+ * "Closes #N" orphaned its issue from a plain state=open fetch).
+ */
+export async function fetchRelevantIssues({ owner, repo, token }) {
   const openIssues = await githubGet(
     `/repos/${owner}/${repo}/issues?state=open&per_page=100`,
     token,
   );
-  const issuesOnly = (openIssues ?? []).filter((i) => !i.pull_request);
+  const closedRelevantLists = await Promise.all(
+    CLOSED_ISSUE_RELEVANT_LABELS.map((label) =>
+      githubGet(
+        `/repos/${owner}/${repo}/issues?state=closed&labels=${encodeURIComponent(label)}&per_page=100`,
+        token,
+      ),
+    ),
+  );
+  const byNumber = new Map();
+  for (const issue of openIssues ?? []) byNumber.set(issue.number, issue);
+  for (const list of closedRelevantLists) {
+    for (const issue of list ?? []) byNumber.set(issue.number, issue);
+  }
+  return [...byNumber.values()].filter((i) => !i.pull_request);
+}
+
+async function buildContext({ owner, repo, token }) {
+  const issuesOnly = await fetchRelevantIssues({ owner, repo, token });
 
   const enriched = [];
   for (const issue of issuesOnly) {

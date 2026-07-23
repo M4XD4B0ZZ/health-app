@@ -161,6 +161,11 @@ jobs:
         id: run-oauth
         if: steps.auth.outputs.effective_mode == 'oauth'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        # Read-only; lets the prompt's gh-pr-checks fallback re-run claude-queue-preflight.mjs
+        # itself for an authoritative CI-status read when the App-token GraphQL query fails.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           additional_permissions: 'actions: read'
@@ -186,6 +191,15 @@ jobs:
             Before doing anything else, read in full: AGENTS.md, then
             docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
             (specifically its "externally triggered unattended" mode).
+
+            If you need a PR's CI/check-run status and `gh pr checks` fails with a permission or
+            GraphQL error (e.g. "Resource not accessible by integration" on statusCheckRollup —
+            this action's own GitHub App token cannot see check-runs created by a different app,
+            a known platform limitation, not a real ambiguity), do not stop for queue:needs-human
+            over that alone. Instead run `node scripts/automation/claude-queue-preflight.mjs`
+            (GITHUB_TOKEN and GITHUB_REPOSITORY are already set in this job's environment) — the
+            same read-only, tested script this workflow's own preflight job runs — and read its
+            reason_code/should_invoke output as the authoritative CI status for the PR.
 
             You are the externally triggered unattended queue controller for this run, not an
             interactive session. Re-fetch and reconcile the ACTUAL current GitHub state (issue
@@ -214,7 +228,7 @@ jobs:
           claude_args: |
             --model ${{ vars.CLAUDE_QUEUE_MODEL }}
             --max-turns 50
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*),Bash(node scripts/automation/claude-queue-preflight.mjs:*)"
 
       # Deterministic recheck before the runtime fallback: re-runs the same read-only preflight
       # decision script against live GitHub state. A primary attempt can fail *after* durably
@@ -243,6 +257,11 @@ jobs:
         # api, but this step: skipped).
         if: always() && steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api' && steps.recheck-oauth.outputs.should_invoke == 'true'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        # Read-only; lets the prompt's gh-pr-checks fallback re-run claude-queue-preflight.mjs
+        # itself for an authoritative CI-status read when the App-token GraphQL query fails.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           additional_permissions: 'actions: read'
@@ -277,6 +296,15 @@ jobs:
             docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
             (specifically its "externally triggered unattended" mode).
 
+            If you need a PR's CI/check-run status and `gh pr checks` fails with a permission or
+            GraphQL error (e.g. "Resource not accessible by integration" on statusCheckRollup —
+            this action's own GitHub App token cannot see check-runs created by a different app,
+            a known platform limitation, not a real ambiguity), do not stop for queue:needs-human
+            over that alone. Instead run `node scripts/automation/claude-queue-preflight.mjs`
+            (GITHUB_TOKEN and GITHUB_REPOSITORY are already set in this job's environment) — the
+            same read-only, tested script this workflow's own preflight job runs — and read its
+            reason_code/should_invoke output as the authoritative CI status for the PR.
+
             You are the externally triggered unattended queue controller for this run, not an
             interactive session. Perform exactly ONE bounded, durable queue transition for the
             issue identified above, per the contract's one-transition-per-invocation rule for
@@ -300,12 +328,17 @@ jobs:
           claude_args: |
             --model ${{ steps.auth.outputs.runtime_fallback_model }}
             --max-turns 50
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*),Bash(node scripts/automation/claude-queue-preflight.mjs:*)"
 
       - name: Claude queue transition (api mode)
         id: run-api
         if: steps.auth.outputs.effective_mode == 'api'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        # Read-only; lets the prompt's gh-pr-checks fallback re-run claude-queue-preflight.mjs
+        # itself for an authoritative CI-status read when the App-token GraphQL query fails.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           additional_permissions: 'actions: read'
@@ -331,6 +364,15 @@ jobs:
             Before doing anything else, read in full: AGENTS.md, then
             docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
             (specifically its "externally triggered unattended" mode).
+
+            If you need a PR's CI/check-run status and `gh pr checks` fails with a permission or
+            GraphQL error (e.g. "Resource not accessible by integration" on statusCheckRollup —
+            this action's own GitHub App token cannot see check-runs created by a different app,
+            a known platform limitation, not a real ambiguity), do not stop for queue:needs-human
+            over that alone. Instead run `node scripts/automation/claude-queue-preflight.mjs`
+            (GITHUB_TOKEN and GITHUB_REPOSITORY are already set in this job's environment) — the
+            same read-only, tested script this workflow's own preflight job runs — and read its
+            reason_code/should_invoke output as the authoritative CI status for the PR.
 
             You are the externally triggered unattended queue controller for this run, not an
             interactive session. Re-fetch and reconcile the ACTUAL current GitHub state (issue
@@ -359,7 +401,7 @@ jobs:
           claude_args: |
             --model ${{ vars.CLAUDE_QUEUE_MODEL }}
             --max-turns 50
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*),Bash(node scripts/automation/claude-queue-preflight.mjs:*)"
 
       # Deterministic recheck before the api->oauth runtime fallback; see recheck-oauth above.
       - name: Recheck queue state after failed api attempt (deterministic, read-only)
@@ -379,6 +421,11 @@ jobs:
         # See the fallback-oauth-to-api step above for why always() is required here.
         if: always() && steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth' && steps.recheck-api.outputs.should_invoke == 'true'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+        # Read-only; lets the prompt's gh-pr-checks fallback re-run claude-queue-preflight.mjs
+        # itself for an authoritative CI-status read when the App-token GraphQL query fails.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           additional_permissions: 'actions: read'
@@ -412,6 +459,15 @@ jobs:
             docs/automation/CLAUDE_QUEUE_CONTRACT.md, then .claude/skills/queue-run/SKILL.md
             (specifically its "externally triggered unattended" mode).
 
+            If you need a PR's CI/check-run status and `gh pr checks` fails with a permission or
+            GraphQL error (e.g. "Resource not accessible by integration" on statusCheckRollup —
+            this action's own GitHub App token cannot see check-runs created by a different app,
+            a known platform limitation, not a real ambiguity), do not stop for queue:needs-human
+            over that alone. Instead run `node scripts/automation/claude-queue-preflight.mjs`
+            (GITHUB_TOKEN and GITHUB_REPOSITORY are already set in this job's environment) — the
+            same read-only, tested script this workflow's own preflight job runs — and read its
+            reason_code/should_invoke output as the authoritative CI status for the PR.
+
             You are the externally triggered unattended queue controller for this run, not an
             interactive session. Perform exactly ONE bounded, durable queue transition for the
             issue identified above, per the contract's one-transition-per-invocation rule for
@@ -435,7 +491,7 @@ jobs:
           claude_args: |
             --model ${{ steps.auth.outputs.runtime_fallback_model }}
             --max-turns 50
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git fetch:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(npm run verify:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(npm run test:*),Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh pr view:*),Bash(gh pr create:*),Bash(gh pr comment:*),Bash(gh pr merge:*),Bash(gh pr checks:*),Bash(node scripts/automation/claude-queue-preflight.mjs:*)"
 
       - name: Write job summary
         if: always()

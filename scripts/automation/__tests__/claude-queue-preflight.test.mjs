@@ -8,6 +8,7 @@ import {
   decidePreflight,
   classifyChecks,
   parseQueueIssueBody,
+  fetchRelevantIssues,
   REASON_CODES,
 } from '../claude-queue-preflight.mjs';
 import { resolveAuthDecision } from '../claude-queue-auth-precheck.mjs';
@@ -434,6 +435,119 @@ describe('classifyChecks', () => {
   });
 });
 
+describe('fetchRelevantIssues — closed-but-relevant issues stay visible', () => {
+  // Regression coverage for the QUEUE-007 bug: a human merging a queue PR whose body says
+  // "Closes #N" auto-closes the issue at merge time, before the worker's own post-merge
+  // review/handoff runs. A plain state=open fetch then loses that issue forever — it can
+  // never reach ACTION_POST_MERGE, and any issue declaring it as a dependency can never see
+  // it as queue:done either. fetchRelevantIssues() must keep such issues visible.
+
+  function githubIssue(overrides = {}) {
+    return { number: 1, state: 'open', labels: [], pull_request: undefined, ...overrides };
+  }
+
+  /** Mocks global.fetch for the exact call shape githubGet() makes. */
+  function withMockedFetch(responsesByUrlSubstring, run) {
+    const original = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      const match = responsesByUrlSubstring.find(([substr]) => url.includes(substr));
+      if (!match) {
+        throw new Error(`unexpected fetch call in test: ${url}`);
+      }
+      const [, body] = match;
+      return { ok: true, status: 200, json: async () => body };
+    };
+    return run().finally(() => {
+      globalThis.fetch = original;
+    });
+  }
+
+  test('a closed issue labeled queue:running is included alongside open issues', async () => {
+    await withMockedFetch(
+      [
+        ['state=open', [githubIssue({ number: 5, state: 'open', labels: ['queue:approved'] })]],
+        [
+          'state=closed&labels=queue%3Arunning',
+          [
+            githubIssue({
+              number: 160,
+              state: 'closed',
+              labels: [{ name: 'queue:running' }],
+            }),
+          ],
+        ],
+        ['state=closed&labels=queue%3Awaiting-ci', []],
+        ['state=closed&labels=queue%3Adone', []],
+      ],
+      async () => {
+        const issues = await fetchRelevantIssues({ owner: 'o', repo: 'r', token: 't' });
+        const numbers = issues.map((i) => i.number).sort((a, b) => a - b);
+        assert.deepEqual(numbers, [5, 160]);
+      },
+    );
+  });
+
+  test('a closed issue labeled queue:done is included, so dependents can find it', async () => {
+    await withMockedFetch(
+      [
+        ['state=open', []],
+        ['state=closed&labels=queue%3Arunning', []],
+        ['state=closed&labels=queue%3Awaiting-ci', []],
+        [
+          'state=closed&labels=queue%3Adone',
+          [githubIssue({ number: 100, state: 'closed', labels: [{ name: 'queue:done' }] })],
+        ],
+      ],
+      async () => {
+        const issues = await fetchRelevantIssues({ owner: 'o', repo: 'r', token: 't' });
+        assert.deepEqual(
+          issues.map((i) => i.number),
+          [100],
+        );
+      },
+    );
+  });
+
+  test('an issue appearing in more than one list is deduplicated by number', async () => {
+    await withMockedFetch(
+      [
+        ['state=open', [githubIssue({ number: 7 })]],
+        ['state=closed&labels=queue%3Arunning', [githubIssue({ number: 7, state: 'closed' })]],
+        ['state=closed&labels=queue%3Awaiting-ci', []],
+        ['state=closed&labels=queue%3Adone', []],
+      ],
+      async () => {
+        const issues = await fetchRelevantIssues({ owner: 'o', repo: 'r', token: 't' });
+        assert.equal(issues.length, 1);
+      },
+    );
+  });
+
+  test('pull requests returned by the issues API are filtered out', async () => {
+    await withMockedFetch(
+      [
+        [
+          'state=open',
+          [
+            githubIssue({ number: 1 }),
+            githubIssue({ number: 2, pull_request: { url: 'https://example.invalid' } }),
+          ],
+        ],
+        ['state=closed&labels=queue%3Arunning', []],
+        ['state=closed&labels=queue%3Awaiting-ci', []],
+        ['state=closed&labels=queue%3Adone', []],
+      ],
+      async () => {
+        const issues = await fetchRelevantIssues({ owner: 'o', repo: 'r', token: 't' });
+        assert.deepEqual(
+          issues.map((i) => i.number),
+          [1],
+        );
+      },
+    );
+  });
+});
+
 describe('auth precheck — resolveAuthDecision (26-30)', () => {
   test('26) invalid CLAUDE_QUEUE_AUTH_MODE -> not ok, secret-free message', () => {
     const d = resolveAuthDecision({
@@ -692,6 +806,39 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     const occurrences = (WORKFLOW_SOURCE.match(/allowed_bots: 'claude'/g) ?? []).length;
     assert.equal(occurrences, 4, 'expected allowed_bots on all four transition steps');
     assert.doesNotMatch(WORKFLOW_SOURCE, /allowed_bots: '\*'/);
+  });
+
+  test('all four transition steps can fall back to the preflight script for CI status when gh pr checks fails', () => {
+    // gh pr checks uses GraphQL statusCheckRollup, which this action's own GitHub App token
+    // cannot read for check-runs created by a different app (e.g. the plain GITHUB_TOKEN that
+    // verify.yml runs under) — a real platform limitation the QUEUE-007/008 smoke test hit,
+    // not an ambiguity the worker should stop for. Each transition step needs: the read-only
+    // env vars the script requires, the script itself allow-listed as a Bash command, and the
+    // prompt text telling the worker to use it instead of stopping.
+    // recheck-oauth/recheck-api already carry this env pair (they run the same script directly);
+    // check each of the four Claude Code Action transition steps specifically, by id.
+    const envPair =
+      /env:\n\s*GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}\n\s*GITHUB_REPOSITORY: \$\{\{ github\.repository \}\}/;
+    for (const id of ['run-oauth', 'fallback-oauth-to-api', 'run-api', 'fallback-api-to-oauth']) {
+      const stepMatch = WORKFLOW_SOURCE.match(new RegExp(`id: ${id}\\n([\\s\\S]*?)\\n {6}- name:`));
+      assert.ok(stepMatch, `step ${id} not found`);
+      assert.match(stepMatch[1], envPair, `step ${id} missing GITHUB_TOKEN/GITHUB_REPOSITORY env`);
+    }
+
+    const allowlistOccurrences = (
+      WORKFLOW_SOURCE.match(/Bash\(node scripts\/automation\/claude-queue-preflight\.mjs:\*\)/g) ??
+      []
+    ).length;
+    assert.equal(
+      allowlistOccurrences,
+      4,
+      'expected the preflight script allow-listed on all four transition steps',
+    );
+
+    const promptOccurrences = (
+      WORKFLOW_SOURCE.match(/run `node scripts\/automation\/claude-queue-preflight\.mjs`/g) ?? []
+    ).length;
+    assert.equal(promptOccurrences, 4, 'expected the fallback instruction in all four prompts');
   });
 
   test('25) claude job is conditional on preflight should_invoke -> idle path cannot reach it', () => {

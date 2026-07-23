@@ -1,12 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'node:crypto';
 import { test } from '@jest/globals';
 import { REPRESENTATIVE_HYBRID_V1_RESOLUTION_SCENARIOS } from '../RepresentativeHybridV1Manifest';
 import { REPRESENTATIVE_HYBRID_V1_CORPUS_HASH } from '../RepresentativeHybridV1Manifest';
 import { REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH } from '../RepresentativeHybridV1SourceSnapshotManifest';
 import type { RepresentativeHybridV1ResolutionScenario } from '../RepresentativeHybridV1Types';
 import { buildRepresentativeHybridV1LiveExecutionPlan } from './RepresentativeHybridV1LiveExecutionPlan';
-import { createRepresentativeHybridV1LiveBudgetGate } from './RepresentativeHybridV1LiveBudget';
+import { buildRepresentativeHybridV1LiveBudgetLimits } from './RepresentativeHybridV1LiveBudget';
 import { createLiveVariantBProvider } from '../../VariantBLiveProvider';
 import { createLiveVariantCInterpreter } from '../../VariantCLiveInterpretationProvider';
 import { createAnthropicBenchmarkTransport } from '../../AnthropicBenchmarkTransport';
@@ -15,56 +16,195 @@ import {
   wrapVariantBProviderWithTelemetry,
   wrapVariantCInterpreterWithTelemetry,
 } from './RepresentativeHybridV1LiveTelemetryProviders';
+import {
+  wrapVariantBProviderWithLedger,
+  wrapVariantCInterpreterWithLedger,
+} from './RepresentativeHybridV1LiveLedgerProviders';
 import { runRepresentativeHybridV1LivePartition } from './RepresentativeHybridV1LiveRunner';
 import {
   buildRepresentativeHybridV1LiveReport,
   buildRepresentativeHybridV1LiveMarkdownReport,
 } from './RepresentativeHybridV1LiveReportBuilder';
 import { assertValidRepresentativeHybridV1LiveReport } from './RepresentativeHybridV1LiveReportValidator';
-import { REPRESENTATIVE_HYBRID_V1_LIVE_TIMEOUT_POLICY } from './RepresentativeHybridV1LiveVersions';
+import {
+  REPRESENTATIVE_HYBRID_V1_LIVE_TIMEOUT_POLICY,
+  REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT,
+  REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+  REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
+  REPRESENTATIVE_HYBRID_V1_LIVE_CHECKPOINT_SCHEMA_VERSION,
+  REPRESENTATIVE_HYBRID_V1_LIVE_HOLDOUT_CHECKPOINT_SCHEMA_VERSION,
+} from './RepresentativeHybridV1LiveVersions';
 import type { LiveProviderUsageRecord } from '../../LiveProviderUsage';
+import {
+  computeRepresentativeHybridV1LivePlannedCallIds,
+  orderRepresentativeHybridV1LiveObservationsForExecution,
+} from './RepresentativeHybridV1LiveCallId';
+import { RepresentativeHybridV1LiveCallLedger } from './RepresentativeHybridV1LiveCallLedger';
+import { reconstructRepresentativeHybridV1LiveCumulativeBudgetGate } from './RepresentativeHybridV1LiveCumulativeBudget';
+import { computeCurrentRepresentativeHybridV1LiveExecutionTreeHash } from './RepresentativeHybridV1LiveExecutionTreeHash';
+import {
+  readAndValidateRepresentativeHybridV1LiveDevelopmentCheckpoint,
+  readRepresentativeHybridV1LiveHoldoutCheckpointIfPresent,
+  writeRepresentativeHybridV1LiveDevelopmentCheckpoint,
+  writeRepresentativeHybridV1LiveHoldoutCheckpoint,
+  type RepresentativeHybridV1LiveExpectedContinuationContext,
+} from './RepresentativeHybridV1LiveCheckpoint';
 
 /**
- * RESOLVER-V3-039 live execution entry point. Same `.harness.ts` convention as
- * `runRepresentativeHybridV1.harness.ts` (invisible to `jest.config.js`'s `testMatch`, executed
- * only via `scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`). Reads configuration
- * from env vars, since Jest's CLI does not forward custom flags through a scoped test file.
+ * RESOLVER-V3-039 protocol-v2 live execution entry point (corrected Phase-B continuation
+ * remediation -- see `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`). Same
+ * `.harness.ts` convention as `runRepresentativeHybridV1.harness.ts` (invisible to
+ * `jest.config.js`'s `testMatch`, executed only via
+ * `scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`). Reads configuration from env
+ * vars, since Jest's CLI does not forward custom flags through a scoped test file.
  *
- * `REPRESENTATIVE_HYBRID_V1_LIVE_MODE`:
- *   'preflight' (default) -- builds the deterministic plan, reports readiness, makes NO provider
- *     request and NO credential-dependent throw.
- *   'execute' -- verifies protocol/corpus/hash/credential/budget, then runs the requested
- *     partition(s) for real. Missing `ANTHROPIC_API_KEY` fails closed here, before any request.
+ * Two-phase discipline, enforced here (not procedurally): Development writes a durable checkpoint;
+ * Holdout requires and validates it, reconstructs the cumulative task-wide budget from the durable
+ * call ledger (shared across both phases and both process invocations), and produces one final
+ * report containing both partitions. `--partition=all` and `--allow-rerun` do not exist in this
+ * protocol version -- the CLI refuses them before this harness is ever spawned.
  */
+
+const repoRoot = path.resolve(__dirname, '../../../../../..');
+const outputDir = path.join(repoRoot, 'logs');
+const LEDGER_PATH = path.join(outputDir, 'resolver-v3-039-call-ledger.jsonl');
+const DEVELOPMENT_CHECKPOINT_PATH = path.join(
+  outputDir,
+  'resolver-v3-039-development-checkpoint.json',
+);
+const HOLDOUT_CHECKPOINT_PATH = path.join(outputDir, 'resolver-v3-039-holdout-checkpoint.json');
+const DEVELOPMENT_DIAGNOSTIC_JSON_PATH = path.join(
+  outputDir,
+  'resolver-v3-039-development-diagnostic.json',
+);
+const DEVELOPMENT_DIAGNOSTIC_MD_PATH = path.join(
+  outputDir,
+  'resolver-v3-039-development-diagnostic.md',
+);
+const FINAL_REPORT_JSON_PATH = path.join(
+  outputDir,
+  'resolver-v3-039-controlled-representative-live-evidence.json',
+);
+const FINAL_REPORT_MD_PATH = path.join(
+  outputDir,
+  'resolver-v3-039-controlled-representative-live-evidence.md',
+);
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
+}
+
+interface ParsedProtocolV2 {
+  protocolVersion: string;
+  planHash: string;
+  corpusHash: string;
+  sourceManifestHash: string;
+  executionTreeHash: string;
+  provider: { providerId: string; modelId: string; modelSnapshotId: string };
+  pricing: { currency: string; inputPerMillion: number; outputPerMillion: number };
+}
+
+function readProtocolV2(protocolPath: string): {
+  raw: string;
+  protocolHash: string;
+  protocol: ParsedProtocolV2;
+} {
+  if (!fs.existsSync(protocolPath)) {
+    throw new Error(`RESOLVER-V3-039 protocol file not found: ${protocolPath}`);
+  }
+  const raw = fs.readFileSync(protocolPath, 'utf-8');
+  const protocol = JSON.parse(raw) as ParsedProtocolV2;
+  return { raw, protocolHash: sha256(raw), protocol };
+}
+
+function verifyProtocolAgainstCurrentState(
+  protocol: ParsedProtocolV2,
+  planHash: string,
+  executionTreeHash: string,
+): void {
+  if (protocol.protocolVersion !== REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2) {
+    throw new Error(
+      `RESOLVER-V3-039 refuses to execute: protocol version "${protocol.protocolVersion}" is not the corrected "${REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2}". The v1 protocol is preserved as invalidated pre-execution history and must never be used for live execution -- see reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md.`,
+    );
+  }
+  if (protocol.planHash !== planHash) {
+    throw new Error(
+      `RESOLVER-V3-039 plan hash mismatch: frozen protocol has "${protocol.planHash}", current computation has "${planHash}". Refusing to execute.`,
+    );
+  }
+  if (protocol.corpusHash !== REPRESENTATIVE_HYBRID_V1_CORPUS_HASH) {
+    throw new Error(
+      'RESOLVER-V3-039 corpus hash mismatch against frozen protocol. Refusing to execute.',
+    );
+  }
+  if (protocol.sourceManifestHash !== REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH) {
+    throw new Error(
+      'RESOLVER-V3-039 source-manifest hash mismatch against frozen protocol. Refusing to execute.',
+    );
+  }
+  if (protocol.executionTreeHash !== executionTreeHash) {
+    throw new Error(
+      `RESOLVER-V3-039 execution-tree hash mismatch: frozen protocol has "${protocol.executionTreeHash}", current computation has "${executionTreeHash}". This means execution-relevant code (prompts/schemas/provider/pricing/route-classification/execution-plan/metrics/harness logic) has changed since the protocol was frozen. Refusing to execute (drift protection).`,
+    );
+  }
+  if (
+    protocol.provider.providerId !== REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.providerId ||
+    protocol.provider.modelId !== REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelId ||
+    protocol.provider.modelSnapshotId !==
+      REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelSnapshotId
+  ) {
+    throw new Error(
+      'RESOLVER-V3-039 provider/model mismatch against frozen protocol. Refusing to execute.',
+    );
+  }
+  if (
+    protocol.pricing.currency !== REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.currency ||
+    protocol.pricing.inputPerMillion !==
+      REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.inputPerMillion ||
+    protocol.pricing.outputPerMillion !==
+      REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.outputPerMillion
+  ) {
+    throw new Error(
+      'RESOLVER-V3-039 pricing mismatch against frozen protocol. Refusing to execute.',
+    );
+  }
+}
+
 test(
-  'RESOLVER-V3-039 -- Controlled Representative Live Hybrid Evidence harness',
+  'RESOLVER-V3-039 -- Controlled Representative Live Hybrid Evidence harness (protocol v2)',
   async () => {
     const mode =
       process.env.REPRESENTATIVE_HYBRID_V1_LIVE_MODE === 'execute' ? 'execute' : 'preflight';
     const partitionArg = process.env.REPRESENTATIVE_HYBRID_V1_LIVE_PARTITION ?? 'development';
-    const partitions: readonly RepresentativeHybridV1ResolutionScenario['partition'][] =
-      partitionArg === 'holdout'
-        ? ['holdout']
-        : partitionArg === 'all'
-          ? ['development', 'holdout']
-          : ['development'];
+    if (partitionArg !== 'development' && partitionArg !== 'holdout') {
+      throw new Error(
+        `RESOLVER-V3-039 protocol v2 only accepts partition="development" or "holdout" -- "all" is refused (it would skip the required Development-inspection boundary).`,
+      );
+    }
+    const partition = partitionArg as RepresentativeHybridV1ResolutionScenario['partition'];
     const finalEvaluation = process.env.REPRESENTATIVE_HYBRID_V1_LIVE_FINAL_EVALUATION === 'true';
-    const outputDir = path.resolve(__dirname, '../../../../../../logs');
 
     const plan = await buildRepresentativeHybridV1LiveExecutionPlan();
 
     if (mode === 'preflight') {
       const apiKeyPresent = Boolean(process.env.ANTHROPIC_API_KEY);
+      const executionTreeHash = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
       const summary = {
         mode: 'preflight',
+        protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
         corpusHash: REPRESENTATIVE_HYBRID_V1_CORPUS_HASH,
         sourceManifestHash: REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH,
         planHash: plan.planHash,
+        executionTreeHash,
         counts: plan.counts,
         budget: plan.budget,
         apiKeyPresent,
         // Never the key value itself, only its presence -- secret-free by construction.
         readyForLiveExecution: apiKeyPresent,
+        developmentCheckpointExists: fs.existsSync(DEVELOPMENT_CHECKPOINT_PATH),
+        holdoutCheckpointExists: fs.existsSync(HOLDOUT_CHECKPOINT_PATH),
+        callLedgerExists: fs.existsSync(LEDGER_PATH),
+        finalReportExists: fs.existsSync(FINAL_REPORT_JSON_PATH),
       };
       fs.mkdirSync(outputDir, { recursive: true });
       fs.writeFileSync(
@@ -73,7 +213,7 @@ test(
       );
       // eslint-disable-next-line no-console
       console.log(
-        `RESOLVER-V3-039 preflight complete. planHash=${plan.planHash} ` +
+        `RESOLVER-V3-039 preflight complete. planHash=${plan.planHash} executionTreeHash=${executionTreeHash} ` +
           `maxCalls=${plan.budget.maxCalls} worstCaseReservedCostUsd=${plan.budget.worstCaseReservedCostUsd} ` +
           `apiKeyPresent=${apiKeyPresent}. No provider request made.`,
       );
@@ -81,57 +221,105 @@ test(
     }
 
     // mode === 'execute'
-    if ((partitionArg === 'holdout' || partitionArg === 'all') && !finalEvaluation) {
+    if (partition === 'holdout' && !finalEvaluation) {
       throw new Error(
-        `Refusing to run partition="${partitionArg}" without --final-evaluation (RESOLVER-V3-039 holdout discipline).`,
+        'RESOLVER-V3-039 refusing to run partition="holdout" without --final-evaluation (holdout discipline).',
       );
     }
 
     const protocolPath = process.env.REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_PATH;
     if (!protocolPath) {
-      throw new Error('RESOLVER-V3-039 live execution requires --protocol=<protocol-json-path>.');
+      throw new Error(
+        'RESOLVER-V3-039 live execution requires --protocol=<protocol-v2-json-path>.',
+      );
     }
-    if (!fs.existsSync(protocolPath)) {
-      throw new Error(`RESOLVER-V3-039 protocol file not found: ${protocolPath}`);
-    }
-    const protocol = JSON.parse(fs.readFileSync(protocolPath, 'utf-8')) as {
-      planHash: string;
-      corpusHash: string;
-      sourceManifestHash: string;
+    const executionTreeHash = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
+    const { protocolHash, protocol } = readProtocolV2(protocolPath);
+    verifyProtocolAgainstCurrentState(protocol, plan.planHash, executionTreeHash);
+
+    const expectedContext: RepresentativeHybridV1LiveExpectedContinuationContext = {
+      protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+      protocolHash,
+      planHash: plan.planHash,
+      corpusHash: REPRESENTATIVE_HYBRID_V1_CORPUS_HASH,
+      sourceManifestHash: REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH,
+      executionTreeHash,
+      providerId: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.providerId,
+      modelId: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelId,
+      modelSnapshotId: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelSnapshotId,
+      pricing: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT,
     };
-    if (protocol.planHash !== plan.planHash) {
-      throw new Error(
-        `RESOLVER-V3-039 plan hash mismatch: frozen protocol has "${protocol.planHash}", current computation has "${plan.planHash}". Refusing to execute.`,
+
+    let developmentCheckpoint:
+      | ReturnType<typeof readAndValidateRepresentativeHybridV1LiveDevelopmentCheckpoint>
+      | undefined;
+
+    if (partition === 'development') {
+      if (fs.existsSync(DEVELOPMENT_CHECKPOINT_PATH)) {
+        throw new Error(
+          `RESOLVER-V3-039 refuses to run Development: a checkpoint already exists at ${DEVELOPMENT_CHECKPOINT_PATH}. A completed Development phase is never rerun.`,
+        );
+      }
+    } else {
+      if (!process.env.REPRESENTATIVE_HYBRID_V1_LIVE_DEVELOPMENT_CHECKPOINT_PATH) {
+        throw new Error(
+          'RESOLVER-V3-039 Holdout requires --development-checkpoint=<path-to-development-checkpoint.json>.',
+        );
+      }
+      const developmentCheckpointPath =
+        process.env.REPRESENTATIVE_HYBRID_V1_LIVE_DEVELOPMENT_CHECKPOINT_PATH;
+      // Validated fully (protocol/hash/corpus/tree/provider/pricing/completeness) before any
+      // provider or budget-gate construction below -- checkpoint validation itself is zero-network.
+      developmentCheckpoint = readAndValidateRepresentativeHybridV1LiveDevelopmentCheckpoint(
+        developmentCheckpointPath,
+        expectedContext,
       );
+      const priorHoldout =
+        readRepresentativeHybridV1LiveHoldoutCheckpointIfPresent(HOLDOUT_CHECKPOINT_PATH);
+      if (priorHoldout && priorHoldout.phase === 'holdout_complete') {
+        throw new Error(
+          `RESOLVER-V3-039 refuses to run Holdout: a completed Holdout checkpoint already exists at ${HOLDOUT_CHECKPOINT_PATH}. Holdout runs exactly once.`,
+        );
+      }
+      if (fs.existsSync(FINAL_REPORT_JSON_PATH)) {
+        throw new Error(
+          `RESOLVER-V3-039 refuses to run Holdout: a final combined report already exists at ${FINAL_REPORT_JSON_PATH}. There is no --allow-rerun escape hatch in protocol v2 -- a genuine restart requires an explicit, separate human action outside this CLI.`,
+        );
+      }
     }
-    if (protocol.corpusHash !== REPRESENTATIVE_HYBRID_V1_CORPUS_HASH) {
+
+    const ledger = RepresentativeHybridV1LiveCallLedger.open(LEDGER_PATH);
+    const indeterminate = ledger.indeterminateCallIds();
+    if (indeterminate.length > 0) {
       throw new Error(
-        'RESOLVER-V3-039 corpus hash mismatch against frozen protocol. Refusing to execute.',
-      );
-    }
-    if (protocol.sourceManifestHash !== REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH) {
-      throw new Error(
-        'RESOLVER-V3-039 source-manifest hash mismatch against frozen protocol. Refusing to execute.',
+        `RESOLVER-V3-039 refuses to proceed: ${indeterminate.length} call(s) are in an indeterminate state after a prior interruption (${indeterminate.slice(0, 5).join(', ')}${indeterminate.length > 5 ? ', ...' : ''}). These retain their full budget reservation and are never rerun automatically. Explicit human resolution is required (see reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md's "Indeterminate call resolution" procedure) before any further live call.`,
       );
     }
 
-    const jsonReportPath = path.join(
-      outputDir,
-      'resolver-v3-039-controlled-representative-live-evidence.json',
-    );
-    if (
-      fs.existsSync(jsonReportPath) &&
-      process.env.REPRESENTATIVE_HYBRID_V1_LIVE_ALLOW_RERUN !== 'true'
-    ) {
+    const plannedCallIds = computeRepresentativeHybridV1LivePlannedCallIds(plan, partition);
+    const alreadyLedgered = plannedCallIds.filter((id) => ledger.stateOf(id) !== null);
+    if (alreadyLedgered.length > 0) {
       throw new Error(
-        `RESOLVER-V3-039 a report already exists at ${jsonReportPath}. Full-protocol rerun requires separate ` +
-          'authorization (REPRESENTATIVE_HYBRID_V1_LIVE_ALLOW_RERUN=true), not exposed as a casual flag.',
+        `RESOLVER-V3-039 refuses to start a fresh ${partition} run: the call ledger already has ${alreadyLedgered.length} entr(y/ies) for this partition's planned calls (e.g. "${alreadyLedgered[0]}"). This protocol version does not attempt automatic mid-partition resumption -- partial evidence is preserved durably, but restarting requires explicit human review of the existing ledger/checkpoint state first.`,
       );
     }
+
+    const orderedAll = orderRepresentativeHybridV1LiveObservationsForExecution(plan.observations, [
+      partition,
+    ]);
+    const orderedB = orderedAll.filter((o) => o.variant === 'B');
+    const orderedCAiRouted = orderedAll.filter(
+      (o) => o.variant === 'C' && o.expectedRoute === 'ai_routed',
+    );
 
     // Missing ANTHROPIC_API_KEY / missing budget gate throws here, before any network call --
     // createLiveVariantBProvider/createLiveVariantCInterpreter never fall back to a fixture.
-    const budgetGate = await createRepresentativeHybridV1LiveBudgetGate();
+    const budgetLimits = await buildRepresentativeHybridV1LiveBudgetLimits();
+    const budgetGate = reconstructRepresentativeHybridV1LiveCumulativeBudgetGate(
+      budgetLimits,
+      ledger,
+      plan,
+    );
     const timeoutTransport = new TimeoutEnforcingAnthropicBenchmarkTransport(
       createAnthropicBenchmarkTransport(),
       REPRESENTATIVE_HYBRID_V1_LIVE_TIMEOUT_POLICY.perRequestTimeoutMs,
@@ -140,21 +328,35 @@ test(
     const liveC = createLiveVariantCInterpreter(process.env, budgetGate, timeoutTransport);
 
     const rawTelemetry: LiveProviderUsageRecord[] = [];
-    const wrappedB = wrapVariantBProviderWithTelemetry(
+    const telemetryB = wrapVariantBProviderWithTelemetry(
       liveB,
       rawTelemetry,
       REPRESENTATIVE_HYBRID_V1_LIVE_TIMEOUT_POLICY.wallClockCeilingMs,
     );
-    const wrappedC = wrapVariantCInterpreterWithTelemetry(
+    const telemetryC = wrapVariantCInterpreterWithTelemetry(
       liveC,
       rawTelemetry,
       REPRESENTATIVE_HYBRID_V1_LIVE_TIMEOUT_POLICY.wallClockCeilingMs,
+    );
+    const wrappedB = wrapVariantBProviderWithLedger(
+      telemetryB,
+      ledger,
+      orderedB,
+      plan.planHash,
+      rawTelemetry,
+    );
+    const wrappedC = wrapVariantCInterpreterWithLedger(
+      telemetryC,
+      ledger,
+      orderedCAiRouted,
+      plan.planHash,
+      rawTelemetry,
     );
 
     const { caseRecords } = await runRepresentativeHybridV1LivePartition(
       REPRESENTATIVE_HYBRID_V1_RESOLUTION_SCENARIOS as readonly RepresentativeHybridV1ResolutionScenario[],
       plan,
-      partitions,
+      [partition],
       { variantBProvider: wrappedB, variantCAiInterpreter: wrappedC },
     );
 
@@ -164,38 +366,136 @@ test(
       ).map((s) => [s.scenarioId, s.case.expectedBehavior]),
     );
 
-    const report = buildRepresentativeHybridV1LiveReport({
-      plan,
-      budgetLimits: budgetGate.snapshot().limits,
-      protocolFreezeCommit:
-        process.env.REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_FREEZE_COMMIT ?? null,
-      evidenceCommit: process.env.REPRESENTATIVE_HYBRID_V1_LIVE_EVIDENCE_COMMIT ?? null,
-      executionStatus: {
-        phase:
-          partitionArg === 'development'
-            ? 'development_complete'
-            : 'development_and_holdout_complete',
-        blockerReason: null,
-      },
-      rawTelemetry,
-      developmentCaseRecords: partitions.includes('development') ? caseRecords : null,
-      holdoutCaseRecords: partitions.includes('holdout') ? caseRecords : null,
-      expectedBehaviorByScenarioId,
-    });
+    const completedCallIds = plannedCallIds.filter((id) => ledger.stateOf(id) === 'completed');
+    const terminalFailureCallIds = plannedCallIds.filter(
+      (id) => ledger.stateOf(id) === 'terminal_failure',
+    );
+    const indeterminateCallIds = plannedCallIds.filter(
+      (id) => ledger.stateOf(id) === 'indeterminate_after_interruption',
+    );
+    const cumulativeBudget = budgetGate.snapshot();
 
-    assertValidRepresentativeHybridV1LiveReport(report);
+    if (partition === 'development') {
+      const checkpoint = writeRepresentativeHybridV1LiveDevelopmentCheckpoint(
+        DEVELOPMENT_CHECKPOINT_PATH,
+        {
+          checkpointVersion: REPRESENTATIVE_HYBRID_V1_LIVE_CHECKPOINT_SCHEMA_VERSION,
+          protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+          protocolHash,
+          executionPlanVersion: plan.planVersion,
+          planHash: plan.planHash,
+          corpusHash: REPRESENTATIVE_HYBRID_V1_CORPUS_HASH,
+          sourceManifestHash: REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH,
+          executionTreeHash,
+          protocolFreezeCommit:
+            process.env.REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_FREEZE_COMMIT ?? null,
+          executionCommit: process.env.REPRESENTATIVE_HYBRID_V1_LIVE_EVIDENCE_COMMIT ?? null,
+          providerId: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.providerId,
+          modelId: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelId,
+          modelSnapshotId: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelSnapshotId,
+          pricing: REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT,
+          plannedDevelopmentCallIds: plannedCallIds,
+          completedCallIds,
+          terminalFailureCallIds,
+          indeterminateCallIds,
+          rawTelemetry,
+          developmentCaseRecords: caseRecords,
+          cumulativeBudget: {
+            calls: cumulativeBudget.calls,
+            inputTokens: cumulativeBudget.inputTokens,
+            outputTokens: cumulativeBudget.outputTokens,
+            reservedCost: cumulativeBudget.reservedCost,
+          },
+          generatedAtUtc: new Date().toISOString(),
+          phase: 'development_complete',
+        },
+      );
+
+      const diagnosticReport = buildRepresentativeHybridV1LiveReport({
+        plan,
+        budgetLimits: cumulativeBudget.limits,
+        protocolFreezeCommit: checkpoint.protocolFreezeCommit,
+        evidenceCommit: checkpoint.executionCommit,
+        executionStatus: { phase: 'development_complete', blockerReason: null },
+        rawTelemetry,
+        developmentCaseRecords: caseRecords,
+        holdoutCaseRecords: null,
+        expectedBehaviorByScenarioId,
+        reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
+        protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+      });
+      assertValidRepresentativeHybridV1LiveReport(diagnosticReport);
+      fs.writeFileSync(DEVELOPMENT_DIAGNOSTIC_JSON_PATH, JSON.stringify(diagnosticReport, null, 2));
+      fs.writeFileSync(
+        DEVELOPMENT_DIAGNOSTIC_MD_PATH,
+        buildRepresentativeHybridV1LiveMarkdownReport(diagnosticReport),
+      );
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `RESOLVER-V3-039 Development complete. calls=${completedCallIds.length + terminalFailureCallIds.length} ` +
+          `completed=${completedCallIds.length} terminalFailures=${terminalFailureCallIds.length} ` +
+          `cumulativeReservedCostUsd=${cumulativeBudget.reservedCost}. Checkpoint written to ${DEVELOPMENT_CHECKPOINT_PATH}.`,
+      );
+      return;
+    }
+
+    // partition === 'holdout'
+    const checkpoint = developmentCheckpoint!;
+    const holdoutCheckpoint = writeRepresentativeHybridV1LiveHoldoutCheckpoint(
+      HOLDOUT_CHECKPOINT_PATH,
+      {
+        checkpointVersion: REPRESENTATIVE_HYBRID_V1_LIVE_HOLDOUT_CHECKPOINT_SCHEMA_VERSION,
+        planHash: plan.planHash,
+        plannedHoldoutCallIds: plannedCallIds,
+        completedCallIds,
+        terminalFailureCallIds,
+        indeterminateCallIds,
+        cumulativeBudget: {
+          calls: cumulativeBudget.calls,
+          inputTokens: cumulativeBudget.inputTokens,
+          outputTokens: cumulativeBudget.outputTokens,
+          reservedCost: cumulativeBudget.reservedCost,
+        },
+        generatedAtUtc: new Date().toISOString(),
+        phase: 'holdout_complete',
+      },
+    );
+
+    const combinedTelemetry: LiveProviderUsageRecord[] = [
+      ...checkpoint.rawTelemetry,
+      ...rawTelemetry,
+    ];
+
+    const finalReport = buildRepresentativeHybridV1LiveReport({
+      plan,
+      budgetLimits: cumulativeBudget.limits,
+      protocolFreezeCommit: checkpoint.protocolFreezeCommit,
+      evidenceCommit: process.env.REPRESENTATIVE_HYBRID_V1_LIVE_EVIDENCE_COMMIT ?? null,
+      executionStatus: { phase: 'development_and_holdout_complete', blockerReason: null },
+      rawTelemetry: combinedTelemetry,
+      developmentCaseRecords: checkpoint.developmentCaseRecords,
+      holdoutCaseRecords: caseRecords,
+      expectedBehaviorByScenarioId,
+      reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
+      protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+    });
+    assertValidRepresentativeHybridV1LiveReport(finalReport);
 
     fs.mkdirSync(outputDir, { recursive: true });
-    fs.writeFileSync(jsonReportPath, JSON.stringify(report, null, 2));
+    fs.writeFileSync(FINAL_REPORT_JSON_PATH, JSON.stringify(finalReport, null, 2));
     fs.writeFileSync(
-      path.join(outputDir, 'resolver-v3-039-controlled-representative-live-evidence.md'),
-      buildRepresentativeHybridV1LiveMarkdownReport(report),
+      FINAL_REPORT_MD_PATH,
+      buildRepresentativeHybridV1LiveMarkdownReport(finalReport),
     );
 
     // eslint-disable-next-line no-console
     console.log(
-      `RESOLVER-V3-039 live execution complete (${partitionArg}). calls=${report.actualUsage.calls} ` +
-        `estimatedCostUsd=${report.actualUsage.estimatedCostUsd ?? 'unknown'}`,
+      `RESOLVER-V3-039 Holdout complete. combined calls=${finalReport.actualUsage.calls} ` +
+        `estimatedCostUsd=${finalReport.actualUsage.estimatedCostUsd ?? 'unknown'} ` +
+        `cumulativeReservedCostUsd=${cumulativeBudget.reservedCost}. ` +
+        `Holdout checkpoint written to ${HOLDOUT_CHECKPOINT_PATH} (phase=${holdoutCheckpoint.phase}). ` +
+        `Final combined report written to ${FINAL_REPORT_JSON_PATH}.`,
     );
   },
   20 * 60_000,

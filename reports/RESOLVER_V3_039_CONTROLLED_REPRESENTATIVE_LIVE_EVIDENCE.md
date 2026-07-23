@@ -239,22 +239,37 @@ blocked until RESOLVER-V3-041 explicitly passes — this task does not and canno
 
 ## What Happens Next
 
-Phase B remains fully specified and ready: once `ANTHROPIC_API_KEY` is available in an authorized
-execution environment, running
+**Superseded by the protocol-v2 remediation (see
+`reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`).** Before any live call was ever
+attempted, re-reading this task's own merged implementation found that the two-phase commands
+originally documented directly below could not actually execute in sequence: the documented Holdout
+command refused to run once Development's output existed, and the only two available workarounds
+(`--allow-rerun`, `--partition=all`) were both unsafe (the first discarded Development's evidence,
+the second either skipped the required inspection boundary or would have repeated billed
+Development calls). This was found and fixed pre-execution — the historical fact stands unchanged
+that Phase B has not yet run (§1, §11 above); zero calls occurred either before or during this
+remediation.
+
+Phase B remains fully specified and ready, now under the corrected protocol v2. Once
+`ANTHROPIC_API_KEY` is available in an authorized execution environment, run:
 
 ```bash
 node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs \
-  --partition=development --protocol=reports/resolver-v3-039-controlled-live-protocol.json
+  --partition=development --protocol=reports/resolver-v3-039-controlled-live-protocol-v2.json
 ```
 
-followed, after inspection and with no protocol/code change in between, by
+then, after inspecting the resulting Development checkpoint/diagnostic report and with no protocol/
+code/corpus change in between:
 
 ```bash
 node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs \
   --partition=holdout --final-evaluation \
-  --protocol=reports/resolver-v3-039-controlled-live-protocol.json
+  --protocol=reports/resolver-v3-039-controlled-live-protocol-v2.json \
+  --development-checkpoint=logs/resolver-v3-039-development-checkpoint.json
 ```
 
-will execute exactly this frozen plan and produce a fully populated version of this report. No
-further authorization change, code change, or protocol change is needed for that — only the
-credential.
+This will execute exactly the frozen plan and produce a fully populated, combined evidence report at
+this same file path. **Do not run the v1 commands previously documented here** — the v1 protocol
+JSON/MD are preserved only as invalidated pre-execution history and the harness refuses any
+protocol version other than `resolver-representative-hybrid-live-protocol-v2`. No further
+authorization change, code change, or protocol change is needed beyond this — only the credential.

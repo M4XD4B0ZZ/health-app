@@ -1,4 +1,16 @@
-import { REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION } from './RepresentativeHybridV1LiveVersions';
+import {
+  REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION,
+  REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
+} from './RepresentativeHybridV1LiveVersions';
+
+/** Both the historical v1 report version (preserved, unexecuted, invalidated protocol -- see
+ * `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`) and the corrected v2 report
+ * version are accepted here so existing v1-shaped fixtures/tests keep validating unchanged while
+ * the v2 harness's output also validates. */
+const KNOWN_REPORT_VERSIONS: readonly string[] = [
+  REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION,
+  REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
+];
 
 /**
  * Closed-schema runtime validator for the persisted `resolver-v3-039-*.json` report artifact.
@@ -69,9 +81,9 @@ export function assertValidRepresentativeHybridV1LiveReport(candidate: unknown):
     }
   }
 
-  if (record.reportVersion !== REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION) {
+  if (!KNOWN_REPORT_VERSIONS.includes(record.reportVersion as string)) {
     throw new RepresentativeHybridV1LiveReportValidationError(
-      `Report version mismatch: expected "${REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION}", got "${String(record.reportVersion)}".`,
+      `Report version mismatch: expected one of [${KNOWN_REPORT_VERSIONS.join(', ')}], got "${String(record.reportVersion)}".`,
     );
   }
 

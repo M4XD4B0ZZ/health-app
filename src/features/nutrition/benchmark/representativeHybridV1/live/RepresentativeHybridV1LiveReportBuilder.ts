@@ -64,7 +64,7 @@ export interface RepresentativeHybridV1LiveGateVerdicts {
 }
 
 export interface RepresentativeHybridV1LiveReport {
-  reportVersion: typeof REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION;
+  reportVersion: string;
   protocolVersion: string;
   executionPlanVersion: string;
   corpusVersion: typeof REPRESENTATIVE_HYBRID_V1_CORPUS_VERSION;
@@ -168,6 +168,11 @@ export function buildRepresentativeHybridV1LiveReport(params: {
   /** Ground-truth `expectedBehavior` per scenario ID, from the frozen corpus -- used only for the
    * friction (G2-C) "correct clarification"/"correct abstention" comparison. */
   expectedBehaviorByScenarioId: ReadonlyMap<string, string>;
+  /** RESOLVER-V3-039 protocol-v2 remediation: lets the v2 harness stamp the corrected protocol/
+   * report versions. Defaults to the original v1 literals so every pre-existing caller/test keeps
+   * producing byte-identical output. */
+  reportVersion?: string;
+  protocolVersion?: string;
 }): RepresentativeHybridV1LiveReport {
   const {
     plan,
@@ -176,6 +181,8 @@ export function buildRepresentativeHybridV1LiveReport(params: {
     evidenceCommit,
     executionStatus,
     rawTelemetry,
+    reportVersion = REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION,
+    protocolVersion = 'resolver-representative-hybrid-live-protocol-v1',
   } = params;
 
   const devByPartition = params.developmentCaseRecords
@@ -255,8 +262,8 @@ export function buildRepresentativeHybridV1LiveReport(params: {
   };
 
   return {
-    reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION,
-    protocolVersion: 'resolver-representative-hybrid-live-protocol-v1',
+    reportVersion,
+    protocolVersion,
     executionPlanVersion: plan.planVersion,
     corpusVersion: REPRESENTATIVE_HYBRID_V1_CORPUS_VERSION,
     registryVersion: REPRESENTATIVE_HYBRID_V1_REGISTRY_VERSION,

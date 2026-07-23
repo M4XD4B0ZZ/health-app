@@ -1,5 +1,49 @@
 # Latest Handoff
 
+## QUEUE-007 — Multi-Task Smoke Marker, Part 1 (Done)
+
+- **Task ID:** `QUEUE-007` (source issue #160, task 1 of the two-task event-driven multi-task
+  smoke test — see issue #160 body).
+- **What changed:** post-merge review/handoff/completion transition only. PR #162 (adding
+  `reports/QUEUE-007_SMOKE_TEST_MARKER.md`) was already merged by the maintainer (squash commit
+  `838f774416adeefd0e1a7855e6632ae1095fe412` on `chore/clean-arch-structure`) in a prior
+  invocation, after that invocation's CI-green auto-resolve hit the `gh pr checks` GraphQL
+  permission gap (see issue #160's state comment thread) and stopped at `queue:needs-human`. This
+  invocation reconciled current GitHub state, confirmed the merge diff touches only
+  `reports/QUEUE-007_SMOKE_TEST_MARKER.md` (no scope creep), and completes the lifecycle: set
+  `queue:done`, removed `queue:running`, on issue #160.
+- **Why:** QUEUE-007 part 1 is a doc-only marker proving the QUEUE-005 external-controller path
+  (after the QUEUE-005/QUEUE-006 auth-fallback and event-trigger fixes, #154/#156/#158/#159) can
+  process an approved task end-to-end via event-driven wakes only; it has no product value.
+- **Files changed:** `reports/QUEUE-007_SMOKE_TEST_MARKER.md` only (confirmed via
+  `git show --stat 838f774` against its parent).
+- **Verification executed:** the implementing invocation ran `npm run verify` (235/235 suites,
+  2279/2279 tests) before opening PR #162; this completion invocation only re-read merged state
+  (no code changed, so no re-run required).
+- **Verification result:** pass.
+- **Known issues/blockers/residual risks:**
+  - The `gh pr checks`/`statusCheckRollup` GraphQL permission gap that stopped the prior
+    invocation was independently fixed in commit `f142a11` (PR #164, already on this branch)
+    with a same-workflow-run preflight-script fallback.
+  - That same PR #164 fix ("keep closed-but-relevant issues visible") re-surfaced a second,
+    related bug: `findLinkedPullRequest()` matched a bare issue-number substring anywhere in a
+    PR body, not just after a real GitHub closing keyword. This invocation's own preflight tick
+    was affected by it — it mis-associated an unrelated, human-authored PR (#165, "match real
+    closing keywords, not bare issue mentions", which only *mentioned* `#160` in its description
+    for context and did not close it) as if it were issue #160's linked PR, reporting
+    `ACTION_CI_GREEN` against PR #165's head SHA instead of #162's. This invocation reconciled
+    actual state (PR #162 already merged and closes #160; PR #165 had no
+    `closingIssuesReferences` and was unrelated) and did **not** act on PR #165 in any way — it
+    also touches `scripts/automation/claude-queue-preflight.mjs`, the queue controller script
+    itself, which is excluded from `risk:safe-autonomous` autonomous action regardless of any
+    preflight signal (per `docs/automation/CLAUDE_QUEUE_CONTRACT.md`'s risk-class exclusions).
+    PR #165 (the fix for this mis-association) was merged by the maintainer separately
+    (`e198ec2`) while this invocation was in progress — its own diff should prevent this
+    particular mis-association from recurring on future ticks.
+- **Human-review status / next steps:** `queue:done` set on issue #160; QUEUE-007's second task
+  (part 2 of the two-task smoke, not yet created/approved as of this entry) remains for a human
+  to author/approve when ready.
+
 ## QUEUE-006 — Phase-B Unattended Smoke Test Marker (Done)
 
 - **Task ID:** `QUEUE-006` (source issue #155).

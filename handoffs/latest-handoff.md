@@ -1,5 +1,23 @@
 # Latest Handoff
 
+## QUEUE-002 — Claude Worker Skill (`queue-run`)
+
+- **Task ID:** `QUEUE-002`.
+- **Scope:** Second step of the successor to the retired Ralph-Loop / Overnight Worker, on top
+  of the merged `QUEUE-001` contract. Added `.claude/skills/queue-run/SKILL.md` — the reusable
+  worker (follows the existing `.claude/skills/cleanup-branches/` convention): claims the next
+  eligible `queue:approved` issue, implements within its declared scope, verifies, opens a PR,
+  subscribes to PR activity so CI failures and review comments wake the session, merges only
+  when explicitly authorized, runs an independent post-merge review + handoff, then proceeds or
+  stops cleanly. Enforces "exactly one active task" and the risk-class exclusions from
+  `QUEUE-001` regardless of an issue's own wording. Flipped `QUEUE-002` to `done` in
+  `ROADMAP.md`.
+- **Not done here:** `QUEUE-003` (two-task unattended smoke) and `QUEUE-004` (evaluation/
+  hardening) remain `todo`, not started. No queue issue was created or run.
+- **Verification:** `npm run verify` green (typecheck, lint, format, full test suite — no
+  `src/` change). Git readbacks clean.
+- **No-product-effect:** no `src/`, Supabase, dependency, or GitHub Actions workflow change.
+
 ## QUEUE-001 — Queue Contract and GitHub Issue Intake
 
 - **Task ID:** `QUEUE-001`.

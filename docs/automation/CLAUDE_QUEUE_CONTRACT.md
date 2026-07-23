@@ -139,9 +139,35 @@ operational guidance, not just historical notes:
   explicitly-flagged exception in service of the DoD rather than blocking the whole task on a
   self-inconsistent issue — but this should be caught at issue-authoring time, not discovered
   mid-task.
-- **Genuine unattended/overnight survival remains untested.** The `QUEUE-003` smoke test ran
-  entirely within one continuous, interactively-supervised session. Do not assume the queue
-  survives a genuinely unattended multi-hour gap until that has actually been exercised.
+- **Genuine unattended/overnight survival was subsequently tested in `QUEUE-004` — and did not
+  pass on native capabilities alone.** See "Operational Lessons (from `QUEUE-004`)" below.
+
+## Operational Lessons (from `QUEUE-004`)
+
+The `QUEUE-004` unattended smoke (issues #148/#149, PR #150,
+`reports/QUEUE_004_UNATTENDED_SMOKE_CLOSEOUT.md`) attempted a genuine multi-hour unattended
+two-stage run. Stage A passed the full supervised lifecycle; the unattended continuation failed
+**before** Stage B, and the following are binding corrections to what this contract may claim:
+
+- **Native session capabilities have not proven a reliable unattended overnight worker.** Nothing
+  in this contract or the `queue-run` skill may be described as "unattended" merely because it
+  uses `queue-run`. Without an external trigger, the queue is **semi-attended**: it processes
+  whatever is actionable when a session is invoked, but future reactivation is not guaranteed.
+- **PR-activity subscriptions are useful for CI failures and review activity, but did not
+  reliably surface quiet CI success** in either observed run (`QUEUE-003`, `QUEUE-004`). Green CI
+  was only ever noticed by an in-session check or a human prompt.
+- **The observed environment provides no usable native 15-minute recurring wake.** A recurring
+  Routine at `*/15 * * * *` was rejected outright — the minimum supported recurring interval is
+  one hour. A one-hour Routine does not satisfy the maintainer's requested ~15-minute
+  progress-check/recovery target.
+- **The external-controller decision (`GITHUB_ACTIONS_CONTROLLER_JUSTIFIED`) was justified by
+  this real smoke evidence, not assumed in advance.** The successor scope is deliberately
+  minimal — see `QUEUE-005` in `ROADMAP.md`; this contract does not define the controller's
+  design.
+- **Fail closed on missing wake mechanisms.** A worker must not approve or claim a
+  delayed/dependent future task when no supported wake mechanism exists to reach it — stopping
+  before the dependent stage (as `QUEUE-004` did with Stage B, issue #149, closed unexecuted) is
+  the correct outcome, and an unexecuted stage must never be cited as completed queue work.
 
 ## Relationship to `ROADMAP.md`
 

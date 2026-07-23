@@ -1,5 +1,41 @@
 # Latest Handoff
 
+## QUEUE-006 — Phase-B Unattended Smoke Test Marker (Done)
+
+- **Task ID:** `QUEUE-006` (source issue #155).
+- **What changed:** merged PR #157 (squash commit `bc55e630797189a437e6ff7692eff0fadac88dee` on
+  `chore/clean-arch-structure`), adding `reports/QUEUE-006_SMOKE_TEST_MARKER.md`. The marker
+  records that the externally triggered unattended path
+  (`.github/workflows/claude-queue-wake.yml`, QUEUE-005) picked this task up via a scheduled
+  15-minute tick, that the primary `oauth`-mode attempt for the implement phase failed and the
+  workflow's runtime fallback (fixed in PR #156) switched to `api` mode to implement/push/open the
+  PR, and that this final resolve transition (workflow run `30045774497`) reconciled live GitHub
+  state, confirmed CI green + no outstanding reviews, merged, and ran the post-merge scope check.
+- **Why:** QUEUE-006 is the QUEUE-005 Phase-B smoke test — its sole purpose is proving the
+  external-controller path works end-to-end with real GitHub-configured auth across the full
+  claim → implement → wait-ci → resolve → post-merge lifecycle, not product value.
+- **Files changed:** `reports/QUEUE-006_SMOKE_TEST_MARKER.md` only (confirmed via
+  `git diff --stat` of the squash commit against its parent — no scope creep).
+- **Verification executed:** `npm run verify` (235/235 suites, 2279/2279 tests) was run by the
+  implementing invocation before opening the PR; this resolve invocation additionally confirmed
+  PR #157's `mergeStateStatus` was `CLEAN`/`mergeable` and `reviews`/`comments` were empty before
+  merging.
+- **Verification result:** pass (verify green pre-PR; PR merge clean; post-merge diff scoped
+  correctly).
+- **Known issues/blockers/residual risks:** this job's GitHub token cannot read
+  `statusCheckRollup`/check-runs via `gh pr checks`/`gh pr view --json statusCheckRollup`
+  ("Resource not accessible by integration") — CI-green confirmation relied on the deterministic
+  preflight's own properly-scoped, same-workflow-run check-runs read (`ACTION_CI_GREEN`, head SHA
+  matching the PR's actual head at merge time) rather than an independent re-read by this job.
+  Worth a follow-up if the queue controller is extended, but did not block this task since the
+  preflight's reason code is itself the contract's sanctioned CI-state source (see
+  `docs/automation/CLAUDE_QUEUE_CONTRACT.md`'s "External-Controller Mode" section) and no newer
+  state contradicted it. Also: the merged marker file's "PR: (filled in once opened)" line was
+  never backfilled with `#157` by the implementing invocation — cosmetic only, not corrected here
+  to avoid expanding this resolve transition's scope beyond the merge/post-merge review.
+- **Human-review status / next steps:** `queue:done` set on issue #155; none — task complete. This
+  closes out the QUEUE-005 Phase-B smoke protocol end-to-end.
+
 ## QUEUE-005 — Zero-Claude Idle Dispatch Proof (Phase A follow-up, In Progress)
 
 - **Task ID:** `QUEUE-005` (Phase A follow-up: post-merge zero-Claude dispatch proof only).

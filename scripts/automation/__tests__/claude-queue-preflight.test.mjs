@@ -661,6 +661,27 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     assert.match(WORKFLOW_SOURCE, /cron:\s*['"]\*\/15 \* \* \* \*['"]/);
   });
 
+  test('declares event-driven wake triggers so the queue does not depend on cron punctuality', () => {
+    // GitHub's schedule trigger is best-effort; during the QUEUE-006 Phase-B smoke no */15
+    // tick fired for over an hour while a green queue PR waited. The two prompt-relevant
+    // state changes must each have a native event wake: task approval (issues labeled) and
+    // CI completion (workflow_run on the Verify workflow). The cron stays as heartbeat only.
+    assert.match(WORKFLOW_SOURCE, /issues:\n\s*types: \[labeled\]/);
+    assert.match(
+      WORKFLOW_SOURCE,
+      /workflow_run:\n\s*workflows: \['Verify'\]\n\s*types: \[completed\]/,
+    );
+  });
+
+  test('preflight job skips labeled events for any label other than queue:approved', () => {
+    const preflightJobMatch = WORKFLOW_SOURCE.match(/\n {2}preflight:\n([\s\S]*?)\n {2}claude:/);
+    assert.ok(preflightJobMatch, 'preflight job not found');
+    assert.match(
+      preflightJobMatch[1],
+      /if:\s*github\.event_name != 'issues' \|\| github\.event\.label\.name == 'queue:approved'/,
+    );
+  });
+
   test('25) claude job is conditional on preflight should_invoke -> idle path cannot reach it', () => {
     const claudeJobMatch = WORKFLOW_SOURCE.match(/\n {2}claude:\n([\s\S]*)/);
     assert.ok(claudeJobMatch, 'claude job not found');

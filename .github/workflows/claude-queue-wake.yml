@@ -3,16 +3,35 @@ name: Claude Queue Wake Controller
 # QUEUE-005 — Minimal External Queue Wake Controller. See
 # reports/QUEUE_005_MINIMAL_EXTERNAL_WAKE_CONTROLLER.md and
 # docs/automation/CLAUDE_QUEUE_CONTRACT.md for the design this implements. This workflow only
-# ever runs from the default-branch version of this file (GitHub Actions' own `schedule`
-# behavior); it does not select ROADMAP.md tasks and does not run a background daemon — it
-# wakes every 15 minutes, runs a deterministic read-only preflight, and invokes the official
-# Claude Code Action only when that preflight says an AI decision/implementation step is
+# ever runs from the default-branch version of this file (GitHub Actions' own `schedule`/
+# `workflow_run` behavior); it does not select ROADMAP.md tasks and does not run a background
+# daemon — every wake runs a deterministic read-only preflight, and the official Claude Code
+# Action is invoked only when that preflight says an AI decision/implementation step is
 # actually required.
+#
+# Wake sources are event-driven first, cron second. GitHub's `schedule` trigger is best-effort
+# and proved unreliable in practice for a */15 cadence (during the QUEUE-006 Phase-B smoke on
+# 2026-07-23, no scheduled tick fired for over an hour while a green queue PR sat waiting to be
+# merged). The two state changes the queue must react to promptly each have a native event:
+#
+#   - `issues: labeled`   → the moment a task is approved (queue:approved) — ACTION_NEW_TASK
+#   - `workflow_run`      → the moment the Verify CI workflow completes on a queue PR —
+#                           ACTION_CI_GREEN / ACTION_CI_FAILED
+#
+# The cron remains only as a fallback heartbeat for anything the events miss (e.g. a label
+# added while Actions was degraded, dependency chains unblocking). Extra wakes are harmless by
+# design: the preflight is read-only, deterministic, and idempotent, the concurrency group
+# serializes runs, and idle wakes never reach a Claude secret.
 
 on:
   workflow_dispatch:
   schedule:
     - cron: '*/15 * * * *'
+  issues:
+    types: [labeled]
+  workflow_run:
+    workflows: ['Verify']
+    types: [completed]
 
 concurrency:
   group: claude-queue-wake-controller
@@ -23,6 +42,10 @@ permissions: {}
 jobs:
   preflight:
     name: Preflight (deterministic, read-only)
+    # Label events wake the queue only for the one label that changes eligibility. Every other
+    # labeled event is skipped here before any checkout happens; the cron/dispatch/workflow_run
+    # paths are unaffected. (A skipped preflight also skips the claude job via `needs`.)
+    if: github.event_name != 'issues' || github.event.label.name == 'queue:approved'
     runs-on: ubuntu-latest
     permissions:
       contents: read

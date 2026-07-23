@@ -83,6 +83,11 @@ jobs:
       pull-requests: write
       checks: read
       actions: read
+      # anthropics/claude-code-action mints its own scoped GitHub App token via OIDC token
+      # exchange by default (independent of the oauth/api Anthropic-auth question below) — it
+      # needs this to create branches/commits/PRs/comments. Missing this causes every Claude
+      # job to fail immediately with "Could not fetch an OIDC token", before Claude runs at all.
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -178,7 +183,12 @@ jobs:
       # precheck step's comment for what this can and can't safely retry).
       - name: Claude queue transition (oauth failed — runtime fallback to api)
         id: fallback-oauth-to-api
-        if: steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api'
+        # always() is required here: GitHub Actions implicitly ANDs success() onto any custom
+        # `if:` that doesn't itself call failure()/always()/cancelled(), so without this the
+        # step would silently never run once run-oauth failed — exactly the bug the QUEUE-006
+        # smoke test caught (job summary showed run-oauth: failure, runtime_fallback_configured:
+        # api, but this step: skipped).
+        if: always() && steps.run-oauth.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'api'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -275,7 +285,8 @@ jobs:
       # CLAUDE_QUEUE_AUTH_MODE_FALLBACK=oauth configured.
       - name: Claude queue transition (api failed — runtime fallback to oauth)
         id: fallback-api-to-oauth
-        if: steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth'
+        # See the fallback-oauth-to-api step above for why always() is required here.
+        if: always() && steps.run-api.outcome == 'failure' && steps.auth.outputs.runtime_fallback_mode == 'oauth'
         uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

@@ -752,12 +752,31 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     // other one) — otherwise a failure on one mode could spuriously trigger the wrong fallback.
     assert.match(
       WORKFLOW_SOURCE,
-      /if:\s*steps\.run-oauth\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'api'/,
+      /if:\s*always\(\) && steps\.run-oauth\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'api'/,
     );
     assert.match(
       WORKFLOW_SOURCE,
-      /if:\s*steps\.run-api\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'oauth'/,
+      /if:\s*always\(\) && steps\.run-api\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'oauth'/,
     );
+  });
+
+  test('runtime fallback conditions call always() so GitHub Actions does not implicitly AND success() onto them', () => {
+    // A bare custom `if:` (no failure()/always()/cancelled()) gets an implicit success() ANDed
+    // on by GitHub Actions, which would silently skip these steps forever once the primary step
+    // they're meant to react to has already failed. This is the exact bug the QUEUE-006 smoke
+    // test caught in production: job summary showed run-oauth: failure and
+    // runtime_fallback_configured: api, but fallback-oauth-to-api: skipped.
+    const fallbackIfLines = WORKFLOW_SOURCE.match(/if:\s*[^\n]*runtime_fallback_mode[^\n]*/g) ?? [];
+    assert.equal(fallbackIfLines.length, 2, 'expected exactly two runtime-fallback if: conditions');
+    for (const line of fallbackIfLines) {
+      assert.match(line, /always\(\)/, `runtime fallback condition missing always(): ${line}`);
+    }
+  });
+
+  test("claude job grants id-token: write for the Claude Code Action's own OIDC GitHub token exchange", () => {
+    const claudeJobMatch = WORKFLOW_SOURCE.match(/\n {2}claude:\n([\s\S]*)/);
+    assert.ok(claudeJobMatch, 'claude job not found');
+    assert.match(claudeJobMatch[1], /id-token:\s*write/);
   });
 
   test('runtime fallback steps use the resolved fallback model, not the primary CLAUDE_QUEUE_MODEL', () => {

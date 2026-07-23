@@ -712,7 +712,10 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
 
   test('has finite job timeout and bounded max-turns on the claude job', () => {
     assert.match(WORKFLOW_SOURCE, /timeout-minutes:\s*45/);
-    assert.match(WORKFLOW_SOURCE, /--max-turns\s+24/);
+    // 50, not 24: the QUEUE-006 smoke test showed 24 was tight enough that a worker could
+    // complete its transition and still die on the turn limit, reporting a spurious failure.
+    assert.match(WORKFLOW_SOURCE, /--max-turns\s+50/);
+    assert.doesNotMatch(WORKFLOW_SOURCE, /--max-turns\s+(?!50\b)\d+/);
   });
 
   test('does not grant unrestricted Bash', () => {
@@ -752,25 +755,69 @@ describe('workflow structure — .github/workflows/claude-queue-wake.yml', () =>
     // other one) — otherwise a failure on one mode could spuriously trigger the wrong fallback.
     assert.match(
       WORKFLOW_SOURCE,
-      /if:\s*always\(\) && steps\.run-oauth\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'api'/,
+      /if:\s*always\(\) && steps\.run-oauth\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'api' && steps\.recheck-oauth\.outputs\.should_invoke == 'true'/,
     );
     assert.match(
       WORKFLOW_SOURCE,
-      /if:\s*always\(\) && steps\.run-api\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'oauth'/,
+      /if:\s*always\(\) && steps\.run-api\.outcome == 'failure' && steps\.auth\.outputs\.runtime_fallback_mode == 'oauth' && steps\.recheck-api\.outputs\.should_invoke == 'true'/,
     );
   });
 
-  test('runtime fallback conditions call always() so GitHub Actions does not implicitly AND success() onto them', () => {
+  test('runtime fallback and recheck conditions call always() so GitHub Actions does not implicitly AND success() onto them', () => {
     // A bare custom `if:` (no failure()/always()/cancelled()) gets an implicit success() ANDed
     // on by GitHub Actions, which would silently skip these steps forever once the primary step
     // they're meant to react to has already failed. This is the exact bug the QUEUE-006 smoke
     // test caught in production: job summary showed run-oauth: failure and
     // runtime_fallback_configured: api, but fallback-oauth-to-api: skipped.
     const fallbackIfLines = WORKFLOW_SOURCE.match(/if:\s*[^\n]*runtime_fallback_mode[^\n]*/g) ?? [];
-    assert.equal(fallbackIfLines.length, 2, 'expected exactly two runtime-fallback if: conditions');
+    assert.equal(
+      fallbackIfLines.length,
+      4,
+      'expected exactly four post-failure if: conditions (two rechecks, two fallbacks)',
+    );
     for (const line of fallbackIfLines) {
-      assert.match(line, /always\(\)/, `runtime fallback condition missing always(): ${line}`);
+      assert.match(line, /always\(\)/, `post-failure condition missing always(): ${line}`);
     }
+  });
+
+  test('every transition prompt instructs the worker to end immediately after the durable transition', () => {
+    // Companion mitigation to the recheck gate: 24 turns proved tight enough that a worker
+    // finished its transition and then burned the rest on tidying, ending as a spurious
+    // failure. All four prompts (two primaries, two fallbacks) must carry the wrap-up rule.
+    const occurrences = WORKFLOW_SOURCE.match(/end this run immediately/g) ?? [];
+    assert.equal(occurrences.length, 4, 'expected the wrap-up instruction in all four prompts');
+  });
+
+  test('a deterministic recheck gates each runtime fallback, so a completed-then-failed primary run never triggers a redundant Claude retry', () => {
+    // The QUEUE-006 smoke run proved a primary attempt can durably complete its transition and
+    // STILL report failure (max-turns exhaustion after the work was done). The recheck re-runs
+    // the same read-only preflight decision script against live GitHub state; the fallback only
+    // fires if it still says should_invoke=true. No log parsing, no error-text matching.
+    const recheckMatches =
+      WORKFLOW_SOURCE.match(
+        /id: recheck-(oauth|api)\n[\s\S]*?run: node scripts\/automation\/claude-queue-preflight\.mjs/g,
+      ) ?? [];
+    assert.equal(
+      recheckMatches.length,
+      2,
+      'expected recheck-oauth and recheck-api to run the preflight script',
+    );
+    // Rechecks are read-only: they must use the workflow GITHUB_TOKEN, never a Claude secret.
+    for (const block of recheckMatches) {
+      assert.doesNotMatch(block, /ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN/);
+    }
+    // Ordering: each recheck sits between its primary step and its fallback step.
+    const idx = (s) => WORKFLOW_SOURCE.indexOf(s);
+    assert.ok(
+      idx('id: run-oauth') < idx('id: recheck-oauth') &&
+        idx('id: recheck-oauth') < idx('id: fallback-oauth-to-api'),
+      'recheck-oauth must sit between run-oauth and fallback-oauth-to-api',
+    );
+    assert.ok(
+      idx('id: run-api') < idx('id: recheck-api') &&
+        idx('id: recheck-api') < idx('id: fallback-api-to-oauth'),
+      'recheck-api must sit between run-api and fallback-api-to-oauth',
+    );
   });
 
   test("claude job grants id-token: write for the Claude Code Action's own OIDC GitHub token exchange", () => {

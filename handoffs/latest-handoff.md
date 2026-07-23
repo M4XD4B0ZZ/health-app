@@ -1,5 +1,39 @@
 # Latest Handoff
 
+## QUEUE-003 — Two-Task Unattended Smoke Test (Complete)
+
+- **Task ID:** `QUEUE-003` (plus its second sub-task `QUEUE-003B`, issue #143).
+- **What changed:** Ran the Claude Queue end-to-end for real, via the `queue-run` skill, across
+  two tasks: `RALPH-RETIRE-002` (issue #142, `risk:review-required` — PR #144, human-merged) and
+  `QUEUE-003B` (issue #143, `risk:safe-autonomous` — PR #145, auto-merged). Added
+  `reports/QUEUE-003_SMOKE_TEST_MARKER.md` as the synthetic proof artifact. Flipped `QUEUE-003`
+  to `done` in `ROADMAP.md` with detailed findings; refined `QUEUE-004`'s scope with concrete
+  action items derived from those findings (previously generic).
+- **Why:** Prove the queue works before trusting it with larger or less-supervised work, per the
+  plan agreed with the user.
+- **Key findings** (full detail in `ROADMAP.md`'s `QUEUE-003` entry): CI-success webhooks never
+  arrived spontaneously in this run (only user-prompted checks and the scheduled fallback
+  fired) — the fallback heartbeat should be treated as primary, not backup. Dependency gating and
+  the `risk:review-required` vs `risk:safe-autonomous` merge-authorization split both worked
+  exactly as designed. Two real incidents surfaced and were resolved safely: a stale local branch
+  sharing the canonical branch's name briefly reverted the working tree when checked out by bare
+  name (no push occurred; recovered via reset to `origin/<default-branch>`), and this
+  environment's own auto-mode safety classifier blocked a bulk `git rm -r` even on a
+  `queue:approved` task (resolved by deleting files individually, with the user's explicit
+  choice). One issue (`RALPH-RETIRE-002`) had an internal inconsistency between its
+  "Allowed paths" and its own DoD, resolved via a narrow, explicitly-flagged exception rather than
+  blocking. Genuine unattended/overnight survival was **not** tested — this run stayed within one
+  continuous, interactively-supervised session.
+- **Files changed:** `reports/QUEUE-003_SMOKE_TEST_MARKER.md` (via PR #145, already merged);
+  `ROADMAP.md` (this task).
+- **Verification:** documentation-only (Category 1/2) — git readbacks; `npm run verify` also run
+  for confidence.
+- **Human-review status:** docs-only ROADMAP/handoff update, following this session's established
+  direct-commit convention for governance bookkeeping (same pattern as prior RALPH-RETIRE-001/002
+  status updates).
+- **Next steps:** `QUEUE-004` (todo) — act on the findings above before considering any dedicated
+  controller.
+
 ## RALPH-RETIRE-002 — Consolidate Governance After RALPH Retirement
 
 - **Task ID:** `RALPH-RETIRE-002`. Run as the first real task through the Claude Queue

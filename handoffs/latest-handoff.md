@@ -1,5 +1,53 @@
 # Latest Handoff
 
+## RESOLVER-V3-041 — Binding Product-Owner Model Decision Amendment (Documentation-only)
+
+- **Task ID/status:** `RESOLVER-V3-041` task-instruction amendment (the task itself remains
+  `todo`, unstarted — this entry only amends its binding instructions and creates its successor
+  sequence). Not a code change; no provider call was made.
+- **What changed:** `ROADMAP.md`'s `RESOLVER-V3-041` entry now records a binding product-owner
+  decision: Claude Haiku 4.5 (`anthropic` / `claude-haiku-4-5` / `claude-haiku-4-5-20251001`,
+  pinned per RESOLVER-V3-039) is the sole intended production-model candidate for the Hybrid
+  Resolver critical path; Sonnet 5 is removed from the model policy, successor-task sequence, any
+  planned bakeoff, any fallback/escalation architecture, and the production-readiness decision; no
+  automatic or selective escalation to a larger model may ever be proposed. The intended runtime
+  policy (safe deterministic fast path → Haiku-grounded interpretation/search planning →
+  source-grounded retrieval → deterministic ranking/validation/calculation → clarification/honest
+  abstention) and the full Haiku optimization objective list are now recorded as binding scope.
+  `finalModelSelectionStatus` is fixed at `HAIKU_4_5_LOCKED_AS_PRODUCTION_CANDIDATE` until four
+  explicit future-reconsideration conditions all hold. `RESOLVER-V3-041`'s own Non-goals/Acceptance
+  were extended accordingly, including a "Report requirement" for its eventual formal report.
+  Added six new successor tasks, `RESOLVER-V3-043` through `RESOLVER-V3-048` (next free IDs,
+  confirmed via repository-wide search — no collision with any prior task in `043..049`), as the
+  binding Hybrid P0 remediation order: (1) Unsafe Fast-Path and False-Confidence Remediation; (2)
+  Clarification, Abstention, and Confidence-Policy Remediation; (3) Haiku Interpretation
+  Determinism and Repeat-Consistency Remediation; (4) Haiku Response Contract, Parsing,
+  Reliability, Error Taxonomy, and Latency Remediation; (5) Haiku Optimization Candidate
+  Evaluation (explicitly not a model bakeoff — same pinned model only); (6) Protocol-v4 Evidence
+  Contract and Controlled Haiku Live Re-Evidence. `RESOLVER-V3-010`'s dependency list and entry
+  were updated to add `RESOLVER-V3-048` as the seventh and final gate before production wiring,
+  with an explicit "Haiku 4.5 only, no Sonnet/larger-model fallback" note.
+- **Why:** the product owner issued this decision directly (not derived from any task's own
+  analysis) to stop the Hybrid Resolver critical path from drifting toward a larger-model fallback
+  as a substitute for fixing real architecture/prompt/parsing/routing/policy defects, and to give
+  RESOLVER-V3-041 (and its successors) an explicit, binding instruction set before that work is
+  picked up.
+- **Files changed:** `ROADMAP.md` (this amendment), `handoffs/latest-handoff.md` (this entry). No
+  `src/**`, Supabase/migration, dependency, or GitHub workflow file touched.
+- **Verification executed:** documentation-only change (Category 1 per `VERIFY.md`) — git
+  readbacks (`git status --short`, `git diff --stat`) confirmed only `ROADMAP.md` and this handoff
+  changed; no test/build/typecheck rerun required since no source file changed.
+- **Verification result:** pass (documentation-only scope confirmed).
+- **Known issues/blockers/residual risks:** none identified for this amendment itself. The real
+  work it hands off — `RESOLVER-V3-043` through `RESOLVER-V3-048`, and eventually `RESOLVER-V3-041`
+  itself and `RESOLVER-V3-010` — remains substantial engineering work, not yet started as of this
+  entry (see the next handoff entry below for what was attempted afterward in this same session).
+- **Human-review status / next steps:** direct-commit governance/roadmap amendment, following this
+  repository's established convention for documentation-only planning updates (same pattern as
+  RALPH-RETIRE-002, QUEUE-004/005 roadmap updates). `RESOLVER-V3-041` remains `todo`, not started
+  by this amendment; `RESOLVER-V3-043..048` are `todo`, not started; `RESOLVER-V3-010` remains
+  `blocked`.
+
 ## RESOLVER-V3-039 — Controlled Representative Live Hybrid Evidence Closeout (Done)
 
 - **Task ID/status:** `RESOLVER-V3-039`, status **`done`** — evidence-collection objective complete

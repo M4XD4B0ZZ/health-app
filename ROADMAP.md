@@ -8153,11 +8153,15 @@ mandatory dimension).
 **Non-goals:** Any production wiring, feature-flag change, or provider/model product decision;
 rewriting RESOLVER-V3-024's historical verdict (it stands as a separate, unmodified record); this
 task does not begin RESOLVER-V3-010, which remains `blocked` until this task explicitly passes.
+**Non-goal added 2026-07-24 (binding product-owner decision, see below):** proposing automatic or
+selective escalation to Sonnet or any larger model; treating this implementation's gate failures as
+evidence that Haiku 4.5 itself is unsuitable.
 **Risks:** Treating a partial or `not_evaluable`-heavy RESOLVER-V3-039 result as sufficient for a
 gate decision; silently declaring the gate passed.
 **Acceptance:** An explicit, evidence-cited pass/fail re-decision for every G2 dimension, using
 RESOLVER-V3-039's actual live results (not the fixture-only RESOLVER-V3-038 report, not the
-14-case RESOLVER-V3-013 smoke evidence).
+14-case RESOLVER-V3-013 smoke evidence). **Acceptance added 2026-07-24:** this task's formal report
+must also satisfy the "Report requirement" below.
 **This task is not started.** RESOLVER-V3-039's evidence collection is now complete (`done`,
 2026-07-24 — Development and Holdout each ran exactly once, final evidence independently validated
 twice; see that task's entry above and
@@ -8191,6 +8195,74 @@ G2-B/G2-D) explicitly — it must not treat RESOLVER-V3-039's original stored `p
 G2-A/G2-C/G2-G as valid inputs**; RESOLVER-V3-042 is a prerequisite precisely so this task starts
 from faithful evidence, not defectively-derived verdicts. RESOLVER-V3-042 reaching `done` does not
 itself start or authorize this task.
+
+**Binding product-owner model decision (2026-07-24) — amends this task's instructions:**
+
+Claude Haiku 4.5 is the sole intended production-model candidate for the Hybrid Resolver critical
+path (a product-owner decision, not derived from this task's own analysis). Pinned reference
+identity, carried over unchanged from RESOLVER-V3-039's live evidence collection: provider
+`anthropic`, model alias `claude-haiku-4-5`, model snapshot `claude-haiku-4-5-20251001`. This
+decision removes Sonnet 5 from the current model policy, from the successor-task sequence below,
+from any planned model bakeoff, from any fallback/escalation architecture, and from the
+production-readiness decision this task makes. **This task must not propose automatic or selective
+escalation to Sonnet or any larger model, and must not treat the current implementation's gate
+failures (G2-B, G2-D `failed`; G2-A/G2-C/G2-E/G2-G now `indeterminate`/`requires_human_judgment`
+per RESOLVER-V3-042) as evidence that Haiku 4.5 itself is unsuitable** — architecture, policy,
+prompt, parsing, reliability, and routing defects must be identified and remediated first (see the
+successor-task sequence below); the product strategy is to optimize Haiku 4.5 to production
+quality rather than compensate for those defects by using a more capable, more expensive model.
+
+**Intended runtime policy** (binding target architecture, to be reached via the successor sequence
+below, not by this task itself): (1) a strictly safe deterministic fast path; (2) Haiku 4.5 for
+structured interpretation and search planning when AI routing is necessary; (3) source-grounded
+retrieval from BLS, OFF, USDA, personal memory, or other explicitly authorized sources; (4)
+deterministic ranking, validation, scaling, and nutrient calculation; (5) clarification or honest
+abstention when a result cannot safely be resolved. A difficult or uncertain request must resolve
+to one of: a safe deterministic resolution; a Haiku-grounded resolution that passes validation; a
+targeted clarification; an honest abstention; or a classified terminal technical failure — **never**
+an escalation to Sonnet. The model must never be an authoritative nutrient source.
+
+**Haiku optimization objective** (binding scope for the successor-task sequence below): prompt
+precision and minimum necessary context; strict structured-output schema; deterministic
+normalization of model output; stable search-plan construction; removal of unnecessary linguistic
+freedom; fail-closed response validation; response parsing and schema-error classification;
+false-confidence prevention; clarification versus abstention policy; repeat consistency; prompt and
+output token reduction; latency reduction; avoidance of unnecessary AI routing; deterministic reuse
+through personal resolution memory; safe timeout and retry behavior; complete usage and cost
+telemetry. Hidden chain-of-thought must never be requested or exposed. The model must never be
+asked for nutrient values, probabilistic speculation, or unrestricted prose as an optimization
+strategy.
+
+**Revised successor-task sequence (created by this amendment, 2026-07-24):** `RESOLVER-V3-043`
+through `RESOLVER-V3-048` are added below (next free IDs — repository-wide search confirmed no
+prior task used any ID in `RESOLVER-V3-043..049`) as the binding Hybrid P0 remediation order: (1)
+Unsafe Fast-Path and False-Confidence Remediation; (2) Clarification, Abstention, and
+Confidence-Policy Remediation; (3) Haiku Interpretation Determinism and Repeat-Consistency
+Remediation; (4) Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency
+Remediation; (5) Haiku Optimization Candidate Evaluation (controlled variants of the *same* pinned
+Haiku model only — see that task's own entry — explicitly **not** a model bakeoff); (6) Protocol-v4
+Evidence Contract and Controlled Haiku Live Re-Evidence. `RESOLVER-V3-010` (Production Wiring and
+Staged Rollout) remains the seventh and final step and is only authorized after `RESOLVER-V3-048`
+passes its gate — see that task's own updated dependency below. None of `RESOLVER-V3-043..048` is
+started by this amendment.
+
+**Future model reconsideration:** no larger-model comparison is scheduled now. A future model
+reconsideration may occur only through a separate, explicitly authorized product decision, and only
+if **all** of the following are true: the complete `RESOLVER-V3-043..048` remediation sequence has
+finished; a valid protocol-v4 Haiku run (`RESOLVER-V3-048`) still fails a mandatory gate; the
+remaining failure is shown to be model-capability-bound rather than caused by routing, retrieval,
+validation, prompt, schema, latency, or policy defects; and the cost/latency consequences of another
+model are separately accepted. Until all four hold, `finalModelSelectionStatus` is
+**`HAIKU_4_5_LOCKED_AS_PRODUCTION_CANDIDATE`** — this task's eventual formal report must state this
+literal and must not describe the model choice as unresolved.
+
+**Report requirement (binding addition to this task's Acceptance):** when this task is executed,
+its formal report must record, in addition to the per-dimension G2 re-decision already required
+above: (1) Haiku 4.5 is the locked production candidate; (2) the current Haiku implementation has
+not yet passed the production gate; (3) failure of the current implementation is not evidence that
+Haiku itself is unsuitable; (4) architecture, policy, prompt, parsing, reliability, and routing
+defects must be remediated first (i.e., via `RESOLVER-V3-043..048`); (5) no larger-model fallback
+is authorized; (6) `RESOLVER-V3-010` remains blocked until new Haiku-only evidence passes the gate.
 
 #### RESOLVER-V3-042: Gate Evaluator Fidelity Remediation and Derived Evidence Audit
 
@@ -8255,6 +8327,170 @@ before and after; RESOLVER-V3-041 remains `todo`; RESOLVER-V3-010 remains `block
 report and JSON companion written, `ROADMAP.md` updated, evidence-file hashes confirmed unchanged.
 **This task did not start RESOLVER-V3-041** (still `todo`, its own dependency updated above to also
 name this task) **and did not affect RESOLVER-V3-010** (still `blocked`).
+
+---
+
+### RESOLVER-V3-043 .. RESOLVER-V3-048: Haiku 4.5 Production-Readiness Remediation Series
+
+Added 2026-07-24 as the binding successor sequence from the product-owner model decision recorded
+in `RESOLVER-V3-041`'s entry above (Claude Haiku 4.5 locked as the sole production-model candidate;
+no Sonnet/larger-model fallback or escalation authorized anywhere in this sequence). Repository-wide
+search confirmed `RESOLVER-V3-043` through `RESOLVER-V3-049` do not appear anywhere in `ROADMAP.md`
+before this addition — no ID collides with any pre-existing task. Only 043–048 are used here (six
+new tasks); the seventh step in the decision's ordered list is the pre-existing `RESOLVER-V3-010`,
+not a new ID (see its updated dependency at the end of this section). None of the six is started by
+this addition.
+
+#### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-041
+
+**Goal:** Remediate the specific unsafe-fast-path and false-confidence defects RESOLVER-V3-039/042
+surfaced against the pinned Haiku 4.5 implementation (stored G2-B `failed`; the historical RV3-0011
+"Brötchen" false-confidence case reproduced end-to-end in `RH-RES-DACH-DEV-006`, per RESOLVER-V3-038's
+readiness report) — not by escalating to a larger model, but by making the deterministic fast path
+and the Haiku-grounded response validation fail closed instead of returning a confident wrong
+answer.
+**Scope:** Audit and fix the deterministic fast path's documented gap of not stripping a leading
+quantity/article token before searching BLS (architecture finding, RESOLVER-V3-038); audit and fix
+whatever caused Hybrid C not to be strictly better than both Variant A and Variant B in the
+RESOLVER-V3-039 live run; strengthen fail-closed response validation so an unvalidated or
+low-confidence Haiku output cannot reach the user as if authoritative; add regression coverage
+reproducing the `RH-RES-DACH-DEV-006`/RV3-0011 case and the concrete G2-B failure mode(s) found in
+the live evidence.
+**Non-goals:** Any Sonnet/larger-model comparison, fallback, or escalation path (forbidden by the
+binding model decision in `RESOLVER-V3-041`'s entry); any new live provider call (this task fixes
+code against existing frozen evidence/fixtures — live re-evidence is `RESOLVER-V3-048`); any
+Anthropic-specific concept introduced into domain/application-layer code (per `AGENTS.md`'s "no
+model names or provider names in domain or application layer code" rule).
+**Risks:** Treating a code fix as done without a fixture/regression proving the specific historical
+failure no longer reproduces; narrowing the fix to the one documented case while leaving the
+underlying class of defect (e.g., other un-normalized quantity/article patterns) unaddressed.
+**Acceptance:** The RV3-0011/`RH-RES-DACH-DEV-006` false-confidence case and the documented
+fast-path token-stripping gap are both fixed and regression-tested; no Sonnet/larger-model code
+path is introduced anywhere in the diff; `npm run verify` green.
+
+#### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-043
+
+**Goal:** Implement the binding runtime policy's requirement that a difficult or uncertain request
+resolve to a targeted clarification or an honest abstention rather than a confident guess, and
+define the clarification-vs-abstention decision policy explicitly (not as an emergent side effect
+of scoring thresholds).
+**Scope:** Confidence-policy rules that route to (a) a safe deterministic resolution, (b) a
+Haiku-grounded resolution that passes validation, (c) a targeted clarification (reusing the
+existing tappable-choice pattern from RESOLVER-V2-010/RESOLVER-V3-011, never a free-text
+re-description), (d) an honest abstention, or (e) a classified terminal technical failure — with an
+explicit, testable rule for choosing between (c) and (d); wiring this policy through the Hybrid
+path without introducing a Sonnet/larger-model branch.
+**Non-goals:** Any Sonnet/larger-model escalation; any change to the tappable-choice UI pattern
+itself (that is RESOLVER-V3-011's scope) beyond wiring the new signal into it.
+**Risks:** Defining "abstention" so loosely it silently degrades to always-clarify (user friction)
+or always-guess (false confidence); duplicating RESOLVER-V3-011's UI work instead of reusing it.
+**Acceptance:** A documented, tested clarification-vs-abstention policy exists and is wired into the
+Hybrid path; false-confidence and excessive-clarification regression cases both pass; `npm run
+verify` green.
+
+#### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-044
+
+**Goal:** Close the real repeat-consistency gap RESOLVER-V3-042's derived-evidence audit found:
+Variant C's live repeat-agreement rate was 68.75% against Variant A's structural ~100% baseline (a
+−31.25 percentage-point gap, `requires_human_judgment` per G2-G) — by making Haiku's interpretation
+and search-plan construction deterministic wherever the domain allows it, not by adding a second
+model.
+**Scope:** Deterministic normalization of Haiku's structured output; stable search-plan construction
+for repeated/paraphrased equivalent inputs; removal of unnecessary linguistic freedom from the
+prompt/schema; allowed deterministic generation configuration (e.g., temperature/sampling settings
+already permitted by the binding optimization objective); regression tests using the existing
+repeat/paraphrase overlay cases from the RESOLVER-V3-038 corpus.
+**Non-goals:** Any Sonnet/larger-model comparison; expanding the corpus itself (successor corpus
+changes are out of scope here).
+**Risks:** Improving aggregate repeat-agreement while leaving specific category-level regressions
+undetected (no per-case category data was persisted historically, per RESOLVER-V3-042 — this task
+must persist it going forward, not repeat that gap).
+**Acceptance:** Repeat-agreement rate on the existing overlay cases is measurably improved and
+regression-tested; per-case category data is now persisted for future audits; `npm run verify`
+green.
+
+#### RESOLVER-V3-046: Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-045
+
+**Goal:** Close the G2-D latency failure and harden the Haiku response contract: strict
+structured-output schema, deterministic parsing, an explicit schema-error/technical-failure
+taxonomy (correcting the RESOLVER-V3-042-documented defect where Variant C's
+`quality.technicalFailureCount` was hard-coded to `0`), safe timeout/retry behavior, and prompt/
+output token reduction to address latency directly rather than by routing around Haiku.
+**Scope:** Structured-output schema strictness and versioning; deterministic response parsing;
+explicit, classified error taxonomy for schema/parse/timeout/retry failures (no more hard-coded `0`
+failure counts); token-budget reduction for prompt and output; safe timeout/retry policy with
+telemetry; regression tests reproducing the RESOLVER-V3-042-documented hard-coded-failure-count
+defect and asserting the corrected behavior.
+**Non-goals:** Any Sonnet/larger-model fallback for latency or reliability; any hidden
+chain-of-thought request from the model.
+**Risks:** Reducing tokens/latency at the cost of response quality without a regression gate proving
+quality held; an error taxonomy that reclassifies real failures as successes to improve apparent
+metrics.
+**Acceptance:** G2-D's latency regression is remeasured and improved against the RESOLVER-V3-039
+baseline; the technical-failure-count defect is fixed and regression-tested; complete usage/cost/
+latency telemetry is emitted for every call; `npm run verify` green.
+
+#### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
+
+Status: `todo`
+Depends on: RESOLVER-V3-046
+
+**Goal:** Compare controlled variants of the *same* pinned Haiku 4.5 model (prompt structure, schema
+wording, normalization rules, routing policy, context reduction, validation behavior, allowed
+deterministic generation configuration, timeout/retry configuration) to pick the best-performing
+configuration — **this is explicitly not a model bakeoff.**
+**Scope:** Design and run a controlled comparison holding constant: provider (`anthropic`), model
+alias (`claude-haiku-4-5`), pinned model snapshot (`claude-haiku-4-5-20251001`), the benchmark
+corpus (RESOLVER-V3-038 successor corpus, unmodified), source-authority rules, and
+nutrient-grounding rules. Only the variant dimensions listed above may differ between candidates.
+**Non-goals:** Comparing against Sonnet or any other/larger model — forbidden by the binding model
+decision in `RESOLVER-V3-041`'s entry; modifying the frozen benchmark corpus.
+**Risks:** Smuggling a de facto model comparison in under the label of "prompt variant" (e.g., by
+changing provider/alias/snapshot); overfitting the winning configuration to the benchmark corpus
+rather than the real distribution of user input.
+**Acceptance:** A winning controlled configuration is selected with evidence, under the pinned model
+held constant throughout; the comparison report explicitly confirms provider/alias/snapshot/corpus/
+source-authority/nutrient-grounding rules were unchanged across all candidates; `npm run verify`
+green.
+
+#### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
+
+Status: `todo`
+Depends on: RESOLVER-V3-047
+
+**Goal:** Define a protocol-v4 evidence contract (successor to RESOLVER-V3-039's protocol v3) and
+run a new controlled, representative live Haiku-only evidence collection against the winning
+RESOLVER-V3-047 configuration, to re-decide the G2 gate with the remediated implementation — the
+gate `RESOLVER-V3-041` could not honestly pass with the pre-remediation implementation.
+**Scope:** A versioned protocol-v4 document (execution-tree hash, corpus hash, source-manifest
+hash, plan hash, following RESOLVER-V3-039's corrected v3 hashing approach); a live,
+credential-gated, budget-bounded run against the pinned Haiku 4.5 model only; per-case category
+data persisted (closing the RESOLVER-V3-042-documented gap); a fresh G2 gate re-decision using this
+new evidence.
+**Non-goals:** Any Sonnet/larger-model live call; skipping straight to `RESOLVER-V3-010` without an
+explicit passed gate from this task's own evidence.
+**Risks:** Repeating any of the RESOLVER-V3-039 protocol defects (non-reproducible hashes,
+non-atomic checkpoints, process-local budget state) — this task must inherit the corrected
+protocol-v3 machinery, not reinvent it; declaring the gate passed without holdout evidence.
+**Acceptance:** A complete, honestly reported protocol-v4 live evidence set (development + holdout)
+against the pinned Haiku 4.5 model exists; the G2 gate is explicitly re-decided per dimension; if
+passed, `RESOLVER-V3-010`'s dependency on this task is satisfied — if not, `RESOLVER-V3-010`
+remains blocked and any further model reconsideration follows the "Future model reconsideration"
+conditions in `RESOLVER-V3-041`'s entry, not an ad hoc decision.
+
+---
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 
@@ -9385,7 +9621,8 @@ origin --delete` with HTTP 403 for merged branches; it is left for an authorized
 #### RESOLVER-V3-010: Production Integration Behind Feature Flag
 
 Status: `blocked`
-Depends on: RESOLVER-V3-006 (historical comparison gate), RESOLVER-V3-019, RESOLVER-V3-024
+Depends on: RESOLVER-V3-006 (historical comparison gate), RESOLVER-V3-019, RESOLVER-V3-024,
+RESOLVER-V3-048 (added 2026-07-24, see updated note below)
 
 **RESOLVER-V3-024 dependency update (2026-07-22):** RESOLVER-V3-024 (Representative Learning/
 Hybrid Gate Re-decision) is now `done` (task completion), with an explicit gate verdict of
@@ -9408,6 +9645,16 @@ decision.
 
 **DoD:** feature-flagged production wiring; flag default off; existing resolver behavior
 unchanged when the flag is off; `npm run verify` green.
+
+**Updated dependency and model-policy note (2026-07-24, binding product-owner decision):** this
+task's production wiring now also depends on `RESOLVER-V3-048` (Protocol-v4 Evidence Contract and
+Controlled Haiku Live Re-Evidence) passing its gate — see the binding model decision recorded in
+`RESOLVER-V3-041`'s entry and the `RESOLVER-V3-043..048` remediation series above. The wiring
+authorized here is **Haiku 4.5 only** (`anthropic` / `claude-haiku-4-5` /
+`claude-haiku-4-5-20251001`, pinned per RESOLVER-V3-039); no Sonnet/larger-model fallback or
+escalation path is authorized, in this task or anywhere in the Hybrid Resolver critical path, per
+that decision. This task remains `blocked` and unstarted; adding this dependency does not itself
+authorize any wiring.
 
 ---
 

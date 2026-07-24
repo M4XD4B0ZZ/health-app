@@ -57,11 +57,14 @@
   deviation above. `ANTHROPIC_API_KEY` presence was checked (boolean only) at the start of this
   task and found absent; no repository change was made in response beyond that boolean result.
   Zero provider calls occurred at any point. `Development`/`Holdout` were not run.
-- **Human-review status / next steps:** PR opened from `fix/resolver-v3-039-execution-tree-hash`
-  against `chore/clean-arch-structure`; see the PR-specific completion note below (or this
-  document's next revision) for the PR number, CI status, and merge commit once available.
-  `RESOLVER-V3-039` remains `in_progress` (this remediation collects no live evidence);
-  `RESOLVER-V3-041` remains `todo`; `RESOLVER-V3-010` remains `blocked`.
+- **Human-review status / next steps:** PR #167 (`fix/resolver-v3-039-execution-tree-hash` →
+  `chore/clean-arch-structure`) opened, CI (`verify`) green, zero review comments, merged as
+  `e82d675472c9e46ff070d502e9faed765d8e2813`; source branch deleted on both remote and local
+  (merged, no unique commits kept). Independent post-merge review confirmed the merged diff is
+  byte-identical to the pre-merge commit (`e4556a1183d193be10e8cf709dbdbccf60287312`) — no
+  conflict-resolution edits, no `package.json`/`package-lock.json`/migration changes snuck in — so
+  no follow-up PR was needed. `RESOLVER-V3-039` remains `in_progress` (this remediation collects no
+  live evidence); `RESOLVER-V3-041` remains `todo`; `RESOLVER-V3-010` remains `blocked`.
 
 ## QUEUE-008 — Multi-Task Smoke Marker, Part 2 (Done)
 

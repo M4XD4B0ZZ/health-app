@@ -8144,7 +8144,7 @@ RESOLVER-V3-010 remains `blocked`.
 #### RESOLVER-V3-041: Representative Hybrid Gate Re-Decision After Controlled Live Evidence
 
 Status: `todo`
-Depends on: RESOLVER-V3-039
+Depends on: RESOLVER-V3-039, RESOLVER-V3-042
 
 **Goal:** Re-decide the RESOLVER-V3-024 G2 gate (representative quality, false confidence, user
 friction, latency, cost, provenance/nutrient authority, consistency) once RESOLVER-V3-039 has
@@ -8164,10 +8164,97 @@ twice; see that task's entry above and
 `reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md`). That evidence itself already
 contains stored `failed` dimensions (G2-B false confidence, G2-D latency) and one `not_evaluable`
 dimension (G2-E cost) — these must be handled explicitly by this re-decision task, not silently
-passed or discarded. RESOLVER-V3-039 reaching `done` satisfies this task's dependency but does
-**not** by itself authorize any production wiring: no production effect is authorized merely
-because the dependency is now complete, and this task remains unstarted until it is explicitly
+passed or discarded. RESOLVER-V3-039 reaching `done` satisfies part of this task's dependency but
+does **not** by itself authorize any production wiring: no production effect is authorized merely
+because that dependency is now complete, and this task remains unstarted until it is explicitly
 picked up.
+
+**Updated dependency (2026-07-24, RESOLVER-V3-042):** this task's formal re-decision now also
+depends on RESOLVER-V3-042, which found that RESOLVER-V3-039's own stored gate verdicts for G2-A,
+G2-C, and G2-G were computed by defective evaluator code (see that task's entry below and
+`reports/RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md`) — an aggregate-only, non-category-specific
+check that ignored the binding spec's per-category rule (G2-A); a check that could only ever produce
+`passed`/`not_evaluable` from sample size alone regardless of correctness (G2-C); and a check that
+only verified overlay-group existence, never the real agreement rate (G2-G). RESOLVER-V3-042 fixed
+the evaluator code for all _future_ executions and derived what could honestly be recomputed from the
+_historical_ RESOLVER-V3-039 evidence without re-running anything: G2-A is **indeterminate at the
+category level** (the historical evidence never persisted per-case category data, so its stored
+`passed` cannot be confirmed or refuted); G2-C's real friction data (clarification/abstention counts
+and correctness rates) is now available but the dimension is inherently qualitative
+(`requires_human_judgment`, never a fixed-threshold `passed`); G2-G's real Variant C repeat-agreement
+rate (68.75%) is now known against Variant A's structural ~100% baseline (a real −31.25 percentage-point
+gap), also `requires_human_judgment`. G2-E (cost) was found to have used un-partitioned, blended
+Development+Holdout telemetry for both partitions, but its final verdict (`not_evaluable`) is
+unaffected once corrected — both partitions still have unknown-cost records. **This task must weigh
+all of the above (the corrected/indeterminate G2-A/C/E/G findings, alongside the already-`failed`
+G2-B/G2-D) explicitly — it must not treat RESOLVER-V3-039's original stored `passed` verdicts for
+G2-A/G2-C/G2-G as valid inputs**; RESOLVER-V3-042 is a prerequisite precisely so this task starts
+from faithful evidence, not defectively-derived verdicts. RESOLVER-V3-042 reaching `done` does not
+itself start or authorize this task.
+
+#### RESOLVER-V3-042: Gate Evaluator Fidelity Remediation and Derived Evidence Audit
+
+Status: `done` (2026-07-24; zero provider calls, zero benchmark cost, `ANTHROPIC_API_KEY` never
+touched throughout)
+Depends on: RESOLVER-V3-039
+
+**Goal:** Audit and correct the RESOLVER-V3-039 live-evidence report-builder/evaluator code
+(`RepresentativeHybridV1LiveReportBuilder.ts`, `RepresentativeHybridV1LiveMetrics.ts`) for fidelity
+to the binding `ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md` §11 G2 gate rules, using only the already-
+collected, frozen RESOLVER-V3-039 evidence — no new benchmark execution, no live provider call.
+**Scope:** Reproduce and fix four confirmed evaluator defects: (1) G2-A used an aggregate,
+whole-corpus identification-rate comparison with a strict `>`, not the binding rule's per-category
+(`DACH`/`COMPOSED`/`RESTAURANT`/`SIMPLE`/`HOUSEHOLD`) `≥` comparison; (2) G2-C resolved to `passed`
+purely from `friction.denominator >= 30`, never checking any correctness rate, despite the spec
+explicitly stating this dimension is qualitative with no fixed threshold; (3) G2-G resolved to
+`passed` purely from `overlayGroupCount >= 1`, never consulting the real, already-computed Variant
+B/C agreement rates; (4) Variant C's `quality.technicalFailureCount` was hard-coded to `0` via
+`armMetrics(cAll, () => false)`, unlike Variant B's correctly-wired equivalent. Also fixed: G2-E's
+cost metric was computed over the full combined Development+Holdout Variant C telemetry for _both_
+partitions (byte-identical `n`/`meanCostUsd` in the final report), instead of each partition's own
+share. Reconciled the complete 16-item terminal-failure call-ID list directly from
+`logs/resolver-v3-039-call-ledger.jsonl`, identifying the missing 8th HTTP-200 Development call
+(`RH-RES-VAGUE-DEV-003`) that a prior rehearsal report had mislabeled/omitted.
+**Non-goals:** Starting RESOLVER-V3-041 (remains `todo`); running any Development/Holdout benchmark
+execution; any live provider/transport/Anthropic API call; reading/inspecting `ANTHROPIC_API_KEY`;
+modifying or regenerating any of the seven canonical RESOLVER-V3-039 evidence files, the closeout
+report, or the evidence manifest; any production wiring or feature-flag change.
+**Risks:** Inventing a numeric pass/fail threshold for a gate dimension the binding spec states is
+qualitative (mitigated: G2-C/G2-G now resolve to a new, explicit `requires_human_judgment`
+`GateVerdict` literal instead, never a fabricated `passed`/`failed`); silently mutating the frozen
+evidence while "fixing" the code that reads it (mitigated: SHA-256 of all seven files recorded before
+the first edit and recomputed identical immediately before the final commit, both by working-tree
+self-consistency and by canonical git-blob cross-check against
+`reports/resolver-v3-039-controlled-live-evidence-manifest.json`); repeating the prior rehearsal
+report's own errors (mitigated: every derived number in this task's audit report shows its exact
+arithmetic derivation from the frozen evidence, and the terminal-failure list was independently
+re-parsed from the raw ledger, not copied from any prior report).
+**Tests:** New/extended regression tests prove: G2-A uses the binding category-specific condition,
+including a case where the OLD aggregate comparison would say `passed` while the category-specific
+one correctly says `failed` (`RepresentativeHybridV1LiveMetrics.test.ts`); G2-C can never resolve to
+`passed` merely from `n >= 30` (`RepresentativeHybridV1LiveReportBuilder.test.ts`); G2-G evaluates
+real agreement, not group existence, including a 0%-agreement case that the old code would have
+called `passed`; G2-E uses partition-scoped telemetry (dev/holdout given deliberately distinguishable
+cost profiles, asserted not to blend); Variant C technical failures are represented correctly (not
+hard-coded); and a read-only guard asserting the corrected report-builder code never touches any of
+the seven historical evidence files (SHA-256 before/after a full report build+validate). Full
+`representativeHybridV1/**` suite: 245/245 tests, 28/28 suites green. Full repository suite
+(`npm run test`): 2316/2316 tests, 237/237 suites green. `npm run typecheck`/`npm run lint`: clean.
+`npm run format:check`: reports the same pre-existing, environment-level 863-file warning count
+before and after this task's changes (confirmed via `git stash`/`git stash pop` against the pristine
+base commit) — unrelated to this task, not introduced by it.
+**Acceptance:** All four confirmed defects reproduced with exact code references, fixed for future
+executions, and regression-tested; a durable, additive audit report
+(`reports/RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md`) and machine-readable companion
+(`reports/resolver-v3-042-gate-evaluator-fidelity-audit.json`) record the original defect, the
+corrected metric (or an honest `indeterminate`/`requires_human_judgment` statement where historical
+per-case data was never persisted), and the implication for RESOLVER-V3-041, for every gate
+dimension in scope; the seven canonical RESOLVER-V3-039 evidence files are confirmed byte-identical
+before and after; RESOLVER-V3-041 remains `todo`; RESOLVER-V3-010 remains `blocked`.
+**Status: `done`.** All of the above is complete: defects reproduced and fixed, tests green, audit
+report and JSON companion written, `ROADMAP.md` updated, evidence-file hashes confirmed unchanged.
+**This task did not start RESOLVER-V3-041** (still `todo`, its own dependency updated above to also
+name this task) **and did not affect RESOLVER-V3-010** (still `blocked`).
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 

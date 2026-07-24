@@ -104,9 +104,18 @@ export function assertValidRepresentativeHybridV1LiveReport(candidate: unknown):
   ];
   for (const gate of requiredGates) {
     const value = gateVerdicts[gate];
-    if (value !== 'passed' && value !== 'failed' && value !== 'not_evaluable') {
+    // RESOLVER-V3-042 addition: `requires_human_judgment` is a valid outcome for gate dimensions
+    // whose own binding authority states a qualitative rule with no deterministic threshold (G2-C,
+    // G2-G) -- see `RepresentativeHybridV1LiveMetrics.ts`'s `GateVerdict` union. Every historical
+    // report's `passed`/`failed`/`not_evaluable` literal remains valid and unaffected.
+    if (
+      value !== 'passed' &&
+      value !== 'failed' &&
+      value !== 'not_evaluable' &&
+      value !== 'requires_human_judgment'
+    ) {
       throw new RepresentativeHybridV1LiveReportValidationError(
-        `Report gateVerdicts.${gate} must be one of "passed"/"failed"/"not_evaluable", got ${JSON.stringify(value)}.`,
+        `Report gateVerdicts.${gate} must be one of "passed"/"failed"/"not_evaluable"/"requires_human_judgment", got ${JSON.stringify(value)}.`,
       );
     }
   }

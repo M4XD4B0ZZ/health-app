@@ -10,7 +10,17 @@ import { REPRESENTATIVE_HYBRID_V1_LIVE_MIN_SAMPLE_SIZE } from './RepresentativeH
  * missing data (task instruction).
  */
 
-export type GateVerdict = 'passed' | 'failed' | 'not_evaluable';
+/**
+ * RESOLVER-V3-042 remediation: `requires_human_judgment` is added for gate dimensions whose own
+ * binding authority (`docs/domains/ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md` §11) states a
+ * qualitative rule with **no deterministic numeric threshold** (G2-C "qualitativ zu prüfen, kein
+ * Fixwert"; G2-G "nicht wesentlich schlechter" with no fixed multiplier). Inventing a pass/fail
+ * threshold for those dimensions would be a fabrication, not a fix -- the corrected code instead
+ * reports full structured evidence and this explicit verdict, leaving the actual judgment call to
+ * a human (RESOLVER-V3-041). This is a strictly additive union member: every existing `'passed'`/
+ * `'failed'`/`'not_evaluable'` literal anywhere in historical evidence remains valid and unchanged.
+ */
+export type GateVerdict = 'passed' | 'failed' | 'not_evaluable' | 'requires_human_judgment';
 
 /** Nearest-rank percentile (V3-040 requirement -- NOT linear interpolation, which
  * `LiveProviderUsage.ts`'s `latencyDistribution()` uses for a different, non-gate purpose). Rank
@@ -215,9 +225,6 @@ export function computeQualityMetrics(
   const bAll = caseRecords.flatMap((r) => r.variantB);
   const cAll = caseRecords.flatMap((r) => r.variantC.map((c) => c.evaluation));
 
-  const isIdentificationMatch = (identification: string): boolean =>
-    identification === 'correct' || identification === 'acceptable_equivalent';
-
   const armMetrics = <
     T extends {
       identification: string;
@@ -250,8 +257,122 @@ export function computeQualityMetrics(
   return {
     variantA: armMetrics(a, () => false),
     variantB: armMetrics(bAll, (e) => e.technicalFailure),
-    variantC: armMetrics(cAll, () => false),
+    // RESOLVER-V3-042 fix (was `() => false`, hard-coding Variant C technical failures to always
+    // 0 regardless of what actually happened -- see RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md
+    // "Technical failures"). Variant C's own 10-outcome vocabulary (`VariantCMealResult.outcome`,
+    // `VariantCTypes.ts`) reserves the literal `'error'` exclusively for a call that failed at the
+    // provider/parse layer -- `RepresentativeHybridV1LiveTelemetryProviders.ts` classifies
+    // `providerStatus: 'network_error'` if and only if `result.outcome === 'error'`, so this is the
+    // real, provable technical-failure signal for this arm, not an invented proxy.
+    variantC: armMetrics(cAll, (e) => e.outcome === 'error'),
   };
+}
+
+/** Shared with `computeQualityMetrics`'s own inline copy -- exported here so the category-specific
+ * G2-A breakdown below uses the exact same "Top-1 identification match" definition, never a second,
+ * silently-drifting copy of it. */
+export function isIdentificationMatch(identification: string): boolean {
+  return identification === 'correct' || identification === 'acceptable_equivalent';
+}
+
+export interface RepresentativeHybridV1LiveCategoryIdentification {
+  n: number;
+  matchCount: number;
+  matchRate: number | null;
+}
+
+export interface RepresentativeHybridV1LiveCategoryQualityRow {
+  category: string;
+  /** One of the binding spec's two treatments (§11 G2(a)): categories requiring C to reach/exceed
+   * A's Top-1 identification rate, vs. categories where C must merely not regress below A. The
+   * binding text uses "≥"/"ohne Regression" for both groups -- practically the same inequality --
+   * but the two groups are kept distinct here because they are named separately by the authority
+   * and RESOLVER-V3-041 may want to report them separately. */
+  requirement: 'at_least_variant_a' | 'no_regression_vs_variant_a';
+  variantA: RepresentativeHybridV1LiveCategoryIdentification;
+  variantC: RepresentativeHybridV1LiveCategoryIdentification;
+  /** null when either arm has zero evaluable cases in this category/partition (not_evaluable). */
+  conditionMet: boolean | null;
+}
+
+export interface RepresentativeHybridV1LiveCategoryQualityBreakdown {
+  rows: RepresentativeHybridV1LiveCategoryQualityRow[];
+  /** True only if every row's `conditionMet` is `true` -- false if any row is `false`, null if any
+   * row is not_evaluable (`null`) and none is `false`. Mirrors the binding rule's "AND across all
+   * five named categories," never an aggregate/blended C-vs-A rate (RESOLVER-V3-042 finding). */
+  verdict: GateVerdict;
+}
+
+/** Categories named by the binding G2(a) quality rule (spec §11): "Top-1-Identifikation ≥ Variante
+ * A mindestens in DACH/COMPOSED/RESTAURANT, ohne Regression in SIMPLE/HOUSEHOLD." */
+export const G2A_AT_LEAST_VARIANT_A_CATEGORIES: readonly string[] = [
+  'DACH',
+  'COMPOSED',
+  'RESTAURANT',
+];
+export const G2A_NO_REGRESSION_CATEGORIES: readonly string[] = ['SIMPLE', 'HOUSEHOLD'];
+
+/**
+ * RESOLVER-V3-042 fix: the binding G2(a) quality rule (`ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md`
+ * §11) is explicitly category-specific -- "Top-1-Identifikation ≥ Variante A mindestens in
+ * DACH/COMPOSED/RESTAURANT, ohne Regression in SIMPLE/HOUSEHOLD" -- never a single blended C-vs-A
+ * rate across the whole corpus. The pre-remediation `RepresentativeHybridV1LiveReportBuilder.ts`
+ * computed only `p.quality.variantC.identificationMatchRate > p.quality.variantA.identificationMatchRate`
+ * (an aggregate over every category at once, with a strict `>` besides, not the binding `≥`). This
+ * function derives the real, per-category breakdown from the same case records the aggregate
+ * already had access to -- it fixes the *comparison*, not any input data.
+ *
+ * Only each scenario's *primary* Variant C observation is used (never `consistency`/
+ * `sample_floor_supplement` repeat runs), matching "Top-1 identification" as a per-scenario
+ * judgment; counting a repeated overlay case 2-3x would silently overweight it relative to a
+ * Variant A evaluation, which never repeats.
+ */
+export function computeCategoryQualityBreakdown(
+  caseRecords: readonly RepresentativeHybridV1LiveCaseRecord[],
+  categoryByScenarioId: ReadonlyMap<string, string>,
+): RepresentativeHybridV1LiveCategoryQualityBreakdown {
+  const categories = [...G2A_AT_LEAST_VARIANT_A_CATEGORIES, ...G2A_NO_REGRESSION_CATEGORIES];
+  const rows: RepresentativeHybridV1LiveCategoryQualityRow[] = categories.map((category) => {
+    const inCategory = caseRecords.filter(
+      (r) => categoryByScenarioId.get(r.scenarioId) === category,
+    );
+    const aEntries = inCategory.map((r) => r.variantA.identification as unknown as string);
+    const cPrimary = inCategory
+      .map((r) => r.variantC.find((c) => c.kind === 'primary'))
+      .filter((c): c is NonNullable<typeof c> => c !== undefined)
+      .map((c) => c.evaluation.identification as unknown as string);
+    const aMatch = aEntries.filter(isIdentificationMatch).length;
+    const cMatch = cPrimary.filter(isIdentificationMatch).length;
+    const variantA: RepresentativeHybridV1LiveCategoryIdentification = {
+      n: aEntries.length,
+      matchCount: aMatch,
+      matchRate: aEntries.length ? aMatch / aEntries.length : null,
+    };
+    const variantC: RepresentativeHybridV1LiveCategoryIdentification = {
+      n: cPrimary.length,
+      matchCount: cMatch,
+      matchRate: cPrimary.length ? cMatch / cPrimary.length : null,
+    };
+    const conditionMet =
+      variantA.matchRate === null || variantC.matchRate === null
+        ? null
+        : variantC.matchRate >= variantA.matchRate;
+    return {
+      category,
+      requirement: (G2A_AT_LEAST_VARIANT_A_CATEGORIES as readonly string[]).includes(category)
+        ? 'at_least_variant_a'
+        : 'no_regression_vs_variant_a',
+      variantA,
+      variantC,
+      conditionMet,
+    };
+  });
+  const verdict: GateVerdict = rows.some((r) => r.conditionMet === false)
+    ? 'failed'
+    : rows.some((r) => r.conditionMet === null)
+      ? 'not_evaluable'
+      : 'passed';
+  return { rows, verdict };
 }
 
 export interface RepresentativeHybridV1LiveConsistencyMetrics {
@@ -261,6 +382,19 @@ export interface RepresentativeHybridV1LiveConsistencyMetrics {
   variantCIdentificationAgreementRate: number | null;
   variantCFastPathDeterministicConsistencyRate: number | null;
   overlayGroupCount: number;
+  /** RESOLVER-V3-042 addition: Variant A never repeats a case (it is a deterministic, BLS-only,
+   * zero-AI resolver -- `ResolverV3VariantAAdapter.ts` has no source of run-to-run variance), so its
+   * repeat-consistency rate is structurally 1 (100%) by construction, not something this benchmark
+   * measures with repeat calls. This is exactly the "die strukturell nahe 100% liegt" baseline the
+   * binding spec (§11 G2(g)) names for comparison -- recorded explicitly here so G2-G's real
+   * Variant C/B agreement rates below are never compared against an unstated number. */
+  variantAStructuralBaselineRate: 1;
+  /** Real agreement rate minus the Variant A baseline (negative = C/B agrees less often than A's
+   * deterministic ~100%). The binding rule ("nicht wesentlich schlechter", no fixed multiplier) is
+   * genuinely qualitative -- this delta is reported so a human reviewer can judge "not substantially
+   * worse" against the real gap, never so the code can silently manufacture its own pass/fail cutoff. */
+  variantCOutcomeAgreementDeltaFromBaseline: number | null;
+  variantCIdentificationAgreementDeltaFromBaseline: number | null;
 }
 
 function agreementRate(groups: readonly (readonly string[])[]): number | null {
@@ -288,13 +422,19 @@ export function computeConsistencyMetrics(
     .filter((r) => r.variantC.every((c) => !c.evaluation.aiCalled))
     .map((r) => r.variantC.map((c) => String(c.evaluation.outcome)));
 
+  const cOutcomeRate = agreementRate(cOutcomeGroups);
+  const cIdentificationRate = agreementRate(cIdentificationGroups);
   return {
     variantBOutcomeAgreementRate: agreementRate(bOutcomeGroups),
     variantBIdentificationAgreementRate: agreementRate(bIdentificationGroups),
-    variantCOutcomeAgreementRate: agreementRate(cOutcomeGroups),
-    variantCIdentificationAgreementRate: agreementRate(cIdentificationGroups),
+    variantCOutcomeAgreementRate: cOutcomeRate,
+    variantCIdentificationAgreementRate: cIdentificationRate,
     variantCFastPathDeterministicConsistencyRate: agreementRate(cFastPathGroups),
     overlayGroupCount: overlayCaseRecords.length,
+    variantAStructuralBaselineRate: 1,
+    variantCOutcomeAgreementDeltaFromBaseline: cOutcomeRate === null ? null : cOutcomeRate - 1,
+    variantCIdentificationAgreementDeltaFromBaseline:
+      cIdentificationRate === null ? null : cIdentificationRate - 1,
   };
 }
 

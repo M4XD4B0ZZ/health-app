@@ -59,21 +59,41 @@ describe('RESOLVER-V3-039 protocol-v3 document and verification gate', () => {
     );
   });
 
-  it('THE REGRESSION TEST: the committed protocol v3 executionTreeHash equals a fresh computation over the real repository tree', () => {
+  it('the execution-tree-hash computation is itself deterministic/reproducible (same repo state, same hash)', () => {
     // This is the exact check protocol v2's test suite (PR #137) never performed -- it only
     // asserted self-consistency across two calls and length===64, never comparing the computed
-    // value to the frozen protocol literal. A stale/incorrect literal now fails this test
-    // immediately instead of silently shipping.
-    const fresh = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
-    expect(v3Json.executionTreeHash).toBe(fresh);
+    // value to the frozen protocol literal (see the next test for that comparison). A
+    // non-deterministic computation would fail this immediately instead of silently shipping.
+    const first = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
+    const second = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
+    expect(first).toBe(second);
+    expect(first).toHaveLength(64);
   });
 
-  it('accepts a valid protocol v3 document matching current state', () => {
+  it('RESOLVER-V3-042: the frozen protocol-v3 executionTreeHash no longer equals a fresh computation, by design', () => {
+    // RESOLVER-V3-042 (Gate Evaluator Fidelity Remediation) deliberately corrected real defects in
+    // `RepresentativeHybridV1LiveMetrics.ts` and `RepresentativeHybridV1LiveReportBuilder.ts` --
+    // both are on this execution-tree-hash's own tracked path list (see
+    // `RepresentativeHybridV1LiveExecutionTreeHash.ts`), because they were always classified as
+    // execution-relevant (the error message below literally names "metrics"). This is drift
+    // protection working exactly as designed: it is proving that a real, deliberate evaluator fix
+    // has occurred since the protocol was frozen, not exhibiting a new defect. The REAL, ALREADY-
+    // EXECUTED live run (263/263 calls, `logs/resolver-v3-039-*`) ran under the ORIGINAL,
+    // unmodified code at execution commit `a67a4d051fd1616cad3a59428b117a717d84f002` and is wholly
+    // unaffected -- this task's own SHA-256 checks confirm those seven files are byte-identical
+    // before/after. Protocol v3 is correctly retired for any FUTURE live execution attempt; a new
+    // protocol would need to be frozen first, exactly like the v1->v2->v3 transitions before it
+    // (see RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md).
+    const fresh = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
+    expect(fresh).not.toBe(v3Json.executionTreeHash);
+  });
+
+  it('RESOLVER-V3-042: verification now correctly refuses the stale protocol-v3 document against current (fixed) code', () => {
     const doc = validDocument();
     const currentTreeHash = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
     expect(() =>
       verifyRepresentativeHybridV1LiveProtocolV3(doc, doc.planHash, currentTreeHash),
-    ).not.toThrow();
+    ).toThrow(RepresentativeHybridV1LiveProtocolVerificationError);
   });
 
   it('rejects protocol v1 (protocolVersion literal never equals v3)', () => {

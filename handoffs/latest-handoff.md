@@ -1,5 +1,43 @@
 # Latest Handoff
 
+## QUEUE-008 — Multi-Task Smoke Marker, Part 2 (Done)
+
+- **Task ID:** `QUEUE-008` (source issue #161, task 2 of the two-task event-driven multi-task
+  smoke test declared in issue #160/QUEUE-007 — dependency `QUEUE-007` had to reach `queue:done`
+  before this task could be claimed).
+- **What changed:** post-merge review/handoff/completion transition only. PR #166 (adding
+  `reports/QUEUE-008_SMOKE_TEST_MARKER.md`) was already merged (merge commit
+  `d47735a429837ee750bd5285af95412a1a87b4fc` on `chore/clean-arch-structure`) by a prior
+  invocation's CI-green resolve step (auto-merge: risk `safe-autonomous`, merge-authorization
+  `yes`, CI green per preflight `ACTION_CI_GREEN`, no unresolved review comments). This invocation
+  reconciled current GitHub state (PR merged, issue #161 auto-closed by the `Closes #161`
+  keyword, but labels/handoff/`queue:done` had not yet been recorded), confirmed the merge diff's
+  scope, and completes the lifecycle: set `queue:done`, removed `queue:waiting-ci`, on issue #161.
+- **Why:** QUEUE-008 part 2 is a doc-only marker proving the queue controller
+  (`.github/workflows/claude-queue-wake.yml`, QUEUE-005) correctly waited on its declared
+  dependency (QUEUE-007) and then picked up the dependent task on its own once a later wake
+  observed the dependency's completion, without a manual re-invocation. It has no product value.
+- **Files changed:** `reports/QUEUE-008_SMOKE_TEST_MARKER.md` only (confirmed via
+  `git diff --stat d47735a^ d47735a` against its parent — 1 file, 19 insertions, no scope creep).
+- **Verification executed:** the implementing invocation ran `npm run verify` (235/235 suites,
+  2279/2279 tests) before opening PR #166 (per its state-comment note); this completion
+  invocation only re-read merged state and re-confirmed the diff scope (no code changed, so no
+  re-run required). PR #166 had zero reviews and zero comments at merge time.
+- **Verification result:** pass.
+- **Known issues/blockers/residual risks:**
+  - The remote branch `queue/queue-008-smoke-test-marker` was not confirmed deleted by this
+    invocation — a remote branch-existence check (`git ls-remote`/`gh api .../branches/...`)
+    required interactive approval unavailable in this unattended run, consistent with the
+    AGENTS.md-documented precedent of not building workarounds around a blocked git-proxy/tooling
+    restriction. Left for a future cleanup pass (`cleanup-branches` skill, local+remote scope) or
+    a human to confirm/remove.
+  - This closes out the two-part QUEUE-007/QUEUE-008 event-driven multi-task smoke protocol
+    end-to-end: dependency gating, event-driven (not manual) pickup of the dependent task, and
+    full claim → implement → wait-ci → resolve/merge → post-merge-review lifecycle were all
+    demonstrated on the real repository across both tasks.
+- **Human-review status / next steps:** `queue:done` set on issue #161; none — task and the
+  two-part smoke protocol are both complete.
+
 ## QUEUE-007 — Multi-Task Smoke Marker, Part 1 (Done)
 
 - **Task ID:** `QUEUE-007` (source issue #160, task 1 of the two-task event-driven multi-task

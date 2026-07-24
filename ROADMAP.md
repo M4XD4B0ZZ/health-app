@@ -8055,6 +8055,43 @@ remediation corrects the continuation defect and re-freezes a corrected protocol
 live evidence itself. RESOLVER-V3-041 remains `todo`, not started. RESOLVER-V3-010 remains
 `blocked`. RESOLVER-V3-038 and RESOLVER-V3-040 remain `done`, unmodified.
 
+**Execution-tree-hash remediation (2026-07-24, pre-execution — zero calls, zero cost throughout):**
+before authorizing any paid request, a zero-network local preflight independently re-derived every
+hash in the frozen protocol-v2 document and found that `executionTreeHash`
+(`9c3da0fed1ae33d66bf6a9499f679ce67829c80e054d0fd180e2e4a65fcd5b9e`) reproduced from neither a
+canonical LF Git-content computation over the protocol-v2-freeze commit's tree (PR #137 branch tip
+`f688878f7b467975762f25b6bfd27bee64ea214f`, its merge commit `fd3142fa1596586ea36ca098ed66babed9d7092e`,
+and the later canonical base-branch tree all agree on `761d3511d60aded667f4f4714558f14fec1e9376acda01cccab5574ac16a6646`)
+nor this Windows environment's CRLF working-tree computation
+(`c3d08d49e62b224b61c7ca93013acda2ac2499242a47d1a9bbef24359ead786d`, matching the gitignored
+`logs/resolver-v3-039-preflight.json` artifact exactly). Root cause: the v2 hash implementation read
+working-tree files with `fs.readFileSync(path, 'utf-8')` and **no line-ending normalization**,
+making it a function of `core.autocrlf`/checkout platform rather than logical content alone; no test
+ever compared a fresh computation against the frozen literal (only self-consistency and
+`length === 64` were asserted), so this could not have been caught at PR #137's merge time. Full
+defect analysis, reproduction, and corrected design:
+`reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md`. Protocols v1 and v2
+(`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL.md`/`.json`,
+`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL_V2.md`/`.json`) are preserved unedited as
+invalidated pre-execution history — zero paid calls occurred under either. A corrected, versioned,
+cross-platform-reproducible protocol v3 (`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL_V3.md`/
+`resolver-v3-039-controlled-live-protocol-v3.json`, corpus/source-manifest/plan hashes unchanged,
+new `executionTreeHash: 9697e45b149ba2a90115e388a5caeca173aab76c8f5f88f31c5bfc1e136e235f` over an
+expanded, 26-file tracked path list — 4 execution-relevant files v2 omitted, plus the hash
+implementation and a newly extracted, directly testable protocol-verification module, both safe to
+track since neither embeds its own hash literal) canonicalizes CRLF to LF and fails closed on any
+lone CR before hashing, tags the hashed payload with an explicit algorithm version, and is proven
+(by new regression tests) to reproduce identically from a simulated Windows CRLF checkout and from
+canonical LF content, and to equal a fresh computation over the real repository tree — the exact
+check PR #137's test suite never performed. The live CLI now refuses any protocol document whose
+version is not the v3 literal, rejecting v1 and v2 by construction. 21 new focused tests added
+(229/229 tests, 27/27 suites green across the full `representativeHybridV1/**` tree); `npm run
+verify` passes clean; no `ANTHROPIC_API_KEY` was read or set anywhere in this remediation; every new
+test uses fixtures/JSON/pure functions only, no provider transport. **RESOLVER-V3-039 remains
+`in_progress`** — this remediation corrects the execution-tree-hash defect and re-freezes a
+corrected protocol; it collects no live evidence itself. RESOLVER-V3-041 remains `todo`, not
+started. RESOLVER-V3-010 remains `blocked`.
+
 #### RESOLVER-V3-041: Representative Hybrid Gate Re-Decision After Controlled Live Evidence
 
 Status: `todo`

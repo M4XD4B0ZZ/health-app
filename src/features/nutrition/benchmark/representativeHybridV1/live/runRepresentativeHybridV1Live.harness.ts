@@ -29,11 +29,12 @@ import { assertValidRepresentativeHybridV1LiveReport } from './RepresentativeHyb
 import {
   REPRESENTATIVE_HYBRID_V1_LIVE_TIMEOUT_POLICY,
   REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT,
-  REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+  REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
   REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
   REPRESENTATIVE_HYBRID_V1_LIVE_CHECKPOINT_SCHEMA_VERSION,
   REPRESENTATIVE_HYBRID_V1_LIVE_HOLDOUT_CHECKPOINT_SCHEMA_VERSION,
 } from './RepresentativeHybridV1LiveVersions';
+import { verifyRepresentativeHybridV1LiveProtocolV3 } from './RepresentativeHybridV1LiveProtocolVerification';
 import type { LiveProviderUsageRecord } from '../../LiveProviderUsage';
 import {
   computeRepresentativeHybridV1LivePlannedCallIds,
@@ -51,11 +52,16 @@ import {
 } from './RepresentativeHybridV1LiveCheckpoint';
 
 /**
- * RESOLVER-V3-039 protocol-v2 live execution entry point (corrected Phase-B continuation
- * remediation -- see `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`). Same
- * `.harness.ts` convention as `runRepresentativeHybridV1.harness.ts` (invisible to
- * `jest.config.js`'s `testMatch`, executed only via
- * `scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`). Reads configuration from env
+ * RESOLVER-V3-039 protocol-v3 live execution entry point. Protocol v2's two-phase
+ * Development/Holdout orchestration (Phase-B continuation remediation, see
+ * `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`) is unchanged; this v3 revision
+ * fixes a *different*, separately discovered defect -- v2's frozen `executionTreeHash` literal was
+ * not reproducible from either a canonical LF Git-content computation or this environment's Windows
+ * CRLF working-tree computation, because the v2 hash implementation had no line-ending
+ * normalization at all (see `reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md`). Zero
+ * paid calls occurred under protocol v2. Same `.harness.ts` convention as
+ * `runRepresentativeHybridV1.harness.ts` (invisible to `jest.config.js`'s `testMatch`, executed only
+ * via `scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`). Reads configuration from env
  * vars, since Jest's CLI does not forward custom flags through a scoped test file.
  *
  * Two-phase discipline, enforced here (not procedurally): Development writes a durable checkpoint;
@@ -94,7 +100,7 @@ function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-interface ParsedProtocolV2 {
+interface ParsedProtocolV3 {
   protocolVersion: string;
   planHash: string;
   corpusHash: string;
@@ -104,81 +110,28 @@ interface ParsedProtocolV2 {
   pricing: { currency: string; inputPerMillion: number; outputPerMillion: number };
 }
 
-function readProtocolV2(protocolPath: string): {
+function readProtocolV3(protocolPath: string): {
   raw: string;
   protocolHash: string;
-  protocol: ParsedProtocolV2;
+  protocol: ParsedProtocolV3;
 } {
   if (!fs.existsSync(protocolPath)) {
     throw new Error(`RESOLVER-V3-039 protocol file not found: ${protocolPath}`);
   }
   const raw = fs.readFileSync(protocolPath, 'utf-8');
-  const protocol = JSON.parse(raw) as ParsedProtocolV2;
+  const protocol = JSON.parse(raw) as ParsedProtocolV3;
   return { raw, protocolHash: sha256(raw), protocol };
 }
 
-function verifyProtocolAgainstCurrentState(
-  protocol: ParsedProtocolV2,
-  planHash: string,
-  executionTreeHash: string,
-): void {
-  if (protocol.protocolVersion !== REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2) {
-    throw new Error(
-      `RESOLVER-V3-039 refuses to execute: protocol version "${protocol.protocolVersion}" is not the corrected "${REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2}". The v1 protocol is preserved as invalidated pre-execution history and must never be used for live execution -- see reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md.`,
-    );
-  }
-  if (protocol.planHash !== planHash) {
-    throw new Error(
-      `RESOLVER-V3-039 plan hash mismatch: frozen protocol has "${protocol.planHash}", current computation has "${planHash}". Refusing to execute.`,
-    );
-  }
-  if (protocol.corpusHash !== REPRESENTATIVE_HYBRID_V1_CORPUS_HASH) {
-    throw new Error(
-      'RESOLVER-V3-039 corpus hash mismatch against frozen protocol. Refusing to execute.',
-    );
-  }
-  if (protocol.sourceManifestHash !== REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH) {
-    throw new Error(
-      'RESOLVER-V3-039 source-manifest hash mismatch against frozen protocol. Refusing to execute.',
-    );
-  }
-  if (protocol.executionTreeHash !== executionTreeHash) {
-    throw new Error(
-      `RESOLVER-V3-039 execution-tree hash mismatch: frozen protocol has "${protocol.executionTreeHash}", current computation has "${executionTreeHash}". This means execution-relevant code (prompts/schemas/provider/pricing/route-classification/execution-plan/metrics/harness logic) has changed since the protocol was frozen. Refusing to execute (drift protection).`,
-    );
-  }
-  if (
-    protocol.provider.providerId !== REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.providerId ||
-    protocol.provider.modelId !== REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelId ||
-    protocol.provider.modelSnapshotId !==
-      REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.modelSnapshotId
-  ) {
-    throw new Error(
-      'RESOLVER-V3-039 provider/model mismatch against frozen protocol. Refusing to execute.',
-    );
-  }
-  if (
-    protocol.pricing.currency !== REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.currency ||
-    protocol.pricing.inputPerMillion !==
-      REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.inputPerMillion ||
-    protocol.pricing.outputPerMillion !==
-      REPRESENTATIVE_HYBRID_V1_LIVE_PRICING_SNAPSHOT.outputPerMillion
-  ) {
-    throw new Error(
-      'RESOLVER-V3-039 pricing mismatch against frozen protocol. Refusing to execute.',
-    );
-  }
-}
-
 test(
-  'RESOLVER-V3-039 -- Controlled Representative Live Hybrid Evidence harness (protocol v2)',
+  'RESOLVER-V3-039 -- Controlled Representative Live Hybrid Evidence harness (protocol v3)',
   async () => {
     const mode =
       process.env.REPRESENTATIVE_HYBRID_V1_LIVE_MODE === 'execute' ? 'execute' : 'preflight';
     const partitionArg = process.env.REPRESENTATIVE_HYBRID_V1_LIVE_PARTITION ?? 'development';
     if (partitionArg !== 'development' && partitionArg !== 'holdout') {
       throw new Error(
-        `RESOLVER-V3-039 protocol v2 only accepts partition="development" or "holdout" -- "all" is refused (it would skip the required Development-inspection boundary).`,
+        `RESOLVER-V3-039 protocol v3 only accepts partition="development" or "holdout" -- "all" is refused (it would skip the required Development-inspection boundary).`,
       );
     }
     const partition = partitionArg as RepresentativeHybridV1ResolutionScenario['partition'];
@@ -191,7 +144,7 @@ test(
       const executionTreeHash = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
       const summary = {
         mode: 'preflight',
-        protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+        protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
         corpusHash: REPRESENTATIVE_HYBRID_V1_CORPUS_HASH,
         sourceManifestHash: REPRESENTATIVE_HYBRID_V1_SOURCE_MANIFEST_HASH,
         planHash: plan.planHash,
@@ -230,15 +183,15 @@ test(
     const protocolPath = process.env.REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_PATH;
     if (!protocolPath) {
       throw new Error(
-        'RESOLVER-V3-039 live execution requires --protocol=<protocol-v2-json-path>.',
+        'RESOLVER-V3-039 live execution requires --protocol=<protocol-v3-json-path>.',
       );
     }
     const executionTreeHash = computeCurrentRepresentativeHybridV1LiveExecutionTreeHash(repoRoot);
-    const { protocolHash, protocol } = readProtocolV2(protocolPath);
-    verifyProtocolAgainstCurrentState(protocol, plan.planHash, executionTreeHash);
+    const { protocolHash, protocol } = readProtocolV3(protocolPath);
+    verifyRepresentativeHybridV1LiveProtocolV3(protocol, plan.planHash, executionTreeHash);
 
     const expectedContext: RepresentativeHybridV1LiveExpectedContinuationContext = {
-      protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+      protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
       protocolHash,
       planHash: plan.planHash,
       corpusHash: REPRESENTATIVE_HYBRID_V1_CORPUS_HASH,
@@ -283,7 +236,7 @@ test(
       }
       if (fs.existsSync(FINAL_REPORT_JSON_PATH)) {
         throw new Error(
-          `RESOLVER-V3-039 refuses to run Holdout: a final combined report already exists at ${FINAL_REPORT_JSON_PATH}. There is no --allow-rerun escape hatch in protocol v2 -- a genuine restart requires an explicit, separate human action outside this CLI.`,
+          `RESOLVER-V3-039 refuses to run Holdout: a final combined report already exists at ${FINAL_REPORT_JSON_PATH}. There is no --allow-rerun escape hatch in protocol v3 -- a genuine restart requires an explicit, separate human action outside this CLI.`,
         );
       }
     }
@@ -380,7 +333,7 @@ test(
         DEVELOPMENT_CHECKPOINT_PATH,
         {
           checkpointVersion: REPRESENTATIVE_HYBRID_V1_LIVE_CHECKPOINT_SCHEMA_VERSION,
-          protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+          protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
           protocolHash,
           executionPlanVersion: plan.planVersion,
           planHash: plan.planHash,
@@ -422,7 +375,7 @@ test(
         holdoutCaseRecords: null,
         expectedBehaviorByScenarioId,
         reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
-        protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+        protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
       });
       assertValidRepresentativeHybridV1LiveReport(diagnosticReport);
       fs.writeFileSync(DEVELOPMENT_DIAGNOSTIC_JSON_PATH, JSON.stringify(diagnosticReport, null, 2));
@@ -478,7 +431,7 @@ test(
       holdoutCaseRecords: caseRecords,
       expectedBehaviorByScenarioId,
       reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
-      protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V2,
+      protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
     });
     assertValidRepresentativeHybridV1LiveReport(finalReport);
 

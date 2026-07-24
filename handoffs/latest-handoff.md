@@ -1,5 +1,68 @@
 # Latest Handoff
 
+## RESOLVER-V3-039 — Zero-Provider-Call Execution-Tree-Hash Remediation (In Progress)
+
+- **Task ID:** `RESOLVER-V3-039` (remediation of the merged protocol-v2 implementation, PR #137,
+  branch-tip commit `f688878f7b467975762f25b6bfd27bee64ea214f`, merge commit
+  `fd3142fa1596586ea36ca098ed66babed9d7092e`). Status stays `in_progress` — no live evidence
+  collected by this task.
+- **What changed:** before authorizing any paid request, a zero-network local preflight
+  independently re-derived every hash in the frozen protocol-v2 document and found its
+  `executionTreeHash` (`9c3da0fed1ae33d66bf6a9499f679ce67829c80e054d0fd180e2e4a65fcd5b9e`)
+  reproduced from neither a canonical LF Git-content computation over the protocol-v2-freeze
+  commit's tree (branch tip / merge commit / later canonical base-branch tree all agree on
+  `761d3511d60aded667f4f4714558f14fec1e9376acda01cccab5574ac16a6646`) nor this Windows
+  environment's CRLF working-tree computation
+  (`c3d08d49e62b224b61c7ca93013acda2ac2499242a47d1a9bbef24359ead786d`, matching the gitignored
+  `logs/resolver-v3-039-preflight.json` preflight artifact exactly). Root cause: the v2 hash
+  implementation read working-tree files with no line-ending normalization at all, making it a
+  function of `core.autocrlf`/checkout platform rather than logical content; no test ever compared
+  a fresh computation against the frozen literal. Implemented a corrected, versioned, cross-
+  platform-reproducible protocol v3: `RepresentativeHybridV1LiveExecutionTreeHash.ts` now
+  canonicalizes CRLF→LF and fails closed on any lone CR before hashing, tags the hashed payload
+  with an explicit algorithm version, tracks 26 files (the prior 20 plus 4 execution-relevant files
+  v2 omitted — `RepresentativeHybridV1LiveLedgerProviders.ts`, `RepresentativeHybridV1LiveReportValidator.ts`,
+  `LiveProviderUsage.ts`, and the CLI script itself — plus the hash-computation file and a newly
+  extracted, directly testable `RepresentativeHybridV1LiveProtocolVerification.ts`, both safe to
+  track since neither embeds its own hash literal). New protocol v3 documents
+  (`reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL_V3.md` / `.json`) freeze
+  `executionTreeHash: 9697e45b149ba2a90115e388a5caeca173aab76c8f5f88f31c5bfc1e136e235f` — corpus/
+  source-manifest/plan hashes unchanged. The live CLI/harness now refuse any protocol document
+  whose version is not the v3 literal, rejecting v1 and v2 by construction. Protocols v1 and v2
+  are preserved byte-identical, unedited, as invalidated pre-execution history.
+- **Why:** the frozen protocol-v2 execution-tree hash could never have matched a real computation
+  at Development/Holdout time, which would have hard-blocked (or worse, silently drifted around)
+  any future live run under protocol v2 — found and fixed before any paid Anthropic request, at
+  zero cost.
+- **Files changed:** see `reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md` §10 for the
+  exact list (new: 2 protocol-v3 docs, this remediation report, 1 new source file, 1 new test file;
+  modified in place: `RepresentativeHybridV1LiveExecutionTreeHash.ts`,
+  `RepresentativeHybridV1LiveVersions.ts`, `runRepresentativeHybridV1Live.harness.ts`,
+  `scripts/benchmark-resolver-v3-representative-hybrid-live.mjs`, and the existing execution-tree
+  hash test file, extended). No corpus/checkpoint/ledger/cumulative-budget/report-builder/metrics
+  file, no `package.json`/`package-lock.json`, no migration, no production DI/resolver code.
+- **Verification executed:** `npm run typecheck` (0 errors); `npm run lint` (0 errors); focused
+  `npx jest --testPathPattern="representativeHybridV1" --runInBand` (229/229 tests, 27/27 suites);
+  full `npx jest --runInBand` (2300/2300 tests, 236/236 suites); `prettier -c` scoped to every
+  file this diff creates or modifies (all pass; the repository-wide `npm run verify` run still
+  shows ~605 pre-existing formatting warnings unrelated to this diff — a pre-existing Windows
+  `core.autocrlf=true` checkout condition, not fixed via mass reformatting, per this task's explicit
+  instruction); `git --no-pager diff --check` (exit 0, clean); full changed-file inventory via
+  `git status --short`/`--diff --stat`/`--diff --name-only`. Run on Node v22.15.0 (no Node 20
+  binary or version manager present on this machine; `.nvmrc`/`engines` request `>=20`/`20`, and 22
+  satisfies the `>=20` `engines` constraint — disclosed deviation, not a silent substitution).
+- **Verification result:** pass (see `reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md`
+  §9 for exact totals).
+- **Known issues/blockers/residual risks:** none identified beyond the disclosed Node-version
+  deviation above. `ANTHROPIC_API_KEY` presence was checked (boolean only) at the start of this
+  task and found absent; no repository change was made in response beyond that boolean result.
+  Zero provider calls occurred at any point. `Development`/`Holdout` were not run.
+- **Human-review status / next steps:** PR opened from `fix/resolver-v3-039-execution-tree-hash`
+  against `chore/clean-arch-structure`; see the PR-specific completion note below (or this
+  document's next revision) for the PR number, CI status, and merge commit once available.
+  `RESOLVER-V3-039` remains `in_progress` (this remediation collects no live evidence);
+  `RESOLVER-V3-041` remains `todo`; `RESOLVER-V3-010` remains `blocked`.
+
 ## QUEUE-008 — Multi-Task Smoke Marker, Part 2 (Done)
 
 - **Task ID:** `QUEUE-008` (source issue #161, task 2 of the two-task event-driven multi-task

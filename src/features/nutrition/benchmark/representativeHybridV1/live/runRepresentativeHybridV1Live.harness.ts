@@ -318,6 +318,14 @@ test(
         REPRESENTATIVE_HYBRID_V1_RESOLUTION_SCENARIOS as readonly RepresentativeHybridV1ResolutionScenario[]
       ).map((s) => [s.scenarioId, s.case.expectedBehavior]),
     );
+    // RESOLVER-V3-042 addition: real per-scenario category, from the same frozen corpus, so any
+    // future live execution's G2-A verdict uses the binding category-specific comparison
+    // (`computeCategoryQualityBreakdown`) instead of the pre-remediation aggregate-only check.
+    const categoryByScenarioId = new Map(
+      (
+        REPRESENTATIVE_HYBRID_V1_RESOLUTION_SCENARIOS as readonly RepresentativeHybridV1ResolutionScenario[]
+      ).map((s) => [s.scenarioId, s.case.category]),
+    );
 
     const completedCallIds = plannedCallIds.filter((id) => ledger.stateOf(id) === 'completed');
     const terminalFailureCallIds = plannedCallIds.filter(
@@ -374,6 +382,7 @@ test(
         developmentCaseRecords: caseRecords,
         holdoutCaseRecords: null,
         expectedBehaviorByScenarioId,
+        categoryByScenarioId,
         reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
         protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
       });
@@ -430,6 +439,7 @@ test(
       developmentCaseRecords: checkpoint.developmentCaseRecords,
       holdoutCaseRecords: caseRecords,
       expectedBehaviorByScenarioId,
+      categoryByScenarioId,
       reportVersion: REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION_V2,
       protocolVersion: REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3,
     });

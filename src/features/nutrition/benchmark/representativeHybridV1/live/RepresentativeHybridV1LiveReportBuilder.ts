@@ -10,6 +10,7 @@ import type { RepresentativeHybridV1LiveExecutionPlan } from './RepresentativeHy
 import type { LiveProviderBudgetLimits } from '../../LiveProviderBudgetGate';
 import type { LiveProviderUsageRecord } from '../../LiveProviderUsage';
 import {
+  computeCategoryQualityBreakdown,
   computeConsistencyMetrics,
   computeCostMetrics,
   computeFalseConfidenceMetrics,
@@ -19,6 +20,7 @@ import {
   computeQualityMetrics,
   groupByPartition,
   type GateVerdict,
+  type RepresentativeHybridV1LiveCategoryQualityBreakdown,
 } from './RepresentativeHybridV1LiveMetrics';
 import type { RepresentativeHybridV1LiveCaseRecord } from './RepresentativeHybridV1LiveRunner';
 import {
@@ -46,6 +48,10 @@ export interface RepresentativeHybridV1LivePartitionReport {
   partition: 'development' | 'holdout';
   caseCount: number;
   quality: ReturnType<typeof computeQualityMetrics>;
+  /** RESOLVER-V3-042 addition: per-category Top-1 identification breakdown (spec §11 G2(a)),
+   * `null` only when no `categoryByScenarioId` map was supplied to the builder (defends every
+   * pre-existing caller/test that never had a reason to pass one). */
+  categoryQuality: RepresentativeHybridV1LiveCategoryQualityBreakdown | null;
   falseConfidence: ReturnType<typeof computeFalseConfidenceMetrics>;
   friction: ReturnType<typeof computeFrictionMetrics>;
   latency: ReturnType<typeof computeLatencyMetrics>;
@@ -107,8 +113,17 @@ export interface RepresentativeHybridV1LiveReport {
 function buildPartitionReport(
   partition: 'development' | 'holdout',
   caseRecords: readonly RepresentativeHybridV1LiveCaseRecord[],
-  telemetry: readonly LiveProviderUsageRecord[],
+  /** RESOLVER-V3-042 fix: this MUST already be scoped to exactly this partition's own telemetry by
+   * the caller (`buildRepresentativeHybridV1LiveReport` below) -- the pre-remediation code passed
+   * the full combined `rawTelemetry` (development + holdout) to both partitions' calls to this
+   * function, so `cost` silently computed an identical, un-partitioned figure for Development and
+   * Holdout alike (see RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md "G2-E"). This function no
+   * longer filters by anything except `variant === 'C'`; partition scoping happens once, upstream,
+   * so there is exactly one place that can get it wrong instead of two.
+   */
+  partitionScopedTelemetry: readonly LiveProviderUsageRecord[],
   expectedBehaviorByScenarioId: ReadonlyMap<string, string>,
+  categoryByScenarioId: ReadonlyMap<string, string>,
 ): RepresentativeHybridV1LivePartitionReport {
   const cObservationsForLatency = caseRecords.flatMap((r) =>
     r.variantC.map((c) => ({
@@ -125,11 +140,15 @@ function buildPartitionReport(
       expectedBehavior: expectedBehaviorByScenarioId.get(r.scenarioId) ?? '',
     })),
   );
-  const aiRoutedTelemetry = telemetry.filter((t) => t.variant === 'C');
+  const aiRoutedTelemetry = partitionScopedTelemetry.filter((t) => t.variant === 'C');
   return {
     partition,
     caseCount: caseRecords.length,
     quality: computeQualityMetrics(caseRecords),
+    categoryQuality:
+      categoryByScenarioId.size > 0
+        ? computeCategoryQualityBreakdown(caseRecords, categoryByScenarioId)
+        : null,
     falseConfidence: computeFalseConfidenceMetrics(caseRecords),
     friction: computeFrictionMetrics(cWithExpected),
     latency: computeLatencyMetrics(
@@ -153,7 +172,28 @@ function overallGateVerdict(
   // failure -- both must independently pass.
   if (d === 'failed' || h === 'failed') return 'failed';
   if (d === 'not_evaluable' || h === 'not_evaluable') return 'not_evaluable';
+  if (d === 'requires_human_judgment' || h === 'requires_human_judgment') {
+    return 'requires_human_judgment';
+  }
   return 'passed';
+}
+
+/**
+ * RESOLVER-V3-042 addition: combinator for the two gate dimensions whose own binding authority is
+ * genuinely qualitative (G2-C user friction, G2-G consistency) -- these dimensions never resolve to
+ * `'passed'`/`'failed'` at all (inventing that resolution is exactly the defect being fixed), so the
+ * generic `overallGateVerdict` combinator's failed/passed branches would be dead code for them.
+ */
+function overallQualitativeVerdict(
+  development: RepresentativeHybridV1LivePartitionReport | null,
+  holdout: RepresentativeHybridV1LivePartitionReport | null,
+  select: (p: RepresentativeHybridV1LivePartitionReport) => 'requires_human_judgment' | 'not_evaluable',
+): GateVerdict {
+  if (!development || !holdout) return 'not_evaluable';
+  const d = select(development);
+  const h = select(holdout);
+  if (d === 'not_evaluable' || h === 'not_evaluable') return 'not_evaluable';
+  return 'requires_human_judgment';
 }
 
 export function buildRepresentativeHybridV1LiveReport(params: {
@@ -168,6 +208,12 @@ export function buildRepresentativeHybridV1LiveReport(params: {
   /** Ground-truth `expectedBehavior` per scenario ID, from the frozen corpus -- used only for the
    * friction (G2-C) "correct clarification"/"correct abstention" comparison. */
   expectedBehaviorByScenarioId: ReadonlyMap<string, string>;
+  /** RESOLVER-V3-042 addition: ground-truth `BenchmarkCategory` per scenario ID, from the frozen
+   * corpus -- used only for the category-specific G2-A quality breakdown (spec §11 G2(a)). Optional
+   * and defaults to an empty map so every pre-existing caller/test that never had a reason to pass
+   * one keeps working unchanged; `categoryQuality` is simply `null` and G2-A is `not_evaluable` in
+   * that case, never a silent fallback to the old aggregate comparison. */
+  categoryByScenarioId?: ReadonlyMap<string, string>;
   /** RESOLVER-V3-039 protocol-v2 remediation: lets the v2 harness stamp the corrected protocol/
    * report versions. Defaults to the original v1 literals so every pre-existing caller/test keeps
    * producing byte-identical output. */
@@ -181,6 +227,7 @@ export function buildRepresentativeHybridV1LiveReport(params: {
     evidenceCommit,
     executionStatus,
     rawTelemetry,
+    categoryByScenarioId = new Map<string, string>(),
     reportVersion = REPRESENTATIVE_HYBRID_V1_LIVE_REPORT_VERSION,
     protocolVersion = 'resolver-representative-hybrid-live-protocol-v1',
   } = params;
@@ -192,20 +239,41 @@ export function buildRepresentativeHybridV1LiveReport(params: {
     ? groupByPartition(params.holdoutCaseRecords).holdout
     : null;
 
+  // RESOLVER-V3-042 fix (G2-E defect): the pre-remediation code passed the full, combined
+  // `rawTelemetry` (development + holdout together) to BOTH partitions' `buildPartitionReport`
+  // calls below, so Development's and Holdout's `cost` metrics were computed over an identical,
+  // un-partitioned Variant C telemetry set instead of each partition's own share -- see
+  // RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md "G2-E". `rawTelemetry`'s own
+  // `LiveProviderUsageRecord` never carries a `partition` field (only `variant`/`caseId`), so the
+  // real, non-string-parsing fix is to derive scenario -> partition membership from the case
+  // records this function already receives (the authoritative source), then filter telemetry by
+  // that membership -- never by pattern-matching the case ID string.
+  const scenarioPartition = new Map<string, 'development' | 'holdout'>();
+  for (const r of devByPartition ?? []) scenarioPartition.set(r.scenarioId, 'development');
+  for (const r of holdByPartition ?? []) scenarioPartition.set(r.scenarioId, 'holdout');
+  const developmentTelemetry = rawTelemetry.filter(
+    (t) => scenarioPartition.get(t.caseId) === 'development',
+  );
+  const holdoutTelemetry = rawTelemetry.filter(
+    (t) => scenarioPartition.get(t.caseId) === 'holdout',
+  );
+
   const development = devByPartition
     ? buildPartitionReport(
         'development',
         devByPartition,
-        rawTelemetry,
+        developmentTelemetry,
         params.expectedBehaviorByScenarioId,
+        categoryByScenarioId,
       )
     : null;
   const holdout = holdByPartition
     ? buildPartitionReport(
         'holdout',
         holdByPartition,
-        rawTelemetry,
+        holdoutTelemetry,
         params.expectedBehaviorByScenarioId,
+        categoryByScenarioId,
       )
     : null;
 
@@ -223,17 +291,23 @@ export function buildRepresentativeHybridV1LiveReport(params: {
   const knownOutput = rawTelemetry.filter((t) => t.outputTokens !== null);
 
   const gateVerdicts: RepresentativeHybridV1LiveGateVerdicts = {
+    // RESOLVER-V3-042 fix: the binding rule (spec §11 G2(a)) is category-specific ("Top-1 ≥ A at
+    // least in DACH/COMPOSED/RESTAURANT, no regression in SIMPLE/HOUSEHOLD"), never a single
+    // blended C-vs-A rate. `categoryQuality` is `null` (=> not_evaluable) unless a real
+    // `categoryByScenarioId` map was supplied; its own `verdict` already implements the exact
+    // per-category AND-across-five-categories rule (`computeCategoryQualityBreakdown`).
     g2a_representativeQuality: overallGateVerdict(development, holdout, (p) =>
-      p.quality.variantC.identificationMatchRate !== null &&
-      p.quality.variantC.identificationMatchRate > p.quality.variantA.identificationMatchRate!
-        ? 'passed'
-        : p.quality.variantC.evaluableCount < 30
-          ? 'not_evaluable'
-          : 'failed',
+      p.categoryQuality ? p.categoryQuality.verdict : 'not_evaluable',
     ),
     g2b_falseConfidence: overallGateVerdict(development, holdout, (p) => p.falseConfidence.verdict),
-    g2c_userFriction: overallGateVerdict(development, holdout, (p) =>
-      p.friction.denominator >= 30 ? 'passed' : 'not_evaluable',
+    // RESOLVER-V3-042 fix: the binding rule (spec §11 G2(c)) is explicitly qualitative --
+    // "qualitativ zu prüfen, kein Fixwert" (checked qualitatively, no fixed value) -- so this can
+    // never resolve to 'passed' merely because the sample size crosses 30, which is exactly what
+    // the pre-remediation code did. It now reports `requires_human_judgment` once real friction
+    // data exists (the full clarification/abstention counts/rates remain available on
+    // `p.friction` for that judgment), and `not_evaluable` only when there is no data at all.
+    g2c_userFriction: overallQualitativeVerdict(development, holdout, (p) =>
+      p.friction.denominator > 0 ? 'requires_human_judgment' : 'not_evaluable',
     ),
     g2d_latency: overallGateVerdict(development, holdout, (p) => {
       const verdicts = [
@@ -254,11 +328,16 @@ export function buildRepresentativeHybridV1LiveReport(params: {
           ? 'passed'
           : 'not_evaluable',
     ),
-    g2g_consistency: consistency
-      ? consistency.overlayGroupCount >= 1
-        ? 'passed'
-        : 'not_evaluable'
-      : 'not_evaluable',
+    // RESOLVER-V3-042 fix: the pre-remediation code only checked `overlayGroupCount >= 1`
+    // (existence), never the actual outcome/identification agreement rate -- it would report
+    // 'passed' even if every overlay group disagreed completely. The binding rule (spec §11 G2(g))
+    // is itself qualitative ("nicht wesentlich schlechter", no fixed multiplier vs. Variant A's
+    // structural ~100% baseline -- see `variantAStructuralBaselineRate`/
+    // `variantC*AgreementDeltaFromBaseline` on `consistency`), so this can never manufacture its
+    // own numeric cutoff either; it reports `requires_human_judgment` once real overlay
+    // observations exist, `not_evaluable` only when there are none.
+    g2g_consistency:
+      consistency && consistency.overlayGroupCount >= 1 ? 'requires_human_judgment' : 'not_evaluable',
   };
 
   return {
@@ -319,7 +398,13 @@ export function buildRepresentativeHybridV1LiveReport(params: {
 }
 
 function fmtVerdict(v: GateVerdict): string {
-  return v === 'passed' ? 'PASSED' : v === 'failed' ? 'FAILED' : 'NOT_EVALUABLE';
+  return v === 'passed'
+    ? 'PASSED'
+    : v === 'failed'
+      ? 'FAILED'
+      : v === 'requires_human_judgment'
+        ? 'REQUIRES_HUMAN_JUDGMENT'
+        : 'NOT_EVALUABLE';
 }
 
 function fmtNum(v: number | null, digits = 4): string {
@@ -341,6 +426,16 @@ function renderPartition(p: RepresentativeHybridV1LivePartitionReport | null): s
         `technicalFailures=${arm.technicalFailureCount}, identificationMatchRate=${fmtNum(arm.identificationMatchRate)}, ` +
         `expectedBehaviorMatchRate=${fmtNum(arm.expectedBehaviorMatchRate)}, criticalFailures=${arm.criticalFailureCount}`,
     );
+  }
+  if (p.categoryQuality) {
+    lines.push('- Category quality (G2-A, Top-1 identification, spec §11 G2(a)):');
+    for (const row of p.categoryQuality.rows) {
+      lines.push(
+        `  - ${row.category} [${row.requirement}]: A=${fmtNum(row.variantA.matchRate, 3)} (${row.variantA.matchCount}/${row.variantA.n}), ` +
+          `C=${fmtNum(row.variantC.matchRate, 3)} (${row.variantC.matchCount}/${row.variantC.n}) -- ` +
+          `${row.conditionMet === null ? 'NOT_EVALUABLE' : row.conditionMet ? 'MET' : 'NOT_MET'}`,
+      );
+    }
   }
   lines.push(
     `- False confidence: A=${fmtNum(p.falseConfidence.variantA.rate, 3)} (${p.falseConfidence.variantA.count}/${p.falseConfidence.variantA.denominator}), ` +
@@ -441,6 +536,15 @@ export function buildRepresentativeHybridV1LiveMarkdownReport(
     );
     lines.push(
       `- Variant C fast-path deterministic consistency: ${fmtNum(report.consistency.variantCFastPathDeterministicConsistencyRate, 3)}`,
+    );
+    lines.push(
+      `- Variant A structural baseline (deterministic, no repeat calls): ${report.consistency.variantAStructuralBaselineRate}`,
+    );
+    lines.push(
+      `- Variant C outcome agreement delta from A baseline: ${fmtNum(report.consistency.variantCOutcomeAgreementDeltaFromBaseline, 3)}`,
+    );
+    lines.push(
+      `- Variant C identification agreement delta from A baseline: ${fmtNum(report.consistency.variantCIdentificationAgreementDeltaFromBaseline, 3)}`,
     );
   } else {
     lines.push('_Not evaluable -- no overlay observations executed._');

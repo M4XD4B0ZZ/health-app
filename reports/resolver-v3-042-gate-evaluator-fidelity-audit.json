@@ -1,0 +1,307 @@
+{
+  "auditVersion": "resolver-v3-042-gate-evaluator-fidelity-audit-v1",
+  "taskId": "RESOLVER-V3-042",
+  "type": "additive_derived_erratum",
+  "mutatesOriginalEvidence": false,
+  "referencedTask": "RESOLVER-V3-039",
+  "referencedEvidenceManifest": "reports/resolver-v3-039-controlled-live-evidence-manifest.json",
+  "referencedCloseoutReport": "reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md",
+  "zeroProviderCallsMade": true,
+  "zeroBenchmarkCostIncurred": true,
+  "anthropicApiKeyTouched": false,
+  "resolverV3_041Status": "todo",
+  "resolverV3_010Status": "blocked",
+  "evidenceFileIntegrity": {
+    "method": "sha256 before/after (working-tree self-consistency) plus canonical git-blob cross-check against the frozen manifest",
+    "files": [
+      {
+        "path": "logs/resolver-v3-039-call-ledger.jsonl",
+        "workingTreeSha256": "31ad1bf373f71147775b5960e90a1ab9ee0b12f7d4e9d9d6b413b74806ce5069",
+        "canonicalGitBlobSha256": "a7a039e7c9035a893c06462751af65332639cf7e110a2afee4153ad99733adf8",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      },
+      {
+        "path": "logs/resolver-v3-039-development-checkpoint.json",
+        "workingTreeSha256": "f271c4e93ea75e1a40c2be7c97a050d921c12917b7b820a9a574207bfd68ae1e",
+        "canonicalGitBlobSha256": "1600e9b6f985e1c01978a26ebcc3c2c200add874dd73de97d49a3019b52b0cb4",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      },
+      {
+        "path": "logs/resolver-v3-039-development-diagnostic.json",
+        "workingTreeSha256": "50bb8d9e84d89f09d7f54fa260db57bdf1043dc1b0cbbb3cd4ff865f04d10aa5",
+        "canonicalGitBlobSha256": "f9e7baa0da355502f36a3279bd65698db6a1c55f2443478b4f112336b78de6c3",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      },
+      {
+        "path": "logs/resolver-v3-039-development-diagnostic.md",
+        "workingTreeSha256": "52984936dde72cf8c1485dc316aa2e0207505156f3b0ededae9ab4e0566578ba",
+        "canonicalGitBlobSha256": "68d18d604c0069daec9214175e6bd67b9673105f1ee48e8f123fc01ac67cbd4e",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      },
+      {
+        "path": "logs/resolver-v3-039-holdout-checkpoint.json",
+        "workingTreeSha256": "22e7cd14a7485186e81ebf531a9e8caad44abb0d7dfbc9b145b611d6bf15ce85",
+        "canonicalGitBlobSha256": "4441247832cc02585384dbf78e4372fe8226947d1aa69c3fd4874de33574a593",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      },
+      {
+        "path": "logs/resolver-v3-039-controlled-representative-live-evidence.json",
+        "workingTreeSha256": "d651ad484f4ae9cc9d8d88d41309fe7782a8761f188f88a6b3cbae805e01193e",
+        "canonicalGitBlobSha256": "e27d14a5ee3ba309b4dcf24c9265310baca8d2c393dfcfb949bab2d68f4530e9",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      },
+      {
+        "path": "logs/resolver-v3-039-controlled-representative-live-evidence.md",
+        "workingTreeSha256": "2ab6289ee2f73d6e991d1183948b7e55db953a28366564d733fa179d72fad537",
+        "canonicalGitBlobSha256": "a2d636370e4b69d89acf2d4435ecb63c3acd583a092dd54b3bfdfd963e9f1fef",
+        "matchesManifest": true,
+        "unchangedBeforeAfter": true
+      }
+    ],
+    "workingTreeVsManifestNote": "Working-tree SHA-256 differs from the manifest's recorded value due to this checkout's core.autocrlf=true CRLF normalization (no .gitattributes eol=lf override on these paths) -- the canonical git-blob SHA-256 (checkout-independent) matches the manifest exactly for all seven files. This is the same class of issue already diagnosed for source files during RESOLVER-V3-039's own v2->v3 execution-tree-hash remediation."
+  },
+  "gateFindings": [
+    {
+      "gate": "G2-A",
+      "name": "Representative quality",
+      "bindingRule": "Top-1-Identifikation >= Variante A mindestens in DACH/COMPOSED/RESTAURANT, ohne Regression in SIMPLE/HOUSEHOLD (spec section 11)",
+      "originalStoredVerdict": "passed",
+      "defect": "Aggregate-only comparison across every category combined (not the five named categories individually), and used strict '>' instead of the binding '>='.",
+      "codeReference": "RepresentativeHybridV1LiveReportBuilder.ts (pre-fix gateVerdicts.g2a_representativeQuality)",
+      "correctedMetricAvailable": false,
+      "correctedMetricNote": "Historical per-case category+identification data was never persisted in the seven evidence files; only the already-blended aggregate rate survived. Cannot be retroactively recomputed without re-execution, which this task forbids.",
+      "correctedVerdictForHistoricalRun": "indeterminate_at_category_level",
+      "codeFixed": true,
+      "codeFixDescription": "computeCategoryQualityBreakdown in RepresentativeHybridV1LiveMetrics.ts implements the real per-category, per-partition >= comparison for DACH/COMPOSED/RESTAURANT/SIMPLE/HOUSEHOLD, using only each scenario's primary Variant C observation.",
+      "resolverV3_041Implication": "Must treat the historical G2-A 'passed' as unverified/not certified, not as satisfying the binding rule. Future live executions will receive a faithful verdict once a categoryByScenarioId map is supplied (now wired by default in the harness)."
+    },
+    {
+      "gate": "G2-C",
+      "name": "User friction",
+      "bindingRule": "Rueckfragenrate nicht drastisch ueber dem bestehenden Speck-Praezedenzfall-Volumen -- qualitativ zu pruefen, kein Fixwert (spec section 11) -- explicitly qualitative, no deterministic threshold",
+      "originalStoredVerdict": "passed",
+      "defect": "Verdict resolved to 'passed' purely from friction.denominator >= 30, with zero correctness/rate check of any kind.",
+      "codeReference": "RepresentativeHybridV1LiveReportBuilder.ts (pre-fix gateVerdicts.g2c_userFriction)",
+      "correctedMetricAvailable": true,
+      "correctedMetric": {
+        "development": {
+          "denominator": 108,
+          "clarifications": 2,
+          "clarificationRate": 0.018518518518518517,
+          "correctClarifications": 1,
+          "correctClarificationRate": 0.5,
+          "abstentions": 43,
+          "abstentionRate": 0.39814814814814814,
+          "correctAbstentions": 2,
+          "correctAbstentionRate": 0.046511627906976744
+        },
+        "holdout": {
+          "denominator": 31,
+          "clarifications": 1,
+          "clarificationRate": 0.03225806451612903,
+          "correctClarifications": 0,
+          "correctClarificationRate": 0,
+          "abstentions": 17,
+          "abstentionRate": 0.5483870967741935,
+          "correctAbstentions": 1,
+          "correctAbstentionRate": 0.058823529411764705
+        }
+      },
+      "correctedVerdictForHistoricalRun": "requires_human_judgment",
+      "codeFixed": true,
+      "codeFixDescription": "gateVerdicts.g2c_userFriction now resolves to 'requires_human_judgment' whenever friction.denominator > 0, and 'not_evaluable' only when there is no data -- it can never resolve to 'passed'/'failed'.",
+      "resolverV3_041Implication": "The historical 'passed' must be discarded as a manufactured verdict. RESOLVER-V3-041 must perform its own qualitative judgment of the correctedMetric table above, in particular the low abstention-correctness rates (~4.65% development, ~5.88% holdout)."
+    },
+    {
+      "gate": "G2-G",
+      "name": "Consistency",
+      "bindingRule": "Wiederholungs-Uebereinstimmungsrate nicht wesentlich schlechter als As (die strukturell nahe 100% liegt) (spec section 11) -- qualitative, no fixed multiplier",
+      "originalStoredVerdict": "passed",
+      "defect": "Verdict resolved to 'passed' purely from overlayGroupCount >= 1, never consulting the already-computed real agreement rates.",
+      "codeReference": "RepresentativeHybridV1LiveReportBuilder.ts (pre-fix gateVerdicts.g2g_consistency)",
+      "correctedMetricAvailable": true,
+      "correctedMetric": {
+        "overlayGroupCount": 16,
+        "variantBOutcomeAgreementRate": 0.625,
+        "variantBIdentificationAgreementRate": 0.625,
+        "variantCOutcomeAgreementRate": 0.6875,
+        "variantCIdentificationAgreementRate": 0.6875,
+        "variantCFastPathDeterministicConsistencyRate": 1,
+        "variantAStructuralBaselineRate": 1,
+        "variantCOutcomeAgreementDeltaFromBaseline": -0.3125,
+        "variantCIdentificationAgreementDeltaFromBaseline": -0.3125
+      },
+      "correctedVerdictForHistoricalRun": "requires_human_judgment",
+      "codeFixed": true,
+      "codeFixDescription": "computeConsistencyMetrics now returns variantAStructuralBaselineRate and variantC*AgreementDeltaFromBaseline; gateVerdicts.g2g_consistency resolves to 'requires_human_judgment' when overlayGroupCount >= 1, 'not_evaluable' only when there are no overlay observations.",
+      "resolverV3_041Implication": "The historical 'passed' must be discarded. A real -31.25 percentage-point gap between Variant C's repeat agreement and Variant A's structural ~100% baseline should be weighed directly by RESOLVER-V3-041, alongside G2-B (failed) and G2-D (failed)."
+    },
+    {
+      "gate": "G2-E",
+      "name": "Cost",
+      "bindingRule": "Development and Holdout must each be evaluated against their own telemetry, never a blended/combined figure",
+      "originalStoredVerdict": "not_evaluable",
+      "defect": "Both partitions' cost metrics were computed over the full combined Development+Holdout Variant C telemetry (127 records) instead of each partition's own share (97 development / 30 holdout) -- development.cost.n and holdout.cost.n were byte-identical (127) in the final combined report, as was meanCostUsd (0.003719233870967744 for both).",
+      "codeReference": "RepresentativeHybridV1LiveReportBuilder.ts (pre-fix buildRepresentativeHybridV1LiveReport passing the same combined rawTelemetry to both buildPartitionReport calls)",
+      "correctedMetricAvailable": true,
+      "correctedMetric": {
+        "development": {
+          "variantC": {
+            "n": 97,
+            "known": 95,
+            "unknown": 2,
+            "sumKnownCostUsd": 0.358223,
+            "meanKnownCostUsd": 0.003771,
+            "inputTokens": 154728,
+            "outputTokens": 40699
+          }
+        },
+        "holdout": {
+          "variantC": {
+            "n": 30,
+            "known": 29,
+            "unknown": 1,
+            "sumKnownCostUsd": 0.102962,
+            "meanKnownCostUsd": 0.00355,
+            "inputTokens": 47172,
+            "outputTokens": 11158
+          }
+        }
+      },
+      "correctedVerdictForHistoricalRun": "not_evaluable",
+      "correctedVerdictUnchangedFromOriginal": true,
+      "codeFixed": true,
+      "codeFixDescription": "buildRepresentativeHybridV1LiveReport now derives a scenarioId->partition map from the real case records and filters rawTelemetry through it before building each partition's report, so cost is always computed over that partition's own telemetry only.",
+      "resolverV3_041Implication": "Final verdict is unchanged (not_evaluable, correctly, since both partitions still have unknown-cost records) but RESOLVER-V3-041 must not cite the old blended n=127/meanCostUsd=0.003719233870967744 figures for either partition -- cite the corrected per-partition table above."
+    }
+  ],
+  "technicalFailureFinding": {
+    "originalStoredValue": {
+      "development_quality_variantC_technicalFailureCount": 0,
+      "holdout_quality_variantC_technicalFailureCount": 0
+    },
+    "defect": "computeQualityMetrics's armMetrics call for Variant C used the predicate '() => false', hard-coding technical failures to always 0 regardless of actual outcome, unlike Variant B which correctly used its own evaluation.technicalFailure boolean.",
+    "codeReference": "RepresentativeHybridV1LiveMetrics.ts (pre-fix computeQualityMetrics, variantC: armMetrics(cAll, () => false))",
+    "correctedPredicate": "(e) => e.outcome === 'error'",
+    "correctedPredicateJustification": "VariantCMealResult.outcome === 'error' is classified by RepresentativeHybridV1LiveTelemetryProviders.ts as providerStatus 'network_error' if and only if the outcome is 'error' -- confirmed by direct code inspection, not inferred.",
+    "correctedMetric": {
+      "development": {
+        "caseCount": 108,
+        "technicalFailureCount": 8,
+        "evaluableCount": 100,
+        "identificationMatchCount": 33,
+        "identificationMatchRateOriginal": 0.3055555555555556,
+        "identificationMatchRateCorrected": 0.33,
+        "expectedBehaviorMatchCount": 16,
+        "expectedBehaviorMatchRateOriginal": 0.14814814814814814,
+        "expectedBehaviorMatchRateCorrected": 0.16,
+        "criticalFailureCount": 7
+      },
+      "holdout": {
+        "caseCount": 31,
+        "technicalFailureCount": 3,
+        "evaluableCount": 28,
+        "identificationMatchCount": 7,
+        "identificationMatchRateOriginal": 0.22580645161290322,
+        "identificationMatchRateCorrected": 0.25,
+        "expectedBehaviorMatchCount": 1,
+        "expectedBehaviorMatchRateOriginal": 0.03225806451612903,
+        "expectedBehaviorMatchRateCorrected": 0.03571428571428571,
+        "criticalFailureCount": 1
+      }
+    },
+    "numeratorsUnaffected": true,
+    "numeratorsUnaffectedJustification": "evaluateIdentificationC never returns 'correct'/'acceptable_equivalent' for a case with no resolved component (outcome='error'), and evaluateExpectedBehaviorC has no branch returning {result:'match'} for outcome='error' under any expectedBehavior value -- verified by direct code inspection.",
+    "codeFixed": true,
+    "resolverV3_041Implication": "Cite the corrected identificationMatchRate/expectedBehaviorMatchRate values above, not the original stored (denominator-inflated) values."
+  },
+  "terminalFailureReconciliation": {
+    "totalCount": 16,
+    "developmentCount": 11,
+    "holdoutCount": 5,
+    "variantBCount": 5,
+    "variantCCount": 11,
+    "httpStatusNullGroup": [
+      { "scenarioId": "RH-RES-BRANDED-DEV-001", "partition": "development", "variant": "B" },
+      { "scenarioId": "RH-RES-BRANDED-DEV-001", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-COMPOSED-DEV-006", "partition": "development", "variant": "B" },
+      { "scenarioId": "RH-RES-OVERLAY-DEV-006", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-PREPARATION-DEV-005", "partition": "development", "variant": "B" },
+      { "scenarioId": "RH-RES-HOUSEHOLD-HOLD-001", "partition": "holdout", "variant": "C" },
+      { "scenarioId": "RH-RES-HOUSEHOLD-HOLD-002", "partition": "holdout", "variant": "B" },
+      { "scenarioId": "RH-RES-PREPARATION-HOLD-002", "partition": "holdout", "variant": "B" }
+    ],
+    "httpStatus200Group": [
+      { "scenarioId": "RH-RES-HOMEMADE-DEV-004", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-UNRELIABLE-DEV-003", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-VAGUE-DEV-003", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-VAGUE-DEV-004", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-VAGUE-DEV-005", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-VAGUE-DEV-006", "partition": "development", "variant": "C" },
+      { "scenarioId": "RH-RES-VAGUE-HOLD-001", "partition": "holdout", "variant": "C" },
+      { "scenarioId": "RH-RES-VAGUE-HOLD-002", "partition": "holdout", "variant": "C" }
+    ],
+    "priorRehearsalReportDefect": {
+      "listedDevelopmentHttp200Ids": [
+        "HOMEMADE-DEV-004",
+        "UNRELIABLE-DEV-003",
+        "UNRELIABLE-DEV-004",
+        "UNRELIABLE-DEV-005",
+        "UNRELIABLE-DEV-006"
+      ],
+      "listedCount": 7,
+      "actualCount": 8,
+      "missingCallId": "RH-RES-VAGUE-DEV-003",
+      "missingCallLedgerId": "call_8c584d9acca59d6e467586d58ca87c21",
+      "explanation": "The prior rehearsal report mislabeled real VAGUE-DEV-004/005/006 failures as UNRELIABLE-DEV-004/005/006, and never listed VAGUE-DEV-003 at all."
+    },
+    "noReasonCodeRelabeled": true
+  },
+  "verification": {
+    "focusedTestsPassed": true,
+    "representativeHybridV1SuitePassed": true,
+    "representativeHybridV1SuiteCounts": { "testSuites": 28, "tests": 245 },
+    "fullRepoTestSuitePassed": true,
+    "fullRepoTestSuiteCounts": { "testSuites": 237, "tests": 2316 },
+    "typecheckPassed": true,
+    "lintPassed": true,
+    "formatCheckPreExistingWarningCount": 863,
+    "formatCheckPreExistingWarningCountUnchangedByThisTask": true
+  },
+  "filesChanged": {
+    "code": [
+      "src/features/nutrition/benchmark/representativeHybridV1/live/RepresentativeHybridV1LiveMetrics.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/live/RepresentativeHybridV1LiveReportBuilder.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/live/RepresentativeHybridV1LiveReportValidator.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/live/runRepresentativeHybridV1Live.harness.ts"
+    ],
+    "tests": [
+      "src/features/nutrition/benchmark/representativeHybridV1/live/__tests__/RepresentativeHybridV1LiveMetrics.test.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/live/__tests__/RepresentativeHybridV1LiveReportBuilder.test.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/live/__tests__/RepresentativeHybridV1LiveProtocolV3.test.ts"
+    ],
+    "reportsAndRoadmap": [
+      "reports/RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md",
+      "reports/resolver-v3-042-gate-evaluator-fidelity-audit.json",
+      "ROADMAP.md"
+    ],
+    "notTouched": [
+      "logs/resolver-v3-039-call-ledger.jsonl",
+      "logs/resolver-v3-039-development-checkpoint.json",
+      "logs/resolver-v3-039-development-diagnostic.json",
+      "logs/resolver-v3-039-development-diagnostic.md",
+      "logs/resolver-v3-039-holdout-checkpoint.json",
+      "logs/resolver-v3-039-controlled-representative-live-evidence.json",
+      "logs/resolver-v3-039-controlled-representative-live-evidence.md",
+      "reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md",
+      "reports/resolver-v3-039-controlled-live-evidence-manifest.json"
+    ]
+  },
+  "generatedAtUtc": "2026-07-24T22:00:00.000Z"
+}

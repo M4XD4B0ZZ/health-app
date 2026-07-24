@@ -1,7 +1,10 @@
 import type { LiveProviderUsageRecord } from '../../../LiveProviderUsage';
 import {
+  computeCategoryQualityBreakdown,
+  computeConsistencyMetrics,
   computeCostMetrics,
   computeFalseConfidenceMetrics,
+  computeQualityMetrics,
   nearestRankPercentile,
 } from '../RepresentativeHybridV1LiveMetrics';
 import type { RepresentativeHybridV1LiveCaseRecord } from '../RepresentativeHybridV1LiveRunner';
@@ -127,5 +130,224 @@ describe('computeFalseConfidenceMetrics', () => {
     );
     const result = computeFalseConfidenceMetrics(records);
     expect(result.verdict).toBe('not_evaluable');
+  });
+});
+
+// -------------------------------------------------------------------------------------------
+// RESOLVER-V3-042 regression tests
+// -------------------------------------------------------------------------------------------
+
+function qualityCaseRecord(params: {
+  scenarioId: string;
+  aIdentification: 'correct' | 'acceptable_equivalent' | 'wrong' | 'no_resolution';
+  cIdentification: 'correct' | 'acceptable_equivalent' | 'wrong' | 'no_resolution';
+  cOutcome?: string;
+}): RepresentativeHybridV1LiveCaseRecord {
+  return {
+    scenarioId: params.scenarioId,
+    partition: 'development',
+    isOverlay: false,
+    variantA: {
+      identification: params.aIdentification,
+      expectedBehavior: { result: 'mismatch' },
+      isCriticalFailure: false,
+    } as never,
+    variantB: [],
+    variantC: [
+      {
+        runIndex: 0,
+        kind: 'primary',
+        raw: {} as never,
+        evaluation: {
+          identification: params.cIdentification,
+          outcome: params.cOutcome ?? 'resolved',
+          expectedBehavior: { result: 'match' },
+          isCriticalFailure: false,
+        } as never,
+      },
+    ],
+  };
+}
+
+describe('computeCategoryQualityBreakdown (RESOLVER-V3-042 G2-A fix)', () => {
+  it('fails when a no-regression category (SIMPLE/HOUSEHOLD) regresses even though the aggregate C rate would beat A', () => {
+    // DACH/COMPOSED/RESTAURANT: C beats A everywhere (would look like an aggregate "pass").
+    const winning: RepresentativeHybridV1LiveCaseRecord[] = [];
+    for (const category of ['DACH', 'COMPOSED', 'RESTAURANT']) {
+      for (let i = 0; i < 2; i += 1) {
+        winning.push(
+          qualityCaseRecord({
+            scenarioId: `${category}-${i}`,
+            aIdentification: 'wrong',
+            cIdentification: 'correct',
+          }),
+        );
+      }
+    }
+    // SIMPLE: Variant C regresses badly relative to Variant A here -- the binding rule (spec §11
+    // G2(a): "ohne Regression in SIMPLE/HOUSEHOLD") must catch this even though the blended,
+    // aggregate rate across every category above would still show C > A overall.
+    const simpleRegression = [
+      qualityCaseRecord({ scenarioId: 'SIMPLE-0', aIdentification: 'correct', cIdentification: 'wrong' }),
+      qualityCaseRecord({ scenarioId: 'SIMPLE-1', aIdentification: 'correct', cIdentification: 'wrong' }),
+    ];
+    const household = [
+      qualityCaseRecord({
+        scenarioId: 'HOUSEHOLD-0',
+        aIdentification: 'correct',
+        cIdentification: 'correct',
+      }),
+    ];
+    const records = [...winning, ...simpleRegression, ...household];
+    const categoryByScenarioId = new Map<string, string>();
+    for (const category of ['DACH', 'COMPOSED', 'RESTAURANT']) {
+      categoryByScenarioId.set(`${category}-0`, category);
+      categoryByScenarioId.set(`${category}-1`, category);
+    }
+    categoryByScenarioId.set('SIMPLE-0', 'SIMPLE');
+    categoryByScenarioId.set('SIMPLE-1', 'SIMPLE');
+    categoryByScenarioId.set('HOUSEHOLD-0', 'HOUSEHOLD');
+
+    // Sanity check: the OLD aggregate comparison this replaces would have called this "passed"
+    // (C's blended identification rate is clearly higher than A's).
+    const aggregate = computeQualityMetrics(records);
+    expect(aggregate.variantC.identificationMatchRate!).toBeGreaterThan(
+      aggregate.variantA.identificationMatchRate!,
+    );
+
+    const breakdown = computeCategoryQualityBreakdown(records, categoryByScenarioId);
+    const simpleRow = breakdown.rows.find((r) => r.category === 'SIMPLE')!;
+    expect(simpleRow.conditionMet).toBe(false);
+    expect(breakdown.verdict).toBe('failed');
+  });
+
+  it('passes when every named category individually meets its condition (>= A, not merely aggregate)', () => {
+    const records: RepresentativeHybridV1LiveCaseRecord[] = [];
+    const categoryByScenarioId = new Map<string, string>();
+    for (const category of ['DACH', 'COMPOSED', 'RESTAURANT', 'SIMPLE', 'HOUSEHOLD']) {
+      const id = `${category}-0`;
+      records.push(
+        qualityCaseRecord({ scenarioId: id, aIdentification: 'wrong', cIdentification: 'correct' }),
+      );
+      categoryByScenarioId.set(id, category);
+    }
+    const breakdown = computeCategoryQualityBreakdown(records, categoryByScenarioId);
+    expect(breakdown.verdict).toBe('passed');
+    expect(breakdown.rows.every((r) => r.conditionMet === true)).toBe(true);
+  });
+
+  it('is not_evaluable for a named category with zero cases, never a silent pass', () => {
+    const records: RepresentativeHybridV1LiveCaseRecord[] = [
+      qualityCaseRecord({ scenarioId: 'DACH-0', aIdentification: 'wrong', cIdentification: 'correct' }),
+    ];
+    const categoryByScenarioId = new Map<string, string>([['DACH-0', 'DACH']]);
+    // COMPOSED/RESTAURANT/SIMPLE/HOUSEHOLD have zero cases in this corpus slice.
+    const breakdown = computeCategoryQualityBreakdown(records, categoryByScenarioId);
+    expect(breakdown.verdict).toBe('not_evaluable');
+  });
+
+  it('never counts a repeat/consistency-run C observation, only the primary, toward Top-1 identification', () => {
+    const record: RepresentativeHybridV1LiveCaseRecord = {
+      scenarioId: 'DACH-overlay-0',
+      partition: 'development',
+      isOverlay: true,
+      variantA: { identification: 'wrong' } as never,
+      variantB: [],
+      variantC: [
+        {
+          runIndex: 0,
+          kind: 'primary',
+          raw: {} as never,
+          evaluation: { identification: 'wrong', outcome: 'resolved' } as never,
+        },
+        {
+          runIndex: 1,
+          kind: 'consistency',
+          raw: {} as never,
+          evaluation: { identification: 'correct', outcome: 'resolved' } as never,
+        },
+      ],
+    };
+    const categoryByScenarioId = new Map([['DACH-overlay-0', 'DACH']]);
+    const breakdown = computeCategoryQualityBreakdown([record], categoryByScenarioId);
+    const row = breakdown.rows.find((r) => r.category === 'DACH')!;
+    // Only the primary ('wrong') counts -- if the consistency repeat were double-counted, this
+    // would show n=2/matchCount=1 instead of n=1/matchCount=0.
+    expect(row.variantC.n).toBe(1);
+    expect(row.variantC.matchCount).toBe(0);
+  });
+});
+
+describe('Variant C technical failure representation (RESOLVER-V3-042 fix)', () => {
+  it('an outcome of "error" is counted as a technical failure and excluded from the evaluable denominator', () => {
+    const records: RepresentativeHybridV1LiveCaseRecord[] = [
+      qualityCaseRecord({
+        scenarioId: 'S-0',
+        aIdentification: 'correct',
+        cIdentification: 'correct',
+        cOutcome: 'resolved',
+      }),
+      qualityCaseRecord({
+        scenarioId: 'S-1',
+        aIdentification: 'correct',
+        cIdentification: 'no_resolution',
+        cOutcome: 'error',
+      }),
+    ];
+    const result = computeQualityMetrics(records);
+    expect(result.variantC.caseCount).toBe(2);
+    expect(result.variantC.technicalFailureCount).toBe(1);
+    expect(result.variantC.evaluableCount).toBe(1);
+    // The pre-remediation code hard-coded this to 0 regardless of outcome -- this assertion is the
+    // one that would have failed against the old `armMetrics(cAll, () => false)` implementation.
+    expect(result.variantC.technicalFailureCount).not.toBe(0);
+  });
+
+  it('a non-error outcome is never counted as a technical failure', () => {
+    const records: RepresentativeHybridV1LiveCaseRecord[] = [
+      qualityCaseRecord({
+        scenarioId: 'S-0',
+        aIdentification: 'correct',
+        cIdentification: 'correct',
+        cOutcome: 'abstained',
+      }),
+    ];
+    const result = computeQualityMetrics(records);
+    expect(result.variantC.technicalFailureCount).toBe(0);
+    expect(result.variantC.evaluableCount).toBe(1);
+  });
+});
+
+describe('computeConsistencyMetrics Variant A structural baseline (RESOLVER-V3-042 addition)', () => {
+  it('reports the Variant A structural baseline and a real delta, never silently passing on group existence alone', () => {
+    const overlayRecords: RepresentativeHybridV1LiveCaseRecord[] = [
+      {
+        scenarioId: 'OVERLAY-0',
+        partition: 'development',
+        isOverlay: true,
+        variantA: {} as never,
+        variantB: [],
+        variantC: [
+          {
+            runIndex: 0,
+            kind: 'primary',
+            raw: {} as never,
+            evaluation: { outcome: 'resolved', identification: 'correct', aiCalled: true } as never,
+          },
+          {
+            runIndex: 1,
+            kind: 'consistency',
+            raw: {} as never,
+            evaluation: { outcome: 'clarification_required', identification: 'wrong', aiCalled: true } as never,
+          },
+        ],
+      },
+    ];
+    const consistency = computeConsistencyMetrics(overlayRecords);
+    expect(consistency.overlayGroupCount).toBe(1);
+    expect(consistency.variantAStructuralBaselineRate).toBe(1);
+    // The two C repeats disagree completely (different outcome/identification) -- agreement rate 0.
+    expect(consistency.variantCOutcomeAgreementRate).toBe(0);
+    expect(consistency.variantCOutcomeAgreementDeltaFromBaseline).toBe(-1);
   });
 });

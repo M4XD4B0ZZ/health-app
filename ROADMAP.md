@@ -8176,8 +8176,8 @@ G2-C, and G2-G were computed by defective evaluator code (see that task's entry 
 check that ignored the binding spec's per-category rule (G2-A); a check that could only ever produce
 `passed`/`not_evaluable` from sample size alone regardless of correctness (G2-C); and a check that
 only verified overlay-group existence, never the real agreement rate (G2-G). RESOLVER-V3-042 fixed
-the evaluator code for all *future* executions and derived what could honestly be recomputed from the
-*historical* RESOLVER-V3-039 evidence without re-running anything: G2-A is **indeterminate at the
+the evaluator code for all _future_ executions and derived what could honestly be recomputed from the
+_historical_ RESOLVER-V3-039 evidence without re-running anything: G2-A is **indeterminate at the
 category level** (the historical evidence never persisted per-case category data, so its stored
 `passed` cannot be confirmed or refuted); G2-C's real friction data (clarification/abstention counts
 and correctness rates) is now available but the dimension is inherently qualitative
@@ -8210,7 +8210,7 @@ explicitly stating this dimension is qualitative with no fixed threshold; (3) G2
 `passed` purely from `overlayGroupCount >= 1`, never consulting the real, already-computed Variant
 B/C agreement rates; (4) Variant C's `quality.technicalFailureCount` was hard-coded to `0` via
 `armMetrics(cAll, () => false)`, unlike Variant B's correctly-wired equivalent. Also fixed: G2-E's
-cost metric was computed over the full combined Development+Holdout Variant C telemetry for *both*
+cost metric was computed over the full combined Development+Holdout Variant C telemetry for _both_
 partitions (byte-identical `n`/`meanCostUsd` in the final report), instead of each partition's own
 share. Reconciled the complete 16-item terminal-failure call-ID list directly from
 `logs/resolver-v3-039-call-ledger.jsonl`, identifying the missing 8th HTTP-200 Development call

@@ -11,11 +11,11 @@ sit alongside the immutable RESOLVER-V3-039 evidence — they do not replace, ed
 of it.** The seven canonical evidence files, the closeout report
 (`reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md`), and the evidence manifest
 (`reports/resolver-v3-039-controlled-live-evidence-manifest.json`) remain exactly as merged in PR
-#168. Every number in this report is *derived* from that frozen evidence (plus, where noted, from
+#168. Every number in this report is _derived_ from that frozen evidence (plus, where noted, from
 direct code inspection) — never re-run, never re-collected, zero provider calls made anywhere in
 this task. §2 records the SHA-256 proof that none of the seven files changed during this task.
 
-This audit exists because RESOLVER-V3-039's own report-builder code (used to *compute* its stored
+This audit exists because RESOLVER-V3-039's own report-builder code (used to _compute_ its stored
 gate verdicts) had real defects, found by re-reading the code that produced those verdicts, not by
 re-executing anything. Correcting that code is a RESOLVER-V3-042 concern; the historical verdicts
 computed by the old code remain frozen, historical facts about what that code produced — they are
@@ -38,17 +38,18 @@ files (`logs/resolver-v3-039-*`), `RepresentativeHybridV1LiveReportBuilder.ts`,
 Two independent checks were performed, both proving zero mutation:
 
 ### 2a. Working-tree self-consistency (before this task's first edit vs. immediately before the
+
 final commit, same tool, same checkout)
 
-| File | SHA-256 (working tree, CRLF checkout) |
-| --- | --- |
-| `logs/resolver-v3-039-call-ledger.jsonl` | `31ad1bf373f71147775b5960e90a1ab9ee0b12f7d4e9d9d6b413b74806ce5069` |
-| `logs/resolver-v3-039-development-checkpoint.json` | `f271c4e93ea75e1a40c2be7c97a050d921c12917b7b820a9a574207bfd68ae1e` |
-| `logs/resolver-v3-039-development-diagnostic.json` | `50bb8d9e84d89f09d7f54fa260db57bdf1043dc1b0cbbb3cd4ff865f04d10aa5` |
-| `logs/resolver-v3-039-development-diagnostic.md` | `52984936dde72cf8c1485dc316aa2e0207505156f3b0ededae9ab4e0566578ba` |
-| `logs/resolver-v3-039-holdout-checkpoint.json` | `22e7cd14a7485186e81ebf531a9e8caad44abb0d7dfbc9b145b611d6bf15ce85` |
+| File                                                                | SHA-256 (working tree, CRLF checkout)                              |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `logs/resolver-v3-039-call-ledger.jsonl`                            | `31ad1bf373f71147775b5960e90a1ab9ee0b12f7d4e9d9d6b413b74806ce5069` |
+| `logs/resolver-v3-039-development-checkpoint.json`                  | `f271c4e93ea75e1a40c2be7c97a050d921c12917b7b820a9a574207bfd68ae1e` |
+| `logs/resolver-v3-039-development-diagnostic.json`                  | `50bb8d9e84d89f09d7f54fa260db57bdf1043dc1b0cbbb3cd4ff865f04d10aa5` |
+| `logs/resolver-v3-039-development-diagnostic.md`                    | `52984936dde72cf8c1485dc316aa2e0207505156f3b0ededae9ab4e0566578ba` |
+| `logs/resolver-v3-039-holdout-checkpoint.json`                      | `22e7cd14a7485186e81ebf531a9e8caad44abb0d7dfbc9b145b611d6bf15ce85` |
 | `logs/resolver-v3-039-controlled-representative-live-evidence.json` | `d651ad484f4ae9cc9d8d88d41309fe7782a8761f188f88a6b3cbae805e01193e` |
-| `logs/resolver-v3-039-controlled-representative-live-evidence.md` | `2ab6289ee2f73d6e991d1183948b7e55db953a28366564d733fa179d72fad537` |
+| `logs/resolver-v3-039-controlled-representative-live-evidence.md`   | `2ab6289ee2f73d6e991d1183948b7e55db953a28366564d733fa179d72fad537` |
 
 These exact values were computed at the very start of this task, before any file was touched, and
 recomputed identically immediately before the final commit below — **byte-for-byte identical, no
@@ -66,15 +67,15 @@ execution-tree-hash remediation (`reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_RE
 `git show HEAD:<path> | sha256sum` (the canonical, checkout-independent blob content) was computed
 for all seven files and found to equal the manifest's recorded SHA-256 **exactly**, for every file:
 
-| File | Canonical (git blob) SHA-256 | Manifest SHA-256 | Match |
-| --- | --- | --- | --- |
-| call-ledger.jsonl | `a7a039e7c9035a893c06462751af65332639cf7e110a2afee4153ad99733adf8` | same | ✅ |
-| development-checkpoint.json | `1600e9b6f985e1c01978a26ebcc3c2c200add874dd73de97d49a3019b52b0cb4` | same | ✅ |
-| development-diagnostic.json | `f9e7baa0da355502f36a3279bd65698db6a1c55f2443478b4f112336b78de6c3` | same | ✅ |
-| development-diagnostic.md | `68d18d604c0069daec9214175e6bd67b9673105f1ee48e8f123fc01ac67cbd4e` | same | ✅ |
-| holdout-checkpoint.json | `4441247832cc02585384dbf78e4372fe8226947d1aa69c3fd4874de33574a593` | same | ✅ |
-| controlled-representative-live-evidence.json | `e27d14a5ee3ba309b4dcf24c9265310baca8d2c393dfcfb949bab2d68f4530e9` | same | ✅ |
-| controlled-representative-live-evidence.md | `a2d636370e4b69d89acf2d4435ecb63c3acd583a092dd54b3bfdfd963e9f1fef` | same | ✅ |
+| File                                         | Canonical (git blob) SHA-256                                       | Manifest SHA-256 | Match |
+| -------------------------------------------- | ------------------------------------------------------------------ | ---------------- | ----- |
+| call-ledger.jsonl                            | `a7a039e7c9035a893c06462751af65332639cf7e110a2afee4153ad99733adf8` | same             | ✅    |
+| development-checkpoint.json                  | `1600e9b6f985e1c01978a26ebcc3c2c200add874dd73de97d49a3019b52b0cb4` | same             | ✅    |
+| development-diagnostic.json                  | `f9e7baa0da355502f36a3279bd65698db6a1c55f2443478b4f112336b78de6c3` | same             | ✅    |
+| development-diagnostic.md                    | `68d18d604c0069daec9214175e6bd67b9673105f1ee48e8f123fc01ac67cbd4e` | same             | ✅    |
+| holdout-checkpoint.json                      | `4441247832cc02585384dbf78e4372fe8226947d1aa69c3fd4874de33574a593` | same             | ✅    |
+| controlled-representative-live-evidence.json | `e27d14a5ee3ba309b4dcf24c9265310baca8d2c393dfcfb949bab2d68f4530e9` | same             | ✅    |
+| controlled-representative-live-evidence.md   | `a2d636370e4b69d89acf2d4435ecb63c3acd583a092dd54b3bfdfd963e9f1fef` | same             | ✅    |
 
 **Conclusion: zero mutation, both by working-tree self-consistency and by canonical content
 cross-check.** No evidence file was written to, force-added, or regenerated by this task. All
@@ -97,8 +98,8 @@ would require — this task never invents a number it cannot derive.
 ## 4. G2-A — Representative quality
 
 **Binding rule** (spec §11, G2(a), German original quoted verbatim so nothing is lost in
-translation): *"Top-1-Identifikation ≥ Variante A mindestens in `DACH`/`COMPOSED`/`RESTAURANT`, ohne
-Regression in `SIMPLE`/`HOUSEHOLD`"* — i.e. Variant C's Top-1 identification rate must be **≥**
+translation): _"Top-1-Identifikation ≥ Variante A mindestens in `DACH`/`COMPOSED`/`RESTAURANT`, ohne
+Regression in `SIMPLE`/`HOUSEHOLD`"_ — i.e. Variant C's Top-1 identification rate must be **≥**
 Variant A's, evaluated **per category**, for exactly five named categories in two groups (three
 requiring "at least as good," two requiring "no regression") — never a single blended rate across
 the whole corpus.
@@ -120,6 +121,7 @@ g2a_representativeQuality: overallGateVerdict(development, holdout, (p) =>
 ```
 
 Two independent problems, both confirmed by inspection:
+
 1. **Aggregate, not category-specific.** `p.quality.variantC.identificationMatchRate` and
    `p.quality.variantA.identificationMatchRate` (from `computeQualityMetrics`) are single rates
    blended across **every** category in the corpus (`BRANDED`, `HOMEMADE`, `PREPARATION`, `VAGUE`,
@@ -149,7 +151,7 @@ already-aggregated `quality.variantA`/`quality.variantC` arm totals (see e.g.
 `logs/resolver-v3-039-development-diagnostic.json`'s `development.quality` object) — they do not
 persist a per-case `{scenarioId, category, identification}` table. Category is derivable from a
 scenario ID's naming convention plus the frozen corpus definition (e.g. `RepresentativeHybridV1DachCorpus.ts`),
-but the *per-case Variant A/C identification outcome* for the historical live run was never
+but the _per-case Variant A/C identification outcome_ for the historical live run was never
 persisted anywhere outside the process memory of the (already-completed, already-closed-out) live
 execution — only the blended rate survived into the stored report. Recomputing the true historical
 per-category rate would require re-running the benchmark, which this task's hard constraints
@@ -159,7 +161,7 @@ stored `passed` cannot be confirmed or refuted from persisted evidence alone.**
 **Implication for RESOLVER-V3-041:** treat RESOLVER-V3-039's historical G2-A `passed` as
 **unverified, not certified** — it was computed by code that is now proven not to implement the
 binding rule. RESOLVER-V3-041 must not cite the historical G2-A `passed` as satisfying the binding
-category-specific requirement. Any *future* live execution (which RESOLVER-V3-041 itself does not
+category-specific requirement. Any _future_ live execution (which RESOLVER-V3-041 itself does not
 authorize) will, from this fix onward, receive a faithful, category-specific G2-A verdict as long as
 a `categoryByScenarioId` map is supplied to the report builder (now wired by default in
 `runRepresentativeHybridV1Live.harness.ts`).
@@ -168,8 +170,8 @@ a `categoryByScenarioId` map is supplied to the report builder (now wired by def
 
 ## 5. G2-C — User friction
 
-**Binding rule** (spec §11, G2(c)): *"Rückfragenrate nicht drastisch über dem bestehenden
-Speck-Präzedenzfall-Volumen (RESOLVER-V2-010) — **qualitativ zu prüfen, kein Fixwert**"* — explicitly
+**Binding rule** (spec §11, G2(c)): _"Rückfragenrate nicht drastisch über dem bestehenden
+Speck-Präzedenzfall-Volumen (RESOLVER-V2-010) — **qualitativ zu prüfen, kein Fixwert**"_ — explicitly
 qualitative, explicitly **no fixed numeric threshold**. This is stated as plainly as the spec ever
 states anything: there is no deterministic pass/fail rule to implement here.
 
@@ -185,7 +187,7 @@ g2c_userFriction: overallGateVerdict(development, holdout, (p) =>
 
 Confirmed exactly as suspected: **the only condition checked is `denominator >= 30`.** No
 correctness rate, no comparison to any precedent volume, no qualitative judgment of any kind is
-applied — a partition with a 100% *incorrect* clarification/abstention rate and n≥30 would report
+applied — a partition with a 100% _incorrect_ clarification/abstention rate and n≥30 would report
 `passed` identically to a partition with a 100% correct rate. This is a genuine defect: the code
 manufactured a numeric threshold (`n>=30`) as a stand-in for a rule the spec explicitly says has no
 numeric threshold.
@@ -193,10 +195,10 @@ numeric threshold.
 **Real, complete friction data derivable from stored evidence** (exact — `friction.denominator ×
 rate` is always an integer here, checked):
 
-| Partition | n (C cases w/ expected behavior) | Clarifications | Correct clarifications | Abstentions | Correct abstentions |
-| --- | --- | --- | --- | --- | --- |
-| Development | 108 | 2 (1.85%) | 1 (50.0%) | 43 (39.8%) | 2 (4.65%) |
-| Holdout | 31 | 1 (3.23%) | 0 (0%) | 17 (54.8%) | 1 (5.88%) |
+| Partition   | n (C cases w/ expected behavior) | Clarifications | Correct clarifications | Abstentions | Correct abstentions |
+| ----------- | -------------------------------- | -------------- | ---------------------- | ----------- | ------------------- |
+| Development | 108                              | 2 (1.85%)      | 1 (50.0%)              | 43 (39.8%)  | 2 (4.65%)           |
+| Holdout     | 31                               | 1 (3.23%)      | 0 (0%)                 | 17 (54.8%)  | 1 (5.88%)           |
 
 (Derived from `logs/resolver-v3-039-development-diagnostic.json`'s `development.friction` object and
 the final combined report's `holdout.friction` object: e.g. Development clarifications =
@@ -206,7 +208,7 @@ clarifications = `correctClarificationRate × clarifications` = `0.5 × 2` = `1`
 likewise: `0.03225806451612903 × 31 = 1`; `0 × 1 = 0`; `0.5483870967741935 × 31 = 17`;
 `0.058823529411764705 × 17 ≈ 1`.)
 
-Both partitions' abstention *correctness* rate is low (≈4.65% Development, ≈5.88% Holdout) — i.e.
+Both partitions' abstention _correctness_ rate is low (≈4.65% Development, ≈5.88% Holdout) — i.e.
 when Variant C abstains, it is very rarely the case the ground truth actually called for
 `abstention_expected`. This is exactly the kind of number a human should weigh under the binding
 qualitative rule; the corrected code reports it rather than hiding it behind an automated `passed`.
@@ -230,8 +232,8 @@ numbers in §5's table (in particular the low abstention-correctness rates) rath
 
 ## 6. G2-G — Consistency
 
-**Binding rule** (spec §11, G2(g)): *"Konsistenz: Wiederholungs-Übereinstimmungsrate nicht wesentlich
-schlechter als As (die strukturell nahe 100% liegt)"* — repeat-agreement rate not *substantially*
+**Binding rule** (spec §11, G2(g)): _"Konsistenz: Wiederholungs-Übereinstimmungsrate nicht wesentlich
+schlechter als As (die strukturell nahe 100% liegt)"_ — repeat-agreement rate not _substantially_
 worse than Variant A's (which is structurally near 100%) — again qualitative, no fixed multiplier.
 
 **Original stored verdict:** `passed`.
@@ -255,16 +257,16 @@ report object but were **never consulted** by the gate verdict itself.
 **Real Variant B/C agreement, vs. the binding Variant A baseline** (from the final combined report's
 `consistency` object, over all 16 frozen overlay groups):
 
-| Metric | Value |
-| --- | --- |
-| Overlay groups evaluated | 16 |
-| Variant B outcome agreement | 62.5% |
-| Variant B identification agreement | 62.5% |
-| **Variant C outcome agreement** | **68.75%** |
-| **Variant C identification agreement** | **68.75%** |
-| Variant C fast-path deterministic consistency | 100% |
-| **Variant A structural baseline** (deterministic, zero-AI, no source of run-to-run variance — `ResolverV3VariantAAdapter.ts`) | **100%** |
-| **Variant C gap from A's baseline** | **−31.25 percentage points** |
+| Metric                                                                                                                        | Value                        |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Overlay groups evaluated                                                                                                      | 16                           |
+| Variant B outcome agreement                                                                                                   | 62.5%                        |
+| Variant B identification agreement                                                                                            | 62.5%                        |
+| **Variant C outcome agreement**                                                                                               | **68.75%**                   |
+| **Variant C identification agreement**                                                                                        | **68.75%**                   |
+| Variant C fast-path deterministic consistency                                                                                 | 100%                         |
+| **Variant A structural baseline** (deterministic, zero-AI, no source of run-to-run variance — `ResolverV3VariantAAdapter.ts`) | **100%**                     |
+| **Variant C gap from A's baseline**                                                                                           | **−31.25 percentage points** |
 
 Variant A never repeats a case in this harness (`RepresentativeHybridV1LiveCaseRecord.variantA` is a
 single `CaseEvaluation`, never an array) — its "repeat consistency" is not separately measured
@@ -273,7 +275,7 @@ with no AI call and no other source of run-to-run variance. This is exactly the 
 100% liegt" the spec's own parenthetical names, not an assumption invented for this audit.
 
 A 31.25-percentage-point gap between Variant C's real repeat-consistency and Variant A's structural
-~100% baseline is a *substantial*, non-trivial number — plausibly what the binding "nicht wesentlich
+~100% baseline is a _substantial_, non-trivial number — plausibly what the binding "nicht wesentlich
 schlechter" language is meant to catch — but the spec supplies no fixed multiplier/percentage that
 would make this decidable by code, and this audit does not invent one.
 
@@ -307,10 +309,20 @@ over.
 
 ```ts
 const development = devByPartition
-  ? buildPartitionReport('development', devByPartition, rawTelemetry, params.expectedBehaviorByScenarioId)
+  ? buildPartitionReport(
+      'development',
+      devByPartition,
+      rawTelemetry,
+      params.expectedBehaviorByScenarioId,
+    )
   : null;
 const holdout = holdByPartition
-  ? buildPartitionReport('holdout', holdByPartition, rawTelemetry, params.expectedBehaviorByScenarioId)
+  ? buildPartitionReport(
+      'holdout',
+      holdByPartition,
+      rawTelemetry,
+      params.expectedBehaviorByScenarioId,
+    )
   : null;
 ```
 
@@ -327,21 +339,21 @@ then computes over the full combined C-routed telemetry (97 Development + 30 Hol
 `development.cost.n === holdout.cost.n === 127` and
 `development.cost.meanCostUsd === holdout.cost.meanCostUsd === 0.003719233870967744` — **byte-identical
 between the two partitions**, which is only possible if both were computed over the same underlying
-records. (Contrast with `logs/resolver-v3-039-development-diagnostic.json`, generated *before*
+records. (Contrast with `logs/resolver-v3-039-development-diagnostic.json`, generated _before_
 Holdout ran, whose `development.cost.n` correctly reads `97` — the defect only manifests once the
 final, combined report is built with both partitions present.)
 
 **Corrected numbers, derived from the final report's own `rawTelemetry` array (263 total
 records — every field below independently recomputed from that array, not assumed):**
 
-| Partition | Variant | n | known | unknown | sum known cost | mean known cost | input tok | output tok |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Development | B | 108 | 105 | 3 | $0.383359 | $0.003651 | 207,699 | 35,132 |
-| **Development** | **C** | **97** | **95** | **2** | **$0.358223** | **$0.003771** | **154,728** | **40,699** |
-| Holdout | B | 28 | 26 | 2 | $0.092622 | $0.003562 | 51,422 | 8,240 |
-| **Holdout** | **C** | **30** | **29** | **1** | **$0.102962** | **$0.003550** | **47,172** | **11,158** |
+| Partition       | Variant | n      | known  | unknown | sum known cost | mean known cost | input tok   | output tok |
+| --------------- | ------- | ------ | ------ | ------- | -------------- | --------------- | ----------- | ---------- |
+| Development     | B       | 108    | 105    | 3       | $0.383359      | $0.003651       | 207,699     | 35,132     |
+| **Development** | **C**   | **97** | **95** | **2**   | **$0.358223**  | **$0.003771**   | **154,728** | **40,699** |
+| Holdout         | B       | 28     | 26     | 2       | $0.092622      | $0.003562       | 51,422      | 8,240      |
+| **Holdout**     | **C**   | **30** | **29** | **1**   | **$0.102962**  | **$0.003550**   | **47,172**  | **11,158** |
 
-(97 + 30 = 127, matching the combined total the buggy code reported for *both* partitions — the sum
+(97 + 30 = 127, matching the combined total the buggy code reported for _both_ partitions — the sum
 was right, the per-partition split was not.)
 
 **Does the corrected result remain `not_evaluable`? Yes — verified directly, not assumed.** Applying
@@ -375,7 +387,7 @@ partition-scoped, number).
 **Original stored verdict:** `quality.variantC.technicalFailureCount = 0` in **both** partitions
 (`logs/resolver-v3-039-development-diagnostic.json`'s `development.quality.variantC.technicalFailureCount`,
 and the same field in the final combined report's `holdout.quality.variantC`), despite
-`actualUsage.technicalFailureCount` (a *different*, correctly-computed, telemetry-level field) being
+`actualUsage.technicalFailureCount` (a _different_, correctly-computed, telemetry-level field) being
 `11` for Development and `5` for Holdout.
 
 **Defect** (`RepresentativeHybridV1LiveMetrics.ts`, `computeQualityMetrics`, pre-fix):
@@ -384,7 +396,7 @@ and the same field in the final combined report's `holdout.quality.variantC`), d
 return {
   variantA: armMetrics(a, () => false),
   variantB: armMetrics(bAll, (e) => e.technicalFailure),
-  variantC: armMetrics(cAll, () => false),   // <-- hard-coded, always 0
+  variantC: armMetrics(cAll, () => false), // <-- hard-coded, always 0
 };
 ```
 
@@ -409,10 +421,10 @@ value — so a technical failure was never counted as a match under the old code
 **denominator** (`evaluableCount`) was wrong. Recomputed from the ledger's real per-variant,
 per-partition terminal-failure counts (§9) cross-referenced against the stored aggregate numerators:
 
-| Partition | caseCount | technicalFailureCount (corrected) | evaluableCount (corrected) | identificationMatchCount | identificationMatchRate (corrected) | expectedBehaviorMatchCount | expectedBehaviorMatchRate (corrected) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Development | 108 | **8** (was 0) | **100** (was 108) | 33 (unchanged) | **0.330** (was 0.3056) | 16 (unchanged) | **0.160** (was 0.1481) |
-| Holdout | 31 | **3** (was 0) | **28** (was 31) | 7 (unchanged) | **0.250** (was 0.2258) | 1 (unchanged) | **0.0357** (was 0.0323) |
+| Partition   | caseCount | technicalFailureCount (corrected) | evaluableCount (corrected) | identificationMatchCount | identificationMatchRate (corrected) | expectedBehaviorMatchCount | expectedBehaviorMatchRate (corrected) |
+| ----------- | --------- | --------------------------------- | -------------------------- | ------------------------ | ----------------------------------- | -------------------------- | ------------------------------------- |
+| Development | 108       | **8** (was 0)                     | **100** (was 108)          | 33 (unchanged)           | **0.330** (was 0.3056)              | 16 (unchanged)             | **0.160** (was 0.1481)                |
+| Holdout     | 31        | **3** (was 0)                     | **28** (was 31)            | 7 (unchanged)            | **0.250** (was 0.2258)              | 1 (unchanged)              | **0.0357** (was 0.0323)               |
 
 `criticalFailureCount` (7 Development, 1 Holdout) is unaffected: `isCriticalFailure = falseConfident
 || partialMisreportedAsComplete`, and `isFalseConfidentC` explicitly returns `false` immediately
@@ -436,32 +448,32 @@ call's own `reserved` entry (which carries `scenarioId`/`partition`/`variant`/`k
 
 ### 9a. `httpStatus=null` group (8 records)
 
-| # | Scenario ID | Partition | Variant |
-| --- | --- | --- | --- |
-| 1 | RH-RES-BRANDED-DEV-001 | Development | B |
-| 2 | RH-RES-BRANDED-DEV-001 | Development | C |
-| 3 | RH-RES-COMPOSED-DEV-006 | Development | B |
-| 4 | RH-RES-OVERLAY-DEV-006 | Development | C |
-| 5 | RH-RES-PREPARATION-DEV-005 | Development | B |
-| 6 | RH-RES-HOUSEHOLD-HOLD-001 | Holdout | C |
-| 7 | RH-RES-HOUSEHOLD-HOLD-002 | Holdout | B |
-| 8 | RH-RES-PREPARATION-HOLD-002 | Holdout | B |
+| #   | Scenario ID                 | Partition   | Variant |
+| --- | --------------------------- | ----------- | ------- |
+| 1   | RH-RES-BRANDED-DEV-001      | Development | B       |
+| 2   | RH-RES-BRANDED-DEV-001      | Development | C       |
+| 3   | RH-RES-COMPOSED-DEV-006     | Development | B       |
+| 4   | RH-RES-OVERLAY-DEV-006      | Development | C       |
+| 5   | RH-RES-PREPARATION-DEV-005  | Development | B       |
+| 6   | RH-RES-HOUSEHOLD-HOLD-001   | Holdout     | C       |
+| 7   | RH-RES-HOUSEHOLD-HOLD-002   | Holdout     | B       |
+| 8   | RH-RES-PREPARATION-HOLD-002 | Holdout     | B       |
 
 (This group mixes Variant B and Variant C failures — note `RH-RES-BRANDED-DEV-001` appears twice,
 once per variant, matching the closeout report's "×2 variants" note in its §13.)
 
 ### 9b. `httpStatus=200` group (8 records — all Variant C, confirming the closeout's own claim)
 
-| # | Scenario ID | Partition | Variant |
-| --- | --- | --- | --- |
-| 1 | RH-RES-HOMEMADE-DEV-004 | Development | C |
-| 2 | RH-RES-UNRELIABLE-DEV-003 | Development | C |
-| 3 | RH-RES-VAGUE-DEV-003 | Development | C |
-| 4 | RH-RES-VAGUE-DEV-004 | Development | C |
-| 5 | RH-RES-VAGUE-DEV-005 | Development | C |
-| 6 | RH-RES-VAGUE-DEV-006 | Development | C |
-| 7 | RH-RES-VAGUE-HOLD-001 | Holdout | C |
-| 8 | RH-RES-VAGUE-HOLD-002 | Holdout | C |
+| #   | Scenario ID               | Partition   | Variant |
+| --- | ------------------------- | ----------- | ------- |
+| 1   | RH-RES-HOMEMADE-DEV-004   | Development | C       |
+| 2   | RH-RES-UNRELIABLE-DEV-003 | Development | C       |
+| 3   | RH-RES-VAGUE-DEV-003      | Development | C       |
+| 4   | RH-RES-VAGUE-DEV-004      | Development | C       |
+| 5   | RH-RES-VAGUE-DEV-005      | Development | C       |
+| 6   | RH-RES-VAGUE-DEV-006      | Development | C       |
+| 7   | RH-RES-VAGUE-HOLD-001     | Holdout     | C       |
+| 8   | RH-RES-VAGUE-HOLD-002     | Holdout     | C       |
 
 ### 9c. Reconciliation against the flagged prior rehearsal report
 
@@ -477,13 +489,14 @@ all**. **The missing 8th HTTP-200 Development call ID is `RH-RES-VAGUE-DEV-003`*
 inferred or guessed.
 
 ### 9d. By-variant, by-partition totals (all independently recomputed from the ledger, cross-checked
+
 against §8's table and the closeout's own summary)
 
-| | Development | Holdout | Total |
-| --- | --- | --- | --- |
-| Variant B terminal failures | 3 | 2 | 5 |
-| Variant C terminal failures | 8 | 3 | 11 |
-| **Total** | **11** | **5** | **16** |
+|                             | Development | Holdout | Total  |
+| --------------------------- | ----------- | ------- | ------ |
+| Variant B terminal failures | 3           | 2       | 5      |
+| Variant C terminal failures | 8           | 3       | 11     |
+| **Total**                   | **11**      | **5**   | **16** |
 
 No stored `providerStatus`/`httpStatus`/reason code was relabeled anywhere in this audit — every
 value above is quoted exactly as stored in the ledger.
@@ -493,6 +506,7 @@ value above is quoted exactly as stored in the ledger.
 ## 10. Files changed
 
 **Code (production logic, affects only future executions):**
+
 - `src/features/nutrition/benchmark/representativeHybridV1/live/RepresentativeHybridV1LiveMetrics.ts`
   — extended `GateVerdict`; fixed Variant C `technicalFailureCount` predicate; added
   `computeCategoryQualityBreakdown`/`isIdentificationMatch`/`G2A_AT_LEAST_VARIANT_A_CATEGORIES`/
@@ -510,6 +524,7 @@ value above is quoted exactly as stored in the ledger.
   so any future live execution gets a faithful G2-A verdict by default.
 
 **Tests (new/extended regression coverage):**
+
 - `src/features/nutrition/benchmark/representativeHybridV1/live/__tests__/RepresentativeHybridV1LiveMetrics.test.ts`
   — category-breakdown tests (including the "aggregate would say passed, category-specific correctly
   says failed" case), Variant C technical-failure tests, consistency-baseline/delta tests.
@@ -525,6 +540,7 @@ value above is quoted exactly as stored in the ledger.
   run (execution commit `a67a4d051fd1616cad3a59428b117a717d84f002`) is unaffected — see §2.
 
 **Report/audit (this task's own additive output):**
+
 - `reports/RESOLVER_V3_042_GATE_EVALUATOR_FIDELITY_AUDIT.md` (this file).
 - `reports/resolver-v3-042-gate-evaluator-fidelity-audit.json` (machine-readable companion).
 - `ROADMAP.md` — new RESOLVER-V3-042 entry; RESOLVER-V3-041 entry updated to depend on both

@@ -187,7 +187,9 @@ function overallGateVerdict(
 function overallQualitativeVerdict(
   development: RepresentativeHybridV1LivePartitionReport | null,
   holdout: RepresentativeHybridV1LivePartitionReport | null,
-  select: (p: RepresentativeHybridV1LivePartitionReport) => 'requires_human_judgment' | 'not_evaluable',
+  select: (
+    p: RepresentativeHybridV1LivePartitionReport,
+  ) => 'requires_human_judgment' | 'not_evaluable',
 ): GateVerdict {
   if (!development || !holdout) return 'not_evaluable';
   const d = select(development);
@@ -337,7 +339,9 @@ export function buildRepresentativeHybridV1LiveReport(params: {
     // own numeric cutoff either; it reports `requires_human_judgment` once real overlay
     // observations exist, `not_evaluable` only when there are none.
     g2g_consistency:
-      consistency && consistency.overlayGroupCount >= 1 ? 'requires_human_judgment' : 'not_evaluable',
+      consistency && consistency.overlayGroupCount >= 1
+        ? 'requires_human_judgment'
+        : 'not_evaluable',
   };
 
   return {

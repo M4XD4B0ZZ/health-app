@@ -188,8 +188,16 @@ describe('computeCategoryQualityBreakdown (RESOLVER-V3-042 G2-A fix)', () => {
     // G2(a): "ohne Regression in SIMPLE/HOUSEHOLD") must catch this even though the blended,
     // aggregate rate across every category above would still show C > A overall.
     const simpleRegression = [
-      qualityCaseRecord({ scenarioId: 'SIMPLE-0', aIdentification: 'correct', cIdentification: 'wrong' }),
-      qualityCaseRecord({ scenarioId: 'SIMPLE-1', aIdentification: 'correct', cIdentification: 'wrong' }),
+      qualityCaseRecord({
+        scenarioId: 'SIMPLE-0',
+        aIdentification: 'correct',
+        cIdentification: 'wrong',
+      }),
+      qualityCaseRecord({
+        scenarioId: 'SIMPLE-1',
+        aIdentification: 'correct',
+        cIdentification: 'wrong',
+      }),
     ];
     const household = [
       qualityCaseRecord({
@@ -238,7 +246,11 @@ describe('computeCategoryQualityBreakdown (RESOLVER-V3-042 G2-A fix)', () => {
 
   it('is not_evaluable for a named category with zero cases, never a silent pass', () => {
     const records: RepresentativeHybridV1LiveCaseRecord[] = [
-      qualityCaseRecord({ scenarioId: 'DACH-0', aIdentification: 'wrong', cIdentification: 'correct' }),
+      qualityCaseRecord({
+        scenarioId: 'DACH-0',
+        aIdentification: 'wrong',
+        cIdentification: 'correct',
+      }),
     ];
     const categoryByScenarioId = new Map<string, string>([['DACH-0', 'DACH']]);
     // COMPOSED/RESTAURANT/SIMPLE/HOUSEHOLD have zero cases in this corpus slice.
@@ -338,7 +350,11 @@ describe('computeConsistencyMetrics Variant A structural baseline (RESOLVER-V3-0
             runIndex: 1,
             kind: 'consistency',
             raw: {} as never,
-            evaluation: { outcome: 'clarification_required', identification: 'wrong', aiCalled: true } as never,
+            evaluation: {
+              outcome: 'clarification_required',
+              identification: 'wrong',
+              aiCalled: true,
+            } as never,
           },
         ],
       },

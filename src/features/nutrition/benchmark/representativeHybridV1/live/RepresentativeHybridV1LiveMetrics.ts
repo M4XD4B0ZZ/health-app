@@ -333,7 +333,9 @@ export function computeCategoryQualityBreakdown(
 ): RepresentativeHybridV1LiveCategoryQualityBreakdown {
   const categories = [...G2A_AT_LEAST_VARIANT_A_CATEGORIES, ...G2A_NO_REGRESSION_CATEGORIES];
   const rows: RepresentativeHybridV1LiveCategoryQualityRow[] = categories.map((category) => {
-    const inCategory = caseRecords.filter((r) => categoryByScenarioId.get(r.scenarioId) === category);
+    const inCategory = caseRecords.filter(
+      (r) => categoryByScenarioId.get(r.scenarioId) === category,
+    );
     const aEntries = inCategory.map((r) => r.variantA.identification as unknown as string);
     const cPrimary = inCategory
       .map((r) => r.variantC.find((c) => c.kind === 'primary'))

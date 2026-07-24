@@ -135,7 +135,10 @@ describe('RESOLVER-V3-042: G2-E partition-scoped telemetry fix', () => {
     // that would have failed against that defect.
     expect(report.development!.cost.meanCostUsd).toBeCloseTo(0.001, 6);
     expect(report.holdout!.cost.meanCostUsd).toBeCloseTo(0.05, 6);
-    expect(report.development!.cost.meanCostUsd).not.toBeCloseTo(report.holdout!.cost.meanCostUsd!, 6);
+    expect(report.development!.cost.meanCostUsd).not.toBeCloseTo(
+      report.holdout!.cost.meanCostUsd!,
+      6,
+    );
   });
 });
 
@@ -202,7 +205,9 @@ describe('RESOLVER-V3-042: G2-G evaluates real agreement, not mere overlay-group
           runIndex: 0,
           kind: 'primary',
           raw: {
-            mealResult: { latencyMs: { fastPathMs: 0, aiInterpretationMs: 0, retrievalMs: 0, totalMs: 0 } },
+            mealResult: {
+              latencyMs: { fastPathMs: 0, aiInterpretationMs: 0, retrievalMs: 0, totalMs: 0 },
+            },
           } as never,
           evaluation: {
             outcome: 'resolved',
@@ -223,7 +228,9 @@ describe('RESOLVER-V3-042: G2-G evaluates real agreement, not mere overlay-group
           runIndex: 1,
           kind: 'consistency',
           raw: {
-            mealResult: { latencyMs: { fastPathMs: 0, aiInterpretationMs: 0, retrievalMs: 0, totalMs: 0 } },
+            mealResult: {
+              latencyMs: { fastPathMs: 0, aiInterpretationMs: 0, retrievalMs: 0, totalMs: 0 },
+            },
           } as never,
           evaluation: {
             // Total disagreement with the primary run -- a real, measurable 0% agreement rate.

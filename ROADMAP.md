@@ -8343,7 +8343,7 @@ this addition.
 
 #### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
 
-Status: `todo`
+Status: `in_progress` (diagnosis complete 2026-07-24; no code changed yet — see below)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Remediate the specific unsafe-fast-path and false-confidence defects RESOLVER-V3-039/042
@@ -8370,6 +8370,57 @@ underlying class of defect (e.g., other un-normalized quantity/article patterns)
 **Acceptance:** The RV3-0011/`RH-RES-DACH-DEV-006` false-confidence case and the documented
 fast-path token-stripping gap are both fixed and regression-tested; no Sonnet/larger-model code
 path is introduced anywhere in the diff; `npm run verify` green.
+
+**Diagnosis (2026-07-24, before any code change — see
+`reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` for full detail):** both
+of this task's originating claims were traced to their actual code and found to be more precise —
+and different — than previously documented, before any fix was written:
+
+1. **The "fast path doesn't strip quantity/article prefixes" claim is a benchmark-harness fidelity
+   gap, not a live production defect.** Real production (`LogFoodFromRawInputUseCase.execute()`)
+   always runs `DeterministicFoodParser.parse()` before ever calling the resolver, already
+   stripping quantity/count prefixes ("200g", "zwei", …) — confirmed at
+   `LogFoodFromRawInputUseCase.ts:121,209,558`. The benchmark's `ResolverV3VariantAAdapter.runVariantACase()`
+   (`ResolverV3VariantAAdapter.ts:94-108`) sends `normalizeText(rawInput)` straight to the real
+   resolver **without** that pre-processing step, unlike every real call in the shipping app. "Add
+   quantity stripping to the fast path" is therefore not an accurate description of what production
+   code needs — the gap, if it should be closed at all, is in the benchmark harness not
+   replicating production's real call order (see proposal 4 in the diagnosis report).
+2. **The real, precise root cause of the `RV3-0011`/"Brötchen" false-confidence case is a BLS
+   alias-generation defect, empirically confirmed against the real 7,090-record production BLS
+   dataset (the same one the shipping app and the benchmark's Variant A adapter both use — not a
+   mock).** `buildBlsRuntimeAliases()`/`normalizeBlsRuntimeText()`
+   (`BlsCompactRuntimeAdapter.ts:36,57-68`) strip **all** parenthetical content when generating a
+   record's bare alias, including material identity-changing qualifiers like "(Blätterteig)" (puff
+   pastry), not just incidental state annotations. This makes `D771900` ("Brötchen (Blätterteig)",
+   425 kcal) falsely claim the bare word "Brötchen" as an exact alias — no record in the real
+   dataset is named plain "Brötchen" otherwise (confirmed by direct query: exactly one record
+   reduces to that bare form). `BlsLookupEngine.findExactMatches()` then returns as soon as it
+   finds any exact-alias hit at all (`BlsLookupEngine.ts:110-119`), pre-empting the 81 other,
+   more-plausible "Brötchen"-family candidates (e.g. `B511000` "Weizenbrötchen", 280 kcal) before
+   they are ever scored — confirmed empirically: `resolver.resolve()` on bare "Brötchen" returns
+   exactly one BLS candidate, `D771900`, at `score: 1` (exact match, not a borderline fuzzy score).
+   This reproduces the documented `RV3-0011` pattern exactly, but the true mechanism is data-
+   generation, not a fast-path ambiguity-check gap (a second, independent ambiguity-check gap does
+   exist at `SequentialFoodCatalogResolver.ts:403-429`, but it is not the proximate cause here since
+   only one BLS candidate is ever returned for this query).
+3. **Blast-radius check before proposing a fix:** the most obvious generic fix (suppress bare-alias
+   generation whenever a parenthetical qualifier is present, reusing the existing
+   `PROCESSED_QUALIFIER_TOKENS` lexicon) would affect 51 real records, of which ~10 are other
+   "(Blätterteig)" pastries (Apfelstrudel, Hörnchen, Mohnschnecken, …) whose bare-stripped name is
+   actually their correct, unambiguous common name — a blanket fix would likely **regress** those
+   ~10 currently-correct matches to fix only the one dangerous case (Brötchen). No change was made
+   to alias generation, BLS matching, or the resolver fast path tonight as a result — this needs an
+   explicit, per-record-reviewed decision, not a rushed blanket rule, given real production food-
+   identification accuracy is at stake.
+
+**Recommended next step (human decision needed, not yet authorized):** start the actual fix with
+the narrowest, zero-blast-radius option — a `D771900`-specific alias override analogous to the
+existing `COMPATIBILITY_ALIASES_BY_SOURCE_ID` mechanism (`BlsCompactRuntimeAdapter.ts:11-15`) — plus
+a regression test reproducing the exact empirical trace above, treating the broader lexicon-based
+fix, the fast-path ambiguity-check gap, and the benchmark-harness fidelity gap as separate,
+explicitly reviewed follow-up decisions. This task remains `in_progress`, not `done`; no code has
+been changed yet, and `npm run verify` was not required to be rerun since no source file changed.
 
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 

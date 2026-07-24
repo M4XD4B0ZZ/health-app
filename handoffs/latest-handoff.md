@@ -1,5 +1,72 @@
 # Latest Handoff
 
+## RESOLVER-V3-043 — Unsafe Fast-Path and False-Confidence Diagnosis (In Progress, no code changed)
+
+- **Task ID/status:** `RESOLVER-V3-043`, status **`in_progress`** — diagnosis complete, no
+  production/benchmark/data code changed. Picked up as this session's overnight priority
+  continuation immediately after the `RESOLVER-V3-041` amendment below, since Hybrid Resolver
+  production-readiness is the current top priority.
+- **What changed:** investigated both of this task's originating claims against the real code
+  before writing any fix, and found both to be more precise — and different — than previously
+  documented. (1) The documented "fast path doesn't strip quantity/article prefixes" gap is a
+  benchmark-harness fidelity gap: real production (`LogFoodFromRawInputUseCase.execute()`) already
+  strips quantity/count prefixes via `DeterministicFoodParser` before ever calling the resolver;
+  the benchmark's `ResolverV3VariantAAdapter.runVariantACase()` skips that step and calls the real
+  resolver directly, unlike every real app call. (2) Empirically traced the real root cause of the
+  `RV3-0011`/"Brötchen" false-confidence case against the actual 7,090-record production BLS
+  dataset (confirmed via a temporary, deleted-after-use Jest probe): `D771900` ("Brötchen
+  (Blätterteig)", 425 kcal) has a mis-generated bare alias ("broetchen") from
+  `buildBlsRuntimeAliases()`/`normalizeBlsRuntimeText()` stripping its identity-changing
+  parenthetical qualifier, and `BlsLookupEngine.findExactMatches()`'s "any exact hit short-circuits
+  everything else" rule then pre-empts 81 more-plausible "Weizenbrötchen"-family candidates before
+  they are ever scored — confirmed via direct resolver call returning exactly one BLS candidate at
+  `score: 1`. Computed the blast radius of the most obvious generic fix (51 records affected, only
+  1 of which — Brötchen — is actually a dangerous bare-word collision; ~10 others are correctly
+  self-identifying "(Blätterteig)" pastries that a blanket fix would likely regress) and, given
+  real production food-identification accuracy is at stake and the safe scope could not be fully
+  verified within this session's remaining budget, deliberately did **not** change alias
+  generation, BLS matching, or the resolver fast path tonight. Full detail, exact file:line
+  citations, and four scoped remediation proposals (none implemented) in
+  `reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md`. `ROADMAP.md`'s
+  `RESOLVER-V3-043` entry updated to `in_progress` with the same findings recorded inline.
+- **Why:** rushing a fix to core resolver/data-matching code without confirming its actual blast
+  radius risked silently regressing other currently-correct food matches (the ~10 other
+  "(Blätterteig)" pastry records) to fix only one case — the repository's own "measure twice, cut
+  once" convention and `AGENTS.md`'s "no broad refactors outside scope" rule both counsel
+  diagnosis-first here, especially since this touches the deterministic core the whole app relies
+  on for calorie accuracy.
+- **Files changed:** `ROADMAP.md` (this task's entry), `handoffs/latest-handoff.md` (this entry),
+  new `reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md`. No `src/**`,
+  benchmark corpus/protocol/evidence file, BLS data file, Supabase/migration, or dependency file
+  was modified. `node_modules` was restored via `npm ci --ignore-scripts` (gitignored, not
+  committed) purely to run the temporary probe test locally.
+- **Verification executed:** the temporary probe test itself passed (1/1) before deletion;
+  `git status --short` confirmed clean immediately after its deletion and again before this
+  handoff was written. No production source file changed, so `npm run typecheck`/`lint`/`test`
+  were not required to be rerun for this diagnosis-only change; git readbacks (`status --short`,
+  `diff --stat`) confirm the diff is scoped to `ROADMAP.md` + the new report + this handoff.
+- **Verification result:** pass (scope confirmed; no source regression risk since no source
+  changed).
+- **Known issues/blockers/residual risks — human review needed before the next code change:**
+  - Which of the four remediation proposals in the diagnosis report's §4 to pursue first (the
+    recommendation is the narrowest, zero-blast-radius `D771900`-specific alias override, deferring
+    the broader lexicon-based fix, the fast-path ambiguity-check gap, and the benchmark-harness
+    fidelity fix to separate, explicitly reviewed follow-ups) has **not** been authorized — this is
+    a recommendation, not a decision made unilaterally.
+  - The benchmark-harness fidelity finding (proposal 4) implies the already-frozen, hash-pinned
+    `RESOLVER-V3-039` evidence may not fully represent real production behavior for
+    quantity-prefixed inputs specifically; this needs explicit human reconciliation before being
+    treated as invalidating any part of that frozen evidence — not asserted as fact here, only
+    flagged.
+  - A full audit of whether the same "single mis-generated bare alias short-circuits everything
+    else" pattern recurs elsewhere in the 7,090-record BLS dataset (outside the 51 qualifier-paren
+    cases already checked) was not performed — scope and time-boxing for that audit is also a
+    decision for the next session.
+- **Human-review status / next steps:** direct-commit diagnosis update, following this session's
+  established convention for documentation-only findings. `RESOLVER-V3-043` remains `in_progress`,
+  not `done` — no code fix has been authorized or applied yet. Awaiting the maintainer's review of
+  the diagnosis report and a decision on which remediation proposal to authorize next.
+
 ## RESOLVER-V3-041 — Binding Product-Owner Model Decision Amendment (Documentation-only)
 
 - **Task ID/status:** `RESOLVER-V3-041` task-instruction amendment (the task itself remains

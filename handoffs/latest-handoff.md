@@ -29,7 +29,7 @@
     related bug: `findLinkedPullRequest()` matched a bare issue-number substring anywhere in a
     PR body, not just after a real GitHub closing keyword. This invocation's own preflight tick
     was affected by it — it mis-associated an unrelated, human-authored PR (#165, "match real
-    closing keywords, not bare issue mentions", which only *mentioned* `#160` in its description
+    closing keywords, not bare issue mentions", which only _mentioned_ `#160` in its description
     for context and did not close it) as if it were issue #160's linked PR, reporting
     `ACTION_CI_GREEN` against PR #165's head SHA instead of #162's. This invocation reconciled
     actual state (PR #162 already merged and closes #160; PR #165 had no

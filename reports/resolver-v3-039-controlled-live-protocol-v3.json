@@ -1,0 +1,189 @@
+{
+  "protocolVersion": "resolver-representative-hybrid-live-protocol-v3",
+  "supersedes": "resolver-representative-hybrid-live-protocol-v2",
+  "supersessionReason": "Before any live provider request was made under protocol v2, a zero-network local preflight found that v2's frozen executionTreeHash literal (9c3da0fed1ae33d66bf6a9499f679ce67829c80e054d0fd180e2e4a65fcd5b9e) was not reproducible from either a canonical LF Git-content computation over the protocol-v2-freeze commit's tree or this environment's Windows CRLF working-tree computation. Root cause: the v2 execution-tree hash implementation (RepresentativeHybridV1LiveExecutionTreeHash.ts) read working-tree file content verbatim (fs.readFileSync(path, 'utf-8')) with no line-ending normalization, making the hash depend on core.autocrlf/checkout platform; and RepresentativeHybridV1LiveExecutionTreeHash.test.ts never asserted the computed hash equaled the frozen protocol literal (only self-consistency and length===64), so a stale/platform-specific value could not have been caught. See reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md for the full defect analysis, independent reproduction of all three hash classes, and the corrected, versioned, cross-platform canonicalization algorithm. Zero paid calls occurred under protocol v2 (or v1 before it); no quality evidence was invalidated because none existed.",
+  "checkpointSchemaVersion": "resolver-representative-hybrid-live-development-checkpoint-v1",
+  "holdoutCheckpointSchemaVersion": "resolver-representative-hybrid-live-holdout-checkpoint-v1",
+  "ledgerSchemaVersion": "resolver-representative-hybrid-live-call-ledger-v1",
+  "reportSchemaVersion": "resolver-representative-hybrid-live-evidence-report-v2",
+  "executionPlanVersion": "1",
+  "taskId": "RESOLVER-V3-039",
+  "corpusVersion": "resolver-representative-hybrid-benchmark-corpus-1.0.0",
+  "registryVersion": "resolver-representative-hybrid-benchmark-registry-v1",
+  "harnessVersion": "2.0.0",
+  "sourceManifestVersion": "resolver-representative-hybrid-benchmark-source-manifest-v1",
+  "corpusHash": "f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a",
+  "sourceManifestHash": "11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52",
+  "planHash": "214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e",
+  "executionTreeHash": "9697e45b149ba2a90115e388a5caeca173aab76c8f5f88f31c5bfc1e136e235f",
+  "executionTreeHashAlgorithmVersion": "representative-hybrid-v1-live-execution-tree-hash-algorithm-v3",
+  "executionTreeHashNote": "sha256 over {algorithmVersion, sorted (path, content) pairs} of every execution-relevant file listed in RepresentativeHybridV1LiveExecutionTreeHash.ts's REPRESENTATIVE_HYBRID_V1_LIVE_EXECUTION_TREE_PATHS (26 files, protocol v3 -- prompts/schemas, live provider/pricing/transport code, the CLI entry point, and the harness/report-builder/validator/ledger-provider/metrics logic itself). Content is canonicalized before hashing (CRLF -> LF; fails closed on any lone CR) so the value is independent of core.autocrlf and reproducible on Windows/Linux/macOS from a plain checkout, without ever shelling out to Git. Any change to a tracked file's path or content, or to the algorithm version itself, changes this hash and refuses continuation before any Holdout call. v2 tracked 20 files and omitted RepresentativeHybridV1LiveLedgerProviders.ts, RepresentativeHybridV1LiveReportValidator.ts, LiveProviderUsage.ts, and the CLI script itself -- all four are execution-relevant and are now tracked. The hash-computation file and the new protocol-verification module are also now tracked (safe: neither embeds its own hash literal). Recomputed and compared exactly before every Development/Holdout run (drift protection). Generated logs/reports are never part of this file list, so adding evidence artifacts after freeze cannot falsely trigger drift.",
+  "provider": {
+    "providerId": "anthropic",
+    "modelId": "claude-haiku-4-5",
+    "modelSnapshotId": "claude-haiku-4-5-20251001"
+  },
+  "pricing": {
+    "currency": "USD",
+    "inputPerMillion": 1,
+    "outputPerMillion": 5,
+    "sourceUrl": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "modelIdSourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview",
+    "retrievedAtUtc": "2026-07-22",
+    "matchesExistingRepositoryConstants": true,
+    "verificationNote": "Unchanged from protocol v2 -- this remediation made no paid request and no provider/model/pricing change, so no new pricing lookup was performed. Per this document's own binding workflow (see RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md's 'Phase B execution after remediation'), pricing/model availability MUST be re-checked against an official Anthropic source immediately before Development actually runs, and any drift from these values must be recorded before that run, not silently reused."
+  },
+  "pinnedVersions": {
+    "variantBPromptVersion": "variant-b-prompt-v1",
+    "variantBSchemaVersion": "variant-b-schema-v3",
+    "variantBEstimatorVersion": "variant-b-ai-only-v1",
+    "variantBContractVersion": "1",
+    "variantCPromptVersion": "variant-c-prompt-v1",
+    "variantCSchemaVersion": "variant-c-schema-v1",
+    "variantCInterpreterVersion": "variant-c-live-interpreter-v1",
+    "variantCContractVersion": "1"
+  },
+  "requestReservation": {
+    "variantBMaxInputTokens": 8192,
+    "variantBMaxOutputTokens": 1536,
+    "variantCMaxInputTokens": 8192,
+    "variantCMaxOutputTokens": 1536
+  },
+  "timeoutPolicy": {
+    "perRequestTimeoutMs": 15000,
+    "wallClockCeilingMs": 20000,
+    "automaticRetries": 0
+  },
+  "population": {
+    "totalScenarios": 114,
+    "resolutionBaseCases": 88,
+    "repeatOverlayCases": 16,
+    "governanceOnlyScenarios": 10,
+    "primaryResolutionScenarios": 104,
+    "developmentBaseCases": 66,
+    "holdoutBaseCases": 22,
+    "developmentOverlayCases": 14,
+    "holdoutOverlayCases": 2
+  },
+  "callPlan": {
+    "variantBCalls": 136,
+    "variantBCallsByPartition": { "development": 108, "holdout": 28 },
+    "variantCPrimaryAttempts": 136,
+    "variantCFastPathAttempts": 12,
+    "variantCMaxAiRoutedCalls": 127,
+    "variantCMaxAiRoutedCallsByPartition": { "development": 97, "holdout": 30 },
+    "sampleFloorSupplementCount": 3,
+    "sampleFloorSupplementNote": "Unchanged from protocol v1/v2 -- 3 deterministic lexicographic-cycle repeats added to the holdout partition's Variant C AI-routed population (27 -> 30) to satisfy the V3-040 n>=30 minimum-sample rule.",
+    "totalPlannedObservations": 275
+  },
+  "budget": {
+    "currency": "USD",
+    "maxCalls": 263,
+    "maxInputTokens": 2154496,
+    "maxOutputTokens": 403968,
+    "maxCost": 4.174336,
+    "maxInFlight": 1,
+    "authorizedCeilingUsd": 5.0,
+    "arithmetic": "maxCalls = variantBCalls(136) + variantCMaxAiRoutedCalls(127) = 263. maxInputTokens = 263 * 8192 = 2154496. maxOutputTokens = 263 * 1536 = 403968. perRequestWorstCaseCostUsd = (8192/1e6)*1 + (1536/1e6)*5 = 0.015872. maxCost = 263 * 0.015872 = 4.174336, which is <= 5.00 (headroom 0.825664).",
+    "cumulativeNote": "Unchanged from protocol v2. This ceiling is enforced ONE TIME, cumulatively, across both Development and Holdout process invocations combined -- not reset per process. RepresentativeHybridV1LiveCumulativeBudget.ts reconstructs a LiveProviderBudgetGate from the durable call ledger before either phase runs a single live call, so Holdout's remaining allowance equals this budget minus every call Development already reserved."
+  },
+  "consistencyProtocol": {
+    "overlayGroupCount": 16,
+    "minObservationsPerOverlayScenario": 3,
+    "variantBObservationsPerOverlay": 3,
+    "variantCObservationsPerOverlay": 3
+  },
+  "minimumSampleProtocol": {
+    "minSampleSize": 30,
+    "supplementationRule": "select eligible (already ai_routed) scenario IDs lexicographically by scenarioId; cycle through them deterministically; add only enough repeated Variant C AI-routed observations to reach 30 per partition; never fabricate a route population for a structurally empty path/partition."
+  },
+  "credential": {
+    "envVar": "ANTHROPIC_API_KEY",
+    "presenceCheckedOnly": true
+  },
+  "twoPhaseWorkflow": {
+    "development": {
+      "command": "node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs --partition=development --protocol=reports/resolver-v3-039-controlled-live-protocol-v3.json",
+      "writes": [
+        "logs/resolver-v3-039-call-ledger.jsonl",
+        "logs/resolver-v3-039-development-checkpoint.json",
+        "logs/resolver-v3-039-development-diagnostic.json",
+        "logs/resolver-v3-039-development-diagnostic.md"
+      ],
+      "refusesIf": [
+        "a Development checkpoint already exists",
+        "the call ledger already has any entry for a Development-partition call",
+        "any ledger entry anywhere is indeterminate_after_interruption",
+        "ANTHROPIC_API_KEY is not set",
+        "protocol/plan/corpus/source-manifest/execution-tree/provider/model/pricing does not match this file exactly",
+        "protocolVersion is not resolver-representative-hybrid-live-protocol-v3 (v1 and v2 documents are refused)"
+      ]
+    },
+    "holdout": {
+      "command": "node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs --partition=holdout --final-evaluation --protocol=reports/resolver-v3-039-controlled-live-protocol-v3.json --development-checkpoint=logs/resolver-v3-039-development-checkpoint.json",
+      "writes": [
+        "logs/resolver-v3-039-call-ledger.jsonl",
+        "logs/resolver-v3-039-holdout-checkpoint.json",
+        "logs/resolver-v3-039-controlled-representative-live-evidence.json",
+        "logs/resolver-v3-039-controlled-representative-live-evidence.md"
+      ],
+      "requires": [
+        "--final-evaluation",
+        "--development-checkpoint=<path> pointing at a valid, complete Development checkpoint matching this protocol exactly",
+        "every planned Development call ID accounted for as completed/terminal_failure/indeterminate_after_interruption in that checkpoint",
+        "no completed Holdout checkpoint already exists",
+        "no final combined report already exists at the fixed output path",
+        "the call ledger has no entry yet for any Holdout-partition call",
+        "no ledger entry anywhere is indeterminate_after_interruption",
+        "ANTHROPIC_API_KEY is set"
+      ],
+      "combinesReportFrom": "the validated Development checkpoint's developmentCaseRecords/rawTelemetry plus this run's own freshly computed holdoutCaseRecords/rawTelemetry -- one final report, both partitions, never a Holdout-only report that discards Development."
+    },
+    "disabledShortcuts": {
+      "partitionAll": "Refused by the CLI before the harness is even spawned -- would either skip the required Development-inspection boundary (single process) or repeat all paid Development calls (second process after a separate Development run).",
+      "allowRerun": "Removed entirely in protocol v2, unchanged since. Previously rebuilt the combined report from only the current run's partition, discarding the other partition's already-collected evidence -- not a valid correction. A genuine restart requires an explicit, separate human action outside this CLI (reviewing and clearing the relevant checkpoint/ledger state), never a casual flag."
+    }
+  },
+  "isolation": {
+    "frozenArtifacts": [
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1*Corpus.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1RepeatOverlayCorpus.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1GovernanceCorpus.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1Manifest.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1Registry.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1SourceSnapshotManifest.ts",
+      "src/features/nutrition/benchmark/representativeHybridV1/RepresentativeHybridV1Types.ts",
+      "src/features/nutrition/benchmark/learningV2/**",
+      "reports/RESOLVER_V3_023_*",
+      "reports/RESOLVER_V3_024_REPRESENTATIVE_LEARNING_HYBRID_GATE_REDECISION.md",
+      "docs/domains/ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md",
+      "reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL.md",
+      "reports/resolver-v3-039-controlled-live-protocol.json",
+      "reports/RESOLVER_V3_039_CONTROLLED_REPRESENTATIVE_LIVE_EVIDENCE.md",
+      "reports/resolver-v3-039-controlled-representative-live-evidence.json",
+      "reports/RESOLVER_V3_039_CONTROLLED_LIVE_PROTOCOL_V2.md",
+      "reports/resolver-v3-039-controlled-live-protocol-v2.json"
+    ],
+    "frozenArtifactsNote": "The protocol-v1 and protocol-v2 documents are both preserved as invalidated pre-execution history, not as an executable protocol -- see reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md (v1) and reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md (v2). Neither may ever be passed to --protocol= (the harness refuses any protocolVersion other than resolver-representative-hybrid-live-protocol-v3).",
+    "additiveOnly": [
+      "src/features/nutrition/benchmark/representativeHybridV1/live/**",
+      "src/features/nutrition/benchmark/VariantBLiveProvider.ts (additive optional transport param only)",
+      "src/features/nutrition/benchmark/VariantCLiveInterpretationProvider.ts (additive optional transport param only)",
+      "scripts/benchmark-resolver-v3-representative-hybrid-live.mjs"
+    ]
+  },
+  "governance": {
+    "requiredMinimumEvidenceComparison": "C must be strictly lower false-confidence rate than BOTH A and B",
+    "gateDimensions": [
+      "G2-A representative quality",
+      "G2-B false confidence",
+      "G2-C user friction",
+      "G2-D latency",
+      "G2-E cost",
+      "G2-F provenance/nutrient authority",
+      "G2-G consistency"
+    ],
+    "doesNotReplace": "RESOLVER-V3-024 historical gate decision",
+    "followUpTask": "RESOLVER-V3-041 (todo, not started by this task)"
+  }
+}

@@ -55,6 +55,24 @@ export const REPRESENTATIVE_HYBRID_V1_LIVE_LEDGER_SCHEMA_VERSION =
   'resolver-representative-hybrid-live-call-ledger-v1';
 export const REPRESENTATIVE_HYBRID_V1_LIVE_HARNESS_VERSION_V2 = '2.0.0';
 
+/**
+ * RESOLVER-V3-039 zero-provider-call execution-tree-hash remediation
+ * (`reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md`) -- a *different* defect from the
+ * v1 -> v2 Phase-B continuation defect above. Before any live provider request was made under
+ * protocol v2, a zero-network local preflight found that v2's frozen `executionTreeHash` literal
+ * (`9c3da0fed1ae33d66bf6a9499f679ce67829c80e054d0fd180e2e4a65fcd5b9e`) reproduced from neither a
+ * canonical LF Git-content computation over the frozen commit's tree nor this environment's
+ * Windows CRLF working-tree computation -- the v2 hash implementation had no line-ending
+ * normalization at all, making it platform-dependent, and no test ever compared a fresh computation
+ * against the frozen literal. Protocol v2 itself (and v1 before it) is preserved, unexecuted, as
+ * invalidated history -- zero paid calls occurred under either. These v3 identifiers are the
+ * corrected, versioned, cross-platform-reproducible protocol that replaces v2 for any future live
+ * execution. v1/v2 constants above are kept, unmodified, so historical artifacts that reference them
+ * remain byte-valid.
+ */
+export const REPRESENTATIVE_HYBRID_V1_LIVE_PROTOCOL_VERSION_V3 =
+  'resolver-representative-hybrid-live-protocol-v3';
+
 /** Re-exported so the protocol/report can pin the exact prompt/schema/contract/interpreter
  * versions without a second, drift-prone copy of these literals. */
 export const REPRESENTATIVE_HYBRID_V1_LIVE_PINNED_VERSIONS = {

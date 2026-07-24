@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 /**
- * RESOLVER-V3-039 controlled live evidence CLI -- protocol v2 (Phase-B continuation remediation).
+ * RESOLVER-V3-039 controlled live evidence CLI -- protocol v3 (execution-tree-hash remediation).
  * Distinct from `scripts/benchmark-resolver-v3-representative-hybrid.mjs` (RESOLVER-V3-038,
  * zero-network by construction, no `--live` mode at all). This CLI is the only entry point
  * authorized to make real, billed Anthropic Variant B/C requests against the frozen RESOLVER-V3-038
  * successor corpus.
  *
- * Protocol v1's documented two-phase workflow had a pre-execution continuation defect: the
- * documented Holdout command refused to run after Development (an existing-report guard with no
- * merge path), and the only escape hatches (`--allow-rerun`, `--partition=all`) either discarded
- * Development's results or skipped the required Development-inspection boundary. See
- * `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md` for the full defect analysis. This
- * corrected CLI replaces that workflow; protocol v1 is preserved, unexecuted, as invalidated
- * history.
+ * Protocol v1's documented two-phase workflow had a pre-execution continuation defect (Holdout
+ * refused to run after Development; see
+ * `reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md`), fixed by protocol v2's durable
+ * checkpoint/ledger design (unchanged here). Before any live call was made under protocol v2, a
+ * separate zero-network local preflight found v2's frozen `executionTreeHash` literal was not
+ * reproducible from either a canonical LF Git-content computation or a Windows CRLF working-tree
+ * computation -- the v2 hash implementation had no line-ending normalization at all. See
+ * `reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md` for the full defect analysis. This
+ * CLI now refuses any protocol document whose `protocolVersion` is not
+ * `resolver-representative-hybrid-live-protocol-v3` (enforced in the harness, before any request);
+ * protocols v1 and v2 are preserved, unexecuted, as invalidated history.
  *
  * Usage:
  *   node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs [options]
@@ -26,17 +30,17 @@
  *   --partition=holdout                 Requires --protocol, --final-evaluation, AND
  *                                        --development-checkpoint=<path>.
  *   --final-evaluation                  Explicit gate required before holdout may run.
- *   --protocol=<path-to-protocol-v2.json>
- *                                        Required for any non-preflight run. Must be a protocol-v2
- *                                        document matching the current corpus/source-manifest/plan/
- *                                        execution-tree hashes exactly, or the run is refused before
- *                                        any request.
+ *   --protocol=<path-to-protocol-v3.json>
+ *                                        Required for any non-preflight run. Must be a protocol-v3
+ *                                        document (v1/v2 are refused) matching the current corpus/
+ *                                        source-manifest/plan/execution-tree hashes exactly, or the
+ *                                        run is refused before any request.
  *   --development-checkpoint=<path>     Required for --partition=holdout. The exact Development
  *                                        checkpoint to continue from; validated before any provider
  *                                        or budget-gate construction.
  *   --help, -h                          Print this help.
  *
- * Deliberately absent from protocol v2 (refused explicitly if passed):
+ * Deliberately absent from protocol v3 (refused explicitly if passed):
  *   --partition=all      Would skip the required Development-inspection boundary and (if run after
  *                         a separate Development invocation) repeat all paid Development calls.
  *   --allow-rerun         Rebuilt the report from only the run's own partition, discarding the
@@ -66,7 +70,7 @@ import path from 'node:path';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function printHelp() {
-  console.log(`RESOLVER-V3-039 Controlled Representative Live Hybrid Evidence CLI (protocol v2)
+  console.log(`RESOLVER-V3-039 Controlled Representative Live Hybrid Evidence CLI (protocol v3)
 
 Usage:
   node scripts/benchmark-resolver-v3-representative-hybrid-live.mjs [options]
@@ -77,12 +81,14 @@ Options:
   --partition=holdout                Requires --protocol, --final-evaluation, AND
                                       --development-checkpoint=<path>.
   --final-evaluation                 Explicit gate required before holdout may run.
-  --protocol=<path>                  Frozen protocol-v2 JSON to verify against before executing.
+  --protocol=<path>                  Frozen protocol-v3 JSON to verify against before executing
+                                      (v1/v2 documents are refused).
   --development-checkpoint=<path>    Required for --partition=holdout.
   --help, -h                         Print this help.
 
---partition=all and --allow-rerun do not exist in protocol v2 and are refused if passed -- see
-reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md.
+--partition=all and --allow-rerun do not exist in protocol v3 and are refused if passed -- see
+reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md (Development/Holdout workflow) and
+reports/RESOLVER_V3_039_EXECUTION_TREE_HASH_REMEDIATION.md (execution-tree hash correction).
 
 Only ANTHROPIC_API_KEY's presence is ever checked -- never its value. Missing/invalid credential
 fails closed before any request; there is no live-to-fixture fallback.
@@ -98,7 +104,8 @@ if (args.includes('--help') || args.includes('-h')) {
 
 if (args.includes('--allow-rerun')) {
   console.error(
-    '--allow-rerun does not exist in RESOLVER-V3-039 protocol v2. It previously rebuilt the ' +
+    '--allow-rerun does not exist in RESOLVER-V3-039 protocol v3 (removed in protocol v2 and ' +
+      'unchanged since). It previously rebuilt the ' +
       "combined evidence report from only the current run's partition, discarding the other " +
       "partition's results -- see reports/RESOLVER_V3_039_PHASE_B_CONTINUATION_REMEDIATION.md. " +
       'A durable Development checkpoint plus --development-checkpoint=<path> replaces it.',
@@ -109,7 +116,8 @@ if (args.includes('--allow-rerun')) {
 const partitionArgRaw = args.find((a) => a.startsWith('--partition='));
 if (partitionArgRaw && partitionArgRaw.slice('--partition='.length) === 'all') {
   console.error(
-    '--partition=all does not exist in RESOLVER-V3-039 protocol v2. Running it in one process ' +
+    '--partition=all does not exist in RESOLVER-V3-039 protocol v3 (removed in protocol v2 and ' +
+      'unchanged since). Running it in one process ' +
       'skips the required Development-inspection boundary; running it a second time after a ' +
       'separate Development invocation would repeat all paid Development calls. Run ' +
       '--partition=development, inspect the Development checkpoint/diagnostic, then run ' +
@@ -154,7 +162,7 @@ if (isPreflight) {
 
   const protocolArg = args.find((a) => a.startsWith('--protocol='));
   if (!protocolArg) {
-    console.error('Live execution requires --protocol=<path-to-frozen-protocol-v2.json>.\n');
+    console.error('Live execution requires --protocol=<path-to-frozen-protocol-v3.json>.\n');
     printHelp();
     process.exit(1);
   }

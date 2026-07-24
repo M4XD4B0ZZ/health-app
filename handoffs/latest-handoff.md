@@ -67,11 +67,23 @@
   responsible for weighing this evidence (including its stored `failed`/`not_evaluable` dimensions)
   and making the production-wiring re-decision; reaching this evidence does not by itself authorize
   any production wiring. `RESOLVER-V3-010` remains `blocked`.
-- **PR/merge/branch cleanup:** see this task's own closeout report and the PR opened against
-  `chore/clean-arch-structure` for the exact PR number, CI status, and merge commit (filled in as
-  this closeout's commit/push/PR/merge steps complete). The local LF worktree and execution branch
-  are retained as a secondary copy pending independent post-merge byte verification and later
-  maintainer-authorized cleanup — not removed by this task.
+- **PR/merge/branch cleanup — OUTSTANDING, blocked on GitHub access (not on the evidence):** the
+  evidence commit `9fff93a7d31aa8a37983a891b2bbd5e6f72b02ce` (11 files: all seven evidence artifacts
+  plus the manifest, closeout report, `ROADMAP.md`, and this handoff) is committed and **pushed** to
+  `origin/resolver-v3-039-v3-live-evidence-lf`, but **no PR has been opened yet**. Attempted via the
+  registered GitHub MCP server (`mcp__github__create_pull_request`), which returned `Authentication
+Failed: Bad credentials` — its backing `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable is
+  unset in this environment, and no `gh` CLI is installed as a fallback. This is a GitHub-access
+  problem in this environment, not a defect in the evidence or in the closeout work itself — see the
+  closeout report's "Addendum (2026-07-24): PR/merge outstanding" section for the full explanation
+  and step-by-step instructions for whichever agent picks this up next (verify GitHub access first,
+  open the PR `resolver-v3-039-v3-live-evidence-lf` → `chore/clean-arch-structure`, let CI complete,
+  merge without a pre-merge maintainer review requirement, then run the independent post-merge byte
+  verification already specified for this task — do not re-run Development/Holdout, do not modify
+  the evidence commit, do not start RESOLVER-V3-041). The local LF worktree
+  (`D:\Workspaces_VSCode\HealthApp-resolver-v3-039-v3-lf`) and execution branch are retained as a
+  secondary copy — not removed by this task — pending that PR/merge and the subsequent independent
+  post-merge byte verification.
 
 ## RESOLVER-V3-039 — Zero-Provider-Call Execution-Tree-Hash Remediation (In Progress)
 

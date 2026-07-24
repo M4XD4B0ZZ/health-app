@@ -261,11 +261,61 @@ cost was incurred by this task itself.
 
 All required validation passed independently and reproducibly under Node v20.20.2, with zero
 provider calls and zero additional cost; all seven evidence artifacts are byte-identical
-before/after every validation pass; the evidence is durably versioned in this PR. There is nothing
-further for RESOLVER-V3-039 itself to do.
+before/after every validation pass; the evidence is durably versioned on the execution branch and
+committed, ready to be pulled into the default branch. There is nothing further for
+RESOLVER-V3-039's own evidence-collection/validation/documentation work to do — only the mechanical
+PR/merge step below remains, and it is blocked on GitHub access, not on anything about the evidence.
 
 ## 23. Successor
 
 **RESOLVER-V3-041 remains `todo`, not started.** It is responsible for weighing this evidence
 (including its failed/not_evaluable gate dimensions) and making the production-wiring re-decision.
 `RESOLVER-V3-010` remains `blocked` on that re-decision.
+
+## Addendum (2026-07-24): PR/merge outstanding — GitHub currently unreachable for PR creation
+
+All work above (validation, evidence commit, push) is complete and durably recorded. **The PR from
+`resolver-v3-039-v3-live-evidence-lf` into `chore/clean-arch-structure` has not been opened or
+merged yet** — GitHub is currently unable to accept a PR creation from this environment (observed:
+the registered GitHub MCP server returned `Authentication Failed: Bad credentials`, its backing
+`GITHUB_PERSONAL_ACCESS_TOKEN` environment variable is unset, and no `gh` CLI is installed here as
+a fallback). This is an access/tooling problem on the GitHub side of this environment, not a defect
+in the evidence or in this closeout's own work — every commit named in this report already exists,
+pushed, on the remote.
+
+**State at the time of this addendum:**
+
+- Local worktree: `D:\Workspaces_VSCode\HealthApp-resolver-v3-039-v3-lf` (retained — do not delete).
+- Branch: `resolver-v3-039-v3-live-evidence-lf`, pushed to `origin`.
+- Evidence commit: `9fff93a7d31aa8a37983a891b2bbd5e6f72b02ce` (the 11-file closeout commit described
+  throughout this report), plus this addendum commit on top of it.
+- No PR exists yet on `github.com/M4XD4B0ZZ/health-app`.
+
+**Instructions for whichever agent picks this up next:**
+
+1. Do **not** re-run Development or Holdout, do **not** modify any of the seven evidence files, and
+   do **not** rebase this branch before the evidence commit (`9fff93a7d3…`) — the evidence's
+   validity is tied to that exact commit's tree.
+2. Confirm a working authenticated GitHub path exists first (e.g. a successful
+   `mcp__github__get_pull_request`-style read call, or `gh auth status`) — do not assume the prior
+   failure has resolved itself without checking.
+3. Open the PR: `resolver-v3-039-v3-live-evidence-lf` → `chore/clean-arch-structure`. Title/body can
+   reuse the draft already prepared in this task's own conversation history, or be regenerated from
+   this report's §§9–19.
+4. Let required CI complete; resolve only genuine defects; never alter the seven original evidence
+   files to satisfy cosmetic feedback.
+5. If the default branch has advanced in the meantime: do not rerun or rewrite evidence, do not
+   auto-rebase/merge changes touching the protocol-v3 execution-tree boundary; inspect the
+   intervening diff and proceed only once GitHub reports the merge as clean and the evidence remains
+   explicitly tied to execution commit `a67a4d051fd1616cad3a59428b117a717d84f002`.
+6. Merge when checks are green and no actionable comments remain — no pre-merge maintainer review is
+   required per this task's own instructions.
+7. After merge, perform the independent post-merge review already specified for this task (fetch the
+   merged tip; re-verify all seven blobs byte-for-byte against
+   `reports/resolver-v3-039-controlled-live-evidence-manifest.json`; confirm no product/protocol
+   source changed; confirm `RESOLVER-V3-039` reads `done`, `RESOLVER-V3-041` reads `todo`,
+   `RESOLVER-V3-010` reads `blocked`; confirm no evidence path is duplicated; confirm no secret was
+   committed).
+8. Update this report, `ROADMAP.md`, and `handoffs/latest-handoff.md` with the final PR number and
+   merge commit once merged.
+9. Do **not** start RESOLVER-V3-041 as part of finishing this mechanical step.

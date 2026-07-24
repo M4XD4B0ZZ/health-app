@@ -8127,8 +8127,15 @@ evidence artifacts (`logs/resolver-v3-039-call-ledger.jsonl`,
 `reports/resolver-v3-039-controlled-live-evidence-manifest.json` (SHA-256/byte-size/role manifest)
 and `reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md` (full closeout report — see that
 report for terminal-failure classification, complete call accounting, and the credential-handling
-statement). PR/merge information: see the closeout report and `handoffs/latest-handoff.md` for the
-PR number and merge commit once available. **RESOLVER-V3-039 is marked `done` because its
+statement). **PR/merge: outstanding, blocked on GitHub access as of 2026-07-24** — the evidence
+commit (`9fff93a7d31aa8a37983a891b2bbd5e6f72b02ce`) is pushed to
+`origin/resolver-v3-039-v3-live-evidence-lf`, but no PR could be opened (the registered GitHub MCP
+server returned `Authentication Failed: Bad credentials`, `GITHUB_PERSONAL_ACCESS_TOKEN` is unset,
+and no `gh` CLI is installed) — a tooling/access problem, not an evidence defect. See the closeout
+report's "Addendum (2026-07-24): PR/merge outstanding" section and `handoffs/latest-handoff.md` for
+the exact next-step instructions (verify GitHub access, open the PR, wait for CI, merge, then run
+the independent post-merge byte verification) and for the PR number/merge commit once available.
+**RESOLVER-V3-039 is marked `done` because its
 evidence-collection objective is complete and validated — not because the Hybrid production gate
 passed** (two dimensions above are `failed`, one is `not_evaluable`). RESOLVER-V3-041 remains
 `todo`, not started, and is not authorized to begin merely because its dependency is now complete.

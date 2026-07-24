@@ -7967,7 +7967,10 @@ with the DACH-weighting deviation disclosed above.
 
 #### RESOLVER-V3-039: Controlled Representative Live Hybrid Evidence
 
-Status: `in_progress` (started 2026-07-22; branch `claude/resolver-v3-039-live-evidence-f4cz4a`)
+Status: `done` (started 2026-07-22; branch `claude/resolver-v3-039-live-evidence-f4cz4a`; evidence
+collected, validated, and closed out 2026-07-24 — see the closeout subsection at the end of this
+entry. `done` here means the evidence-collection objective is complete and validated, **not** that
+the Hybrid production gate passed.)
 Depends on: RESOLVER-V3-038, RESOLVER-V3-040
 
 **Goal:** Collect the controlled, representative live evidence RESOLVER-V3-024 found missing, using
@@ -8092,6 +8095,45 @@ test uses fixtures/JSON/pure functions only, no provider transport. **RESOLVER-V
 corrected protocol; it collects no live evidence itself. RESOLVER-V3-041 remains `todo`, not
 started. RESOLVER-V3-010 remains `blocked`.
 
+**Live execution and closeout (2026-07-24 — `done`):** Development and Holdout each ran **exactly
+once** under protocol v3, on execution commit `a67a4d051fd1616cad3a59428b117a717d84f002`
+(worktree `HealthApp-resolver-v3-039-v3-lf`, branch `resolver-v3-039-v3-live-evidence-lf`).
+Development: exit code 0, finished `2026-07-24T15:04:00.4650109Z`, 205 planned calls (194 completed,
+11 terminal failures). Holdout: exit code 0, finished `2026-07-24T17:32:10.7873322Z`, 58 planned
+calls (53 completed, 5 terminal failures) — run only after the Development checkpoint existed and
+was validated. Combined: **263 planned paid calls** (108 Variant B Development / 28 Holdout; 97
+Variant C AI-routed Development / 30 Holdout; 12 Variant C fast-path never billed), 247 completed,
+16 terminal failures, 0 indeterminate, 0 retries — every figure independently recomputed and
+byte-verified twice (once before this closeout, once during it) against the seven original
+evidence artifacts, which were confirmed SHA-256-identical before and after every validation pass.
+A final read-only Node `v20.20.2` validation (repository validators only — protocol-v3 verification,
+fresh execution-tree-hash recomputation, ledger schema/sequence/hash-chain integrity, both
+checkpoints, the final combined report, and cumulative-budget reconstruction) returned
+**`FINAL_EVIDENCE_VALID_READY_FOR_RESOLVER_V3_039_CLOSEOUT`**. Cumulative reservation: 263 calls /
+USD 4.174336 (task ceiling, consumed exactly, 0 remaining, `inFlight` 0), within the maintainer's
+USD 5.00 ceiling. Provider-reported known-cost subtotal: **USD 0.937166** (461,021 input / 95,229
+output tokens) — 8 of 263 records have unknown usage/cost, so this is a subtotal, not the complete
+actual cost; complete provider cost remains unknown absent separately supplied Anthropic Console
+billing evidence (none has been supplied). Final stored gate dimensions: G2-A passed, **G2-B
+failed**, G2-C passed, **G2-D failed**, G2-E not_evaluable, G2-F passed, G2-G passed. No production
+DI/feature-flag/migration/RPC/UI/resolver-source change was made by this closeout; zero provider
+calls occurred during validation or closeout; zero additional benchmark cost was incurred. The seven
+evidence artifacts (`logs/resolver-v3-039-call-ledger.jsonl`,
+`logs/resolver-v3-039-development-checkpoint.json`,
+`logs/resolver-v3-039-development-diagnostic.json`/`.md`,
+`logs/resolver-v3-039-holdout-checkpoint.json`,
+`logs/resolver-v3-039-controlled-representative-live-evidence.json`/`.md`) are now versioned in Git
+(force-added past the repository's blanket `logs/` ignore) alongside
+`reports/resolver-v3-039-controlled-live-evidence-manifest.json` (SHA-256/byte-size/role manifest)
+and `reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md` (full closeout report — see that
+report for terminal-failure classification, complete call accounting, and the credential-handling
+statement). PR/merge information: see the closeout report and `handoffs/latest-handoff.md` for the
+PR number and merge commit once available. **RESOLVER-V3-039 is marked `done` because its
+evidence-collection objective is complete and validated — not because the Hybrid production gate
+passed** (two dimensions above are `failed`, one is `not_evaluable`). RESOLVER-V3-041 remains
+`todo`, not started, and is not authorized to begin merely because its dependency is now complete.
+RESOLVER-V3-010 remains `blocked`.
+
 #### RESOLVER-V3-041: Representative Hybrid Gate Re-Decision After Controlled Live Evidence
 
 Status: `todo`
@@ -8109,9 +8151,16 @@ gate decision; silently declaring the gate passed.
 **Acceptance:** An explicit, evidence-cited pass/fail re-decision for every G2 dimension, using
 RESOLVER-V3-039's actual live results (not the fixture-only RESOLVER-V3-038 report, not the
 14-case RESOLVER-V3-013 smoke evidence).
-**This task is not started. RESOLVER-V3-039's Phase B has not run (blocked on a missing
-`ANTHROPIC_API_KEY` — see that task's entry above), so this task has no live evidence to re-decide
-against yet.**
+**This task is not started.** RESOLVER-V3-039's evidence collection is now complete (`done`,
+2026-07-24 — Development and Holdout each ran exactly once, final evidence independently validated
+twice; see that task's entry above and
+`reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md`). That evidence itself already
+contains stored `failed` dimensions (G2-B false confidence, G2-D latency) and one `not_evaluable`
+dimension (G2-E cost) — these must be handled explicitly by this re-decision task, not silently
+passed or discarded. RESOLVER-V3-039 reaching `done` satisfies this task's dependency but does
+**not** by itself authorize any production wiring: no production effect is authorized merely
+because the dependency is now complete, and this task remains unstarted until it is explicitly
+picked up.
 
 #### RESOLVER-V3-040: Cost/Latency Acceptance Policy
 

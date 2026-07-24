@@ -1,0 +1,97 @@
+{
+  "manifestVersion": "resolver-v3-039-controlled-live-evidence-manifest-v1",
+  "taskId": "RESOLVER-V3-039",
+  "protocolVersion": "resolver-representative-hybrid-live-protocol-v3",
+  "executionCommit": "a67a4d051fd1616cad3a59428b117a717d84f002",
+  "validationNodeVersion": "v20.20.2",
+  "validationVerdict": "FINAL_EVIDENCE_VALID_READY_FOR_RESOLVER_V3_039_CLOSEOUT",
+  "executionTreeHash": "9697e45b149ba2a90115e388a5caeca173aab76c8f5f88f31c5bfc1e136e235f",
+  "corpusHash": "f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a",
+  "sourceManifestHash": "11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52",
+  "planHash": "214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e",
+  "artifactCount": 7,
+  "artifacts": [
+    {
+      "path": "logs/resolver-v3-039-call-ledger.jsonl",
+      "role": "append-only tamper-evident call ledger (hash-chained JSONL, 789 records)",
+      "byteSize": 344296,
+      "sha256": "a7a039e7c9035a893c06462751af65332639cf7e110a2afee4153ad99733adf8"
+    },
+    {
+      "path": "logs/resolver-v3-039-development-checkpoint.json",
+      "role": "durable Development-partition checkpoint (205 planned calls, case records, raw telemetry)",
+      "byteSize": 1013531,
+      "sha256": "1600e9b6f985e1c01978a26ebcc3c2c200add874dd73de97d49a3019b52b0cb4"
+    },
+    {
+      "path": "logs/resolver-v3-039-development-diagnostic.json",
+      "role": "Development-only diagnostic report (JSON) generated at the Development inspection gate",
+      "byteSize": 104301,
+      "sha256": "f9e7baa0da355502f36a3279bd65698db6a1c55f2443478b4f112336b78de6c3"
+    },
+    {
+      "path": "logs/resolver-v3-039-development-diagnostic.md",
+      "role": "Development-only diagnostic report (Markdown) generated at the Development inspection gate",
+      "byteSize": 4389,
+      "sha256": "68d18d604c0069daec9214175e6bd67b9673105f1ee48e8f123fc01ac67cbd4e"
+    },
+    {
+      "path": "logs/resolver-v3-039-holdout-checkpoint.json",
+      "role": "durable Holdout-partition checkpoint (58 planned calls, cumulative budget snapshot)",
+      "byteSize": 5828,
+      "sha256": "4441247832cc02585384dbf78e4372fe8226947d1aa69c3fd4874de33574a593"
+    },
+    {
+      "path": "logs/resolver-v3-039-controlled-representative-live-evidence.json",
+      "role": "final combined Development+Holdout evidence report (JSON, authoritative)",
+      "byteSize": 134939,
+      "sha256": "e27d14a5ee3ba309b4dcf24c9265310baca8d2c393dfcfb949bab2d68f4530e9"
+    },
+    {
+      "path": "logs/resolver-v3-039-controlled-representative-live-evidence.md",
+      "role": "final combined Development+Holdout evidence report (Markdown summary of the JSON)",
+      "byteSize": 5627,
+      "sha256": "a2d636370e4b69d89acf2d4435ecb63c3acd583a092dd54b3bfdfd963e9f1fef"
+    }
+  ],
+  "callAccounting": {
+    "totalLedgerRecords": 789,
+    "uniquePlannedCallIds": 263,
+    "developmentPlannedCalls": 205,
+    "holdoutPlannedCalls": 58,
+    "completedCalls": 247,
+    "terminalFailureCalls": 16,
+    "indeterminateCalls": 0,
+    "retryCount": 0,
+    "variantBCalls": { "development": 108, "holdout": 28 },
+    "variantCAiRoutedCalls": { "development": 97, "holdout": 30 },
+    "variantCFastPathNotBilled": 12
+  },
+  "usageAndCost": {
+    "providerReportedInputTokens": 461021,
+    "providerReportedOutputTokens": 95229,
+    "providerReportedKnownCostSubtotalUsd": 0.937166,
+    "unknownUsageOrCostRecordCount": 8,
+    "completeProviderCostStatus": "unknown"
+  },
+  "reservationBudget": {
+    "reservationCeilingCalls": 263,
+    "reservationCeilingUsd": 4.174336,
+    "reservationConsumedCalls": 263,
+    "reservationConsumedUsd": 4.174336,
+    "reservationRemaining": 0,
+    "finalInFlight": 0,
+    "maintainerCeilingUsd": 5.0,
+    "maintainerCeilingRespected": true
+  },
+  "gateVerdicts": {
+    "g2a_representativeQuality": "passed",
+    "g2b_falseConfidence": "failed",
+    "g2c_userFriction": "passed",
+    "g2d_latency": "failed",
+    "g2e_cost": "not_evaluable",
+    "g2f_provenance": "passed",
+    "g2g_consistency": "passed"
+  },
+  "generatedAtUtc": "2026-07-24T18:33:02.000Z"
+}

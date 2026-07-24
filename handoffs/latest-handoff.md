@@ -1,5 +1,78 @@
 # Latest Handoff
 
+## RESOLVER-V3-039 — Controlled Representative Live Hybrid Evidence Closeout (Done)
+
+- **Task ID/status:** `RESOLVER-V3-039`, status **`done`** — evidence-collection objective complete
+  and validated. `done` here means only that; it does **not** mean the Hybrid production gate
+  passed (two of seven stored gate dimensions are `failed`, one is `not_evaluable` — see below).
+- **Execution commit:** `a67a4d051fd1616cad3a59428b117a717d84f002` (worktree
+  `HealthApp-resolver-v3-039-v3-lf`, branch `resolver-v3-039-v3-live-evidence-lf`). Confirmed as
+  this closeout's `HEAD` and as the live remote default-branch (`chore/clean-arch-structure`) tip
+  before any staging occurred — no drift.
+- **Protocol version:** `resolver-representative-hybrid-live-protocol-v3`. `executionTreeHash`
+  `9697e45b149ba2a90115e388a5caeca173aab76c8f5f88f31c5bfc1e136e235f`; `corpusHash`
+  `f90eda47d2577de4e41bce1cd77558d0422cd122e66797f91b9b27e8eec17d3a`; `sourceManifestHash`
+  `11eebb0e585d5046303a70ec84441049373e0d1656e666787132e5067331fc52`; `planHash`
+  `214fa7f706e62fba479f004b9a04f60d364006e9830447f5f79a21a622f7095e`.
+- **Development:** ran exactly once, exit code 0, finished `2026-07-24T15:04:00.4650109Z`; 205
+  planned calls (194 completed, 11 terminal failures, 0 indeterminate).
+- **Holdout:** ran exactly once, exit code 0, finished `2026-07-24T17:32:10.7873322Z`, only after
+  the Development checkpoint existed and was validated; 58 planned calls (53 completed, 5 terminal
+  failures, 0 indeterminate).
+- **Call totals:** 263 planned paid calls total (108 Variant B Development / 28 Holdout; 97 Variant
+  C AI-routed Development / 30 Holdout; 12 Variant C fast-path never billed); 247 completed, 16
+  terminal failures, 0 indeterminate, 0 retries; ledger 789 rows = exactly 263 × 3, 0 unknown/
+  duplicate call IDs.
+- **Evidence paths (all 7 force-added past the repository's blanket `logs/` ignore):**
+  `logs/resolver-v3-039-call-ledger.jsonl`,
+  `logs/resolver-v3-039-development-checkpoint.json`,
+  `logs/resolver-v3-039-development-diagnostic.json`,
+  `logs/resolver-v3-039-development-diagnostic.md`,
+  `logs/resolver-v3-039-holdout-checkpoint.json`,
+  `logs/resolver-v3-039-controlled-representative-live-evidence.json`,
+  `logs/resolver-v3-039-controlled-representative-live-evidence.md`.
+- **Manifest/report paths:**
+  `reports/resolver-v3-039-controlled-live-evidence-manifest.json` (deterministic SHA-256/byte-size/
+  role manifest) and `reports/RESOLVER_V3_039_CONTROLLED_LIVE_EVIDENCE_CLOSEOUT.md` (full closeout
+  report — protocol v1/v2 invalidation history, terminal-failure classification, complete call
+  accounting, credential-handling statement, known limitations).
+- **Known-cost subtotal / unknown total-cost status:** provider-reported known-cost subtotal **USD
+  0.937166** (461,021 input / 95,229 output tokens across 263 records; 8 records have unknown
+  usage/cost, never converted to zero). **Complete provider API cost remains unknown** — no external
+  Anthropic Console billing evidence has been supplied for this closeout, and this figure excludes
+  any unrelated Claude Code/API spending from earlier development sessions on this repository.
+  Cumulative reservation: 263 calls / USD 4.174336 (task ceiling, consumed exactly, 0 remaining,
+  `inFlight` 0), within the maintainer's USD 5.00 ceiling.
+- **Gate dimensions (stored, not re-decided):** G2-A passed, **G2-B failed**, G2-C passed, **G2-D
+  failed**, G2-E not_evaluable, G2-F passed, G2-G passed.
+- **Validator result:** independent read-only Node `v20.20.2` re-validation (repository validators
+  only — protocol-v3 verification, fresh execution-tree-hash recomputation over the real repository
+  tree, ledger schema/sequence/hash-chain integrity via `RepresentativeHybridV1LiveCallLedger.open()`
+  run only against an external copy, both checkpoints, the final combined report via
+  `assertValidRepresentativeHybridV1LiveReport`, and cumulative-budget reconstruction) returned
+  **`FINAL_EVIDENCE_VALID_READY_FOR_RESOLVER_V3_039_CLOSEOUT`**. SHA-256 of all seven evidence files
+  was recorded before and after every validation pass in this closeout and found byte-identical each
+  time. A temporary, untracked Jest test performed the run and was deleted immediately afterward;
+  `git status --short` was clean after cleanup.
+- **No-production-effect statement:** this closeout added exactly two new reports (the manifest and
+  the closeout report) plus edits to `ROADMAP.md`/`handoffs/latest-handoff.md`, and force-added the
+  seven pre-existing evidence files. No production DI registration, feature flag, migration, RPC,
+  Supabase adapter, UI/journal file, resolver source file, protocol/harness source file, or
+  dependency file was created, modified, or deleted. `ANTHROPIC_API_KEY` presence was checked as a
+  boolean only (absent, both at the start of this closeout and at the start of the validation it
+  re-confirms); its value was never printed/inspected/hashed/copied/requested/persisted. Zero
+  Anthropic API/provider requests occurred during this closeout; zero additional benchmark cost was
+  incurred.
+- **Successor status:** `RESOLVER-V3-041` remains `todo`, **not started** by this closeout — it is
+  responsible for weighing this evidence (including its stored `failed`/`not_evaluable` dimensions)
+  and making the production-wiring re-decision; reaching this evidence does not by itself authorize
+  any production wiring. `RESOLVER-V3-010` remains `blocked`.
+- **PR/merge/branch cleanup:** see this task's own closeout report and the PR opened against
+  `chore/clean-arch-structure` for the exact PR number, CI status, and merge commit (filled in as
+  this closeout's commit/push/PR/merge steps complete). The local LF worktree and execution branch
+  are retained as a secondary copy pending independent post-merge byte verification and later
+  maintainer-authorized cleanup — not removed by this task.
+
 ## RESOLVER-V3-039 — Zero-Provider-Call Execution-Tree-Hash Remediation (In Progress)
 
 - **Task ID:** `RESOLVER-V3-039` (remediation of the merged protocol-v2 implementation, PR #137,

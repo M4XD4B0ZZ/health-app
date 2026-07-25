@@ -8776,6 +8776,31 @@ Full report: `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md`
 RESOLVER-V3-043's own remaining outstanding scope (RESOLVER-V3-044/045's AI-routed cases).
 RESOLVER-V3-010 remains `blocked`.
 
+**Post-merge correction (2026-07-25):** the first version above was merged as PR #174 (merge commit
+`b8eb90cc10e7593df794f1f79ee96eb2ff50d847`). Per this task's own required workflow step, an
+independent post-merge review then found a real, blocking gap: `guardAgainstBlsGenericSubstringCollision`
+originally required `decision.status === 'accepted'`, but `LogFoodFromRawInputUseCase` persists
+`decision.best` whenever `score >= 0.7` **without ever consulting `decision.status`** — so an
+ordinary `ambiguous` (`MULTIPLE_CLOSE_MATCHES`) decision with a high-scoring substring-collision
+`best` still populated (a real near-tied second candidate, unrelated to this task) bypassed the
+guard entirely, fully exploitable through production. Empirically confirmed with five real queries
+(`Anis`, `Mate`, `Tee`, `Fleisch`, `Erdbeere`). Fixed by removing the status restriction; the guard
+now runs whenever `decision.best` is BLS-sourced with `score >= 0.7`, mirroring the use case's own
+persistence gate exactly. Re-running the same 13,055-query audit under the corrected guard also
+surfaced two inconsistencies in the audit script's own classifier (not the production fix, both
+fixed): a `whole_token` exemption check that used `record.tokens` (which can include words from
+parenthetical grading-code content, e.g. `"(KA II)"` surviving as bare `"ka"`) instead of
+`normalizedName` (which strips parentheticals), and an `alias_substring` check that didn't
+distinguish a whole documented-synonym word (e.g. `"mezcal"` within `"Agavenbrand
+(Mezcal/Tequila)"`) from a genuine substring-fragment coincidence. **Corrected blast radius: 85
+queries (0.651%) changed `accepted` → `ambiguous`, not the originally reported 11 (0.084%)** — the
+additional 74 are exactly the previously-invisible exploit class; all other properties (zero winner
+swaps, zero new acceptances, zero `rejected` transitions) remain true. 10 new permanent regression
+tests added. Full repository suite: 243 suites, 2,438 tests green (+10 tests over the first merged
+version, 0 new suites). `npm run verify` green. Shipped as a follow-up PR on top of the merged
+PR #174. See report §14 for full detail, including the one documented, deliberate residual case
+(`"ka"`) where production's conservative behavior is intentionally retained.
+
 ---
 
 #### RESOLVER-V3-042: Gate Evaluator Fidelity Remediation and Derived Evidence Audit

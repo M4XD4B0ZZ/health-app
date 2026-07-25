@@ -144,9 +144,19 @@ function buildRepresentativeCorpusQueries(): Set<string> {
 
 /**
  * Classifies the textual relationship between `query` and the winning BLS record's identity
- * (aliases/tokens), independent of which BlsLookupEngine stage produced the match. Mirrors the
- * exemption logic of `hasBlsGenericSubstringOnlyIdentity` but distinguishes the two substring
- * directions and the "no textual relation at all" case for audit reporting.
+ * (aliases/tokens), independent of which BlsLookupEngine stage produced the match. The
+ * `exact_identity` and `whole_token` checks are deliberately identical in data source to
+ * `hasBlsGenericSubstringOnlyIdentity`'s own exemption logic (whole-token-ness is checked against
+ * `record.normalizedName`'s whitespace-split words, NOT `record.tokens`) -- an earlier version of
+ * this function used `record.tokens` for the whole-token check and disagreed with production for
+ * records whose `tokens` list (built from BLS-generated aliases, which keep parenthetical content
+ * as literal words -- e.g. a "(KA II)" grading-code qualifier survives into `tokens` as bare "ka"/
+ * "ii") diverges from `normalizedName` (which strips parentheticals entirely via
+ * `normalizeBlsRuntimeText`). Using `record.tokens` here would silently mislabel a genuine
+ * substring-collision risk as an exempt `whole_token` match, contradicting what the real
+ * production code actually decided. The two substring-direction breakdowns below remain
+ * `record.tokens`-based -- they are descriptive detail beyond the safe/unsafe boundary, not part
+ * of the exemption decision itself.
  */
 function classifyMatch(query: string, record: BlsFoodRecord): SubstringMatchClassification {
   const collapsedQuery = query.toLowerCase().replace(/\s+/g, '');
@@ -156,10 +166,23 @@ function classifyMatch(query: string, record: BlsFoodRecord): SubstringMatchClas
   }
 
   const queryTokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const recordWholeTokens = new Set(record.tokens.map((t) => t.toLowerCase()));
-  if (queryTokens.length > 0 && queryTokens.every((t) => recordWholeTokens.has(t))) {
+  const recordNameWholeTokens = new Set(
+    record.normalizedName.toLowerCase().trim().split(/\s+/).filter(Boolean),
+  );
+  if (queryTokens.length > 0 && queryTokens.every((t) => recordNameWholeTokens.has(t))) {
     return 'whole_token';
   }
+
+  // A query that is a whole, space-delimited word within some alias (e.g. "mezcal" within the
+  // real BLS alternate-name alias "agavenbrand mezcal", generated from the display name's own
+  // "Agavenbrand (Mezcal/Tequila)" parenthetical) is a genuine documented synonym relationship,
+  // not a substring-fragment coincidence -- distinct from `alias_substring` below, which is
+  // reserved for a query embedded as a fragment *inside* a single alias word.
+  const aliasWholeWordMatch = aliasesNormalized.some((a) => {
+    const aliasWords = a.split(/\s+/).filter(Boolean);
+    return queryTokens.length > 0 && queryTokens.every((t) => aliasWords.includes(t));
+  });
+  if (aliasWholeWordMatch) return 'whole_token';
 
   const recordTokenIsSuperstring = record.tokens.some(
     (t) => t.toLowerCase() !== query && t.toLowerCase().includes(query),

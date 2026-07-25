@@ -388,4 +388,99 @@ describe('RESOLVER-V3-051: generic BLS substring-collision safety', () => {
       expect(decision.reasonCodes).toContain('BLS_GENERIC_PREPARATION_STATE_AMBIGUITY');
     });
   });
+
+  describe('post-merge review finding: the guard must fire even when the resolver would otherwise return an ordinary ambiguous (MULTIPLE_CLOSE_MATCHES) decision with `best` still populated', () => {
+    // An independent post-merge review of this task's first version found that
+    // `guardAgainstBlsGenericSubstringCollision` originally required `decision.status ===
+    // 'accepted'` before it would ever run. That is too narrow: `buildResolverDecision` always
+    // sets `best = sorted[0]` whenever any candidate exists, regardless of the computed status --
+    // so an ordinary `ambiguous` decision (a real near-tied second candidate under
+    // `DELTA_THRESHOLD`, nothing to do with this task) still carries a populated, high-scoring
+    // `best`. `LogFoodFromRawInputUseCase.execute()` reads `decision.best` and persists it whenever
+    // `resolved.score >= 0.7`, **never consulting `decision.status` at all** -- so a status-gated
+    // guard left every substring-collision candidate with a close second-place score fully
+    // exploitable through the exact production path this task exists to close. Fixed by removing
+    // the status restriction (scoped instead to `best.score >= 0.7`, matching the use case's own
+    // gate). These five queries are real, verified instances of exactly that gap (each previously
+    // resolved `status: 'ambiguous'` with `best` populated at score >= 0.9 before this correction).
+    function buildResolver() {
+      return new SequentialFoodCatalogResolver(
+        [new BlsStaticSource()],
+        new DefaultConfidenceEngine(),
+        DEFAULT_CATALOG_CONFIG,
+        undefined,
+        new NoopResolverRunLogger(),
+      );
+    }
+
+    const formerlyExploitableCases: { label: string; raw: string; formerBestSourceId: string }[] = [
+      { label: 'Anis', raw: 'Anis', formerBestSourceId: 'F529100' },
+      { label: 'Mate', raw: 'Mate', formerBestSourceId: 'G561100' },
+      { label: 'Tee', raw: 'Tee', formerBestSourceId: 'W121100' },
+      { label: 'Fleisch', raw: 'Fleisch', formerBestSourceId: 'W851000' },
+      { label: 'Erdbeere', raw: 'Erdbeere', formerBestSourceId: 'Y872460' },
+    ];
+
+    for (const { label, raw, formerBestSourceId } of formerlyExploitableCases) {
+      it(`${label}: resolver no longer leaves a populated substring-collision \`best\` on an ambiguous decision`, async () => {
+        const decision = await buildResolver().resolve({
+          raw,
+          normalized: normalizeText(raw),
+          locale: 'de',
+          inputType: 'generic',
+        });
+
+        expect(decision.status).toBe('ambiguous');
+        expect(decision.reasonCodes).toContain('BLS_GENERIC_SUBSTRING_COLLISION_RISK');
+        expect(decision.best).toBeUndefined();
+        // The formerly-exploitable winner remains visible in `candidates` (retrieval untouched);
+        // it must simply never again be `best`.
+        expect(decision.candidates.some((c) => c.food.sourceId === formerBestSourceId)).toBe(true);
+      });
+
+      it(`${label}: production path (LogFoodFromRawInputUseCase) never persists the formerly-exploitable candidate`, async () => {
+        const resolver = new SequentialFoodCatalogResolver(
+          [new BlsStaticSource()],
+          new DefaultConfidenceEngine(),
+          DEFAULT_CATALOG_CONFIG,
+          undefined,
+          new NoopResolverRunLogger(),
+        );
+        const mockFoodCatalog = {
+          getById: async () => null,
+          searchByName: async () => null,
+        };
+        const useCase = new LogFoodFromRawInputUseCase(
+          new InMemoryFoodEntryRepository(),
+          { now: () => new Date('2024-01-15T10:00:00Z'), todayISO: () => '2024-01-15' },
+          {
+            newId: (() => {
+              let n = 0;
+              return () => `id-${++n}`;
+            })(),
+          } as any,
+          new DeterministicFoodParser(),
+          mockFoodCatalog as any,
+          undefined,
+          undefined,
+          undefined,
+          resolver as any,
+        );
+
+        let persisted: Awaited<ReturnType<typeof useCase.execute>> | undefined;
+        let thrown: unknown;
+        try {
+          persisted = await useCase.execute({ rawText: raw, rawInput: raw });
+        } catch (error) {
+          thrown = error;
+        }
+
+        if (persisted) {
+          expect(persisted.foodCatalogRef?.sourceId).not.toBe(formerBestSourceId);
+        } else {
+          expect(thrown).toBeDefined();
+        }
+      });
+    }
+  });
 });

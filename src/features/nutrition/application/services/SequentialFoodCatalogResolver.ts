@@ -770,22 +770,35 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
   }
 
   /**
-   * RESOLVER-V3-051: shared guard applied wherever a BLS candidate could become a confidently
-   * `accepted` decision -- both the dedicated BLS generic fast-path gate and the generic
-   * multi-source fallback decision reach an `accepted` BLS winner through independent threshold
-   * logic (the gate's own 0.75/0.85 `best.score` check vs. `ResolverDecisionPolicy`'s 0.75 accept
-   * threshold), so the check must run at both sites to be genuinely stage/path-agnostic rather
-   * than trivially bypassable by whichever path a given query happens to take. Returns a
-   * downgraded, honest `ambiguous` decision (candidates preserved, `best`/`secondBest` cleared) if
-   * the decision's winner is a BLS candidate with a substring-only identity for `normalizedQuery`
-   * (`hasBlsGenericSubstringOnlyIdentity`); returns `null` (no change needed) otherwise.
+   * RESOLVER-V3-051: shared guard applied wherever a BLS candidate could become `decision.best`
+   * -- both the dedicated BLS generic fast-path gate and the generic multi-source fallback
+   * decision reach a BLS winner through independent threshold logic (the gate's own 0.75/0.85
+   * `best.score` check vs. `ResolverDecisionPolicy`'s 0.75 accept threshold), so the check must
+   * run at both sites to be genuinely stage/path-agnostic rather than trivially bypassable by
+   * whichever path a given query happens to take.
+   *
+   * Deliberately does NOT require `decision.status === 'accepted'` (post-merge review finding,
+   * 2026-07-25): `buildResolverDecision` always sets `best = sorted[0]` whenever any candidate
+   * exists, regardless of computed status -- an ordinary `ambiguous` (`MULTIPLE_CLOSE_MATCHES`,
+   * a real near-tied second candidate under `DELTA_THRESHOLD`, nothing to do with this task) still
+   * carries a populated `best`. `LogFoodFromRawInputUseCase.execute()` reads `decision.best` and
+   * persists it whenever `resolved.score >= 0.7`, **never consulting `decision.status` at all** --
+   * so a status-gated guard here would leave every substring-collision candidate that happens to
+   * have a close second-place score (e.g. "Anis" -> "Japanische Wollmispel/Loquat, roh", score
+   * 1.0, resolver status `ambiguous`) fully exploitable through the exact production path this
+   * task exists to close. Runs on any populated BLS `best`; returns a downgraded, honest
+   * `ambiguous` decision (candidates preserved, `best`/`secondBest` cleared) if it is a substring-
+   * only identity for `normalizedQuery` (`hasBlsGenericSubstringOnlyIdentity`); returns `null` (no
+   * change needed) otherwise. Scoped to `best.score >= 0.7` -- `LogFoodFromRawInputUseCase`'s own
+   * persistence gate -- so a genuinely low-confidence `best` that was already safely `rejected`
+   * (and would never have been persisted regardless) is not needlessly relabeled `ambiguous`.
    */
   private guardAgainstBlsGenericSubstringCollision(
     normalizedQuery: string,
     decision: ResolverDecision,
     rawCandidates: RawResolverCandidate[],
   ): ResolverDecision | null {
-    if (decision.status !== 'accepted' || !decision.best) return null;
+    if (!decision.best || decision.best.score < 0.7) return null;
     if (decision.best.source !== RESOLVER_SOURCE_LABELS.BLS) return null;
 
     const rawMatch = rawCandidates.find((c) => c.id === decision.best!.id)?.match;

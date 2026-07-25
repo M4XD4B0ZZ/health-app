@@ -11,16 +11,27 @@ import { NoopResolverRunLogger } from '../application/ports/ResolverRunLogger';
 import { BlsStaticSource } from '../infrastructure/catalog/sources/BlsStaticSource';
 import { normalizeText } from '../application/utils/normalizeText';
 import { detectInputType } from '../application/utils/detectInputType';
+import {
+  DeterministicFoodParser,
+  DeterministicParseResult,
+} from '../infrastructure/parsers/DeterministicFoodParser';
 import { ResolverDecision } from '../domain/models/ResolverDecision';
 import { BenchmarkCase } from './BenchmarkCaseTypes';
 
 /**
  * RESOLVER-V3-003: the adapter boundary between a benchmark case and the real, unmodified
  * `SequentialFoodCatalogResolver`. Deliberately thin -- it builds a `FoodSearchQuery` the exact
- * same way the production call path does (`normalizeText` + `detectInputType`, both reused
- * verbatim from `application/utils`, per RESOLVER-V2-008's own reproduction method) and calls
- * `resolver.resolve()`. It never re-implements ranking/decision logic (architecture principle 1)
- * and never touches `SequentialFoodCatalogResolver`'s production defaults.
+ * same way the production call path does and calls `resolver.resolve()`. It never re-implements
+ * ranking/decision logic (architecture principle 1) and never touches
+ * `SequentialFoodCatalogResolver`'s production defaults.
+ *
+ * RESOLVER-V3-050: the production call order is `DeterministicFoodParser.parse(rawInput).name`
+ * first, THEN `normalizeText()` on the parsed name -- not `normalizeText(rawInput)` directly (see
+ * `LogFoodFromRawInputUseCase.resolveCanonicalFood`, which normalizes `parsed.name`, never the raw
+ * string). `detectInputType`, by contrast, production-genuinely runs against the original raw
+ * input, not the parsed name (`LogFoodFromRawInputUseCase.execute`'s
+ * `detectInputType(rawInput)`) -- this adapter already matched that half of the contract and it is
+ * deliberately left unchanged.
  */
 
 /**
@@ -73,8 +84,22 @@ export function buildVariantAResolver(
 
 export interface VariantARawResult {
   caseId: string;
+  /** RESOLVER-V3-050: the original, unparsed benchmark input -- preserved separately from
+   * `query.raw` (which happens to hold the same value, matching production's own
+   * `resolveCanonicalFood(parsedName, originalRawInput, ...)` contract) so provenance never
+   * depends on that coincidence. */
+  originalRawInput: string;
+  /** RESOLVER-V3-050: the real, unmodified `DeterministicFoodParser.parse()` result for
+   * `originalRawInput` -- carries the parsed food name (`.name`, source of `query.normalized`
+   * below) plus `.quantityGrams`/`.quantityCount`/`.unit`, none of which this fast-path-only
+   * adapter consumes itself but all of which downstream offline-impact analysis needs preserved
+   * for audit (task contract: "preserve separately ... parser result ... quantity grams ...
+   * quantity count"). */
+  parserResult: DeterministicParseResult;
   /** The exact `FoodSearchQuery` fields sent to the resolver -- kept for provenance/debugging,
-   * never silently reinterpreted (task instruction: "Confidence nicht still neu interpretieren"). */
+   * never silently reinterpreted (task instruction: "Confidence nicht still neu interpretieren").
+   * `normalized` is `normalizeText(parserResult.name)`, i.e. the normalized *parsed* food name --
+   * not `normalizeText(originalRawInput)` (RESOLVER-V3-050 fix; see module docstring). */
   query: {
     raw: string;
     normalized: string;
@@ -87,15 +112,22 @@ export interface VariantARawResult {
 }
 
 /**
- * Runs one benchmark case against the real resolver boundary. Locale/traceId are passed through
- * unmodified; `inputType` is derived via the same `detectInputType` utility the production
- * `LogFoodFromRawInputUseCase` call path uses (not a benchmark-invented classifier).
+ * Runs one benchmark case against the real resolver boundary, reproducing the exact production
+ * call order (RESOLVER-V3-050): `DeterministicFoodParser.parse(rawInput)` first, then
+ * `normalizeText()` on the parsed name -- never on the raw benchmark input directly. `query.raw`
+ * still carries the original raw input (production's `resolveCanonicalFood` receives
+ * `originalRawInput`, unparsed, as its `rawInput` argument and forwards it verbatim into
+ * `FoodSearchQuery.raw`). `inputType` is derived via the same `detectInputType` utility the
+ * production `LogFoodFromRawInputUseCase.execute` call path uses, against the original raw input
+ * (not the parsed name) -- that half of the contract was already correct and is unchanged.
  */
 export async function runVariantACase(
   benchmarkCase: BenchmarkCase,
   resolver: FoodCatalogResolver,
 ): Promise<VariantARawResult> {
-  const normalized = normalizeText(benchmarkCase.rawInput);
+  const parser = new DeterministicFoodParser();
+  const parserResult = parser.parse(benchmarkCase.rawInput);
+  const normalized = normalizeText(parserResult.name);
   const inputType = detectInputType(benchmarkCase.rawInput);
   const traceId = `resolver-v3-variant-a:${benchmarkCase.caseId}`;
 
@@ -114,6 +146,8 @@ export async function runVariantACase(
 
   return {
     caseId: benchmarkCase.caseId,
+    originalRawInput: benchmarkCase.rawInput,
+    parserResult,
     query,
     decision,
     latencyMs,

@@ -33,16 +33,48 @@ describe('RESOLVER-V3-038 A/B/C execution boundary', () => {
     expect(result.variantA.identification).toBe('correct');
   });
 
-  it('Variant A does not strip a leading quantity/article token before searching BLS (documented architecture boundary)', async () => {
-    // Documents a real, verified characteristic of the current architecture: Variant A's fast path
-    // (ResolverV3VariantAAdapter -> normalizeText -> SequentialFoodCatalogResolver -> BlsStaticSource)
-    // does not parse or strip a leading quantity/article token, so natural "quantity + food" input
-    // (unlike the historical 14-case smoke corpus's bare-food-name convention) generally falls
-    // through to Variant C's AI-interpretation branch rather than resolving via the fast path.
-    const benchmarkCase = findCase('RH-RES-SIMPLE-DEV-001'); // "100g Reis roh"
+  it('RESOLVER-V3-050: Variant A now strips a leading quantity/article token via the real DeterministicFoodParser before searching BLS (production-faithful boundary)', async () => {
+    // Historical context (kept for provenance, no longer the current behavior): before
+    // RESOLVER-V3-050, Variant A's fast path (ResolverV3VariantAAdapter -> normalizeText ->
+    // SequentialFoodCatalogResolver -> BlsStaticSource) sent `normalizeText(rawInput)` straight to
+    // the resolver, never parsing/stripping a leading quantity/article token -- a call path real
+    // production never takes (`LogFoodFromRawInputUseCase` always runs `DeterministicFoodParser`
+    // first). RESOLVER-V3-050 fixed `runVariantACase` to reproduce the real production call order:
+    // `DeterministicFoodParser.parse(rawInput).name` is normalized and sent to the resolver, not
+    // the raw quantity/article-prefixed string.
+    const benchmarkCase = findCase('RH-RES-SIMPLE-DEV-001'); // "100g Reis roh" -> parsed name "reis roh"
     const result = await runRepresentativeHybridV1ThreeArms(benchmarkCase);
-    expect(result.variantA.status).toBe('rejected');
+    // "reis roh" ties two real, distinct BLS rice records ("Reismischung mit Wildreis, roh"
+    // C354100, "Wildreis roh" C353100) -- an honest ambiguous result, not the old boundary's clean
+    // rejection (which merely reflected that "100g reis roh" matched nothing, not that the input was
+    // genuinely unresolvable).
+    expect(result.variantA.status).toBe('ambiguous');
+    // Variant A's decision is still not "accepted", so Variant C's fast path remains ineligible here
+    // too -- this boundary fix does not, by itself, change whether the fast path is used for this
+    // particular case.
     expect(result.variantC.fastPathUsed).toBe(false);
+  });
+
+  it('RESOLVER-V3-050 residual risk: the corrected boundary now surfaces a pre-existing BLS substring-collision false accept for bare "Snack" (production behavior, not introduced by this fix)', async () => {
+    // "Ein Snack" parses to "snack" (article stripped) under the corrected, production-faithful
+    // boundary. "snack" then substring/token-matches the single real BLS record "Kichererbsensnack
+    // gebacken" (X5A1030) as its only candidate, so Variant A now confidently ACCEPTS it -- even
+    // though this case's own ground truth (`expectedBehavior: 'abstention_expected'`,
+    // `criticalFailureConditions: ['Reports a specific numeric estimate for the bare word
+    // "Snack".']`) says a bare "Snack" should never resolve to a specific numeric estimate.
+    //
+    // This is NOT a defect introduced by RESOLVER-V3-050: real production, today, already parses
+    // "Ein Snack" -> "snack" and would already send this exact query to the resolver -- the OLD
+    // benchmark boundary simply never exercised this call path (it sent "ein snack" verbatim,
+    // which does not collide with "Kichererbsensnack"), so this pre-existing BLS fast-path
+    // substring-collision defect was invisible to the benchmark until now. Recorded here as a
+    // residual risk (see `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §11)
+    // for a future BLS generic fast-path remediation task to pick up -- RESOLVER-V3-050 itself must
+    // not change resolver/BLS matching behavior (task boundary: benchmark fidelity only).
+    const benchmarkCase = findCase('RH-RES-VAGUE-DEV-004'); // "Ein Snack"
+    const result = await runRepresentativeHybridV1ThreeArms(benchmarkCase);
+    expect(result.variantA.status).toBe('accepted');
+    expect(result.variantC.fastPathUsed).toBe(true);
   });
 
   it('RESOLVER-V3-043: the historical DACH RV3-0011 false-confidence trap no longer false-confidently accepts, on either arm', async () => {
@@ -70,7 +102,11 @@ describe('RESOLVER-V3-038 A/B/C execution boundary', () => {
   });
 
   it('a rejected/ambiguous Variant A fast path falls through to the injected AI interpreter', async () => {
-    const benchmarkCase = findCase('RH-RES-VAGUE-DEV-004'); // "Ein Snack" -- Variant A cannot accept this
+    // RESOLVER-V3-050: previously used 'RH-RES-VAGUE-DEV-004' ("Ein Snack"), but the corrected,
+    // production-faithful boundary now makes Variant A accept that case (see the dedicated residual-
+    // risk test above) -- 'RH-RES-VAGUE-DEV-001' ("Etwas Reis") has no removable quantity/article
+    // prefix for the parser to strip and still genuinely falls through under the corrected boundary.
+    const benchmarkCase = findCase('RH-RES-VAGUE-DEV-001'); // "Etwas Reis" -- Variant A cannot accept this
     const result = await runRepresentativeHybridV1ThreeArms(benchmarkCase, {
       variantCAiInterpreter: new FixtureCostAiInterpreter(new NoopAiInterpretationProvider()),
     });

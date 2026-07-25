@@ -1,5 +1,69 @@
 # Latest Handoff
 
+## RESOLVER-V3-050 — Benchmark Production-Call-Path Fidelity (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-050`, status **`done`**. Canonical starting commit:
+   `04e742e751b3622901cfe57d474e2fe6c6b9ca84` (PR #172 / RESOLVER-V3-049 merge commit) — confirmed
+   identical to the live `origin/chore/clean-arch-structure` tip before any change, no later
+   commits to inspect. Worktree/branch: `D:\Workspaces_VSCode\HealthApp-resolver-v3-050`,
+   `fix/resolver-v3-050-benchmark-production-call-path-fidelity`.
+2. **What changed:** `ResolverV3VariantAAdapter.runVariantACase()` now calls the real, unmodified
+   `DeterministicFoodParser.parse(rawInput)` first and sends `normalizeText(parsed.name)` to the
+   resolver, instead of `normalizeText(rawInput)` directly — reproducing
+   `LogFoodFromRawInputUseCase.resolveCanonicalFood()`'s exact production call order. `raw` and
+   `inputType` were already production-faithful and are unchanged. `VariantARawResult` gained two
+   new provenance fields (`originalRawInput`, `parserResult`). Added permanent regression tests
+   (target case + quantity/count-prefixed inputs + no-op controls) and a complete offline impact
+   analysis over the full 104-case frozen representative corpus. Updated two stale tests in
+   `RepresentativeHybridV1ThreeArmBoundary.test.ts` that had asserted the old, defective boundary's
+   behavior as expected, plus fixed two other test files whose hand-built `VariantARawResult`
+   fixtures needed the two new required fields. Reconciled a PR #172/RESOLVER-V3-049 test-count
+   documentation discrepancy (see item 5 in that task's own handoff entry below, corrected in
+   place).
+3. **Why it changed:** RESOLVER-V3-043 Phase A's diagnosis found `RH-RES-SIMPLE-DEV-003` ("Ein
+   Apfel") was only false-confident because the benchmark adapter skipped `DeterministicFoodParser`,
+   spuriously colliding "ein apfel" with an unrelated BLS pastry record's normalized name
+   (`Y845242`, "Apfelküchlein (Apfelringe im Milchbackteig) gebraten",
+   `"...kuechl[ein] [apfel]ringe..."`) — a call path production never takes. With the real parser in
+   the loop, production correctly resolves an honest `ambiguous`. This task made all future
+   benchmark fast-path execution reproduce that real call order.
+4. **Files changed:** `src/features/nutrition/benchmark/ResolverV3VariantAAdapter.ts` (the fix),
+   `src/features/nutrition/benchmark/resolverV3050OfflineImpactAnalysis.ts` (new — offline impact
+   analysis logic), `src/features/nutrition/benchmark/__tests__/ResolverV3050BenchmarkProductionCallPathFidelity.test.ts`
+   (new, 16 tests), `src/features/nutrition/benchmark/__tests__/ResolverV3050OfflineImpactAnalysis.test.ts`
+   (new, 6 tests), `src/features/nutrition/benchmark/representativeHybridV1/__tests__/RepresentativeHybridV1ThreeArmBoundary.test.ts`
+   (2 stale assertions updated + 1 new residual-risk regression test), `src/features/nutrition/benchmark/__tests__/evaluateVariantACase.test.ts`
+   and `src/features/nutrition/benchmark/__tests__/buildResolverV3VariantAReports.test.ts` (fixture
+   literals updated for the two new `VariantARawResult` fields — type-only fix, no assertion
+   changed), `ROADMAP.md`, `handoffs/latest-handoff.md`,
+   `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md`,
+   `reports/resolver-v3-050-benchmark-production-call-path-fidelity.json`. No `logs/resolver-v3-039-*`
+   frozen evidence file, no corpus fixture file, no production `application/**`/`infrastructure/**`
+   file touched.
+5. **Verification executed:** new regression test files (22 tests); full offline impact analysis (6
+   tests, 104 corpus cases); full related-suite run (representativeHybridV1 + Variant A/B/C adapters
+   - DeterministicFoodParser + LogFoodFromRawInputUseCase, 361/361 tests green); `npx tsc --noEmit`;
+     `npm run verify`; `git diff --check`; `git diff --stat` confirming zero bytes changed under
+     `logs/**` or any corpus fixture file; full repository suite (`npm run test`).
+6. **Verification result:** all green. Full repository suite: 241/241 suites, 2,391/2,391 tests
+   (baseline at the canonical commit was 239 suites/2,368 tests — this task net-added 2 new suites
+   and 23 new tests). Offline impact analysis over 104 corpus cases (80 development + 24 holdout):
+   44 changed inputs, 13 changed outcomes (1 `accepted`→`ambiguous`, 5 `rejected`→`accepted`, 11
+   winner changes, 2 false-confidence changes). Zero provider calls, zero benchmark cost,
+   `ANTHROPIC_API_KEY` never touched, no Development/Holdout rerun, no BLS/model-policy/production
+   change.
+7. **Known issues, blockers, or residual risks:** the corrected boundary newly surfaces a
+   pre-existing, previously-invisible BLS fast-path substring-collision false confidence for
+   `RH-RES-VAGUE-DEV-004` ("Ein Snack" → "snack" → substring-matches "Kichererbsensnack gebacken",
+   confidently accepted despite `abstention_expected` ground truth) — real production behavior
+   today, not introduced by this task and not fixed by it (out of scope: no resolver/BLS/parser
+   change). Flagged for a future BLS generic fast-path remediation task. Full detail:
+   `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §11.
+8. **Human-review status / next steps:** PR opened via GitHub MCP, CI watched, merged when green,
+   independent post-merge review performed (see below for exact PR/merge/review outcome once
+   available). RESOLVER-V3-043 remains `in_progress` (RESOLVER-V3-044/045 still outstanding).
+   RESOLVER-V3-010 remains `blocked`.
+
 ## RESOLVER-V3-049 — BLS Generic Fast-Path Ambiguity Policy Remediation (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-049`, status **`done`**. Canonical starting commit:
@@ -38,12 +102,18 @@ RESOLVER-V3-043`, which is circular (V3-043 cannot close until V3-049/050 close)
    `reports/resolver-v3-049-bls-generic-fast-path-ambiguity-policy.json`. No BLS workbook, no
    generated BLS runtime artifact, no `logs/resolver-v3-039-*` frozen evidence file touched.
 5. **Verification executed:** targeted new test file (45 tests); full existing BLS/resolver test
-   suite (`--testPathPattern="Bls|Resolver|resolver"`, 246 suites / 2,377 tests); a reproducible
+   suite (originally recorded as `--testPathPattern="Bls|Resolver|resolver"`, 246 suites / 2,377
+   tests — **correction, RESOLVER-V3-050, 2026-07-25**: this count is an aggregate of overlapping
+   targeted `jest` invocations, not that single command's literal output; re-running the literal
+   command at this task's canonical base commit produces 57 suites/719 tests, and the true
+   single-command full repository suite at that commit produces 239 suites/2,368 tests — see
+   `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §13); a reproducible
    14,690-query deterministic offline blast-radius sweep run before and after this task's code
    changes (zero provider calls, OFF/USDA stubbed, no AI source configured); `npx tsc --noEmit`;
    `npm run verify`; `git diff --check`; `git diff --stat` confirming zero bytes changed under
    `logs/**` or the generated BLS artifact.
-6. **Verification result:** all green. 246/246 suites, 2,377/2,377 tests pass (2 pre-existing
+6. **Verification result:** all green (see item 5's correction note on the exact suite/test count
+   labeling). 2 pre-existing
    assertions intentionally updated, not new failures suppressed). Blast radius: exactly 73 of
    14,690 queries (0.50%) changed `accepted` → `ambiguous`; zero changed to/from `rejected`; zero
    winner `sourceId` swaps within `accepted`. All required positive controls verified correct

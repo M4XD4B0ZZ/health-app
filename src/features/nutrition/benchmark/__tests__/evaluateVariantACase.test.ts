@@ -54,6 +54,8 @@ function decisionWith(
 function rawResultFor(decision: ResolverDecision, latencyMs = 10): VariantARawResult {
   return {
     caseId: 'RV3-TEST',
+    originalRawInput: 'test food',
+    parserResult: { name: 'test food' },
     query: {
       raw: 'test food',
       normalized: 'test food',

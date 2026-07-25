@@ -8322,6 +8322,13 @@ inventory (§3 above) contains no remaining false-confident result. RESOLVER-V3-
 RESOLVER-V3-043 `done` — it closes only its own three owned cases (§6 below) and leaves
 RESOLVER-V3-044/045/050's four cases for their own tasks.
 
+**Update (2026-07-25, RESOLVER-V3-050 done):** RESOLVER-V3-050 closed its one owned case
+(`RH-RES-SIMPLE-DEV-003`, "Ein Apfel") — confirmed a benchmark-fidelity artifact, not a production
+defect, so nothing needed fixing in production code; the benchmark's fast-path input boundary was
+corrected instead. RESOLVER-V3-049 (three cases) and RESOLVER-V3-050 (one case) together close 4 of
+the original 8 flagged case IDs. **RESOLVER-V3-043 still does not close** — RESOLVER-V3-044's two
+owned AI-routed cases and RESOLVER-V3-045's one owned AI-routed/consistency case remain outstanding.
+
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
 Status: `todo`
@@ -8565,10 +8572,18 @@ positive controls verified correct, including three that were initially regresse
 development and then fixed by refining the policy (not by carving out per-case exceptions):
 "Rührei" (fixed via the "mit"/unrecognized-ingredient suffix exclusion), "Eier" (fixed via the
 materiality floor), and RESOLVER-V2-010's "Bauchspeck"/"Schinkenspeck"/"Rückenspeck" (fixed via the
-Stage-2 exclusion and the materiality floor). Full deterministic BLS/resolver regression suite:
-246 suites, 2,377 tests green (2 pre-existing assertions updated because they encoded the pre-fix
-false-confidence behavior as expected, matching RESOLVER-V3-043 Phase A's own precedent for stale
-fixtures). Full report: `reports/RESOLVER_V3_049_BLS_GENERIC_FAST_PATH_AMBIGUITY_POLICY.md` /
+Stage-2 exclusion and the materiality floor). Regression verification: 246 suites, 2,377 tests
+green (2 pre-existing assertions updated because they encoded the pre-fix false-confidence behavior
+as expected, matching RESOLVER-V3-043 Phase A's own precedent for stale fixtures) — **correction
+(2026-07-25, by RESOLVER-V3-050's test-count reconciliation)**: this figure is an aggregate of
+multiple overlapping targeted `jest` invocations run during this task's own iterative development,
+not a single reproducible command's output — re-running the literally-described
+`--testPathPattern="Bls|Resolver|resolver"` command against this task's own canonical base commit
+produces 57 suites/719 tests, and the true single-command full repository suite
+(`npm run test`) at that same commit produces 239 suites/2,368 tests. All of RESOLVER-V3-049's
+tests passed either way; only the count's label was imprecise, not the substantive verification
+result. See `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §13 for full
+detail. Full report: `reports/RESOLVER_V3_049_BLS_GENERIC_FAST_PATH_AMBIGUITY_POLICY.md` /
 `reports/resolver-v3-049-bls-generic-fast-path-ambiguity-policy.json`. `npm run verify` green.
 Frozen `logs/resolver-v3-039-*` evidence confirmed byte-unchanged throughout. **This task does not
 mark RESOLVER-V3-043 done** — see RESOLVER-V3-043's umbrella-completion statement above;
@@ -8580,7 +8595,8 @@ RESOLVER-V3-044, RESOLVER-V3-045, and RESOLVER-V3-050 remain outstanding. RESOLV
 Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed
 `RESOLVER-V3-050` did not previously exist in canonical `ROADMAP.md`.
 
-Status: `todo`
+Status: `done` (2026-07-25; zero provider calls, zero benchmark cost, `ANTHROPIC_API_KEY` never
+touched throughout)
 Depends on: RESOLVER-V3-041
 
 **Dependency-cycle correction (2026-07-25, made by RESOLVER-V3-049):** this entry previously read
@@ -8626,6 +8642,47 @@ manifest remain immutable and untouched.
 
 **Both RESOLVER-V3-049 and RESOLVER-V3-050 must be complete before RESOLVER-V3-048** (protocol-v4
 live re-evidence) — see RESOLVER-V3-048's updated `Depends on` above.
+
+**Status: `done`.** Root cause confirmed exactly as diagnosed: `ResolverV3VariantAAdapter.
+runVariantACase()` sent `normalizeText(benchmarkCase.rawInput)` straight to the resolver, skipping
+`DeterministicFoodParser` — a call path production never takes (`LogFoodFromRawInputUseCase.
+resolveCanonicalFood` always normalizes `parsed.name`, never the raw string). Fixed by making
+`runVariantACase` call the real, unmodified `DeterministicFoodParser` first, matching production's
+exact contract: `raw`/`inputType` (already correct, unchanged) still derive from the original,
+unparsed raw input; `normalized` now derives from `normalizeText(parsed.name)`. This single shared
+call site is used by Variant A, Variant C's deterministic fast path (`ResolverV3VariantCAdapter.
+buildFastPathMealResult` calls `runVariantACase` directly), `RepresentativeHybridV1ThreeArmRunner`
+(fixture execution), `RepresentativeHybridV1LiveRunner` (live execution preparation), and
+`LearningBenchmarkV2`'s resolution scenario evaluator — fixing it once corrects all of them, with no
+separate helper module needed. `RH-RES-SIMPLE-DEV-003` ("Ein Apfel") reproduced exactly as
+diagnosed: old boundary sent `"ein apfel"`, spuriously substring-matched an unrelated BLS pastry
+record (`Y845242`, "Apfelküchlein (Apfelringe im Milchbackteig) gebraten") via
+`"...kuechl[ein] [apfel]ringe..."`, and falsely `accepted`; corrected boundary sends `"apfel"` and
+correctly resolves the existing honest `ambiguous` result. Complete offline impact analysis over the
+entire frozen 104-case representative corpus (80 development + 24 holdout, zero provider calls):
+44 cases had a changed resolver input, but only 13 had a changed outcome — 1 `accepted` →
+`ambiguous` (the target case, false confidence resolved), 5 `rejected`/no-match → `accepted` (the
+old boundary's prefix-polluted query matched nothing at all), 11 winner `sourceId` changes, 2
+false-confidence changes total (1 resolved, 1 newly surfaced — see residual risk below). Full data:
+`logs/resolver-v3-050-offline-impact-analysis.json` (regenerable, gitignored); summary in
+`reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §8. **Residual risk (not
+fixed by this task, out of its explicit scope):** the corrected boundary newly surfaces a
+pre-existing, previously-invisible BLS fast-path substring-collision false confidence for
+`RH-RES-VAGUE-DEV-004` ("Ein Snack" → parsed "snack" → substring-matches "Kichererbsensnack
+gebacken", `X5A1030`, confidently accepted despite `abstention_expected` ground truth) — this is
+real production behavior today, only invisible to the OLD, unfaithful benchmark boundary; flagged
+for a future BLS generic fast-path remediation task, not addressed here (no resolver/BLS/parser
+change is in this task's scope). Historical `logs/resolver-v3-039-*` evidence and the frozen
+V3-038 corpus fixtures confirmed byte-unchanged (`git diff --stat` shows zero bytes touched under
+`logs/**` or any corpus fixture file). Test-count documentation reconciled (see
+`RESOLVER-V3-049`'s entry above, corrected below) — the literal `--testPathPattern="Bls|Resolver|
+resolver"` command reproduces 57 suites/719 tests today, not 246/2,377; the true single-command full
+repository suite at the canonical base commit is 239 suites/2,368 tests. Full report:
+`reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` /
+`reports/resolver-v3-050-benchmark-production-call-path-fidelity.json`. `npm run verify` green (see
+handoff for exact final suite/test counts including this task's own new tests). **This task does
+not mark RESOLVER-V3-043 done** — RESOLVER-V3-044 and RESOLVER-V3-045's AI-routed cases remain
+outstanding. RESOLVER-V3-010 remains `blocked`.
 
 ---
 

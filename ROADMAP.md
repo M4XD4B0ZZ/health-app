@@ -8315,6 +8315,13 @@ calls, and did not touch the Haiku-only model policy.
 **This task remains `in_progress`, not `done`,** until RESOLVER-V3-049 and RESOLVER-V3-050 close the
 remaining 7 case IDs — see their entries below.
 
+**Umbrella-completion statement (2026-07-25, added by RESOLVER-V3-049):** RESOLVER-V3-043 may
+close only after the assigned false-confidence work in RESOLVER-V3-044, RESOLVER-V3-045,
+RESOLVER-V3-049, and RESOLVER-V3-050 is complete, and the complete eight-case offline regression
+inventory (§3 above) contains no remaining false-confident result. RESOLVER-V3-049 does not mark
+RESOLVER-V3-043 `done` — it closes only its own three owned cases (§6 below) and leaves
+RESOLVER-V3-044/045/050's four cases for their own tasks.
+
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
 Status: `todo`
@@ -8484,8 +8491,23 @@ re-evidence.
 Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed
 `RESOLVER-V3-049` did not previously exist in canonical `ROADMAP.md`.
 
-Status: `todo`
-Depends on: RESOLVER-V3-043
+Status: `done` (2026-07-25 — all three owned cases fixed, verified, merged; see completion summary
+below. Zero provider calls, zero benchmark cost, `ANTHROPIC_API_KEY` never touched throughout.)
+Depends on: RESOLVER-V3-041
+
+**Dependency-cycle correction (2026-07-25):** this entry previously read "Depends on:
+RESOLVER-V3-043", which is a governance defect, not an intentional blocker — RESOLVER-V3-043
+itself only closes once RESOLVER-V3-049 (this task) closes its own share of the eight-case
+false-confidence inventory (see RESOLVER-V3-043's "This task remains `in_progress`" note), so a
+literal `Depends on: RESOLVER-V3-043` would require V3-043 to finish before the task needed to
+finish V3-043 could begin. Corrected to depend on RESOLVER-V3-041 only (the actual gate
+re-decision this whole remediation series answers to), matching RESOLVER-V3-044/045/046's
+existing dependency shape.
+
+**Prerequisite implementation baseline:** RESOLVER-V3-043 Phase A, merge commit
+`740af0a6a36ba17d43fc449b1b9d61e760621dab`. This task's diagnosis and scope were established by
+that phase's root-cause inventory and are read as the concrete technical starting point, without
+this task's _task-level_ dependency being gated on V3-043's own `done` status.
 
 **Goal:** Close the remaining 3 real, production-reachable BLS fast-path false-confidence defects
 RESOLVER-V3-043's Phase A diagnosis found but did not fix, via a generalized, evidence-derived
@@ -8521,13 +8543,56 @@ policy-based rule (not per-case hardcoding); full deterministic BLS regression s
 **Provider-call policy:** zero provider calls.
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
 
+**Completion summary (2026-07-25):** implemented a two-part, source-grounded policy — (1)
+`BlsLookupEngine.findFamilyExtensionMatches()`, a search-stage visibility fix so a single Stage-1
+exact match no longer hides materially plausible, same-family preparation-state siblings (guarded
+by a pure-qualifier-suffix check, hyphen-safety, "mit"-clause exclusion, and an all-or-nothing kcal
+materiality gate); and (2) `hasBlsGenericPreparationStateConflict()`, a categorical resolver-
+acceptance check reusing the existing, already-reviewed `PROCESSED_QUALIFIER_TOKENS` lexicon
+(extended only with explicit frozen-state markers), gated by the same materiality floor
+(`MATERIALITY_KCAL_RATIO = 1.4`, derived independently of the three target cases — see the full
+report) and explicitly scoped to exclude `BlsLookupEngine`'s Stage-2 ranked-token-override branch
+(RESOLVER-V2-009's own separate, already-reviewed winner-picking system, relied upon by
+RESOLVER-V2-010's approved deterministic Speck sub-terms). All three owned cases
+(`RH-RES-PREPARATION-DEV-002`/`004`, `RH-RES-PREPARATION-HOLD-002`) now resolve an honest
+`ambiguous` with `best` explicitly cleared (so no downstream caller can still treat them as
+confidently resolved) instead of a false-confident `accepted`; all qualified variants remain fully
+resolvable. Blast radius measured across a reproducible 14,690-query deterministic offline
+population: exactly 73 queries (0.50%) changed `accepted` → `ambiguous`, zero changed to/from
+`rejected`, zero winner `sourceId` swaps within `accepted`; 346 additional already-`ambiguous`
+queries gained the same `best`-cleared honesty fix under a more specific reason code. All required
+positive controls verified correct, including three that were initially regressed during
+development and then fixed by refining the policy (not by carving out per-case exceptions):
+"Rührei" (fixed via the "mit"/unrecognized-ingredient suffix exclusion), "Eier" (fixed via the
+materiality floor), and RESOLVER-V2-010's "Bauchspeck"/"Schinkenspeck"/"Rückenspeck" (fixed via the
+Stage-2 exclusion and the materiality floor). Full deterministic BLS/resolver regression suite:
+246 suites, 2,377 tests green (2 pre-existing assertions updated because they encoded the pre-fix
+false-confidence behavior as expected, matching RESOLVER-V3-043 Phase A's own precedent for stale
+fixtures). Full report: `reports/RESOLVER_V3_049_BLS_GENERIC_FAST_PATH_AMBIGUITY_POLICY.md` /
+`reports/resolver-v3-049-bls-generic-fast-path-ambiguity-policy.json`. `npm run verify` green.
+Frozen `logs/resolver-v3-039-*` evidence confirmed byte-unchanged throughout. **This task does not
+mark RESOLVER-V3-043 done** — see RESOLVER-V3-043's umbrella-completion statement above;
+RESOLVER-V3-044, RESOLVER-V3-045, and RESOLVER-V3-050 remain outstanding. RESOLVER-V3-010 remains
+`blocked`.
+
 #### RESOLVER-V3-050: Benchmark Production-Call-Path Fidelity
 
 Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed
 `RESOLVER-V3-050` did not previously exist in canonical `ROADMAP.md`.
 
 Status: `todo`
-Depends on: RESOLVER-V3-043
+Depends on: RESOLVER-V3-041
+
+**Dependency-cycle correction (2026-07-25, made by RESOLVER-V3-049):** this entry previously read
+"Depends on: RESOLVER-V3-043", the same governance defect corrected in RESOLVER-V3-049's entry
+above — RESOLVER-V3-043 does not close until RESOLVER-V3-050 (this task) closes its own share of
+the eight-case false-confidence inventory, so a literal dependency on RESOLVER-V3-043 would be
+circular. Corrected to depend on RESOLVER-V3-041 only.
+
+**Prerequisite implementation baseline:** RESOLVER-V3-043 Phase A merge commit
+`740af0a6a36ba17d43fc449b1b9d61e760621dab`. Read as this task's concrete technical starting point
+(the diagnosis that identified `RH-RES-SIMPLE-DEV-003` as a benchmark-fidelity artifact), without
+gating this task's own dependency on RESOLVER-V3-043's `done` status.
 
 **Goal:** Make future Variant A and relevant Variant C fast-path benchmark execution reproduce the
 actual production call order (`DeterministicFoodParser.parse(rawInput).name → resolver.resolve()`),

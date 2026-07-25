@@ -1,5 +1,68 @@
 # Latest Handoff
 
+## RESOLVER-V3-049 — BLS Generic Fast-Path Ambiguity Policy Remediation (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-049`, status **`done`**. Canonical starting commit:
+   `740af0a6a36ba17d43fc449b1b9d61e760621dab` (PR #171 / RESOLVER-V3-043 Phase A merge commit) —
+   confirmed identical to the live `origin/chore/clean-arch-structure` tip before any change.
+   Worktree/branch: `D:\Workspaces_VSCode\HealthApp-resolver-v3-049`,
+   `fix/resolver-v3-049-bls-fast-path-ambiguity-policy`.
+2. **What changed:** Fixed the two independent BLS generic fast-path defects RESOLVER-V3-043 Phase
+   A diagnosed but deferred: (a) search-stage visibility — a single Stage-1 exact match no longer
+   hides materially plausible, same-family preparation-state siblings
+   (`BlsLookupEngine.findFamilyExtensionMatches()`); (b) resolver acceptance — the BLS fast-path no
+   longer silently accepts a candidate when competing BLS candidates disagree on preparation state
+   and diverge materially in kcal (`hasBlsGenericPreparationStateConflict()`), instead returning an
+   honest `ambiguous` decision with `best`/`secondBest` explicitly cleared. Also corrected a
+   dependency-cycle governance defect: RESOLVER-V3-049/050 previously declared `Depends on:
+RESOLVER-V3-043`, which is circular (V3-043 cannot close until V3-049/050 close); both now
+   depend on RESOLVER-V3-041 only, with an explicit "prerequisite implementation baseline" note
+   pointing at V3-043 Phase A's merge commit. RESOLVER-V3-043 gained an explicit
+   umbrella-completion statement.
+3. **Why it changed:** RESOLVER-V3-043 Phase A's diagnosis found three real, production-reachable
+   false-confidence cases (`RH-RES-PREPARATION-DEV-002`/`004`, `RH-RES-PREPARATION-HOLD-002` —
+   "Haferflocken", "Pommes frites", "Pommes") that reusing the existing `DELTA_THRESHOLD=0.08`
+   would not catch (real gaps 0.107/0.095, both exceed it) and that inventing a new,
+   case-tuned delta would be a reverse-engineered threshold — explicitly forbidden. This task
+   derived a generalized, source-grounded policy instead, per RESOLVER-V3-041's required follow-up
+   chain.
+4. **Files changed:** `src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts`,
+   `src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts`,
+   `src/features/nutrition/application/services/ResolverDebugTypes.ts` (new debug-reason literal),
+   `src/features/nutrition/__tests__/ResolverV3049BlsGenericFastPathAmbiguityPolicy.test.ts` (new,
+   45 tests), `src/features/nutrition/__tests__/BlsPlainGenericReachability.test.ts` (1 stale
+   assertion updated with historical context, matching RESOLVER-V3-043 Phase A's own precedent),
+   `src/features/nutrition/__tests__/ResolverV3043BroetchenFalseConfidenceRemediation.test.ts` (1
+   assertion updated to accept the new, more honest outcome for bare "Brötchen"), `ROADMAP.md`,
+   `reports/RESOLVER_V3_049_BLS_GENERIC_FAST_PATH_AMBIGUITY_POLICY.md`,
+   `reports/resolver-v3-049-bls-generic-fast-path-ambiguity-policy.json`. No BLS workbook, no
+   generated BLS runtime artifact, no `logs/resolver-v3-039-*` frozen evidence file touched.
+5. **Verification executed:** targeted new test file (45 tests); full existing BLS/resolver test
+   suite (`--testPathPattern="Bls|Resolver|resolver"`, 246 suites / 2,377 tests); a reproducible
+   14,690-query deterministic offline blast-radius sweep run before and after this task's code
+   changes (zero provider calls, OFF/USDA stubbed, no AI source configured); `npx tsc --noEmit`;
+   `npm run verify`; `git diff --check`; `git diff --stat` confirming zero bytes changed under
+   `logs/**` or the generated BLS artifact.
+6. **Verification result:** all green. 246/246 suites, 2,377/2,377 tests pass (2 pre-existing
+   assertions intentionally updated, not new failures suppressed). Blast radius: exactly 73 of
+   14,690 queries (0.50%) changed `accepted` → `ambiguous`; zero changed to/from `rejected`; zero
+   winner `sourceId` swaps within `accepted`. All required positive controls verified correct
+   (D771900/Brötchen, qualified Brötchen Blätterteig, Quark, Magerquark, Rührei, Eier, bare Speck,
+   and RESOLVER-V2-010's qualified Bauchspeck/Schinkenspeck/Rückenspeck sub-terms). Zero provider
+   calls, zero benchmark cost, `ANTHROPIC_API_KEY` never touched.
+7. **Known issues, blockers, or residual risks:** the materiality floor
+   (`MATERIALITY_KCAL_RATIO=1.4`) and the Stage-2-ranked-token-override exclusion are principled but
+   necessarily judgment-based boundaries; the materiality safe window `(1.31, 1.65]` is real but not
+   wide, and future BLS data changes could produce a new case landing on the wrong side — re-running
+   this task's blast-radius sweep after any future BLS artifact update is recommended. 7 of the 73
+   changed population queries are single-token artifacts of the sweep's own construction (e.g.
+   "the", "fuerst", "pina" — fragments of compound/foreign names), not realistic standalone user
+   queries. Full detail in the report's §11.
+8. **Human-review status / next steps:** PR opened via GitHub MCP, CI watched, merged when green,
+   independent post-merge review performed (see below for exact PR/merge/review outcome once
+   available). RESOLVER-V3-043 remains `in_progress` (RESOLVER-V3-044/045/050 still outstanding).
+   RESOLVER-V3-010 remains `blocked`.
+
 ## RESOLVER-V3-043 — Unsafe Fast-Path and False-Confidence Remediation (Phase A: D771900) (In Progress)
 
 - **Task ID/status:** `RESOLVER-V3-043`, status **`in_progress`** — Phase A (the `RH-RES-DACH-DEV-006`

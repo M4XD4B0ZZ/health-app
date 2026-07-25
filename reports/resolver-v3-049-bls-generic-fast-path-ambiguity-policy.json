@@ -1,0 +1,492 @@
+{
+  "reportVersion": "resolver-v3-049-bls-generic-fast-path-ambiguity-policy-v1",
+  "taskId": "RESOLVER-V3-049",
+  "canonicalStartingCommit": "740af0a6a36ba17d43fc449b1b9d61e760621dab",
+  "zeroProviderCallsMade": true,
+  "zeroBenchmarkCostIncurred": true,
+  "anthropicApiKeyTouched": false,
+  "frozenV3039EvidenceUnchanged": true,
+  "dependencyCycleCorrection": {
+    "resolverV3_049": {
+      "before": "RESOLVER-V3-043",
+      "after": "RESOLVER-V3-041"
+    },
+    "resolverV3_050": {
+      "before": "RESOLVER-V3-043",
+      "after": "RESOLVER-V3-041"
+    },
+    "resolverV3_043UmbrellaStatementAdded": true
+  },
+  "ownedCases": [
+    {
+      "caseId": "RH-RES-PREPARATION-DEV-002",
+      "rawInput": "Haferflocken",
+      "beforeStatus": "accepted",
+      "beforeBestSourceId": "C133000",
+      "afterStatus": "ambiguous",
+      "afterBest": null,
+      "candidates": ["C133000", "C133032"]
+    },
+    {
+      "caseId": "RH-RES-PREPARATION-DEV-004",
+      "rawInput": "Pommes frites",
+      "beforeStatus": "accepted",
+      "beforeBestSourceId": "X654042",
+      "afterStatus": "ambiguous",
+      "afterBest": null,
+      "candidates": ["X654042", "K130200", "K130262", "K130492"]
+    },
+    {
+      "caseId": "RH-RES-PREPARATION-HOLD-002",
+      "rawInput": "Pommes",
+      "beforeStatus": "accepted",
+      "beforeBestSourceId": "K130200",
+      "afterStatus": "ambiguous",
+      "afterBest": null,
+      "candidates": ["K130200", "K130262", "K130492"]
+    }
+  ],
+  "positiveControls": [
+    {
+      "label": "D771900 / bare Brötchen",
+      "result": "unaffected, still never wins"
+    },
+    {
+      "label": "Brötchen Blätterteig (qualified)",
+      "result": "accepted, D771900, 425 kcal"
+    },
+    {
+      "label": "Quark",
+      "result": "accepted, M713100, 66 kcal"
+    },
+    {
+      "label": "Magerquark",
+      "result": "accepted, M713100, 66 kcal"
+    },
+    {
+      "label": "Rührei",
+      "result": "accepted, Y720143, 203 kcal"
+    },
+    {
+      "label": "Eier",
+      "result": "accepted, Y720100, 137 kcal"
+    },
+    {
+      "label": "Speck (bare)",
+      "result": "resolver-level winner W412000 unaffected; RESOLVER-V2-010 clarification remains sole disambiguation mechanism"
+    },
+    {
+      "label": "Bauchspeck",
+      "result": "accepted, W411300, 304 kcal"
+    },
+    {
+      "label": "Schinkenspeck",
+      "result": "accepted, U685142, 167 kcal"
+    },
+    {
+      "label": "Rückenspeck",
+      "result": "accepted, U605000, 746 kcal"
+    }
+  ],
+  "blastRadius": {
+    "populationSize": 14690,
+    "before": {
+      "accepted": 10493,
+      "ambiguous": 3076,
+      "rejected": 1121
+    },
+    "after": {
+      "accepted": 10420,
+      "ambiguous": 3149,
+      "rejected": 1121
+    },
+    "acceptedToAmbiguousCount": 73,
+    "acceptedToRejectedCount": 0,
+    "ambiguousToAcceptedCount": 0,
+    "rejectedToAcceptedCount": 0,
+    "winnerSourceIdChangedWithinAcceptedCount": 0,
+    "alreadyAmbiguousBestNowClearedCount": 346,
+    "acceptedToAmbiguousQueries": [
+      {
+        "query": "hafer flocken",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C133000"
+      },
+      {
+        "query": "vollkornteigwaren eifrei",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "E510000"
+      },
+      {
+        "query": "hafer schrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C232000"
+      },
+      {
+        "query": "hafer gruetze",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C137000"
+      },
+      {
+        "query": "gerste graupen",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C148000"
+      },
+      {
+        "query": "gerste schrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C242000"
+      },
+      {
+        "query": "gerste gruetze",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C147000"
+      },
+      {
+        "query": "gerste flocken",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C143000"
+      },
+      {
+        "query": "mais griess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C346000"
+      },
+      {
+        "query": "mais gruetze",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C347000"
+      },
+      {
+        "query": "reis griess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C356000"
+      },
+      {
+        "query": "quinoa weiss",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "C118000"
+      },
+      {
+        "query": "weizen backschrot",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "C212000"
+      },
+      {
+        "query": "type 1700",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "C212000"
+      },
+      {
+        "query": "kokos fruchtfleisch",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "H150100"
+      },
+      {
+        "query": "mungbohne reif",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "H770100"
+      },
+      {
+        "query": "quinoa tricolore",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "C118100"
+      },
+      {
+        "query": "hartweizen griess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C219300"
+      },
+      {
+        "query": "weichweizen griess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C218000"
+      },
+      {
+        "query": "roggen backschrot",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "C222000"
+      },
+      {
+        "query": "type 1800",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "C222000"
+      },
+      {
+        "query": "dinkel griess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C238000"
+      },
+      {
+        "query": "dinkel vollkornschrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C235100"
+      },
+      {
+        "query": "buchweizen schrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C422000"
+      },
+      {
+        "query": "hirse schrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C432000"
+      },
+      {
+        "query": "hirse flocken",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C333100"
+      },
+      {
+        "query": "erbse reif",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "G760400"
+      },
+      {
+        "query": "weizen vollkornschrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C211100"
+      },
+      {
+        "query": "weizen flocken",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C113000"
+      },
+      {
+        "query": "hartweizen vollkorngriess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C219100"
+      },
+      {
+        "query": "weizen gruetze",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C117000"
+      },
+      {
+        "query": "gruenkern vollkornschrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C412000"
+      },
+      {
+        "query": "gruenkern gruetze",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C317000"
+      },
+      {
+        "query": "buchweizen griess",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C326000"
+      },
+      {
+        "query": "roggen flocken",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C123000"
+      },
+      {
+        "query": "roggen vollkornschrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C221100"
+      },
+      {
+        "query": "banane",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "X2A3000"
+      },
+      {
+        "query": "karotten",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "X562463"
+      },
+      {
+        "query": "eierteigwaren glutenfrei",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "E612100"
+      },
+      {
+        "query": "brandmasse",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "D073000"
+      },
+      {
+        "query": "brandteig",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "D073000"
+      },
+      {
+        "query": "bechamelsauce",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "X320243"
+      },
+      {
+        "query": "griesskloesschen",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "X434243"
+      },
+      {
+        "query": "pommes frites",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "X654042"
+      },
+      {
+        "query": "mehrkornschrot",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "C492000"
+      },
+      {
+        "query": "dinkelvollkornteigwaren eifrei",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "E632200"
+      },
+      {
+        "query": "dinkelteigwaren eifrei",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "E632000"
+      },
+      {
+        "query": "mit kochschinken",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "X536143"
+      },
+      {
+        "query": "fruehstuecksfleisch",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "W255600"
+      },
+      {
+        "query": "milch 3",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "X636043"
+      },
+      {
+        "query": "helle zungenwurst",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "W275200"
+      },
+      {
+        "query": "bohnen weiss",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "H900900"
+      },
+      {
+        "query": "bierschinken",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "W271000"
+      },
+      {
+        "query": "semmelknoedel",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "X980112"
+      },
+      {
+        "query": "vegetarisch gefuellt",
+        "populationLabel": "alias",
+        "previousWinnerSourceId": "X761033"
+      },
+      {
+        "query": "kartoffelkroketten",
+        "populationLabel": "whole_display_name",
+        "previousWinnerSourceId": "X652912"
+      },
+      {
+        "query": "eigelb",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "E112100"
+      },
+      {
+        "query": "eiklar",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "E113100"
+      },
+      {
+        "query": "dattel",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "F504100"
+      },
+      {
+        "query": "1800",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "C222000"
+      },
+      {
+        "query": "pommes",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "K130200"
+      },
+      {
+        "query": "frites",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "K130200"
+      },
+      {
+        "query": "bulgur",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "C119100"
+      },
+      {
+        "query": "maisgriess",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "C346000"
+      },
+      {
+        "query": "haferflocken",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "C133000"
+      },
+      {
+        "query": "backen",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "D7A7700"
+      },
+      {
+        "query": "donuts",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "P9A5110"
+      },
+      {
+        "query": "the",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "F840300"
+      },
+      {
+        "query": "birnen",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "F130100"
+      },
+      {
+        "query": "obst",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "X9A2030"
+      },
+      {
+        "query": "pina",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "G211100"
+      },
+      {
+        "query": "fuerst",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "Y999140"
+      },
+      {
+        "query": "chips",
+        "populationLabel": "single_token",
+        "previousWinnerSourceId": "Y693932"
+      }
+    ]
+  },
+  "materialityConstant": {
+    "name": "MATERIALITY_KCAL_RATIO",
+    "value": 1.4,
+    "floorCase": {
+      "label": "Schinkenspeck cluster (roh/gebraten/geschmort)",
+      "kcalValues": [127, 156, 167],
+      "ratio": 1.31
+    },
+    "ceilingCase": {
+      "label": "Pommes/Holdout frozen-fries family",
+      "kcalValues": [123, 167, 203],
+      "ratio": 1.65
+    },
+    "safeWindow": "(1.31, 1.65]"
+  }
+}

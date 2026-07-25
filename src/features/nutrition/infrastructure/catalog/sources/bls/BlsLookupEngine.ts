@@ -651,6 +651,45 @@ export class BlsLookupEngine {
   }
 }
 
+/**
+ * RESOLVER-V3-051: true when `winner` -- the single BLS candidate the resolver's generic fast-path
+ * is about to confidently accept for a bare, unqualified `normalizedQuery` -- carries no genuine
+ * exact/whole-alias identity for that query (`winner.exact` is false) *and* the query is not even
+ * a whole-token match against the candidate's own `normalizedName` (every query token present as
+ * a complete, space-delimited token of the candidate name -- e.g. "pommes frites" against "pommes
+ * frites tiefgefroren", or "bauchspeck" against "bauchspeck roh") *and* the query text is still
+ * textually a strict substring fragment of the candidate's (whitespace-collapsed) name. That last
+ * combination is exactly a generic word or short phrase fused/embedded inside a more specific
+ * German compound noun -- e.g. "snack" inside "kichererbsensnack gebacken" -- where the query
+ * itself never named the extra ingredient/preparation/subtype the candidate actually is. A
+ * substring-only candidate found this way may still surface for discovery/ranking (this function
+ * does not touch `BlsLookupEngine.search()`); it must simply not be promoted to a confidently
+ * `accepted` identity by the resolver's BLS generic-truth early-return -- see
+ * `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md` for the full audit and
+ * rejected alternatives (a hand-curated generic-word list, a reverse-engineered score threshold).
+ * General and source-grounded: no per-food, per-word, or per-sourceId list; works identically for
+ * every BLS record and every possible query, driven only by the winning candidate's own name.
+ */
+export function hasBlsGenericSubstringOnlyIdentity(
+  normalizedQuery: string,
+  winner: { normalizedName: string; exact: boolean },
+): boolean {
+  if (winner.exact) return false;
+
+  const queryTokens = normalizedQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return false;
+
+  const candidateTokens = new Set(
+    winner.normalizedName.toLowerCase().trim().split(/\s+/).filter(Boolean),
+  );
+  const isWholeTokenIdentity = queryTokens.every((token) => candidateTokens.has(token));
+  if (isWholeTokenIdentity) return false;
+
+  const collapsedQuery = normalizedQuery.toLowerCase().replace(/\s+/g, '');
+  const collapsedCandidate = winner.normalizedName.toLowerCase().replace(/\s+/g, '');
+  return collapsedCandidate !== collapsedQuery && collapsedCandidate.includes(collapsedQuery);
+}
+
 export interface BlsGenericCandidateForConflictCheck {
   normalizedName: string;
   kcalPer100g: number;

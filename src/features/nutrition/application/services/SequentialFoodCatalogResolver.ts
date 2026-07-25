@@ -12,7 +12,10 @@ import { NegativeCacheHelper } from './NegativeCacheHelper';
 import { ResolverDecision, ResolvedFoodCandidate } from '../../domain/models/ResolverDecision';
 import { normalizeText } from '../utils/normalizeText';
 import { ScoreCalculator } from './ScoreCalculator';
-import { hasBlsGenericPreparationStateConflict } from '../../infrastructure/catalog/sources/bls/BlsLookupEngine';
+import {
+  hasBlsGenericPreparationStateConflict,
+  hasBlsGenericSubstringOnlyIdentity,
+} from '../../infrastructure/catalog/sources/bls/BlsLookupEngine';
 import { buildResolverDecision } from './ResolverDecisionPolicy';
 import {
   RESOLVER_SOURCE_LABELS,
@@ -432,6 +435,45 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
             isSingleLongTokenQuery && !hasExactMatchCandidate
           );
 
+          // RESOLVER-V3-051: the BLS generic fast-path must not confidently accept a candidate
+          // whose only real evidence is a substring-only textual containment of the bare query
+          // inside a more specific German compound name (e.g. "snack" inside "Kichererbsensnack
+          // gebacken") -- a generic/short query being discoverably related to a candidate is not
+          // the same as the candidate being the query's actual identity. Checked against `best`
+          // only (the winner about to be accepted), stage-agnostic (applies regardless of which
+          // BlsLookupEngine stage -- token or includes -- surfaced the winning candidate). See
+          // `hasBlsGenericSubstringOnlyIdentity` and
+          // `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md`. Applied via the
+          // shared `guardAgainstBlsGenericSubstringCollision` helper (also used by the generic
+          // multi-source fallback decision below), so the check is not bypassable simply because
+          // this fast-path gate's own `best.score >= threshold` condition (0.75/0.85, higher than
+          // the fallback decision's own 0.75 accept threshold) was not met for `inputType:
+          // 'ambiguous'` queries.
+          const substringCollisionDecision = this.guardAgainstBlsGenericSubstringCollision(
+            normalizedQuery,
+            this.buildDecision(normalizedQuery, scored),
+            mappedCandidates,
+          );
+          if (substringCollisionDecision) {
+            metrics.totalElapsedMs = Date.now() - resolverStartTime;
+            metrics.winnerSource = null;
+            metrics.winnerConfidence = null;
+
+            if (debugCollector) {
+              debugCollector.addEvaluation(this.convertToEvaluations(scored));
+              debugCollector.setDecision({
+                reason: 'bls_generic_substring_collision_risk',
+                status: 'ambiguous',
+                reasonCodes: substringCollisionDecision.reasonCodes,
+              });
+              debugCollector.setTotalTime(metrics.totalElapsedMs);
+              debugCollector.logToConsole();
+            }
+
+            this.logSummary(metrics);
+            return substringCollisionDecision;
+          }
+
           const candidatesForConflictCheck = scored.map((c) => ({
             normalizedName: c.food.normalizedName,
             kcalPer100g: c.food.macrosPer100g.kcal,
@@ -554,7 +596,19 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
     if (allRawCandidates.length > 0) {
       const filteredCandidates = filterMockCandidatesIfRealExist(allRawCandidates);
       const scoredCandidates = this.scoreCandidates(normalizedQuery, filteredCandidates);
-      const decision = this.buildDecision(normalizedQuery, scoredCandidates);
+      // RESOLVER-V3-051: a BLS candidate can also reach this generic multi-source fallback
+      // decision -- not just the dedicated BLS fast-path gate above -- whenever the fast-path
+      // gate's own (higher) score threshold was not met (e.g. `inputType: 'ambiguous'` queries
+      // needing >=0.85 there, but only >=0.75 to accept here). The substring-collision guard must
+      // therefore also run here, or a query like "Ein Snack" (classified `ambiguous`, BLS score
+      // ~0.83) would bypass the gate entirely and still be confidently accepted through this path.
+      const rawDecision = this.buildDecision(normalizedQuery, scoredCandidates);
+      const decision =
+        this.guardAgainstBlsGenericSubstringCollision(
+          normalizedQuery,
+          rawDecision,
+          filteredCandidates,
+        ) ?? rawDecision;
       metrics.winnerSource = decision.best?.source ?? null;
       metrics.winnerConfidence = decision.best?.score ?? null;
 
@@ -713,6 +767,46 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
       candidates,
       topN: 5,
     });
+  }
+
+  /**
+   * RESOLVER-V3-051: shared guard applied wherever a BLS candidate could become a confidently
+   * `accepted` decision -- both the dedicated BLS generic fast-path gate and the generic
+   * multi-source fallback decision reach an `accepted` BLS winner through independent threshold
+   * logic (the gate's own 0.75/0.85 `best.score` check vs. `ResolverDecisionPolicy`'s 0.75 accept
+   * threshold), so the check must run at both sites to be genuinely stage/path-agnostic rather
+   * than trivially bypassable by whichever path a given query happens to take. Returns a
+   * downgraded, honest `ambiguous` decision (candidates preserved, `best`/`secondBest` cleared) if
+   * the decision's winner is a BLS candidate with a substring-only identity for `normalizedQuery`
+   * (`hasBlsGenericSubstringOnlyIdentity`); returns `null` (no change needed) otherwise.
+   */
+  private guardAgainstBlsGenericSubstringCollision(
+    normalizedQuery: string,
+    decision: ResolverDecision,
+    rawCandidates: RawResolverCandidate[],
+  ): ResolverDecision | null {
+    if (decision.status !== 'accepted' || !decision.best) return null;
+    if (decision.best.source !== RESOLVER_SOURCE_LABELS.BLS) return null;
+
+    const rawMatch = rawCandidates.find((c) => c.id === decision.best!.id)?.match;
+    if (!rawMatch) return null;
+
+    if (
+      !hasBlsGenericSubstringOnlyIdentity(normalizedQuery, {
+        normalizedName: decision.best.food.normalizedName,
+        exact: rawMatch.exact,
+      })
+    ) {
+      return null;
+    }
+
+    return {
+      ...decision,
+      status: 'ambiguous',
+      reasonCodes: ['BLS_GENERIC_SUBSTRING_COLLISION_RISK'],
+      best: undefined,
+      secondBest: undefined,
+    };
   }
 
   private addInputConfidence(

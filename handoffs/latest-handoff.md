@@ -1,5 +1,76 @@
 # Latest Handoff
 
+## RESOLVER-V3-051 — Generic BLS Substring-Collision Safety Remediation (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-051`, status **`done`**. Canonical starting commit:
+   `fd6efb581046b529d5b517ced0ac981b59696379` (PR #173 / RESOLVER-V3-050 merge commit) — confirmed
+   identical to the live `origin/chore/clean-arch-structure` tip before any change, no later
+   commits to inspect. Branch: `claude/resolver-v3-051-bls-safety-z7ma52`.
+2. **What changed:** added `hasBlsGenericSubstringOnlyIdentity` (`BlsLookupEngine.ts`) — a
+   categorical, stage-agnostic check that disqualifies a BLS candidate from confident acceptance
+   when it has no genuine exact/whole-alias identity for the query, the query is not a whole-token
+   match against the candidate's own name, and the query is still a textual substring fragment of
+   that name. Applied via a new shared helper, `guardAgainstBlsGenericSubstringCollision`
+   (`SequentialFoodCatalogResolver.ts`), at **both** places a BLS candidate can become an `accepted`
+   decision — the dedicated BLS generic-truth fast-path gate and the generic multi-source fallback
+   decision (a real threshold-bypass gap was found between the two: the gate's own `0.85`
+   `ambiguous`-inputType threshold is higher than the fallback's `0.75` accept threshold, so a
+   fix applied only inside the gate would have been silently bypassable). New reason code
+   `BLS_GENERIC_SUBSTRING_COLLISION_RISK`; extended `ResolverDebugTypes.DecisionInfo`'s reason
+   union. Added a full deterministic substring-collision audit module
+   (`resolverV3051SubstringCollisionAudit.ts`) and two new permanent test files (37 tests total).
+   Updated one stale test in `RepresentativeHybridV1ThreeArmBoundary.test.ts` that had encoded the
+   pre-fix defective behavior as expected (same precedent as RESOLVER-V3-043/049/050), with
+   historical context preserved in comments.
+3. **Why it changed:** RESOLVER-V3-050's own residual-risk finding (§11 of its report) surfaced a
+   real, pre-existing production defect: `DeterministicFoodParser` parses `"Ein Snack"` to
+   `"snack"`, which the BLS fast path then substring/token-matches against a single, far more
+   specific real BLS record (`X5A1030`, "Kichererbsensnack gebacken", 231 kcal) and confidently
+   accepts — violating `RH-RES-VAGUE-DEV-004`'s `abstention_expected` ground truth. Root-caused to
+   two independent, stage-agnostic mechanisms (`BlsLookupEngine.calculateTokenScore`'s symmetric
+   substring partial-match credit, and `findIncludesMatches`'s alias-substring containment one
+   stage later — proven a single-stage fix insufficient by direct calculation) plus the resolver
+   threshold-bypass gap described above.
+4. **Files changed:** `src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts`
+   (new exported `hasBlsGenericSubstringOnlyIdentity`),
+   `src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts` (new shared guard,
+   applied at both threshold sites), `src/features/nutrition/application/services/ResolverDebugTypes.ts`
+   (extended reason union), `src/features/nutrition/resolverV3051SubstringCollisionAudit.ts` (new —
+   audit module), `src/features/nutrition/__tests__/ResolverV3051GenericBlsSubstringCollisionSafety.test.ts`
+   (new, 29 tests), `src/features/nutrition/__tests__/ResolverV3051SubstringCollisionAudit.test.ts`
+   (new, 8 tests), `src/features/nutrition/benchmark/representativeHybridV1/__tests__/RepresentativeHybridV1ThreeArmBoundary.test.ts`
+   (1 stale assertion updated + historical context preserved), `ROADMAP.md`,
+   `handoffs/latest-handoff.md`, `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md`,
+   `reports/resolver-v3-051-generic-bls-substring-collision-safety.json`. No `logs/resolver-v3-039-*`
+   frozen evidence file, no corpus fixture file, no BLS workbook or generated BLS artifact, no
+   `DeterministicFoodParser` file touched.
+5. **Verification executed:** new regression test files (37 tests); full deterministic
+   substring-collision audit over 13,055 unique queries (real BLS population + frozen 104-case
+   corpus); full BLS/resolver/benchmark related-suite run (88 suites, 1,016 tests green); `npx tsc
+--noEmit`; `npm run verify` (typecheck + lint + format:check + full test suite); `git diff
+--check`.
+6. **Verification result:** all green. Full repository suite: 243/243 suites, 2,428/2,428 tests
+   (baseline at the canonical commit was 241 suites/2,391 tests, per RESOLVER-V3-050's own reported
+   final count — this task net-added 2 new suites and 37 new tests). Substring-collision audit over
+   13,055 unique queries: exactly 11 changed outcomes (0.084%), all `accepted` → `ambiguous`, zero
+   changed to/from `rejected`, zero winner `sourceId` swaps, zero new acceptances anywhere. Zero
+   provider calls, zero benchmark cost, `ANTHROPIC_API_KEY` never touched, no Development/Holdout
+   rerun, no BLS workbook/generated-artifact/Haiku-model-policy change, no production wiring.
+7. **Known issues, blockers, or residual risks:** the safe `sub_token_substring_query_specific`
+   direction (380 queries) and `no_relation` matches (479 accepted-before queries) were not
+   individually reviewed for unrelated correctness issues — out of this task's declared
+   substring-collision-safety scope. The 13,055-query audit population, while large and
+   reproducible, is not exhaustive of every possible user phrasing; a future not-yet-identified
+   collision could surface, but the fix is general (not a per-case list) so any such instance would
+   be caught automatically. Full detail: `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md`
+   / `reports/resolver-v3-051-generic-bls-substring-collision-safety.json`.
+8. **Human-review status / next steps:** `RESOLVER-V3-047`/`RESOLVER-V3-048`'s `Depends on` lists
+   updated to add `RESOLVER-V3-051`. `RESOLVER-V3-043` remains `in_progress` (this task does not
+   touch its outstanding RESOLVER-V3-044/045 AI-routed scope). `RESOLVER-V3-044`/`045` remain
+   `todo`. `RESOLVER-V3-010` remains `blocked`. PR opened via GitHub MCP for post-merge CI/review.
+
+---
+
 ## RESOLVER-V3-050 — Benchmark Production-Call-Path Fidelity (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-050`, status **`done`**. Canonical starting commit:

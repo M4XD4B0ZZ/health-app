@@ -55,26 +55,36 @@ describe('RESOLVER-V3-038 A/B/C execution boundary', () => {
     expect(result.variantC.fastPathUsed).toBe(false);
   });
 
-  it('RESOLVER-V3-050 residual risk: the corrected boundary now surfaces a pre-existing BLS substring-collision false accept for bare "Snack" (production behavior, not introduced by this fix)', async () => {
-    // "Ein Snack" parses to "snack" (article stripped) under the corrected, production-faithful
-    // boundary. "snack" then substring/token-matches the single real BLS record "Kichererbsensnack
-    // gebacken" (X5A1030) as its only candidate, so Variant A now confidently ACCEPTS it -- even
-    // though this case's own ground truth (`expectedBehavior: 'abstention_expected'`,
+  it('RESOLVER-V3-051: the BLS generic substring-collision false accept for bare "Snack" is fixed (historical context: was a residual risk of RESOLVER-V3-050)', async () => {
+    // Historical context (kept for provenance, no longer the current behavior): RESOLVER-V3-050's
+    // corrected, production-faithful boundary made "Ein Snack" parse to "snack" (article stripped)
+    // before reaching the resolver, which newly surfaced a pre-existing BLS fast-path defect --
+    // "snack" substring/token-matched the single real BLS record "Kichererbsensnack gebacken"
+    // (X5A1030) as its only candidate, so Variant A confidently (falsely) ACCEPTED it, even though
+    // this case's own ground truth (`expectedBehavior: 'abstention_expected'`,
     // `criticalFailureConditions: ['Reports a specific numeric estimate for the bare word
-    // "Snack".']`) says a bare "Snack" should never resolve to a specific numeric estimate.
+    // "Snack".']`) says a bare "Snack" should never resolve to a specific numeric estimate. That
+    // defect was not introduced by RESOLVER-V3-050 (real production already had it; the OLD
+    // benchmark boundary simply never exercised the call path that exposed it) and was recorded as
+    // a residual risk in `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §11
+    // for a future task.
     //
-    // This is NOT a defect introduced by RESOLVER-V3-050: real production, today, already parses
-    // "Ein Snack" -> "snack" and would already send this exact query to the resolver -- the OLD
-    // benchmark boundary simply never exercised this call path (it sent "ein snack" verbatim,
-    // which does not collide with "Kichererbsensnack"), so this pre-existing BLS fast-path
-    // substring-collision defect was invisible to the benchmark until now. Recorded here as a
-    // residual risk (see `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md` §11)
-    // for a future BLS generic fast-path remediation task to pick up -- RESOLVER-V3-050 itself must
-    // not change resolver/BLS matching behavior (task boundary: benchmark fidelity only).
+    // RESOLVER-V3-051 closed it with a general, stage-agnostic resolver-level policy
+    // (`hasBlsGenericSubstringOnlyIdentity` in `BlsLookupEngine.ts`, applied at the BLS
+    // generic-truth early-return gate in `SequentialFoodCatalogResolver.ts`): a candidate is no
+    // longer confidently accepted when it has no genuine exact/whole-alias identity for the query,
+    // the query is not even a whole-token match against the candidate's own name, and the query is
+    // still a textual substring fragment of that name. "snack" is exactly such a fragment of
+    // "kichererbsensnack gebacken", so the bare query now resolves an honest `ambiguous` instead
+    // (see `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md`).
     const benchmarkCase = findCase('RH-RES-VAGUE-DEV-004'); // "Ein Snack"
     const result = await runRepresentativeHybridV1ThreeArms(benchmarkCase);
-    expect(result.variantA.status).toBe('accepted');
-    expect(result.variantC.fastPathUsed).toBe(true);
+    expect(result.variantA.status).not.toBe('accepted');
+    expect(result.variantA.status).toBe('ambiguous');
+    // Variant A's decision is no longer "accepted", so Variant C's fast path is no longer eligible
+    // either -- it falls through to the AI-interpretation branch instead of inheriting the false
+    // confidence Variant A itself no longer has.
+    expect(result.variantC.fastPathUsed).toBe(false);
   });
 
   it('RESOLVER-V3-043: the historical DACH RV3-0011 false-confidence trap no longer false-confidently accepts, on either arm', async () => {

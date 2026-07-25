@@ -44,9 +44,28 @@ describe('runResolverV3VariantABenchmark', () => {
     expect(eiGroup?.consistent).toBe(true);
   }, 30_000);
 
-  it('flags the committed Brötchen case as a critical (false-confident) failure', async () => {
+  it('RESOLVER-V3-043: the committed Brötchen case (RV3-0011) is no longer a false-confident failure', async () => {
+    // Historical context (kept for provenance, no longer the current behavior): before
+    // RESOLVER-V3-043, this case's bare "Brötchen" input confidently (falsely) resolved to
+    // D771900 ("Brötchen (Blätterteig)", a puff-pastry variant) instead of the plain wheat roll
+    // (B511000) the case's ground truth expects, because `BlsCompactRuntimeAdapter`'s alias
+    // generation stripped the entire "(Blätterteig)" parenthetical from D771900's display name.
+    // RESOLVER-V3-043's source-ID-scoped negative-compatibility fix
+    // (`INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID`) makes D771900 unable to win the bare query
+    // through any matching stage, so the resolver now honestly returns `ambiguous` (several real
+    // "-brötchen" candidates tie) instead of falsely accepting -- see
+    // `ResolverV3043BroetchenFalseConfidenceRemediation.test.ts` for the focused fix coverage.
+    // Precisely which single candidate should win an ambiguous bare "Brötchen" query is a
+    // separate, deferred ranking-quality question (RESOLVER-V3-049) -- this test only asserts the
+    // false-confidence/critical-failure defect itself is gone, per this task's explicit
+    // instruction not to force a specific acceptance just to make a benchmark case green.
     const { report } = await runResolverV3VariantABenchmark({ writeReports: false });
-    expect(report.metrics.falseConfidentCases).toContain('RV3-0011');
+    const rv30011 = report.cases.find((c) => c.caseId === 'RV3-0011');
+
+    expect(report.metrics.falseConfidentCases).not.toContain('RV3-0011');
+    expect(rv30011?.falseConfident).toBe(false);
+    expect(rv30011?.isCriticalFailure).toBe(false);
+    expect(rv30011?.resolverStatus).toBe('ambiguous');
   }, 30_000);
 
   it('aborts with a precise error instead of scoring an invalid fixture', async () => {

@@ -45,18 +45,28 @@ describe('RESOLVER-V3-038 A/B/C execution boundary', () => {
     expect(result.variantC.fastPathUsed).toBe(false);
   });
 
-  it('a false-confident Variant A fast-path acceptance is inherited and visible on Variant C (DACH RV3-0011 regression)', async () => {
+  it('RESOLVER-V3-043: the historical DACH RV3-0011 false-confidence trap no longer false-confidently accepts, on either arm', async () => {
+    // Historical context (kept for provenance, no longer the current behavior): before
+    // RESOLVER-V3-043, Variant A's fast path confidently (falsely) accepted the wrong "Brötchen
+    // (Blätterteig)" pastry record (D771900) for a bare "Brötchen" input, because
+    // `BlsCompactRuntimeAdapter`'s alias generation stripped the entire "(Blätterteig)"
+    // parenthetical, and Variant C's fast path -- being literally Variant A's resolver -- inherited
+    // that false confidence unchanged. RESOLVER-V3-043's source-ID-scoped negative-compatibility
+    // fix (`INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID`) makes D771900 unable to win the bare query
+    // through any matching stage; see `ResolverV3043BroetchenFalseConfidenceRemediation.test.ts`
+    // for the focused adapter/lookup/resolver/production-boundary coverage of the fix itself.
     const benchmarkCase = findCase('RH-RES-DACH-DEV-006');
     const result = await runRepresentativeHybridV1ThreeArms(benchmarkCase);
-    // Variant A's own fast path confidently (falsely) accepts the wrong "Brötchen (Blätterteig)"
-    // pastry record for a bare "Brötchen" input -- this is the real, documented defect.
-    expect(result.variantA.falseConfident).toBe(true);
-    // Variant C's fast path is literally Variant A's resolver -- it must inherit this, not silently
-    // "fix" it by routing to AI (requirement 21: "a false-confident A fast-path acceptance must
-    // remain visible as a C false-confidence failure").
-    expect(result.variantC.fastPathUsed).toBe(true);
-    expect(result.variantC.aiCalled).toBe(false);
-    expect(result.variantC.falseConfident).toBe(true);
+
+    // Variant A's fast path no longer confidently (falsely) accepts D771900 -- several real,
+    // legitimate "-brötchen" candidates now tie, so the honest outcome is ambiguous, not accepted.
+    expect(result.variantA.status).toBe('ambiguous');
+    expect(result.variantA.falseConfident).toBe(false);
+    // Since Variant A's decision is no longer "accepted", Variant C's fast path is not eligible and
+    // it falls through to the AI-interpretation branch instead -- it does not inherit a false
+    // confidence that Variant A itself no longer has.
+    expect(result.variantC.fastPathUsed).toBe(false);
+    expect(result.variantC.falseConfident).toBe(false);
   });
 
   it('a rejected/ambiguous Variant A fast path falls through to the injected AI interpreter', async () => {

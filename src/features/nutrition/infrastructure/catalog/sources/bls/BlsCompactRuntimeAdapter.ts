@@ -14,6 +14,29 @@ const COMPATIBILITY_ALIASES_BY_SOURCE_ID: Readonly<Record<string, readonly strin
   Y720143: ['ruehrei', 'rührei', 'ruehei'],
 };
 
+/**
+ * RESOLVER-V3-043: source-ID-scoped negative-compatibility contract, the mirror image of
+ * `COMPATIBILITY_ALIASES_BY_SOURCE_ID` above. A record listed here must never win an exact,
+ * includes, token, or ranked-token match for one of its listed (already-normalized) bare
+ * queries, however that identity was generated (its own display name, a split alias, or a
+ * derived token) — closing the "any exact hit short-circuits everything else" false-confidence
+ * class documented in RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md for
+ * D771900 ("Brötchen (Blätterteig)"): `normalizeBlsRuntimeText()` strips the entire
+ * "(Blätterteig)" qualifier, so the record's own paren-stripped display name falsely claims
+ * exact identity with the everyday, unqualified word "Brötchen" -- a real bread roll's word, not
+ * this puff-pastry roll's. Listing the record here does not remove it from search entirely: a
+ * *qualified* query like "Brötchen Blätterteig" is untouched (a different, longer normalized
+ * string), so the record stays fully discoverable for the food it actually is.
+ */
+const INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID: Readonly<Record<string, readonly string[]>> = {
+  D771900: ['broetchen'],
+};
+
+/** Test/diagnostic accessor -- production code reads the field on the adapted `BlsFoodRecord`. */
+export function getIncompatibleGenericQueries(sourceId: string): readonly string[] {
+  return INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID[sourceId] ?? [];
+}
+
 export function adaptBlsCompactRuntimeRecords(
   artifact: BlsCompactRuntimeArtifact,
 ): readonly BlsFoodRecord[] {
@@ -31,6 +54,7 @@ export function adaptBlsCompactRuntimeRecord(record: BlsCompactRuntimeRecord): B
     aliases,
     tokens: buildBlsRuntimeTokens(record.displayName, aliases),
     macrosPer100g: { ...record.macrosPer100g },
+    incompatibleGenericQueries: INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID[record.sourceId] ?? [],
   };
 }
 

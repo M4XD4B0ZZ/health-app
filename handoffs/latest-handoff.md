@@ -1,5 +1,89 @@
 # Latest Handoff
 
+## RESOLVER-V3-043 — Unsafe Fast-Path and False-Confidence Remediation (Phase A: D771900) (In Progress)
+
+- **Task ID/status:** `RESOLVER-V3-043`, status **`in_progress`** — Phase A (the `RH-RES-DACH-DEV-006`
+  / D771900 fix) is complete and merged. Not `done`: the task's own acceptance criterion names all
+  8 flagged false-confidence case IDs, and only 1 of the 8 is fixed here — the other 7 have explicit
+  successor-task ownership (RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-049, RESOLVER-V3-050), not
+  a silent non-fix.
+- **Canonical starting commit:** `271cadca593b339ef12a30b8db6f2efccde340fe` (PR #170 /
+  RESOLVER-V3-041 merge commit) — confirmed as the exact live `origin/chore/clean-arch-structure`
+  tip before any change.
+- **Worktree/branch:** `D:\Workspaces_VSCode\HealthApp-resolver-v3-043`,
+  `fix/resolver-v3-043-false-confidence-remediation`, created directly from the explicit remote SHA
+  above — never from the noncanonical `claude/resolver-v3-041-haiku-binding-a1glb1` side branch
+  (which was left untouched: not reset, rebased, mutated, or deleted).
+- **Diagnosis-driven scope correction:** all 8 flagged Variant-C false-confidence case IDs (7
+  Development + 1 Holdout, extracted directly from the frozen
+  `logs/resolver-v3-039-controlled-representative-live-evidence.json`, not copied from any prior
+  report) were independently root-caused against the real, current, merged production code before
+  any fix was written. Result: only 4 are genuine BLS-fast-path defects (this task's declared
+  subsystem); 3 are purely AI-routed (BLS fast path returns zero candidates, confirmed empirically —
+  belong to RESOLVER-V3-044/045); 1 is a benchmark-harness fidelity artifact that does not reproduce
+  in real production once `DeterministicFoodParser` runs first (belongs to the new
+  RESOLVER-V3-050). Of the 4 genuine fast-path cases, only the one this task's acceptance criterion
+  names by ID (`RH-RES-DACH-DEV-006`/D771900) was fixed; the other 3 share a defect class that could
+  not be fixed safely within this phase without either an untested, reverse-engineered ambiguity
+  threshold or a broad, unreviewed change to `BlsLookupEngine.search()`'s stage short-circuit
+  behavior — both explicitly forbidden by this task's own instructions. They are owned by the new
+  RESOLVER-V3-049 instead. Full evidence:
+  `reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md`.
+- **Root cause (D771900):** `BlsCompactRuntimeAdapter.ts`'s `normalizeBlsRuntimeText()` strips all
+  parenthetical content, so `D771900` ("Brötchen (Blätterteig)", a puff-pastry roll) falsely claims
+  the bare, everyday word "Brötchen" as an exact alias. `BlsLookupEngine.findExactMatches()` returns
+  immediately on any exact-alias hit, pre-empting 81 more-plausible "-brötchen" candidates before
+  they are ever scored. Removing only the generated exact alias would not have been sufficient
+  (independently verified before implementing): the record's own tokens and its qualified
+  "broetchen blaetterteig" alias still contain "broetchen" as a component/substring, reachable via
+  includes/token matching.
+- **Fix implemented:** `INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID` (`BlsCompactRuntimeAdapter.ts`),
+  a source-ID-scoped negative-compatibility contract mirroring the existing (positive)
+  `COMPATIBILITY_ALIASES_BY_SOURCE_ID` mechanism, threaded onto `BlsFoodRecord` as
+  `incompatibleGenericQueries` and enforced by `BlsLookupEngine` at every matching stage (exact,
+  includes, token, ranked-token) — zero blast radius beyond the one named record.
+- **Post-fix behavior (empirically verified):** bare `Brötchen` never returns D771900 as a
+  candidate at all (previously `accepted`, `D771900`, score 1); now resolves an honest `ambiguous`
+  among several real "-brötchen" records (`MULTIPLE_CLOSE_MATCHES`). Qualified `Brötchen
+Blätterteig` / `Brötchen (Blätterteig)` are unaffected — still `accepted`, `D771900`, score 1. The
+  historical `RV3-0011` case in the retired 14-case smoke corpus is also fixed end-to-end
+  (`falseConfidentCases` no longer contains it). Production-call boundary confirmed: `'Brötchen'`,
+  `'Ein Brötchen'`, `'200g Brötchen'` all parse to the same food name via the real, unduplicated
+  `DeterministicFoodParser`, and none ever produces a D771900-sourced result.
+- **Tests:** 19 new focused tests
+  (`src/features/nutrition/__tests__/ResolverV3043BroetchenFalseConfidenceRemediation.test.ts`)
+  covering the adapter, BLS lookup, resolver, and production-call boundaries, plus unaffected-record
+  regression for `Apfelstrudel`/`Apfeltasche`/`Hörnchen`/`Mohnschnecken (Blätterteig)`. Two
+  pre-existing tests that had asserted the _old, defective_ behavior as expected (regression
+  fixtures proving the historical defect, not desired-behavior tests) were updated with the
+  corrected reality and historical context preserved in comments:
+  `RepresentativeHybridV1ThreeArmBoundary.test.ts`, `runResolverV3VariantABenchmark.test.ts`.
+- **Verification:** `npm run typecheck` clean; targeted BLS/resolver suite green; full repository
+  suite (`npm run test`) 238/238 suites, 2335/2335 tests green — zero regressions beyond the two
+  intentionally-updated stale-defect-assertion tests.
+- **Successor tasks added:** RESOLVER-V3-049 (BLS Generic Fast-Path Ambiguity Policy Remediation —
+  owns `RH-RES-PREPARATION-DEV-002`, `RH-RES-PREPARATION-DEV-004`, `RH-RES-PREPARATION-HOLD-002`),
+  RESOLVER-V3-050 (Benchmark Production-Call-Path Fidelity — owns `RH-RES-SIMPLE-DEV-003`); both
+  `todo`. RESOLVER-V3-044/045 updated with explicit ownership of their 3 AI-routed case IDs.
+  RESOLVER-V3-047/048 dependencies updated to require RESOLVER-V3-049/050.
+- **Constraints honored:** zero Anthropic/provider calls; zero benchmark cost; Development/Holdout
+  not re-run; no frozen RESOLVER-V3-039 evidence file touched; no BLS source workbook or generated
+  artifact modified; no historical V3-024/038/039/041/042 report rewritten; no production
+  quantity/article stripping added (production already had it via `DeterministicFoodParser`); no
+  RESOLVER-V3-044/045/046/047/048 work started; no production wiring; Haiku-only model policy
+  unchanged; `RESOLVER-V3-010` remains `blocked`.
+- **Report path:** `reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` (this
+  supersedes the review-only diagnosis of the same name that existed only on the noncanonical,
+  unmerged `claude/resolver-v3-041-haiku-binding-a1glb1` branch — that branch was left untouched).
+- **Files changed:** `src/features/nutrition/infrastructure/catalog/sources/bls/BlsCompactRuntimeAdapter.ts`,
+  `src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts`,
+  `src/features/nutrition/__tests__/ResolverV3043BroetchenFalseConfidenceRemediation.test.ts` (new),
+  `src/features/nutrition/benchmark/representativeHybridV1/__tests__/RepresentativeHybridV1ThreeArmBoundary.test.ts`,
+  `src/features/nutrition/benchmark/__tests__/runResolverV3VariantABenchmark.test.ts`,
+  `reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` (new), `ROADMAP.md`,
+  `handoffs/latest-handoff.md`. No BLS data, feature flag, migration, RPC, Supabase adapter, or
+  package/dependency file was changed.
+
 ## RESOLVER-V3-041 — Representative Hybrid Gate Re-Decision After Controlled Live Evidence (Done)
 
 - **Task ID/status:** `RESOLVER-V3-041`, status **`done`** — the formal gate re-decision is

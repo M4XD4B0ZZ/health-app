@@ -27,6 +27,13 @@ export interface BlsFoodRecord {
     carbs: number;
     fat: number;
   };
+  /**
+   * RESOLVER-V3-043: bare, already-normalized generic queries this record must never win an
+   * exact/includes/token/ranked-token match for (see `INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID`
+   * in `BlsCompactRuntimeAdapter.ts`). Optional -- absent/empty for every record with no known
+   * false-confidence collision.
+   */
+  incompatibleGenericQueries?: readonly string[];
 }
 
 export type BlsMatchKind = 'exact' | 'alias' | 'token' | 'includes' | 'shortcut_legacy';
@@ -132,7 +139,7 @@ export class BlsLookupEngine {
         // ranked token match (singular/plural- and head-aware, de-preferring processed
         // qualifiers) and prefer it when it is strictly stronger than the includes score.
         // Scoped to this single-long-token branch only, so Stage 4 (e.g. "speck") is untouched.
-        const rankedTokenMatches = this.findRankedTokenMatches(inputTokens);
+        const rankedTokenMatches = this.findRankedTokenMatches(inputTokens, normalizedInput);
         const bestIncludes = Math.max(...includesMatches.map((m) => m.score));
         const bestToken = rankedTokenMatches.length > 0 ? rankedTokenMatches[0].score : 0;
         if (bestToken > bestIncludes) {
@@ -163,7 +170,7 @@ export class BlsLookupEngine {
     }
 
     // Stage 4: Token-based matching (only for single tokens after compound guard)
-    const tokenMatches = this.findTokenMatches(inputTokens);
+    const tokenMatches = this.findTokenMatches(inputTokens, normalizedInput);
     if (tokenMatches.length > 0) {
       console.log(`[DEBUG] BLS TOKEN_MATCH candidates=${tokenMatches.length}`);
       return tokenMatches;
@@ -212,6 +219,20 @@ export class BlsLookupEngine {
     return s.toLowerCase().trim();
   }
 
+  /**
+   * RESOLVER-V3-043: true when `record` has been explicitly marked (via
+   * `incompatibleGenericQueries`, populated from `BlsCompactRuntimeAdapter`'s
+   * `INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID`) as unable to claim this exact, already-
+   * normalized bare query -- regardless of which stage (exact/includes/token/ranked-token) would
+   * otherwise have matched it. A longer, qualified query (e.g. "broetchen blaetterteig") is a
+   * different string and is unaffected.
+   */
+  private isIncompatibleGenericQuery(record: BlsFoodRecord, normalizedInput: string): boolean {
+    const excluded = record.incompatibleGenericQueries;
+    if (!excluded || excluded.length === 0) return false;
+    return excluded.includes(this.normalize(normalizedInput));
+  }
+
   // RESOLVER-V2-009: space-insensitive form so a one-word query ("haferflocken") can match a
   // multi-word BLS displayName alias ("hafer flocken") — a normalization rule, not a per-food
   // alias. Used only for exact matching, where equality after collapsing whitespace is still an
@@ -233,15 +254,17 @@ export class BlsLookupEngine {
 
   private findExactMatches(normalizedInput: string): BlsLookupResult[] {
     const collapsedInput = this.collapseWhitespace(normalizedInput);
-    const matches = this.records.filter((record) =>
-      record.aliases.some((alias) => {
-        const normalizedAlias = this.normalize(alias);
-        return (
-          normalizedAlias === normalizedInput ||
-          this.collapseWhitespace(normalizedAlias) === collapsedInput
-        );
-      }),
-    );
+    const matches = this.records
+      .filter((record) => !this.isIncompatibleGenericQuery(record, normalizedInput))
+      .filter((record) =>
+        record.aliases.some((alias) => {
+          const normalizedAlias = this.normalize(alias);
+          return (
+            normalizedAlias === normalizedInput ||
+            this.collapseWhitespace(normalizedAlias) === collapsedInput
+          );
+        }),
+      );
 
     // RESOLVER-V2-009: when several records match exactly (e.g. "Hafer Flocken" vs. the
     // comma-split "Hafer Flocken, gekocht"), prefer the plain one — a record whose *whole* name
@@ -270,6 +293,7 @@ export class BlsLookupEngine {
 
   private findIncludesMatches(normalizedInput: string): BlsLookupResult[] {
     return this.records
+      .filter((record) => !this.isIncompatibleGenericQuery(record, normalizedInput))
       .filter((record) =>
         record.aliases.some((alias) => this.normalize(alias).includes(normalizedInput)),
       )
@@ -280,10 +304,13 @@ export class BlsLookupEngine {
       }));
   }
 
-  private findTokenMatches(inputTokens: string[]): BlsLookupResult[] {
+  private findTokenMatches(inputTokens: string[], normalizedInput: string): BlsLookupResult[] {
     const tokenMatches: BlsLookupResult[] = [];
 
     for (const record of this.records) {
+      if (this.isIncompatibleGenericQuery(record, normalizedInput)) {
+        continue;
+      }
       const tokenScore = this.calculateTokenScore(
         inputTokens,
         record.tokens,
@@ -314,8 +341,12 @@ export class BlsLookupEngine {
    * with fewer content tokens breaking ties (a plainer record wins). Stage 4's `findTokenMatches`
    * is intentionally left unchanged, so ambiguous short queries like "speck" are unaffected.
    */
-  private findRankedTokenMatches(inputTokens: string[]): BlsLookupResult[] {
+  private findRankedTokenMatches(
+    inputTokens: string[],
+    normalizedInput: string,
+  ): BlsLookupResult[] {
     const scored = this.records
+      .filter((record) => !this.isIncompatibleGenericQuery(record, normalizedInput))
       .map((record) => {
         const recall = this.tokenRecall(inputTokens, record);
         const rank =

@@ -8240,7 +8240,9 @@ under Hybrid production readiness, project priority **P0**.
 
 #### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
 
-Status: `todo`
+Status: `in_progress` (2026-07-25 — Phase A complete and merged; see below. Not `done`: this task's
+umbrella acceptance names all 8 flagged case IDs, and only 1 of the 8 is fixed by Phase A — the other
+7 have explicit successor-task ownership, not silent non-fixes.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Fix the deterministic unsafe-acceptance false-confidence defects underlying G2-B's
@@ -8270,6 +8272,49 @@ false-confidently; existing resolver regression suite green; `npm run verify` gr
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched — this is a
 resolver source-code task, not a benchmark-evidence task.
 
+**Diagnosis-driven scope correction and Phase A completion (2026-07-25):** before implementing,
+this task independently root-caused all 8 flagged case IDs against the real, current, merged
+production code (offline, zero provider calls) rather than assuming the ROADMAP scope description
+above applied uniformly to all 8. The evidence does not support that: 3 of the 8
+(`RH-RES-HOUSEHOLD-DEV-005`, `RH-RES-UNRELIABLE-DEV-006`, `RH-RES-OVERLAY-DEV-010#C1`) are purely
+AI-routed — the BLS fast path returns zero candidates for all three, confirmed empirically — and
+belong to RESOLVER-V3-044/045, not this task's declared "resolver fast-path / BLS lookup engine"
+subsystem. 1 of the 8 (`RH-RES-SIMPLE-DEV-003`) is a benchmark-harness fidelity artifact that does
+not reproduce against real production once `DeterministicFoodParser` runs first, and belongs to the
+new RESOLVER-V3-050. Of the remaining 4 genuine BLS-fast-path cases, only the controlling
+`RH-RES-DACH-DEV-006` (D771900) — the case this task's acceptance criterion names by ID — was fixed
+in this phase; the other 3 (`RH-RES-PREPARATION-DEV-002`, `RH-RES-PREPARATION-DEV-004`,
+`RH-RES-PREPARATION-HOLD-002`) share a real defect class (missing score-delta/ambiguity check at the
+BLS fast-path early-return, and/or Stage-1 exact-match short-circuiting hiding real alternative
+candidates) that could not be fixed safely within this phase without either an untested,
+reverse-engineered threshold or an unreviewed, broad-blast-radius change to
+`BlsLookupEngine.search()`'s stage short-circuit behavior — both explicitly forbidden by this task's
+own instructions. They are owned by the new RESOLVER-V3-049 instead. Full case-by-case root-cause
+evidence, the implemented fix, and the exact deferral reasoning are recorded in
+`reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md`.
+
+**Phase A fix implemented and merged:** `INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID`
+(`BlsCompactRuntimeAdapter.ts`), a source-ID-scoped negative-compatibility contract mirroring the
+existing `COMPATIBILITY_ALIASES_BY_SOURCE_ID`, threaded onto `BlsFoodRecord` as
+`incompatibleGenericQueries` and enforced by `BlsLookupEngine` at every matching stage (exact,
+includes, token, ranked-token). D771900 can no longer win the bare `broetchen` query through any
+path (verified: it never even appears in the candidate list; the bare query now resolves an honest
+`ambiguous` among several real "-brötchen" records instead), while the qualified `Brötchen
+Blätterteig`/`Brötchen (Blätterteig)` queries remain unaffected (still `accepted`, D771900,
+score 1). 19 new focused tests
+(`ResolverV3043BroetchenFalseConfidenceRemediation.test.ts`) cover the adapter, BLS lookup, resolver,
+and production-call (`LogFoodFromRawInputUseCase`, real `DeterministicFoodParser`) boundaries, plus
+unaffected-record regression for `Apfelstrudel`/`Apfeltasche`/`Hörnchen`/`Mohnschnecken (Blätterteig)`.
+Two pre-existing tests that had asserted the _old, defective_ behavior as expected (regression
+fixtures for the historical `RV3-0011` defect, not desired-behavior tests) were updated to assert
+the corrected reality, with the historical context preserved in comments. Full repository suite:
+238/238 suites, 2335/2335 tests green (zero regressions beyond the two intentional updates);
+`npm run typecheck` clean. This phase changed no BLS artifact, no frozen evidence, made zero provider
+calls, and did not touch the Haiku-only model policy.
+
+**This task remains `in_progress`, not `done`,** until RESOLVER-V3-049 and RESOLVER-V3-050 close the
+remaining 7 case IDs — see their entries below.
+
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
 Status: `todo`
@@ -8293,6 +8338,15 @@ regression-tested against the existing corpus; RESOLVER-V3-048 supplies the live
 RESOLVER-V3-048).
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
 
+**Explicit case ownership (2026-07-25, from RESOLVER-V3-043's Phase A root-cause inventory —
+`reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` §3):** this task owns
+`RH-RES-HOUSEHOLD-DEV-005` ("Ein Becher Magerquark" — flagged false-confident despite an exact
+macro match, because `expectedBehavior` was `multiple_candidates_acceptable`, not a single-answer
+case) and `RH-RES-UNRELIABLE-DEV-006` ("ApfelApfelApfel!!!123" — resolved with an assumption
+instead of clarifying an unclear quantity). Both were confirmed to never reach the BLS fast path at
+all (it returns zero candidates for both); the false confidence originates entirely in the
+AI-routed confidence policy this task is scoped to fix. Not fixed by RESOLVER-V3-043.
+
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 
 Status: `todo`
@@ -8313,6 +8367,13 @@ groups (offline, no live calls).
 corpus's overlay groups; RESOLVER-V3-048 supplies the live proof.
 **Provider-call policy:** zero provider calls.
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+**Explicit case ownership (2026-07-25, from RESOLVER-V3-043's Phase A root-cause inventory —
+`reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` §3):** this task owns
+`RH-RES-OVERLAY-DEV-010#C1` ("Reis, ein bisschen", the consistency re-run of the `RH-RES-VAGUE-DEV-001`
+overlay group — run0 abstained, run1 resolved wrong with assumptions, run2 abstained again; the BLS
+fast path returns zero candidates for this input, confirming the inconsistency is an AI-interpretation
+determinism defect, not a fast-path one). Not fixed by RESOLVER-V3-043.
 
 #### RESOLVER-V3-046: Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation
 
@@ -8343,7 +8404,16 @@ budget plan; RESOLVER-V3-048 supplies the live proof.
 #### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
 
 Status: `todo`
-Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046
+Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046, RESOLVER-V3-049,
+RESOLVER-V3-050
+
+**Dependency correction (2026-07-25, from RESOLVER-V3-043's Phase A scope-correction finding):**
+RESOLVER-V3-043 alone does not close all of its originally-flagged false-confidence case IDs — see
+its entry above. This task must not finalize a recommended optimization candidate while
+RESOLVER-V3-049 (the remaining deterministic BLS fast-path cases) or RESOLVER-V3-050 (benchmark
+production-call-path fidelity) remain open, since a candidate comparison run against a still-
+defective deterministic fast path or a still-unfaithful benchmark call path would not be measuring
+what it claims to measure.
 
 **Goal:** Compare controlled prompt/schema/normalization/routing/validation/timeout/retry/context
 variants against the RESOLVER-V3-043..046 remediated baseline, Haiku-only, same pinned
@@ -8369,7 +8439,7 @@ time.
 
 Status: `todo`
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
-RESOLVER-V3-047
+RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E
@@ -8406,7 +8476,91 @@ produces its own, independently versioned evidence set.
 **Effect on RESOLVER-V3-010:** `RESOLVER-V3-010` remains `blocked`. It may only become unblocked
 once RESOLVER-V3-048 produces new evidence that genuinely passes every mandatory G2 dimension under
 the same binding gate rule — RESOLVER-V3-041 reaching `done` does not itself unblock it, and neither
-does RESOLVER-V3-043..047 reaching `done` without RESOLVER-V3-048's live re-evidence.
+does RESOLVER-V3-043..047 (or RESOLVER-V3-049/050) reaching `done` without RESOLVER-V3-048's live
+re-evidence.
+
+#### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
+
+Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed
+`RESOLVER-V3-049` did not previously exist in canonical `ROADMAP.md`.
+
+Status: `todo`
+Depends on: RESOLVER-V3-043
+
+**Goal:** Close the remaining 3 real, production-reachable BLS fast-path false-confidence defects
+RESOLVER-V3-043's Phase A diagnosis found but did not fix, via a generalized, evidence-derived
+policy — not a threshold reverse-engineered to flip these specific cases.
+**Scope:** exactly these three case IDs (full root-cause detail in
+`reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` §6):
+`RH-RES-PREPARATION-DEV-002` ("Haferflocken" — two real exact-tied candidates, raw 348kcal vs.
+cooked 66kcal, real score gap 0.107); `RH-RES-PREPARATION-DEV-004` ("Pommes frites" — a 4th,
+uncatalogued exact-alias record, `X654042`/239kcal, pre-empts the known 3-variant family via
+Stage-1 short-circuit before they are ever scored); `RH-RES-PREPARATION-HOLD-002` ("Pommes" —
+3 token-matched near-tied candidates, scores 1.0/0.905/0.493, real score gap 0.095).
+**Affected subsystems:** `BlsLookupEngine.search()`'s stage short-circuit behavior and/or the BLS
+fast-path early-return in `SequentialFoodCatalogResolver.ts` (`src/features/nutrition/**`) — never
+the benchmark harness or evaluator code.
+**Non-goals:** any new live benchmark execution; any AI/Haiku confidence-policy change
+(RESOLVER-V3-044's scope); any per-case special-casing keyed on these 3 case IDs specifically.
+**Risks (explicitly why this was not folded into RESOLVER-V3-043 Phase A):** reusing the existing,
+already-reviewed `ResolverDecisionPolicy.ts` `DELTA_THRESHOLD` (0.08) does not catch either
+Haferflocken (real gap 0.107) or Pommes (real gap 0.095) — both exceed it, so a policy-consistent
+reuse would not change either outcome; inventing a new, untested delta value tuned specifically to
+flip these cases would be a reverse-engineered, benchmark-case-specific threshold; fixing the Pommes
+frites case specifically requires changing `BlsLookupEngine.search()`'s Stage-1 exact-match
+short-circuit so it does not prevent Stage-3 includes-matching from ever being computed when a
+single exact match exists — a broader change whose full blast radius must be measured before
+acceptance.
+**Tests:** regression tests proving all three flagged cases no longer produce a false-confident
+result; the complete deterministic BLS regression suite (all existing BLS/resolver/benchmark-fixture
+tests) proving zero unintended regressions; explicit before/after blast-radius measurement for any
+short-circuit-behavior or threshold change, not just a pass/fail count.
+**Acceptance:** all three flagged case IDs no longer resolve false-confidently, via a generalized,
+policy-based rule (not per-case hardcoding); full deterministic BLS regression suite green;
+`npm run verify` green; blast radius explicitly measured and disclosed, not merely asserted.
+**Provider-call policy:** zero provider calls.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+#### RESOLVER-V3-050: Benchmark Production-Call-Path Fidelity
+
+Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed
+`RESOLVER-V3-050` did not previously exist in canonical `ROADMAP.md`.
+
+Status: `todo`
+Depends on: RESOLVER-V3-043
+
+**Goal:** Make future Variant A and relevant Variant C fast-path benchmark execution reproduce the
+actual production call order (`DeterministicFoodParser.parse(rawInput).name → resolver.resolve()`),
+so future benchmark evidence measures the call path the shipping app actually takes.
+**Scope:** exactly one case ID is the concrete motivating example (full detail in
+`reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` §7):
+`RH-RES-SIMPLE-DEV-003` ("Ein Apfel") is only false-confident because
+`ResolverV3VariantAAdapter.runVariantACase()` sends `normalizeText(rawInput)` straight to the
+resolver, without first running `DeterministicFoodParser` the way every real production call does —
+with the parser in the loop (as production always has it), the same input correctly resolves
+`ambiguous`, not a false accept. `ResolverV3VariantAAdapter.ts` / relevant Variant C fast-path
+benchmark call sites (`src/features/nutrition/benchmark/**`) — benchmark-harness code only, never
+production `src/features/nutrition/application/**`/`infrastructure/**` code.
+**Non-goals:** any production resolver change (production already has this preprocessing step —
+this task must not add redundant quantity/article stripping to `SequentialFoodCatalogResolver`);
+rewriting or reinterpreting historical RESOLVER-V3-038/V3-039 evidence, which was collected under
+the old (unfaithful) call order and must remain an immutable historical record.
+**Risks:** silently changing protocol-v3 semantics retroactively — the changed benchmark call order
+must be versioned explicitly (e.g. as part of protocol v4, RESOLVER-V3-048) rather than quietly
+altered in place.
+**Tests:** a benchmark-harness test proving the corrected adapter now calls
+`DeterministicFoodParser` before the resolver, in the real production order; regression tests
+proving `RH-RES-SIMPLE-DEV-003` and similar quantity/article-prefixed cases no longer measure a
+call path production doesn't take.
+**Acceptance:** the benchmark's fast-path call order matches real production exactly; the changed
+semantics are explicitly versioned for protocol v4; RESOLVER-V3-038/V3-039 evidence is provably
+unchanged; `npm run verify` green.
+**Provider-call policy:** zero provider calls (harness-code-only change).
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files, its closeout report, and its
+manifest remain immutable and untouched.
+
+**Both RESOLVER-V3-049 and RESOLVER-V3-050 must be complete before RESOLVER-V3-048** (protocol-v4
+live re-evidence) — see RESOLVER-V3-048's updated `Depends on` above.
 
 ---
 

@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "RESOLVER-V3-050",
+  "title": "Benchmark Production-Call-Path Fidelity",
+  "canonicalBaseCommit": "04e742e751b3622901cfe57d474e2fe6c6b9ca84",
+  "canonicalBaseCommitDescription": "PR #172 / RESOLVER-V3-049 merge commit, origin/chore/clean-arch-structure tip at task start",
+  "oldBoundary": {
+    "description": "ResolverV3VariantAAdapter.runVariantACase() (pre-fix) sent normalizeText(benchmarkCase.rawInput) directly to the resolver as the FoodSearchQuery.normalized field, never invoking DeterministicFoodParser first.",
+    "queryConstruction": {
+      "raw": "benchmarkCase.rawInput",
+      "normalized": "normalizeText(benchmarkCase.rawInput)",
+      "inputType": "detectInputType(benchmarkCase.rawInput)"
+    }
+  },
+  "correctedBoundary": {
+    "description": "ResolverV3VariantAAdapter.runVariantACase() now calls DeterministicFoodParser.parse(benchmarkCase.rawInput) first, then sends normalizeText(parsed.name) to the resolver -- reproducing LogFoodFromRawInputUseCase.resolveCanonicalFood()'s exact production call order.",
+    "queryConstruction": {
+      "raw": "benchmarkCase.rawInput (unchanged -- production's FoodSearchQuery.raw is also the original, unparsed rawInput)",
+      "normalized": "normalizeText(DeterministicFoodParser.parse(benchmarkCase.rawInput).name)",
+      "inputType": "detectInputType(benchmarkCase.rawInput) (unchanged -- production already derives inputType from the original raw input, not the parsed name)"
+    },
+    "sharedFixPoint": "ResolverV3VariantAAdapter.runVariantACase() is the single call site used by Variant A, Variant C's deterministic fast path (ResolverV3VariantCAdapter.buildFastPathMealResult), RepresentativeHybridV1ThreeArmRunner (fixture execution), RepresentativeHybridV1LiveRunner (live execution preparation), and LearningBenchmarkV2's resolution scenario evaluator -- fixing it once corrects all of them."
+  },
+  "targetCase": {
+    "caseId": "RH-RES-SIMPLE-DEV-003",
+    "rawInput": "Ein Apfel",
+    "oldNormalizedResolverInput": "ein apfel",
+    "correctedParsedResolverInput": "apfel",
+    "oldOutcome": {
+      "status": "accepted",
+      "winnerSourceId": "Y845242",
+      "winnerName": "Apfelküchlein (Apfelringe im Milchbackteig) gebraten",
+      "falseConfident": true,
+      "defectMechanism": "\"ein apfel\" is a substring of the normalized BLS record name \"apfelkuechlein apfelringe im milchbackteig gebraten\" (\"...kuechl[ein] [apfel]ringe...\"), spuriously matched via BlsLookupEngine's includes-match stage."
+    },
+    "correctedOutcome": {
+      "status": "ambiguous",
+      "winnerSourceId": null,
+      "falseConfident": false,
+      "note": "Matches the honest ambiguity result production already gives for this input -- not the historical false acceptance."
+    }
+  },
+  "corpusImpact": {
+    "allCases": 104,
+    "developmentCases": 80,
+    "holdoutCases": 24,
+    "changedInputs": 44,
+    "changedOutcomes": 13,
+    "acceptedToAmbiguous": 1,
+    "ambiguousToAccepted": 0,
+    "acceptedToRejectedOrNoMatch": 0,
+    "rejectedOrNoMatchToAccepted": 5,
+    "winnerSourceIdChanges": 11,
+    "falseConfidenceChanges": 2,
+    "newlyFalseConfident": 1,
+    "noLongerFalseConfident": 1,
+    "identificationChanges": 10,
+    "categoryDistributionOfChangedOutcomes": {
+      "HOUSEHOLD": 3,
+      "SIMPLE": 8,
+      "BRANDED": 1,
+      "VAGUE": 1
+    },
+    "partitionDistributionOfChangedOutcomes": { "development": 11, "holdout": 2 },
+    "fullDataSource": "logs/resolver-v3-050-offline-impact-analysis.json (gitignored; regenerate via `npx jest src/features/nutrition/benchmark/__tests__/ResolverV3050OfflineImpactAnalysis.test.ts`)"
+  },
+  "changedCaseIds": [
+    "RH-RES-HOUSEHOLD-DEV-001",
+    "RH-RES-HOUSEHOLD-HOLD-001",
+    "RH-RES-OVERLAY-DEV-001",
+    "RH-RES-OVERLAY-DEV-002",
+    "RH-RES-OVERLAY-DEV-003",
+    "RH-RES-OVERLAY-DEV-006",
+    "RH-RES-OVERLAY-DEV-013",
+    "RH-RES-SIMPLE-DEV-001",
+    "RH-RES-SIMPLE-DEV-002",
+    "RH-RES-SIMPLE-DEV-003",
+    "RH-RES-SIMPLE-DEV-004",
+    "RH-RES-SIMPLE-HOLD-001",
+    "RH-RES-VAGUE-DEV-004"
+  ],
+  "residualRiskCases": [
+    {
+      "caseId": "RH-RES-VAGUE-DEV-004",
+      "rawInput": "Ein Snack",
+      "finding": "Corrected boundary parses to \"snack\", which substring/token-matches the single real BLS record \"Kichererbsensnack gebacken\" (X5A1030) and is accepted -- violating this case's own ground truth (expectedBehavior: abstention_expected, criticalFailureConditions naming exactly this scenario). This is a pre-existing production BLS fast-path substring-collision defect, NOT introduced by RESOLVER-V3-050 -- production already parses \"Ein Snack\" to \"snack\" today; the OLD, unfaithful benchmark boundary simply never exercised this call path (it sent \"ein snack\" verbatim, which does not collide). Not fixed by this task (out of scope: no resolver/BLS/parser behavior change). See report body Residual Risks."
+    }
+  ],
+  "historicalProtocolStatus": {
+    "v3038": "immutable, byte-unchanged (frozen representative corpus fixtures)",
+    "v3039": "immutable, byte-unchanged (seven controlled representative live evidence files + closeout report + manifest) -- collected under the OLD, unfaithful benchmark boundary; SHA-256 verified unchanged before and after this task",
+    "disclosure": "Protocol v3 metrics (V3-038/V3-039) and any future protocol v4 metrics are NOT directly comparable without disclosing the input-boundary semantic change this task makes -- V3-039's Development Variant C false-confidence rate (6.48%, RESOLVER-V3-041 gate re-decision) was measured under the old, article/quantity-polluted boundary and must not be silently compared against a future protocol v4 run that uses the corrected boundary."
+  },
+  "futureProtocolRequirement": "RESOLVER-V3-048 (protocol v4 controlled live re-evidence) MUST use the corrected, production-faithful Variant A/C fast-path input boundary fixed by this task (ResolverV3VariantAAdapter.runVariantACase). This task supplies that binding input-boundary decision; it does not itself define the full protocol-v4 evidence contract, execution-tree hash, frozen plan, or budget authorization (RESOLVER-V3-048's own scope).",
+  "testCountReconciliation": {
+    "note": "See report body section 12 for full detail.",
+    "handoffClaim": "246 suites, 2,377 tests (labeled 'existing BLS/resolver regression suite', --testPathPattern=\"Bls|Resolver|resolver\")",
+    "literalCommandReproduction": "Re-running `npx jest --testPathPattern=\"Bls|Resolver|resolver\" --runInBand` against the exact canonical base commit (04e742e) today produces 57 suites / 719 tests, not 246/2,377.",
+    "conclusion": "246 suites/2,377 tests is an aggregate of multiple overlapping targeted jest invocations run during RESOLVER-V3-049's own development, not the literal single-command output the handoff's parenthetical implies. It was NOT the full repository suite either. Corrected wording applied to ROADMAP.md and handoffs/latest-handoff.md by this task; V3-049's substantive technical result is unchanged."
+  },
+  "providerCallsMade": 0,
+  "additionalBenchmarkCostUsd": 0,
+  "anthropicApiKeyTouched": false,
+  "developmentOrHoldoutRerun": false,
+  "productionBehaviorChanged": false,
+  "verifyResult": {
+    "fullRepositorySuiteBaseline": { "suites": 239, "tests": 2368 },
+    "fullRepositorySuiteAfterThisTask": { "suites": 241, "tests": 2391 },
+    "netNewSuites": 2,
+    "netNewTests": 23,
+    "typecheck": "clean",
+    "npmRunVerify": "green"
+  }
+}

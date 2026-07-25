@@ -33,6 +33,8 @@ function benchmarkCase(caseId: string): BenchmarkCase {
 function rawResult(caseId: string): VariantARawResult {
   return {
     caseId,
+    originalRawInput: caseId,
+    parserResult: { name: caseId },
     query: { raw: caseId, normalized: caseId, locale: 'de', inputType: 'generic', traceId: 't' },
     decision: {
       normalizedQuery: caseId,

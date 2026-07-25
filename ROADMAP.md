@@ -8143,7 +8143,8 @@ RESOLVER-V3-010 remains `blocked`.
 
 #### RESOLVER-V3-041: Representative Hybrid Gate Re-Decision After Controlled Live Evidence
 
-Status: `todo`
+Status: `done` (2026-07-25; formal re-decision complete — this does **not** mean the Hybrid
+production gate passed, see below)
 Depends on: RESOLVER-V3-039, RESOLVER-V3-042
 
 **Goal:** Re-decide the RESOLVER-V3-024 G2 gate (representative quality, false confidence, user
@@ -8191,6 +8192,223 @@ G2-B/G2-D) explicitly — it must not treat RESOLVER-V3-039's original stored `p
 G2-A/G2-C/G2-G as valid inputs**; RESOLVER-V3-042 is a prerequisite precisely so this task starts
 from faithful evidence, not defectively-derived verdicts. RESOLVER-V3-042 reaching `done` does not
 itself start or authorize this task.
+
+**Formal decision (2026-07-25 — `done`):** the re-decision is complete. **Task completion means the
+re-decision itself is complete, not that the gate passed.** Formal overall verdict:
+**`RESOLVER_V3_G2_NOT_PASSED`**. Per-dimension corrected decisions: G2-A `indeterminate` (category-
+level per-case evidence was never persisted, per RESOLVER-V3-042); G2-B `failed` (hard, non-
+averageable criterion — Development Variant C false-confidence rate 6.48% is not strictly below
+Variant A's 5.00%; controlling case `RH-RES-DACH-DEV-006`, the "Brötchen"/`D771900` fast-path
+false-confidence case Variant C inherits from Variant A); G2-C `requires_human_judgment` with an
+explicit adverse human judgment (abstention correctness only ~4.65%/5.88% — most abstentions were
+cases that should plausibly have resolved, conflicting with the "minimize user input friction"
+product principle); G2-D `failed` (predeclared policy, one-violation rule — Holdout AI-routed p95
+12,417.52 ms and all-attempts p95 12,428.31 ms both exceed the 12,000 ms ceiling); G2-E
+`not_evaluable` (unchanged after RESOLVER-V3-042's partition-scoping fix — both partitions still
+have unknown-cost records); G2-F `passed` (zero unbacked numeric results, zero AI-nutrient-became-
+authority across all 139 combined Variant C cases); G2-G `requires_human_judgment` with an explicit
+adverse human judgment (a real −31.25 percentage-point Variant C repeat-consistency gap versus
+Variant A's structural ~100% baseline is substantial, not trivial). Under the binding "alle müssen
+erfüllt sein" (all dimensions must be fulfilled) gate rule
+(`ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md` §11), G2-B and G2-D's hard failures alone are each
+independently sufficient to fail G2; only G2-F is affirmatively fulfilled.
+**`productionWiringAuthorized: false`. RESOLVER-V3-010 remains `blocked`** — its dependency list is
+updated below to add RESOLVER-V3-041 and RESOLVER-V3-048. **Claude Haiku 4.5 is recorded as the
+sole locked production-model candidate** (`HAIKU_4_5_LOCKED_AS_PRODUCTION_CANDIDATE`; provider
+`anthropic`, alias `claude-haiku-4-5`, snapshot `claude-haiku-4-5-20251001`) — a product-owner
+policy decision, not derived from benchmark evidence; Sonnet is not part of the current critical
+path, no larger-model fallback is authorized, and this `NOT_PASSED` verdict is not treated as proof
+Haiku itself is unsuitable. Six successor remediation/re-evidence tasks are added below
+(RESOLVER-V3-043 through RESOLVER-V3-048), grouped under Hybrid production readiness as project
+priority **P0**. This task made **zero provider calls**, reran neither Development nor Holdout, and
+changed no production source code; all seven RESOLVER-V3-039 evidence files were confirmed byte-
+identical (canonical Git-blob SHA-256) both before and after this task. Full evidence-cited
+per-dimension analysis: `reports/RESOLVER_V3_041_REPRESENTATIVE_HYBRID_GATE_REDECISION.md` /
+`reports/resolver-v3-041-representative-hybrid-gate-redecision.json`. **This task does not
+implement RESOLVER-V3-043 through RESOLVER-V3-048** — those remain `todo`, not started.
+
+---
+
+### RESOLVER-V3-043 .. RESOLVER-V3-048: Haiku 4.5 Production-Readiness Remediation Series
+
+Added by RESOLVER-V3-041 (2026-07-25) as the required concrete follow-up from its
+`RESOLVER_V3_G2_NOT_PASSED` verdict. Repository-wide search confirmed `RESOLVER-V3-043` through
+`RESOLVER-V3-048` did not previously exist in canonical `ROADMAP.md` (a review-only diagnosis
+report referencing a draft `RESOLVER-V3-043` exists only on the noncanonical, unmerged
+`claude/resolver-v3-041-haiku-binding-a1glb1` branch — not authoritative here; see below). Grouped
+under Hybrid production readiness, project priority **P0**.
+
+#### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-041
+
+**Goal:** Fix the deterministic unsafe-acceptance false-confidence defects underlying G2-B's
+`failed` verdict, so that a future live re-run (RESOLVER-V3-048) can achieve a Variant C false-
+confidence rate strictly below both Variant A and Variant B.
+**Scope:** The BLS fast-path exact-match short-circuit reachable from Variant C's fast path
+(`ResolverV3VariantAAdapter.ts` / `BlsLookupEngine.findExactMatches()`), covering the controlling
+`RH-RES-DACH-DEV-006` ("Brötchen", BLS `D771900`) case and the remaining 6 Development + 1 Holdout
+false-confident case IDs recorded in
+`reports/RESOLVER_V3_041_REPRESENTATIVE_HYBRID_GATE_REDECISION.md` §6.
+**Affected subsystems:** resolver fast-path / BLS lookup engine (`src/features/nutrition/**`) —
+never the benchmark harness or evaluator code itself.
+**Non-goals:** any new live benchmark execution (RESOLVER-V3-048's job); any prompt/schema
+remediation (RESOLVER-V3-046); any change to the G2 gate/report-builder code; any blanket
+alias/lexicon rewrite.
+**Risks:** an overly broad alias/lexicon fix regressing other legitimate matches — the existing
+review-only Brötchen diagnosis on the noncanonical branch already flags a ~10-record regression risk
+on other `(Blätterteig)` pastries if a blanket rule is used instead of a narrowly-scoped,
+case-specific override. That diagnosis may be reused as a starting point but must be independently
+verified before being relied upon.
+**Tests:** regression tests proving the flagged false-confidence cases no longer produce a
+false-confident result, plus a sweep proving no new regression on the existing
+`(Blätterteig)`/similar-pastry cluster.
+**Acceptance:** all flagged Development+Holdout false-confidence case IDs no longer resolve
+false-confidently; existing resolver regression suite green; `npm run verify` green.
+**Provider-call policy:** zero provider calls.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched — this is a
+resolver source-code task, not a benchmark-evidence task.
+
+#### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-041
+
+**Goal:** Improve G2-C's poor abstention-correctness (~4.65% Development, ~5.88% Holdout, per
+RESOLVER-V3-041 §7) by redesigning Variant C's confidence-scoring/abstention-decision logic so
+abstentions align with genuine `abstention_expected` ground truth far more often, without
+materially increasing the overall friction rate beyond the qualitative Speck-precedent bound.
+**Scope:** Variant C confidence-scoring/thresholding and abstention-decision logic; clarification-
+question selection logic.
+**Affected subsystems:** `src/features/nutrition/**` Variant C / Hybrid interpretation layer.
+**Non-goals:** touching Variant A/B; touching the benchmark harness's own metric/evaluator code.
+**Risks:** over-correcting toward never abstaining, reintroducing false confidence (conflicts with
+RESOLVER-V3-043's goal — the two must be jointly regression-tested).
+**Tests:** fixture-based tests proving abstention/clarification decisions align better with ground
+truth on the existing frozen corpus (fixture mode only).
+**Acceptance:** a documented, evidence-based improvement to abstention/clarification logic,
+regression-tested against the existing corpus; RESOLVER-V3-048 supplies the live proof.
+**Provider-call policy:** zero provider calls (fixture-only remediation; live proof deferred to
+RESOLVER-V3-048).
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+#### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-041
+
+**Goal:** Close (or materially narrow) the G2-G −31.25 percentage-point Variant C repeat-consistency
+gap against Variant A's structural ~100% baseline.
+**Scope:** prompt/temperature/sampling determinism; canonicalization of paraphrase-equivalent inputs
+prior to interpretation; response normalization/caching.
+**Affected subsystems:** `src/features/nutrition/**` Variant C / Hybrid interpretation layer.
+**Non-goals:** any model/provider change (Haiku-only, per the locked product-owner policy, §16 of
+the RESOLVER-V3-041 report).
+**Risks:** determinism improvements masking genuine input ambiguity rather than fixing model
+inconsistency.
+**Tests:** fixture-based repeat-consistency regression tests replayed over the 16 frozen overlay
+groups (offline, no live calls).
+**Acceptance:** a documented, evidence-based reduction in run-to-run disagreement on the existing
+corpus's overlay groups; RESOLVER-V3-048 supplies the live proof.
+**Provider-call policy:** zero provider calls.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+#### RESOLVER-V3-046: Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation
+
+Status: `todo`
+Depends on: RESOLVER-V3-041
+
+**Goal:** Fix the 16/263 (6.08%) terminal-failure rate — including the 8 `httpStatus=200`-but-
+classified-`network_error` records (a parse/interpretation-layer failure misclassified as a
+transport error, per RESOLVER-V3-041 §12) — and close the G2-D Holdout latency ceiling breach
+(AI-routed p95 12,417.52 ms vs. the 12,000 ms ceiling).
+**Scope:** response schema/parsing robustness; error-taxonomy correction (an HTTP-200 response that
+fails to parse must receive its own distinct failure classification, not be folded into
+`network_error`); retry/timeout tuning within the existing predeclared budget; latency-budget
+engineering (prompt size, call shape, model-call optimization) to close the ~3.5% margin over the
+ceiling.
+**Affected subsystems:** `src/features/nutrition/**` Variant C / Hybrid live-transport and
+parsing layer.
+**Non-goals:** raising or widening the predeclared latency ceiling
+(`ZERA_RESOLVER_V3_COST_LATENCY_ACCEPTANCE_POLICY_1.md` §3 remains binding, unmodified).
+**Risks:** latency optimizations that trade away parsing robustness or vice versa.
+**Tests:** fixture-based parsing/error-taxonomy regression tests; latency-budget unit/integration
+tests where feasible without live calls.
+**Acceptance:** documented fixes for the misclassified terminal failures and a credible latency-
+budget plan; RESOLVER-V3-048 supplies the live proof.
+**Provider-call policy:** zero provider calls.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+#### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
+
+Status: `todo`
+Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046
+
+**Goal:** Compare controlled prompt/schema/normalization/routing/validation/timeout/retry/context
+variants against the RESOLVER-V3-043..046 remediated baseline, Haiku-only, same pinned
+`claude-haiku-4-5-20251001` model snapshot throughout. **This is not a model bakeoff** — provider
+and pinned model snapshot stay constant; only Zera-side variants are compared.
+**Scope:** offline/fixture-mode comparison harness extensions; a separately authorized, budget-gated
+live comparison phase if fixture-mode comparison is insufficient to discriminate candidates.
+**Affected subsystems:** `src/features/nutrition/benchmark/representativeHybridV1/**` harness;
+Variant C prompt/schema/routing configuration.
+**Non-goals:** evaluating any non-Haiku model or provider.
+**Risks:** candidate proliferation without a clear selection criterion; conflating harness-level
+comparison noise with real candidate differences.
+**Tests:** harness-level comparison tests; regression tests proving no candidate regresses
+RESOLVER-V3-043..046's fixes.
+**Acceptance:** a recommended candidate configuration, with evidence, feeding RESOLVER-V3-048's
+final pinned configuration.
+**Provider-call policy:** zero calls authorized by this task's own definition in RESOLVER-V3-041;
+any live comparison phase requires its own separate, explicit budget authorization at execution
+time.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+#### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
+
+Status: `todo`
+Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
+RESOLVER-V3-047
+
+**Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
+mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E
+unknown-cost records, G2-D/G2-B failures) — the first task in this chain authorized to make live
+provider calls.
+**Scope:** a new protocol version (v4); a fresh execution-tree hash; frozen corpus/source-manifest/
+plan identities (reusing or versioning the RESOLVER-V3-038 successor corpus); **category-level
+evidence persistence** (a per-case `{scenarioId, category, identification}` table, closing G2-A's
+indeterminacy for good); the already-corrected evaluator (RESOLVER-V3-042, reused unmodified);
+complete cost and failure telemetry (closing G2-E's unknown-usage gap and G2-D/reliability's
+terminal-failure picture); explicit, predeclared budget authorization before any paid call;
+immutable preservation of all RESOLVER-V3-039 history (never overwritten or regenerated); a
+Development → inspection → Holdout protocol; **no production wiring**.
+**Affected subsystems:** `src/features/nutrition/benchmark/representativeHybridV1/live/**`
+(protocol/harness); `logs/resolver-v3-048-*` (new, independent evidence artifacts) — never the
+`logs/resolver-v3-039-*` files.
+**Non-goals:** any production resolver wiring or feature-flag change; any modification of the
+frozen RESOLVER-V3-039 evidence, closeout report, or manifest; any non-Haiku model/provider call.
+**Risks:** fixture fallback masquerading as live evidence; post-hoc threshold invention; corpus
+overfitting; repeating any of the protocol v1→v2→v3 defects RESOLVER-V3-039 already found and fixed
+(reuse the corrected v3 hash/checkpoint/ledger architecture rather than re-deriving it).
+**Tests:** live-mode credential/budget-gate tests; category-level evidence persistence tests;
+documentation readback; no automatic rerun without separate authorization.
+**Acceptance:** a complete, honestly reported live evidence set with category-level persistence,
+complete cost/failure telemetry, and a corrected-evaluator-derived gate verdict for every mandatory
+G2 dimension, with zero fixture fallback and zero production effect.
+**Provider-call policy:** requires live Anthropic calls under a new, separately authorized, explicit
+budget ceiling — not authorized by RESOLVER-V3-041's definition of this task, only by this task's
+own future explicit authorization.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files, the RESOLVER-V3-039 closeout
+report, and the RESOLVER-V3-039 evidence manifest remain immutable and untouched; RESOLVER-V3-048
+produces its own, independently versioned evidence set.
+
+**Effect on RESOLVER-V3-010:** `RESOLVER-V3-010` remains `blocked`. It may only become unblocked
+once RESOLVER-V3-048 produces new evidence that genuinely passes every mandatory G2 dimension under
+the same binding gate rule — RESOLVER-V3-041 reaching `done` does not itself unblock it, and neither
+does RESOLVER-V3-043..047 reaching `done` without RESOLVER-V3-048's live re-evidence.
+
+---
 
 #### RESOLVER-V3-042: Gate Evaluator Fidelity Remediation and Derived Evidence Audit
 
@@ -9385,7 +9603,21 @@ origin --delete` with HTTP 403 for merged branches; it is left for an authorized
 #### RESOLVER-V3-010: Production Integration Behind Feature Flag
 
 Status: `blocked`
-Depends on: RESOLVER-V3-006 (historical comparison gate), RESOLVER-V3-019, RESOLVER-V3-024
+Depends on: RESOLVER-V3-006 (historical comparison gate), RESOLVER-V3-019, RESOLVER-V3-024,
+RESOLVER-V3-041, RESOLVER-V3-048
+
+**RESOLVER-V3-041 dependency update (2026-07-25):** RESOLVER-V3-041 (Representative Hybrid Gate
+Re-Decision After Controlled Live Evidence) is now `done` (task completion), with an explicit
+formal overall verdict of **`RESOLVER_V3_G2_NOT_PASSED`** (see
+`reports/RESOLVER_V3_041_REPRESENTATIVE_HYBRID_GATE_REDECISION.md` and its own ROADMAP entry). G2-B
+(false confidence) and G2-D (latency) both fail under hard/predeclared criteria; G2-A is
+indeterminate; G2-C and G2-G resolve to `requires_human_judgment` with an explicit adverse
+judgment; G2-E is `not_evaluable`; only G2-F passed. `productionWiringAuthorized: false`. **This
+task remains `blocked`** — no feature-flag implementation, provider selection, or production
+resolver wiring is authorized by this update. It may only become unblocked once RESOLVER-V3-048
+produces new, complete, Haiku-only live evidence that genuinely passes every mandatory G2 dimension.
+Claude Haiku 4.5 is locked as the sole production-model candidate
+(`HAIKU_4_5_LOCKED_AS_PRODUCTION_CANDIDATE`) for whenever this task does eventually proceed.
 
 **RESOLVER-V3-024 dependency update (2026-07-22):** RESOLVER-V3-024 (Representative Learning/
 Hybrid Gate Re-decision) is now `done` (task completion), with an explicit gate verdict of

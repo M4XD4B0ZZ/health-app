@@ -1,5 +1,88 @@
 # Latest Handoff
 
+## RESOLVER-V3-041 — Representative Hybrid Gate Re-Decision After Controlled Live Evidence (Done)
+
+- **Task ID/status:** `RESOLVER-V3-041`, status **`done`** — the formal gate re-decision is
+  complete. `done` here means only that the re-decision itself is complete; it does **not** mean
+  the Hybrid production gate passed.
+- **What changed:** produced the formal, evidence-cited G2 gate re-decision required after
+  RESOLVER-V3-039 (live evidence) and RESOLVER-V3-042 (evaluator fidelity audit), both `done`;
+  updated `ROADMAP.md` (RESOLVER-V3-041 → `done`, six new successor tasks RESOLVER-V3-043 through
+  RESOLVER-V3-048 added, RESOLVER-V3-010's dependency list updated); recorded the binding
+  Haiku-4.5-only production-model policy.
+- **Why it changed:** RESOLVER-V3-039 collected real live evidence but did not itself decide the
+  gate; RESOLVER-V3-042 found and fixed four evaluator-fidelity defects (G2-A, G2-C, G2-E, G2-G)
+  but explicitly did not perform this re-decision either. This task was the first to weigh the
+  complete, corrected evidence against the binding `ZERA_FOOD_RESOLUTION_BENCHMARK_SPEC_1.md` §11
+  gate rule and the predeclared cost/latency policy, and to record an explicit product-owner
+  model-selection decision.
+- **Canonical starting commit:** `e5a3a24f97ddb8e56fe19f5f98cff6cf90335a65` (PR #169 / RESOLVER-V3-042
+  merge commit) — confirmed as the exact live `origin/chore/clean-arch-structure` tip before any
+  change; the branch had not advanced.
+- **Worktree/branch:** `D:\Workspaces_VSCode\HealthApp-resolver-v3-041`,
+  `docs/resolver-v3-041-formal-gate-redecision`, created directly from the explicit remote SHA
+  above (never from a local side branch).
+- **Formal overall verdict:** **`RESOLVER_V3_G2_NOT_PASSED`**. Per-dimension: G2-A `indeterminate`;
+  G2-B `failed` (hard criterion — Development Variant C false-confidence rate 6.48% not strictly
+  below Variant A's 5.00%; controlling case `RH-RES-DACH-DEV-006`, "Brötchen"/BLS `D771900`); G2-C
+  `requires_human_judgment` (explicit adverse judgment — abstention correctness only ~4.65%/5.88%);
+  G2-D `failed` (predeclared policy — Holdout AI-routed p95 12,417.52 ms and all-attempts p95
+  12,428.31 ms both exceed the 12,000 ms ceiling); G2-E `not_evaluable` (unchanged after
+  RESOLVER-V3-042's partition-scoping fix); G2-F `passed` (zero unbacked numeric results, zero
+  AI-nutrient-became-authority); G2-G `requires_human_judgment` (explicit adverse judgment — real
+  −31.25pp Variant C repeat-consistency gap vs. Variant A's structural ~100% baseline).
+  `productionWiringAuthorized: false`.
+- **RESOLVER-V3-010 status:** remains `blocked`. Its `ROADMAP.md` dependency list is updated to add
+  RESOLVER-V3-041 and RESOLVER-V3-048; it may only unblock once RESOLVER-V3-048 produces new,
+  complete, Haiku-only live evidence that genuinely passes every mandatory G2 dimension.
+- **Haiku model policy:** Claude Haiku 4.5 recorded as the sole locked production-model candidate
+  (`HAIKU_4_5_LOCKED_AS_PRODUCTION_CANDIDATE`; provider `anthropic`, alias `claude-haiku-4-5`,
+  snapshot `claude-haiku-4-5-20251001`) — a product-owner policy decision, not derived from
+  benchmark evidence. Sonnet is not in the current critical path; no larger-model fallback is
+  authorized; this `NOT_PASSED` verdict is not treated as proof Haiku itself is unsuitable.
+- **Successor tasks added:** RESOLVER-V3-043 (Unsafe Fast-Path and False-Confidence Remediation),
+  RESOLVER-V3-044 (Clarification, Abstention, and Confidence-Policy Remediation), RESOLVER-V3-045
+  (Haiku Interpretation Determinism and Repeat-Consistency Remediation), RESOLVER-V3-046 (Haiku
+  Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation),
+  RESOLVER-V3-047 (Haiku Optimization Candidate Evaluation), RESOLVER-V3-048 (Protocol-v4 Evidence
+  Contract and Controlled Haiku Live Re-Evidence) — all `todo`, none started or implemented by this
+  task. Grouped as Hybrid production readiness, project priority **P0**.
+- **Evidence integrity:** all seven RESOLVER-V3-039 evidence files confirmed byte-identical
+  (canonical Git-blob SHA-256, matching `reports/resolver-v3-039-controlled-live-evidence-manifest.json`
+  exactly) both before this task's first edit and immediately before commit — zero mutation.
+- **Report paths:** `reports/RESOLVER_V3_041_REPRESENTATIVE_HYBRID_GATE_REDECISION.md` (full
+  evidence-cited per-dimension analysis) and
+  `reports/resolver-v3-041-representative-hybrid-gate-redecision.json` (machine-readable companion,
+  verified to agree with the Markdown exactly).
+- **Files changed:** `reports/RESOLVER_V3_041_REPRESENTATIVE_HYBRID_GATE_REDECISION.md` (new),
+  `reports/resolver-v3-041-representative-hybrid-gate-redecision.json` (new), `ROADMAP.md`,
+  `handoffs/latest-handoff.md`. No `src/**`, BLS data, feature flag, migration, RPC, Supabase
+  adapter, or package/dependency file was changed.
+- **Verification executed:** documentation-only change (VERIFY.md Category 1/2) —
+  `git --no-pager status --short` / `--diff --stat` / `--diff --name-only`; JSON structural
+  validation (`node -e "require(...)"`); Markdown/JSON verdict-parity check; evidence SHA-256
+  re-verification; `git diff --check`; `npm run verify` additionally run under portable Node
+  `v20.20.2` for extra confidence.
+- **Verification result:** see the commit's own verification log below this entry for the exact
+  `npm run verify` outcome; evidence hashes confirmed unchanged; changed-file list confirmed to
+  match exactly the expected set.
+- **Provider calls made:** 0. **Additional benchmark cost:** USD 0.00. `ANTHROPIC_API_KEY`
+  presence checked as boolean only (absent); never printed, inspected, copied, requested, or
+  persisted.
+- **Known issues/residual risks:** G2-C/G2-G's `requires_human_judgment` verdicts carry this task's
+  own explicit adverse judgment, not a numeric threshold — a future maintainer could reasonably
+  weigh the same evidence differently; RESOLVER-V3-048 remains the actual path to a decidable,
+  passing re-run. G2-E's `not_evaluable` status rests on the evaluator's strict any-unknown-record
+  rule even though the cost policy text allows discretion for a small disclosed minority — this
+  task did not exercise that discretion (see report §9) since doing so would require code changes
+  out of this task's scope.
+- **Human-review status/next steps:** PR opened for CI review; see the PR/merge/post-merge-review
+  status recorded below once available. Next work should proceed with RESOLVER-V3-043 through
+  RESOLVER-V3-047 (Haiku remediation, no live calls) before RESOLVER-V3-048 (the first task in this
+  chain authorized to make live provider calls, under its own separate budget authorization).
+
+---
+
 ## RESOLVER-V3-039 — Controlled Representative Live Hybrid Evidence Closeout (Done)
 
 - **Task ID/status:** `RESOLVER-V3-039`, status **`done`** — evidence-collection objective complete

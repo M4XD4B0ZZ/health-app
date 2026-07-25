@@ -1,0 +1,292 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "RESOLVER-V3-051",
+  "title": "Generic BLS Substring-Collision Safety Remediation",
+  "canonicalBaseCommit": "fd6efb581046b529d5b517ced0ac981b59696379",
+  "canonicalBaseCommitDescription": "PR #173 / RESOLVER-V3-050 merge commit, origin/chore/clean-arch-structure tip at task start",
+  "motivatingCase": {
+    "caseId": "RH-RES-VAGUE-DEV-004",
+    "rawInput": "Ein Snack",
+    "parsedName": "snack",
+    "collidingSourceId": "X5A1030",
+    "collidingDisplayName": "Kichererbsensnack gebacken",
+    "collidingKcal": 231,
+    "expectedBehavior": "abstention_expected"
+  },
+  "baselineOutcome": {
+    "status": "accepted",
+    "winnerSourceId": "X5A1030",
+    "matchKind": "token",
+    "matchExact": false,
+    "score": 0.827,
+    "reasonCodes": ["ACCEPTED_STRONG_MATCH"],
+    "productionUseCaseOutcome": "persisted_confident_food_entry"
+  },
+  "rootCause": {
+    "primaryMechanism": "BlsLookupEngine.calculateTokenScore (Stage 4, findTokenMatches): symmetric substring partial-match credit (0.8) for either direction (recordToken.includes(inputToken) or inputToken.includes(recordToken)), with no distinction between a compound query matching a shorter generic record (safe) and a generic query fused inside a more specific compound record token (unsafe).",
+    "secondaryMechanism": "BlsLookupEngine.findIncludesMatches (Stage 2/3/5): alias-substring containment carries the identical risk one stage later; confirmed a Stage-4-only fix would not have closed the defect (fallback score ~0.786, still above the 0.75 accept threshold).",
+    "thresholdBypassGap": "SequentialFoodCatalogResolver's dedicated BLS generic-truth early-return gate uses a higher accept threshold (0.85 for inputType 'ambiguous') than the generic multi-source fallback decision it falls through to (0.75, ResolverDecisionPolicy.ACCEPT_THRESHOLD) -- a fix applied only inside the gate is bypassable for scores in [0.75, 0.85) on 'ambiguous'-classified queries. Confirmed via detectInputType('Ein Snack') === 'ambiguous' and the benchmark fast-path adapter. Fixed by applying the guard at both sites via a shared helper."
+  },
+  "substringTaxonomy": [
+    "exact_identity",
+    "whole_token",
+    "sub_token_substring_record_specific",
+    "sub_token_substring_query_specific",
+    "alias_substring",
+    "no_relation",
+    "no_candidates"
+  ],
+  "selectedPolicy": {
+    "name": "hasBlsGenericSubstringOnlyIdentity",
+    "location": "src/features/nutrition/infrastructure/catalog/sources/bls/BlsLookupEngine.ts",
+    "appliedVia": "guardAgainstBlsGenericSubstringCollision (SequentialFoodCatalogResolver.ts), applied at both the BLS generic-truth fast-path gate and the generic multi-source fallback decision",
+    "description": "A BLS candidate is disqualified from confident acceptance when: (1) it has no genuine exact/whole-alias identity for the query (match.exact === false), AND (2) the query is not a whole-token match against the candidate's own normalizedName (every query token present as a complete, space-delimited token), AND (3) the query is still a strict substring fragment of the candidate's (whitespace-collapsed) normalizedName. Retrieval/ranking untouched; only confident acceptance is blocked, downgraded to an honest ambiguous decision with reasonCode BLS_GENERIC_SUBSTRING_COLLISION_RISK, best/secondBest cleared, candidates preserved.",
+    "generalizedNotCaseSpecific": true,
+    "noHandCuratedWordList": true,
+    "noPostHocScoreThreshold": true,
+    "noSourceIdOnlyException": true
+  },
+  "rejectedAlternatives": [
+    {
+      "alternative": "Hand-curated generic-word list",
+      "reason": "Not generalizable; requires ongoing manual curation; forbidden without a complete governance/coverage case, which was unnecessary given a working general alternative."
+    },
+    {
+      "alternative": "Reverse-engineered score-delta threshold tuned to the target case",
+      "reason": "Forbidden by task instructions; irrelevant here since bare 'snack' had only one candidate (no second-place score to compare against)."
+    },
+    {
+      "alternative": "Source-ID-only exception (INCOMPATIBLE_GENERIC_QUERIES_BY_SOURCE_ID) for X5A1030",
+      "reason": "Insufficiently general -- the audit independently found 10 further real BLS records with the identical defect class, which a per-sourceId list would have missed entirely."
+    },
+    {
+      "alternative": "Globally disabling substring matching in BlsLookupEngine",
+      "reason": "Would discard the entire safe sub_token_substring_query_specific direction (380 queries in the audited population, including RESOLVER-V2-010's approved Speck sub-terms) for a defect that only manifested in 11 of 13,055 queries -- disproportionate, unmeasured blast radius."
+    },
+    {
+      "alternative": "Blanket compound-word-never-accept rule at the BlsLookupEngine search stage",
+      "reason": "Conflates discoverability with identity confidence; removes candidates from retrieval entirely, losing ranking/discovery value."
+    }
+  ],
+  "auditPopulation": {
+    "methodology": "Extends the RESOLVER-V3-049 14,690-query offline methodology for substring containment; deduplicated Set of: every unique BLS record normalizedName, every unique deterministic alias, every unique single BLS record token, every unique DeterministicFoodParser-parsed normalized query from the frozen 104-case representative corpus.",
+    "totalUniqueQueries": 13055,
+    "bySource": {
+      "bls_display_name": 6822,
+      "bls_alias": 3791,
+      "bls_single_token": 2366,
+      "representative_corpus": 76
+    },
+    "realBlsRecordCount": 7090,
+    "representativeCorpusCases": 104,
+    "dataSource": "logs/resolver-v3-051-substring-collision-audit.json (gitignored, regenerate via `npx jest src/features/nutrition/__tests__/ResolverV3051SubstringCollisionAudit.test.ts`)"
+  },
+  "beforeMetrics": {
+    "totalQueries": 13055,
+    "candidateFound": 12882,
+    "byClassification": {
+      "exact_identity": 10148,
+      "whole_token": 1792,
+      "sub_token_substring_record_specific": 81,
+      "sub_token_substring_query_specific": 380,
+      "alias_substring": 2,
+      "no_relation": 479,
+      "no_candidates": 173
+    },
+    "accepted": 9507,
+    "ambiguous": 3174,
+    "rejected": 374,
+    "substringOnlyAccepted": 11,
+    "singleSubstringCandidateQueries": 1,
+    "multipleSubstringCandidateQueries": 82
+  },
+  "afterMetrics": {
+    "totalQueries": 13055,
+    "accepted": 9496,
+    "ambiguous": 3185,
+    "rejected": 374,
+    "substringOnlyAccepted": 0,
+    "changedOutcomes": 11,
+    "changedOutcomesPercent": 0.0843,
+    "acceptedToAmbiguous": 11,
+    "acceptedToNoMatch": 0,
+    "ambiguousToAccepted": 0,
+    "noMatchToAccepted": 0,
+    "winnerSourceIdChanges": 0
+  },
+  "changedQueries": [
+    {
+      "query": "snack",
+      "winnerSourceIdBefore": "X5A1030",
+      "winnerName": "Kichererbsensnack gebacken",
+      "kcal": 231,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "pastete",
+      "winnerSourceIdBefore": "D771300",
+      "winnerName": "Pasteten mit Himbeersahne",
+      "kcal": 315,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "schenkel",
+      "winnerSourceIdBefore": "Y569533",
+      "winnerName": "Haehnchenschenkel mariniert, gebraten, mit Curryjoghurtsauce",
+      "kcal": 262,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "russisch",
+      "winnerSourceIdBefore": "Y859440",
+      "winnerName": "Russische Creme mit Schlagsahne",
+      "kcal": 205,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fladenbrot",
+      "winnerSourceIdBefore": "B782100",
+      "winnerName": "Weizenfladenbrot",
+      "kcal": 248,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "rohkost",
+      "winnerSourceIdBefore": "X2A1040",
+      "winnerName": "Fenchelrohkost mit Joghurtmarinade",
+      "kcal": 54,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "the",
+      "winnerSourceIdBefore": "F840300",
+      "winnerName": "Korinthe",
+      "kcal": 309,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "krapfen",
+      "winnerSourceIdBefore": "D734700",
+      "winnerName": "Husarenkrapfen",
+      "kcal": 489,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "muscheln",
+      "winnerSourceIdBefore": "Y684562",
+      "winnerName": "Jakobsmuscheln, gebraten, provenzalische Art",
+      "kcal": 89,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "pina",
+      "winnerSourceIdBefore": "G211100",
+      "winnerName": "Spinat, roh",
+      "kcal": 18,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "lasagne",
+      "winnerSourceIdBefore": "X730243",
+      "winnerName": "Lasagnette mit Ricotta und Tomaten, mit Spinat, gedaempft",
+      "kcal": 138,
+      "transition": "accepted_to_ambiguous"
+    }
+  ],
+  "targetPostFixOutcome": {
+    "status": "ambiguous",
+    "reasonCodes": ["BLS_GENERIC_SUBSTRING_COLLISION_RISK"],
+    "best": null,
+    "productionUseCaseOutcome": "no_confident_food_entry_persisted",
+    "variantAStatus": "ambiguous",
+    "variantCFastPathUsed": false
+  },
+  "positiveControls": [
+    {
+      "query": "Kichererbsensnack gebacken",
+      "expectedSourceId": "X5A1030",
+      "status": "accepted",
+      "note": "qualified target, exact identity"
+    },
+    {
+      "query": "Hafer Flocken, gekocht",
+      "expectedSourceId": "C133032",
+      "status": "accepted",
+      "note": "RESOLVER-V3-049 qualified"
+    },
+    {
+      "query": "Pommes frites tiefgefroren, gebacken",
+      "expectedSourceId": "K130262",
+      "status": "accepted",
+      "note": "RESOLVER-V3-049 qualified"
+    },
+    { "query": "Quark", "expectedSourceId": "M713100", "status": "accepted" },
+    { "query": "Magerquark", "expectedSourceId": "M713100", "status": "accepted" },
+    { "query": "Rührei", "expectedSourceId": "Y720143", "status": "accepted" },
+    { "query": "Eier", "expectedSourceId": "Y720100", "status": "accepted" },
+    {
+      "query": "Brötchen Blätterteig",
+      "expectedSourceId": "D771900",
+      "status": "accepted",
+      "note": "RESOLVER-V3-043 Phase A"
+    },
+    {
+      "query": "Brötchen",
+      "expectedSourceId": null,
+      "status": "not_D771900",
+      "note": "RESOLVER-V3-043 Phase A: bare Broetchen never wins via D771900"
+    },
+    {
+      "query": "Haferflocken",
+      "expectedSourceId": null,
+      "status": "ambiguous",
+      "note": "RESOLVER-V3-049 preparation-state ambiguity unaffected"
+    },
+    {
+      "query": "Bauchspeck",
+      "expectedSourceId": "W411300",
+      "status": "best_unchanged",
+      "note": "RESOLVER-V2-010; pre-existing unrelated MULTIPLE_CLOSE_MATCHES status untouched"
+    },
+    {
+      "query": "Schinkenspeck",
+      "expectedSourceId": "U685142",
+      "status": "best_unchanged",
+      "note": "RESOLVER-V2-010"
+    },
+    {
+      "query": "Rückenspeck",
+      "expectedSourceId": "U605000",
+      "status": "best_unchanged",
+      "note": "RESOLVER-V2-010"
+    }
+  ],
+  "residualRisks": [
+    "sub_token_substring_query_specific (safe direction, 380 queries) and no_relation (479 accepted-before queries) were not individually reviewed for unrelated correctness issues -- out of this task's declared substring-collision-safety scope.",
+    "The audit population (13,055 queries), while large and reproducible, is not exhaustive of every possible user phrasing beyond the 104-case corpus; a future not-yet-identified bare-word/compound-token collision could surface, but the fix is general (not a per-case list) so it would be caught automatically without a new patch.",
+    "no_relation (fuzzy/plural-fold) matches remain outside this policy's scope -- a different match mechanism, not diagnosed as part of this defect class."
+  ],
+  "implicationsForDependentTasks": {
+    "RESOLVER-V3-044": "unaffected -- fix is entirely inside the BLS deterministic fast path; V3-044's owned cases never reach it.",
+    "RESOLVER-V3-047": "Depends on updated to add RESOLVER-V3-051 -- candidate comparison must not run against a still-defective deterministic fast path.",
+    "RESOLVER-V3-048": "Depends on updated to add RESOLVER-V3-051 -- Haiku live re-evidence must not run against a known-unsafe deterministic fast path."
+  },
+  "providerCallsMade": 0,
+  "additionalBenchmarkCostUsd": 0,
+  "anthropicApiKeyTouched": false,
+  "developmentOrHoldoutRerun": false,
+  "productionWiringChanged": false,
+  "frozenEvidenceUnchanged": true,
+  "blsWorkbooksUnchanged": true,
+  "generatedBlsArtifactUnchanged": true,
+  "haikuModelPolicyUnchanged": true,
+  "resolverV3010Status": "blocked",
+  "verifyResult": {
+    "fullRepositorySuiteBaseline": { "suites": 241, "tests": 2391 },
+    "fullRepositorySuiteAfterThisTask": { "suites": 243, "tests": 2428 },
+    "netNewSuites": 2,
+    "netNewTests": 37,
+    "typecheck": "clean",
+    "npmRunVerify": "green"
+  }
+}

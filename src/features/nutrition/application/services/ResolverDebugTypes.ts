@@ -70,7 +70,8 @@ export interface DecisionInfo {
     | 'best_score'
     | 'no_candidates'
     | 'cache_hit'
-    | 'bls_generic_preparation_state_ambiguity';
+    | 'bls_generic_preparation_state_ambiguity'
+    | 'bls_generic_substring_collision_risk';
   status: 'accepted' | 'ambiguous' | 'rejected';
   reasonCodes: string[];
 }

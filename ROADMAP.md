@@ -8419,7 +8419,7 @@ budget plan; RESOLVER-V3-048 supplies the live proof.
 
 Status: `todo`
 Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046, RESOLVER-V3-049,
-RESOLVER-V3-050
+RESOLVER-V3-050, RESOLVER-V3-051
 
 **Dependency correction (2026-07-25, from RESOLVER-V3-043's Phase A scope-correction finding):**
 RESOLVER-V3-043 alone does not close all of its originally-flagged false-confidence case IDs — see
@@ -8428,6 +8428,13 @@ RESOLVER-V3-049 (the remaining deterministic BLS fast-path cases) or RESOLVER-V3
 production-call-path fidelity) remain open, since a candidate comparison run against a still-
 defective deterministic fast path or a still-unfaithful benchmark call path would not be measuring
 what it claims to measure.
+
+**Dependency addition (RESOLVER-V3-051, 2026-07-25):** RESOLVER-V3-050's own residual-risk finding
+surfaced a further, previously-invisible BLS generic fast-path substring-collision false-confidence
+defect (bare "Snack" → "Kichererbsensnack gebacken", X5A1030). RESOLVER-V3-051 closed it with a
+general resolver-level policy. This task must not run its candidate comparison against a
+deterministic fast path RESOLVER-V3-051 had not yet fixed, for the same reason it already waits on
+RESOLVER-V3-049/050 above.
 
 **Goal:** Compare controlled prompt/schema/normalization/routing/validation/timeout/retry/context
 variants against the RESOLVER-V3-043..046 remediated baseline, Haiku-only, same pinned
@@ -8453,7 +8460,12 @@ time.
 
 Status: `todo`
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
-RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050
+RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
+
+**Dependency addition (RESOLVER-V3-051, 2026-07-25):** this task's Haiku live re-evidence must not
+run against a known-unsafe deterministic BLS fast path; RESOLVER-V3-051 fixed the generic
+substring-collision false-confidence defect that RESOLVER-V3-050's own residual-risk finding
+surfaced, for the same reason this task already waits on RESOLVER-V3-049/050.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E
@@ -8683,6 +8695,86 @@ repository suite at the canonical base commit is 239 suites/2,368 tests. Full re
 handoff for exact final suite/test counts including this task's own new tests). **This task does
 not mark RESOLVER-V3-043 done** — RESOLVER-V3-044 and RESOLVER-V3-045's AI-routed cases remain
 outstanding. RESOLVER-V3-010 remains `blocked`.
+
+#### RESOLVER-V3-051: Generic BLS Substring-Collision Safety Remediation
+
+Added 2026-07-25, surfaced by RESOLVER-V3-050's own residual-risk finding (see its entry above §11
+of `reports/RESOLVER_V3_050_BENCHMARK_PRODUCTION_CALL_PATH_FIDELITY.md`). Repository-wide search
+confirmed `RESOLVER-V3-051` did not previously exist in canonical `ROADMAP.md`.
+
+Status: `done` (2026-07-25; zero provider calls, zero benchmark cost, `ANTHROPIC_API_KEY` never
+touched throughout)
+Depends on: RESOLVER-V3-049, RESOLVER-V3-050
+
+**Goal:** Fix the generic BLS fast-path substring-collision false-confidence defect
+RESOLVER-V3-050's corrected, production-faithful call-path boundary newly surfaced (but did not
+introduce and was not authorized to fix): a bare, generic query (`"snack"`, parsed from `"Ein
+Snack"`) substring-matches a far more specific BLS compound food (`"Kichererbsensnack gebacken"`,
+`X5A1030`) and is confidently accepted despite `abstention_expected` ground truth
+(`RH-RES-VAGUE-DEV-004`).
+**Scope:** `BlsLookupEngine.ts` (new categorical policy function) and
+`SequentialFoodCatalogResolver.ts` (applied at both the BLS generic-truth fast-path gate and the
+generic multi-source fallback decision) — never the benchmark harness/evaluator code, never
+`DeterministicFoodParser`, never the BLS workbooks/generated artifact.
+**Non-goals:** RESOLVER-V3-044/045's AI-routed abstention/consistency work; RESOLVER-V3-047's Haiku
+optimization; RESOLVER-V3-048's live re-evidence; RESOLVER-V3-010 production wiring (remains
+`blocked`); any per-case/per-sourceId special-casing; any hand-curated generic-word list; any
+post-hoc score threshold.
+**Risks:** an overly broad substring-matching change regressing German compound-food
+discoverability — mitigated by a directional, source-grounded policy (see below) that preserves the
+safe "specific compound query matches a shorter/generic candidate" direction entirely untouched, and
+by a full 13,055-query before/after audit measuring the actual blast radius rather than asserting it
+harmless.
+**Tests:** permanent regression coverage at every required boundary (parser, `BlsLookupEngine`,
+`BlsStaticSource`, `SequentialFoodCatalogResolver`, `LogFoodFromRawInputUseCase`, the V3-038/V3-050
+representative-benchmark fixture), a full deterministic substring-collision audit (before/after), and
+positive-control coverage for every V3-043/V3-049/V2-010 case this task must not regress.
+**Acceptance:** the motivating `"Ein Snack"` case no longer produces a false-confident accepted
+result; the fix is generalized and policy-based (not keyed to the case ID or to `X5A1030` alone);
+qualified compound-food queries remain resolvable; the deterministic BLS/resolver regression suite
+passes; the 104-case representative offline analysis shows no unexplained new false confidence;
+`npm run verify` passes.
+**Provider-call policy:** zero provider calls.
+**Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files, the frozen V3-038 corpus
+fixtures, and the BLS workbooks/generated artifact remain untouched.
+
+**Completion summary (2026-07-25):** root-caused to two independent, stage-agnostic mechanisms in
+`BlsLookupEngine` (Stage 4's `calculateTokenScore` partial-match credit and Stage 2/3/5's
+`findIncludesMatches` alias-substring containment — proven a single-stage fix insufficient by direct
+calculation) plus a third gap in `SequentialFoodCatalogResolver`'s own threshold routing (the
+dedicated BLS fast-path gate's `0.85`/`ambiguous` threshold is bypassable via the generic
+multi-source fallback's lower `0.75` accept threshold — confirmed via `detectInputType`
+classification). Fixed with a single categorical, source-grounded, stage-agnostic resolver-level
+check, `hasBlsGenericSubstringOnlyIdentity` (`BlsLookupEngine.ts`), applied via a shared
+`guardAgainstBlsGenericSubstringCollision` helper at both threshold sites: a BLS candidate is
+disqualified from confident acceptance only when it has no genuine exact/whole-alias identity for
+the query, the query is not a whole-token match against the candidate's own name, and the query is
+still a substring fragment of that name — downgraded to an honest `ambiguous`
+(`BLS_GENERIC_SUBSTRING_COLLISION_RISK`), `best` cleared, retrieval/ranking untouched. No hand-
+curated word list, no per-sourceId exception, no reverse-engineered threshold. Blast radius measured
+across a reproducible 13,055-query deterministic offline population (extending RESOLVER-V3-049's
+methodology for substring containment): exactly 11 queries (0.084%) changed `accepted` →
+`ambiguous`, zero changed to/from `rejected`, zero winner `sourceId` swaps, zero new acceptances
+anywhere. The 11 changed queries are all genuine instances of the same defect class independently
+discovered by the audit (`pastete`, `schenkel`, `russisch`, `fladenbrot`, `rohkost`, `the`,
+`krapfen`, `muscheln`, `pina`, `lasagne`, plus the motivating `snack`) — disproving that a
+source-ID-only fix for `X5A1030` alone would have been sufficient. All required positive controls
+verified correct: qualified compound-food queries (`Kichererbsensnack gebacken`, RESOLVER-V3-049's
+`Hafer Flocken, gekocht`/`Pommes frites tiefgefroren, gebacken`), exact-identity controls
+(`Quark`/`Magerquark`/`Rührei`/`Eier`), RESOLVER-V3-043's `Brötchen`/`Brötchen Blätterteig`,
+RESOLVER-V3-049's `Haferflocken`/`Pommes` preparation-state ambiguity, and RESOLVER-V2-010's
+`Bauchspeck`/`Schinkenspeck`/`Rückenspeck` qualified Speck sub-terms (pre-existing, unrelated
+`MULTIPLE_CLOSE_MATCHES` status untouched). Full repository suite: 243 suites, 2,428 tests green
+(baseline at the canonical commit was 241 suites/2,391 tests, per RESOLVER-V3-050's own reported
+final count — this task net-added 2 new suites and 37 new tests; one pre-existing test updated
+because it encoded the pre-fix defective behavior as expected, matching the established
+RESOLVER-V3-043/049/050 precedent for stale fixtures — historical context preserved in its
+comments). `npm run verify` green. Frozen `logs/resolver-v3-039-*` evidence, frozen V3-038 corpus
+fixtures, and BLS workbooks/generated artifact confirmed unchanged.
+Full report: `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md` /
+`reports/resolver-v3-051-generic-bls-substring-collision-safety.json`. This task does not touch
+RESOLVER-V3-043's own remaining outstanding scope (RESOLVER-V3-044/045's AI-routed cases).
+RESOLVER-V3-010 remains `blocked`.
 
 ---
 

@@ -1,5 +1,58 @@
 # Latest Handoff
 
+## RESOLVER-V3-051 (post-merge correction) — Guard Also Fires on Ambiguous-With-Populated-Best (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-051` (correction to the merged PR #174), status **`done`**.
+   Base: merge commit `b8eb90cc10e7593df794f1f79ee96eb2ff50d847` (chore/clean-arch-structure tip).
+2. **What changed:** `guardAgainstBlsGenericSubstringCollision`
+   (`SequentialFoodCatalogResolver.ts`) no longer requires `decision.status === 'accepted'`; it now
+   runs whenever `decision.best` is BLS-sourced with `score >= 0.7`, regardless of status. Also
+   fixed two classification inconsistencies in `resolverV3051SubstringCollisionAudit.ts`'s own
+   `classifyMatch` (unrelated to the production fix): `whole_token` now checks `normalizedName`
+   instead of `record.tokens`; a new whole-alias-word exemption avoids mislabeling genuine
+   documented synonyms (e.g. "mezcal") as risk. Added 10 new permanent regression tests
+   (`ResolverV3051GenericBlsSubstringCollisionSafety.test.ts`, "post-merge review finding" block)
+   covering five real, empirically-verified exploit cases (`Anis`, `Mate`, `Tee`, `Fleisch`,
+   `Erdbeere`) at both the resolver and `LogFoodFromRawInputUseCase` production boundaries.
+3. **Why it changed:** an independent post-merge review (required by this task's own workflow)
+   found that `ResolverDecisionPolicy.buildResolverDecision` always sets `best = sorted[0]`
+   whenever any candidate exists, regardless of computed status — an ordinary `ambiguous`
+   (`MULTIPLE_CLOSE_MATCHES`, a real near-tied second candidate, unrelated to this task) still
+   carries a populated, often high-scoring `best`. `LogFoodFromRawInputUseCase.execute()` reads
+   `decision.best` and persists it whenever `resolved.score >= 0.7`, **never consulting
+   `decision.status`** — so any substring-collision candidate with a coincidentally close
+   second-place competitor bypassed the original, status-gated guard entirely and remained fully
+   exploitable through production. Verified directly against the merged code before fixing.
+4. **Files changed:** `src/features/nutrition/application/services/SequentialFoodCatalogResolver.ts`
+   (guard condition), `src/features/nutrition/resolverV3051SubstringCollisionAudit.ts` (classifier
+   fixes), `src/features/nutrition/__tests__/ResolverV3051GenericBlsSubstringCollisionSafety.test.ts`
+   (+10 tests), `src/features/nutrition/__tests__/ResolverV3051SubstringCollisionAudit.test.ts`
+   (updated assertion documenting the one deliberate `"ka"` exception), `ROADMAP.md`,
+   `handoffs/latest-handoff.md`, `reports/RESOLVER_V3_051_GENERIC_BLS_SUBSTRING_COLLISION_SAFETY.md`
+   (new §14), `reports/resolver-v3-051-generic-bls-substring-collision-safety.json` (corrected
+   metrics + `postMergeCorrection` object).
+5. **Verification executed:** full BLS/resolver/benchmark related-suite run (89 suites, 1,034 tests
+   green); full deterministic substring-collision audit re-run over the same 13,055-query
+   population (3 iterations while correcting the audit's own classifier); `npx tsc --noEmit`;
+   `npm run verify` (typecheck + lint + format:check + full test suite); `git diff --check`.
+6. **Verification result:** all green. Full repository suite: 243/243 suites, 2,438/2,438 tests
+   (+10 tests over the first merged version PR #174's 243/2,428, 0 new suites). Corrected audit:
+   **85 changed queries (0.651%)**, not the originally reported 11 (0.084%) — zero winner
+   `sourceId` swaps, zero new acceptances, zero `rejected` transitions, unchanged. Zero provider
+   calls, zero benchmark cost, `ANTHROPIC_API_KEY` never touched, no production wiring beyond the
+   already-approved fix's own scope.
+7. **Known issues, blockers, or residual risks:** one documented, deliberate residual case: bare
+   query `"ka"` against BLS record `U403100` remains conservatively flagged `ambiguous` even though
+   it is technically a whole word within a generated alias — retained deliberately since `"ka"` is
+   a 2-character commercial-grading-code fragment, not a real synonym a user would type (unlike the
+   6-character `"mezcal"` case, which correctly remains `accepted`). Full detail: report §14.
+8. **Human-review status / next steps:** shipped as a follow-up PR on top of the already-merged
+   PR #174, same verify → commit → push → PR → CI → merge workflow. No further RESOLVER-V3-047/048
+   dependency changes needed (already added in the first version). `RESOLVER-V3-010` remains
+   `blocked`.
+
+---
+
 ## RESOLVER-V3-051 — Generic BLS Substring-Collision Safety Remediation (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-051`, status **`done`**. Canonical starting commit:

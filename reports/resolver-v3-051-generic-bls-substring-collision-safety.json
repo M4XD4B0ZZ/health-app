@@ -86,19 +86,20 @@
     "candidateFound": 12882,
     "byClassification": {
       "exact_identity": 10148,
-      "whole_token": 1792,
-      "sub_token_substring_record_specific": 81,
-      "sub_token_substring_query_specific": 380,
-      "alias_substring": 2,
-      "no_relation": 479,
+      "whole_token": 1789,
+      "sub_token_substring_record_specific": 83,
+      "sub_token_substring_query_specific": 381,
+      "alias_substring": 1,
+      "no_relation": 480,
       "no_candidates": 173
     },
-    "accepted": 9507,
-    "ambiguous": 3174,
+    "accepted": 9581,
+    "ambiguous": 3100,
     "rejected": 374,
-    "substringOnlyAccepted": 11,
+    "substringOnlyAccepted": 81,
     "singleSubstringCandidateQueries": 1,
-    "multipleSubstringCandidateQueries": 82
+    "multipleSubstringCandidateQueries": 83,
+    "note": "'accepted' here is production-effective (would be persisted by LogFoodFromRawInputUseCase, i.e. best.score >= 0.7), not necessarily the resolver's own nominal status label -- see postMergeCorrection below and report section 8/14"
   },
   "afterMetrics": {
     "totalQueries": 13055,
@@ -106,9 +107,9 @@
     "ambiguous": 3185,
     "rejected": 374,
     "substringOnlyAccepted": 0,
-    "changedOutcomes": 11,
-    "changedOutcomesPercent": 0.0843,
-    "acceptedToAmbiguous": 11,
+    "changedOutcomes": 85,
+    "changedOutcomesPercent": 0.6511,
+    "acceptedToAmbiguous": 85,
     "acceptedToNoMatch": 0,
     "ambiguousToAccepted": 0,
     "noMatchToAccepted": 0,
@@ -116,80 +117,598 @@
   },
   "changedQueries": [
     {
-      "query": "snack",
-      "winnerSourceIdBefore": "X5A1030",
-      "winnerName": "Kichererbsensnack gebacken",
-      "kcal": 231,
+      "query": "erdbeere",
+      "winnerSourceIdBefore": "Y872460",
+      "winnerName": "erdbeeren mit schlagsahne",
+      "kcal": 116,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fleisch",
+      "winnerSourceIdBefore": "W851000",
+      "winnerName": "schweinefleischsuelze",
+      "kcal": 113,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "gruetze",
+      "winnerSourceIdBefore": "Y855153",
+      "winnerName": "apfelgruetze",
+      "kcal": 92,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "heidelbeere",
+      "winnerSourceIdBefore": "Y847750",
+      "winnerName": "heidelbeeren gezuckert",
+      "kcal": 82,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kuemmel",
+      "winnerSourceIdBefore": "W171700",
+      "winnerName": "kuemmelwurst",
+      "kcal": 336,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fleischfuellung",
+      "winnerSourceIdBefore": "Y0A2040",
+      "winnerName": "hackfleischfuellung roh",
+      "kcal": 219,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fuellung",
+      "winnerSourceIdBefore": "R9A3000",
+      "winnerName": "marzipanfuellung fuer gebaeck torten",
+      "kcal": 444,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "anis",
+      "winnerSourceIdBefore": "F529100",
+      "winnerName": "japanische wollmispel loquat roh",
+      "kcal": 48,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "schnitzel",
+      "winnerSourceIdBefore": "Y332212",
+      "winnerName": "schweineschnitzel natur gebraten",
+      "kcal": 156,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "geschmack",
+      "winnerSourceIdBefore": "S353000",
+      "winnerName": "fondant mit pfefferminzgeschmack",
+      "kcal": 339,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "gefuellt",
+      "winnerSourceIdBefore": "W812000",
+      "winnerName": "gefuellter schweinekamm gebraten ohne fett",
+      "kcal": 195,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "aprikose",
+      "winnerSourceIdBefore": "D312300",
+      "winnerName": "aprikosen sahnetorte",
+      "kcal": 217,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "mandarine",
+      "winnerSourceIdBefore": "D411100",
+      "winnerName": "mandarinen omelettes mit sahne",
+      "kcal": 256,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "pastete",
       "winnerSourceIdBefore": "D771300",
-      "winnerName": "Pasteten mit Himbeersahne",
+      "winnerName": "pasteten mit himbeersahne",
       "kcal": 315,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "getraenk",
+      "winnerSourceIdBefore": "P122000",
+      "winnerName": "malzgetraenk alkoholfrei",
+      "kcal": 43,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "pfeffer",
+      "winnerSourceIdBefore": "Y346013",
+      "winnerName": "schweinepfeffer",
+      "kcal": 134,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "huehner",
+      "winnerSourceIdBefore": "E111100",
+      "winnerName": "huehnerei roh",
+      "kcal": 135,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kotelett",
+      "winnerSourceIdBefore": "W854000",
+      "winnerName": "suelzkotelett",
+      "kcal": 104,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "ruecken",
+      "winnerSourceIdBefore": "Y361123",
+      "winnerName": "schweineruecken geschmort mit grundsauce dunkel braun",
+      "kcal": 196,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "sultanine",
+      "winnerSourceIdBefore": "Y832043",
+      "winnerName": "milchreispudding mit mandeln und sultaninen",
+      "kcal": 195,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "salzlake",
+      "winnerSourceIdBefore": "M6A6800",
+      "winnerName": "salzlakenkaese aus schafmilch mind 45 fett i tr",
+      "kcal": 283,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kidneybohne",
+      "winnerSourceIdBefore": "X5A8020",
+      "winnerName": "kidneybohnen geduenstet",
+      "kcal": 129,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "mischung",
+      "winnerSourceIdBefore": "T900300",
+      "winnerName": "meeresfruechtemischung roh",
+      "kcal": 72,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "mate",
+      "winnerSourceIdBefore": "G561100",
+      "winnerName": "tomate roh",
+      "kcal": 22,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "tee",
+      "winnerSourceIdBefore": "W121100",
+      "winnerName": "teewurst fein grob ruegenwalder art",
+      "kcal": 373,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "11",
+      "winnerSourceIdBefore": "C223300",
+      "winnerName": "roggen mehl type 1150",
+      "kcal": 319,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "milchfett",
+      "winnerSourceIdBefore": "M111200",
+      "winnerName": "milch fettarm frisch 1 5 fett pasteurisiert",
+      "kcal": 44,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "roulade",
+      "winnerSourceIdBefore": "W273600",
+      "winnerName": "schweineroulade",
+      "kcal": 194,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fluegel",
+      "winnerSourceIdBefore": "W223100",
+      "winnerName": "gefluegelbratwurst",
+      "kcal": 184,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "zwetschge",
+      "winnerSourceIdBefore": "D1A1300",
+      "winnerName": "zwetschgen streuselkuchen",
+      "kcal": 192,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "zitrone",
+      "winnerSourceIdBefore": "Y886260",
+      "winnerName": "zitronen joghurt creme",
+      "kcal": 211,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "schenkel",
       "winnerSourceIdBefore": "Y569533",
-      "winnerName": "Haehnchenschenkel mariniert, gebraten, mit Curryjoghurtsauce",
+      "winnerName": "haehnchenschenkel mariniert gebraten mit curryjoghurtsauce",
       "kcal": 262,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "ka",
+      "winnerSourceIdBefore": "U403100",
+      "winnerName": "kalb fleisch geringer sehnenanteil sichtbarer fettanteil max 5 roh",
+      "kcal": 152,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "praline",
+      "winnerSourceIdBefore": "S622600",
+      "winnerName": "pralinen gefuellt mit karamellcreme",
+      "kcal": 446,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "gebaeck",
+      "winnerSourceIdBefore": "D734600",
+      "winnerName": "buttergebaeck",
+      "kcal": 496,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "knoedel",
+      "winnerSourceIdBefore": "X980112",
+      "winnerName": "semmelknoedel",
+      "kcal": 179,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "schorle",
+      "winnerSourceIdBefore": "N273000",
+      "winnerName": "ananassaftschorle",
+      "kcal": 23,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "russisch",
       "winnerSourceIdBefore": "Y859440",
-      "winnerName": "Russische Creme mit Schlagsahne",
+      "winnerName": "russische creme mit schlagsahne",
       "kcal": 205,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "nockerl",
+      "winnerSourceIdBefore": "X434143",
+      "winnerName": "griessnockerln suppeneinlage",
+      "kcal": 364,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "nussplaetzchen",
+      "winnerSourceIdBefore": "D616000",
+      "winnerName": "haselnussplaetzchen glutenfrei",
+      "kcal": 554,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "spirituose",
+      "winnerSourceIdBefore": "P721000",
+      "winnerName": "spirituosen mit wacholder",
+      "kcal": 231,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "schale",
+      "winnerSourceIdBefore": "U686100",
+      "winnerName": "schwein unterschale roh",
+      "kcal": 222,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "petersilie",
+      "winnerSourceIdBefore": "G670100",
+      "winnerName": "wurzelpetersilie roh",
+      "kcal": 76,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fruechte",
+      "winnerSourceIdBefore": "T900300",
+      "winnerName": "meeresfruechtemischung roh",
+      "kcal": 72,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "streusel",
+      "winnerSourceIdBefore": "D461500",
+      "winnerName": "streuselkuchen",
+      "kcal": 425,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "bratlinge",
+      "winnerSourceIdBefore": "X9A1050",
+      "winnerName": "hirsebratlinge gebraten",
+      "kcal": 192,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kir",
+      "winnerSourceIdBefore": "F212100",
+      "winnerName": "sauerkirsche roh",
+      "kcal": 69,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "rinderzunge",
+      "winnerSourceIdBefore": "Y179423",
+      "winnerName": "rinderzungenragout mit champignons",
+      "kcal": 130,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "vegetarisch",
+      "winnerSourceIdBefore": "H910500",
+      "winnerName": "vegetarische wiener wuerstchen",
+      "kcal": 248,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "fladenbrot",
       "winnerSourceIdBefore": "B782100",
-      "winnerName": "Weizenfladenbrot",
+      "winnerName": "weizenfladenbrot",
       "kcal": 248,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "rohkost",
       "winnerSourceIdBefore": "X2A1040",
-      "winnerName": "Fenchelrohkost mit Joghurtmarinade",
+      "winnerName": "fenchelrohkost mit joghurtmarinade",
       "kcal": 54,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kloesse",
+      "winnerSourceIdBefore": "X983062",
+      "winnerName": "griesskloesse",
+      "kcal": 159,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "biskuit",
+      "winnerSourceIdBefore": "D0A2000",
+      "winnerName": "mandelbiskuitboden",
+      "kcal": 307,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "nudeln",
+      "winnerSourceIdBefore": "C559000",
+      "winnerName": "reisnudeln roh",
+      "kcal": 365,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "sahnetorte",
+      "winnerSourceIdBefore": "D313500",
+      "winnerName": "zitronensahnetorte",
+      "kcal": 294,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kraeuter",
+      "winnerSourceIdBefore": "W329000",
+      "winnerName": "kraeuterleberwurst",
+      "kcal": 210,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "la",
+      "winnerSourceIdBefore": "G130100",
+      "winnerName": "rucola roh",
+      "kcal": 21,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "nusscreme",
+      "winnerSourceIdBefore": "Y9A2020",
+      "winnerName": "haselnusscremeeis",
+      "kcal": 224,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "presskopf",
+      "winnerSourceIdBefore": "W364500",
+      "winnerName": "schinkenpresskopf",
+      "kcal": 193,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "mandelbiskuit",
+      "winnerSourceIdBefore": "D0A2000",
+      "winnerName": "mandelbiskuitboden",
+      "kcal": 307,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "schnitten",
+      "winnerSourceIdBefore": "Y695322",
+      "winnerName": "seelachsschnitten gegrillt",
+      "kcal": 124,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fruchtsaft",
+      "winnerSourceIdBefore": "N271000",
+      "winnerName": "mehrfruchtsaftschorle",
+      "kcal": 22,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "plunder",
+      "winnerSourceIdBefore": "D7A7000",
+      "winnerName": "plunderteig roh",
+      "kcal": 386,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "on",
+      "winnerSourceIdBefore": "M5B1600",
+      "winnerName": "gorgonzola mind 48 fett i tr",
+      "kcal": 329,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "the",
       "winnerSourceIdBefore": "F840300",
-      "winnerName": "Korinthe",
+      "winnerName": "korinthe",
       "kcal": 309,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fruchtnektar",
+      "winnerSourceIdBefore": "F012700",
+      "winnerName": "mehrfruchtnektar",
+      "kcal": 42,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "krapfen",
       "winnerSourceIdBefore": "D734700",
-      "winnerName": "Husarenkrapfen",
+      "winnerName": "husarenkrapfen",
       "kcal": 489,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "gepoekelt",
+      "winnerSourceIdBefore": "X463613",
+      "winnerName": "linsensuppe mit gemuese und gepoekeltem schweinefleisch",
+      "kcal": 122,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "muscheln",
       "winnerSourceIdBefore": "Y684562",
-      "winnerName": "Jakobsmuscheln, gebraten, provenzalische Art",
+      "winnerName": "jakobsmuscheln gebraten provenzalische art",
       "kcal": 89,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "pina",
       "winnerSourceIdBefore": "G211100",
-      "winnerName": "Spinat, roh",
+      "winnerName": "spinat roh",
       "kcal": 18,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kompott",
+      "winnerSourceIdBefore": "Y840563",
+      "winnerName": "preiselbeerkompott",
+      "kcal": 128,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "vollkornplunder",
+      "winnerSourceIdBefore": "D9A4000",
+      "winnerName": "vollkornplunderteig roh",
+      "kcal": 352,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "rheinisch",
+      "winnerSourceIdBefore": "W221000",
+      "winnerName": "rheinische bratwurst",
+      "kcal": 215,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kirschsaft",
+      "winnerSourceIdBefore": "F211600",
+      "winnerName": "suesskirschsaft",
+      "kcal": 60,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "saures",
+      "winnerSourceIdBefore": "M172500",
+      "winnerName": "sauerrahm saure sahne mind 10 fett",
+      "kcal": 119,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "and",
+      "winnerSourceIdBefore": "P752100",
+      "winnerName": "obstbrand obstwasser",
+      "kcal": 274,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "schweinezunge",
+      "winnerSourceIdBefore": "W858000",
+      "winnerName": "schweinezungensuelze",
+      "kcal": 157,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "kaltschale",
+      "winnerSourceIdBefore": "X491163",
+      "winnerName": "apfelkaltschale apfelsuppe",
+      "kcal": 51,
       "transition": "accepted_to_ambiguous"
     },
     {
       "query": "lasagne",
       "winnerSourceIdBefore": "X730243",
-      "winnerName": "Lasagnette mit Ricotta und Tomaten, mit Spinat, gedaempft",
+      "winnerName": "lasagnette mit ricotta und tomaten mit spinat geduenstet",
       "kcal": 138,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "bechamel",
+      "winnerSourceIdBefore": "X320243",
+      "winnerName": "bechamelsauce",
+      "kcal": 88,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "hühn",
+      "winnerSourceIdBefore": "E112100",
+      "winnerName": "huehnerei eigelb roh",
+      "kcal": 345,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "reis roh",
+      "winnerSourceIdBefore": "C354100",
+      "winnerName": "reismischung mit wildreis roh",
+      "kcal": 360,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "salzbrezel",
+      "winnerSourceIdBefore": "D064000",
+      "winnerName": "salzbrezeln salzstangen",
+      "kcal": 389,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "fruehstueck",
+      "winnerSourceIdBefore": "W255600",
+      "winnerName": "fruehstuecksfleisch",
+      "kcal": 288,
+      "transition": "accepted_to_ambiguous"
+    },
+    {
+      "query": "snack",
+      "winnerSourceIdBefore": "X5A1030",
+      "winnerName": "kichererbsensnack gebacken",
+      "kcal": 231,
       "transition": "accepted_to_ambiguous"
     }
   ],
@@ -262,10 +781,29 @@
     }
   ],
   "residualRisks": [
-    "sub_token_substring_query_specific (safe direction, 380 queries) and no_relation (479 accepted-before queries) were not individually reviewed for unrelated correctness issues -- out of this task's declared substring-collision-safety scope.",
+    "sub_token_substring_query_specific (safe direction, 381 queries) and no_relation (480 accepted-before queries) were not individually reviewed for unrelated correctness issues -- out of this task's declared substring-collision-safety scope.",
     "The audit population (13,055 queries), while large and reproducible, is not exhaustive of every possible user phrasing beyond the 104-case corpus; a future not-yet-identified bare-word/compound-token collision could surface, but the fix is general (not a per-case list) so it would be caught automatically without a new patch.",
-    "no_relation (fuzzy/plural-fold) matches remain outside this policy's scope -- a different match mechanism, not diagnosed as part of this defect class."
+    "no_relation (fuzzy/plural-fold) matches remain outside this policy's scope -- a different match mechanism, not diagnosed as part of this defect class.",
+    "One documented, deliberate residual disagreement: bare query 'ka' against U403100 remains flagged (ambiguous) even though it is a whole word within a generated alias, because hasBlsGenericSubstringOnlyIdentity's whole-token exemption only consults normalizedName, never generated aliases. Unlike a real synonym (e.g. 'mezcal'), 'ka' is a 2-character grading-code fragment, not a word a user would type meaning 'veal' -- the conservative ambiguous result is the safer of the two outcomes and is retained deliberately."
   ],
+  "postMergeCorrection": {
+    "date": "2026-07-25",
+    "trigger": "Independent post-merge review of merged PR #174 (merge commit b8eb90cc10e7593df794f1f79ee96eb2ff50d847), performed per this task's own required workflow step.",
+    "findingSummary": "guardAgainstBlsGenericSubstringCollision originally required decision.status === 'accepted' before running. buildResolverDecision always sets best = sorted[0] whenever any candidate exists regardless of computed status, and LogFoodFromRawInputUseCase persists decision.best whenever score >= 0.7 without ever consulting decision.status. So an ordinary ambiguous (MULTIPLE_CLOSE_MATCHES) decision with a high-scoring substring-collision best populated was fully exploitable through production, bypassing the original guard entirely.",
+    "empiricallyVerifiedExploitCases": ["Anis", "Mate", "Tee", "Fleisch", "Erdbeere"],
+    "fix": "Removed the status==='accepted' restriction; guard now runs whenever decision.best is BLS-sourced with score >= 0.7 (mirroring LogFoodFromRawInputUseCase's own persistence gate exactly), regardless of decision.status.",
+    "auditToolingCorrectionsAlsoFound": [
+      "classifyMatch's whole_token check originally used record.tokens (includes words from parenthetical grading-code content preserved by alias generation, e.g. '(KA II)' surviving as bare 'ka'/'ii'), disagreeing with production's own normalizedName-based check. Fixed to use normalizedName.",
+      "classifyMatch's alias_substring check did not distinguish a whole word within a documented-synonym alias (e.g. 'mezcal' within 'Agavenbrand (Mezcal/Tequila)') from a genuine substring-fragment coincidence, mislabeling 25 legitimate matches as risk. Fixed with a whole-alias-word exemption."
+    ],
+    "correctedBlastRadius": {
+      "changedOutcomes": 85,
+      "changedOutcomesPercent": 0.6511,
+      "previouslyReported": 11
+    },
+    "newRegressionTests": 10,
+    "shippedAs": "follow-up commit/PR on top of merged PR #174, same verify -> commit -> push -> PR -> CI -> merge workflow"
+  },
   "implicationsForDependentTasks": {
     "RESOLVER-V3-044": "unaffected -- fix is entirely inside the BLS deterministic fast path; V3-044's owned cases never reach it.",
     "RESOLVER-V3-047": "Depends on updated to add RESOLVER-V3-051 -- candidate comparison must not run against a still-defective deterministic fast path.",

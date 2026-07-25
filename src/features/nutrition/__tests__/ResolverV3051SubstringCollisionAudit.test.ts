@@ -85,10 +85,24 @@ describe('RESOLVER-V3-051: substring-collision audit', () => {
   });
 
   it('no query with a genuine exact/whole-alias identity ever transitions accepted -> ambiguous', () => {
+    // One documented, deliberate exception: query "ka" against U403100 ("Kalb, Fleisch, ...
+    // max. 5%, (KA II), roh"). "ka" is a whole word within one of the record's generated aliases
+    // (the alias-splitting process keeps parenthetical content as literal words, so the "(KA II)"
+    // commercial grading-code qualifier survives as bare "ka"/"ii"), which the audit's classifier
+    // treats as `whole_token` (the same "genuine documented synonym" shape as e.g. "mezcal" within
+    // "Agavenbrand (Mezcal/Tequila)"). Unlike a real synonym, "ka" is a 2-character abbreviation
+    // fragment, not a word a user would type meaning "veal" -- `hasBlsGenericSubstringOnlyIdentity`
+    // correctly does NOT exempt it (its own whole-token check only consults `normalizedName`, which
+    // strips the parenthetical entirely, never the generated aliases), so production conservatively
+    // downgrades it to `ambiguous`. This is the safer of the two possible outcomes for a bare
+    // 2-character query and is retained deliberately, not treated as a bug to fix.
+    const knownWholeAliasWordButStillConservativelyFlagged = new Set(['ka']);
     for (const r of report.results) {
       if (r.transition === 'accepted_to_ambiguous') {
         expect(r.classification).not.toBe('exact_identity');
-        expect(r.classification).not.toBe('whole_token');
+        if (r.classification === 'whole_token') {
+          expect(knownWholeAliasWordButStillConservativelyFlagged.has(r.query)).toBe(true);
+        }
       }
     }
   });

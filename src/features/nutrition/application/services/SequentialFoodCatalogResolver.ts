@@ -12,6 +12,7 @@ import { NegativeCacheHelper } from './NegativeCacheHelper';
 import { ResolverDecision, ResolvedFoodCandidate } from '../../domain/models/ResolverDecision';
 import { normalizeText } from '../utils/normalizeText';
 import { ScoreCalculator } from './ScoreCalculator';
+import { hasBlsGenericPreparationStateConflict } from '../../infrastructure/catalog/sources/bls/BlsLookupEngine';
 import { buildResolverDecision } from './ResolverDecisionPolicy';
 import {
   RESOLVER_SOURCE_LABELS,
@@ -406,6 +407,66 @@ export class SequentialFoodCatalogResolver implements FoodCatalogResolver {
           (query.inputType === 'generic' || query.inputType === 'ambiguous') &&
           best.score >= (query.inputType === 'generic' ? 0.75 : 0.85) // Higher threshold for ambiguous
         ) {
+          // RESOLVER-V3-049: the BLS generic fast-path must not silently accept a candidate when
+          // the unqualified query leaves a material preparation-state identity ambiguity
+          // unresolved among the BLS candidates it actually found (e.g. raw vs. "gekocht"
+          // Haferflocken, or plain vs. "frittiert"/"gebacken" Pommes). Detected via a categorical,
+          // source-grounded check (not a reverse-engineered score-delta threshold) -- see
+          // `hasBlsGenericPreparationStateConflict`. `best` is intentionally left unset so no
+          // downstream caller (e.g. `LogFoodFromRawInputUseCase`'s own `score >= 0.7` gate) can
+          // still treat this as a confidently resolved food.
+          // RESOLVER-V3-049 scoping note: `BlsLookupEngine`'s single-long-token branch
+          // (`findRankedTokenMatches`, query length > 6, one token, no exact match) is
+          // RESOLVER-V2-009's own deliberate, already-reviewed ranked demotion system --
+          // purpose-built to pick a confident single winner for exactly this class of query, and
+          // relied upon by other approved deterministic behaviors (RESOLVER-V2-010's qualified
+          // Speck sub-terms -- "Bauchspeck"/"Schinkenspeck"/"Rückenspeck" -- which must stay
+          // deterministic per that task's own explicit product decision). This task's new check
+          // therefore does not re-litigate that stage's output: it only applies when Stage 1
+          // (exact ties) or Stage 4 (plain, uncapped-ranking token matches) produced the
+          // candidates -- the two stages that apply no ambiguity-aware demotion at all today.
+          const queryTokenCount = normalizedQuery.trim().split(/\s+/).filter(Boolean).length;
+          const isSingleLongTokenQuery = queryTokenCount === 1 && normalizedQuery.length > 6;
+          const hasExactMatchCandidate = mappedCandidates.some((c) => c.match.exact);
+          const eligibleForPreparationStateCheck = !(
+            isSingleLongTokenQuery && !hasExactMatchCandidate
+          );
+
+          const candidatesForConflictCheck = scored.map((c) => ({
+            normalizedName: c.food.normalizedName,
+            kcalPer100g: c.food.macrosPer100g.kcal,
+          }));
+          if (
+            eligibleForPreparationStateCheck &&
+            hasBlsGenericPreparationStateConflict(normalizedQuery, candidatesForConflictCheck)
+          ) {
+            metrics.totalElapsedMs = Date.now() - resolverStartTime;
+            metrics.winnerSource = null;
+            metrics.winnerConfidence = null;
+
+            const ambiguousDecision: ResolverDecision = {
+              ...this.buildDecision(normalizedQuery, scored),
+              status: 'ambiguous',
+              reasonCodes: ['BLS_GENERIC_PREPARATION_STATE_AMBIGUITY'],
+              best: undefined,
+              secondBest: undefined,
+            };
+
+            if (debugCollector) {
+              debugCollector.addEvaluation(this.convertToEvaluations(scored));
+              debugCollector.setDecision({
+                reason: 'bls_generic_preparation_state_ambiguity',
+                status: 'ambiguous',
+                reasonCodes: ambiguousDecision.reasonCodes,
+              });
+              debugCollector.setTotalTime(metrics.totalElapsedMs);
+              debugCollector.logToConsole();
+            }
+
+            this.logSummary(metrics);
+            return ambiguousDecision;
+          }
+
           metrics.totalElapsedMs = Date.now() - resolverStartTime;
           metrics.winnerSource = best.source;
           metrics.winnerConfidence = best.score;

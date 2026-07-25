@@ -39,6 +39,12 @@ describe('RESOLVER-V2-009 plain-generic BLS reachability', () => {
   });
 
   it('Himbeeren is selected end-to-end as the plain raw raspberry (not 275 kcal dessert)', async () => {
+    // RESOLVER-V3-049 note: Himbeeren's top candidates arise from `BlsLookupEngine`'s
+    // single-long-token ranked-token-override branch (RESOLVER-V2-009's own deliberate winner-
+    // picking system), which RESOLVER-V3-049's new preparation-state-ambiguity check intentionally
+    // does not re-litigate -- see `SequentialFoodCatalogResolver.ts`'s
+    // `eligibleForPreparationStateCheck` scoping note. This test's original behavior is therefore
+    // unaffected by RESOLVER-V3-049.
     const best = await bestFor('himbeeren');
     expect(best?.food.sourceId).toBe('F302100');
     expect(best?.food.macrosPer100g.kcal).toBe(43);
@@ -57,10 +63,15 @@ describe('RESOLVER-V2-009 plain-generic BLS reachability', () => {
     expect(top.food.macrosPer100g.kcal).toBe(348);
   });
 
-  it('Haferflocken is selected end-to-end as the plain (raw) oat flakes, not the cooked variant', async () => {
+  it('RESOLVER-V3-049: Haferflocken now resolves an honest ambiguous (raw 348 / gekocht 66 kcal) instead of silently defaulting to the raw candidate', async () => {
+    // RESOLVER-V3-049's owned case `RH-RES-PREPARATION-DEV-002`. This test previously asserted
+    // `best?.food.sourceId === 'C133000'` -- exactly the false-confidence defect this task fixes:
+    // raw (348 kcal) and cooked (66 kcal) are both real, exact-tied BLS candidates (Stage 1 --
+    // *not* the ranked-token-override branch Himbeeren above uses) for the bare, unqualified
+    // query, a >5x divergence, and the resolver must not silently pick one. See
+    // reports/RESOLVER_V3_049_BLS_GENERIC_FAST_PATH_AMBIGUITY_POLICY.md.
     const best = await bestFor('haferflocken');
-    expect(best?.food.sourceId).toBe('C133000');
-    expect(best?.food.macrosPer100g.kcal).toBe(348);
+    expect(best).toBeUndefined();
   });
 
   it('whitespace-insensitive: the spaced "hafer flocken" also resolves to the plain flakes', () => {

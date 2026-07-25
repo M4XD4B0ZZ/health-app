@@ -92,6 +92,64 @@ const STOPWORD_TOKENS: ReadonlySet<string> = new Set([
   'mind',
 ]);
 
+/**
+ * RESOLVER-V3-049: `PROCESSED_QUALIFIER_TOKENS` extended with explicit frozen/preservation-state
+ * markers ("raw/cooked/fried/frozen or equivalent preparation-state conflicts" per
+ * ROADMAP.md's RESOLVER-V3-049 policy concepts) -- kept as its own derived set, not merged into
+ * the original, so this task's additions are scoped to the new family-extension/ambiguity-policy
+ * logic below and never change the existing Stage-2 ranked-token scoring behavior that
+ * `PROCESSED_QUALIFIER_TOKENS` already governs.
+ */
+const PREPARATION_STATE_TOKENS: ReadonlySet<string> = new Set([
+  ...PROCESSED_QUALIFIER_TOKENS,
+  'tiefgefroren',
+  'gefroren',
+]);
+
+/**
+ * RESOLVER-V3-049: every token in `suffix` (the part of a candidate's name after the query root)
+ * is either a connector word or a recognized preparation/processing qualifier -- i.e. the suffix
+ * adds no new, unrecognized food-identity content (an ingredient, a brand, a dish name). Used to
+ * tell a genuine preparation-state extension ("tiefgefroren, gebacken") from an arbitrary
+ * composite addition ("mit Mayonnaise", "in Butter", "(Halbfettstufe) mit Konfitüre") that forms a
+ * materially different dish, not a same-food preparation variant.
+ */
+function isPureQualifierSuffix(suffix: string): boolean {
+  const tokens = suffix
+    .split(/[\s,]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => STOPWORD_TOKENS.has(t) || PREPARATION_STATE_TOKENS.has(t));
+}
+
+/**
+ * RESOLVER-V3-049: minimum relative kcal/100g spread (max/min) required among a set of
+ * preparation-state-conflicting BLS candidates before that conflict is treated as *material*
+ * rather than ordinary same-cut/same-preparation-family variance. Justified independently of the
+ * three owned cases against real BLS data found while auditing this task's blast radius:
+ * - Floor side: must exceed raw-vs-boiled egg (~137 vs. 135 kcal, ratio 1.01 -- boiling a shell
+ *   egg doesn't meaningfully change its caloric content) and the real "Schinkenspeck" BLS cluster
+ *   (127/156/167 kcal across roh/gebraten/geschmort sub-records of the *same* approved,
+ *   deterministic RESOLVER-V2-010 clarification choice, ratio 1.31 -- normal cooking-method
+ *   variance within one specific cut, not a different-identity conflict).
+ * - Ceiling side: must not exceed the smallest real target-case gap (the Pommes/Holdout frozen-
+ *   fries family, 123/167/203 kcal, ratio 1.65) or any owned case would stop being detected.
+ * 1.4 sits roughly in the middle of the resulting (1.31, 1.65] safe window, with the same
+ * qualitative conclusion holding for any value in that window -- the exact value is not
+ * outcome-determinative for any diagnosed case, which is what makes it a materiality floor rather
+ * than a reverse-engineered threshold. Full case-by-case numbers:
+ * `reports/RESOLVER_V3_049_BLS_GENERIC_FAST_PATH_AMBIGUITY_POLICY.md`.
+ */
+const MATERIALITY_KCAL_RATIO = 1.4;
+
+function isMaterialKcalSpread(kcalValues: readonly number[]): boolean {
+  const valid = kcalValues.filter((k) => Number.isFinite(k) && k > 0);
+  if (valid.length < 2) return false;
+  const ratio = Math.max(...valid) / Math.min(...valid);
+  return ratio >= MATERIALITY_KCAL_RATIO;
+}
+
 export class BlsLookupEngine {
   constructor(
     private readonly records: readonly BlsFoodRecord[],
@@ -125,6 +183,23 @@ export class BlsLookupEngine {
     // Stage 1: Exact alias match (highest priority)
     const exactMatches = this.findExactMatches(normalizedInput);
     if (exactMatches.length > 0) {
+      // RESOLVER-V3-049: a single exact match must not always hide a materially plausible,
+      // same-family preparation-state sibling (e.g. "Pommes frites" exact-matches X654042, but
+      // "Pommes frites tiefgefroren, frittiert" et al. are never scored at all otherwise -- see
+      // BlsLookupEngine's findFamilyExtensionMatches doc). Multiple exact ties (e.g. D771900's
+      // resolved Brötchen ambiguity) already surface every tied record and need no help here.
+      if (exactMatches.length === 1) {
+        const familyExtensions = this.findFamilyExtensionMatches(
+          exactMatches[0].record,
+          normalizedInput,
+        );
+        if (familyExtensions.length > 0) {
+          console.log(
+            `[DEBUG] BLS EXACT_MATCH_WITH_FAMILY_EXTENSIONS count=${familyExtensions.length}`,
+          );
+          return [...exactMatches, ...familyExtensions];
+        }
+      }
       console.log('[DEBUG] BLS EXACT_MATCH');
       return exactMatches;
     }
@@ -284,6 +359,87 @@ export class BlsLookupEngine {
       matchKind: 'exact' as BlsMatchKind,
       score: 1.0,
     }));
+  }
+
+  /**
+   * RESOLVER-V3-049: when a bare query resolves to exactly one exact-alias record
+   * (`exactRecord`), other BLS records whose whole normalized name is that same *query* extended
+   * with further qualifying word(s) -- e.g. "pommes frites" -> "pommes frites tiefgefroren,
+   * frittiert" -- are materially plausible preparation-state siblings that Stage 1's
+   * short-circuit would otherwise hide entirely, before they are ever scored (see
+   * RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md §6). Rooted on the query
+   * itself (`normalizedInput`), never on `exactRecord.normalizedName` -- a record's own
+   * `normalizedName` can be a shorter, paren-stripped canonical form (e.g. D771900's is just
+   * "broetchen", though the query that exact-matched it was "broetchen blaetterteig" via its
+   * alias list), so rooting on the record's own name would wrongly treat every other same-head
+   * record as a "family extension" of it. Scoped narrowly to a strict word-boundary prefix of the
+   * query (never an arbitrary substring), so an unrelated composite dish that merely mentions the
+   * query word (e.g. "Schaschlik mit Pommes frites") is never pulled in -- only records that are
+   * structurally *this exact query, plus more*. Checked against `displayName` through
+   * `looseNormalize` (which keeps hyphens as literal characters), never against `normalizedName`
+   * (which collapses hyphens to spaces) -- otherwise a hyphen-fused compound product name like
+   * "Quark-Frucht-Plunder" (a sweet pastry, 378 kcal) would wrongly look like a space-qualified
+   * extension of "Quark" (66 kcal), even though the hyphen means it is one fused word, a
+   * different food entirely, not "Quark" plus a preparation qualifier. Also requires the suffix
+   * after the root to be a *pure qualifier suffix* (`isPureQualifierSuffix`, above) -- e.g.
+   * "Quark (Halbfettstufe) mit Konfitüre" or "Rührei gebraten in Butter" are excluded because
+   * "halbfettstufe"/"konfituere"/"butter" are unrecognized ingredient/descriptor content, not
+   * preparation-state qualifiers, forming a materially different composite dish rather than a
+   * same-food preparation variant. Finally, the whole extension set is included only if it is
+   * *collectively* materially divergent from the exact match (`isMaterialKcalSpread`, above) --
+   * e.g. "Eier" (137 kcal) and "Eier gekocht" (135 kcal) pass every other check here but differ
+   * by only ~1.5%, so no family extension is surfaced for that query at all (an all-or-nothing
+   * decision on the extension set as a whole, not a per-candidate filter, so a genuinely material
+   * family like the Pommes-frites trio is never partially hidden just because one sibling's own
+   * gap to the exact match happens to be smaller than another's). Reuses the existing 'includes'
+   * match tier/score (0.7), not a new value.
+   */
+  private findFamilyExtensionMatches(
+    exactRecord: BlsFoodRecord,
+    normalizedInput: string,
+  ): BlsLookupResult[] {
+    const root = this.normalize(normalizedInput);
+    const candidates = this.records
+      .filter((record) => record.sourceId !== exactRecord.sourceId)
+      .filter((record) => !this.isIncompatibleGenericQuery(record, normalizedInput))
+      .filter((record) => {
+        const loose = this.looseNormalize(record.displayName);
+        if (!loose.startsWith(`${root} `)) return false;
+        return isPureQualifierSuffix(loose.slice(root.length));
+      });
+
+    if (candidates.length === 0) return [];
+
+    const kcalValues = [
+      exactRecord.macrosPer100g.kcal,
+      ...candidates.map((r) => r.macrosPer100g.kcal),
+    ];
+    if (!isMaterialKcalSpread(kcalValues)) return [];
+
+    return candidates.map((record) => ({
+      record,
+      matchKind: 'includes' as BlsMatchKind,
+      score: 0.7,
+    }));
+  }
+
+  /**
+   * Lowercased, umlaut-folded like `normalize()`, but -- unlike `normalizedName`, which collapses
+   * every non-alphanumeric run (including hyphens) to a single space -- keeps hyphens as literal
+   * characters. Needed only by `findFamilyExtensionMatches` to tell a genuine word-boundary
+   * qualifier extension ("pommes frites tiefgefroren, frittiert") from an unrelated hyphen-fused
+   * compound word ("quark-frucht-plunder", one word, not "quark" + qualifier).
+   */
+  private looseNormalize(s: string): string {
+    return s
+      .toLowerCase()
+      .replace(/[äöüß]/g, (match) => {
+        const map: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' };
+        return map[match] || match;
+      })
+      .replace(/[()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /** 0 when the record's whole (collapsed) name is the query, 1 when only a split-off alias is. */
@@ -493,4 +649,45 @@ export class BlsLookupEngine {
 
     return false;
   }
+}
+
+export interface BlsGenericCandidateForConflictCheck {
+  normalizedName: string;
+  kcalPer100g: number;
+}
+
+/**
+ * RESOLVER-V3-049: true when `candidates` -- the BLS records currently competing to win a bare,
+ * unqualified generic query at the BLS fast-path early-return -- disagree on preparation state
+ * (e.g. one is the plain/unqualified record, another carries a "gekocht" / "gebacken" /
+ * "frittiert" / ... qualifier the query itself never asked for) *and* that disagreement is
+ * nutritionally material (`isMaterialKcalSpread`, above) -- e.g. raw vs. boiled egg (~137 vs.
+ * 135 kcal) disagree on preparation state in name only, not in substance, and must not be flagged.
+ * Reuses the exact same general, already-reviewed `PROCESSED_QUALIFIER_TOKENS` lexicon that
+ * already governs BLS Stage-2 ranked-token scoring above -- not a new, per-case-tuned list, and
+ * not a score-delta threshold. A query that itself already contains one of these qualifier tokens
+ * is "qualified" and exempt -- it already disambiguated itself (Phase 3's "whether the query is
+ * qualified enough to choose one variant safely" concept), so explicit preparation-state queries
+ * (e.g. "Haferflocken gekocht") remain fully resolvable.
+ */
+export function hasBlsGenericPreparationStateConflict(
+  normalizedQuery: string,
+  candidates: readonly BlsGenericCandidateForConflictCheck[],
+): boolean {
+  if (candidates.length < 2) return false;
+
+  const queryTokens = normalizedQuery.toLowerCase().trim().split(/\s+/);
+  const queryIsQualified = queryTokens.some((token) => PREPARATION_STATE_TOKENS.has(token));
+  if (queryIsQualified) return false;
+
+  const signatures = new Set(
+    candidates.map((c) => {
+      const tokens = c.normalizedName.toLowerCase().trim().split(/\s+/);
+      const present = tokens.filter((token) => PREPARATION_STATE_TOKENS.has(token));
+      return present.length === 0 ? '__unqualified__' : [...new Set(present)].sort().join('+');
+    }),
+  );
+  if (signatures.size <= 1) return false;
+
+  return isMaterialKcalSpread(candidates.map((c) => c.kcalPer100g));
 }

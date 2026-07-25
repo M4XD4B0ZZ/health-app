@@ -209,6 +209,12 @@ describe('RESOLVER-V3-043: D771900 Brötchen false-confidence remediation', () =
     });
 
     it('never produces a D771900-sourced result for any of "Brötchen" / "Ein Brötchen" / "200g Brötchen"', async () => {
+      // RESOLVER-V3-049 note: bare "Brötchen"'s remaining "-brötchen" candidates arise from
+      // `BlsLookupEngine`'s single-long-token ranked-token-override branch (RESOLVER-V2-009's own
+      // deliberate winner-picking system), which RESOLVER-V3-049's new preparation-state-ambiguity
+      // check intentionally does not re-litigate -- see `SequentialFoodCatalogResolver.ts`'s
+      // `eligibleForPreparationStateCheck` scoping note. This test's original behavior is
+      // therefore unaffected by RESOLVER-V3-049.
       for (const rawInput of ['Brötchen', 'Ein Brötchen', '200g Brötchen']) {
         const useCase = buildUseCase();
         try {

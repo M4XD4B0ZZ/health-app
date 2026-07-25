@@ -64,7 +64,13 @@ export interface DecisionInfo {
   winner?: string;
   source?: string;
   confidence?: number;
-  reason: 'early_return_user' | 'early_return_bls' | 'best_score' | 'no_candidates' | 'cache_hit';
+  reason:
+    | 'early_return_user'
+    | 'early_return_bls'
+    | 'best_score'
+    | 'no_candidates'
+    | 'cache_hit'
+    | 'bls_generic_preparation_state_ambiguity';
   status: 'accepted' | 'ambiguous' | 'rejected';
   reasonCodes: string[];
 }

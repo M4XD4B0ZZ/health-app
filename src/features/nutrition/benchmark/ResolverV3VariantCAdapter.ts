@@ -12,6 +12,10 @@ import {
 import { resolveComponentGrams } from './VariantCQuantity';
 import { computeTotals } from '../domain/portion/computeTotals';
 import {
+  decideVariantCInterpretationConfidence,
+  selectVariantCUnresolvedClarification,
+} from './VariantCConfidencePolicy';
+import {
   CandidateMacros100g,
   ComponentProvenance,
   ScaledNutrients,
@@ -339,6 +343,28 @@ export async function runVariantCCase(
   }
 
   // outcome === 'interpreted' | 'interpreted_with_assumptions'
+  const confidenceDecision = decideVariantCInterpretationConfidence(aiResult);
+  if (confidenceDecision.action === 'clarify' && confidenceDecision.clarification) {
+    return finish({
+      outcome: 'clarification_required',
+      components: [],
+      totals: null,
+      unresolvedComponentIds: aiResult.components.map((component) => component.id),
+      assumptions: [],
+      uncertainties: aiResult.components.flatMap((component) => component.uncertainties ?? []),
+      clarificationRequests: [confidenceDecision.clarification],
+      externalRequestCount: 0,
+      cost: {
+        costUsd: aiCost.costUsd,
+        pricingStatus: aiCost.pricingStatus,
+        inputTokens: aiCost.inputTokens,
+        outputTokens: aiCost.outputTokens,
+      },
+      warnings: [confidenceDecision.reason],
+      errors: [],
+    });
+  }
+
   const retrievalStart = process.hrtime.bigint();
   const warnings: string[] = [];
   const componentResults: VariantCComponentResult[] = [];
@@ -481,7 +507,9 @@ export async function runVariantCCase(
       aiResult.components.some((c) => (c.assumptions?.length ?? 0) > 0);
     outcome = hasAssumptions ? 'resolved_with_assumptions' : 'resolved';
   } else if (componentResults.length > 0 && unresolved.length === componentResults.length) {
-    outcome = 'abstained';
+    outcome = selectVariantCUnresolvedClarification(aiResult.components)
+      ? 'clarification_required'
+      : 'abstained';
   } else if (
     componentResults.length > 0 &&
     ambiguous.length > 0 &&
@@ -521,7 +549,12 @@ export async function runVariantCCase(
         ...componentResults.flatMap((c) => c.quantityAssumptions.map((a) => a.note)),
       ],
       uncertainties: aiResult.components.flatMap((c) => c.uncertainties ?? []),
-      clarificationRequests: [],
+      clarificationRequests:
+        outcome === 'clarification_required'
+          ? [selectVariantCUnresolvedClarification(aiResult.components)].filter(
+              (request): request is NonNullable<typeof request> => request !== null,
+            )
+          : [],
       externalRequestCount,
       cost: {
         costUsd: aiCost.costUsd,

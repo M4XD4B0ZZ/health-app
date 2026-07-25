@@ -1,5 +1,30 @@
 # Latest Handoff
 
+## RESOLVER-V3-044 — Clarification, Abstention, and Confidence-Policy Remediation (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-044`, status **`done`**; implementation branch
+   `codex/resolver-v3-044-confidence-policy`, based on expected commit
+   `4d8f2a3bc5637d15e4ec3325ffb49f2fc78e2b20`.
+2. **What changed:** added a Variant-C-only confidence policy that uses component confidence and
+   explicit unresolved uncertainty evidence to select targeted clarification, and changes fully
+   unresolved but recognized retrieval results from blanket abstention to clarification.
+3. **Why it changed:** frozen V3-039 observations showed exact source identity was incorrectly used
+   to complete quantity assumptions in both task-owned false-confidence cases. Source evidence
+   cannot validate AI-inferred cup size or repetition count.
+4. **Files changed:** `ResolverV3VariantCAdapter.ts`, new `VariantCConfidencePolicy.ts`, new policy
+   fixture tests, the remediation report, `ROADMAP.md`, and this handoff.
+5. **Verification executed:** focused policy/Variant-C/RESOLVER-V3-043 regression tests; typecheck;
+   canonical `npm run verify`; SHA-256 before/after checks for all seven V3-039 evidence artifacts;
+   scope and diff checks.
+6. **Verification result:** all required checks green: 244/244 suites and 2,443/2,443 tests passed. Provider calls: 0. Frozen evidence mutations: 0.
+7. **Known issues, blockers, or residual risks:** fixture remediation cannot establish live G2-C
+   performance; RESOLVER-V3-048 retains that responsibility. Narrow lexical uncertainty
+   classification is versioned and intentionally conservative. RESOLVER-V3-010 remains blocked.
+8. **Human-review status / next steps:** publish PR targeting `chore/clean-arch-structure`, allow CI,
+   merge only when green, then review the actual merged diff.
+
+---
+
 ## RESOLVER-V3-051 (post-merge correction) — Guard Also Fires on Ambiguous-With-Populated-Best (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-051` (correction to the merged PR #174), status **`done`**.

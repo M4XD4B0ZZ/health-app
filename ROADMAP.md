@@ -8331,7 +8331,7 @@ owned AI-routed cases and RESOLVER-V3-045's one owned AI-routed/consistency case
 
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
-Status: `todo`
+Status: `done` (2026-07-25; fixture-only remediation complete; live proof remains RESOLVER-V3-048)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Improve G2-C's poor abstention-correctness (~4.65% Development, ~5.88% Holdout, per
@@ -8360,6 +8360,21 @@ case) and `RH-RES-UNRELIABLE-DEV-006` ("ApfelApfelApfel!!!123" — resolved with
 instead of clarifying an unclear quantity). Both were confirmed to never reach the BLS fast path at
 all (it returns zero candidates for both); the false confidence originates entirely in the
 AI-routed confidence policy this task is scoped to fix. Not fixed by RESOLVER-V3-043.
+
+**Implementation (2026-07-25):** Added the Variant-C-only, versioned
+`variant-c-confidence-policy-v1`. Model confidence is treated as weak evidence: a low-confidence
+single component clarifies, explicit unresolved quantity/preparation/brand uncertainty in an
+assumption-bearing interpretation selects the smallest corresponding clarification before source
+retrieval, and a recognized component that retrieval cannot resolve clarifies rather than becoming
+a mechanically incorrect abstention. Genuine `not_interpretable` outcomes still abstain; partial
+multi-component results remain partial. Frozen-observation fixtures cover both owned cases:
+`RH-RES-HOUSEHOLD-DEV-005` and `RH-RES-UNRELIABLE-DEV-006` now request `missing_quantity` rather
+than producing false-confident numeric resolutions. Supported direct resolution remains unchanged,
+and the RESOLVER-V3-043 three-arm false-confidence regression stays green. No Variant A/B, corpus,
+metric/evaluator, provider, or production wiring code changed. Zero provider calls. All seven
+RESOLVER-V3-039 evidence files remain byte-identical. Full evidence and residual-risk statement:
+`reports/RESOLVER_V3_044_CLARIFICATION_ABSTENTION_CONFIDENCE_REMEDIATION.md`. RESOLVER-V3-048
+retains live-proof responsibility; RESOLVER-V3-010 remains `blocked`.
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 

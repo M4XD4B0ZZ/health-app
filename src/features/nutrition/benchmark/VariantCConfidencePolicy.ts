@@ -69,18 +69,18 @@ export function decideVariantCInterpretationConfidence(
 
   if (result.outcome === 'interpreted_with_assumptions') {
     const evidenceBearingComponent = result.components.find(
-      (component) => (component.uncertainties?.length ?? 0) > 0,
+      (component) =>
+        ((component.uncertainties?.length ?? 0) > 0 || (component.assumptions?.length ?? 0) > 0) &&
+        clarificationKind(component) !== 'ambiguous_food_identity',
     );
     if (evidenceBearingComponent) {
       const kind = clarificationKind(evidenceBearingComponent);
-      if (kind !== 'ambiguous_food_identity') {
-        return {
-          action: 'clarify',
-          clarification: clarificationFor(evidenceBearingComponent, kind),
-          reason:
-            'The interpretation reports an unresolved assumption that source retrieval cannot validate.',
-        };
-      }
+      return {
+        action: 'clarify',
+        clarification: clarificationFor(evidenceBearingComponent, kind),
+        reason:
+          'The interpretation reports an unresolved assumption that source retrieval cannot validate.',
+      };
     }
   }
 

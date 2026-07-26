@@ -8331,7 +8331,7 @@ owned AI-routed cases and RESOLVER-V3-045's one owned AI-routed/consistency case
 
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
-Status: `in_progress` (2026-07-26; post-merge fail-closed correction implemented locally; remains open until PR merge, green CI, and independent post-merge review)
+Status: `in_progress` (2026-07-26; focused remediation passes, full local Jest completion pending green GitHub CI)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Improve G2-C's poor abstention-correctness (~4.65% Development, ~5.88% Holdout, per
@@ -8393,6 +8393,25 @@ corpus mutation. Full details and verification are in the existing V3-044 report
 `in_progress` until this correction is merged, CI is green, and the required independent
 post-merge review finds no remaining fail-closed defect. RESOLVER-V3-043 remains `in_progress`;
 RESOLVER-V3-045/046 remain `todo`; RESOLVER-V3-010 remains `blocked`.
+
+**Final focused remediation (2026-07-26):** Starting exactly from PR #177's merge commit
+`b6ff38d0226a748af1076acecc961ffa6b256b13`, baseline tests reproduced a remaining categorical
+gap: `interpreted_with_assumptions` considered a component evidence-bearing only when its
+`uncertainties` array was populated, even though the existing classifier already combines
+`uncertainties` and `assumptions`. Material quantity, preparation, or brand evidence present only
+in `assumptions` could therefore proceed toward a numeric resolution. The selection now considers
+either array but selects only evidence that the existing categorical classifier maps to
+`missing_quantity`, `ambiguous_preparation`, or `missing_brand`; benign/non-material and general
+identity assumptions do not acquire a new blanket clarification rule. Policy and real-adapter
+tests cover all three assumption-only categories, the two owned cases, unchanged
+uncertainty-based behavior, ordinary `interpreted` continuation, benign assumptions, fail-closed
+clarification payloads, and legitimate resolved payload retention. All focused regressions passed;
+full `npm run verify` passed typecheck, lint, and formatting, then stalled after the OFF/USDA edge
+provider suites had reported passing and was terminated after more than ten minutes. Zero provider
+calls, zero benchmark cost, no live Development or Holdout run, and no frozen evidence/corpus
+mutation. **RESOLVER-V3-044 remains `in_progress` pending green GitHub CI;**
+RESOLVER-V3-043 remains `in_progress` pending RESOLVER-V3-045; RESOLVER-V3-045/046 remain `todo`;
+RESOLVER-V3-010 remains `blocked`.
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 

@@ -95,3 +95,96 @@ it('sends an explicit deterministic sampling payload through the injected transp
   expect(payload.messages[0].content).toContain('"apfel"');
   expect(payload.messages[0].content).not.toContain('"  APFEL  "');
 });
+
+const interpretWith = async (
+  fetch: (input: RequestInfo | URL, init: RequestInit) => Promise<Response>,
+) =>
+  createLiveVariantCInterpreter({ ANTHROPIC_API_KEY: 'test-key-not-real' }, budgetGate(), {
+    fetch,
+    usesProxy: false,
+  }).interpret({ rawInput: 'Apfel', normalizedInput: 'Apfel', locale: 'de' });
+
+describe('RESOLVER-V3-046 provider failure taxonomy', () => {
+  it.each([
+    ['transport_error', new TypeError('fetch failed')],
+    ['timeout_abort', Object.assign(new Error('aborted'), { name: 'AbortError' })],
+  ])('classifies %s before an HTTP response', async (failureKind, error) => {
+    const call = await interpretWith(
+      jest.fn(async () => {
+        throw error;
+      }),
+    );
+    expect(call).toMatchObject({
+      result: { outcome: 'error' },
+      runMeta: { httpStatus: null, failureKind, retryable: true },
+    });
+  });
+
+  it.each([
+    [429, true],
+    [500, true],
+    [503, true],
+    [400, false],
+    [401, false],
+  ])('classifies HTTP %i with retryable=%s', async (status, retryable) => {
+    const call = await interpretWith(
+      jest.fn(
+        async () =>
+          new Response(JSON.stringify({ error: { message: 'provider rejected request' } }), {
+            status,
+          }),
+      ),
+    );
+    expect(call.runMeta).toMatchObject({
+      httpStatus: status,
+      failureKind: 'http_error',
+      retryable,
+    });
+  });
+
+  it('distinguishes invalid HTTP-envelope JSON on HTTP 200', async () => {
+    const call = await interpretWith(
+      jest.fn(async () => new Response('not-json', { status: 200 })),
+    );
+    expect(call.runMeta).toMatchObject({
+      httpStatus: 200,
+      failureKind: 'http_envelope_json_error',
+      retryable: false,
+    });
+  });
+
+  it.each([
+    ['missing_text_block', { content: [], usage: { input_tokens: 2, output_tokens: 1 } }],
+    [
+      'text_block_json_error',
+      { content: [{ type: 'text', text: '{' }], usage: { input_tokens: 2, output_tokens: 1 } },
+    ],
+    [
+      'schema_contract_error',
+      {
+        content: [
+          { type: 'text', text: JSON.stringify({ outcome: 'interpreted', components: 'bad' }) },
+        ],
+        usage: { input_tokens: 2, output_tokens: 1 },
+      },
+    ],
+  ])(
+    'classifies HTTP 200 response failure %s and retains reported usage/cost',
+    async (failureKind, body) => {
+      const call = await interpretWith(
+        jest.fn(async () => new Response(JSON.stringify(body), { status: 200 })),
+      );
+      expect(call).toMatchObject({
+        result: { outcome: 'error' },
+        runMeta: {
+          httpStatus: 200,
+          failureKind,
+          retryable: false,
+          inputTokens: 2,
+          outputTokens: 1,
+        },
+      });
+      expect(call.runMeta.costUsd).not.toBeNull();
+    },
+  );
+});

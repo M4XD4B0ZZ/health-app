@@ -79,6 +79,8 @@ export function wrapVariantBProviderWithLedger(
           ? {
               httpStatus: telemetry.httpStatus,
               providerStatus: telemetry.providerStatus,
+              failureKind: telemetry.failureKind ?? null,
+              retryable: telemetry.retryable ?? false,
               inputTokens: telemetry.inputTokens,
               outputTokens: telemetry.outputTokens,
               actualCostUsd: telemetry.actualCostUsd,
@@ -122,6 +124,8 @@ export function wrapVariantCInterpreterWithLedger(
           ? {
               httpStatus: telemetry.httpStatus,
               providerStatus: telemetry.providerStatus,
+              failureKind: telemetry.failureKind ?? null,
+              retryable: telemetry.retryable ?? false,
               inputTokens: telemetry.inputTokens,
               outputTokens: telemetry.outputTokens,
               actualCostUsd: telemetry.actualCostUsd,

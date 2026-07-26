@@ -217,7 +217,21 @@ export interface VariantCAiCallMetadata {
   cacheReadTokens?: number | null;
   httpStatus?: number | null;
   providerLatencyMs?: number | null;
+  /** Closed failure taxonomy for untrusted provider boundaries. Historical artifacts may omit it. */
+  failureKind?: VariantCProviderFailureKind | null;
+  retryable?: boolean;
 }
+
+export type VariantCProviderFailureKind =
+  | 'transport_error'
+  | 'timeout_abort'
+  | 'http_error'
+  | 'http_envelope_json_error'
+  | 'missing_text_block'
+  | 'text_block_json_error'
+  | 'schema_contract_error'
+  | 'internal_parser_error'
+  | 'budget_config_error';
 
 export interface VariantCAiInterpretationCall {
   result: AiInterpretationResult;

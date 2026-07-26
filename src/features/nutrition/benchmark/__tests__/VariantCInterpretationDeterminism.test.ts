@@ -227,4 +227,59 @@ describe('RESOLVER-V3-045 interpretation determinism', () => {
       message: expect.stringContaining('components ids must be unique'),
     });
   });
+
+  it.each([
+    ['brand', 7],
+    ['preparation', {}],
+    ['modifiers', 'not-an-array'],
+    ['assumptions', [1]],
+    ['uncertainties', null],
+  ])('fails closed without throwing for malformed optional component field %s', (field, value) => {
+    const response = {
+      outcome: 'interpreted',
+      components: [
+        {
+          id: 'provider-id',
+          originalSegment: 'Apfel',
+          interpretedName: 'Apfel',
+          quantity: {},
+          confidence: 0.9,
+          [field]: value,
+        },
+      ],
+      searchPlan: [
+        {
+          componentId: 'provider-id',
+          suitableSourceTypes: ['bls'],
+          nativeQueries: [],
+          expectedResolutionKind: 'generic_food',
+        },
+      ],
+    };
+    expect(() =>
+      parseAndNormalizeVariantCInterpretationResponse(JSON.stringify(response), null, 1, undefined),
+    ).not.toThrow();
+    expect(
+      parseAndNormalizeVariantCInterpretationResponse(JSON.stringify(response), null, 1, undefined),
+    ).toMatchObject({
+      outcome: 'error',
+      message: expect.stringContaining('schema_validation_failed'),
+    });
+  });
+
+  it.each([
+    null,
+    true,
+    42,
+    'text',
+    [],
+    {},
+    { outcome: 'interpreted' },
+    { outcome: 'clarification_required', clarification: [] },
+    { outcome: 'interpreted', components: [null], searchPlan: [{}] },
+  ])('never throws for arbitrary JSON structure %#', (value) => {
+    expect(() =>
+      parseAndNormalizeVariantCInterpretationResponse(JSON.stringify(value), null, 1, undefined),
+    ).not.toThrow();
+  });
 });

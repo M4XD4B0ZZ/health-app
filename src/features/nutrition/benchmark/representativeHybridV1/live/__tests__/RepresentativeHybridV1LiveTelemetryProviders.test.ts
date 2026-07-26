@@ -140,6 +140,41 @@ describe('RESOLVER-V3-039 telemetry-capturing provider decorators', () => {
     });
   });
 
+  it('classifies an HTTP-200 schema failure as invalid_response, retaining usage and cost', async () => {
+    const records: LiveProviderUsageRecord[] = [];
+    const fakeInner: VariantCAiInterpreter = {
+      async interpret(): Promise<VariantCAiInterpretationCall> {
+        return {
+          result: {
+            outcome: 'error',
+            message: 'schema_validation_failed: fixture',
+            meta: { interpreterVersion: 'v1', contractVersion: '1', latencyMs: 10 },
+          } as never,
+          runMeta: {
+            costUsd: 0.002,
+            pricingStatus: 'estimated',
+            inputTokens: 100,
+            outputTokens: 20,
+            httpStatus: 200,
+            providerLatencyMs: 10,
+            failureKind: 'schema_contract_error',
+            retryable: false,
+          },
+        };
+      },
+    };
+    await wrapVariantCInterpreterWithTelemetry(fakeInner, records, 20_000).interpret(cRequest);
+    expect(records[0]).toMatchObject({
+      httpStatus: 200,
+      providerStatus: 'invalid_response',
+      failureKind: 'schema_contract_error',
+      retryable: false,
+      inputTokens: 100,
+      actualCostUsd: 0.002,
+      usageStatus: 'reported',
+    });
+  });
+
   it('a timed-out Variant C call fails closed with an error outcome, never an interpreted result', async () => {
     const records: LiveProviderUsageRecord[] = [];
     const { schedule, fireAll } = fakeScheduler();

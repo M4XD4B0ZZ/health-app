@@ -4,7 +4,18 @@ export interface LiveProviderUsageRecord {
   caseId: string;
   attempt: number;
   httpStatus: number | null;
-  providerStatus: 'success' | 'http_error' | 'network_error' | 'invalid_response' | 'unknown';
+  providerStatus:
+    | 'success'
+    | 'http_error'
+    | 'network_error'
+    | 'timeout_abort'
+    | 'invalid_response'
+    | 'internal_error'
+    | 'budget_config_error'
+    | 'unknown';
+  /** More precise V3-046 classification; absent on frozen/historical records. */
+  failureKind?: import('./VariantCTypes').VariantCProviderFailureKind | null;
+  retryable?: boolean;
   inputTokens: number | null;
   outputTokens: number | null;
   cacheCreationTokens: number | null;

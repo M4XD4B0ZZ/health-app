@@ -44,6 +44,8 @@ export function wrapVariantBProviderWithTelemetry(
           attempt: attemptIndex,
           httpStatus: null,
           providerStatus: 'unknown',
+          failureKind: 'timeout_abort',
+          retryable: false,
           inputTokens: null,
           outputTokens: null,
           cacheCreationTokens: null,
@@ -76,6 +78,7 @@ export function wrapVariantBProviderWithTelemetry(
             : result.usage !== null
               ? 'success'
               : 'invalid_response',
+        retryable: false,
         inputTokens: result.usage?.inputTokens ?? null,
         outputTokens: result.usage?.outputTokens ?? null,
         cacheCreationTokens: result.usage?.cacheCreationTokens ?? null,
@@ -115,6 +118,8 @@ export function wrapVariantCInterpreterWithTelemetry(
           attempt: attemptIndex,
           httpStatus: null,
           providerStatus: 'unknown',
+          failureKind: 'timeout_abort',
+          retryable: false,
           inputTokens: null,
           outputTokens: null,
           cacheCreationTokens: null,
@@ -149,12 +154,9 @@ export function wrapVariantCInterpreterWithTelemetry(
         caseId: request.traceId ?? 'unknown',
         attempt: attemptIndex,
         httpStatus: runMeta.httpStatus ?? null,
-        providerStatus:
-          result.outcome === 'error'
-            ? 'network_error'
-            : runMeta.pricingStatus === 'unknown' && runMeta.inputTokens === null
-              ? 'unknown'
-              : 'success',
+        providerStatus: providerStatusForVariantC(result.outcome, runMeta),
+        failureKind: runMeta.failureKind ?? null,
+        retryable: runMeta.retryable ?? false,
         inputTokens: runMeta.inputTokens ?? null,
         outputTokens: runMeta.outputTokens ?? null,
         cacheCreationTokens: runMeta.cacheCreationTokens ?? null,
@@ -168,4 +170,38 @@ export function wrapVariantCInterpreterWithTelemetry(
       return { result, runMeta };
     },
   };
+}
+
+function providerStatusForVariantC(
+  outcome: string,
+  meta: VariantCAiCallMetadata,
+): LiveProviderUsageRecord['providerStatus'] {
+  if (outcome !== 'error') {
+    return meta.pricingStatus === 'unknown' && meta.inputTokens === null ? 'unknown' : 'success';
+  }
+  switch (meta.failureKind) {
+    case 'transport_error':
+      return 'network_error';
+    case 'timeout_abort':
+      return 'timeout_abort';
+    case 'http_error':
+      return 'http_error';
+    case 'internal_parser_error':
+      return 'internal_error';
+    case 'budget_config_error':
+      return 'budget_config_error';
+    case 'http_envelope_json_error':
+    case 'missing_text_block':
+    case 'text_block_json_error':
+    case 'schema_contract_error':
+      return 'invalid_response';
+    default:
+      // Backward-compatible inference for adapters/fixtures created before V3-046. Crucially,
+      // HTTP 200 failures are invalid responses, never network errors.
+      return meta.httpStatus === null || meta.httpStatus === undefined
+        ? 'network_error'
+        : meta.httpStatus >= 200 && meta.httpStatus < 300
+          ? 'invalid_response'
+          : 'http_error';
+  }
 }

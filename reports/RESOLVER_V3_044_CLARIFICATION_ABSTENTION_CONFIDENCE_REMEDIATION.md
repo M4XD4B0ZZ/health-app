@@ -186,8 +186,8 @@ be narrowed further from local output. No test was skipped; green GitHub CI rema
 gate. Provider calls: **0**. Benchmark cost: **USD 0**. No Development or Holdout run occurred; no
 live metrics are claimed; no frozen evidence or corpus changed.
 
-RESOLVER-V3-044 remains `in_progress` pending green GitHub CI. RESOLVER-V3-043 remains `in_progress` pending V3-045;
-RESOLVER-V3-045 and RESOLVER-V3-046 remain `todo`; RESOLVER-V3-010 remains `blocked`.
+That local verification limitation was subsequently superseded by green GitHub Verify run #319
+on the merged implementation sequence; see the final formal closeout below.
 
 ### Residual policy question
 
@@ -196,3 +196,26 @@ does not automatically clarify benign wording or an identity-only assumption wit
 documented semantic rule. Whether a future evidence-backed identity taxonomy should distinguish
 material identity assumptions from benign interpretation metadata remains open and is not evidence
 for broadening this focused task.
+
+## Final formal closeout (2026-07-26)
+
+The complete remediation sequence is merged: PR #176 introduced the confidence/clarification
+policy, PR #177 added consumer-boundary sanitization and removed the unsupported global confidence
+cutoff, and PR #178 completed material assumption-only evidence handling. PR #178 merged as
+`8d779f46b9db751916d3c6fbb5edfbc2d8594d87`; GitHub workflow **Verify**, run #319, passed. The
+independent post-merge review of the actual merged result found no blocking or correction-worthy
+finding.
+
+The final verdict for the fixture-/offline-based V3-044 remediation scope is **`PASSED`**:
+
+- material quantity, preparation, or brand evidence from either `assumptions` or `uncertainties`
+  can select the corresponding targeted clarification;
+- general or non-material identity assumptions still do not cause blanket clarification;
+- non-authoritatively resolved components expose no selected candidate, provenance, macros,
+  scaling, or `accepted` status; and
+- the unsupported global confidence cutoff remains removed.
+
+This closeout made no live provider call and did not modify any frozen V3-039 evidence file. It
+introduces no live metric and no new G2 overall verdict. Live effectiveness remains exclusively
+RESOLVER-V3-048's responsibility. It grants no production release or Production Wiring
+authorization; RESOLVER-V3-010 remains `blocked`.

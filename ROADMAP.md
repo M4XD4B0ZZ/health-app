@@ -8331,7 +8331,8 @@ owned AI-routed cases and RESOLVER-V3-045's one owned AI-routed/consistency case
 
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
-Status: `in_progress` (2026-07-26; focused remediation passes, full local Jest completion pending green GitHub CI)
+Status: `done` (2026-07-26; PRs #176-#178 merged, GitHub Verify run #319 passed, and the
+independent post-merge review found no blocking or correction-worthy findings)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Improve G2-C's poor abstention-correctness (~4.65% Development, ~5.88% Holdout, per
@@ -8389,10 +8390,8 @@ Multiple-candidate results are now reachable and expose diagnostics without a si
 The global `0.5` confidence cutoff was removed because no canonical fixture/corpus derivation or
 sensitivity evidence exists; categorical uncertainty still drives both owned quantity
 clarifications. Zero provider calls, zero benchmark cost, no live run, and no frozen evidence or
-corpus mutation. Full details and verification are in the existing V3-044 report. Status remains
-`in_progress` until this correction is merged, CI is green, and the required independent
-post-merge review finds no remaining fail-closed defect. RESOLVER-V3-043 remains `in_progress`;
-RESOLVER-V3-045/046 remain `todo`; RESOLVER-V3-010 remains `blocked`.
+corpus mutation. Full details and verification are in the existing V3-044 report. This correction was merged in
+PR #177 and is included in the final PR #178 merge tree documented below.
 
 **Final focused remediation (2026-07-26):** Starting exactly from PR #177's merge commit
 `b6ff38d0226a748af1076acecc961ffa6b256b13`, baseline tests reproduced a remaining categorical
@@ -8409,9 +8408,22 @@ clarification payloads, and legitimate resolved payload retention. All focused r
 full `npm run verify` passed typecheck, lint, and formatting, then stalled after the OFF/USDA edge
 provider suites had reported passing and was terminated after more than ten minutes. Zero provider
 calls, zero benchmark cost, no live Development or Holdout run, and no frozen evidence/corpus
-mutation. **RESOLVER-V3-044 remains `in_progress` pending green GitHub CI;**
-RESOLVER-V3-043 remains `in_progress` pending RESOLVER-V3-045; RESOLVER-V3-045/046 remain `todo`;
-RESOLVER-V3-010 remains `blocked`.
+mutation.
+
+**Formal closeout (2026-07-26):** The complete implementation and correction sequence is merged:
+PR #176 introduced the confidence/clarification remediation, PR #177 enforced consumer-boundary
+sanitization and removed the unsupported global confidence cutoff, and PR #178 completed
+assumption-only material-evidence handling. PR #178 merged as
+`8d779f46b9db751916d3c6fbb5edfbc2d8594d87`; GitHub workflow **Verify**, run #319, passed. An
+independent review of the merged result found no blocking or correction-worthy finding. The final
+fixture/offline remediation verdict is `PASSED`: material evidence from either `assumptions` or
+`uncertainties` can request targeted quantity, preparation, or brand clarification, while general
+or non-material identity assumptions do not trigger blanket clarification. Non-authoritatively
+resolved components expose no selected candidate, provenance, macro, scaling, or `accepted` status.
+No live provider call occurred and no frozen V3-039 evidence file changed. This is neither a new G2
+verdict nor production authorization: live effectiveness belongs exclusively to RESOLVER-V3-048,
+and RESOLVER-V3-010 remains `blocked`. RESOLVER-V3-043 remains `in_progress` pending
+RESOLVER-V3-045; RESOLVER-V3-045 and RESOLVER-V3-046 remain `todo`.
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 

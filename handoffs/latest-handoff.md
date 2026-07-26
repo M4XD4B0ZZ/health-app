@@ -1,5 +1,45 @@
 # Latest Handoff
 
+## RESOLVER-V3-044 — Formal Post-Merge Closeout (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-044`, status **`done`**. The complete remediation sequence is
+   merged through PRs #176, #177, and #178; the final merge commit is
+   `8d779f46b9db751916d3c6fbb5edfbc2d8594d87`.
+2. **What changed:** documentation now records the final merged behavior and closes the
+   fixture-/offline-based remediation scope as `PASSED`. Material quantity, preparation, or brand
+   evidence from either `assumptions` or `uncertainties` can request targeted clarification;
+   general or non-material identity assumptions still do not trigger blanket clarification.
+   Non-authoritatively resolved components expose no selected candidate, provenance, macros,
+   scaling, or `accepted` status, and the unsupported global confidence cutoff remains removed.
+3. **Why it changed:** PR #178 and its predecessors are merged, GitHub CI passed, and independent
+   post-merge review found no remaining blocking or correction-worthy finding, so the prior
+   merge/CI/review-pending documentation was stale.
+4. **Files changed:** `ROADMAP.md`,
+   `reports/RESOLVER_V3_044_CLARIFICATION_ABSTENTION_CONFIDENCE_REMEDIATION.md`, and this handoff.
+   No source, test, corpus fixture, or frozen V3-039 evidence file changed.
+5. **Verification executed:** merged source/policy and associated policy, adapter, evaluator, and
+   aggregation test readback; Markdown formatting; `git diff --check`; documentation-only
+   status/stat/name readbacks; explicit `src/**` and frozen-evidence scope checks; `npm run verify`.
+6. **Verification result:** GitHub workflow **Verify**, run #319 for the merged implementation,
+   passed. The independent post-merge review reported no blocking or correction-worthy finding.
+   Local `npm run verify` passed typecheck, lint, and repository-wide format checking. Jest
+   continued through the full suite and reported both `SupabaseEdgeUsdaProvider.test.ts` and
+   `SupabaseEdgeOffProvider.test.ts` as passing, then emitted no further output or completion for
+   more than 30 seconds; it was manually terminated with exit code 130 rather than represented as a
+   green local run. The required documentation readbacks and scope checks passed. Provider calls:
+   0; no live run and no new live metrics.
+7. **Known issues, blockers, or residual risks:** this fixture/offline verdict is not a new G2
+   overall verdict and does not establish live effectiveness. That remains exclusively
+   RESOLVER-V3-048's responsibility. Production Wiring is not authorized; RESOLVER-V3-010 remains
+   `blocked`. RESOLVER-V3-043 remains `in_progress`; RESOLVER-V3-045 and RESOLVER-V3-046 remain
+   `todo`.
+8. **Human-review status / next steps:** implementation post-merge review is complete without a
+   residual finding. Open this documentation-only closeout PR, require its GitHub CI to pass, and
+   then merge it. The next content task is **RESOLVER-V3-045 — Haiku Interpretation Determinism and
+   Repeat-Consistency Remediation**.
+
+---
+
 ## RESOLVER-V3-044 — Assumption-Only Material Evidence (In Progress)
 
 1. **Task ID/status:** `RESOLVER-V3-044`, status **`in_progress`** pending green GitHub CI. Canonical starting commit: PR #177

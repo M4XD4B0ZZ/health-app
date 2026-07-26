@@ -138,6 +138,46 @@ export interface VariantCResponseValidationResult {
   issues: string[];
 }
 
+function deduplicateStrings(values: string[] | undefined): string[] | undefined {
+  if (!values) return undefined;
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+/** Canonicalizes representation-only provider variance after schema validation. Source priority,
+ * component order, and native-query order remain untouched because they carry domain meaning. */
+function normalizeInterpretedResponse(
+  components: InterpretedFoodComponent[],
+  searchPlan: ComponentSearchPlan[],
+): { components: InterpretedFoodComponent[]; searchPlan: ComponentSearchPlan[] } {
+  const idMap = new Map(components.map((component, index) => [component.id, `c${index + 1}`]));
+  return {
+    components: components.map((component, index) => ({
+      ...component,
+      id: `c${index + 1}`,
+      originalSegment: component.originalSegment.trim(),
+      interpretedName: component.interpretedName.trim(),
+      brand: component.brand?.trim() || undefined,
+      preparation: component.preparation?.trim() || undefined,
+      modifiers: deduplicateStrings(component.modifiers),
+      assumptions: deduplicateStrings(component.assumptions),
+      uncertainties: deduplicateStrings(component.uncertainties),
+      quantity: {
+        ...component.quantity,
+        householdMeasure: component.quantity.householdMeasure?.trim() || undefined,
+        portionDescription: component.quantity.portionDescription?.trim() || undefined,
+      },
+    })),
+    searchPlan: searchPlan.map((plan) => ({
+      ...plan,
+      componentId: idMap.get(plan.componentId)!,
+      nativeQueries: plan.nativeQueries.map((query) => ({ ...query, query: query.query.trim() })),
+      excludedSourceTypes: plan.excludedSourceTypes
+        ? [...new Set(plan.excludedSourceTypes)]
+        : undefined,
+    })),
+  };
+}
+
 export function validateVariantCRawResponse(raw: unknown): VariantCResponseValidationResult {
   const issues: string[] = [];
   if (typeof raw !== 'object' || raw === null) {
@@ -191,6 +231,18 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
   const searchPlan = Array.isArray(body.searchPlan) ? body.searchPlan : [];
   if (!Array.isArray(body.searchPlan)) issues.push('searchPlan must be an array');
   searchPlan.forEach((p, i) => validateSearchPlan(p, issues, i));
+  const componentIds = components
+    .map((component) => (component as { id?: unknown }).id)
+    .filter((id): id is string => typeof id === 'string');
+  if (new Set(componentIds).size !== componentIds.length) {
+    issues.push('components ids must be unique');
+  }
+  searchPlan.forEach((plan, index) => {
+    const componentId = (plan as { componentId?: unknown }).componentId;
+    if (typeof componentId === 'string' && !componentIds.includes(componentId)) {
+      issues.push(`searchPlan[${index}].componentId must reference an existing component`);
+    }
+  });
 
   return { valid: issues.length === 0, issues };
 }
@@ -264,17 +316,27 @@ export function parseAndNormalizeVariantCInterpretationResponse(
     return { outcome: 'not_interpretable', reason: body.reason ?? 'unspecified', meta };
   }
   if (body.outcome === 'clarification_required') {
+    const components = body.components ?? [];
+    const idMap = new Map(components.map((component, index) => [component.id, `c${index + 1}`]));
+    const normalized = normalizeInterpretedResponse(components, []);
     return {
       outcome: 'clarification_required',
-      components: body.components ?? [],
-      clarification: body.clarification as NonNullable<typeof body.clarification>,
+      components: normalized.components,
+      clarification: {
+        ...(body.clarification as NonNullable<typeof body.clarification>),
+        componentId: body.clarification?.componentId
+          ? idMap.get(body.clarification.componentId)
+          : undefined,
+        missingInformation: body.clarification!.missingInformation.trim(),
+      },
       meta,
     };
   }
+  const normalized = normalizeInterpretedResponse(body.components ?? [], body.searchPlan ?? []);
   return {
     outcome: body.outcome,
-    components: body.components ?? [],
-    searchPlan: body.searchPlan ?? [],
+    components: normalized.components,
+    searchPlan: normalized.searchPlan,
     meta,
   };
 }

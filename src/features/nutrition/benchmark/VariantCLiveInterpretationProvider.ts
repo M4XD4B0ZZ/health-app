@@ -110,6 +110,10 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         body: JSON.stringify({
           model: this.modelId,
           max_tokens: VARIANT_C_MAX_OUTPUT_TOKENS,
+          // Explicitly pin the API's supported lowest sampling temperature. Structured output and
+          // prompt constraints still carry the semantic determinism burden; this is not claimed to
+          // make the remote model mathematically deterministic.
+          temperature: 0,
           system: VARIANT_C_SYSTEM_PROMPT,
           output_config: {
             format: { type: 'json_schema', schema: VARIANT_C_RESPONSE_JSON_SCHEMA },

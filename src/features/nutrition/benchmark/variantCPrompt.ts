@@ -10,11 +10,11 @@ import { AiInterpretationRequest } from '../domain/models/AiInterpretationTypes'
  * embedded (leakage rule, spec §9).
  */
 
-export const VARIANT_C_PROMPT_VERSION = 'variant-c-prompt-v1';
+export const VARIANT_C_PROMPT_VERSION = 'variant-c-prompt-v2';
 export const VARIANT_C_SCHEMA_VERSION = 'variant-c-schema-v1';
 /** Provider-neutral interpreter identifier for `AiInterpretationMetadata.interpreterVersion` --
  * never a model/provider name (AGENTS.md "Prohibited"). */
-export const VARIANT_C_INTERPRETER_VERSION = 'variant-c-live-interpreter-v1';
+export const VARIANT_C_INTERPRETER_VERSION = 'variant-c-live-interpreter-v2';
 
 export const VARIANT_C_SYSTEM_PROMPT = `Du bist ein Interpretations- und Suchplanungssystem fuer ein Food-Logging-Produkt (DACH-Fokus: Deutschland, Oesterreich, Schweiz).
 
@@ -30,14 +30,41 @@ Du darfst NIEMALS:
 - eine Quellen-ID (BLS/OFF/USDA) erfinden,
 - Hersteller- oder Datenbankdaten vortaeuschen.
 
+Verbindliche Entscheidungsregeln:
+- Eine materielle Menge ohne belastbare Zahl oder standardisierte Einheit (zum Beispiel unscharfe
+  Woerter wie "etwas", "wenig", "ein bisschen" oder "nach Gefuehl") MUSS zu
+  outcome='clarification_required' mit clarificationKind='missing_quantity' fuehren. Erfinde dafuer
+  keine numerische Menge und uebernimm keine Standardportion als Annahme.
+- outcome='not_interpretable' ist nur fuer Eingaben ohne sinnvoll erkennbare Lebensmittelidentitaet;
+  bei erkennbarer Identitaet und gezielt fehlender Angabe ist clarification_required zu verwenden.
+- interpreted_with_assumptions ist nur fuer nicht-materielle Annahmen zulaessig, die weder Menge,
+  Identitaet, Marke noch Zubereitung autoritativ festlegen.
+- Komponenten bleiben in der Reihenfolge ihres ersten Auftretens. Vergib IDs exakt c1, c2, ... und
+  verwende dieselben IDs in searchPlan und clarification. Jeder Bestandteil hat genau einen
+  Search-Plan in derselben Reihenfolge.
+- suitableSourceTypes und nativeQueries sind Prioritaetslisten: fachliche Reihenfolge beibehalten,
+  keine alphabetische Sortierung. Wiederhole identische Annahmen, Unsicherheiten oder Queries nicht.
+
 Antworte ausschliesslich im vorgegebenen JSON-Schema.`;
 
+/**
+ * Canonicalizes representation-only differences before prompting. NFKC folds compatibility
+ * characters and whitespace is collapsed, while case and punctuation deliberately remain intact:
+ * those can distinguish brands, negation, component boundaries, and other semantics.
+ */
+export function canonicalizeVariantCInput(input: string): string {
+  return input.normalize('NFKC').replace(/\s+/gu, ' ').trim();
+}
+
 export function buildVariantCPrompt(request: AiInterpretationRequest): string {
+  const canonicalInput = canonicalizeVariantCInput(request.normalizedInput ?? request.rawInput);
   const contextLines = (request.knownUserContext ?? [])
+    .map((hint) => ({ type: hint.type, value: canonicalizeVariantCInput(hint.value) }))
+    .sort((a, b) => `${a.type}\u0000${a.value}`.localeCompare(`${b.type}\u0000${b.value}`, 'en'))
     .map((hint) => `- ${hint.type}: ${hint.value}`)
     .join('\n');
   return [
-    `Eingabe (locale=${request.locale}): "${request.rawInput}"`,
+    `Eingabe (locale=${request.locale}): "${canonicalInput}"`,
     contextLines ? `Bekannter Kontext:\n${contextLines}` : null,
     'Gib die Interpretation und den Suchplan gemaess Schema zurueck.',
   ]

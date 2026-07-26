@@ -8240,9 +8240,8 @@ under Hybrid production readiness, project priority **P0**.
 
 #### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
 
-Status: `in_progress` (2026-07-25 — Phase A complete and merged; see below. Not `done`: this task's
-umbrella acceptance names all 8 flagged case IDs, and only 1 of the 8 is fixed by Phase A — the other
-7 have explicit successor-task ownership, not silent non-fixes.)
+Status: `done` (2026-07-26 — all eight originally flagged case classes are closed offline by
+RESOLVER-V3-043/044/045/049/050; live confirmation remains exclusively RESOLVER-V3-048.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Fix the deterministic unsafe-acceptance false-confidence defects underlying G2-B's
@@ -8312,8 +8311,8 @@ the corrected reality, with the historical context preserved in comments. Full r
 `npm run typecheck` clean. This phase changed no BLS artifact, no frozen evidence, made zero provider
 calls, and did not touch the Haiku-only model policy.
 
-**This task remains `in_progress`, not `done`,** until RESOLVER-V3-049 and RESOLVER-V3-050 close the
-remaining 7 case IDs — see their entries below.
+**Historical Phase-A status:** the task remained `in_progress` until successor ownership closed the
+remaining seven case IDs. The 2026-07-26 V3-045 completion below now satisfies that condition.
 
 **Umbrella-completion statement (2026-07-25, added by RESOLVER-V3-049):** RESOLVER-V3-043 may
 close only after the assigned false-confidence work in RESOLVER-V3-044, RESOLVER-V3-045,
@@ -8422,12 +8421,14 @@ or non-material identity assumptions do not trigger blanket clarification. Non-a
 resolved components expose no selected candidate, provenance, macro, scaling, or `accepted` status.
 No live provider call occurred and no frozen V3-039 evidence file changed. This is neither a new G2
 verdict nor production authorization: live effectiveness belongs exclusively to RESOLVER-V3-048,
-and RESOLVER-V3-010 remains `blocked`. RESOLVER-V3-043 remains `in_progress` pending
-RESOLVER-V3-045; RESOLVER-V3-045 and RESOLVER-V3-046 remain `todo`.
+and RESOLVER-V3-010 remains `blocked`. **Historical closeout state:** at that point V3-043 remained
+`in_progress` pending V3-045, and V3-045/V3-046 remained `todo`; V3-045 is now complete as recorded
+below, while V3-046 remains `todo`.
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 
-Status: `todo`
+Status: `done` (2026-07-26 — conservative fixture replay improves outcome and identification
+agreement from 68.75% to 75.00%; zero live calls; live proof remains RESOLVER-V3-048.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Close (or materially narrow) the G2-G −31.25 percentage-point Variant C repeat-consistency
@@ -8452,6 +8453,17 @@ corpus's overlay groups; RESOLVER-V3-048 supplies the live proof.
 overlay group — run0 abstained, run1 resolved wrong with assumptions, run2 abstained again; the BLS
 fast path returns zero candidates for this input, confirming the inconsistency is an AI-interpretation
 determinism defect, not a fast-path one). Not fixed by RESOLVER-V3-043.
+
+**Completion (2026-07-26):** Request sampling is explicit (`temperature: 0`), prompt/interpreter
+semantics are versioned at v2, `normalizedInput` is used through conservative NFKC/whitespace
+canonicalization, and validated responses receive stable component IDs with reference-safe plan
+remapping without reordering semantic priority lists. The unchanged 16-group metric reproduces
+68.75% before and conservatively reaches 75.00% after correcting only the owned vague-quantity
+group to targeted clarification. All focused and repository verification passed; provider calls and
+cost were zero; frozen evidence/corpus/BLS artifacts are unchanged. This is no live or G2 verdict.
+Full evidence: `reports/RESOLVER_V3_045_HAIKU_INTERPRETATION_DETERMINISM_REMEDIATION.md`. With
+V3-044, V3-049, and V3-050 already complete, this closes the last expressly delegated V3-043 case
+class, so V3-043 is also `done` offline. V3-046 remains `todo`; V3-010 remains `blocked`.
 
 #### RESOLVER-V3-046: Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation
 

@@ -8276,8 +8276,8 @@ under Hybrid production readiness, project priority **P0**.
 
 #### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
 
-Status: `in_progress` (2026-07-26 post-merge correction — V3-045's final owned AI-routed
-class lacks measured after-evidence; the other remediations remain complete.)
+Status: `done` (2026-07-26 — deterministic implementation scope complete; live effectiveness
+remains explicitly unverified and belongs only to RESOLVER-V3-048.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Fix the deterministic unsafe-acceptance false-confidence defects underlying G2-B's
@@ -8465,8 +8465,8 @@ complete, but the post-merge correction below returns it to `in_progress`; V3-04
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 
-Status: `in_progress` (2026-07-26 post-merge correction — 68.75% is fixture-measured; 75.00%
-is a derived counterfactual, not an executed after-value.)
+Status: `done` (2026-07-26 — deterministic implementation and regression scope complete; 68.75%
+is fixture-measured, 75.00% remains derived counterfactual, and live effect is unverified.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Close (or materially narrow) the G2-G −31.25 percentage-point Variant C repeat-consistency
@@ -8513,9 +8513,17 @@ unchanged. Full evidence:
 `reports/RESOLVER_V3_045_HAIKU_INTERPRETATION_DETERMINISM_REMEDIATION.md`. V3-046 remains `todo`;
 V3-010 remains `blocked`.
 
+**Taskgraph correction (RESOLVER-V3-046, 2026-07-26):** implementation completion is now
+separate from live-effectiveness verification. V3-043 and V3-045 are `done` because their owned
+deterministic code, policy, integrity, and fixture-regression criteria are complete. This does not
+claim a measured 75% rate, live repeat-consistency improvement, false-confidence improvement, or G2
+success. Those effects remain live-unverified and exclusively owned by V3-048. The former cycle is
+therefore removed without changing V3-048's evidence burden. V3-010 remains `blocked`.
+
 #### RESOLVER-V3-046: Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation
 
-Status: `todo`
+Status: `done` (2026-07-26 — offline response-contract, parser, taxonomy, telemetry/ledger and
+latency-budget remediation complete; live reliability and p95 remain unverified for V3-048.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Fix the 16/263 (6.08%) terminal-failure rate — including the 8 `httpStatus=200`-but-
@@ -8538,6 +8546,18 @@ tests where feasible without live calls.
 budget plan; RESOLVER-V3-048 supplies the live proof.
 **Provider-call policy:** zero provider calls.
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+**Completion (2026-07-26):** Full fail-closed validation now covers every component,
+quantity, search-plan, native-query and clarification field consumed after validation. A closed
+failure taxonomy distinguishes transport, abort, HTTP, envelope JSON, missing text, text JSON,
+schema/contract, internal parser, and budget/config failures. HTTP-200 failures become
+`invalid_response`, never `network_error`; returned usage/cost remains accounted. The historical
+16-failure replay confirms eight usage-reported, cost-bearing HTTP-200 failures, while their narrower
+subcause remains unknown because response text was not persisted. Current protocol retains zero
+automatic retries; only transient transport/abort and 408/429/5xx classes are future-eligible within
+a newly reserved protocol-v4 budget. The 12,000 ms limit is unchanged; no new p95 is claimed.
+Report: `reports/RESOLVER_V3_046_HAIKU_RESPONSE_RELIABILITY_LATENCY_REMEDIATION.md`. Calls 0, cost
+USD 0, no live/corpus/evaluator/production effect. V3-048 owns live proof; V3-010 remains blocked.
 
 #### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
 

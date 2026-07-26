@@ -1,5 +1,38 @@
 # Latest Handoff
 
+## RESOLVER-V3-046 — Response Reliability and Latency Remediation (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-046` is `done`; deterministic implementation tasks
+   `RESOLVER-V3-043` and `RESOLVER-V3-045` are also `done` under the explicit implementation/live-
+   proof separation. Basis `8413c668422cee41c61c0e70d6005366e0f8668e`; no configured remote was
+   available to independently fetch the remote tip. V3-048 remains `todo`; V3-010 remains `blocked`.
+2. **What changed:** completed fail-closed Variant-C response validation; added transport/timeout/
+   HTTP/envelope-JSON/text-block/text-JSON/schema-contract/internal-parser/budget-config taxonomy;
+   propagated precise class and retryability through metadata, telemetry and ledger; preserved
+   usage/cost for HTTP-200 response failures; documented the 16 historical cases and offline latency
+   budget.
+3. **Why it changed:** optional component fields could pass validation then throw from `.trim()` or
+   `.map()`, and the telemetry wrapper labeled every Variant-C error `network_error`, including eight
+   HTTP-200, usage-reported and cost-bearing failures.
+4. **Files changed:** Variant-C provider, types, validator and tests; live usage, telemetry and ledger
+   metadata/tests; `reports/RESOLVER_V3_046_HAIKU_RESPONSE_RELIABILITY_LATENCY_REMEDIATION.md`,
+   `ROADMAP.md`, and this handoff.
+5. **Verification executed:** failing focused baseline; focused provider/parser/telemetry/ledger
+   suites; typecheck, lint, format check, full `npm run verify`, `git diff --check`; evidence hashes
+   and protected-path checks.
+6. **Verification result:** failing baseline reproduced five malformed optional-field failures (four
+   escaping `TypeError`s and one invalid acceptance). Final focused provider/parser/adapter/report/
+   ledger/telemetry run passed 7 suites / 85 tests. Typecheck, lint, format check and diff check
+   passed. `npm run verify` reached its full-Jest phase but did not terminate (the known local
+   runner symptom) and was interrupted; it is not claimed green. Green GitHub CI is required before
+   merge. Provider calls 0; cost USD 0; no live Development/Holdout execution.
+7. **Known issues/blockers/residual risks:** frozen evidence cannot distinguish JSON/schema/contract
+   subcauses for the eight HTTP-200 rows because it persisted no response/parser signal. No new p95
+   is measured or claimed; the 12,000 ms limit is unchanged. V3-047 owns candidate evaluation and
+   V3-048 exclusively owns new live reliability/latency evidence and any G2 re-decision.
+8. **Human-review/next steps:** review taxonomy compatibility and taskgraph separation, require green
+   CI, and merge only after confirming remote base currency. No production-wiring authorization.
+
 ## CI-VERIFY-001 — Canonical Verify Runtime Analysis (In Progress)
 
 1. **Task ID/status:** `CI-VERIFY-001`, status **`in_progress`**. Basis: PR #181 is merged at

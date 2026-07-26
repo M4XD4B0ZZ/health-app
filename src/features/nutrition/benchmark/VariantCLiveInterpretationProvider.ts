@@ -6,6 +6,7 @@ import {
   VariantCAiCallMetadata,
   VariantCAiInterpretationCall,
   VariantCAiInterpreter,
+  VariantCProviderFailureKind,
 } from './VariantCTypes';
 import {
   VARIANT_C_RESPONSE_JSON_SCHEMA,
@@ -123,14 +124,17 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       });
     } catch (e) {
       const latencyMs = performance.now() - start;
+      const failureKind: VariantCProviderFailureKind = isAbortError(e)
+        ? 'timeout_abort'
+        : 'transport_error';
       const result = parseAndNormalizeVariantCInterpretationResponse(
         null,
-        `network error calling Anthropic: ${(e as Error).message}`,
+        `${failureKind}: ${safeErrorMessage(e)}`,
         latencyMs,
         request.traceId,
       );
       reservation?.release();
-      return { result, runMeta: unknownCost(null, latencyMs) };
+      return { result, runMeta: unknownCost(null, latencyMs, failureKind, true) };
     }
 
     const latencyMs = performance.now() - start;
@@ -138,14 +142,25 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     try {
       data = await response.json();
     } catch (e) {
+      const failureKind: VariantCProviderFailureKind = response.ok
+        ? 'http_envelope_json_error'
+        : 'http_error';
       const result = parseAndNormalizeVariantCInterpretationResponse(
         null,
-        `could not parse Anthropic response as JSON: ${(e as Error).message}`,
+        `${failureKind}: ${safeErrorMessage(e)}`,
         latencyMs,
         request.traceId,
       );
       reservation?.release();
-      return { result, runMeta: unknownCost(null, latencyMs) };
+      return {
+        result,
+        runMeta: unknownCost(
+          response.status,
+          latencyMs,
+          failureKind,
+          isRetryableHttp(response.status),
+        ),
+      };
     }
 
     if (!response.ok) {
@@ -158,7 +173,15 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         request.traceId,
       );
       reservation?.release();
-      return { result, runMeta: unknownCost(null, latencyMs) };
+      return {
+        result,
+        runMeta: unknownCost(
+          response.status,
+          latencyMs,
+          'http_error',
+          isRetryableHttp(response.status),
+        ),
+      };
     }
 
     const body = data as {
@@ -171,12 +194,25 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       };
     };
     const textBlock = body.content?.find((block) => block.type === 'text');
-    const result: AiInterpretationResult = parseAndNormalizeVariantCInterpretationResponse(
-      textBlock?.text ?? null,
-      null,
-      latencyMs,
-      request.traceId,
-    );
+    let result: AiInterpretationResult;
+    let failureKind: VariantCProviderFailureKind | null = null;
+    try {
+      result = parseAndNormalizeVariantCInterpretationResponse(
+        textBlock?.text ?? null,
+        null,
+        latencyMs,
+        request.traceId,
+      );
+      failureKind = classifyResponseFailure(textBlock?.text, result);
+    } catch (e) {
+      failureKind = 'internal_parser_error';
+      result = parseAndNormalizeVariantCInterpretationResponse(
+        null,
+        `internal_parser_error: parser boundary failed closed (${safeErrorMessage(e)})`,
+        latencyMs,
+        request.traceId,
+      );
+    }
     const usage = {
       inputTokens: body.usage?.input_tokens ?? 0,
       outputTokens: body.usage?.output_tokens ?? 0,
@@ -184,7 +220,14 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       cacheReadTokens: body.usage?.cache_read_input_tokens ?? null,
     };
     reservation?.release();
-    return { result, runMeta: this.computeCostUsd(usage, response.status, latencyMs) };
+    return {
+      result,
+      runMeta: {
+        ...this.computeCostUsd(usage, response.status, latencyMs),
+        failureKind,
+        retryable: false,
+      },
+    };
   }
 
   private computeCostUsd(
@@ -225,7 +268,12 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
   }
 }
 
-function unknownCost(httpStatus: number | null, providerLatencyMs: number): VariantCAiCallMetadata {
+function unknownCost(
+  httpStatus: number | null,
+  providerLatencyMs: number,
+  failureKind: VariantCProviderFailureKind,
+  retryable: boolean,
+): VariantCAiCallMetadata {
   return {
     costUsd: null,
     pricingStatus: 'unknown',
@@ -235,5 +283,30 @@ function unknownCost(httpStatus: number | null, providerLatencyMs: number): Vari
     cacheReadTokens: null,
     httpStatus,
     providerLatencyMs,
+    failureKind,
+    retryable,
   };
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'AbortError' || /abort/i.test(error.message));
+}
+
+function safeErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown provider failure';
+}
+
+function isRetryableHttp(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function classifyResponseFailure(
+  text: string | undefined,
+  result: AiInterpretationResult,
+): VariantCProviderFailureKind | null {
+  if (result.outcome !== 'error') return null;
+  if (text === undefined) return 'missing_text_block';
+  if (result.message.startsWith('internal_parser_error:')) return 'internal_parser_error';
+  if (result.message.includes('could not parse response as JSON')) return 'text_block_json_error';
+  return 'schema_contract_error';
 }

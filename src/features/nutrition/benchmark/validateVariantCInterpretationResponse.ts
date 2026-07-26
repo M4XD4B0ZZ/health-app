@@ -44,6 +44,17 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function validateOptionalString(value: unknown, issues: string[], path: string): void {
+  if (value !== undefined && typeof value !== 'string') issues.push(`${path} must be a string`);
+}
+
+function validateOptionalStringArray(value: unknown, issues: string[], path: string): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
+    issues.push(`${path} must be an array of strings`);
+  }
+}
+
 function validateQuantity(value: unknown, issues: string[], prefix: string): boolean {
   if (typeof value !== 'object' || value === null) {
     issues.push(`${prefix}.quantity must be an object`);
@@ -52,6 +63,9 @@ function validateQuantity(value: unknown, issues: string[], prefix: string): boo
   const quantity = value as Record<string, unknown>;
   if (quantity.value !== undefined && typeof quantity.value !== 'number') {
     issues.push(`${prefix}.quantity.value must be a number`);
+  }
+  if (typeof quantity.value === 'number' && !Number.isFinite(quantity.value)) {
+    issues.push(`${prefix}.quantity.value must be finite`);
   }
   if (quantity.unit !== undefined && !QUANTITY_UNITS.includes(quantity.unit as never)) {
     issues.push(`${prefix}.quantity.unit must be one of ${QUANTITY_UNITS.join(', ')}`);
@@ -84,6 +98,11 @@ function validateComponent(
     issues.push(`${prefix}.originalSegment is required`);
   if (!isNonEmptyString(component.interpretedName))
     issues.push(`${prefix}.interpretedName is required`);
+  validateOptionalString(component.brand, issues, `${prefix}.brand`);
+  validateOptionalString(component.preparation, issues, `${prefix}.preparation`);
+  validateOptionalStringArray(component.modifiers, issues, `${prefix}.modifiers`);
+  validateOptionalStringArray(component.assumptions, issues, `${prefix}.assumptions`);
+  validateOptionalStringArray(component.uncertainties, issues, `${prefix}.uncertainties`);
   if (typeof component.confidence !== 'number' || !Number.isFinite(component.confidence)) {
     issues.push(`${prefix}.confidence must be a finite number`);
   }
@@ -126,6 +145,13 @@ function validateSearchPlan(
         issues.push(`${prefix}.nativeQueries[${qi}].query is required`);
       }
     });
+  }
+  if (plan.excludedSourceTypes !== undefined) {
+    if (!Array.isArray(plan.excludedSourceTypes)) {
+      issues.push(`${prefix}.excludedSourceTypes must be an array`);
+    } else if (!plan.excludedSourceTypes.every((t) => SOURCE_TYPES.includes(t))) {
+      issues.push(`${prefix}.excludedSourceTypes must only contain ${SOURCE_TYPES.join(', ')}`);
+    }
   }
   if (!RESOLUTION_KINDS.includes(plan.expectedResolutionKind as never)) {
     issues.push(`${prefix}.expectedResolutionKind must be one of ${RESOLUTION_KINDS.join(', ')}`);
@@ -305,7 +331,17 @@ export function parseAndNormalizeVariantCInterpretationResponse(
     };
   }
 
-  const { valid, issues } = validateVariantCRawResponse(parsed);
+  let validation: VariantCResponseValidationResult;
+  try {
+    validation = validateVariantCRawResponse(parsed);
+  } catch (e) {
+    return {
+      outcome: 'error',
+      message: `internal_parser_error: validation failed closed (${safeErrorMessage(e)})`,
+      meta: { ...meta, executionStatus: 'failed' },
+    };
+  }
+  const { valid, issues } = validation;
   if (!valid) {
     return {
       outcome: 'error',
@@ -326,33 +362,45 @@ export function parseAndNormalizeVariantCInterpretationResponse(
     reason?: string;
   };
 
-  if (body.outcome === 'not_interpretable') {
-    return { outcome: 'not_interpretable', reason: body.reason ?? 'unspecified', meta };
-  }
-  if (body.outcome === 'clarification_required') {
-    const components = body.components ?? [];
-    const idMap = new Map(components.map((component, index) => [component.id, `c${index + 1}`]));
-    const normalized = normalizeInterpretedResponse(components, []);
+  try {
+    if (body.outcome === 'not_interpretable') {
+      return { outcome: 'not_interpretable', reason: body.reason ?? 'unspecified', meta };
+    }
+    if (body.outcome === 'clarification_required') {
+      const components = body.components ?? [];
+      const idMap = new Map(components.map((component, index) => [component.id, `c${index + 1}`]));
+      const normalized = normalizeInterpretedResponse(components, []);
+      return {
+        outcome: 'clarification_required',
+        components: normalized.components,
+        clarification: {
+          ...(body.clarification as NonNullable<typeof body.clarification>),
+          componentId: body.clarification?.componentId
+            ? idMap.get(body.clarification.componentId)
+            : undefined,
+          missingInformation: body.clarification!.missingInformation.trim(),
+        },
+        meta,
+      };
+    }
+    const normalized = normalizeInterpretedResponse(body.components ?? [], body.searchPlan ?? []);
     return {
-      outcome: 'clarification_required',
+      outcome: body.outcome,
       components: normalized.components,
-      clarification: {
-        ...(body.clarification as NonNullable<typeof body.clarification>),
-        componentId: body.clarification?.componentId
-          ? idMap.get(body.clarification.componentId)
-          : undefined,
-        missingInformation: body.clarification!.missingInformation.trim(),
-      },
+      searchPlan: normalized.searchPlan,
       meta,
     };
+  } catch (e) {
+    return {
+      outcome: 'error',
+      message: `internal_parser_error: normalization failed closed (${safeErrorMessage(e)})`,
+      meta: { ...meta, executionStatus: 'failed' },
+    };
   }
-  const normalized = normalizeInterpretedResponse(body.components ?? [], body.searchPlan ?? []);
-  return {
-    outcome: body.outcome,
-    components: normalized.components,
-    searchPlan: normalized.searchPlan,
-    meta,
-  };
+}
+
+function safeErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown parser failure';
 }
 
 // Kept for callers that only need the version constant without importing the prompt module.

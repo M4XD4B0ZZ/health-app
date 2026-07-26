@@ -1,10 +1,56 @@
 # Latest Handoff
 
-## RESOLVER-V3-045 — Haiku Interpretation Determinism and Repeat-Consistency Remediation (Done)
+## RESOLVER-V3-045 — Post-Merge Evidence and Reference-Integrity Correction (In Progress)
 
-1. **Task ID/status:** `RESOLVER-V3-045`, status **`done`**; `RESOLVER-V3-043` is also **`done`**
-   because V3-044/045/049/050 now close every expressly delegated class in its eight-case offline
-   inventory. Basis: `9eb9639721bc8bd9f2c6f4d2885e2a4e8dcfd7ff`. PR #179 is merged at that
+1. **Task ID/status:** `RESOLVER-V3-045`, status **`in_progress`**; `RESOLVER-V3-043` is also
+   **`in_progress`** because its umbrella closeout depended on V3-045's unmeasured final owned
+   class. Starting point: PR #180 merge commit
+   `2710832d2d5505d514d015c32964fc31ad48a970`; GitHub Verify run #323 was green.
+2. **What changed:** added baseline/regression coverage that distinguishes an unchanged fixture
+   metric from post-hoc record mutation; made clarification component references and duplicate IDs
+   fail closed; enforced exactly one search plan per interpreted component; proved the real adapter
+   request omits `normalizedInput` because `BenchmarkCase` has no authoritative value; corrected
+   the report and Roadmap evidence/status claims.
+3. **Why it changed:** PR #180 described a directly mutated 75% counterfactual as offline measured
+   improvement, allowed invalid clarification references to disappear during normalization, and
+   inferred real-path `normalizedInput` use from an isolated prompt-helper test.
+4. **Files changed:** Variant C determinism and adapter tests, Variant C response validator,
+   `reports/RESOLVER_V3_045_HAIKU_INTERPRETATION_DETERMINISM_REMEDIATION.md`, `ROADMAP.md`, and this
+   handoff.
+5. **Verification executed:** pre-fix focused baseline; prompt/provider/parser/adapter suites;
+   V3-043/044/049/050/051 and Representative Hybrid consistency regressions; typecheck, lint,
+   format check, full `npm run verify`, `git diff --check`, frozen-evidence manifest SHA-256, and
+   Git/path integrity checks.
+6. **Verification result:** the pre-fix baseline exited 1 with the two expected reference-integrity
+   failures (2 failed, 29 passed); the request-path and metric tests reproduced the other findings.
+   Final focused prompt/provider/adapter suites passed (3 suites / 36 tests), and the split
+   V3-044 policy/quantity run passed (2 suites / 15 tests). The larger 13-suite regression command
+   visibly passed V3-043, V3-049, V3-050 call-path, V3-051 generic safety, and Representative
+   Hybrid metrics/protocol suites but did not terminate or print a Jest summary; it was interrupted
+   with exit 130 and is not represented as wholly green. `npm run typecheck`, `npm run lint`, and
+   `npm run format:check` passed. `npm run verify` passed those same three stages; its full Jest run
+   continued through many passing suites and repeated OFF/USDA provider logs but did not terminate
+   after more than three minutes, so it was interrupted with exit 130 and is not claimed green.
+   `git diff --check`, package/base/path integrity, and all seven frozen-evidence SHA-256 checks
+   passed. Green GitHub CI remains required. Evidence status: 68.75% is fixture-executed/measured from frozen records; 75.00% is derived counterfactual; prompt
+   effectiveness is live-unverified; no measured offline after-rate exists. Provider calls: 0; cost:
+   USD 0.
+7. **Known issues, blockers, or residual risks:** V3-045's unchanged acceptance criterion is not yet
+   satisfied. Temperature/prompt changes may affect a provider but cannot generate semantic
+   after-evidence offline. V3-048 owns controlled live proof; V3-046 retains broader contract and
+   reliability scope. V3-010 remains `blocked`. No frozen evidence, corpus, ground truth, metric,
+   provider/model, production wiring, UI, journal, Supabase, or DI change occurred.
+8. **Human-review status / next steps:** require green GitHub CI, review the evidence correction,
+   and merge only if the fail-closed behavior and restored task statuses are accepted. Do not treat
+   the 75% counterfactual as a release or production-wiring signal.
+
+---
+
+## RESOLVER-V3-045 — Historical PR #180 Handoff (Superseded by Post-Merge Correction)
+
+1. **Historical status (superseded):** PR #180 marked `RESOLVER-V3-045` and `RESOLVER-V3-043`
+   `done`; the post-merge correction above restores both to `in_progress` because the final owned
+   class lacks measured after-evidence. Basis: `9eb9639721bc8bd9f2c6f4d2885e2a4e8dcfd7ff`. PR #179 is merged at that
    commit, GitHub Verify run #321 succeeded, and V3-044 is complete.
 2. **What changed:** pinned the Variant C request to explicit lowest-temperature sampling; versioned
    and tightened vague-quantity/ordering/ID prompt semantics; deterministically consumes
@@ -26,9 +72,9 @@
    Jest phase did not terminate after 3 minutes 11 seconds; it was interrupted with exit 130 after
    repeated OFF-provider invocation logs and is not represented as green. The OFF/USDA suites then
    passed in isolation (2 suites / 14 tests / 9.142 s). Green GitHub CI is required before merge.
-   The unchanged 16-group calculation reproduces 68.75% outcome/identification agreement; the
-   conservative owned-group-only replay reaches 75.00%. The owned group is 3/3 targeted
-   clarification offline. Provider calls: 0; cost: USD 0.
+   The unchanged 16-group calculation reproduces 68.75% outcome/identification agreement. The
+   formerly described 75.00% and 3/3 clarification result were produced by direct record mutation
+   and are derived counterfactuals, not executed offline after-evidence. Provider calls: 0; cost: USD 0.
 7. **Known issues, blockers, or residual risks:** no remote is configured and private HTTPS access
    has no credentials, so remote-tip verification beyond the supplied/current matching merge,
    push, open-PR conflict inspection, and GitHub CI cannot be performed locally. Explicit

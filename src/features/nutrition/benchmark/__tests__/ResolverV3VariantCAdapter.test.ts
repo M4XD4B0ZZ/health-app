@@ -123,6 +123,27 @@ describe('ResolverV3VariantCAdapter — fast path', () => {
     await runVariantCCase(caseFor(), deps);
     expect(interpretSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('does not invent normalizedInput when BenchmarkCase has no authoritative normalized input', async () => {
+    const provider = new StaticAiProvider({
+      outcome: 'not_interpretable',
+      reason: 'test reason',
+      meta: baseMeta,
+    });
+    const interpretSpy = jest.spyOn(provider, 'interpret');
+
+    await runVariantCCase(caseFor({ rawInput: '  Marke, nicht Banane  ' }), {
+      aiInterpreter: new FixtureCostAiInterpreter(provider),
+      fastPathResolver: rejectingResolver(),
+    });
+
+    expect(interpretSpy).toHaveBeenCalledWith({
+      rawInput: '  Marke, nicht Banane  ',
+      locale: 'de',
+      traceId: 'resolver-v3-variant-c:RV3-TEST',
+    });
+    expect(interpretSpy.mock.calls[0][0].normalizedInput).toBeUndefined();
+  });
 });
 
 describe('ResolverV3VariantCAdapter — AI outcome normalization', () => {

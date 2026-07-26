@@ -207,6 +207,12 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
   const components = Array.isArray(body.components) ? body.components : [];
   if (!Array.isArray(body.components)) issues.push('components must be an array');
   components.forEach((c, i) => validateComponent(c, issues, i));
+  const componentIds = components
+    .map((component) => (component as { id?: unknown }).id)
+    .filter((id): id is string => typeof id === 'string');
+  if (new Set(componentIds).size !== componentIds.length) {
+    issues.push('components ids must be unique');
+  }
 
   if (outcome === 'clarification_required') {
     const clarification = body.clarification;
@@ -221,6 +227,12 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
           `clarification.clarificationKind must be one of ${CLARIFICATION_KINDS.join(', ')}`,
         );
       }
+      if (
+        c.componentId !== undefined &&
+        (!isNonEmptyString(c.componentId) || !componentIds.includes(c.componentId))
+      ) {
+        issues.push('clarification.componentId must reference an existing component');
+      }
     }
     return { valid: issues.length === 0, issues };
   }
@@ -231,16 +243,18 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
   const searchPlan = Array.isArray(body.searchPlan) ? body.searchPlan : [];
   if (!Array.isArray(body.searchPlan)) issues.push('searchPlan must be an array');
   searchPlan.forEach((p, i) => validateSearchPlan(p, issues, i));
-  const componentIds = components
-    .map((component) => (component as { id?: unknown }).id)
-    .filter((id): id is string => typeof id === 'string');
-  if (new Set(componentIds).size !== componentIds.length) {
-    issues.push('components ids must be unique');
-  }
+  const planCounts = new Map<string, number>();
   searchPlan.forEach((plan, index) => {
     const componentId = (plan as { componentId?: unknown }).componentId;
     if (typeof componentId === 'string' && !componentIds.includes(componentId)) {
       issues.push(`searchPlan[${index}].componentId must reference an existing component`);
+    } else if (typeof componentId === 'string') {
+      planCounts.set(componentId, (planCounts.get(componentId) ?? 0) + 1);
+    }
+  });
+  componentIds.forEach((componentId) => {
+    if (planCounts.get(componentId) !== 1) {
+      issues.push(`component ${componentId} must have exactly one search plan`);
     }
   });
 

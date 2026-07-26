@@ -86,7 +86,7 @@ describe('Variant C confidence, abstention, and clarification policy', () => {
     expect(decision.action).toBe('continue');
   });
 
-  it('uses identity clarification below the evidence threshold instead of accepting model confidence', () => {
+  it('does not invent a global confidence cutoff without categorical uncertainty evidence', () => {
     const decision = decideVariantCInterpretationConfidence(
       interpreted(
         {
@@ -99,7 +99,7 @@ describe('Variant C confidence, abstention, and clarification policy', () => {
         'interpreted',
       ),
     );
-    expect(decision.clarification?.clarificationKind).toBe('ambiguous_food_identity');
+    expect(decision.action).toBe('continue');
   });
 
   it('turns a recognized but retrieval-unresolved component into clarification, not abstention', () => {

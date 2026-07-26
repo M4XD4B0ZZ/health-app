@@ -8331,7 +8331,7 @@ owned AI-routed cases and RESOLVER-V3-045's one owned AI-routed/consistency case
 
 #### RESOLVER-V3-044: Clarification, Abstention, and Confidence-Policy Remediation
 
-Status: `done` (2026-07-25; fixture-only remediation complete; live proof remains RESOLVER-V3-048)
+Status: `in_progress` (2026-07-26; post-merge fail-closed correction implemented locally; remains open until PR merge, green CI, and independent post-merge review)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Improve G2-C's poor abstention-correctness (~4.65% Development, ~5.88% Holdout, per
@@ -8362,8 +8362,9 @@ all (it returns zero candidates for both); the false confidence originates entir
 AI-routed confidence policy this task is scoped to fix. Not fixed by RESOLVER-V3-043.
 
 **Implementation (2026-07-25):** Added the Variant-C-only, versioned
-`variant-c-confidence-policy-v1`. Model confidence is treated as weak evidence: a low-confidence
-single component clarifies, explicit unresolved quantity/preparation/brand uncertainty in an
+`variant-c-confidence-policy-v1`. Model confidence is treated as weak diagnostic evidence; the
+original standalone low-confidence cutoff was removed by the post-merge correction below. Explicit
+unresolved quantity/preparation/brand uncertainty in an
 assumption-bearing interpretation selects the smallest corresponding clarification before source
 retrieval, and a recognized component that retrieval cannot resolve clarifies rather than becoming
 a mechanically incorrect abstention. Genuine `not_interpretable` outcomes still abstain; partial
@@ -8375,6 +8376,23 @@ metric/evaluator, provider, or production wiring code changed. Zero provider cal
 RESOLVER-V3-039 evidence files remain byte-identical. Full evidence and residual-risk statement:
 `reports/RESOLVER_V3_044_CLARIFICATION_ABSTENTION_CONFIDENCE_REMEDIATION.md`. RESOLVER-V3-048
 retains live-proof responsibility; RESOLVER-V3-010 remains `blocked`.
+
+**Post-merge correction (2026-07-26):** Review of PR #176's merge commit `22c47409` found the
+post-retrieval all-unresolved clarification path returned internal selected-candidate payloads.
+Variant C now sanitizes every non-authoritatively-resolved component at the final result boundary:
+selected name/score/source provenance, macros, scaled nutrients, and grams are cleared; partial
+results retain them only on fully resolved components; non-complete meal totals remain null.
+An independent follow-up audit also found and closed a residual authoritative status leak: an
+unauthorized component can no longer retain `resolverStatus: accepted`; it is downgraded to
+`rejected`, while diagnostic ambiguous/not-searched/rejected states remain.
+Multiple-candidate results are now reachable and expose diagnostics without a single selection.
+The global `0.5` confidence cutoff was removed because no canonical fixture/corpus derivation or
+sensitivity evidence exists; categorical uncertainty still drives both owned quantity
+clarifications. Zero provider calls, zero benchmark cost, no live run, and no frozen evidence or
+corpus mutation. Full details and verification are in the existing V3-044 report. Status remains
+`in_progress` until this correction is merged, CI is green, and the required independent
+post-merge review finds no remaining fail-closed defect. RESOLVER-V3-043 remains `in_progress`;
+RESOLVER-V3-045/046 remain `todo`; RESOLVER-V3-010 remains `blocked`.
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 

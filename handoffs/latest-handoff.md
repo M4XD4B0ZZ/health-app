@@ -1,5 +1,39 @@
 # Latest Handoff
 
+## CI-VERIFY-001 — Canonical Verify Runtime Analysis (In Progress)
+
+1. **Task ID/status:** `CI-VERIFY-001`, status **`in_progress`**. Basis: PR #181 is merged at
+   `b2b7e196ab992b8b7f46f626cbf991fbff8ae304`; supplied GitHub Verify run #325 succeeded, and an
+   independent post-merge review reported no further blocking finding. `RESOLVER-V3-045` and its
+   umbrella `RESOLVER-V3-043` deliberately remain **`in_progress`** for the already-documented
+   evidence reasons.
+2. **What changed:** added a standalone CI runtime analysis and canonical Roadmap state. The Verify
+   workflow and Jest/package scripts remain byte-for-byte unchanged because no safe material gain
+   was proved in this environment.
+3. **Why it changed:** authenticated run #323/#325 logs, step timings, branch-protection settings,
+   merge-queue settings, and a real PR candidate run are unavailable from this checkout. Local
+   experiments also showed severe shard imbalance and reproduced the non-terminating full Jest
+   symptom. Accepting a multi-job design without those missing measurements would violate the
+   task's runner-cost and branch-protection acceptance gates.
+4. **Files changed:** `reports/CI_VERIFY_001_CANONICAL_VERIFY_RUNTIME_ANALYSIS.md`, `ROADMAP.md`, and
+   this handoff only.
+5. **Verification executed:** governance/readback searches; base-commit check; focused OFF/USDA
+   `--detectOpenHandles`; Jest shard 1 and shard 2 experiments; two-worker experiments with and
+   without JSON reporting; YAML readback; documentation-only Git status/stat/name and
+   `git diff --check` checks.
+6. **Verification result:** focused OFF/USDA passed (2 suites / 14 tests / 12.632 s); shard 1 passed
+   (123 suites / 1,215 tests / 83.248 s); shard 2 timed out after 600.023 s and is not claimed green;
+   two-worker and full in-band observations did not terminate and are not claimed green. No
+   production/provider call occurred. GitHub CI is **not available yet** and this task is not done.
+7. **Known issues, blockers, or residual risks:** private GitHub telemetry and configuration cannot
+   be read because this checkout has no remote, `gh`, credentials, or public Actions API access.
+   The local full-suite noncompletion is narrowed away from the isolated OFF/USDA provider tests
+   but not root-caused. No documentation-only classifier or aggregator was merged, so there is no
+   risk of their hiding a failure; their required tests remain pending if those designs are revived.
+8. **Human-review status / next steps:** publish this evidence-only PR if remote access is restored,
+   require its normal Verify check, then continue CI-VERIFY-001 on a follow-up candidate branch with
+   authenticated baseline and PR timing. Do not merge a workflow split merely from local timing.
+
 ## RESOLVER-V3-045 — Post-Merge Evidence and Reference-Integrity Correction (In Progress)
 
 1. **Task ID/status:** `RESOLVER-V3-045`, status **`in_progress`**; `RESOLVER-V3-043` is also

@@ -5919,6 +5919,42 @@ is now explicitly RESOLVER-V3-009 below — see
 
 ## EPIC: Developer Tooling & Verification
 
+#### CI-VERIFY-001: Canonical Verify Workflow Runtime Optimization
+
+Status: `in_progress` (measurement/review complete locally; no workflow change accepted without a
+real GitHub PR timing result)
+Depends on: none
+
+**Goal:** materially shorten time to the branch-protection `Verify / verify` result without losing
+typecheck, lint, format, or Jest coverage and without hiding failures or multiplying runner cost
+without evidence.
+
+**Current evidence (2026-07-26):** the supplied canonical base is PR #181's merge commit
+`b2b7e196ab992b8b7f46f626cbf991fbff8ae304`; Verify run #325 was reported green. This checkout has
+no configured remote, GitHub CLI, API credentials, or public Actions access, so run #323/#325 job
+logs and step timestamps could not be independently retrieved. Controlled local experiments found
+that Jest's deterministic `--shard=1/2` allocation is strongly imbalanced: shard 1 completed 123
+suites / 1,215 tests in 83.248 s, while shard 2 did not complete within 600.023 s in this constrained
+environment. A two-worker run likewise did not complete within the observation window. The
+historical single-process behavior was reproduced: all late OFF/USDA suites can report `PASS`
+without a prompt process completion. The OFF/USDA pair itself passes with `--detectOpenHandles`
+(2 suites / 14 tests / 12.632 s), so no provider lifecycle defect or real network path was proved;
+the full-process residual remains open. See
+`reports/CI_VERIFY_001_CANONICAL_VERIFY_RUNTIME_ANALYSIS.md`.
+
+**Decision:** keep `.github/workflows/verify.yml`, `npm run verify`, and `jest --runInBand`
+unchanged. The available evidence does not justify accepting parallel workers, two separately
+installed runner shards, a documentation fast path, or trigger changes. In particular, no claimed
+wall-clock win or runner-minute budget can be validated without the private Actions logs and a real
+PR run. This fail-safe outcome is explicitly permitted by the task: a more complicated CI without
+a proved material improvement is not an improvement.
+
+**Remaining acceptance work:** obtain authenticated run #323/#325 job/step/log data; run candidate
+workflows on a PR; prove suite-set equality and exactly-once execution; exercise success/failure of
+an `if: always()` aggregator if sharding is selected; test documentation-only classification in the
+actual merge-base/event environment; compare wall-clock and summed runner-minutes; only then accept
+an implementation and mark this task `done`.
+
 #### WEB-001: Restore Reproducible Expo Web Runtime
 
 Status: `done`

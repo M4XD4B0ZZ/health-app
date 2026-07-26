@@ -324,6 +324,60 @@ describe('ResolverV3VariantCAdapter — search-plan-constrained retrieval', () =
 });
 
 describe('ResolverV3VariantCAdapter — provenance and AI-nutrient isolation', () => {
+  it('fails closed before retrieval for an assumption-only material quantity', async () => {
+    const candidate = {
+      food: {
+        id: 'bls-1',
+        name: 'Magerquark',
+        normalizedName: 'magerquark',
+        macrosPer100g: { kcal: 66, protein: 11.85, carbs: 3.68, fat: 0.18 },
+        source: 'bls' as const,
+        sourceId: 'M713100',
+      },
+      match: { exact: true, similarity: 1 },
+      confidence: 1,
+      reasons: [],
+    };
+    const blsSource = new FixtureFoodCatalogSource('bls', { magerquark: [candidate] });
+    const searchSpy = jest.spyOn(blsSource, 'search');
+    const raw = await runVariantCCase(
+      caseFor({ rawInput: 'Ein Becher Magerquark' }),
+      depsWithResult(
+        {
+          outcome: 'interpreted_with_assumptions',
+          components: [
+            {
+              id: 'c1',
+              originalSegment: 'Ein Becher Magerquark',
+              interpretedName: 'Magerquark',
+              quantity: { value: 150, unit: 'g', householdMeasure: '1 Becher' },
+              confidence: 0.8,
+              assumptions: ['Bechergröße als 150 g angenommen'],
+            },
+          ],
+          searchPlan: [
+            {
+              componentId: 'c1',
+              suitableSourceTypes: ['bls'],
+              nativeQueries: [{ sourceType: 'bls', query: 'magerquark' }],
+              expectedResolutionKind: 'generic_food',
+            },
+          ],
+          meta: baseMeta,
+        },
+        { sourcesByType: new Map<FoodSourceType, FoodCatalogSource>([['bls', blsSource]]) },
+      ),
+    );
+
+    expect(raw.mealResult.outcome).toBe('clarification_required');
+    expect(raw.mealResult.clarificationRequests).toEqual([
+      expect.objectContaining({ componentId: 'c1', clarificationKind: 'missing_quantity' }),
+    ]);
+    expect(searchSpy).not.toHaveBeenCalled();
+    expect(raw.mealResult.components).toEqual([]);
+    expect(raw.mealResult.totals).toBeNull();
+  });
+
   it('fails closed when post-retrieval quantity failure requires clarification', async () => {
     const candidate = {
       food: {
@@ -830,7 +884,7 @@ describe('ResolverV3VariantCAdapter — multi-component composed input', () => {
             interpretedName: 'Butter',
             quantity: { value: 10, unit: 'g' },
             confidence: 0.5,
-            assumptions: ['Menge nicht angegeben, Standardmenge angenommen'],
+            assumptions: ['Deutsche Bezeichnung angenommen'],
           },
           {
             id: 'c3',
@@ -838,7 +892,7 @@ describe('ResolverV3VariantCAdapter — multi-component composed input', () => {
             interpretedName: 'Gouda',
             quantity: { value: 20, unit: 'g' },
             confidence: 0.5,
-            assumptions: ['Menge nicht angegeben, Standardscheibe angenommen'],
+            assumptions: ['Deutsche Bezeichnung angenommen'],
           },
         ],
         searchPlan: [

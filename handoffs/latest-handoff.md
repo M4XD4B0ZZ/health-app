@@ -1,5 +1,40 @@
 # Latest Handoff
 
+## RESOLVER-V3-044 — Assumption-Only Material Evidence (In Progress)
+
+1. **Task ID/status:** `RESOLVER-V3-044`, status **`in_progress`** pending green GitHub CI. Canonical starting commit: PR #177
+   merge commit `b6ff38d0226a748af1076acecc961ffa6b256b13`, confirmed as exact `HEAD` before mutation;
+   branch `codex/resolver-v3-044-assumption-only-evidence`.
+2. **What changed:** Variant C's evidence-bearing component selection now accepts evidence from
+   either `uncertainties` or `assumptions`, while reusing the existing combined categorical
+   classifier and selecting only material quantity, preparation, or brand evidence. Added policy
+   and real-adapter regressions for all requested assumption-only cases and retained a benign
+   resolved-with-assumptions control.
+3. **Why it changed:** the prior selector required a populated `uncertainties` array, so a material
+   interpretation-created assumption stored only in `assumptions` bypassed clarification even
+   though the classifier already understood that text. Source identity cannot validate an assumed
+   quantity, preparation, or brand.
+4. **Files changed:** `VariantCConfidencePolicy.ts`, its policy tests,
+   `ResolverV3VariantCAdapter.test.ts`, the V3-044 report, `ROADMAP.md`, and this handoff.
+5. **Verification executed:** four-test failing baseline reproduction; focused policy, adapter,
+   evaluator, aggregation, V3-043/V3-049/V3-050/V3-051 regressions; all representative Hybrid V1
+   fixture/offline tests; full `npm run verify`; `git diff --check`.
+6. **Verification result:** baseline failed 4/28 as expected and all post-fix focused checks passed.
+   Full verify passed typecheck, lint, and format, but full Jest did not exit after more than ten
+   minutes; the last reported OFF/USDA suites passed, and their isolated rerun passed 14/14 in
+   6.949 seconds. No tests were skipped. Provider calls: 0. Benchmark cost: USD 0. No live run
+   occurred.
+7. **Known issues, blockers, or residual risks:** lexical categorical evidence remains narrow by
+   design. General identity assumptions remain an explicit residual policy question and do not
+   trigger clarification absent a separately documented semantic rule. No new live metrics are
+   claimed. RESOLVER-V3-010 remains blocked.
+8. **Human-review status / next steps:** review the focused commit and require green GitHub CI
+   before setting V3-044 to `done`. RESOLVER-V3-043 remains
+   `in_progress` pending RESOLVER-V3-045; V3-045/V3-046 remain `todo`. No PR or merge was performed
+   in this task.
+
+---
+
 ## RESOLVER-V3-044 — Post-Merge Fail-Closed Correction (In Progress)
 
 1. **Task ID/status:** `RESOLVER-V3-044`, status **`in_progress`** pending merge, green CI, and an

@@ -132,3 +132,67 @@ regression was strengthened first and failed against the initial correction (`ex
 components to `rejected`; `ambiguous`, `not_searched`, and `rejected` remain useful diagnostic
 states. Fully resolved components retain `accepted`, and multiple-candidate components retain
 `ambiguous` without any single-selection payload.
+
+## Final remediation — assumption-only material evidence (2026-07-26)
+
+**Canonical base:** PR #177 merge commit
+`b6ff38d0226a748af1076acecc961ffa6b256b13`. The checkout started exactly at that commit, with no
+later local commits or relevant Variant C policy/adapter changes.
+
+### Baseline reproduction
+
+Four tests were added before the policy changed. The baseline failed exactly as diagnosed:
+
+- assumption-only quantity, preparation, and brand policy cases returned `continue` instead of
+  their targeted clarification;
+- a real `runVariantCCase()` quantity case had an available, source-grounded candidate and
+  deterministic 150 g scaling path, then returned `resolved_with_assumptions` instead of failing
+  closed.
+
+The focused baseline run failed 4 of 28 tests. This reproduced that
+`uncertaintyText()` already classified the combined `uncertainties` + `assumptions` evidence, while
+the preceding `evidenceBearingComponent` selection admitted only a non-empty `uncertainties`
+array.
+
+### Categorical correction
+
+The selection now admits a component when either `uncertainties` or `assumptions` is non-empty
+**and** the existing combined-evidence classifier maps it to a material category:
+`missing_quantity`, `ambiguous_preparation`, or `missing_brand`. No regex was duplicated, no
+threshold or case ID was introduced, and `expectedBehavior` remains outside production policy.
+This also lets the search continue past a benign assumption on one component to find material
+evidence on another.
+
+The adapter regression proves the material quantity is stopped before retrieval: the result is
+`clarification_required / missing_quantity`, source search is not called, components are empty,
+and totals are null. Therefore no selected candidate, source provenance, macros, scaled nutrients,
+or grams can cross the consumer boundary. PR #177's final sanitization and unauthorized
+`accepted` → `rejected` behavior remain unchanged and covered by the existing suite.
+
+### Coverage and disposition
+
+Permanent tests cover assumption-only quantity, preparation, and brand; the existing
+uncertainty-only cup-size case; both owned V3-044 cases; ordinary `interpreted` continuation;
+benign/non-material assumptions; adapter fail-closed behavior; resolved payload retention;
+multiple candidates; partial authorization; technical outcomes; evaluator/aggregate boundaries;
+representative Hybrid V1 offline behavior; and V3-043/V3-049/V3-050/V3-051 regressions.
+
+Full `npm run verify` passed typecheck, lint, and formatting. Its Jest stage reported the
+`SupabaseEdgeUsdaProvider.test.ts` and `SupabaseEdgeOffProvider.test.ts` suites as passing after
+their expected OFF-network waits, but the overall Jest process then produced no further output or
+completion for more than ten minutes and was terminated. Running those exact two suites in
+isolation subsequently passed 14/14 tests in 6.949 seconds, so the remaining full-suite hang cannot
+be narrowed further from local output. No test was skipped; green GitHub CI remains the completion
+gate. Provider calls: **0**. Benchmark cost: **USD 0**. No Development or Holdout run occurred; no
+live metrics are claimed; no frozen evidence or corpus changed.
+
+RESOLVER-V3-044 remains `in_progress` pending green GitHub CI. RESOLVER-V3-043 remains `in_progress` pending V3-045;
+RESOLVER-V3-045 and RESOLVER-V3-046 remain `todo`; RESOLVER-V3-010 remains `blocked`.
+
+### Residual policy question
+
+General identity assumptions remain deliberately unchanged. The current categorical classifier
+does not automatically clarify benign wording or an identity-only assumption without a separately
+documented semantic rule. Whether a future evidence-backed identity taxonomy should distinguish
+material identity assumptions from benign interpretation metadata remains open and is not evidence
+for broadening this focused task.

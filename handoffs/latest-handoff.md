@@ -1,5 +1,29 @@
 # Latest Handoff
 
+## RESOLVER-V3-046 — Post-Merge Envelope/Usage/Timeout Correction (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-046` remains `done` after correction on basis
+   `d62b77b1c5ae7a08474309e3fb9973c0763361c9`; V3-043/V3-045 remain `done`, V3-047/V3-048
+   remain `todo`, and V3-010 remains `blocked`.
+2. **What changed:** added a closed Anthropic envelope/usage validator, exactly-once reservation
+   release via `finally`, and distinct `wall_clock_ceiling` metadata for both outer wrappers.
+3. **Why it changed:** valid JSON with malformed structure could throw before release; absent or
+   invalid usage became zero cost; an outer race was incorrectly called a proven abort.
+4. **Files changed:** Variant-C provider/types/usage and tests; Representative Hybrid telemetry and
+   tests; V3-046 report; Roadmap; this handoff.
+5. **Verification executed:** failing focused baseline; focused provider, telemetry, ledger and
+   timeout suites; typecheck, lint, format check, full canonical verify, diff/integrity checks.
+6. **Verification result:** baseline failed 17/37 tests as expected. Corrected focused regression
+   run passed 9 suites/188 tests; the narrower contract run passed 4 suites/52 tests. Typecheck,
+   lint, format and diff checks passed. `npm run verify` passed its first three stages and advanced
+   deep into full Jest, but stopped emitting output and did not terminate after about 126 seconds;
+   it was interrupted with exit 130 and is not claimed green. Calls 0; cost USD 0.
+7. **Known issues/blockers/residual risks:** no remote is configured, so remote-tip verification and
+   push are unavailable in this checkout. Live effectiveness and latency remain exclusively V3-048
+   work; no live claims are made.
+8. **Human review/next steps:** review the new contract/taxonomy and require green GitHub CI before
+   merge. No production authorization is created.
+
 ## RESOLVER-V3-046 — Response Reliability and Latency Remediation (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-046` is `done`; deterministic implementation tasks

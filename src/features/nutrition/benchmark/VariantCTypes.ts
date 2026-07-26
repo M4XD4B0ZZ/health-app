@@ -225,8 +225,10 @@ export interface VariantCAiCallMetadata {
 export type VariantCProviderFailureKind =
   | 'transport_error'
   | 'timeout_abort'
+  | 'wall_clock_ceiling'
   | 'http_error'
   | 'http_envelope_json_error'
+  | 'http_envelope_contract_error'
   | 'missing_text_block'
   | 'text_block_json_error'
   | 'schema_contract_error'

@@ -8559,6 +8559,18 @@ a newly reserved protocol-v4 budget. The 12,000 ms limit is unchanged; no new p9
 Report: `reports/RESOLVER_V3_046_HAIKU_RESPONSE_RELIABILITY_LATENCY_REMEDIATION.md`. Calls 0, cost
 USD 0, no live/corpus/evaluator/production effect. V3-048 owns live proof; V3-010 remains blocked.
 
+**Post-merge correction (2026-07-26):** Review of merge `d62b77b1c5ae7a08474309e3fb9973c0763361c9`
+found three residual contract defects. The HTTP-200 Anthropic envelope and its required usage are
+now validated before typed access; malformed structure is classified
+`http_envelope_contract_error`, distinct from invalid envelope JSON, and can never create zero or
+`NaN` cost. One `try/finally` owns every post-reservation exit and releases exactly once. The outer
+20 s race is now `wall_clock_ceiling` across Variant B/C telemetry, returned C metadata, and ledger,
+while the real per-request AbortController path remains `timeout_abort`. Focused offline tests plus
+typecheck/lint/format pass; full local Jest again did not terminate and green CI is required. Calls
+0 and cost USD 0. Frozen V3-039 evidence, corpus,
+ground truth, BLS artifacts, evaluator, CI, and production wiring remain unchanged. V3-046 remains
+`done`; V3-043/V3-045 remain `done`, V3-047/V3-048 remain `todo`, and V3-010 remains `blocked`.
+
 #### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
 
 Status: `todo`

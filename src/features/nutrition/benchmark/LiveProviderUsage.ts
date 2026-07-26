@@ -9,6 +9,7 @@ export interface LiveProviderUsageRecord {
     | 'http_error'
     | 'network_error'
     | 'timeout_abort'
+    | 'wall_clock_ceiling'
     | 'invalid_response'
     | 'internal_error'
     | 'budget_config_error'

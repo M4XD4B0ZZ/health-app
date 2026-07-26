@@ -152,3 +152,66 @@ wiring.
 Integrity: frozen V3-039 evidence, corpus, ground truth, BLS workbooks/generated artifacts,
 Production DI/UI/Journal/Supabase/feature flags, dependencies and CI configuration are unchanged.
 No environment credential was read. Provider calls: **0**. Cost: **USD 0**.
+
+## 8. Post-Merge Correction — HTTP Envelope, Usage Integrity, and Wall-Clock Taxonomy
+
+**Correction basis:** `d62b77b1c5ae7a08474309e3fb9973c0763361c9` (PR #183 merge and the
+local checkout tip). This workspace has no configured Git remote, so the requested independent
+remote-tip fetch failed before editing; the exact supplied merge commit was nevertheless present
+and used. `SYSTEM.md`, `RULES.md`, `SAFETY.md`, and `REVIEW_POLICY.md` were also requested but do not
+exist in this merge tree; active governance is the consolidated `AGENTS.md`/`SSOK.md` contract.
+
+### Residual defects and failing baseline
+
+The correction tests were first run against the merge tree. The focused command failed 17 tests:
+`null`, object-valued `content`, and `content: [null]` escaped as `TypeError`; array/missing content
+and malformed blocks were misclassified as `missing_text_block`; missing/null/malformed usage was
+accepted, defaulted, or produced unreliable arithmetic; both outer ceiling tests reported
+`timeout_abort`/`unknown`, and Variant C returned no failure taxonomy. The run was 2 failed suites,
+20 passed tests, 17 failed tests, exit 1. The thrown envelope paths also bypassed the scattered
+release calls.
+
+### Corrected envelope and usage contracts
+
+Every successful HTTP envelope must be a non-null, non-array object with an array `content`; every
+block must be a non-null object with a string `type`, and a selected text block must have string
+`text`. An absent text block remains `missing_text_block`; damaged blocks are instead
+`http_envelope_contract_error`. Syntactically invalid `Response.json()` remains
+`http_envelope_json_error`.
+
+Live HTTP-200 usage is required. Input/output tokens must be finite non-negative integers. Optional
+cache token fields may be absent, but when present must satisfy the same rule; `null`, strings,
+arrays, objects, negatives, and fractions fail closed. Thus V3-048 cannot represent a semantic text
+response with unknown usage as a cost-known success. `computeCostUsd()` receives only validated
+numbers; large finite safe integers are accepted, and invalid usage yields unknown cost rather than
+zero or `NaN`.
+
+### Reservation lifecycle and timeout taxonomy
+
+One `finally` now owns the reservation after a successful reserve. Fetch rejection/Abort, envelope
+JSON failure, HTTP failure, envelope contract failure, missing text, text JSON/schema failure,
+success, and unexpected envelope-processing exceptions all pass through that single release point;
+tests directly assert one release for representative normal/error paths and an unexpected throw.
+Reserve failure remains pre-reservation and therefore has nothing to release.
+
+The AbortController-driven per-request timeout remains `timeout_abort` and transient-eligible. The
+outer `Promise.race` does not prove or perform an abort and is now non-retryable
+`wall_clock_ceiling`. Variant B and C telemetry use that provider status/failure kind; Variant C
+also returns it in `runMeta`; ledger details copy the same telemetry fields. No outer ceiling is
+described as an abort or `unknown`.
+
+### Verification, evidence classification, and residual risks
+
+All testing is fixture/fake-transport **measured offline evidence**, never new provider evidence.
+The focused provider/telemetry/ledger/timeout run passed 4 suites and 52 tests; the broader focused
+regression run passed 9 suites and 188 tests. `npm run verify` passed typecheck, lint, and format,
+then advanced deep into full Jest but did not terminate after about 126 seconds; it was interrupted
+with exit 130 and is not claimed green. Green GitHub CI is required. The seven frozen V3-039
+SHA-256 values were rechecked; corpus,
+ground truth, BLS artifacts, V3-049/V3-050/V3-051 behavior, G2 evaluator, CI, dependencies, and
+production wiring are unchanged. Provider calls **0**, cost **USD 0**.
+
+Residual risk is limited to live effectiveness: fixtures prove classification and fail-closed
+behavior, not provider reliability, cost distribution, or latency. V3-048 exclusively owns that
+live evidence. The 12,000 ms limit is unchanged. V3-046 remains implementation-complete (`done`),
+while V3-047/V3-048 remain `todo` and V3-010 remains `blocked`.

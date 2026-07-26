@@ -154,6 +154,165 @@ describe('RESOLVER-V3-046 provider failure taxonomy', () => {
   });
 
   it.each([
+    ['null envelope', null],
+    ['array envelope', []],
+    ['missing content', { usage: { input_tokens: 2, output_tokens: 1 } }],
+    ['object content', { content: {}, usage: { input_tokens: 2, output_tokens: 1 } }],
+    ['null content block', { content: [null], usage: { input_tokens: 2, output_tokens: 1 } }],
+    [
+      'non-string block type',
+      { content: [{ type: 7, text: '{}' }], usage: { input_tokens: 2, output_tokens: 1 } },
+    ],
+    [
+      'non-string text',
+      { content: [{ type: 'text', text: {} }], usage: { input_tokens: 2, output_tokens: 1 } },
+    ],
+    [
+      'missing usage',
+      { content: [{ type: 'text', text: JSON.stringify({ outcome: 'not_interpretable' }) }] },
+    ],
+    [
+      'null usage',
+      {
+        content: [{ type: 'text', text: JSON.stringify({ outcome: 'not_interpretable' }) }],
+        usage: null,
+      },
+    ],
+  ])('fails closed for a structurally invalid HTTP 200 %s', async (_name, body) => {
+    const call = await interpretWith(
+      jest.fn(async () => new Response(JSON.stringify(body), { status: 200 })),
+    );
+    expect(call).toMatchObject({
+      result: { outcome: 'error' },
+      runMeta: {
+        failureKind: 'http_envelope_contract_error',
+        inputTokens: null,
+        outputTokens: null,
+        costUsd: null,
+      },
+    });
+  });
+
+  it.each([
+    ['string input', { input_tokens: '2', output_tokens: 1 }],
+    ['negative input', { input_tokens: -1, output_tokens: 1 }],
+    ['fractional output', { input_tokens: 2, output_tokens: 1.5 }],
+    ['array output', { input_tokens: 2, output_tokens: [] }],
+    [
+      'invalid cache token',
+      { input_tokens: 2, output_tokens: 1, cache_creation_input_tokens: null },
+    ],
+  ])('rejects %s usage without producing NaN or zero cost', async (_name, usage) => {
+    const call = await interpretWith(
+      jest.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+                },
+              ],
+              usage,
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    expect(call.runMeta.failureKind).toBe('http_envelope_contract_error');
+    expect(call.runMeta.costUsd).toBeNull();
+    expect(Number.isNaN(call.runMeta.costUsd)).toBe(false);
+  });
+
+  it('accepts finite non-negative integer usage, including a large safe integer', async () => {
+    const call = await interpretWith(
+      jest.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+                },
+              ],
+              usage: {
+                input_tokens: Number.MAX_SAFE_INTEGER,
+                output_tokens: 0,
+                cache_read_input_tokens: 3,
+              },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    expect(call.runMeta).toMatchObject({
+      failureKind: null,
+      inputTokens: Number.MAX_SAFE_INTEGER,
+      outputTokens: 0,
+      cacheReadTokens: 3,
+    });
+    expect(Number.isFinite(call.runMeta.costUsd)).toBe(true);
+  });
+
+  it.each([
+    ['fetch exception', async () => Promise.reject(new TypeError('fetch failed'))],
+    ['envelope JSON error', async () => new Response('{', { status: 200 })],
+    ['HTTP error', async () => new Response('{}', { status: 500 })],
+    ['envelope contract error', async () => new Response('null', { status: 200 })],
+    [
+      'valid response',
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+              },
+            ],
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+          { status: 200 },
+        ),
+    ],
+  ])('releases a reservation exactly once after %s', async (_name, fetch) => {
+    const release = jest.fn();
+    const gate = { reserve: jest.fn(() => ({ release })) } as unknown as LiveProviderBudgetGate;
+    const interpreter = createLiveVariantCInterpreter(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      gate,
+      { fetch: jest.fn(fetch), usesProxy: false },
+    );
+    await interpreter.interpret({ rawInput: 'Apfel', locale: 'de' });
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases exactly once when envelope processing throws unexpectedly', async () => {
+    const release = jest.fn();
+    const envelope = Object.defineProperty({}, 'content', {
+      get: () => {
+        throw new Error('unexpected getter failure');
+      },
+    });
+    const interpreter = createLiveVariantCInterpreter(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      { reserve: () => ({ release }) } as unknown as LiveProviderBudgetGate,
+      {
+        fetch: jest.fn(
+          async () => ({ ok: true, status: 200, json: async () => envelope }) as Response,
+        ),
+        usesProxy: false,
+      },
+    );
+    await expect(interpreter.interpret({ rawInput: 'Apfel', locale: 'de' })).rejects.toThrow(
+      'unexpected getter failure',
+    );
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
     ['missing_text_block', { content: [], usage: { input_tokens: 2, output_tokens: 1 } }],
     [
       'text_block_json_error',

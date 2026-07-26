@@ -76,6 +76,16 @@ function depsWithResult(
 }
 
 describe('ResolverV3VariantCAdapter — fast path', () => {
+  it('RESOLVER-V3-045: the real BLS fast path has no candidate for a vague multi-token quantity input', async () => {
+    const { resolver } = buildVariantAResolver();
+    const decision = await resolver.resolve({
+      raw: 'Reis, ein bisschen',
+      normalized: 'reis ein bisschen',
+      locale: 'de',
+    });
+    expect(decision.candidates).toHaveLength(0);
+    expect(decision.status).not.toBe('accepted');
+  });
   it('uses the real Variant A resolver fast path and never calls the AI interpreter when it accepts', async () => {
     const { resolver } = buildVariantAResolver();
     const neverCalled: AiInterpretationProvider = {
@@ -324,6 +334,38 @@ describe('ResolverV3VariantCAdapter — search-plan-constrained retrieval', () =
 });
 
 describe('ResolverV3VariantCAdapter — provenance and AI-nutrient isolation', () => {
+  it('RESOLVER-V3-045: consistently clarifies any material vague-quantity assumption before retrieval', async () => {
+    for (const vaguePhrase of ['eine unbestimmte Menge', 'portion size unknown']) {
+      const raw = await runVariantCCase(
+        caseFor({ rawInput: `Lebensmittel, ${vaguePhrase}` }),
+        depsWithResult({
+          outcome: 'interpreted_with_assumptions',
+          components: [
+            {
+              id: 'provider-id',
+              originalSegment: 'Lebensmittel',
+              interpretedName: 'Lebensmittel',
+              quantity: { value: 150, unit: 'g' },
+              confidence: 0.9,
+              assumptions: [`${vaguePhrase}; 150 g assumed`],
+            },
+          ],
+          searchPlan: [
+            {
+              componentId: 'provider-id',
+              suitableSourceTypes: ['bls'],
+              nativeQueries: [],
+              expectedResolutionKind: 'generic_food',
+            },
+          ],
+          meta: baseMeta,
+        }),
+      );
+      expect(raw.mealResult.outcome).toBe('clarification_required');
+      expect(raw.mealResult.clarificationRequests[0]?.clarificationKind).toBe('missing_quantity');
+      expect(raw.mealResult.externalRequestCount).toBe(0);
+    }
+  });
   it('fails closed before retrieval for an assumption-only material quantity', async () => {
     const candidate = {
       food: {

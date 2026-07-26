@@ -64,3 +64,34 @@ describe('createLiveVariantCInterpreter', () => {
     );
   });
 });
+
+it('sends an explicit deterministic sampling payload through the injected transport', async () => {
+  const fetch = jest.fn(
+    async (_url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+            },
+          ],
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200 },
+      ),
+  );
+  const interpreter = createLiveVariantCInterpreter(
+    { ANTHROPIC_API_KEY: 'test-key-not-real' },
+    budgetGate(),
+    { fetch, usesProxy: false },
+  );
+
+  await interpreter.interpret({ rawInput: '  APFEL  ', normalizedInput: 'apfel', locale: 'de' });
+
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const payload = JSON.parse(String(fetch.mock.calls[0][1]?.body));
+  expect(payload.temperature).toBe(0);
+  expect(payload.messages[0].content).toContain('"apfel"');
+  expect(payload.messages[0].content).not.toContain('"  APFEL  "');
+});

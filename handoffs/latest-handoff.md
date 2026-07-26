@@ -1,5 +1,45 @@
 # Latest Handoff
 
+## RESOLVER-V3-045 — Haiku Interpretation Determinism and Repeat-Consistency Remediation (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-045`, status **`done`**; `RESOLVER-V3-043` is also **`done`**
+   because V3-044/045/049/050 now close every expressly delegated class in its eight-case offline
+   inventory. Basis: `9eb9639721bc8bd9f2c6f4d2885e2a4e8dcfd7ff`. PR #179 is merged at that
+   commit, GitHub Verify run #321 succeeded, and V3-044 is complete.
+2. **What changed:** pinned the Variant C request to explicit lowest-temperature sampling; versioned
+   and tightened vague-quantity/ordering/ID prompt semantics; deterministically consumes
+   `normalizedInput` with conservative input/context canonicalization; validates and normalizes
+   response IDs, references, whitespace, and non-priority duplicates; added real-fast-path,
+   fake-transport, policy, 16-group metric, and representation regressions.
+3. **Why it changed:** prompt v1 allowed the same subjective material quantity to become either a
+   clarification or an authoritative numeric assumption, while the request left sampling implicit
+   and schema-valid responses retained incidental provider representation variance. The frozen
+   owned case exhibited exactly that false-confident divergence.
+4. **Files changed:** Variant C live provider, prompt, response validator, their tests, Variant C
+   adapter tests, `reports/RESOLVER_V3_045_HAIKU_INTERPRETATION_DETERMINISM_REMEDIATION.md`,
+   `ROADMAP.md`, and this handoff.
+5. **Verification executed:** focused determinism/provider/adapter suites; V3-043, V3-044,
+   V3-049/050/051 and Representative Hybrid regressions; typecheck, lint, format check, full
+   `npm run verify`, `git diff --check`, manifest SHA-256 verification, and changed-path integrity
+   checks.
+6. **Verification result:** the failing baseline exited 1 before implementation. Final focused checks passed. `npm run verify` passed typecheck, lint, and format, then its full
+   Jest phase did not terminate after 3 minutes 11 seconds; it was interrupted with exit 130 after
+   repeated OFF-provider invocation logs and is not represented as green. The OFF/USDA suites then
+   passed in isolation (2 suites / 14 tests / 9.142 s). Green GitHub CI is required before merge.
+   The unchanged 16-group calculation reproduces 68.75% outcome/identification agreement; the
+   conservative owned-group-only replay reaches 75.00%. The owned group is 3/3 targeted
+   clarification offline. Provider calls: 0; cost: USD 0.
+7. **Known issues, blockers, or residual risks:** no remote is configured and private HTTPS access
+   has no credentials, so remote-tip verification beyond the supplied/current matching merge,
+   push, open-PR conflict inspection, and GitHub CI cannot be performed locally. Explicit
+   temperature plus prompt constraints reduce but cannot prove remote determinism; V3-048 owns that
+   live proof. V3-046 remains `todo`; V3-010 remains `blocked`. No new G2 or production verdict.
+8. **Human-review status / next steps:** review the commit and require green GitHub CI before merge.
+   V3-048 must later run protocol-v4 live re-evidence; do not infer production authorization from
+   this offline remediation.
+
+---
+
 ## RESOLVER-V3-044 — Formal Post-Merge Closeout (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-044`, status **`done`**. The complete remediation sequence is

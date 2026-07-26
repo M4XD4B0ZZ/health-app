@@ -1,122 +1,103 @@
-# RESOLVER-V3-045 — Haiku Interpretation Determinism and Repeat-Consistency Remediation
+# RESOLVER-V3-045 — Post-Merge Evidence and Reference-Integrity Correction
 
-**Status:** offline/fixture remediation complete; no new live or G2 overall decision  
-**Basis:** `9eb9639721bc8bd9f2c6f4d2885e2a4e8dcfd7ff` (PR #179 merge)  
+**Status:** `in_progress`; offline semantic effectiveness is not measured
+**Post-merge basis:** PR #180, merge commit `2710832d2d5505d514d015c32964fc31ad48a970`
 **Provider calls / cost:** **0 / USD 0**
 
-## 1. Ausgangsevidenz und reproduzierte Baseline
+## 1. Independent post-merge findings and reproduced baseline
 
-The canonical final V3-039 report records 16 groups and Variant C outcome and identification
-agreement of `0.6875`; the unchanged `computeConsistencyMetrics()` calculation gives 11/16 =
-**68.75%**, Variant A's structural baseline `1`, and a **-0.3125 (-31.25pp)** delta. The new replay
-test reconstructs the 14 persisted Development groups directly represented in the frozen
-checkpoint and the aggregate-constrained two Holdout groups (V3 did not persist Holdout per-case
-records). It reproduces both rates exactly with the existing metric implementation; it does not
-change the evaluator, corpus, or ground truth.
+The correction started from the exact PR #180 merge commit. New tests first reproduced all three
+findings:
 
-For `RH-RES-OVERLAY-DEV-010#C1`, the frozen Development checkpoint shows run 0 `abstained` /
-`no_resolution`, run 1 `resolved_with_assumptions` / `wrong` and run 2 `abstained` /
-`no_resolution`. Run 1 assumed 150 g and cooked white rice from the subjective quantity phrase.
-A regression against the real `SequentialFoodCatalogResolver` + `BlsStaticSource` confirms the
-input produces zero BLS candidates and is not accepted, so the defect is AI-routed.
+1. The unchanged frozen 16-group fixture replay measures Variant C outcome and identification
+   agreement at **11/16 = 68.75%**. The previously reported **12/16 = 75.00%** appears only after
+   the test directly overwrites the three owned `evaluation` records with
+   `clarification_required` / `no_resolution`; no prompt, provider, adapter, or policy path produces
+   those replacements.
+2. A schema-shaped `clarification_required` response with an unknown
+   `clarification.componentId` normalized successfully and silently lost the reference; duplicate
+   component IDs were likewise accepted. The failing baseline had two failures and exited 1.
+3. The real `runVariantCCase()` AI-routed path passes only `rawInput`, `locale`, and `traceId`.
+   `BenchmarkCase` has no authoritative normalized-input field, so the prompt helper's isolated
+   `normalizedInput` preference was never exercised by this benchmark/live adapter path.
 
-## 2. Root-cause matrix
+## 2. Root causes and corrections
 
-The five persisted Development groups with an outcome and/or identification divergence are below.
-The final row covers the frozen aggregate's one additional divergent Holdout group: protocol v3
-did not persist Holdout per-case records, so assigning it to either Holdout overlay ID would invent
-evidence. Both Holdout overlay IDs therefore remain an explicitly bounded attribution risk.
+### Evidence status
 
-| Group / case                                         | Observed divergence                                              | Route                                 | Root-cause category                                                                                  | Fixed here       | Basis / residual risk                                                                                                                  |
-| ---------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `RH-RES-OVERLAY-DEV-004`                             | outcome and identification                                       | AI                                    | genuine preparation/decomposition ambiguity plus model choice variance                               | no               | Multiple plausible decompositions; must not be hidden by normalization.                                                                |
-| `RH-RES-OVERLAY-DEV-006`                             | outcome and identification, including technical error            | AI                                    | response/transport reliability plus model variance                                                   | no               | Error taxonomy/contract reliability belongs to V3-046.                                                                                 |
-| `RH-RES-OVERLAY-DEV-007`                             | stable partial outcome, unstable identification                  | AI                                    | genuine multi-component resolution ambiguity                                                         | no               | Canonical IDs remove representational variance only; semantic identity disagreement remains.                                           |
-| `RH-RES-OVERLAY-DEV-010` (`#C1` owned)               | abstained / wrong assumed resolution / abstained                 | AI; real fast path has 0 candidates   | underspecified prompt and material vague-quantity policy; unstated sampling; representation variance | **yes, offline** | Prompt now mandates targeted quantity clarification; V3-044 categorical policy blocks material assumptions; live proof remains V3-048. |
-| `RH-RES-OVERLAY-DEV-014`                             | multiple candidates vs assumed resolution; identification stable | AI                                    | ambiguity-policy/model outcome variance                                                              | no               | Genuine ambiguity is retained; no outcome coalescing.                                                                                  |
-| one of two Holdout overlay groups (ID not persisted) | one aggregate outcome and identification disagreement            | unknown from frozen per-case evidence | evidence-contract attribution gap                                                                    | no               | Cannot honestly assign or remediate without V3-048 protocol-v4 evidence.                                                               |
+The prompt change can constrain a future provider response but cannot generate a new semantic
+answer offline. No deterministic general policy consumes the prompt and creates the three claimed
+clarifications. The old test therefore confused a desired counterfactual with executed evidence.
+The metric implementation, frozen observations, corpus, and ground truth were not changed.
 
-## 3. Root-cause analysis
+The evidence classifications are now explicit:
 
-1. **Request/sampling.** The request already pinned model, max tokens, system prompt, JSON schema,
-   and message order but omitted an explicit sampling field. The adapter now sends `temperature: 0`
-   and a fake-transport payload test proves the exact request. This minimizes supported temperature
-   randomness but is not claimed to make a remote service mathematically deterministic. Network
-   documentation lookup was unavailable (tool returned HTTP 401); no provider call replaced it.
-2. **Prompt.** V1 permitted both a numeric standard-portion assumption and clarification for the
-   same vague material quantity. It did not bind component ordering/IDs, plan ordering, or the
-   distinction between `clarification_required` and `not_interpretable`. V2 binds all of these and
-   forbids numeric inference for subjective quantities.
-3. **Input.** V1 ignored `normalizedInput`. V2 prefers it, applies NFKC and whitespace collapse,
-   and stabilizes typed context order. It deliberately preserves case and punctuation to avoid
-   colliding semantically distinct inputs.
-4. **Response.** V1 returned provider-generated IDs and incidental whitespace/duplicates verbatim
-   and did not validate search-plan reference integrity. The parser now validates unique/referenceable
-   IDs, assigns `c1..cn` in semantic component order, remaps plans/clarifications, trims strings,
-   and deduplicates non-priority text arrays. Source priorities, native-query order, component order,
-   and all semantic outcomes remain unsorted and uncoalesced.
-5. **Policy.** V3-044 already established that source lookup cannot validate a model-assumed
-   material quantity. V2 aligns the prompt with that categorical fail-closed policy; it adds no
-   numerical confidence threshold.
-6. **Cache.** Rejected. A cache would freeze the first stochastic answer rather than prove improved
-   interpretation and would add key/error-lifecycle complexity. No cache was implemented.
-7. **Genuine ambiguity.** Only representation variance and the owned material-quantity defect are
-   normalized. The other semantic disagreements remain visible.
+| Claim                                          | Classification                                       | Result                                          |
+| ---------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| Frozen 16-group replay                         | **fixture-executed / measured from frozen fixtures** | 11/16 = **68.75%**                              |
+| Directly replaced owned-group records          | **derived counterfactual**                           | 12/16 = **75.00%**, not an observed after-value |
+| Prompt/provider semantic improvement           | **live-unverified**                                  | no after-rate                                   |
+| Parser/validator and request-shape regressions | **fixture-executed**                                 | deterministic tests only                        |
 
-## 4. Designentscheidung und verworfene Alternativen
+The honest before/after consistency status is therefore **68.75% measured before; no measured
+after-value**. The 75% number is retained only to explain the counterfactual calculation and must
+not be presented as improvement evidence. Controlled live proof remains RESOLVER-V3-048.
 
-The minimal combined correction is explicit lowest-temperature sampling, a versioned semantic
-prompt (`variant-c-prompt-v2`), versioned interpreter behavior (`variant-c-live-interpreter-v2`),
-conservative input canonicalization, and post-validation representation normalization. Schema
-semantics did not change, so `variant-c-schema-v1` remains correct.
+### Clarification reference integrity
 
-Rejected: cache-as-consistency shortcut; alphabetic sorting of source priorities or queries;
-case/food/fixture special cases; metric or ground-truth changes; a new confidence threshold;
-semantic outcome coalescing; provider/model changes; and production wiring.
+Validation now performs component-ID uniqueness checks before the clarification early return. A
+present `clarification.componentId` must be a non-empty reference to an existing component;
+unknown or malformed references become the existing structured `error` outcome with a
+`schema_validation_failed` message. An omitted optional reference remains valid. Valid references
+are still stably remapped to `c1..cn`.
 
-## 5. Failing baseline and before/after result
+For interpreted outcomes, validation now also enforces the prompt's existing statement that every
+component has exactly one search plan. This is the minimum reference/cardinality integrity check;
+it does not otherwise pre-empt RESOLVER-V3-046's broader contract/reliability scope.
 
-Before implementation, the new focused suites failed: the canonicalization export did not exist;
-the request payload lacked `temperature`; `normalizedInput` was absent from the prompt path; prompt
-rules did not require clarification; and provider IDs/queries were returned unchanged. The initial
-command exited `1` with two failed suites (one compile-time missing export and the request suite's
-new transport test pending its complete fake shape). After implementation those focused tests pass.
+### `normalizedInput` boundary
 
-Using the unchanged `computeConsistencyMetrics()` definition:
+`AiInterpretationRequest` may carry an optional authoritative `normalizedInput`, and
+`buildVariantCPrompt()` safely canonicalizes it when supplied. `BenchmarkCase`, however, exposes no
+such authoritative value. The adapter therefore continues to pass the raw input rather than
+inventing a normalization or deriving one from ground truth. A real-adapter regression proves the
+exact request and preserves brands, negations, quantities, punctuation, and component boundaries.
+Documentation no longer claims that the actual Variant-C benchmark/live path uses
+`normalizedInput`; raw input still receives representation-only NFKC/whitespace canonicalization
+inside prompt construction.
 
-| Metric                             |             Before | Conservative offline after |
-| ---------------------------------- | -----------------: | -------------------------: |
-| groups                             |                 16 |                         16 |
-| Variant C outcome agreement        | 11/16 = **68.75%** |         12/16 = **75.00%** |
-| Variant C identification agreement | 11/16 = **68.75%** |         12/16 = **75.00%** |
-| Variant A structural baseline      |              ~100% |                      ~100% |
-| C delta from A                     |       **-31.25pp** |               **-25.00pp** |
+## 3. Scope and integrity
 
-The after value changes only the owned group's three offline outcomes to the same targeted
-`clarification_required` / `no_resolution` policy result. It does not predict improvements for the
-other groups. The owned group therefore agrees 3/3 offline, avoids retrieval and numeric authority,
-and no longer produces its historical false-confident run-1 result.
+This correction changes no provider/model, sampling configuration, production wiring, UI,
+journal, Supabase, DI, corpus, ground truth, metric, or frozen V3-039 evidence. It makes no provider
+call, reads no provider credential, and runs neither Development nor Holdout. There is no case-ID or
+food-specific production rule. RESOLVER-V3-010 remains `blocked`.
 
-## 6. Verification and integrity
+Because V3-045's acceptance requires an evidence-based reduction in run-to-run disagreement and no
+such reduction has been measured, RESOLVER-V3-045 returns to `in_progress`. V3-043 also returns to
+`in_progress`: its umbrella closeout depended on V3-045 closing the final owned AI-routed class.
+Acceptance criteria were not weakened.
 
-Focused coverage includes request payload, input/prompt canonicalization, response normalization,
-ID/reference integrity, the owned-case policy class, all 16 metric groups, the real no-candidate BLS
-path, positive controls, genuine ambiguity preservation, V3-043/044 policy and adapter regressions,
-and V3-049/050/051 call-path suites. Typecheck, lint, and format completed successfully in `npm run verify`. Full Jest continued
-for 3 minutes 11 seconds, with the last visible state repeatedly entering the OFF edge-provider
-suite after many passing suites, but did not terminate; it was interrupted (exit 130), not called
-green. The OFF/USDA suites then passed in isolation (2 suites, 14 tests, 9.142 s). Green GitHub CI
-is required before merge. Final results are also recorded in the handoff.
+## 4. Verification record
 
-The seven manifest-listed V3-039 files were checked against the manifest SHA-256 values and remain
-byte-identical. `git diff --name-only` contains no manifest evidence, benchmark corpus/ground-truth,
-BLS artifact/workbook, UI, production wiring, DI, journal, Supabase, or feature-flag file. No
-credential was read; all HTTP testing uses an injected fake transport; provider calls are 0.
+The pre-fix focused command failed exactly on unknown clarification references and duplicate IDs
+(2 failed, 29 passed; exit 1), while the request-path and counterfactual-classification tests
+confirmed the other two defects. After the validator correction, prompt/provider/adapter focused
+coverage passed. Final prompt/provider/adapter coverage passed (3 suites / 36 tests), and split V3-044
+policy/quantity coverage passed (2 suites / 15 tests). A larger 13-suite regression invocation
+visibly passed the V3-043, V3-049, V3-050 call-path, V3-051 generic-safety, and Representative
+Hybrid metrics/protocol suites but did not terminate or print a complete Jest summary; it was
+interrupted with exit 130 and is not represented as wholly green. `npm run typecheck`, `npm run
+lint`, and `npm run format:check` passed. `npm run verify` passed those three stages, then its full
+Jest run continued through many passing suites and repeated OFF/USDA provider logs without
+terminating after more than three minutes; it too was interrupted with exit 130 and is not claimed
+green. `git diff --check`, package/base/path integrity, and all seven manifest SHA-256 checks
+passed. Green GitHub CI remains required before merge.
 
-## 7. Residual risks and boundaries
+## 5. Residual risk and next step
 
-`temperature: 0` plus a stricter prompt reduces but cannot prove remote bit-for-bit determinism.
-Only V3-048 may provide controlled live effectiveness under protocol v4. V3-046 retains response
-contract/error/latency reliability, and V3-047 retains candidate optimization. This task makes no
-new G2 overall judgment, no live cost/latency claim, and no production-wiring authorization.
-RESOLVER-V3-010 remains `blocked`; V3-046 remains `todo`.
+Temperature zero and prompt constraints may reduce provider variance, but offline code cannot
+establish their semantic effect. V3-045 remains open until its existing acceptance criterion is
+satisfied with legitimate evidence. RESOLVER-V3-048 owns controlled live re-evidence; V3-046 owns
+broader response-contract, parsing, error-taxonomy, reliability, and latency work. No production
+wiring is authorized.

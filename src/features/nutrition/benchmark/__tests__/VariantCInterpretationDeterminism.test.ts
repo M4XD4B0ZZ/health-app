@@ -90,7 +90,7 @@ describe('RESOLVER-V3-045 interpretation determinism', () => {
     expect(result.searchPlan[0].nativeQueries[0].query).toBe('apfel');
   });
 
-  it('replays the frozen 16-group metric and conservatively improves the owned group to 75%', () => {
+  it('classifies 75% as a counterfactual produced only by mutating frozen metric records', () => {
     const outcomeGroups = [
       ['multiple_candidates', 'multiple_candidates', 'multiple_candidates'],
       ['resolved_with_assumptions', 'resolved_with_assumptions', 'resolved_with_assumptions'],
@@ -145,6 +145,11 @@ describe('RESOLVER-V3-045 interpretation determinism', () => {
       variantCOutcomeAgreementDeltaFromBaseline: -0.3125,
     });
 
+    const unchangedReplay = computeConsistencyMetrics(records);
+    expect(unchangedReplay.variantCOutcomeAgreementRate).toBe(0.6875);
+    expect(unchangedReplay.variantCIdentificationAgreementRate).toBe(0.6875);
+
+    // Counterfactual only: no adapter/provider/policy path produced these replacement outcomes.
     const owned = records[9].variantC;
     owned.forEach((run) => {
       run.evaluation.outcome = 'clarification_required';
@@ -153,5 +158,73 @@ describe('RESOLVER-V3-045 interpretation determinism', () => {
     const after = computeConsistencyMetrics(records);
     expect(after.variantCOutcomeAgreementRate).toBe(0.75);
     expect(after.variantCIdentificationAgreementRate).toBe(0.75);
+  });
+
+  const clarificationResponse = (componentIds: string[], componentId?: string) =>
+    JSON.stringify({
+      outcome: 'clarification_required',
+      components: componentIds.map((id) => ({
+        id,
+        originalSegment: 'unscharfe Eingabe',
+        interpretedName: 'Lebensmittel',
+        quantity: {},
+        confidence: 0.5,
+      })),
+      clarification: {
+        ...(componentId === undefined ? {} : { componentId }),
+        missingInformation: 'Welche Menge?',
+        clarificationKind: 'missing_quantity',
+      },
+    });
+
+  it('accepts a valid clarification component reference and remaps it stably', () => {
+    const result = parseAndNormalizeVariantCInterpretationResponse(
+      clarificationResponse(['provider-id'], 'provider-id'),
+      null,
+      1,
+      undefined,
+    );
+    expect(result).toMatchObject({
+      outcome: 'clarification_required',
+      clarification: { componentId: 'c1' },
+    });
+  });
+
+  it('allows an omitted optional clarification component reference', () => {
+    const result = parseAndNormalizeVariantCInterpretationResponse(
+      clarificationResponse(['provider-id']),
+      null,
+      1,
+      undefined,
+    );
+    expect(result).toMatchObject({ outcome: 'clarification_required' });
+    if (result.outcome !== 'clarification_required') throw new Error('unexpected');
+    expect(result.clarification.componentId).toBeUndefined();
+  });
+
+  it('fails closed when a clarification references an unknown component', () => {
+    const result = parseAndNormalizeVariantCInterpretationResponse(
+      clarificationResponse(['provider-id'], 'unknown-id'),
+      null,
+      1,
+      undefined,
+    );
+    expect(result).toMatchObject({
+      outcome: 'error',
+      message: expect.stringContaining('schema_validation_failed'),
+    });
+  });
+
+  it('fails closed when clarification components contain duplicate ids', () => {
+    const result = parseAndNormalizeVariantCInterpretationResponse(
+      clarificationResponse(['duplicate', 'duplicate'], 'duplicate'),
+      null,
+      1,
+      undefined,
+    );
+    expect(result).toMatchObject({
+      outcome: 'error',
+      message: expect.stringContaining('components ids must be unique'),
+    });
   });
 });

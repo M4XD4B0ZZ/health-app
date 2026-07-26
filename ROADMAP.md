@@ -8240,8 +8240,8 @@ under Hybrid production readiness, project priority **P0**.
 
 #### RESOLVER-V3-043: Unsafe Fast-Path and False-Confidence Remediation
 
-Status: `done` (2026-07-26 — all eight originally flagged case classes are closed offline by
-RESOLVER-V3-043/044/045/049/050; live confirmation remains exclusively RESOLVER-V3-048.)
+Status: `in_progress` (2026-07-26 post-merge correction — V3-045's final owned AI-routed
+class lacks measured after-evidence; the other remediations remain complete.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Fix the deterministic unsafe-acceptance false-confidence defects underlying G2-B's
@@ -8311,8 +8311,10 @@ the corrected reality, with the historical context preserved in comments. Full r
 `npm run typecheck` clean. This phase changed no BLS artifact, no frozen evidence, made zero provider
 calls, and did not touch the Haiku-only model policy.
 
-**Historical Phase-A status:** the task remained `in_progress` until successor ownership closed the
-remaining seven case IDs. The 2026-07-26 V3-045 completion below now satisfies that condition.
+**Historical Phase-A status:** the task remained `in_progress` pending successor ownership. PR #180
+temporarily treated V3-045 as closing the final class, but the post-merge correction below
+establishes that its 75% after-value was counterfactual; this umbrella task therefore remains
+`in_progress`.
 
 **Umbrella-completion statement (2026-07-25, added by RESOLVER-V3-049):** RESOLVER-V3-043 may
 close only after the assigned false-confidence work in RESOLVER-V3-044, RESOLVER-V3-045,
@@ -8422,13 +8424,13 @@ resolved components expose no selected candidate, provenance, macro, scaling, or
 No live provider call occurred and no frozen V3-039 evidence file changed. This is neither a new G2
 verdict nor production authorization: live effectiveness belongs exclusively to RESOLVER-V3-048,
 and RESOLVER-V3-010 remains `blocked`. **Historical closeout state:** at that point V3-043 remained
-`in_progress` pending V3-045, and V3-045/V3-046 remained `todo`; V3-045 is now complete as recorded
-below, while V3-046 remains `todo`.
+`in_progress` pending V3-045, and V3-045/V3-046 remained `todo`. PR #180 later marked V3-045
+complete, but the post-merge correction below returns it to `in_progress`; V3-046 remains `todo`.
 
 #### RESOLVER-V3-045: Haiku Interpretation Determinism and Repeat-Consistency Remediation
 
-Status: `done` (2026-07-26 — conservative fixture replay improves outcome and identification
-agreement from 68.75% to 75.00%; zero live calls; live proof remains RESOLVER-V3-048.)
+Status: `in_progress` (2026-07-26 post-merge correction — 68.75% is fixture-measured; 75.00%
+is a derived counterfactual, not an executed after-value.)
 Depends on: RESOLVER-V3-041
 
 **Goal:** Close (or materially narrow) the G2-G −31.25 percentage-point Variant C repeat-consistency
@@ -8454,16 +8456,26 @@ overlay group — run0 abstained, run1 resolved wrong with assumptions, run2 abs
 fast path returns zero candidates for this input, confirming the inconsistency is an AI-interpretation
 determinism defect, not a fast-path one). Not fixed by RESOLVER-V3-043.
 
-**Completion (2026-07-26):** Request sampling is explicit (`temperature: 0`), prompt/interpreter
-semantics are versioned at v2, `normalizedInput` is used through conservative NFKC/whitespace
-canonicalization, and validated responses receive stable component IDs with reference-safe plan
-remapping without reordering semantic priority lists. The unchanged 16-group metric reproduces
-68.75% before and conservatively reaches 75.00% after correcting only the owned vague-quantity
-group to targeted clarification. All focused and repository verification passed; provider calls and
-cost were zero; frozen evidence/corpus/BLS artifacts are unchanged. This is no live or G2 verdict.
-Full evidence: `reports/RESOLVER_V3_045_HAIKU_INTERPRETATION_DETERMINISM_REMEDIATION.md`. With
-V3-044, V3-049, and V3-050 already complete, this closes the last expressly delegated V3-043 case
-class, so V3-043 is also `done` offline. V3-046 remains `todo`; V3-010 remains `blocked`.
+**PR #180 historical implementation (merged 2026-07-26 at
+`2710832d2d5505d514d015c32964fc31ad48a970`):** Request sampling became explicit
+(`temperature: 0`), prompt/interpreter semantics were versioned at v2, and response representation
+normalization was added. Its claimed 75.00% offline after-value is superseded by the correction
+below.
+
+**Post-merge correction (2026-07-26):** The unchanged frozen-fixture replay measures 68.75%.
+75.00% was obtained only by directly rewriting three evaluation records to the desired outcome;
+it is a **derived counterfactual**, not an adapter/provider/policy execution and not a measured
+improvement. Prompt effectiveness is **live-unverified** and remains assigned to V3-048. The real
+`runVariantCCase()` path has no authoritative normalized input in `BenchmarkCase`, so it correctly
+passes raw input and documentation no longer claims otherwise. Clarification component references
+now fail closed: IDs must be unique, a present reference must resolve, an omitted optional
+reference remains valid, and interpreted responses must provide exactly one search plan per
+component. V3-045 returns to `in_progress` under its unchanged acceptance criterion; because the
+V3-043 umbrella closeout depended on this final class, V3-043 also returns to `in_progress`.
+Provider calls/cost remain zero; frozen evidence, corpus, ground truth, and metrics remain
+unchanged. Full evidence:
+`reports/RESOLVER_V3_045_HAIKU_INTERPRETATION_DETERMINISM_REMEDIATION.md`. V3-046 remains `todo`;
+V3-010 remains `blocked`.
 
 #### RESOLVER-V3-046: Haiku Response Contract, Parsing, Reliability, Error Taxonomy, and Latency Remediation
 

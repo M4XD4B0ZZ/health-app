@@ -145,6 +145,8 @@ describe('ResolverV3VariantCAdapter — AI outcome normalization', () => {
 
     expect(raw.mealResult.outcome).toBe('clarification_required');
     expect(raw.mealResult.clarificationRequests).toHaveLength(1);
+    expect(raw.mealResult.components).toEqual([]);
+    expect(raw.mealResult.totals).toBeNull();
     expect(searchSpy).not.toHaveBeenCalled();
   });
 
@@ -156,6 +158,8 @@ describe('ResolverV3VariantCAdapter — AI outcome normalization', () => {
     });
     const raw = await runVariantCCase(caseFor(), deps);
     expect(raw.mealResult.outcome).toBe('not_interpretable');
+    expect(raw.mealResult.components).toEqual([]);
+    expect(raw.mealResult.totals).toBeNull();
     expect(raw.mealResult.warnings).toContain('gibberish');
   });
 
@@ -163,6 +167,8 @@ describe('ResolverV3VariantCAdapter — AI outcome normalization', () => {
     const deps = depsWithResult({ outcome: 'unavailable', reason: 'no provider', meta: baseMeta });
     const raw = await runVariantCCase(caseFor(), deps);
     expect(raw.mealResult.outcome).toBe('unavailable');
+    expect(raw.mealResult.components).toEqual([]);
+    expect(raw.mealResult.totals).toBeNull();
   });
 
   it('error normalizes to the matching meal outcome', async () => {
@@ -173,6 +179,8 @@ describe('ResolverV3VariantCAdapter — AI outcome normalization', () => {
     });
     const raw = await runVariantCCase(caseFor(), deps);
     expect(raw.mealResult.outcome).toBe('error');
+    expect(raw.mealResult.components).toEqual([]);
+    expect(raw.mealResult.totals).toBeNull();
     expect(raw.mealResult.errors).toContain('boom');
   });
 });
@@ -316,6 +324,153 @@ describe('ResolverV3VariantCAdapter — search-plan-constrained retrieval', () =
 });
 
 describe('ResolverV3VariantCAdapter — provenance and AI-nutrient isolation', () => {
+  it('fails closed when post-retrieval quantity failure requires clarification', async () => {
+    const candidate = {
+      food: {
+        id: 'bls-1',
+        name: 'Quark',
+        normalizedName: 'quark',
+        macrosPer100g: { kcal: 66, protein: 11.85, carbs: 3.68, fat: 0.18 },
+        source: 'bls' as const,
+        sourceId: 'M713100',
+      },
+      match: { exact: true, similarity: 1 },
+      confidence: 1,
+      reasons: [],
+    };
+    const blsSource = new FixtureFoodCatalogSource('bls', { quark: [candidate] });
+    const deps = depsWithResult(
+      {
+        outcome: 'interpreted',
+        components: [
+          {
+            id: 'c1',
+            originalSegment: 'Quark',
+            interpretedName: 'Quark',
+            quantity: {},
+            confidence: 0.9,
+          },
+        ],
+        searchPlan: [
+          {
+            componentId: 'c1',
+            suitableSourceTypes: ['bls'],
+            nativeQueries: [{ sourceType: 'bls', query: 'quark' }],
+            expectedResolutionKind: 'generic_food',
+          },
+        ],
+        meta: baseMeta,
+      },
+      { sourcesByType: new Map<FoodSourceType, FoodCatalogSource>([['bls', blsSource]]) },
+    );
+
+    const raw = await runVariantCCase(caseFor(), deps);
+    const component = raw.mealResult.components[0];
+
+    expect(raw.mealResult.outcome).toBe('clarification_required');
+    expect(component).toMatchObject({
+      chosenCandidateName: null,
+      resolverStatus: 'rejected',
+      nativeScore: null,
+      provenance: {
+        sourceType: null,
+        sourceId: null,
+        sourceName: null,
+        sourceGrounded: false,
+      },
+      macrosPer100g: null,
+      scaledNutrients: null,
+      gramsUsed: null,
+    });
+  });
+
+  it('fails closed when retrieval abstains after an empty interpreted identity', async () => {
+    const raw = await runVariantCCase(
+      caseFor(),
+      depsWithResult({
+        outcome: 'interpreted',
+        components: [
+          {
+            id: 'c1',
+            originalSegment: '???',
+            interpretedName: '',
+            quantity: { value: 100, unit: 'g' },
+            confidence: 0.1,
+          },
+        ],
+        searchPlan: [],
+        meta: baseMeta,
+      }),
+    );
+
+    expect(raw.mealResult.outcome).toBe('abstained');
+    expect(raw.mealResult.components[0]).toMatchObject({
+      chosenCandidateName: null,
+      nativeScore: null,
+      macrosPer100g: null,
+      scaledNutrients: null,
+      gramsUsed: null,
+    });
+    expect(raw.mealResult.totals).toBeNull();
+  });
+
+  it('does not expose one selected candidate for a multiple-candidate outcome', async () => {
+    const candidate = (sourceId: string, name: string) => ({
+      food: {
+        id: sourceId,
+        name,
+        normalizedName: 'quark',
+        macrosPer100g: { kcal: 66, protein: 11.85, carbs: 3.68, fat: 0.18 },
+        source: 'bls' as const,
+        sourceId,
+      },
+      match: { exact: true, similarity: 1 },
+      confidence: 1,
+      reasons: [],
+    });
+    const blsSource = new FixtureFoodCatalogSource('bls', {
+      quark: [candidate('M713100', 'Quark A'), candidate('M714100', 'Quark B')],
+    });
+    const raw = await runVariantCCase(
+      caseFor(),
+      depsWithResult(
+        {
+          outcome: 'interpreted',
+          components: [
+            {
+              id: 'c1',
+              originalSegment: 'Quark',
+              interpretedName: 'Quark',
+              quantity: { value: 100, unit: 'g' },
+              confidence: 0.9,
+            },
+          ],
+          searchPlan: [
+            {
+              componentId: 'c1',
+              suitableSourceTypes: ['bls'],
+              nativeQueries: [{ sourceType: 'bls', query: 'quark' }],
+              expectedResolutionKind: 'generic_food',
+            },
+          ],
+          meta: baseMeta,
+        },
+        { sourcesByType: new Map<FoodSourceType, FoodCatalogSource>([['bls', blsSource]]) },
+      ),
+    );
+
+    expect(raw.mealResult.outcome).toBe('multiple_candidates');
+    expect(raw.mealResult.unresolvedComponentIds).toEqual(['c1']);
+    expect(raw.mealResult.components[0]).toMatchObject({
+      chosenCandidateName: null,
+      nativeScore: null,
+      provenance: { sourceId: null, sourceGrounded: false },
+      macrosPer100g: null,
+      scaledNutrients: null,
+      gramsUsed: null,
+    });
+  });
+
   it('flags a missing sourceId as not source-grounded even when a candidate name is chosen', async () => {
     const candidateNoSourceId = {
       food: {
@@ -595,6 +750,16 @@ describe('ResolverV3VariantCAdapter — deterministic quantity scaling and meal 
     expect(raw.mealResult.outcome).toBe('partially_resolved');
     expect(raw.mealResult.totals).toBeNull();
     expect(raw.mealResult.unresolvedComponentIds).toContain('c2');
+    expect(raw.mealResult.components[0].provenance.sourceId).toBe('M713100');
+    expect(raw.mealResult.components[0].scaledNutrients).not.toBeNull();
+    expect(raw.mealResult.components[1]).toMatchObject({
+      chosenCandidateName: null,
+      nativeScore: null,
+      provenance: { sourceId: null, sourceGrounded: false },
+      macrosPer100g: null,
+      scaledNutrients: null,
+      gramsUsed: null,
+    });
   });
 });
 

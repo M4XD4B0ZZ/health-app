@@ -104,6 +104,27 @@ function emptyProvenance(): ComponentProvenance {
   return { sourceType: null, sourceId: null, sourceName: null, sourceGrounded: false };
 }
 
+/**
+ * Consumer-boundary safety contract: retrieval/ranking diagnostics may survive a non-resolution,
+ * but a component that is not authorized as resolved must not expose a selected food or numeric
+ * food result. Keeping this at the final result boundary prevents every current and future
+ * consumer from accidentally persisting an internal best candidate.
+ */
+function withoutAuthoritativeResolution(
+  component: VariantCComponentResult,
+): VariantCComponentResult {
+  return {
+    ...component,
+    chosenCandidateName: null,
+    resolverStatus: component.resolverStatus === 'accepted' ? 'rejected' : component.resolverStatus,
+    nativeScore: null,
+    provenance: emptyProvenance(),
+    macrosPer100g: null,
+    scaledNutrients: null,
+    gramsUsed: null,
+  };
+}
+
 // -------------------------------------------------------------------------------------------
 // Fast path branch
 // -------------------------------------------------------------------------------------------
@@ -492,12 +513,7 @@ export async function runVariantCCase(
     (c) => c.resolverStatus === 'accepted' && c.scaledNutrients !== null,
   );
   const ambiguous = componentResults.filter((c) => c.resolverStatus === 'ambiguous');
-  const unresolved = componentResults.filter(
-    (c) =>
-      c.resolverStatus === 'rejected' ||
-      c.resolverStatus === 'not_searched' ||
-      (c.resolverStatus === 'accepted' && c.scaledNutrients === null),
-  );
+  const unresolved = componentResults.filter((component) => !fullyResolved.includes(component));
 
   let outcome: VariantCMealOutcome;
   if (componentResults.length > 0 && fullyResolved.length === componentResults.length) {
@@ -506,17 +522,17 @@ export async function runVariantCCase(
       componentResults.some((c) => c.quantityAssumptions.length > 0) ||
       aiResult.components.some((c) => (c.assumptions?.length ?? 0) > 0);
     outcome = hasAssumptions ? 'resolved_with_assumptions' : 'resolved';
+  } else if (
+    componentResults.length > 0 &&
+    ambiguous.length > 0 &&
+    ambiguous.length === componentResults.length &&
+    fullyResolved.length === 0
+  ) {
+    outcome = 'multiple_candidates';
   } else if (componentResults.length > 0 && unresolved.length === componentResults.length) {
     outcome = selectVariantCUnresolvedClarification(aiResult.components)
       ? 'clarification_required'
       : 'abstained';
-  } else if (
-    componentResults.length > 0 &&
-    ambiguous.length > 0 &&
-    unresolved.length === 0 &&
-    fullyResolved.length === 0
-  ) {
-    outcome = 'multiple_candidates';
   } else if (componentResults.length === 0) {
     outcome = 'not_interpretable';
   } else {
@@ -536,10 +552,18 @@ export async function runVariantCCase(
         )
       : null;
 
+  const components = componentResults.map((component) => {
+    const resolutionAuthorized =
+      outcome === 'resolved' ||
+      outcome === 'resolved_with_assumptions' ||
+      (outcome === 'partially_resolved' && fullyResolved.includes(component));
+    return resolutionAuthorized ? component : withoutAuthoritativeResolution(component);
+  });
+
   return finish(
     {
       outcome,
-      components: componentResults,
+      components,
       totals,
       unresolvedComponentIds: unresolved.map((c) => c.componentId),
       assumptions: [

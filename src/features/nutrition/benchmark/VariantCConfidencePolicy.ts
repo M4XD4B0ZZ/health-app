@@ -8,11 +8,10 @@ import type {
 /**
  * Variant C's evidence policy deliberately treats model confidence as weak evidence. A source
  * match can establish food identity, but it cannot validate a quantity or preparation assumption
- * made during interpretation. The thresholds are intentionally conservative and are exercised
- * against frozen fixture observations; they do not affect Variants A or B.
+ * made during interpretation. Decisions are categorical and evidence-bearing; model confidence
+ * alone has no canonically derived global cutoff and does not affect Variants A or B.
  */
 export const VARIANT_C_CONFIDENCE_POLICY_VERSION = 'variant-c-confidence-policy-v1';
-export const VARIANT_C_MIN_INTERPRETATION_CONFIDENCE = 0.5;
 
 export interface VariantCConfidenceDecision {
   action: 'continue' | 'clarify';
@@ -66,17 +65,6 @@ export function decideVariantCInterpretationConfidence(
 
   if (!lowestConfidence) {
     return { action: 'clarify', reason: 'No interpreted component provides identity evidence.' };
-  }
-
-  if (
-    result.components.length === 1 &&
-    lowestConfidence.confidence < VARIANT_C_MIN_INTERPRETATION_CONFIDENCE
-  ) {
-    return {
-      action: 'clarify',
-      clarification: clarificationFor(lowestConfidence, clarificationKind(lowestConfidence)),
-      reason: `Component confidence ${lowestConfidence.confidence} is below ${VARIANT_C_MIN_INTERPRETATION_CONFIDENCE}.`,
-    };
   }
 
   if (result.outcome === 'interpreted_with_assumptions') {

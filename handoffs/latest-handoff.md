@@ -1,5 +1,36 @@
 # Latest Handoff
 
+## RESOLVER-V3-044 — Post-Merge Fail-Closed Correction (In Progress)
+
+1. **Task ID/status:** `RESOLVER-V3-044`, status **`in_progress`** pending merge, green CI, and an
+   independent post-merge review. Canonical local base: PR #176 merge commit `22c47409c2b4ee6dcb53d6ee527fe9c1eb03fd14`.
+2. **What changed:** added generalized final-result sanitization for every component not authorized
+   as resolved, restored a reachable fail-closed `multiple_candidates` outcome, and removed the
+   unsupported global interpretation-confidence cutoff. A follow-up audit additionally downgrades
+   unauthorized internal `resolverStatus: accepted` to `rejected`.
+3. **Why it changed:** the merged post-retrieval clarification path leaked selected candidate name,
+   score, BLS source provenance/source ID, and per-100g macros through the public result despite its
+   non-resolution outcome. The first correction still retained an authoritative `accepted` status;
+   its strengthened boundary regression failed before this follow-up fix. No canonical
+   fixture/corpus derivation supported the global `0.5` rule.
+4. **Files changed:** Variant C adapter and confidence policy, their boundary/policy tests, the
+   existing V3-044 report, `ROADMAP.md`, and this handoff.
+5. **Verification executed:** baseline boundary reproduction; focused adapter/policy/evaluator/
+   aggregation tests; representative Hybrid V1 offline and V3-043/V3-049/V3-050/V3-051 regressions;
+   full `npm run verify`; `git diff --check` (final results recorded after completion).
+6. **Verification result:** focused consumer-boundary and required regression suites passed. The first
+   full verify reached `format:check` and identified `ROADMAP.md`; Prettier corrected that documentation
+   formatting. The final full verify passed typecheck, lint, and format, but its full Jest phase did not complete because pre-existing OFF edge-provider tests repeatedly awaited unavailable network calls; it was terminated after more than ten minutes. Focused required regressions passed and `git diff --check` was clean.
+7. **Known issues, blockers, or residual risks:** checkout has no configured `origin`; an HTTPS
+   fetch of the private repository was rejected for missing credentials. Remote freshness, push,
+   live CI/merge, and post-merge review therefore require a channel with GitHub credentials.
+   Provider calls and benchmark cost: 0. No live run or evidence/corpus mutation.
+8. **Human-review status / next steps:** complete full verification, commit, prepare the focused PR,
+   then merge only after green CI and no actionable comments; independently audit the merged result
+   before returning V3-044 to `done`.
+
+---
+
 ## RESOLVER-V3-044 — Clarification, Abstention, and Confidence-Policy Remediation (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-044`, status **`done`**; implementation branch

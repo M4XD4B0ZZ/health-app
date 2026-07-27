@@ -3,6 +3,7 @@ import {
   decideComponentCandidate,
   inputTypeForResolutionKind,
   retrieveCandidatesForComponentPlan,
+  retrieveCandidatesForComponentPlanTiered,
 } from '../ResolverV3VariantCRetrieval';
 import { FixtureFoodCatalogSource } from '../ResolverV3VariantAAdapter';
 import { FoodCatalogSource, FoodSourceType } from '../../domain/catalog/FoodCatalogSource';
@@ -41,6 +42,39 @@ describe('inputTypeForResolutionKind', () => {
 });
 
 describe('retrieveCandidatesForComponentPlan', () => {
+  it('stops R1-min after an authoritative accepted tier and proves avoided calls', async () => {
+    const blsSource = new FixtureFoodCatalogSource('bls', {
+      quark: [candidate('BLS1', 'Quark', 66)],
+    });
+    const offSource = new FixtureFoodCatalogSource('off', {});
+    const usdaSource = new FixtureFoodCatalogSource('usda', {});
+    const offSpy = jest.spyOn(offSource, 'search');
+    const usdaSpy = jest.spyOn(usdaSource, 'search');
+    const result = await retrieveCandidatesForComponentPlanTiered({
+      plan: {
+        componentId: 'c1',
+        suitableSourceTypes: ['bls', 'off', 'usda'],
+        nativeQueries: [
+          { sourceType: 'bls', query: 'quark' },
+          { sourceType: 'off', query: 'quark' },
+          { sourceType: 'usda', query: 'quark' },
+        ],
+        expectedResolutionKind: 'generic_food',
+      },
+      interpretedName: 'Quark',
+      locale: 'de',
+      traceId: 'r1-min',
+      sourcesByType: new Map<FoodSourceType, FoodCatalogSource>([
+        ['bls', blsSource],
+        ['off', offSource],
+        ['usda', usdaSource],
+      ]),
+    });
+    expect(result.stopReason).toBe('authoritative_accepted');
+    expect(result.avoidedSourceTypes).toEqual(['off', 'usda']);
+    expect(offSpy).not.toHaveBeenCalled();
+    expect(usdaSpy).not.toHaveBeenCalled();
+  });
   it('queries only the suitable, non-excluded source types with the correct native query per source', async () => {
     const blsSource = new FixtureFoodCatalogSource('bls', {
       'tomate roh': [candidate('G561100', 'Tomate roh', 22)],

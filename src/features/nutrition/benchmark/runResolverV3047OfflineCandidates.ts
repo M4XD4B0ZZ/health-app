@@ -3,6 +3,7 @@ import {
   RESOLVER_V3_047_CANDIDATES,
   ResolverV3047CandidateId,
   parseResolverV3047S1,
+  buildResolverV3047ProviderRequest,
   resolverV3047R1MinSources,
 } from './ResolverV3047Candidates';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
@@ -11,7 +12,6 @@ export type ResolverV3047EvidenceClass =
   | 'measured_local'
   | 'fixture_executed'
   | 'derived'
-  | 'assumed'
   | 'live_unverified'
   | 'unknown';
 
@@ -80,19 +80,12 @@ export function runResolverV3047OfflineCandidates(): ResolverV3047OfflineMeasure
   return RESOLVER_V3_047_CANDIDATES.map((candidate) => {
     const fixture = candidate.id === 'H0' ? s0Fixture : s1Fixture;
     const schemaText = JSON.stringify(candidate.schema);
-    const request = JSON.stringify({
-      model: 'pinned-snapshot-required-by-v3-048',
-      max_tokens: candidate.maxTokens,
-      system: candidate.prompt,
-      output_config: { format: { type: 'json_schema', schema: candidate.schema } },
-      messages: [{ role: 'user', content: 'Eingabe (locale=de): "Lebensmittel"' }],
-    });
+    const request = JSON.stringify(
+      buildResolverV3047ProviderRequest(candidate, 'Eingabe (locale=de): "Lebensmittel"'),
+    );
     const fixtureText = JSON.stringify(fixture);
     const start = performance.now();
-    const result =
-      candidate.id === 'H0'
-        ? parseAndNormalizeVariantCInterpretationResponse(fixtureText, null, 0, 'offline')
-        : parseResolverV3047S1(fixture, 0, 'offline');
+    const result = candidate.parseResponse(fixture, 0, 'offline');
     const invalid =
       candidate.id === 'H0'
         ? parseAndNormalizeVariantCInterpretationResponse(

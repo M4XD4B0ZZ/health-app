@@ -103,6 +103,9 @@ export interface ResolverV3047Candidate {
   routingVersion: 'R0' | typeof RESOLVER_V3_047_ROUTING_R1_MIN_VERSION;
   prompt: string;
   schema: object;
+  parseResponse: (raw: unknown, latencyMs?: number, traceId?: string) => AiInterpretationResult;
+  modelSnapshot: typeof RESOLVER_V3_047_MODEL_SNAPSHOT;
+  temperature: 0;
   knownUserContext: false;
   automaticRetries: 0;
   transportTimeoutMs: 15_000;
@@ -113,6 +116,8 @@ export interface ResolverV3047Candidate {
 }
 
 const shared = {
+  modelSnapshot: RESOLVER_V3_047_MODEL_SNAPSHOT,
+  temperature: 0,
   knownUserContext: false,
   automaticRetries: 0,
   transportTimeoutMs: 15_000,
@@ -131,6 +136,13 @@ export const RESOLVER_V3_047_CANDIDATES: readonly ResolverV3047Candidate[] = [
     routingVersion: 'R0',
     prompt: VARIANT_C_SYSTEM_PROMPT,
     schema: VARIANT_C_RESPONSE_JSON_SCHEMA,
+    parseResponse: (raw: unknown, latencyMs = 0, traceId?: string) =>
+      parseAndNormalizeVariantCInterpretationResponse(
+        typeof raw === 'string' ? raw : JSON.stringify(raw),
+        null,
+        latencyMs,
+        traceId,
+      ),
     ...shared,
   },
   {
@@ -141,6 +153,7 @@ export const RESOLVER_V3_047_CANDIDATES: readonly ResolverV3047Candidate[] = [
     routingVersion: 'R0',
     prompt: RESOLVER_V3_047_PROMPT_P1,
     schema: RESOLVER_V3_047_SCHEMA_S1,
+    parseResponse: parseResolverV3047S1,
     ...shared,
   },
   {
@@ -151,9 +164,30 @@ export const RESOLVER_V3_047_CANDIDATES: readonly ResolverV3047Candidate[] = [
     routingVersion: RESOLVER_V3_047_ROUTING_R1_MIN_VERSION,
     prompt: RESOLVER_V3_047_PROMPT_P1,
     schema: RESOLVER_V3_047_SCHEMA_S1,
+    parseResponse: parseResolverV3047S1,
     ...shared,
   },
 ];
+
+export function resolverV3047Candidate(id: ResolverV3047CandidateId): ResolverV3047Candidate {
+  const candidate = RESOLVER_V3_047_CANDIDATES.find((item) => item.id === id);
+  if (!candidate) throw new Error(`Unknown RESOLVER-V3-047 candidate: ${id}`);
+  return candidate;
+}
+
+export function buildResolverV3047ProviderRequest(
+  candidate: ResolverV3047Candidate,
+  userContent: string,
+): Record<string, unknown> {
+  return {
+    model: candidate.modelSnapshot,
+    max_tokens: candidate.maxTokens,
+    temperature: candidate.temperature,
+    system: candidate.prompt,
+    output_config: { format: { type: 'json_schema', schema: candidate.schema } },
+    messages: [{ role: 'user', content: userContent }],
+  };
+}
 
 type JsonRecord = Record<string, unknown>;
 const sourceTypes = ['bls', 'off', 'usda'] as const;
@@ -224,6 +258,13 @@ export function parseResolverV3047S1(
       latencyMs,
       traceId,
     );
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return fail('response is not valid JSON');
+    }
+  }
   if (!record(raw) || !exact(raw, ['outcome', 'components', 'clarification', 'reason']))
     return fail('unknown root field or non-object');
   if (
@@ -301,6 +342,7 @@ export function parseResolverV3047S1(
     return fail(error instanceof Error ? error.message : 'invalid component');
   }
   if (raw.outcome === 'clarification_required') {
+    if (raw.reason !== undefined) return fail('reason forbidden during clarification');
     if (
       !record(raw.clarification) ||
       !exact(raw.clarification, ['componentIndex', 'missingInformation', 'clarificationKind']) ||

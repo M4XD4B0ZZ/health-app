@@ -8,12 +8,13 @@ import {
   VariantCAiInterpreter,
   VariantCProviderFailureKind,
 } from './VariantCTypes';
-import {
-  VARIANT_C_RESPONSE_JSON_SCHEMA,
-  VARIANT_C_SYSTEM_PROMPT,
-  buildVariantCPrompt,
-} from './variantCPrompt';
+import { buildVariantCPrompt } from './variantCPrompt';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
+import {
+  ResolverV3047Candidate,
+  buildResolverV3047ProviderRequest,
+  resolverV3047Candidate,
+} from './ResolverV3047Candidates';
 import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
 import {
   AnthropicBenchmarkTransport,
@@ -62,6 +63,7 @@ export function createLiveVariantCInterpreter(
   /** Optional transport override (RESOLVER-V3-039): lets a caller supply its own timeout-enforcing
    * transport instead of the plain proxy-aware default. Never used by RESOLVER-V3-013 callers. */
   transport?: AnthropicBenchmarkTransport,
+  candidate?: ResolverV3047Candidate,
 ): VariantCAiInterpreter {
   const apiKey = env[ANTHROPIC_API_KEY_ENV];
   if (!apiKey) {
@@ -75,12 +77,14 @@ export function createLiveVariantCInterpreter(
       'Live Variant C run requested without the required shared aggregate budget gate.',
     );
   }
-  const modelId = env[ANTHROPIC_MODEL_ENV] || DEFAULT_ANTHROPIC_MODEL;
+  const modelId = candidate?.modelSnapshot ?? env[ANTHROPIC_MODEL_ENV] ?? DEFAULT_ANTHROPIC_MODEL;
   return new AnthropicVariantCLiveInterpreter(
     apiKey,
     modelId,
     budgetGate,
     transport ?? createAnthropicBenchmarkTransport(env),
+    candidate ?? resolverV3047Candidate('H0'),
+    candidate !== undefined,
   );
 }
 
@@ -90,6 +94,8 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     private readonly modelId: string,
     private readonly budgetGate?: LiveProviderBudgetGate,
     private readonly transport = createAnthropicBenchmarkTransport(),
+    private readonly candidate: ResolverV3047Candidate = resolverV3047Candidate('H0'),
+    private readonly pinnedCandidate = false,
   ) {}
 
   async interpret(
@@ -113,17 +119,8 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
             'content-type': 'application/json',
           },
           body: JSON.stringify({
-            model: this.modelId,
-            max_tokens: VARIANT_C_MAX_OUTPUT_TOKENS,
-            // Explicitly pin the API's supported lowest sampling temperature. Structured output and
-            // prompt constraints still carry the semantic determinism burden; this is not claimed to
-            // make the remote model mathematically deterministic.
-            temperature: 0,
-            system: VARIANT_C_SYSTEM_PROMPT,
-            output_config: {
-              format: { type: 'json_schema', schema: VARIANT_C_RESPONSE_JSON_SCHEMA },
-            },
-            messages: [{ role: 'user', content: buildVariantCPrompt(request) }],
+            ...buildResolverV3047ProviderRequest(this.candidate, buildVariantCPrompt(request)),
+            model: this.pinnedCandidate ? this.candidate.modelSnapshot : this.modelId,
           }),
           signal,
         });
@@ -203,12 +200,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       let result: AiInterpretationResult;
       let failureKind: VariantCProviderFailureKind | null = null;
       try {
-        result = parseAndNormalizeVariantCInterpretationResponse(
-          text ?? null,
-          null,
-          latencyMs,
-          request.traceId,
-        );
+        result = this.candidate.parseResponse(text, latencyMs, request.traceId);
         failureKind = classifyResponseFailure(text, result);
       } catch (e) {
         failureKind = 'internal_parser_error';
@@ -223,6 +215,9 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         result,
         runMeta: {
           ...this.computeCostUsd(usage, response.status, latencyMs),
+          candidateVersion: this.candidate.version,
+          promptVersion: this.candidate.promptVersion,
+          schemaVersion: this.candidate.schemaVersion,
           failureKind,
           retryable: false,
         },

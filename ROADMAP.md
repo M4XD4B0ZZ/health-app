@@ -8390,6 +8390,8 @@ regression-tested against the existing corpus; RESOLVER-V3-048 supplies the live
 RESOLVER-V3-048).
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
 
+**Post-merge executable correction (2026-07-27):** H0/H1/H2 now close over prompt, schema, parser, routing, model snapshot and runtime limits; the provider consumes the selected candidate through one request builder; S1 fails closed on incoherent clarification `reason`; and H2 executes tiered R1-min through the real benchmark-local Variant-C adapter with unchanged scoring/decision policy and a positive-proof fast-path gate. Fake transports and fake catalog sources prove zero-network request/parser/routing behavior. Provider calls 0; cost USD 0. This completion does not select H1/H2 as a live winner, begin V3-048, unblock V3-010, or authorize production wiring.
+
 **Explicit case ownership (2026-07-25, from RESOLVER-V3-043's Phase A root-cause inventory —
 `reports/RESOLVER_V3_043_UNSAFE_FAST_PATH_FALSE_CONFIDENCE_DIAGNOSIS.md` §3):** this task owns
 `RH-RES-HOUSEHOLD-DEV-005` ("Ein Becher Magerquark" — flagged false-confident despite an exact
@@ -8573,7 +8575,7 @@ ground truth, BLS artifacts, evaluator, CI, and production wiring remain unchang
 
 #### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
 
-Status: `in_progress`
+Status: `done` (2026-07-27; executable candidate integration and offline validation only; no live superiority claim)
 Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046, RESOLVER-V3-049,
 RESOLVER-V3-050, RESOLVER-V3-051
 

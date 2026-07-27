@@ -17,9 +17,16 @@ const budgetGate = () =>
       maxInFlight: 1,
     },
     [
-      { modelId: 'claude-haiku-4-5', currency: 'USD', inputPerMillion: 1, outputPerMillion: 5 },
+      {
+        pricingVersion: 'test-pricing-v1',
+        modelId: 'claude-haiku-4-5',
+        currency: 'USD',
+        inputPerMillion: 1,
+        outputPerMillion: 5,
+      },
       {
         modelId: 'claude-haiku-4-5-20251001',
+        pricingVersion: 'test-pricing-v1',
         currency: 'USD',
         inputPerMillion: 1,
         outputPerMillion: 5,
@@ -135,10 +142,14 @@ it.each(['H0', 'H1', 'H2'] as const)('uses the closed %s request and parser path
     temperature: 0,
   });
   expect(payload.output_config.format.schema).toStrictEqual(candidate.schema);
-  expect(call.runMeta).toMatchObject({
+  expect(call.runMeta.runIdentity).toStrictEqual({
+    candidateId: candidate.id,
     candidateVersion: candidate.version,
     promptVersion: candidate.promptVersion,
     schemaVersion: candidate.schemaVersion,
+    routingVersion: candidate.routingVersion,
+    modelId: candidate.modelSnapshot,
+    pricingVersion: 'test-pricing-v1',
   });
   expect(call.result.outcome).toBe('not_interpretable');
 });
@@ -152,6 +163,67 @@ const interpretWith = async (
   }).interpret({ rawInput: 'Apfel', normalizedInput: 'Apfel', locale: 'de' });
 
 describe('RESOLVER-V3-046 provider failure taxonomy', () => {
+  it('retains the complete immutable identity on transport failure', async () => {
+    const candidate = resolverV3047Candidate('H2');
+    const interpreter = createLiveVariantCInterpreter(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      budgetGate(),
+      {
+        fetch: jest.fn(async () => {
+          throw new TypeError('offline');
+        }),
+        usesProxy: false,
+      },
+      candidate,
+    );
+    expect(Object.isFrozen(interpreter.runIdentity)).toBe(true);
+    const call = await interpreter.interpret({ rawInput: 'Apfel', locale: 'de' });
+    expect(call.runMeta.runIdentity).toBe(interpreter.runIdentity);
+    expect(call.runMeta.runIdentity).toMatchObject({
+      candidateId: 'H2',
+      modelId: candidate.modelSnapshot,
+      pricingVersion: 'test-pricing-v1',
+    });
+  });
+
+  it('computes known snapshot cost from the same exact pricing entry used by reservation', async () => {
+    const call = await createLiveVariantCInterpreter(
+      { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      budgetGate(),
+      {
+        fetch: jest.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+                  },
+                ],
+                usage: { input_tokens: 2, output_tokens: 3 },
+              }),
+              { status: 200 },
+            ),
+        ),
+        usesProxy: false,
+      },
+      resolverV3047Candidate('H1'),
+    ).interpret({ rawInput: 'Apfel', locale: 'de' });
+    expect(call.runMeta).toMatchObject({ costUsd: 0.000017, pricingStatus: 'estimated' });
+  });
+
+  it('blocks an unknown exact model before dispatch', () => {
+    const fetch = jest.fn(async () => new Response('{}'));
+    expect(() =>
+      createLiveVariantCInterpreter(
+        { ANTHROPIC_API_KEY: 'test-key-not-real', ANTHROPIC_VARIANT_C_MODEL: 'unknown-model' },
+        budgetGate(),
+        { fetch, usesProxy: false },
+      ),
+    ).toThrow('exact model pricing');
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it.each([
     ['transport_error', new TypeError('fetch failed')],
     ['timeout_abort', Object.assign(new Error('aborted'), { name: 'AbortError' })],

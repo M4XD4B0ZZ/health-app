@@ -84,6 +84,7 @@ export function wrapVariantBProviderWithLedger(
               inputTokens: telemetry.inputTokens,
               outputTokens: telemetry.outputTokens,
               actualCostUsd: telemetry.actualCostUsd,
+              runIdentity: telemetry.runIdentity,
             }
           : null,
       );
@@ -102,6 +103,7 @@ export function wrapVariantCInterpreterWithLedger(
 ): VariantCAiInterpreter {
   let cursor = 0;
   return {
+    runIdentity: inner.runIdentity,
     async interpret(request: AiInterpretationRequest): Promise<VariantCAiInterpretationCall> {
       const observation = nextObservationOrThrow(orderedObservations, cursor, 'C');
       cursor += 1;

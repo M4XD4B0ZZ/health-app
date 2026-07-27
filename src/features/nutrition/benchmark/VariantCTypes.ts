@@ -109,6 +109,13 @@ export interface VariantCComponentResult {
   gramsUsed: number | null;
   warnings: string[];
   errors: string[];
+  /** R1-min execution evidence; null for R0 and for components that were not searched. */
+  retrievalExecution?: {
+    stopReason: 'authoritative_accepted' | 'tiers_exhausted';
+    avoidedSourceTypes: FoodSourceType[];
+    calledSourceTypes: FoodSourceType[];
+    candidateCountsByTier: { sourceType: FoodSourceType; candidateCount: number }[];
+  } | null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -220,9 +227,27 @@ export interface VariantCAiCallMetadata {
   /** Closed failure taxonomy for untrusted provider boundaries. Historical artifacts may omit it. */
   failureKind?: VariantCProviderFailureKind | null;
   retryable?: boolean;
-  candidateVersion?: string;
-  promptVersion?: string;
-  schemaVersion?: string;
+  runIdentity?: VariantCRunIdentity;
+}
+
+/** Closed, immutable identity for one V3-047 candidate/pricing configuration. */
+export interface VariantCRunIdentity {
+  readonly candidateId: 'H0' | 'H1' | 'H2';
+  readonly candidateVersion: string;
+  readonly promptVersion: string;
+  readonly schemaVersion: string;
+  readonly routingVersion: string;
+  readonly modelId: string;
+  readonly pricingVersion: string;
+}
+
+export type VariantCParserFailureKind = Extract<
+  VariantCProviderFailureKind,
+  'missing_text_block' | 'text_block_json_error' | 'schema_contract_error' | 'internal_parser_error'
+>;
+export interface VariantCParserDiagnostic {
+  result: AiInterpretationResult;
+  failureKind: VariantCParserFailureKind | null;
 }
 
 export type VariantCProviderFailureKind =
@@ -244,6 +269,7 @@ export interface VariantCAiInterpretationCall {
 }
 
 export interface VariantCAiInterpreter {
+  readonly runIdentity?: VariantCRunIdentity;
   interpret(
     request: AiInterpretationRequest,
     signal?: AbortSignal,

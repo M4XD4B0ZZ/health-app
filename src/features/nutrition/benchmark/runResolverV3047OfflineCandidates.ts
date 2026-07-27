@@ -52,6 +52,7 @@ export interface ResolverV3047OfflineMeasurement {
   failClosed: boolean;
   localCpuMs: number;
   providerLatency: 'live_unverified';
+  providerMetadata: import('./VariantCTypes').VariantCAiCallMetadata | null;
 }
 
 type Scenario = {
@@ -280,7 +281,7 @@ export async function runResolverV3047OfflineCandidates(): Promise<
       scenarioId: scenario.id,
       candidateId: candidate.id,
       candidateIdentity: interpreter.runIdentity!,
-      parserFailureKind: null,
+      parserFailureKind: raw.mealResult.aiCallMetadata?.failureKind ?? null,
       parserContractSuccess: raw.mealResult.outcome !== 'error',
       promptChars: candidate.prompt.length,
       promptUtf8Bytes: Buffer.byteLength(candidate.prompt),
@@ -301,14 +302,15 @@ export async function runResolverV3047OfflineCandidates(): Promise<
       stopReason: execution?.stopReason ?? null,
       avoidedSourceTypes: execution?.avoidedSourceTypes ?? [],
       candidateCountsByTier: execution?.candidateCountsByTier ?? [],
-      usageStatus: raw.mealResult.aiInterpretation.called ? 'reported' : 'not_applicable',
+      usageStatus: raw.mealResult.aiCallMetadata?.usageStatus ?? 'not_applicable',
       pricingStatus: raw.mealResult.cost.pricingStatus,
-      actualCostStatus: raw.mealResult.aiInterpretation.called ? 'computed' : 'not_applicable',
+      actualCostStatus: raw.mealResult.aiCallMetadata?.actualCostStatus ?? 'not_applicable',
       actualCostUsd: raw.mealResult.cost.costUsd,
       evidenceClass: 'fixture_executed',
       failClosed: raw.mealResult.outcome !== 'error',
       localCpuMs: performance.now() - start,
       providerLatency: 'live_unverified',
+      providerMetadata: raw.mealResult.aiCallMetadata ?? null,
     });
   }
   return results;

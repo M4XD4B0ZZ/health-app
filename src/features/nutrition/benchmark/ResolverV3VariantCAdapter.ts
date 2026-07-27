@@ -223,6 +223,7 @@ async function buildFastPathMealResult(
     externalRequestCount: 1,
     latencyMs: { fastPathMs, aiInterpretationMs: 0, retrievalMs: 0, totalMs: fastPathMs },
     cost: { costUsd: 0, pricingStatus: 'not_applicable', inputTokens: null, outputTokens: null },
+    aiCallMetadata: null,
     warnings: [],
     errors: [],
   };
@@ -289,6 +290,7 @@ export async function runVariantCCase(
       traceId,
       mealResult: {
         ...mealResult,
+        aiCallMetadata: aiCost,
         fastPath: fastPathInfo,
         aiInterpretation: aiSummary,
         latencyMs: { fastPathMs, aiInterpretationMs, retrievalMs, totalMs },

@@ -196,6 +196,9 @@ export interface VariantCMealResult {
     totalMs: number;
   };
   cost: VariantCCostMetadata;
+  /** Complete provider boundary record. Protocol-v4 consumers MUST read this record instead of
+   * reconstructing status from `called`; absent/null keeps historical and fast-path data readable. */
+  aiCallMetadata?: VariantCAiCallMetadata | null;
   warnings: string[];
   errors: string[];
 }

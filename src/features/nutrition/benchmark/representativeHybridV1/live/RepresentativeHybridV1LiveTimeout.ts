@@ -36,6 +36,8 @@ export class TimeoutEnforcingAnthropicBenchmarkTransport extends AnthropicBenchm
       const handle = setTimeout(cb, ms);
       return { clear: () => clearTimeout(handle) };
     },
+    /** Shared outer-attempt signal. A wall-clock ceiling abort therefore reaches the transport. */
+    private readonly outerSignal?: AbortSignal,
   ) {
     super();
   }
@@ -46,6 +48,10 @@ export class TimeoutEnforcingAnthropicBenchmarkTransport extends AnthropicBenchm
       // Combine an existing signal (none exist today, but this stays correct if one is ever
       // passed) with our own timeout-driven abort, without losing either trigger.
       init.signal.addEventListener('abort', () => controller.abort());
+    }
+    if (this.outerSignal) {
+      if (this.outerSignal.aborted) controller.abort();
+      else this.outerSignal.addEventListener('abort', () => controller.abort(), { once: true });
     }
     const timer = this.scheduleTimeout(() => controller.abort(), this.perRequestTimeoutMs);
     return this.inner.fetch(input, { ...init, signal: controller.signal }).finally(() => {
@@ -61,7 +67,7 @@ export class TimeoutEnforcingAnthropicBenchmarkTransport extends AnthropicBenchm
  * never as a successful attempt with unknown fields defaulted.
  */
 export async function withWallClockCeiling<T>(
-  attempt: () => Promise<T>,
+  attempt: (signal: AbortSignal) => Promise<T>,
   ceilingMs: number,
   scheduleTimeout: (cb: () => void, ms: number) => { clear: () => void } = (cb, ms) => {
     const handle = setTimeout(cb, ms);
@@ -71,15 +77,16 @@ export async function withWallClockCeiling<T>(
   { status: 'completed'; value: T; elapsedMs: number } | { status: 'timed_out'; elapsedMs: number }
 > {
   const start = performance.now();
+  const controller = new AbortController();
   let timer: { clear: () => void } | undefined;
   const ceiling = new Promise<{ status: 'timed_out'; elapsedMs: number }>((resolve) => {
-    timer = scheduleTimeout(
-      () => resolve({ status: 'timed_out', elapsedMs: performance.now() - start }),
-      ceilingMs,
-    );
+    timer = scheduleTimeout(() => {
+      controller.abort('wall_clock_ceiling');
+      resolve({ status: 'timed_out', elapsedMs: performance.now() - start });
+    }, ceilingMs);
   });
   const race = await Promise.race([
-    attempt().then((value) => ({
+    attempt(controller.signal).then((value) => ({
       status: 'completed' as const,
       value,
       elapsedMs: performance.now() - start,

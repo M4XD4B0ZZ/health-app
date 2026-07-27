@@ -30,7 +30,7 @@ export interface VariantBProvider {
   readonly providerId: string;
   readonly modelId: string;
   readonly runMode: 'fixture' | 'live';
-  call(request: VariantBRequest): Promise<VariantBProviderCallResult>;
+  call(request: VariantBRequest, signal?: AbortSignal): Promise<VariantBProviderCallResult>;
   /** `null` when no cost model is configured for this provider/model -- distinguishes "$0" from
    * "unknown" (ROADMAP.md: "darf bei unbekannten Preisen nicht 0 behaupten"). */
   computeCostUsd(usage: { inputTokens: number; outputTokens: number } | null): {

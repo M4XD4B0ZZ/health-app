@@ -241,5 +241,8 @@ export interface VariantCAiInterpretationCall {
 }
 
 export interface VariantCAiInterpreter {
-  interpret(request: AiInterpretationRequest): Promise<VariantCAiInterpretationCall>;
+  interpret(
+    request: AiInterpretationRequest,
+    signal?: AbortSignal,
+  ): Promise<VariantCAiInterpretationCall>;
 }

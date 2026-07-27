@@ -1,5 +1,37 @@
 # Latest Handoff
 
+## RESOLVER-V3-047 — Candidate Integration and Offline Validation (In Progress)
+
+1. **Task ID/status:** `RESOLVER-V3-047` is `in_progress` on basis
+   `c2e256df14c29fd2b648e5a6c6c4b78be380f2a3`; the checkout has no configured remote, so the remote
+   tip could not be independently fetched. V3-048 remains `todo`; V3-010 remains `blocked`.
+2. **What changed:** added closed H0/H1/H2 configurations, P1/S1 with deterministic S1 expansion,
+   fail-closed shared S0 hardening, R1-min policy, zero-network measurement harness, and shared outer-
+   ceiling abort propagation through Variant B/C transport calls. Added the V3-047 report and planned
+   the deferred owner-scoped C1 contract as V3-052.
+3. **Why it changed:** the S0 runtime boundary admitted internal sources, unknown fields, invalid
+   confidence/quantity and incomplete/incoherent plans, while the outer ceiling did not abort the
+   in-flight provider transport. The three candidates must isolate shared hardening, interpretation-
+   contract changes and conservative routing without live claims.
+4. **Files changed:** benchmark-local candidate/parser/harness/provider/timeout/types and focused tests;
+   `reports/RESOLVER_V3_047_HAIKU_OPTIMIZATION_CANDIDATE_INTEGRATION.md`; `ROADMAP.md`; this handoff.
+5. **Verification executed:** typecheck, lint, format check; 11 focused prompt/parser/provider/adapter/
+   retrieval/confidence/budget/usage/timeout/telemetry/ledger suites; compiled zero-network harness;
+   frozen-manifest hashing; `git diff --check`; canonical `npm run verify`.
+6. **Verification result:** focused run passed 11 suites/166 tests; separate provider/timeout run passed
+   5 suites/86 tests; typecheck/lint/format/diff and seven-artifact hash checks passed. The harness
+   parsed all three candidates, created 1 component/1 plan and rejected unknown root data. Full verify
+   passed typecheck/lint/format and ran deeply through green Jest suites, but did not terminate and was
+   interrupted with exit 130; it is not claimed green. Provider calls 0; cost USD 0.
+7. **Known issues/blockers/residual risks:** canonical completion awaits green CI because local full Jest
+   has the known non-termination symptom. Live quality, consistency, latency, usage/cost and query/
+   clarification quality remain unverified V3-048 questions. The attempted `npx ts-node` harness command
+   found no local package and failed before execution; package manifests remained unchanged, and the
+   harness was then compiled with the already-declared TypeScript compiler.
+8. **Human review/next steps:** inspect H0/H1/H2 boundaries and abort propagation, require green Verify
+   CI, then mark V3-047 `done` in the merge follow-up. Do not run V3-048 or authorize production wiring
+   from this offline work.
+
 ## RESOLVER-V3-046 — Post-Merge Envelope/Usage/Timeout Correction (Done)
 
 1. **Task ID/status:** `RESOLVER-V3-046` remains `done` after correction on basis

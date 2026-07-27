@@ -8573,7 +8573,7 @@ ground truth, BLS artifacts, evaluator, CI, and production wiring remain unchang
 
 #### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
 
-Status: `todo`
+Status: `in_progress`
 Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046, RESOLVER-V3-049,
 RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -8611,6 +8611,19 @@ final pinned configuration.
 any live comparison phase requires its own separate, explicit budget authorization at execution
 time.
 **Evidence-mutation policy:** the seven RESOLVER-V3-039 evidence files remain untouched.
+
+#### RESOLVER-V3-052: Owner-Scoped Interpretation Context Contract
+
+Status: `todo`
+Depends on: RESOLVER-V3-048
+
+**Goal:** Decide and specify a later C1 context contract without weakening objective food identity.
+Confirmed aliases and P2 memory should primarily enter a deterministic owner-scoped fast path. Any
+AI-visible context requires a closed allowlist, owner isolation, explicit versioning and invalidation,
+privacy boundaries, injection protection, and owner-scoped cache keys. Evaluation profiles, macro,
+protein, calorie, weight, or other personal goals must never alter objective food identification.
+**Non-goals:** implementation, production wiring, free-form personal context, journal/portion history,
+or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task.
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 

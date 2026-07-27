@@ -98,7 +98,9 @@ describe('RESOLVER-V3-039 telemetry-capturing provider decorators', () => {
     expect(result.usage).toBeNull();
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
-      providerStatus: 'unknown',
+      providerStatus: 'wall_clock_ceiling',
+      failureKind: 'wall_clock_ceiling',
+      retryable: false,
       usageStatus: 'unknown',
       inputTokens: null,
       outputTokens: null,
@@ -192,6 +194,12 @@ describe('RESOLVER-V3-039 telemetry-capturing provider decorators', () => {
     const { result, runMeta } = await resultPromise;
     expect(result.outcome).toBe('error');
     expect(runMeta.costUsd).toBeNull();
+    expect(runMeta).toMatchObject({ failureKind: 'wall_clock_ceiling', retryable: false });
+    expect(records[0]).toMatchObject({
+      providerStatus: 'wall_clock_ceiling',
+      failureKind: 'wall_clock_ceiling',
+      retryable: false,
+    });
     expect(records[0].usageStatus).toBe('unknown');
     expect(records[0].retried).toBe(false);
   });

@@ -43,8 +43,8 @@ export function wrapVariantBProviderWithTelemetry(
           caseId: request.caseId,
           attempt: attemptIndex,
           httpStatus: null,
-          providerStatus: 'unknown',
-          failureKind: 'timeout_abort',
+          providerStatus: 'wall_clock_ceiling',
+          failureKind: 'wall_clock_ceiling',
           retryable: false,
           inputTokens: null,
           outputTokens: null,
@@ -117,8 +117,8 @@ export function wrapVariantCInterpreterWithTelemetry(
           caseId: request.traceId ?? 'unknown',
           attempt: attemptIndex,
           httpStatus: null,
-          providerStatus: 'unknown',
-          failureKind: 'timeout_abort',
+          providerStatus: 'wall_clock_ceiling',
+          failureKind: 'wall_clock_ceiling',
           retryable: false,
           inputTokens: null,
           outputTokens: null,
@@ -145,6 +145,8 @@ export function wrapVariantCInterpreterWithTelemetry(
           cacheReadTokens: null,
           httpStatus: null,
           providerLatencyMs: null,
+          failureKind: 'wall_clock_ceiling',
+          retryable: false,
         };
         return { result, runMeta };
       }
@@ -184,6 +186,8 @@ function providerStatusForVariantC(
       return 'network_error';
     case 'timeout_abort':
       return 'timeout_abort';
+    case 'wall_clock_ceiling':
+      return 'wall_clock_ceiling';
     case 'http_error':
       return 'http_error';
     case 'internal_parser_error':
@@ -191,6 +195,7 @@ function providerStatusForVariantC(
     case 'budget_config_error':
       return 'budget_config_error';
     case 'http_envelope_json_error':
+    case 'http_envelope_contract_error':
     case 'missing_text_block':
     case 'text_block_json_error':
     case 'schema_contract_error':

@@ -98,136 +98,134 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       VARIANT_C_MAX_INPUT_TOKENS,
       VARIANT_C_MAX_OUTPUT_TOKENS,
     );
-    const start = performance.now();
-    let response: Response;
     try {
-      response = await this.transport.fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.modelId,
-          max_tokens: VARIANT_C_MAX_OUTPUT_TOKENS,
-          // Explicitly pin the API's supported lowest sampling temperature. Structured output and
-          // prompt constraints still carry the semantic determinism burden; this is not claimed to
-          // make the remote model mathematically deterministic.
-          temperature: 0,
-          system: VARIANT_C_SYSTEM_PROMPT,
-          output_config: {
-            format: { type: 'json_schema', schema: VARIANT_C_RESPONSE_JSON_SCHEMA },
+      const start = performance.now();
+      let response: Response;
+      try {
+        response = await this.transport.fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': this.apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
           },
-          messages: [{ role: 'user', content: buildVariantCPrompt(request) }],
-        }),
-      });
-    } catch (e) {
+          body: JSON.stringify({
+            model: this.modelId,
+            max_tokens: VARIANT_C_MAX_OUTPUT_TOKENS,
+            // Explicitly pin the API's supported lowest sampling temperature. Structured output and
+            // prompt constraints still carry the semantic determinism burden; this is not claimed to
+            // make the remote model mathematically deterministic.
+            temperature: 0,
+            system: VARIANT_C_SYSTEM_PROMPT,
+            output_config: {
+              format: { type: 'json_schema', schema: VARIANT_C_RESPONSE_JSON_SCHEMA },
+            },
+            messages: [{ role: 'user', content: buildVariantCPrompt(request) }],
+          }),
+        });
+      } catch (e) {
+        const latencyMs = performance.now() - start;
+        const failureKind: VariantCProviderFailureKind = isAbortError(e)
+          ? 'timeout_abort'
+          : 'transport_error';
+        const result = parseAndNormalizeVariantCInterpretationResponse(
+          null,
+          `${failureKind}: ${safeErrorMessage(e)}`,
+          latencyMs,
+          request.traceId,
+        );
+        return { result, runMeta: unknownCost(null, latencyMs, failureKind, true) };
+      }
+
       const latencyMs = performance.now() - start;
-      const failureKind: VariantCProviderFailureKind = isAbortError(e)
-        ? 'timeout_abort'
-        : 'transport_error';
-      const result = parseAndNormalizeVariantCInterpretationResponse(
-        null,
-        `${failureKind}: ${safeErrorMessage(e)}`,
-        latencyMs,
-        request.traceId,
-      );
-      reservation?.release();
-      return { result, runMeta: unknownCost(null, latencyMs, failureKind, true) };
-    }
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch (e) {
+        const failureKind: VariantCProviderFailureKind = response.ok
+          ? 'http_envelope_json_error'
+          : 'http_error';
+        const result = parseAndNormalizeVariantCInterpretationResponse(
+          null,
+          `${failureKind}: ${safeErrorMessage(e)}`,
+          latencyMs,
+          request.traceId,
+        );
+        return {
+          result,
+          runMeta: unknownCost(
+            response.status,
+            latencyMs,
+            failureKind,
+            isRetryableHttp(response.status),
+          ),
+        };
+      }
 
-    const latencyMs = performance.now() - start;
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch (e) {
-      const failureKind: VariantCProviderFailureKind = response.ok
-        ? 'http_envelope_json_error'
-        : 'http_error';
-      const result = parseAndNormalizeVariantCInterpretationResponse(
-        null,
-        `${failureKind}: ${safeErrorMessage(e)}`,
-        latencyMs,
-        request.traceId,
-      );
-      reservation?.release();
+      if (!response.ok) {
+        const errorMessage =
+          (data as { error?: { message?: string } })?.error?.message ?? response.statusText;
+        const result = parseAndNormalizeVariantCInterpretationResponse(
+          null,
+          errorMessage,
+          latencyMs,
+          request.traceId,
+        );
+        return {
+          result,
+          runMeta: unknownCost(
+            response.status,
+            latencyMs,
+            'http_error',
+            isRetryableHttp(response.status),
+          ),
+        };
+      }
+
+      const envelope = validateAnthropicEnvelope(data);
+      if (!envelope.ok) {
+        const failureKind: VariantCProviderFailureKind = 'http_envelope_contract_error';
+        return {
+          result: parseAndNormalizeVariantCInterpretationResponse(
+            null,
+            `${failureKind}: ${envelope.message}`,
+            latencyMs,
+            request.traceId,
+          ),
+          runMeta: unknownCost(response.status, latencyMs, failureKind, false),
+        };
+      }
+      const { text, usage } = envelope.value;
+      let result: AiInterpretationResult;
+      let failureKind: VariantCProviderFailureKind | null = null;
+      try {
+        result = parseAndNormalizeVariantCInterpretationResponse(
+          text ?? null,
+          null,
+          latencyMs,
+          request.traceId,
+        );
+        failureKind = classifyResponseFailure(text, result);
+      } catch (e) {
+        failureKind = 'internal_parser_error';
+        result = parseAndNormalizeVariantCInterpretationResponse(
+          null,
+          `internal_parser_error: parser boundary failed closed (${safeErrorMessage(e)})`,
+          latencyMs,
+          request.traceId,
+        );
+      }
       return {
         result,
-        runMeta: unknownCost(
-          response.status,
-          latencyMs,
+        runMeta: {
+          ...this.computeCostUsd(usage, response.status, latencyMs),
           failureKind,
-          isRetryableHttp(response.status),
-        ),
+          retryable: false,
+        },
       };
-    }
-
-    if (!response.ok) {
-      const errorMessage =
-        (data as { error?: { message?: string } })?.error?.message ?? response.statusText;
-      const result = parseAndNormalizeVariantCInterpretationResponse(
-        null,
-        errorMessage,
-        latencyMs,
-        request.traceId,
-      );
+    } finally {
       reservation?.release();
-      return {
-        result,
-        runMeta: unknownCost(
-          response.status,
-          latencyMs,
-          'http_error',
-          isRetryableHttp(response.status),
-        ),
-      };
     }
-
-    const body = data as {
-      content?: { type: string; text?: string }[];
-      usage?: {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_creation_input_tokens?: number;
-        cache_read_input_tokens?: number;
-      };
-    };
-    const textBlock = body.content?.find((block) => block.type === 'text');
-    let result: AiInterpretationResult;
-    let failureKind: VariantCProviderFailureKind | null = null;
-    try {
-      result = parseAndNormalizeVariantCInterpretationResponse(
-        textBlock?.text ?? null,
-        null,
-        latencyMs,
-        request.traceId,
-      );
-      failureKind = classifyResponseFailure(textBlock?.text, result);
-    } catch (e) {
-      failureKind = 'internal_parser_error';
-      result = parseAndNormalizeVariantCInterpretationResponse(
-        null,
-        `internal_parser_error: parser boundary failed closed (${safeErrorMessage(e)})`,
-        latencyMs,
-        request.traceId,
-      );
-    }
-    const usage = {
-      inputTokens: body.usage?.input_tokens ?? 0,
-      outputTokens: body.usage?.output_tokens ?? 0,
-      cacheCreationTokens: body.usage?.cache_creation_input_tokens ?? null,
-      cacheReadTokens: body.usage?.cache_read_input_tokens ?? null,
-    };
-    reservation?.release();
-    return {
-      result,
-      runMeta: {
-        ...this.computeCostUsd(usage, response.status, latencyMs),
-        failureKind,
-        retryable: false,
-      },
-    };
   }
 
   private computeCostUsd(
@@ -309,4 +307,75 @@ function classifyResponseFailure(
   if (result.message.startsWith('internal_parser_error:')) return 'internal_parser_error';
   if (result.message.includes('could not parse response as JSON')) return 'text_block_json_error';
   return 'schema_contract_error';
+}
+
+interface ValidatedAnthropicEnvelope {
+  text: string | undefined;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens: number | null;
+    cacheReadTokens: number | null;
+  };
+}
+
+function validateAnthropicEnvelope(
+  value: unknown,
+): { ok: true; value: ValidatedAnthropicEnvelope } | { ok: false; message: string } {
+  if (!isRecord(value)) return { ok: false, message: 'envelope must be a non-null object' };
+  if (!Array.isArray(value.content)) return { ok: false, message: 'content must be an array' };
+
+  let text: string | undefined;
+  for (const block of value.content) {
+    if (!isRecord(block)) return { ok: false, message: 'content block must be an object' };
+    if (typeof block.type !== 'string') {
+      return { ok: false, message: 'content block type must be a string' };
+    }
+    if (block.type === 'text') {
+      if (typeof block.text !== 'string') {
+        return { ok: false, message: 'text block text must be a string' };
+      }
+      text ??= block.text;
+    }
+  }
+
+  if (!isRecord(value.usage)) return { ok: false, message: 'usage must be an object' };
+  const inputTokens = validTokenCount(value.usage.input_tokens);
+  const outputTokens = validTokenCount(value.usage.output_tokens);
+  const cacheCreationTokens = optionalTokenCount(value.usage, 'cache_creation_input_tokens');
+  const cacheReadTokens = optionalTokenCount(value.usage, 'cache_read_input_tokens');
+  if (
+    inputTokens === null ||
+    outputTokens === null ||
+    cacheCreationTokens === undefined ||
+    cacheReadTokens === undefined
+  ) {
+    return { ok: false, message: 'usage token counts must be finite non-negative integers' };
+  }
+  return {
+    ok: true,
+    value: { text, usage: { inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } },
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validTokenCount(value: unknown): number | null {
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= 0
+    ? value
+    : null;
+}
+
+function optionalTokenCount(
+  usage: Record<string, unknown>,
+  key: string,
+): number | null | undefined {
+  if (!(key in usage)) return null;
+  const value = validTokenCount(usage[key]);
+  return value === null ? undefined : value;
 }

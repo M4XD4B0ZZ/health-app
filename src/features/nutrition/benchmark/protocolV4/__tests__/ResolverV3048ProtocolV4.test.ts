@@ -2,31 +2,55 @@ import {
   ARTIFACT_PATHS,
   PROTOCOL_V4_DRY_RUN_ROOT,
   PROTOCOL_V4_LIVE_ROOT,
+  PROTOCOL_V4_G2_GATES,
+  PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION,
   assertHoldoutAuthorized,
   assertTelemetryLedgerParity,
-  buildProtocolV4Plan,
+  buildProtocolV4MasterPlan,
+  deriveHoldoutExecutionPlan,
   hashProtocolV4,
   selectCandidate,
+  selectCandidateFromDevelopmentEvidence,
+  sealProtocolV4Artifact,
+  validateCandidateEvaluation,
   validateCategoryEvidence,
-  validateProtocolV4Plan,
+  validateCandidateSelectionRecord,
+  validateHoldoutExecutionPlan,
+  validateMeasuredCount,
+  validateProtocolV4CallCounts,
+  validateProtocolV4MasterPlan,
   validateTerminalMetadata,
   type CandidateEvaluation,
   type CategoryEvidence,
+  type HoldoutAuthorizationRecord,
+  type ProtocolV4DevelopmentEvidence,
+  type ProtocolV4DevelopmentCandidateArtifacts,
   type ProtocolV4TerminalMetadata,
+  type ResolverV3047CandidateId,
 } from '../ResolverV3048ProtocolV4';
+import { findLiveProviderPricing, ANTHROPIC_MESSAGES_PRICING } from '../../LiveProviderBudgetGate';
+import {
+  computeProtocolV4EvaluatorManifestHashFromFiles,
+  readProtocolV4EvaluatorManifestFiles,
+  computeProtocolV4EvaluatorManifestHash,
+} from '../ResolverV3048ProtocolV4EvaluatorHash';
 
-const plan = buildProtocolV4Plan();
-const identity = (candidateId: 'H0' | 'H1' | 'H2' = 'H0') => ({
+const plan = buildProtocolV4MasterPlan();
+const g2AllPassed = Object.fromEntries(
+  PROTOCOL_V4_G2_GATES.map((g) => [g, 'passed' as const]),
+) as Record<(typeof PROTOCOL_V4_G2_GATES)[number], 'passed'>;
+
+const identity = (candidateId: ResolverV3047CandidateId = 'H0') => ({
   protocolVersion: plan.protocolVersion,
   planHash: plan.planHash,
-  executionTreeHash: plan.executionTreeHash,
+  executionTreeHash: plan.developmentExecutionTreeHash,
   candidateId,
   candidateVersion: plan.candidates.find((c) => c.id === candidateId)!.version,
   promptVersion: plan.candidates.find((c) => c.id === candidateId)!.promptVersion,
   schemaVersion: plan.candidates.find((c) => c.id === candidateId)!.schemaVersion,
   routingVersion: plan.candidates.find((c) => c.id === candidateId)!.routingVersion,
   modelId: plan.modelId,
-  pricingVersion: plan.pricingVersion,
+  pricingVersion: plan.pricing.pricingVersion,
   partition: 'development' as const,
   scenarioId: 'fake',
   runIndex: 0,
@@ -53,7 +77,7 @@ const counts = {
 const terminal = (
   overrides: Partial<ProtocolV4TerminalMetadata> = {},
 ): ProtocolV4TerminalMetadata => ({
-  schemaVersion: 'resolver-v3-048-artifacts-v1',
+  schemaVersion: 'resolver-v3-048-artifacts-v2',
   runIdentity: identity(),
   pricingStatus: 'estimated',
   usageStatus: 'reported',
@@ -74,20 +98,38 @@ const terminal = (
   ...overrides,
 });
 
-describe('RESOLVER-V3-048 immutable protocol-v4 plan', () => {
+describe('RESOLVER-V3-048 immutable master protocol plan', () => {
   it('hashes every evidence-relevant field and uses independent fake/live roots', () => {
-    validateProtocolV4Plan(plan);
+    validateProtocolV4MasterPlan(plan);
     expect(plan.planHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(plan.executionTreeHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(plan.developmentExecutionTreeHash).toMatch(/^[a-f0-9]{64}$/);
     expect(hashProtocolV4({ ...plan, maxTokens: 1 })).not.toBe(plan.planHash);
     expect(PROTOCOL_V4_DRY_RUN_ROOT).not.toBe(PROTOCOL_V4_LIVE_ROOT);
     expect(new Set(Object.values(ARTIFACT_PATHS)).size).toBe(Object.keys(ARTIFACT_PATHS).length);
   });
   it('fails closed on missing/tampered hashes', () => {
-    expect(() => validateProtocolV4Plan({ ...plan, planHash: '' })).toThrow('PLAN_HASH');
-    expect(() => validateProtocolV4Plan({ ...plan, maxTokens: 1 as 1536 })).toThrow('PLAN_HASH');
+    expect(() => validateProtocolV4MasterPlan({ ...plan, planHash: '' })).toThrow('PLAN_HASH');
+    expect(() => validateProtocolV4MasterPlan({ ...plan, maxTokens: 1 as 1536 })).toThrow(
+      'PLAN_HASH',
+    );
   });
-  it('derives a proposal-only budget from frozen observations and repository pricing', () => {
+  it('never claims all three candidates run Holdout -- the template carries no candidateId', () => {
+    const holdoutCandidateIds = new Set(
+      (plan.holdoutTemplate.observations as unknown as { candidateId?: string }[]).map(
+        (o) => o.candidateId,
+      ),
+    );
+    expect(holdoutCandidateIds).toEqual(new Set([undefined]));
+    expect(() =>
+      validateProtocolV4MasterPlan({
+        ...plan,
+        holdoutTemplate: {
+          observations: plan.holdoutTemplate.observations.map((o) => ({ ...o, candidateId: 'H0' })),
+        } as unknown as typeof plan.holdoutTemplate,
+      }),
+    ).toThrow(); // hash would also drift, but the explicit guard fires deterministically
+  });
+  it('derives a proposal-only budget from frozen observations and the single pricing authority', () => {
     expect(plan.budget.authorization).toBe('proposal_only');
     expect(plan.budget.totalCalls).toBe(plan.budget.developmentCalls + plan.budget.holdoutCalls);
     expect(plan.budget.totalMaxTokens).toBe(
@@ -97,12 +139,56 @@ describe('RESOLVER-V3-048 immutable protocol-v4 plan', () => {
       plan.budget.developmentMaxCostUsd + plan.budget.holdoutMaxCostUsd,
     );
     expect(plan.budget.maxConcurrentRequests).toBe(1);
+    // The 352-call / $5.586944 total budget from the preflight report is a PROPOSAL, never an
+    // authorization -- this test only proves the arithmetic stays internally consistent.
+    expect(plan.budget.authorization).not.toBe('authorized');
   });
 });
 
-describe('predeclared candidate selection', () => {
+describe('RESOLVER-V3-048 Part 2: single pricing authority', () => {
+  it('plan pricing equals the real ANTHROPIC_MESSAGES_PRICING row for the pinned model, not a separate literal', () => {
+    const authority = findLiveProviderPricing(plan.modelId, ANTHROPIC_MESSAGES_PRICING);
+    expect(authority).toBeDefined();
+    expect(plan.pricing.pricingVersion).toBe(authority!.pricingVersion);
+    expect(plan.pricing.modelId).toBe(plan.modelId);
+    expect(plan.pricing.inputPerMillion).toBe(authority!.inputPerMillion);
+    expect(plan.pricing.outputPerMillion).toBe(authority!.outputPerMillion);
+    expect(hashProtocolV4(plan.pricing)).toBe(plan.pricingManifestHash);
+  });
+  it('blocks before dispatch on a pricing identity mismatch', () => {
+    expect(() =>
+      validateProtocolV4MasterPlan({
+        ...plan,
+        pricing: { ...plan.pricing, pricingVersion: 'drifted-pricing-version' },
+      }),
+    ).toThrow();
+  });
+});
+
+describe('RESOLVER-V3-048 Part 3: real evaluator manifest hash authority', () => {
+  it('is sensitive to actual evaluator file content, not a self-declared label', () => {
+    const a = computeProtocolV4EvaluatorManifestHashFromFiles([
+      { path: 'a.ts', content: 'export const x = 1;\n' },
+    ]);
+    const b = computeProtocolV4EvaluatorManifestHashFromFiles([
+      { path: 'a.ts', content: 'export const x = 2;\n' },
+    ]);
+    expect(a).not.toBe(b);
+  });
+  it('reproducibly hashes the real, current canonical evaluator files from disk', () => {
+    const files = readProtocolV4EvaluatorManifestFiles(process.cwd());
+    expect(files.length).toBe(2);
+    const hash1 = computeProtocolV4EvaluatorManifestHash(process.cwd());
+    const hash2 = computeProtocolV4EvaluatorManifestHash(process.cwd());
+    expect(hash1).toBe(hash2);
+    expect(hash1).toMatch(/^[a-f0-9]{64}$/);
+    expect(plan.evaluator.hash).toBe(hash1);
+  });
+});
+
+describe('predeclared candidate selection (pure comparator)', () => {
   const evaluation = (
-    candidateId: 'H0' | 'H1' | 'H2',
+    candidateId: ResolverV3047CandidateId,
     x: Partial<CandidateEvaluation> = {},
   ): CandidateEvaluation => ({
     candidateId,
@@ -119,6 +205,7 @@ describe('predeclared candidate selection', () => {
     failureRate: 0,
     aiCalls: 1,
     sourceCalls: 1,
+    g2Results: g2AllPassed,
     ...x,
   });
   it('rejects candidates failing any mandatory/non-averageable eligibility criterion', () => {
@@ -141,9 +228,55 @@ describe('predeclared candidate selection', () => {
   });
 });
 
+describe('RESOLVER-V3-048 Part 8: candidate evaluation guards NaN/Infinity/negative/incoherent G2', () => {
+  const base: CandidateEvaluation = {
+    candidateId: 'H0',
+    allMandatoryG2CriteriaPass: true,
+    criticalFalseConfidenceCount: 0,
+    contractsComplete: true,
+    identificationQuality: 1,
+    complexComponentQuality: 1,
+    clarificationAbstentionQuality: 1,
+    repeatConsistency: 1,
+    costPerValidatedLogUsd: 1,
+    p50Ms: 1,
+    p95Ms: 1,
+    failureRate: 0,
+    aiCalls: 1,
+    sourceCalls: 1,
+    g2Results: g2AllPassed,
+  };
+  it('accepts a fully finite, coherent evaluation', () =>
+    expect(() => validateCandidateEvaluation(base)).not.toThrow());
+  it.each(['identificationQuality', 'p50Ms', 'failureRate'] as const)(
+    'rejects NaN in %s',
+    (field) =>
+      expect(() => validateCandidateEvaluation({ ...base, [field]: NaN })).toThrow('NON_FINITE'),
+  );
+  it.each(['identificationQuality', 'costPerValidatedLogUsd'] as const)(
+    'rejects Infinity in %s',
+    (field) =>
+      expect(() => validateCandidateEvaluation({ ...base, [field]: Infinity })).toThrow(
+        'NON_FINITE',
+      ),
+  );
+  it('rejects negative counts', () =>
+    expect(() => validateCandidateEvaluation({ ...base, aiCalls: -1 })).toThrow('NEGATIVE_COUNT'));
+  it('rejects a missing G2 result', () => {
+    const { 'G2-A': _omit, ...rest } = g2AllPassed;
+    expect(() =>
+      validateCandidateEvaluation({ ...base, g2Results: rest as typeof g2AllPassed }),
+    ).toThrow('MISSING_G2_RESULT');
+  });
+  it('rejects allMandatoryG2CriteriaPass=true alongside a failed G2 gate', () =>
+    expect(() =>
+      validateCandidateEvaluation({ ...base, g2Results: { ...g2AllPassed, 'G2-B': 'failed' } }),
+    ).toThrow('G2_RESULT_INCOHERENT'));
+});
+
 describe('category evidence and partition closure', () => {
-  function completeRows(candidateId: 'H0' | 'H1' | 'H2' = 'H0'): CategoryEvidence[] {
-    return plan.observations
+  function completeRows(candidateId: ResolverV3047CandidateId = 'H0'): CategoryEvidence[] {
+    return plan.developmentObservations
       .filter((o) => o.partition === 'development' && o.candidateId === candidateId)
       .map((o) => ({
         ...o,
@@ -157,9 +290,12 @@ describe('category evidence and partition closure', () => {
         abstention: false,
       }));
   }
+  const expected = plan.developmentObservations.filter(
+    (o) => o.partition === 'development' && o.candidateId === 'H0',
+  );
   it('accepts the frozen scenario/category/repetition matrix', () =>
     expect(() =>
-      validateCategoryEvidence(plan, 'development', 'H0', completeRows()),
+      validateCategoryEvidence(expected, plan.planHash, 'H0', completeRows()),
     ).not.toThrow());
   it.each([
     ['missing', (r: CategoryEvidence[]) => r.slice(1)],
@@ -176,12 +312,58 @@ describe('category evidence and partition closure', () => {
     ['hash', (r: CategoryEvidence[]) => [{ ...r[0], planHash: 'bad' }, ...r.slice(1)]],
   ])('rejects %s drift', (_name, mutate) =>
     expect(() =>
-      validateCategoryEvidence(plan, 'development', 'H0', mutate(completeRows())),
+      validateCategoryEvidence(expected, plan.planHash, 'H0', mutate(completeRows())),
     ).toThrow(),
   );
 });
 
-describe('pricing, usage, cache, timeout, telemetry and count semantics', () => {
+describe('RESOLVER-V3-048 Part 8: MeasuredCount validator', () => {
+  it('requires a finite non-negative integer for exact/lower_bound', () => {
+    expect(() =>
+      validateMeasuredCount({ value: 1, accuracy: 'exact', boundary: 'source_adapter' }, 'f'),
+    ).not.toThrow();
+    expect(() =>
+      validateMeasuredCount({ value: null, accuracy: 'exact', boundary: 'source_adapter' }, 'f'),
+    ).toThrow('MEASURED_COUNT_INVALID');
+    expect(() =>
+      validateMeasuredCount({ value: -1, accuracy: 'exact', boundary: 'source_adapter' }, 'f'),
+    ).toThrow('MEASURED_COUNT_INVALID');
+    expect(() =>
+      validateMeasuredCount(
+        { value: 1.5, accuracy: 'lower_bound', boundary: 'source_adapter' },
+        'f',
+      ),
+    ).toThrow('MEASURED_COUNT_INVALID');
+  });
+  it('requires null for unknown/not_applicable', () =>
+    expect(() =>
+      validateMeasuredCount({ value: 1, accuracy: 'unknown', boundary: 'source_adapter' }, 'f'),
+    ).toThrow('VALUE_FORBIDDEN'));
+  it('never allows a legacy aggregate to be exact', () =>
+    expect(() =>
+      validateMeasuredCount(
+        { value: 1, accuracy: 'exact', boundary: 'resolver_legacy_aggregate' },
+        'f',
+      ),
+    ).toThrow('LEGACY_AGGREGATE_NEVER_EXACT'));
+  it('rejects automatic retries != 0 and internally-inconsistent totals', () => {
+    expect(() =>
+      validateProtocolV4CallCounts({
+        ...counts,
+        automaticRetries: { value: 1, accuracy: 'exact', boundary: 'retry_controller' },
+      }),
+    ).toThrow('AUTOMATIC_RETRIES_MUST_BE_ZERO');
+    expect(() =>
+      validateProtocolV4CallCounts({
+        ...counts,
+        blsCalls: { value: 5, accuracy: 'exact', boundary: 'source_adapter' },
+        totalExternalRequests: { value: 1, accuracy: 'exact', boundary: 'benchmark_dispatch' },
+      }),
+    ).toThrow('TOTAL_EXTERNAL_REQUESTS_INCONSISTENT');
+  });
+});
+
+describe('RESOLVER-V3-048 Part 8: terminal metadata coherence', () => {
   it('validates successful reported usage and exact fake boundaries', () =>
     expect(() => validateTerminalMetadata(terminal())).not.toThrow());
   it.each([
@@ -239,9 +421,7 @@ describe('pricing, usage, cache, timeout, telemetry and count semantics', () => 
   it.each(['cacheCreationTokens', 'cacheReadTokens'] as const)(
     'fails closed on positive %s',
     (field) => {
-      expect(() => validateTerminalMetadata(terminal({ [field]: 1, failureKind: null }))).toThrow(
-        'NO_CACHE',
-      );
+      expect(() => validateTerminalMetadata(terminal({ [field]: 1 }))).toThrow('NO_CACHE');
       expect(() =>
         validateTerminalMetadata(
           terminal({
@@ -255,12 +435,81 @@ describe('pricing, usage, cache, timeout, telemetry and count semantics', () => 
       ).not.toThrow();
     },
   );
-  it('requires telemetry and ledger parity', () => {
+  it('requires telemetry and ledger parity across every evidence-relevant field', () => {
     expect(() => assertTelemetryLedgerParity(terminal(), terminal())).not.toThrow();
     expect(() => assertTelemetryLedgerParity(terminal(), terminal({ actualCostUsd: 2 }))).toThrow(
       'MISMATCH',
     );
+    expect(() =>
+      assertTelemetryLedgerParity(
+        terminal(),
+        terminal({
+          counts: {
+            ...counts,
+            totalExternalRequests: {
+              value: 999,
+              accuracy: 'exact',
+              boundary: 'benchmark_dispatch',
+            },
+          },
+        }),
+      ),
+    ).toThrow('MISMATCH:counts');
+    expect(() =>
+      assertTelemetryLedgerParity(terminal(), terminal({ providerLatencyMs: 999 })),
+    ).toThrow('MISMATCH:providerLatencyMs');
+    expect(() => assertTelemetryLedgerParity(terminal(), terminal({ httpStatus: 500 }))).toThrow(
+      'MISMATCH:httpStatus',
+    );
   });
+  it('rejects a computed cost status with a null actual cost', () =>
+    expect(() =>
+      validateTerminalMetadata(terminal({ actualCostStatus: 'computed', actualCostUsd: null })),
+    ).toThrow('COMPUTED_REQUIRES_ACTUAL_COST'));
+  it('rejects a network-level failure claiming reported usage, and failure without a failure kind', () => {
+    expect(() =>
+      validateTerminalMetadata(terminal({ failureKind: 'transport_error', retryable: true })),
+    ).toThrow('NETWORK_FAILURE_CANNOT_REPORT_USAGE');
+    // A downstream parse/schema failure CAN legitimately report real, billable usage.
+    expect(() =>
+      validateTerminalMetadata(
+        terminal({ failureKind: 'schema_contract_error', retryable: false }),
+      ),
+    ).not.toThrow();
+    expect(() =>
+      validateTerminalMetadata(
+        terminal({
+          usageStatus: 'unknown',
+          actualCostStatus: 'usage_unknown',
+          actualCostUsd: null,
+          inputTokens: null,
+          outputTokens: null,
+          failureKind: null,
+        }),
+      ),
+    ).toThrow('FAILURE_REQUIRES_FAILURE_KIND');
+  });
+  it('rejects negative or non-finite costs and latencies', () => {
+    expect(() => validateTerminalMetadata(terminal({ reservedWorstCaseCostUsd: -1 }))).toThrow(
+      'RESERVED_COST_INVALID',
+    );
+    expect(() => validateTerminalMetadata(terminal({ endToEndLatencyMs: -5 }))).toThrow(
+      'LATENCY_INVALID',
+    );
+    expect(() => validateTerminalMetadata(terminal({ endToEndLatencyMs: Infinity }))).toThrow(
+      'LATENCY_INVALID',
+    );
+  });
+  it('rejects a run identity that does not match the plan/observation context', () =>
+    expect(() =>
+      validateTerminalMetadata(terminal(), {
+        planHash: 'other-plan-hash',
+        executionTreeHash: plan.developmentExecutionTreeHash,
+        candidateId: 'H0',
+        scenarioId: 'fake',
+        partition: 'development',
+      }),
+    ).toThrow('RUN_IDENTITY_CONTEXT_MISMATCH'));
   it('marks the legacy fast-path aggregate as a lower bound, never exact', () => {
     const fast = terminal({
       usageStatus: 'not_applicable',
@@ -277,90 +526,222 @@ describe('pricing, usage, cache, timeout, telemetry and count semantics', () => 
         },
       },
     });
+    expect(() => validateTerminalMetadata(fast)).not.toThrow();
     expect(fast.counts.totalExternalRequests.accuracy).toBe('lower_bound');
   });
 });
 
-describe('development -> frozen selection -> separately authorized holdout', () => {
-  const selection = {
-    planHash: plan.planHash,
-    executionTreeHash: plan.executionTreeHash,
-    candidateId: 'H2' as const,
-    developmentComplete: true as const,
-    frozen: true as const,
-  };
-  const authorization = {
-    kind: 'fake_dry_run' as const,
-    planHash: plan.planHash,
-    candidateId: 'H2' as const,
-    maxCalls: plan.budget.holdoutCalls,
-    maxTokens: plan.budget.holdoutMaxTokens,
-    maxCostUsd: plan.budget.holdoutMaxCostUsd,
-    currency: 'USD' as const,
-  };
-  const valid = {
-    plan,
-    developmentCheckpoint: true,
-    developmentEvaluation: true,
-    selection,
-    authorization,
-    artifactTargetUnused: true,
-    remainingCalls: plan.budget.holdoutCalls,
-    remainingTokens: plan.budget.holdoutMaxTokens,
-    remainingCostUsd: plan.budget.holdoutMaxCostUsd,
-    executionTreeHash: plan.executionTreeHash,
-    corpusHash: plan.corpus.hash,
-    groundTruthHash: plan.groundTruth.hash,
-    sourceManifestHash: plan.sourceManifest.hash,
-    evaluatorHash: plan.evaluator.hash,
-    liveExecution: false,
-  };
-  it('allows only the fake dry-run after every identity/checkpoint/budget gate passes', () =>
-    expect(() => assertHoldoutAuthorized(valid)).not.toThrow());
-  it('blocks holdout without selection and without separate authorization', () => {
-    expect(() => assertHoldoutAuthorized({ ...valid, selection: null })).toThrow('PREREQUISITE');
-    expect(() => assertHoldoutAuthorized({ ...valid, authorization: null })).toThrow(
-      'PREREQUISITE',
+describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evidence, strict authorization', () => {
+  function buildEvidence(): ProtocolV4DevelopmentEvidence {
+    const candidates: ProtocolV4DevelopmentCandidateArtifacts[] = (['H0', 'H1', 'H2'] as const).map(
+      (candidateId, index) => {
+        const expected = plan.developmentObservations.filter(
+          (o) => o.partition === 'development' && o.candidateId === candidateId,
+        );
+        const categoryRows: CategoryEvidence[] = expected.map((o) => ({
+          ...o,
+          planHash: plan.planHash,
+          identificationOutcome: 'resolved',
+          criticalError: false,
+          failureKind: null,
+          resolverOutcome: 'resolved',
+          componentCount: 1,
+          clarification: false,
+          abstention: false,
+        }));
+        const evaluation: CandidateEvaluation = {
+          candidateId,
+          allMandatoryG2CriteriaPass: true,
+          criticalFalseConfidenceCount: 0,
+          contractsComplete: true,
+          identificationQuality: 1 - index * 0.01,
+          complexComponentQuality: 1 - index * 0.01,
+          clarificationAbstentionQuality: 1,
+          repeatConsistency: 1,
+          costPerValidatedLogUsd: 0.001,
+          p50Ms: 1000,
+          p95Ms: 2000,
+          failureRate: 0,
+          aiCalls: expected.length,
+          sourceCalls: 0,
+          g2Results: g2AllPassed,
+        };
+        return {
+          candidateId,
+          checkpoint: sealProtocolV4Artifact(
+            `development-checkpoint-${candidateId}`,
+            plan.planHash,
+            {
+              completedCallIds: [],
+              candidateId,
+            },
+          ),
+          rawResults: sealProtocolV4Artifact(
+            `development-raw-results-${candidateId}`,
+            plan.planHash,
+            {
+              candidateId,
+              results: [],
+            },
+          ),
+          categoryTable: sealProtocolV4Artifact(
+            `development-category-table-${candidateId}`,
+            plan.planHash,
+            categoryRows,
+          ),
+          telemetry: sealProtocolV4Artifact(
+            `development-telemetry-${candidateId}`,
+            plan.planHash,
+            [],
+          ),
+          ledger: sealProtocolV4Artifact(`development-ledger-${candidateId}`, plan.planHash, []),
+          evaluation: sealProtocolV4Artifact(
+            `development-evaluation-${candidateId}`,
+            plan.planHash,
+            evaluation,
+          ),
+        };
+      },
     );
-  });
-  it('blocks identity drift, reused target, insufficient budget and fake live authorization', () => {
-    expect(() => assertHoldoutAuthorized({ ...valid, executionTreeHash: 'bad' })).toThrow(
-      'IDENTITY',
-    );
-    expect(() => assertHoldoutAuthorized({ ...valid, artifactTargetUnused: false })).toThrow(
-      'PREREQUISITE',
-    );
-    expect(() => assertHoldoutAuthorized({ ...valid, remainingCalls: 0 })).toThrow('BUDGET');
-    expect(() => assertHoldoutAuthorized({ ...valid, liveExecution: true })).toThrow('HUMAN');
-  });
-});
+    return {
+      planManifest: sealProtocolV4Artifact('development-plan-manifest', plan.planHash, {
+        planHash: plan.planHash,
+        developmentExecutionTreeHash: plan.developmentExecutionTreeHash,
+      }),
+      candidates,
+      candidateEvaluationTable: sealProtocolV4Artifact(
+        'candidate-evaluation-table',
+        plan.planHash,
+        candidates.map((c) => c.evaluation.content),
+      ),
+    };
+  }
 
-describe('complete zero-network scenario inventory', () => {
-  it('covers all 22 mandated fake/dry-run cases without constructing a network transport', () => {
-    const scenarios = [
-      'successful_usage',
-      'transport_error',
-      'timeout_abort',
-      'wall_clock_ceiling',
-      'http_429',
-      'http_500',
-      'envelope_json',
-      'envelope_contract',
-      'text_json',
-      'schema',
-      'cache_creation',
-      'cache_read',
-      'clarification',
-      'abstention',
-      'r1_early_stop',
-      'r1_exhausted',
-      'safe_fast_path',
-      'fast_path_lower_bound',
-      'missing_plan_hash',
-      'wrong_candidate',
-      'holdout_without_selection',
-      'holdout_without_human_authorization',
-    ];
-    expect(scenarios).toHaveLength(22);
+  it('selectCandidate cannot be reached without complete, validated development evidence for all 3 candidates', () => {
+    const evidence = buildEvidence();
+    const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+    expect(() => validateCandidateSelectionRecord(plan, selection)).not.toThrow();
+    expect(selection.frozen).toBe(true);
+    expect(['H0', 'H1', 'H2']).toContain(selection.candidateId);
+
+    const incomplete: ProtocolV4DevelopmentEvidence = {
+      ...evidence,
+      candidates: evidence.candidates.slice(0, 2),
+    };
+    expect(() => selectCandidateFromDevelopmentEvidence(plan, incomplete)).toThrow(
+      'DEVELOPMENT_EVIDENCE_CANDIDATE_SET_INCOMPLETE',
+    );
+
+    const tamperedTable = { ...evidence.candidateEvaluationTable, contentHash: 'tampered' };
+    expect(() =>
+      selectCandidateFromDevelopmentEvidence(plan, {
+        ...evidence,
+        candidateEvaluationTable: tamperedTable,
+      }),
+    ).toThrow('ARTIFACT_CONTENT_HASH_MISMATCH');
+  });
+
+  it('derives a Holdout Execution Plan naming exactly one candidate, and any change moves the hash', () => {
+    const evidence = buildEvidence();
+    const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+    const holdoutPlan = deriveHoldoutExecutionPlan(
+      plan,
+      selection.developmentEvidenceRootHash,
+      selection,
+    );
+    expect(() => validateHoldoutExecutionPlan(plan, holdoutPlan)).not.toThrow();
+    expect(holdoutPlan.candidateId).toBe(selection.candidateId);
+    expect(
+      holdoutPlan.holdoutObservations.every((o) => o.candidateId === selection.candidateId),
+    ).toBe(true);
+    expect(holdoutPlan.holdoutCalls).toBe(plan.budget.holdoutCalls);
+    expect(holdoutPlan.holdoutMaxCostUsd).toBeCloseTo(plan.budget.holdoutMaxCostUsd);
+
+    const otherEvidence = buildEvidence();
+    (otherEvidence.candidates[0].evaluation.content as { p50Ms: number }).p50Ms = 999999;
+    // (content mutated without re-sealing -> would fail its own artifact hash check first)
+    expect(() => selectCandidateFromDevelopmentEvidence(plan, otherEvidence)).toThrow(
+      'ARTIFACT_CONTENT_HASH_MISMATCH',
+    );
+  });
+
+  it('enforces the strict Holdout authorization gate end to end', () => {
+    const evidence = buildEvidence();
+    const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+    const holdoutPlan = deriveHoldoutExecutionPlan(
+      plan,
+      selection.developmentEvidenceRootHash,
+      selection,
+    );
+    const authorization: HoldoutAuthorizationRecord = {
+      authorizationSchemaVersion: PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION,
+      kind: 'fake_dry_run',
+      masterPlanHash: plan.planHash,
+      holdoutExecutionPlanHash: holdoutPlan.holdoutPlanHash,
+      developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+      candidateSelectionRecordHash: selection.selectionRecordHash,
+      candidateId: holdoutPlan.candidateId,
+      maxCalls: holdoutPlan.holdoutCalls,
+      maxInputTokens: holdoutPlan.holdoutCalls * 8192,
+      maxOutputTokens: holdoutPlan.holdoutCalls * 1536,
+      maxTotalTokens: holdoutPlan.holdoutMaxTokens,
+      maxCostUsd: holdoutPlan.holdoutMaxCostUsd,
+      currency: 'USD',
+      maxConcurrency: 1,
+      authorizedPhase: 'holdout',
+      authorizationId: 'fake-dry-run-test',
+      humanApprovalReference: null,
+      consumed: false,
+    };
+    const valid = {
+      plan,
+      holdoutPlan,
+      selection,
+      authorization,
+      artifactTargetUnused: true,
+      remainingCalls: holdoutPlan.holdoutCalls,
+      remainingInputTokens: holdoutPlan.holdoutMaxTokens,
+      remainingOutputTokens: holdoutPlan.holdoutMaxTokens,
+      remainingCostUsd: holdoutPlan.holdoutMaxCostUsd,
+      liveExecution: false,
+    };
+    expect(() => assertHoldoutAuthorized(valid)).not.toThrow();
+
+    // Defect 11 regression: an authorization with starved limits must now be rejected.
+    expect(() =>
+      assertHoldoutAuthorized({
+        ...valid,
+        authorization: { ...authorization, maxCalls: 0, maxTotalTokens: 0, maxCostUsd: 0 },
+      }),
+    ).toThrow('AUTHORIZATION_LIMITS_INSUFFICIENT');
+
+    expect(() =>
+      assertHoldoutAuthorized({ ...valid, authorization: { ...authorization, consumed: true } }),
+    ).toThrow('ALREADY_CONSUMED');
+    expect(() => assertHoldoutAuthorized({ ...valid, artifactTargetUnused: false })).toThrow(
+      'ARTIFACT_TARGET_REUSED',
+    );
+    expect(() => assertHoldoutAuthorized({ ...valid, remainingCalls: 0 })).toThrow(
+      'BUDGET_INSUFFICIENT',
+    );
+    // A fake_dry_run authorization can never authorize live execution -- either specific error
+    // (fake-cannot-live, or the generic human-live-required check) is an acceptable closed reason.
+    expect(() => assertHoldoutAuthorized({ ...valid, liveExecution: true })).toThrow('LIVE');
+    expect(() =>
+      assertHoldoutAuthorized({
+        ...valid,
+        authorization: {
+          ...authorization,
+          candidateId: (['H0', 'H1', 'H2'] as const).find((c) => c !== authorization.candidateId)!,
+        },
+      }),
+    ).toThrow('IDENTITY_MISMATCH');
+    // Human ceiling: authorization may not exceed what a human separately approved.
+    expect(() =>
+      assertHoldoutAuthorized({
+        ...valid,
+        humanApprovedCeiling: { maxCalls: 0, maxTotalTokens: 0, maxCostUsd: 0 },
+      }),
+    ).toThrow('EXCEEDS_HUMAN_CEILING');
   });
 });

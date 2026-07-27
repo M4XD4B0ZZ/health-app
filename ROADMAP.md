@@ -8629,9 +8629,41 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — protocol-v4 contract and zero-call preflight complete; live execution not authorized` (Phase A, 2026-07-27)
+Status: `in_progress — Protocol-v4 executable zero-call preflight complete; live Development not authorized` (Phase A post-merge remediation, 2026-07-27)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
+
+**Post-merge remediation (2026-07-27, basis `dd81439a36ac4122cce5d3bdeeb2562ce84271ac` / PR #190
+merge):** an independent post-merge review found PR #190's Phase A defective in twelve reproducible
+ways: the "22-scenario dry run" was a hard-coded name-length assertion that executed nothing; no
+Protocol-v4 telemetry/ledger wrapper was ever wired to a real (or fake) attempt; the outer wall-clock
+wrapper produced no Protocol-v4 metadata at all; the plan's pricing version literal
+(`anthropic-haiku-4-5-usd-2026-07-22`) diverged from the pricing table `LiveProviderBudgetGate`
+actually reserves against (`anthropic-messages-2025-10-01-v1`); the evaluator hash covered only a
+self-declared label, never the real corrected-evaluator code; Development checkpoint/evaluation gates
+were bare booleans; the candidate-selection record and its `maxCalls`/`maxTokens`/`maxCostUsd`
+authorization limits were freely constructible/never cross-checked against the plan; the Master Plan
+enumerated all three candidates under Holdout while deriving the Holdout budget from a hard-coded
+`candidateId === 'H0'` filter; and the terminal/count validators ignored most of their own fields
+(measured counts, cache/cost/failure coherence, telemetry/ledger parity beyond six fields). Full
+defect-by-defect detail, the exact red-baseline command/output that reproduced all of this on the
+merge commit, and the remediation are in
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_A_PREFLIGHT.md`'s post-merge correction section.
+Remediation replaced the single-stage plan with a two-stage Master Protocol Plan / Holdout Execution
+Plan contract, made Development evidence and candidate selection artifact-hash-bound
+(`selectCandidate()` is no longer reachable except through validated, sealed Development artifacts),
+made the single pricing authority and the real evaluator-manifest hash (git-content, LF-normalized,
+reusing the existing V3-039 execution-tree-hash algorithm) load-bearing, tightened the strict
+Human/Fake Holdout-authorization gate (limits, human ceiling, consumption, phase, currency all
+checked), closed the `MeasuredCount`/terminal-metadata validators, and replaced the fake 22-scenario
+list with an executable dry-run engine that actually drives `runVariantCCase`/the real per-candidate
+interpreter/the real V3-039 wall-clock wrapper against a fake transport and fake sources for all 22
+mandated scenarios. Provider calls remain exactly 0; provider cost remains exactly USD 0; no
+credential was read; the seven V3-039 evidence files, corpus, ground truth, and the corrected G2
+evaluator's own logic are unchanged. G2 remains **not passed** (unaffected by this Phase-A contract
+work); V3-010 remains `blocked`; the 352-call / USD 5.586944 proposal-only budget total is
+**unchanged in value** (re-derived generically rather than via the hard-coded H0 filter) and remains
+explicitly **not authorized**.
 
 **Dependency addition (RESOLVER-V3-051, 2026-07-25):** this task's Haiku live re-evidence must not
 run against a known-unsafe deterministic BLS fast path; RESOLVER-V3-051 fixed the generic

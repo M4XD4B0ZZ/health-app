@@ -151,7 +151,17 @@ describe('RESOLVER-V3-039 protocol-v2 ledger-recording provider decorators', () 
       expectedRoute: 'ai_routed',
       isSampleFloorSupplement: false,
     };
+    const runIdentity = Object.freeze({
+      candidateId: 'H2' as const,
+      candidateVersion: 'resolver-v3-047-h2-v1',
+      promptVersion: 'variant-c-prompt-v3',
+      schemaVersion: 'variant-c-schema-v2',
+      routingVersion: 'variant-c-routing-r1-min-v1',
+      modelId: 'claude-haiku-4-5-20251001',
+      pricingVersion: 'test-pricing-v1',
+    });
     const fakeC: VariantCAiInterpreter = {
+      runIdentity,
       async interpret(): Promise<VariantCAiInterpretationCall> {
         records.push({
           variant: 'C',
@@ -191,5 +201,8 @@ describe('RESOLVER-V3-039 protocol-v2 ledger-recording provider decorators', () 
     const callId = computeRepresentativeHybridV1LiveCallId(obsC, 'plan-hash');
     await wrapped.interpret({ rawInput: 'x', locale: 'de', traceId: 'trace-1' });
     expect(ledger.stateOf(callId)).toBe('completed');
+    const entries = ledger.allEntries().filter((entry) => entry.callId === callId);
+    expect(entries.map((entry) => entry.state)).toEqual(['reserved', 'dispatched', 'completed']);
+    entries.forEach((entry) => expect(entry.details).toMatchObject({ runIdentity }));
   });
 });

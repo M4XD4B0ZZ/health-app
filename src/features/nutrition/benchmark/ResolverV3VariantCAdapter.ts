@@ -44,7 +44,14 @@ export class FixtureCostAiInterpreter implements VariantCAiInterpreter {
     const result = await this.provider.interpret(request);
     return {
       result,
-      runMeta: { costUsd: 0, pricingStatus: 'known', inputTokens: null, outputTokens: null },
+      runMeta: {
+        costUsd: 0,
+        pricingStatus: 'known',
+        usageStatus: 'unknown',
+        actualCostStatus: 'usage_unknown',
+        inputTokens: null,
+        outputTokens: null,
+      },
     };
   }
 }

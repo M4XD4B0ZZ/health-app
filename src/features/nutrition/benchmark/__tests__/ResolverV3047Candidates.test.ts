@@ -232,6 +232,19 @@ describe('P0/P1, S1 and candidates', () => {
         components: [{ ...s1Component, nutrients: {}, sourceId: 'x' }],
       }).outcome,
     ).toBe('error'));
+
+  test('fails closed instead of discarding reason on S1 clarification', () => {
+    expect(
+      parseResolverV3047S1({
+        outcome: 'clarification_required',
+        components: [
+          { ...s1Component, sourceQueries: undefined, expectedResolutionKind: undefined },
+        ],
+        clarification: { missingInformation: 'Welche?', clarificationKind: 'other' },
+        reason: 'must not be silently discarded',
+      }).outcome,
+    ).toBe('error');
+  });
 });
 
 describe('R1-min and zero-network harness', () => {

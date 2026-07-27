@@ -4,6 +4,7 @@ import {
   VariantCLiveProviderConfigError,
 } from '../VariantCLiveInterpretationProvider';
 import { LiveProviderBudgetGate } from '../LiveProviderBudgetGate';
+import { resolverV3047Candidate } from '../ResolverV3047Candidates';
 
 const budgetGate = () =>
   new LiveProviderBudgetGate(
@@ -15,7 +16,15 @@ const budgetGate = () =>
       maxCost: 1,
       maxInFlight: 1,
     },
-    [{ modelId: 'claude-haiku-4-5', currency: 'USD', inputPerMillion: 1, outputPerMillion: 5 }],
+    [
+      { modelId: 'claude-haiku-4-5', currency: 'USD', inputPerMillion: 1, outputPerMillion: 5 },
+      {
+        modelId: 'claude-haiku-4-5-20251001',
+        currency: 'USD',
+        inputPerMillion: 1,
+        outputPerMillion: 5,
+      },
+    ],
   );
 
 describe('createLiveVariantCInterpreter', () => {
@@ -94,6 +103,44 @@ it('sends an explicit deterministic sampling payload through the injected transp
   expect(payload.temperature).toBe(0);
   expect(payload.messages[0].content).toContain('"apfel"');
   expect(payload.messages[0].content).not.toContain('"  APFEL  "');
+});
+
+it.each(['H0', 'H1', 'H2'] as const)('uses the closed %s request and parser path', async (id) => {
+  const candidate = resolverV3047Candidate(id);
+  const fetch = jest.fn(
+    async (_url: string, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+            },
+          ],
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200 },
+      ),
+  );
+  const call = await createLiveVariantCInterpreter(
+    { ANTHROPIC_API_KEY: 'test-key-not-real' },
+    budgetGate(),
+    { fetch, usesProxy: false },
+    candidate,
+  ).interpret({ rawInput: 'Food', locale: 'de' });
+  const payload = JSON.parse(String(fetch.mock.calls[0][1]?.body));
+  expect(payload).toMatchObject({
+    model: candidate.modelSnapshot,
+    system: candidate.prompt,
+    temperature: 0,
+  });
+  expect(payload.output_config.format.schema).toStrictEqual(candidate.schema);
+  expect(call.runMeta).toMatchObject({
+    candidateVersion: candidate.version,
+    promptVersion: candidate.promptVersion,
+    schemaVersion: candidate.schemaVersion,
+  });
+  expect(call.result.outcome).toBe('not_interpretable');
 });
 
 const interpretWith = async (

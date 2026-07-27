@@ -8,7 +8,9 @@ import { buildVariantAResolver, runVariantACase } from './ResolverV3VariantAAdap
 import {
   decideComponentCandidate,
   retrieveCandidatesForComponentPlan,
+  retrieveCandidatesForComponentPlanTiered,
 } from './ResolverV3VariantCRetrieval';
+import { ResolverV3047Candidate, resolverV3047R1MinSources } from './ResolverV3047Candidates';
 import { resolveComponentGrams } from './VariantCQuantity';
 import { computeTotals } from '../domain/portion/computeTotals';
 import {
@@ -79,6 +81,9 @@ export interface VariantCDependencies {
    * callers (tests, a future live run) may register OFF/USDA fixture/real sources here without
    * changing this module. */
   sourcesByType?: ReadonlyMap<FoodSourceType, FoodCatalogSource>;
+  candidate?: ResolverV3047Candidate;
+  /** Positive benchmark-local structural proof. H2 fails closed to AI when absent. */
+  singleComponentFastPathProof?: (benchmarkCase: BenchmarkCase) => boolean;
 }
 
 function defaultSourcesByType(): ReadonlyMap<FoodSourceType, FoodCatalogSource> {
@@ -230,7 +235,11 @@ export async function runVariantCCase(
   const fastPathResolver = deps.fastPathResolver ?? buildVariantAResolver().resolver;
   const sourcesByType = deps.sourcesByType ?? defaultSourcesByType();
 
-  const fastPathAttempt = await buildFastPathMealResult(benchmarkCase, fastPathResolver);
+  const h2 = deps.candidate?.routingVersion !== undefined && deps.candidate.routingVersion !== 'R0';
+  const fastPathAllowed = !h2 || deps.singleComponentFastPathProof?.(benchmarkCase) === true;
+  const fastPathAttempt = fastPathAllowed
+    ? await buildFastPathMealResult(benchmarkCase, fastPathResolver)
+    : { usedFastPath: false, fastPathMs: 0, mealResult: null };
   if (fastPathAttempt.usedFastPath && fastPathAttempt.mealResult) {
     return { caseId: benchmarkCase.caseId, traceId, mealResult: fastPathAttempt.mealResult };
   }
@@ -423,8 +432,24 @@ export async function runVariantCCase(
       continue;
     }
 
-    const retrieval = await retrieveCandidatesForComponentPlan({
-      plan,
+    const effectivePlan = h2
+      ? {
+          ...plan,
+          suitableSourceTypes: [...resolverV3047R1MinSources(plan.expectedResolutionKind)],
+          nativeQueries: resolverV3047R1MinSources(plan.expectedResolutionKind).map(
+            (sourceType) => ({
+              sourceType,
+              query:
+                plan.nativeQueries.find((query) => query.sourceType === sourceType)?.query ??
+                component.interpretedName,
+            }),
+          ),
+        }
+      : plan;
+    const retrieval = await (
+      h2 ? retrieveCandidatesForComponentPlanTiered : retrieveCandidatesForComponentPlan
+    )({
+      plan: effectivePlan,
       interpretedName: component.interpretedName,
       locale: benchmarkCase.locale,
       traceId,
@@ -491,8 +516,8 @@ export async function runVariantCCase(
       quantity: component.quantity,
       quantityAssumptions,
       sourceTraces: retrieval.traces,
-      suitableSourceTypesPlanned: plan.suitableSourceTypes,
-      excludedSourceTypesPlanned: plan.excludedSourceTypes ?? [],
+      suitableSourceTypesPlanned: effectivePlan.suitableSourceTypes,
+      excludedSourceTypesPlanned: effectivePlan.excludedSourceTypes ?? [],
       expectedResolutionKind: plan.expectedResolutionKind,
       candidateCount,
       chosenCandidateName,

@@ -73,6 +73,60 @@ export interface ComponentRetrievalResult {
   unregisteredSourceTypes: FoodSourceType[];
 }
 
+export interface TieredComponentRetrievalResult extends ComponentRetrievalResult {
+  decision: ResolverDecision;
+  avoidedSourceTypes: FoodSourceType[];
+  stopReason: 'authoritative_accepted' | 'tiers_exhausted';
+}
+
+/** R1-min executes source tiers one at a time and reuses the canonical scorer/decision policy
+ * after every tier. An accepted result stops only when its selected source is the current
+ * authoritative tier, preventing a lower-priority source from overriding it. */
+export async function retrieveCandidatesForComponentPlanTiered(
+  input: Parameters<typeof retrieveCandidatesForComponentPlan>[0],
+): Promise<TieredComponentRetrievalResult> {
+  const planned = input.plan.suitableSourceTypes.filter(
+    (type) => !(input.plan.excludedSourceTypes ?? []).includes(type),
+  );
+  const traces: ComponentSourceTrace[] = [];
+  const rawCandidates: RetrievalRawCandidate[] = [];
+  const unregisteredSourceTypes: FoodSourceType[] = [];
+  for (let index = 0; index < planned.length; index += 1) {
+    const sourceType = planned[index];
+    const tier = await retrieveCandidatesForComponentPlan({
+      ...input,
+      plan: {
+        ...input.plan,
+        suitableSourceTypes: [sourceType],
+        nativeQueries: input.plan.nativeQueries.filter((query) => query.sourceType === sourceType),
+        excludedSourceTypes: [],
+      },
+    });
+    traces.push(...tier.traces);
+    rawCandidates.push(...tier.rawCandidates);
+    unregisteredSourceTypes.push(...tier.unregisteredSourceTypes);
+    const decision = decideComponentCandidate(input.interpretedName, rawCandidates);
+    if (decision.status === 'accepted' && decision.best?.food.source === sourceType) {
+      return {
+        traces,
+        rawCandidates,
+        unregisteredSourceTypes,
+        decision,
+        avoidedSourceTypes: planned.slice(index + 1),
+        stopReason: 'authoritative_accepted',
+      };
+    }
+  }
+  return {
+    traces,
+    rawCandidates,
+    unregisteredSourceTypes,
+    decision: decideComponentCandidate(input.interpretedName, rawCandidates),
+    avoidedSourceTypes: [],
+    stopReason: 'tiers_exhausted',
+  };
+}
+
 /** Executes one component's search plan: queries only the planned (minus excluded) source types,
  * each with its own native query (falling back to the component's interpreted name, with a
  * warning, if the plan did not supply a native query for that source type -- a documented

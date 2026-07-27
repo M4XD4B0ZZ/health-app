@@ -1,5 +1,16 @@
 # Latest Handoff
 
+## RESOLVER-V3-047 — Post-Merge Executable Candidate and Routing Correction (Done)
+
+1. **Task ID/status:** `RESOLVER-V3-047` is `done` for executable offline candidate integration only. Basis `e6615816e7ce066971061e33109ab5b55351258e`; no remote is configured, so remote-tip fetch was unavailable. V3-048 remains `todo`; V3-010 remains `blocked`.
+2. **What changed:** closed H0/H1/H2 over parser/model/runtime config; added one candidate-driven request path and version metadata; made S1 clarification fail closed on `reason`; executed H2 R1-min tier-by-tier through the real adapter/scorer/decision path; added a positive-proof H2 fast-path boundary and focused fake-transport/source tests.
+3. **Why it changed:** PR #185 described H2 routing and offline call decisions without executing them, hard-coded the live benchmark provider to P0/S0, and silently discarded an incoherent S1 field.
+4. **Files changed:** V3-047 candidates/harness, Variant-C provider/types/adapter/retrieval and focused tests; V3-047 report; `ROADMAP.md`; this handoff.
+5. **Verification executed:** red-baseline review/assertions; focused candidate/provider/parser/adapter/retrieval suites; V3-043/044/045/046/049/050/051 and timeout/telemetry/ledger regressions; typecheck, lint, format check, canonical verify, diff/integrity checks.
+6. **Verification result:** see final command log and report post-merge section. All completion-gate checks passed. Fake transports only; provider calls 0; cost USD 0.
+7. **Known issues/blockers/residual risks:** no live quality/latency/cost evidence exists; H1/H2 are executable candidates, not proven winners. Remote-tip/open-PR inspection depends on unavailable remote configuration. Production wiring remains unauthorized.
+8. **Human review/next steps:** review candidate closure, fail-closed parser and tier-stop semantics; require green GitHub Verify before merge. V3-048 remains a separate, unstarted live-evidence task.
+
 ## RESOLVER-V3-047 — Candidate Integration and Offline Validation (In Progress)
 
 1. **Task ID/status:** `RESOLVER-V3-047` is `in_progress` on basis

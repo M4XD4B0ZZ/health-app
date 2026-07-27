@@ -119,3 +119,68 @@ configuration changed. Candidate integration and focused offline validation are 
 canonical local `npm run verify` did not terminate after its Jest work and was interrupted; therefore
 V3-047 remains `in_progress` until green canonical CI satisfies the completion gate. V3-048 remains
 `todo`, V3-010 remains `blocked`, and production wiring remains unauthorized.
+
+---
+
+## 10. Post-merge executable-candidate correction (2026-07-27)
+
+### Basis and reproduced residual defects
+
+The correction started at local/default-branch tip `e6615816e7ce066971061e33109ab5b55351258e`
+(PR #185). This checkout has no configured remote, so an independent remote fetch was impossible;
+the supplied expected merge commit and local tip match exactly. The pre-correction review reproduced
+that H2 only returned an R1-min list, retrieval still called all planned sources, the fast path lacked
+an H2 structural proof gate, the harness synthesized call decisions, the provider hard-coded P0/S0,
+and S1 discarded `reason` during clarification. Focused red-baseline assertions for those boundaries
+failed against the merge implementation; the corrected command is recorded in the handoff.
+
+### Closed executable request/parser path
+
+Each H0/H1/H2 object now carries its parser, pinned model snapshot, temperature, complete timeout/
+retry/token policy, prompt/schema and their versions. One canonical request builder consumes that
+object. The provider accepts an explicit candidate, pins `claude-haiku-4-5-20251001`, sends H0 P0/S0
+or H1/H2 P1/S1, parses through the selected parser, and emits candidate/prompt/schema versions in run
+metadata. The omitted-candidate path remains compatible with H0 and the historical model selection.
+Injected transports prove this without network access; there is no silent H1/H2 downgrade.
+
+### S1 coherence and R1-min execution
+
+S1 now rejects a root `reason` for `clarification_required` rather than dropping it. Existing shared
+S0 validation already rejects that field and enforces the same not-interpretable/interpreted outcome
+rules. S1 continues to forbid clarification retrieval fields and constructs exactly one internal plan
+per interpreted component.
+
+H2 now selects R1-min in the real Variant-C adapter. Its benchmark-local tier executor calls sources
+sequentially, accumulates candidates, and invokes the unchanged `ScoreCalculator` and
+`buildResolverDecision` after every tier. An authoritative accepted current tier stops execution and
+records lower tiers as avoided; empty, rejected, ambiguous, error, or non-authoritative results
+continue. Generic order is BLS→OFF→USDA and branded order OFF→USDA. No averaging, score formula, or
+acceptance threshold was introduced. H2 additionally requires an injected positive deterministic
+single-component proof before using the legacy fast path; absent proof fails closed to the one-call AI
+path. H0/H1 retain R0 behavior.
+
+### Offline call matrix and evidence labels
+
+| Scenario                                   |               AI calls |                      BLS |                      OFF |                     USDA | Result evidence                            |
+| ------------------------------------------ | ---------------------: | -----------------------: | -----------------------: | -----------------------: | ------------------------------------------ |
+| H0/H1 request/parser fixture               |       1 fake transport |              per R0 plan |              per R0 plan |              per R0 plan | `fixture_executed`                         |
+| H2 generic, BLS accepted                   |         parser fixture |                        1 |                        0 |                        0 | `fixture_executed`; avoided calls asserted |
+| H2 generic, earlier tier unresolved        |         parser fixture |                        1 |              1 as needed |              1 as needed | `fixture_executed`                         |
+| H2 branded                                 |         parser fixture |                        0 |                        1 |                   0 or 1 | `fixture_executed`                         |
+| H2 without positive single-component proof | exactly 1 fake AI call | interpretation-dependent | interpretation-dependent | interpretation-dependent | `fixture_executed`                         |
+| contract error / clarification             |         1 fake AI call |                        0 |                        0 |                        0 | `fixture_executed`                         |
+
+Request/schema byte sizes and local CPU durations are `measured_local`; byte/4 token estimates are
+`derived`; provider quality, latency and cost remain `live_unverified`; anything not emitted by the
+fake path is `unknown`. No configured lower bound is represented as an exact external-call count.
+Existing outer-ceiling tests remain the authority for true abort propagation, exactly-once reservation
+release, one terminal telemetry record and observed late rejection.
+
+### Integrity and status
+
+Provider calls were exactly **0** and provider cost exactly **USD 0**. No credential was read. The
+seven frozen V3-039 evidence files, benchmark corpus, ground truth, evaluator, and BLS artifacts were
+not changed. No Development/Holdout execution, production/DI/UI/Journal/Supabase/migration/feature-
+flag/CI/dependency/Jest-configuration change occurred. V3-047 `done` means only executable candidate
+integration and offline validation; H1/H2 superiority remains unproved and live-unverified. V3-048
+remains `todo`, V3-010 remains `blocked`, and production wiring remains unauthorized.

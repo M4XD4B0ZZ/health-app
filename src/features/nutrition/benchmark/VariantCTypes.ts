@@ -220,6 +220,9 @@ export interface VariantCAiCallMetadata {
   /** Closed failure taxonomy for untrusted provider boundaries. Historical artifacts may omit it. */
   failureKind?: VariantCProviderFailureKind | null;
   retryable?: boolean;
+  candidateVersion?: string;
+  promptVersion?: string;
+  schemaVersion?: string;
 }
 
 export type VariantCProviderFailureKind =

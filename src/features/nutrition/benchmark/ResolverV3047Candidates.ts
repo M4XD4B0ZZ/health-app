@@ -8,6 +8,7 @@ import {
   VARIANT_C_SYSTEM_PROMPT,
 } from './variantCPrompt';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
+import { VariantCParserDiagnostic } from './VariantCTypes';
 
 export const RESOLVER_V3_047_PROMPT_P1_VERSION = 'variant-c-prompt-v3';
 export const RESOLVER_V3_047_SCHEMA_S1_VERSION = 'variant-c-schema-v2';
@@ -104,6 +105,7 @@ export interface ResolverV3047Candidate {
   prompt: string;
   schema: object;
   parseResponse: (raw: unknown, latencyMs?: number, traceId?: string) => AiInterpretationResult;
+  parseDiagnostic: (raw: unknown, latencyMs?: number, traceId?: string) => VariantCParserDiagnostic;
   modelSnapshot: typeof RESOLVER_V3_047_MODEL_SNAPSHOT;
   temperature: 0;
   knownUserContext: false;
@@ -143,6 +145,7 @@ export const RESOLVER_V3_047_CANDIDATES: readonly ResolverV3047Candidate[] = [
         latencyMs,
         traceId,
       ),
+    parseDiagnostic: diagnoseResolverV3047S0,
     ...shared,
   },
   {
@@ -154,6 +157,7 @@ export const RESOLVER_V3_047_CANDIDATES: readonly ResolverV3047Candidate[] = [
     prompt: RESOLVER_V3_047_PROMPT_P1,
     schema: RESOLVER_V3_047_SCHEMA_S1,
     parseResponse: parseResolverV3047S1,
+    parseDiagnostic: diagnoseResolverV3047S1,
     ...shared,
   },
   {
@@ -165,6 +169,7 @@ export const RESOLVER_V3_047_CANDIDATES: readonly ResolverV3047Candidate[] = [
     prompt: RESOLVER_V3_047_PROMPT_P1,
     schema: RESOLVER_V3_047_SCHEMA_S1,
     parseResponse: parseResolverV3047S1,
+    parseDiagnostic: diagnoseResolverV3047S1,
     ...shared,
   },
 ];
@@ -251,18 +256,78 @@ export function parseResolverV3047S1(
   latencyMs = 0,
   traceId?: string,
 ): AiInterpretationResult {
-  const fail = (message: string) =>
-    parseAndNormalizeVariantCInterpretationResponse(
+  return diagnoseResolverV3047S1(raw, latencyMs, traceId).result;
+}
+
+function diagnosticFailure(
+  kind: VariantCParserDiagnostic['failureKind'],
+  message: string,
+  latencyMs: number,
+  traceId?: string,
+): VariantCParserDiagnostic {
+  return {
+    failureKind: kind,
+    result: parseAndNormalizeVariantCInterpretationResponse(
       null,
-      `schema_contract_error: ${message}`,
+      `${kind}: ${message}`,
+      latencyMs,
+      traceId,
+    ),
+  };
+}
+
+export function diagnoseResolverV3047S0(
+  raw: unknown,
+  latencyMs = 0,
+  traceId?: string,
+): VariantCParserDiagnostic {
+  if (typeof raw === 'string') {
+    try {
+      JSON.parse(raw);
+    } catch {
+      return diagnosticFailure(
+        'text_block_json_error',
+        'response is not valid JSON',
+        latencyMs,
+        traceId,
+      );
+    }
+  }
+  try {
+    const result = parseAndNormalizeVariantCInterpretationResponse(
+      typeof raw === 'string' ? raw : JSON.stringify(raw),
+      null,
       latencyMs,
       traceId,
     );
+    return { result, failureKind: result.outcome === 'error' ? 'schema_contract_error' : null };
+  } catch (error) {
+    return diagnosticFailure(
+      'internal_parser_error',
+      error instanceof Error ? error.message : 'unexpected parser failure',
+      latencyMs,
+      traceId,
+    );
+  }
+}
+
+export function diagnoseResolverV3047S1(
+  raw: unknown,
+  latencyMs = 0,
+  traceId?: string,
+): VariantCParserDiagnostic {
+  const fail = (message: string) =>
+    diagnosticFailure('schema_contract_error', message, latencyMs, traceId);
   if (typeof raw === 'string') {
     try {
       raw = JSON.parse(raw);
     } catch {
-      return fail('response is not valid JSON');
+      return diagnosticFailure(
+        'text_block_json_error',
+        'response is not valid JSON',
+        latencyMs,
+        traceId,
+      );
     }
   }
   if (!record(raw) || !exact(raw, ['outcome', 'components', 'clarification', 'reason']))
@@ -278,12 +343,15 @@ export function parseResolverV3047S1(
     return fail('invalid outcome');
   if (raw.outcome === 'not_interpretable')
     return nonEmpty(raw.reason) && raw.components === undefined && raw.clarification === undefined
-      ? parseAndNormalizeVariantCInterpretationResponse(
-          JSON.stringify(raw),
-          null,
-          latencyMs,
-          traceId,
-        )
+      ? {
+          failureKind: null,
+          result: parseAndNormalizeVariantCInterpretationResponse(
+            JSON.stringify(raw),
+            null,
+            latencyMs,
+            traceId,
+          ),
+        }
       : fail('incoherent not_interpretable outcome');
   if (!Array.isArray(raw.components)) return fail('components must be an array');
   const components = raw.components as unknown[];
@@ -358,21 +426,24 @@ export function parseResolverV3047S1(
         (componentIndex as number) >= components.length)
     )
       return fail('componentIndex must be a zero-based in-range integer');
-    return parseAndNormalizeVariantCInterpretationResponse(
-      JSON.stringify({
-        outcome: raw.outcome,
-        components: converted,
-        clarification: {
-          componentId:
-            componentIndex === undefined ? undefined : `c${(componentIndex as number) + 1}`,
-          missingInformation: raw.clarification.missingInformation,
-          clarificationKind: raw.clarification.clarificationKind,
-        },
-      }),
-      null,
-      latencyMs,
-      traceId,
-    );
+    return {
+      failureKind: null,
+      result: parseAndNormalizeVariantCInterpretationResponse(
+        JSON.stringify({
+          outcome: raw.outcome,
+          components: converted,
+          clarification: {
+            componentId:
+              componentIndex === undefined ? undefined : `c${(componentIndex as number) + 1}`,
+            missingInformation: raw.clarification.missingInformation,
+            clarificationKind: raw.clarification.clarificationKind,
+          },
+        }),
+        null,
+        latencyMs,
+        traceId,
+      ),
+    };
   }
   if (components.length === 0 || raw.clarification !== undefined || raw.reason !== undefined)
     return fail('incoherent interpreted outcome');
@@ -396,12 +467,15 @@ export function parseResolverV3047S1(
       expectedResolutionKind: component.expectedResolutionKind,
     };
   });
-  return parseAndNormalizeVariantCInterpretationResponse(
-    JSON.stringify({ outcome: raw.outcome, components: converted, searchPlan }),
-    null,
-    latencyMs,
-    traceId,
-  );
+  return {
+    failureKind: null,
+    result: parseAndNormalizeVariantCInterpretationResponse(
+      JSON.stringify({ outcome: raw.outcome, components: converted, searchPlan }),
+      null,
+      latencyMs,
+      traceId,
+    ),
+  };
 }
 
 export function resolverV3047R1MinSources(

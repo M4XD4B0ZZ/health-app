@@ -103,6 +103,7 @@ export function wrapVariantCInterpreterWithTelemetry(
 ): VariantCAiInterpreter {
   let attempt = 0;
   return {
+    runIdentity: inner.runIdentity,
     async interpret(request: AiInterpretationRequest): Promise<VariantCAiInterpretationCall> {
       const attemptIndex = attempt;
       attempt += 1;
@@ -129,6 +130,7 @@ export function wrapVariantCInterpreterWithTelemetry(
           retried: false,
           actualCostUsd: null,
           usageStatus: 'unknown',
+          runIdentity: inner.runIdentity,
         });
         const result = parseAndNormalizeVariantCInterpretationResponse(
           null,
@@ -147,6 +149,7 @@ export function wrapVariantCInterpreterWithTelemetry(
           providerLatencyMs: null,
           failureKind: 'wall_clock_ceiling',
           retryable: false,
+          runIdentity: inner.runIdentity,
         };
         return { result, runMeta };
       }
@@ -168,6 +171,7 @@ export function wrapVariantCInterpreterWithTelemetry(
         retried: false,
         actualCostUsd: runMeta.costUsd,
         usageStatus: runMeta.inputTokens !== null ? 'reported' : 'unknown',
+        runIdentity: runMeta.runIdentity ?? inner.runIdentity,
       });
       return { result, runMeta };
     },

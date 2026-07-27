@@ -26,6 +26,8 @@ export interface LiveProviderUsageRecord {
   retried: boolean;
   actualCostUsd: number | null;
   usageStatus: 'reported' | 'unknown';
+  /** Required for new Variant-C attempts; absent keeps frozen protocol-v3 records readable. */
+  runIdentity?: import('./VariantCTypes').VariantCRunIdentity;
 }
 
 export interface ReservedUsageSummary {

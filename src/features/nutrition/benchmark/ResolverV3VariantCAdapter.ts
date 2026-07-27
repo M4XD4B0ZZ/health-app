@@ -9,6 +9,7 @@ import {
   decideComponentCandidate,
   retrieveCandidatesForComponentPlan,
   retrieveCandidatesForComponentPlanTiered,
+  TieredComponentRetrievalResult,
 } from './ResolverV3VariantCRetrieval';
 import { ResolverV3047Candidate, resolverV3047R1MinSources } from './ResolverV3047Candidates';
 import { resolveComponentGrams } from './VariantCQuantity';
@@ -428,6 +429,7 @@ export async function runVariantCCase(
         gramsUsed: null,
         warnings: componentWarnings,
         errors: [],
+        retrievalExecution: null,
       });
       continue;
     }
@@ -471,7 +473,9 @@ export async function runVariantCCase(
     let candidateCount = 0;
 
     if (retrieval.rawCandidates.length > 0) {
-      const decision = decideComponentCandidate(component.interpretedName, retrieval.rawCandidates);
+      const decision = h2
+        ? (retrieval as TieredComponentRetrievalResult).decision
+        : decideComponentCandidate(component.interpretedName, retrieval.rawCandidates);
       candidateCount = decision.candidates.length;
       if (decision.best) {
         resolverStatus = decision.status;
@@ -529,6 +533,17 @@ export async function runVariantCCase(
       gramsUsed,
       warnings: componentWarnings,
       errors: [],
+      retrievalExecution: h2
+        ? {
+            stopReason: (retrieval as TieredComponentRetrievalResult).stopReason,
+            avoidedSourceTypes: (retrieval as TieredComponentRetrievalResult).avoidedSourceTypes,
+            calledSourceTypes: retrieval.traces.map((trace) => trace.sourceType),
+            candidateCountsByTier: retrieval.traces.map((trace) => ({
+              sourceType: trace.sourceType,
+              candidateCount: trace.candidateCount,
+            })),
+          }
+        : null,
     });
   }
 

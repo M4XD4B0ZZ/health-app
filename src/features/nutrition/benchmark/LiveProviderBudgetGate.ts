@@ -8,6 +8,8 @@
 export type LiveProviderBudgetCurrency = 'USD' | 'EUR';
 
 export interface LiveProviderPricing {
+  /** Required by protocol-v4; optional only so historical injected protocol-v3 fixtures compile. */
+  pricingVersion?: string;
   modelId: string;
   currency: LiveProviderBudgetCurrency;
   inputPerMillion: number;
@@ -40,8 +42,28 @@ export class LiveProviderBudgetGateError extends Error {
 }
 
 export const ANTHROPIC_MESSAGES_PRICING: readonly LiveProviderPricing[] = [
-  { modelId: 'claude-haiku-4-5', currency: 'USD', inputPerMillion: 1, outputPerMillion: 5 },
+  {
+    pricingVersion: 'anthropic-messages-2025-10-01-v1',
+    modelId: 'claude-haiku-4-5',
+    currency: 'USD',
+    inputPerMillion: 1,
+    outputPerMillion: 5,
+  },
+  {
+    pricingVersion: 'anthropic-messages-2025-10-01-v1',
+    modelId: 'claude-haiku-4-5-20251001',
+    currency: 'USD',
+    inputPerMillion: 1,
+    outputPerMillion: 5,
+  },
 ];
+
+export function findLiveProviderPricing(
+  modelId: string,
+  pricing: readonly LiveProviderPricing[] = ANTHROPIC_MESSAGES_PRICING,
+): LiveProviderPricing | undefined {
+  return pricing.find((entry) => entry.modelId === modelId);
+}
 
 /**
  * RESOLVER-V3-013 authorization. Anthropic bills this experiment in USD; the maintainer has
@@ -73,12 +95,16 @@ export class LiveProviderBudgetGate {
     private readonly pricing: readonly LiveProviderPricing[] = ANTHROPIC_MESSAGES_PRICING,
   ) {}
 
+  pricingFor(modelId: string): LiveProviderPricing | undefined {
+    return findLiveProviderPricing(modelId, this.pricing);
+  }
+
   reserve(
     modelId: string,
     maxInputTokens: number,
     maxOutputTokens: number,
   ): LiveProviderRequestReservation {
-    const price = this.pricing.find((candidate) => candidate.modelId === modelId);
+    const price = this.pricingFor(modelId);
     if (!price)
       throw new LiveProviderBudgetGateError(
         'Live provider request blocked: unknown model pricing configuration.',

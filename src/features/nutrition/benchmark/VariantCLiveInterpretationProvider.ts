@@ -7,6 +7,7 @@ import {
   VariantCAiInterpretationCall,
   VariantCAiInterpreter,
   VariantCProviderFailureKind,
+  VariantCRunIdentity,
 } from './VariantCTypes';
 import { buildVariantCPrompt } from './variantCPrompt';
 import { parseAndNormalizeVariantCInterpretationResponse } from './validateVariantCInterpretationResponse';
@@ -15,7 +16,7 @@ import {
   buildResolverV3047ProviderRequest,
   resolverV3047Candidate,
 } from './ResolverV3047Candidates';
-import { LiveProviderBudgetGate } from './LiveProviderBudgetGate';
+import { LiveProviderBudgetGate, findLiveProviderPricing } from './LiveProviderBudgetGate';
 import {
   AnthropicBenchmarkTransport,
   createAnthropicBenchmarkTransport,
@@ -42,7 +43,6 @@ export const VARIANT_C_MAX_OUTPUT_TOKENS = 1_536;
 
 /** Best-effort $/1M-token price snapshot, identical source/caveat as `VariantBLiveProvider.ts`'s
  * constant -- duplicated (not imported) for the same module-system reason documented there. */
-const ANTHROPIC_HAIKU_PRICE_PER_M_TOKENS = { inputUsd: 1.0, outputUsd: 5.0 };
 
 export class VariantCLiveProviderConfigError extends Error {
   constructor(message: string) {
@@ -89,6 +89,7 @@ export function createLiveVariantCInterpreter(
 }
 
 class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
+  readonly runIdentity: VariantCRunIdentity;
   constructor(
     private readonly apiKey: string,
     private readonly modelId: string,
@@ -96,7 +97,25 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     private readonly transport = createAnthropicBenchmarkTransport(),
     private readonly candidate: ResolverV3047Candidate = resolverV3047Candidate('H0'),
     private readonly pinnedCandidate = false,
-  ) {}
+  ) {
+    const pricing =
+      typeof budgetGate?.pricingFor === 'function'
+        ? budgetGate.pricingFor(modelId)
+        : findLiveProviderPricing(modelId);
+    if (!pricing)
+      throw new VariantCLiveProviderConfigError(
+        'Live Variant C request blocked before dispatch: exact model pricing configuration is missing.',
+      );
+    this.runIdentity = Object.freeze({
+      candidateId: candidate.id,
+      candidateVersion: candidate.version,
+      promptVersion: candidate.promptVersion,
+      schemaVersion: candidate.schemaVersion,
+      routingVersion: candidate.routingVersion,
+      modelId,
+      pricingVersion: pricing.pricingVersion ?? 'legacy-unversioned-pricing',
+    });
+  }
 
   async interpret(
     request: AiInterpretationRequest,
@@ -135,7 +154,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
           latencyMs,
           request.traceId,
         );
-        return { result, runMeta: unknownCost(null, latencyMs, failureKind, true) };
+        return { result, runMeta: this.unknownCost(null, latencyMs, failureKind, true) };
       }
 
       const latencyMs = performance.now() - start;
@@ -154,7 +173,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         );
         return {
           result,
-          runMeta: unknownCost(
+          runMeta: this.unknownCost(
             response.status,
             latencyMs,
             failureKind,
@@ -174,7 +193,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         );
         return {
           result,
-          runMeta: unknownCost(
+          runMeta: this.unknownCost(
             response.status,
             latencyMs,
             'http_error',
@@ -193,15 +212,26 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
             latencyMs,
             request.traceId,
           ),
-          runMeta: unknownCost(response.status, latencyMs, failureKind, false),
+          runMeta: this.unknownCost(response.status, latencyMs, failureKind, false),
         };
       }
       const { text, usage } = envelope.value;
       let result: AiInterpretationResult;
       let failureKind: VariantCProviderFailureKind | null = null;
       try {
-        result = this.candidate.parseResponse(text, latencyMs, request.traceId);
-        failureKind = classifyResponseFailure(text, result);
+        if (text === undefined) {
+          failureKind = 'missing_text_block';
+          result = parseAndNormalizeVariantCInterpretationResponse(
+            null,
+            'missing_text_block: response contains no text block',
+            latencyMs,
+            request.traceId,
+          );
+        } else {
+          const diagnostic = this.candidate.parseDiagnostic(text, latencyMs, request.traceId);
+          result = diagnostic.result;
+          failureKind = diagnostic.failureKind;
+        }
       } catch (e) {
         failureKind = 'internal_parser_error';
         result = parseAndNormalizeVariantCInterpretationResponse(
@@ -215,9 +245,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         result,
         runMeta: {
           ...this.computeCostUsd(usage, response.status, latencyMs),
-          candidateVersion: this.candidate.version,
-          promptVersion: this.candidate.promptVersion,
-          schemaVersion: this.candidate.schemaVersion,
+          runIdentity: this.runIdentity,
           failureKind,
           retryable: false,
         },
@@ -237,21 +265,14 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     httpStatus: number,
     providerLatencyMs: number,
   ): VariantCAiCallMetadata {
-    if (this.modelId !== DEFAULT_ANTHROPIC_MODEL) {
-      return {
-        costUsd: null,
-        pricingStatus: 'unknown',
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        cacheCreationTokens: usage.cacheCreationTokens,
-        cacheReadTokens: usage.cacheReadTokens,
-        httpStatus,
-        providerLatencyMs,
-      };
-    }
-    const inputCost = (usage.inputTokens / 1_000_000) * ANTHROPIC_HAIKU_PRICE_PER_M_TOKENS.inputUsd;
-    const outputCost =
-      (usage.outputTokens / 1_000_000) * ANTHROPIC_HAIKU_PRICE_PER_M_TOKENS.outputUsd;
+    const pricing =
+      typeof this.budgetGate?.pricingFor === 'function'
+        ? this.budgetGate.pricingFor(this.modelId)
+        : findLiveProviderPricing(this.modelId);
+    if (!pricing)
+      throw new VariantCLiveProviderConfigError('Exact pricing disappeared after preflight.');
+    const inputCost = (usage.inputTokens / 1_000_000) * pricing.inputPerMillion;
+    const outputCost = (usage.outputTokens / 1_000_000) * pricing.outputPerMillion;
     return {
       costUsd: inputCost + outputCost,
       pricingStatus: 'estimated',
@@ -261,28 +282,30 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
       cacheReadTokens: usage.cacheReadTokens,
       httpStatus,
       providerLatencyMs,
+      runIdentity: this.runIdentity,
     };
   }
-}
 
-function unknownCost(
-  httpStatus: number | null,
-  providerLatencyMs: number,
-  failureKind: VariantCProviderFailureKind,
-  retryable: boolean,
-): VariantCAiCallMetadata {
-  return {
-    costUsd: null,
-    pricingStatus: 'unknown',
-    inputTokens: null,
-    outputTokens: null,
-    cacheCreationTokens: null,
-    cacheReadTokens: null,
-    httpStatus,
-    providerLatencyMs,
-    failureKind,
-    retryable,
-  };
+  private unknownCost(
+    httpStatus: number | null,
+    providerLatencyMs: number,
+    failureKind: VariantCProviderFailureKind,
+    retryable: boolean,
+  ): VariantCAiCallMetadata {
+    return {
+      costUsd: null,
+      pricingStatus: 'unknown',
+      inputTokens: null,
+      outputTokens: null,
+      cacheCreationTokens: null,
+      cacheReadTokens: null,
+      httpStatus,
+      providerLatencyMs,
+      failureKind,
+      retryable,
+      runIdentity: this.runIdentity,
+    };
+  }
 }
 
 function isAbortError(error: unknown): boolean {
@@ -295,17 +318,6 @@ function safeErrorMessage(error: unknown): string {
 
 function isRetryableHttp(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
-}
-
-function classifyResponseFailure(
-  text: string | undefined,
-  result: AiInterpretationResult,
-): VariantCProviderFailureKind | null {
-  if (result.outcome !== 'error') return null;
-  if (text === undefined) return 'missing_text_block';
-  if (result.message.startsWith('internal_parser_error:')) return 'internal_parser_error';
-  if (result.message.includes('could not parse response as JSON')) return 'text_block_json_error';
-  return 'schema_contract_error';
 }
 
 interface ValidatedAnthropicEnvelope {

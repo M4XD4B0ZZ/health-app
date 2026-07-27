@@ -252,16 +252,17 @@ describe('R1-min and zero-network harness', () => {
     expect(resolverV3047R1MinSources('generic_food')).toEqual(['bls', 'off', 'usda']);
     expect(resolverV3047R1MinSources('branded_product')).toEqual(['off', 'usda']);
   });
-  test('reports only local/fixture/derived decisions and fail-closed parsers', () => {
-    const measurements = runResolverV3047OfflineCandidates();
+  test('executes each candidate through the fake transport and real provider parser', async () => {
+    const measurements = await runResolverV3047OfflineCandidates();
     expect(measurements).toHaveLength(3);
     measurements.forEach((measurement) =>
       expect(measurement).toMatchObject({
         parserContractSuccess: true,
         componentCount: 1,
         searchPlanCount: 1,
-        aiCallDecision: true,
-        sourceCallDecision: 'sequential_after_valid_interpretation',
+        aiCallCount: 1,
+        fakeTransportCallCount: 1,
+        sourceCallDecision: 'not_executed_by_measurement_harness',
         failClosed: true,
         providerLatency: 'live_unverified',
       }),

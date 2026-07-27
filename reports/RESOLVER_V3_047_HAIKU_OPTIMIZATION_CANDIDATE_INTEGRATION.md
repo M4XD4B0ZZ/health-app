@@ -184,3 +184,37 @@ not changed. No Development/Holdout execution, production/DI/UI/Journal/Supabase
 flag/CI/dependency/Jest-configuration change occurred. V3-047 `done` means only executable candidate
 integration and offline validation; H1/H2 superiority remains unproved and live-unverified. V3-048
 remains `todo`, V3-010 remains `blocked`, and production wiring remains unauthorized.
+
+---
+
+## 11. Post-merge evidence-completeness correction (2026-07-27)
+
+Work began at local default-branch tip `d5ad54d27b28bc85b4f0b8122b75f266c8d989b9`, the supplied PR
+#186 merge commit. This checkout had no configured `origin`, so the pre-edit fetch failed and
+independent remote-tip verification was impossible. Inspection reproduced all five residual classes:
+exact-snapshot pricing, anonymous error/timeout/telemetry/ledger paths, a simulated central harness,
+discarded R1-min diagnostics, and message-based S1 JSON classification.
+
+Variant C now exposes one frozen pre-dispatch run identity containing candidate ID/version, prompt,
+schema and routing versions, exact model ID, and pricing version. Success and returned failures reuse
+it; outer-ceiling telemetry and ledger details persist it through optional fields that keep historical
+V3-039 records readable. Variant B remains identity-free.
+
+Pricing is an exact-model, versioned table shared by reservation and actual cost calculation. The
+accepted Haiku 4.5 numeric assumption is listed explicitly for alias and pinned snapshot under
+`anthropic-messages-2025-10-01-v1`; unknown exact models fail before dispatch. Cache counts remain
+separate. H0/H1/H2 use typed parser diagnostics: invalid text JSON, schema/contract error, missing
+text, unexpected parser error, or null success. No food-domain result contract was polluted.
+
+The asynchronous candidate measurement harness now executes the request builder, fake Anthropic
+transport, real provider adapter, and selected parser once for H0/H1/H2, reporting measured call
+counts and identity rather than constant AI decisions. Adapter/fake-source execution remains covered
+by the focused scenario suites. H2 component evidence now retains stop reason, avoided/called source
+types, call order, per-tier counts, and the tier executor's existing decision; R0 diagnostics are
+absent rather than invented. External request count counts actual traced dispatches only.
+
+Focused correction verification passed 126/126 tests. Provider calls were **0**, provider cost was
+**USD 0**, and no credential was read. Live quality, latency, actual usage/cost and H1/H2 superiority
+remain unverified. Frozen V3-039 evidence, corpus, ground truth, evaluator and BLS artifacts were not
+modified. V3-047 remains `in_progress` until required GitHub CI is green; V3-048 remains `todo`,
+V3-010 remains `blocked`, and production wiring remains unauthorized.

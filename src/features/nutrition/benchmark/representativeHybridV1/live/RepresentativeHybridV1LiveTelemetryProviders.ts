@@ -33,7 +33,7 @@ export function wrapVariantBProviderWithTelemetry(
       const attemptIndex = attempt;
       attempt += 1;
       const race = await withWallClockCeiling(
-        () => inner.call(request),
+        (signal) => inner.call(request, signal),
         wallClockCeilingMs,
         scheduleTimeout,
       );
@@ -107,7 +107,7 @@ export function wrapVariantCInterpreterWithTelemetry(
       const attemptIndex = attempt;
       attempt += 1;
       const race = await withWallClockCeiling(
-        () => inner.interpret(request),
+        (signal) => inner.interpret(request, signal),
         wallClockCeilingMs,
         scheduleTimeout,
       );

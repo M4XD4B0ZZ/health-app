@@ -59,6 +59,39 @@ describe('RESOLVER-V3-039 timeout/wall-clock enforcement', () => {
     }
   });
 
+  it('the outer ceiling aborts the shared signal reaching transport and observes late rejection', async () => {
+    const inner = new NeverResolvingFakeTransport();
+    const outer = fakeScheduler();
+    const transport = new TimeoutEnforcingAnthropicBenchmarkTransport(inner, 15_000, () => ({
+      clear: () => undefined,
+    }));
+    const unhandled: unknown[] = [];
+    const listener = (error: unknown) => unhandled.push(error);
+    process.on('unhandledRejection', listener);
+    try {
+      const racePromise = withWallClockCeiling(
+        (signal) => {
+          const sharedTransport = new TimeoutEnforcingAnthropicBenchmarkTransport(
+            transport,
+            15_000,
+            () => ({ clear: () => undefined }),
+            signal,
+          );
+          return sharedTransport.fetch('https://api.anthropic.com/v1/messages', { method: 'POST' });
+        },
+        20_000,
+        outer.schedule,
+      );
+      outer.fireAll();
+      await expect(racePromise).resolves.toMatchObject({ status: 'timed_out' });
+      await Promise.resolve();
+      expect(inner.lastSignal?.aborted).toBe(true);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', listener);
+    }
+  });
+
   it('retains elapsed time on timeout rather than reporting null/zero', async () => {
     const { schedule, fireAll } = fakeScheduler();
     const start = performance.now();

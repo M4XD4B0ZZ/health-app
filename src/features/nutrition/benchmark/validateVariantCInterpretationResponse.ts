@@ -23,7 +23,9 @@ import { AI_INTERPRETATION_CONTRACT_VERSION } from '../application/ports/AiInter
  */
 
 const QUANTITY_UNITS: readonly InterpretedQuantityUnit[] = ['g', 'ml', 'piece', 'portion'];
-const SOURCE_TYPES: readonly FoodSourceType[] = ['user', 'off', 'bls', 'usda', 'ai'];
+/** Closed vocabulary emitted by the model. Product-internal `user`/`ai` sources remain valid
+ * elsewhere, but are never accepted across this untrusted provider boundary. */
+const SOURCE_TYPES: readonly FoodSourceType[] = ['bls', 'off', 'usda'];
 const RESOLUTION_KINDS: readonly ExpectedResolutionKind[] = [
   'generic_food',
   'branded_product',
@@ -44,14 +46,25 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function rejectUnknownFields(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  issues: string[],
+  path: string,
+): void {
+  Object.keys(value)
+    .filter((key) => !allowed.includes(key))
+    .forEach((key) => issues.push(`${path}.${key} is not allowed`));
+}
+
 function validateOptionalString(value: unknown, issues: string[], path: string): void {
-  if (value !== undefined && typeof value !== 'string') issues.push(`${path} must be a string`);
+  if (value !== undefined && !isNonEmptyString(value)) issues.push(`${path} must be non-empty`);
 }
 
 function validateOptionalStringArray(value: unknown, issues: string[], path: string): void {
   if (value === undefined) return;
-  if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
-    issues.push(`${path} must be an array of strings`);
+  if (!Array.isArray(value) || !value.every(isNonEmptyString)) {
+    issues.push(`${path} must be an array of non-empty strings`);
   }
 }
 
@@ -61,24 +74,33 @@ function validateQuantity(value: unknown, issues: string[], prefix: string): boo
     return false;
   }
   const quantity = value as Record<string, unknown>;
+  rejectUnknownFields(
+    quantity,
+    ['value', 'unit', 'householdMeasure', 'portionDescription'],
+    issues,
+    `${prefix}.quantity`,
+  );
   if (quantity.value !== undefined && typeof quantity.value !== 'number') {
     issues.push(`${prefix}.quantity.value must be a number`);
   }
   if (typeof quantity.value === 'number' && !Number.isFinite(quantity.value)) {
     issues.push(`${prefix}.quantity.value must be finite`);
   }
+  if (typeof quantity.value === 'number' && quantity.value <= 0) {
+    issues.push(`${prefix}.quantity.value must be greater than zero`);
+  }
+  if ((quantity.value === undefined) !== (quantity.unit === undefined)) {
+    issues.push(`${prefix}.quantity.value and unit must occur together`);
+  }
   if (quantity.unit !== undefined && !QUANTITY_UNITS.includes(quantity.unit as never)) {
     issues.push(`${prefix}.quantity.unit must be one of ${QUANTITY_UNITS.join(', ')}`);
   }
-  if (quantity.householdMeasure !== undefined && typeof quantity.householdMeasure !== 'string') {
-    issues.push(`${prefix}.quantity.householdMeasure must be a string`);
-  }
-  if (
-    quantity.portionDescription !== undefined &&
-    typeof quantity.portionDescription !== 'string'
-  ) {
-    issues.push(`${prefix}.quantity.portionDescription must be a string`);
-  }
+  validateOptionalString(quantity.householdMeasure, issues, `${prefix}.quantity.householdMeasure`);
+  validateOptionalString(
+    quantity.portionDescription,
+    issues,
+    `${prefix}.quantity.portionDescription`,
+  );
   return true;
 }
 
@@ -93,6 +115,23 @@ function validateComponent(
     return false;
   }
   const component = value as Record<string, unknown>;
+  rejectUnknownFields(
+    component,
+    [
+      'id',
+      'originalSegment',
+      'interpretedName',
+      'brand',
+      'preparation',
+      'quantity',
+      'modifiers',
+      'confidence',
+      'assumptions',
+      'uncertainties',
+    ],
+    issues,
+    prefix,
+  );
   if (!isNonEmptyString(component.id)) issues.push(`${prefix}.id is required`);
   if (!isNonEmptyString(component.originalSegment))
     issues.push(`${prefix}.originalSegment is required`);
@@ -105,6 +144,8 @@ function validateComponent(
   validateOptionalStringArray(component.uncertainties, issues, `${prefix}.uncertainties`);
   if (typeof component.confidence !== 'number' || !Number.isFinite(component.confidence)) {
     issues.push(`${prefix}.confidence must be a finite number`);
+  } else if (component.confidence < 0 || component.confidence > 1) {
+    issues.push(`${prefix}.confidence must be between zero and one`);
   }
   validateQuantity(component.quantity, issues, prefix);
   return issues.length === 0;
@@ -121,11 +162,29 @@ function validateSearchPlan(
     return false;
   }
   const plan = value as Record<string, unknown>;
+  rejectUnknownFields(
+    plan,
+    [
+      'componentId',
+      'suitableSourceTypes',
+      'nativeQueries',
+      'excludedSourceTypes',
+      'expectedResolutionKind',
+    ],
+    issues,
+    prefix,
+  );
   if (!isNonEmptyString(plan.componentId)) issues.push(`${prefix}.componentId is required`);
   if (!Array.isArray(plan.suitableSourceTypes) || plan.suitableSourceTypes.length === 0) {
     issues.push(`${prefix}.suitableSourceTypes must be a non-empty array`);
   } else if (!plan.suitableSourceTypes.every((t) => SOURCE_TYPES.includes(t))) {
     issues.push(`${prefix}.suitableSourceTypes must only contain ${SOURCE_TYPES.join(', ')}`);
+  }
+  if (
+    Array.isArray(plan.suitableSourceTypes) &&
+    new Set(plan.suitableSourceTypes).size !== plan.suitableSourceTypes.length
+  ) {
+    issues.push(`${prefix}.suitableSourceTypes must not contain duplicates`);
   }
   if (!Array.isArray(plan.nativeQueries)) {
     issues.push(`${prefix}.nativeQueries must be an array`);
@@ -136,6 +195,7 @@ function validateSearchPlan(
         return;
       }
       const query = q as Record<string, unknown>;
+      rejectUnknownFields(query, ['sourceType', 'query'], issues, `${prefix}.nativeQueries[${qi}]`);
       if (!SOURCE_TYPES.includes(query.sourceType as never)) {
         issues.push(
           `${prefix}.nativeQueries[${qi}].sourceType must be one of ${SOURCE_TYPES.join(', ')}`,
@@ -146,11 +206,43 @@ function validateSearchPlan(
       }
     });
   }
+  if (Array.isArray(plan.nativeQueries)) {
+    const querySources = plan.nativeQueries.map(
+      (query) => (query as Record<string, unknown>).sourceType,
+    );
+    if (new Set(querySources).size !== querySources.length) {
+      issues.push(`${prefix}.nativeQueries must contain exactly one query per source`);
+    }
+    if (Array.isArray(plan.suitableSourceTypes)) {
+      const suitable = plan.suitableSourceTypes;
+      if (
+        suitable.length !== querySources.length ||
+        suitable.some((source, sourceIndex) => querySources[sourceIndex] !== source)
+      ) {
+        issues.push(`${prefix}.nativeQueries must match suitableSourceTypes in priority order`);
+      }
+    }
+  }
   if (plan.excludedSourceTypes !== undefined) {
     if (!Array.isArray(plan.excludedSourceTypes)) {
       issues.push(`${prefix}.excludedSourceTypes must be an array`);
     } else if (!plan.excludedSourceTypes.every((t) => SOURCE_TYPES.includes(t))) {
       issues.push(`${prefix}.excludedSourceTypes must only contain ${SOURCE_TYPES.join(', ')}`);
+    }
+    if (
+      Array.isArray(plan.excludedSourceTypes) &&
+      new Set(plan.excludedSourceTypes).size !== plan.excludedSourceTypes.length
+    ) {
+      issues.push(`${prefix}.excludedSourceTypes must not contain duplicates`);
+    }
+    if (
+      Array.isArray(plan.excludedSourceTypes) &&
+      Array.isArray(plan.suitableSourceTypes) &&
+      plan.excludedSourceTypes.some((source) =>
+        (plan.suitableSourceTypes as unknown[]).includes(source),
+      )
+    ) {
+      issues.push(`${prefix}.suitableSourceTypes and excludedSourceTypes must be disjoint`);
     }
   }
   if (!RESOLUTION_KINDS.includes(plan.expectedResolutionKind as never)) {
@@ -210,6 +302,12 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
     return { valid: false, issues: ['response must be a JSON object'] };
   }
   const body = raw as Record<string, unknown>;
+  rejectUnknownFields(
+    body,
+    ['outcome', 'components', 'searchPlan', 'clarification', 'reason'],
+    issues,
+    'response',
+  );
 
   const outcome = body.outcome;
   if (
@@ -227,6 +325,12 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
   if (outcome === 'not_interpretable') {
     if (!isNonEmptyString(body.reason))
       issues.push('reason is required when outcome is not_interpretable');
+    if (body.components !== undefined)
+      issues.push('components is not allowed when outcome is not_interpretable');
+    if (body.searchPlan !== undefined)
+      issues.push('searchPlan is not allowed when outcome is not_interpretable');
+    if (body.clarification !== undefined)
+      issues.push('clarification is not allowed when outcome is not_interpretable');
     return { valid: issues.length === 0, issues };
   }
 
@@ -246,6 +350,12 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
       issues.push('clarification is required when outcome is clarification_required');
     } else {
       const c = clarification as Record<string, unknown>;
+      rejectUnknownFields(
+        c,
+        ['componentId', 'missingInformation', 'clarificationKind'],
+        issues,
+        'clarification',
+      );
       if (!isNonEmptyString(c.missingInformation))
         issues.push('clarification.missingInformation is required');
       if (!CLARIFICATION_KINDS.includes(c.clarificationKind as never)) {
@@ -260,6 +370,10 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
         issues.push('clarification.componentId must reference an existing component');
       }
     }
+    if (body.searchPlan !== undefined) {
+      issues.push('searchPlan is not allowed when outcome is clarification_required');
+    }
+    if (body.reason !== undefined) issues.push('reason is not allowed for clarification_required');
     return { valid: issues.length === 0, issues };
   }
 
@@ -283,6 +397,19 @@ export function validateVariantCRawResponse(raw: unknown): VariantCResponseValid
       issues.push(`component ${componentId} must have exactly one search plan`);
     }
   });
+  if (body.clarification !== undefined)
+    issues.push('clarification is not allowed for interpreted outcomes');
+  if (body.reason !== undefined) issues.push('reason is not allowed for interpreted outcomes');
+  if (
+    outcome === 'interpreted_with_assumptions' &&
+    !components.some(
+      (component) =>
+        Array.isArray((component as Record<string, unknown>).assumptions) &&
+        ((component as Record<string, unknown>).assumptions as unknown[]).length > 0,
+    )
+  ) {
+    issues.push('interpreted_with_assumptions requires at least one explicit assumption');
+  }
 
   return { valid: issues.length === 0, issues };
 }

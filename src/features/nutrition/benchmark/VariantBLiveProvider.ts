@@ -103,7 +103,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
     private readonly transport = createAnthropicBenchmarkTransport(),
   ) {}
 
-  async call(request: VariantBRequest): Promise<VariantBProviderCallResult> {
+  async call(request: VariantBRequest, signal?: AbortSignal): Promise<VariantBProviderCallResult> {
     const reservation = this.budgetGate?.reserve(
       this.modelId,
       VARIANT_B_MAX_INPUT_TOKENS,
@@ -128,6 +128,7 @@ class AnthropicVariantBLiveProvider implements VariantBProvider {
           },
           messages: [{ role: 'user', content: buildVariantBPrompt(request) }],
         }),
+        signal,
       });
     } catch (e) {
       reservation?.release();

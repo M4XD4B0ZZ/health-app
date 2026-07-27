@@ -92,7 +92,10 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     private readonly transport = createAnthropicBenchmarkTransport(),
   ) {}
 
-  async interpret(request: AiInterpretationRequest): Promise<VariantCAiInterpretationCall> {
+  async interpret(
+    request: AiInterpretationRequest,
+    signal?: AbortSignal,
+  ): Promise<VariantCAiInterpretationCall> {
     const reservation = this.budgetGate?.reserve(
       this.modelId,
       VARIANT_C_MAX_INPUT_TOKENS,
@@ -122,6 +125,7 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
             },
             messages: [{ role: 'user', content: buildVariantCPrompt(request) }],
           }),
+          signal,
         });
       } catch (e) {
         const latencyMs = performance.now() - start;

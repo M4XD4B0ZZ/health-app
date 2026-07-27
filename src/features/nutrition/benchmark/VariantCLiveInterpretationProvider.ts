@@ -216,6 +216,32 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
         };
       }
       const { text, usage } = envelope.value;
+      if ((usage.cacheCreationTokens ?? 0) > 0 || (usage.cacheReadTokens ?? 0) > 0) {
+        const failureKind: VariantCProviderFailureKind = 'usage_cost_contract_error';
+        return {
+          result: parseAndNormalizeVariantCInterpretationResponse(
+            null,
+            `${failureKind}: prompt caching is not authorized by the V3-047 no-cache policy`,
+            latencyMs,
+            request.traceId,
+          ),
+          runMeta: {
+            costUsd: null,
+            pricingStatus: 'estimated',
+            usageStatus: 'reported',
+            actualCostStatus: 'usage_cost_contract_error',
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cacheCreationTokens: usage.cacheCreationTokens,
+            cacheReadTokens: usage.cacheReadTokens,
+            httpStatus: response.status,
+            providerLatencyMs: latencyMs,
+            failureKind,
+            retryable: false,
+            runIdentity: this.runIdentity,
+          },
+        };
+      }
       let result: AiInterpretationResult;
       let failureKind: VariantCProviderFailureKind | null = null;
       try {
@@ -276,6 +302,8 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
     return {
       costUsd: inputCost + outputCost,
       pricingStatus: 'estimated',
+      usageStatus: 'reported',
+      actualCostStatus: 'computed',
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       cacheCreationTokens: usage.cacheCreationTokens,
@@ -294,7 +322,9 @@ class AnthropicVariantCLiveInterpreter implements VariantCAiInterpreter {
   ): VariantCAiCallMetadata {
     return {
       costUsd: null,
-      pricingStatus: 'unknown',
+      pricingStatus: 'estimated',
+      usageStatus: 'unknown',
+      actualCostStatus: 'usage_unknown',
       inputTokens: null,
       outputTokens: null,
       cacheCreationTokens: null,

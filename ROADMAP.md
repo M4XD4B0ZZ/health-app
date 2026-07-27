@@ -8575,7 +8575,7 @@ ground truth, BLS artifacts, evaluator, CI, and production wiring remain unchang
 
 #### RESOLVER-V3-047: Haiku Optimization Candidate Evaluation
 
-Status: `in_progress` (2026-07-27; post-merge evidence identity, pricing, and executable-harness correction)
+Status: `done — executable offline candidate and evidence infrastructure complete; live superiority unverified` (2026-07-27)
 Depends on: RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046, RESOLVER-V3-049,
 RESOLVER-V3-050, RESOLVER-V3-051
 

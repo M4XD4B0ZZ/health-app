@@ -252,20 +252,65 @@ describe('R1-min and zero-network harness', () => {
     expect(resolverV3047R1MinSources('generic_food')).toEqual(['bls', 'off', 'usda']);
     expect(resolverV3047R1MinSources('branded_product')).toEqual(['off', 'usda']);
   });
-  test('executes each candidate through the fake transport and real provider parser', async () => {
+  test('executes the real adapter, fast path and R0/R1-min source paths with measured calls', async () => {
     const measurements = await runResolverV3047OfflineCandidates();
-    expect(measurements).toHaveLength(3);
+    expect(measurements).toHaveLength(12);
+    const byId = Object.fromEntries(measurements.map((item) => [item.scenarioId, item]));
+    expect(byId['h0-r0']).toMatchObject({
+      candidateId: 'H0',
+      aiCallCount: 1,
+      fakeTransportCallCount: 1,
+      sourceCallCounts: { bls: 1, off: 0, usda: 1 },
+    });
+    expect(byId['h1-r0']).toMatchObject({
+      candidateId: 'H1',
+      aiCallCount: 1,
+      fakeTransportCallCount: 1,
+      sourceCallCounts: { bls: 1, off: 1, usda: 1 },
+    });
+    expect(byId['h2-generic-bls-accepted']).toMatchObject({
+      sourceCallOrder: ['bls'],
+      stopReason: 'authoritative_accepted',
+      avoidedSourceTypes: ['off', 'usda'],
+    });
+    expect(byId['h2-generic-off-accepted']).toMatchObject({
+      sourceCallOrder: ['bls', 'off'],
+      avoidedSourceTypes: ['usda'],
+    });
+    expect(byId['h2-generic-usda-accepted']).toMatchObject({
+      sourceCallOrder: ['bls', 'off', 'usda'],
+      stopReason: 'authoritative_accepted',
+    });
+    expect(byId['h2-generic-exhausted']).toMatchObject({
+      sourceCallOrder: ['bls', 'off', 'usda'],
+      stopReason: 'tiers_exhausted',
+    });
+    expect(byId['h2-branded-off-accepted']).toMatchObject({
+      sourceCallCounts: { bls: 0, off: 1, usda: 0 },
+      sourceCallOrder: ['off'],
+    });
+    expect(byId['h2-branded-usda-accepted']).toMatchObject({
+      sourceCallCounts: { bls: 0, off: 1, usda: 1 },
+      sourceCallOrder: ['off', 'usda'],
+    });
+    expect(byId['h2-no-proof-ai']).toMatchObject({ fastPathUsed: false, aiCallCount: 1 });
+    expect(byId['h2-safe-fast-path']).toMatchObject({
+      fastPathUsed: true,
+      aiCallCount: 0,
+      fakeTransportCallCount: 0,
+      sourceCallCounts: { bls: 0, off: 0, usda: 0 },
+    });
+    expect(byId['h2-multipart-no-fast-path']).toMatchObject({
+      fastPathUsed: false,
+      aiCallCount: 1,
+    });
+    expect(byId['h2-clarification']).toMatchObject({
+      mealOutcome: 'clarification_required',
+      externalRequestCount: 0,
+      sourceCallCounts: { bls: 0, off: 0, usda: 0 },
+    });
     measurements.forEach((measurement) =>
-      expect(measurement).toMatchObject({
-        parserContractSuccess: true,
-        componentCount: 1,
-        searchPlanCount: 1,
-        aiCallCount: 1,
-        fakeTransportCallCount: 1,
-        sourceCallDecision: 'not_executed_by_measurement_harness',
-        failClosed: true,
-        providerLatency: 'live_unverified',
-      }),
+      expect(measurement.evidenceClass).toBe('fixture_executed'),
     );
   });
 });

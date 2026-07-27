@@ -114,8 +114,9 @@ export function wrapVariantCInterpreterWithLedger(
         variant: 'C',
         kind: observation.kind,
         runIndex: observation.runIndex,
+        runIdentity: inner.runIdentity,
       });
-      ledger.record(callId, 'dispatched');
+      ledger.record(callId, 'dispatched', { runIdentity: inner.runIdentity });
       const result = await inner.interpret(request);
       const telemetry = telemetryRecords[telemetryRecords.length - 1];
       const failed = !telemetry || telemetry.providerStatus !== 'success';
@@ -131,8 +132,9 @@ export function wrapVariantCInterpreterWithLedger(
               inputTokens: telemetry.inputTokens,
               outputTokens: telemetry.outputTokens,
               actualCostUsd: telemetry.actualCostUsd,
+              runIdentity: inner.runIdentity,
             }
-          : null,
+          : { runIdentity: inner.runIdentity },
       );
       return result;
     },

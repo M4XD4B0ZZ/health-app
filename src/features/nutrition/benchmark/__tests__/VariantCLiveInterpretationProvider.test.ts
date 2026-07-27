@@ -344,7 +344,7 @@ describe('RESOLVER-V3-046 provider failure taxonomy', () => {
     expect(Number.isNaN(call.runMeta.costUsd)).toBe(false);
   });
 
-  it('accepts finite non-negative integer usage, including a large safe integer', async () => {
+  it('fails closed on positive cache usage even with finite token counts', async () => {
     const call = await interpretWith(
       jest.fn(
         async () =>
@@ -367,12 +367,13 @@ describe('RESOLVER-V3-046 provider failure taxonomy', () => {
       ),
     );
     expect(call.runMeta).toMatchObject({
-      failureKind: null,
+      failureKind: 'usage_cost_contract_error',
+      costUsd: null,
+      actualCostStatus: 'usage_cost_contract_error',
       inputTokens: Number.MAX_SAFE_INTEGER,
       outputTokens: 0,
       cacheReadTokens: 3,
     });
-    expect(Number.isFinite(call.runMeta.costUsd)).toBe(true);
   });
 
   it.each([
@@ -465,4 +466,66 @@ describe('RESOLVER-V3-046 provider failure taxonomy', () => {
       expect(call.runMeta.costUsd).not.toBeNull();
     },
   );
+});
+
+describe('RESOLVER-V3-047 no-cache cost contract', () => {
+  const run = async (usage: Record<string, number>) =>
+    createLiveVariantCInterpreter(
+      { ANTHROPIC_API_KEY: 'fake' },
+      budgetGate(),
+      {
+        usesProxy: false,
+        fetch: async () =>
+          new Response(
+            JSON.stringify({
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ outcome: 'not_interpretable', reason: 'fixture' }),
+                },
+              ],
+              usage: { input_tokens: 2, output_tokens: 3, ...usage },
+            }),
+            { status: 200 },
+          ),
+      },
+      resolverV3047Candidate('H2'),
+    ).interpret({ rawInput: 'x', locale: 'de' });
+
+  it.each([
+    ['cache_creation_input_tokens', 1],
+    ['cache_read_input_tokens', 1],
+  ])('fails closed when %s is positive', async (field, value) => {
+    const call = await run({ [field]: value });
+    expect(call.runMeta).toMatchObject({
+      pricingStatus: 'estimated',
+      usageStatus: 'reported',
+      actualCostStatus: 'usage_cost_contract_error',
+      costUsd: null,
+      failureKind: 'usage_cost_contract_error',
+      httpStatus: 200,
+      runIdentity: { candidateId: 'H2' },
+    });
+  });
+  it('keeps known pricing separate from unknown usage', async () => {
+    const interpreter = createLiveVariantCInterpreter(
+      { ANTHROPIC_API_KEY: 'fake' },
+      budgetGate(),
+      {
+        usesProxy: false,
+        fetch: async () => {
+          throw new TypeError('offline transport failure');
+        },
+      },
+      resolverV3047Candidate('H1'),
+    );
+    const call = await interpreter.interpret({ rawInput: 'x', locale: 'de' });
+    expect(call.runMeta).toMatchObject({
+      pricingStatus: 'estimated',
+      usageStatus: 'unknown',
+      actualCostStatus: 'usage_unknown',
+      costUsd: null,
+      runIdentity: interpreter.runIdentity,
+    });
+  });
 });

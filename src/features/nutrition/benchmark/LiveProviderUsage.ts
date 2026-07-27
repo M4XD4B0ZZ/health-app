@@ -28,6 +28,26 @@ export interface LiveProviderUsageRecord {
   usageStatus: 'reported' | 'unknown';
   /** Required for new Variant-C attempts; absent keeps frozen protocol-v3 records readable. */
   runIdentity?: import('./VariantCTypes').VariantCRunIdentity;
+  /** Protocol-v4 records set this discriminator and must carry every adjacent status/reservation
+   * field; absence preserves read compatibility with frozen protocol-v3 evidence. */
+  protocolVersion?: 'resolver-v3-048-protocol-v4-phase-a-v1';
+  pricingStatus?: 'known' | 'estimated';
+  actualCostStatus?: 'computed' | 'usage_unknown' | 'usage_cost_contract_error';
+  reservationId?: string | null;
+  reservedWorstCaseCostUsd?: number;
+}
+
+export function validateLiveProviderUsageRecord(record: LiveProviderUsageRecord): void {
+  if (!record.protocolVersion) return;
+  if (
+    !record.runIdentity ||
+    !record.pricingStatus ||
+    !record.actualCostStatus ||
+    record.reservedWorstCaseCostUsd === undefined ||
+    record.failureKind === undefined ||
+    record.retryable === undefined
+  )
+    throw new Error('PROTOCOL_V4_USAGE_FIELDS_REQUIRED');
 }
 
 export interface ReservedUsageSummary {

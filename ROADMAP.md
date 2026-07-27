@@ -8629,7 +8629,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `todo`
+Status: `in_progress — protocol-v4 contract and zero-call preflight complete; live execution not authorized` (Phase A, 2026-07-27)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 

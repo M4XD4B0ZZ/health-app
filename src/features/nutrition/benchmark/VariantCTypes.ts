@@ -218,6 +218,9 @@ export interface VariantCRawCaseResult {
 export interface VariantCAiCallMetadata {
   costUsd: number | null;
   pricingStatus: 'known' | 'estimated' | 'unknown';
+  /** Explicit for live Variant-C calls; optional only for historical/fixture records. */
+  usageStatus?: 'reported' | 'unknown';
+  actualCostStatus?: 'computed' | 'usage_unknown' | 'usage_cost_contract_error';
   inputTokens: number | null;
   outputTokens: number | null;
   cacheCreationTokens?: number | null;
@@ -261,6 +264,7 @@ export type VariantCProviderFailureKind =
   | 'text_block_json_error'
   | 'schema_contract_error'
   | 'internal_parser_error'
+  | 'usage_cost_contract_error'
   | 'budget_config_error';
 
 export interface VariantCAiInterpretationCall {

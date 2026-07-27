@@ -218,3 +218,36 @@ Focused correction verification passed 126/126 tests. Provider calls were **0**,
 remain unverified. Frozen V3-039 evidence, corpus, ground truth, evaluator and BLS artifacts were not
 modified. V3-047 remains `in_progress` until required GitHub CI is green; V3-048 remains `todo`,
 V3-010 remains `blocked`, and production wiring remains unauthorized.
+
+## Final closeout — executable end-to-end evidence (2026-07-27)
+
+### Remaining defects reproduced at PR #187 basis
+
+The immutable basis used for this closeout is `3310752af4c4052c8241c79153e1a6985c56eadf` (the locally available PR #187 merge commit). The checkout has no configured remote, so an independent `git fetch origin chore/clean-arch-structure` failed before any edit. Static baseline assertions and the focused baseline test demonstrated that the old harness stopped at the fake transport/parser, exposed `not_executed_by_measurement_harness`, derived H2 routing only from `resolverV3047R1MinSources()`, persisted no Variant-C identity in reserved/dispatched/terminal ledger details, ignored positive cache tokens in cost, and described known pricing plus unknown usage as unknown pricing.
+
+### Executable zero-network harness and actual call matrix
+
+The replacement is asynchronous and calls the canonical request builder, `createLiveVariantCInterpreter()`, candidate parser, `runVariantCCase()`, controlled fast-path resolver, tracked fake `FoodCatalogSource` implementations, existing scoring and resolver decisions, and R0/R1-min retrieval. All counters and traces are collected from execution.
+
+| scenario                  | candidate | AI/transport | BLS/OFF/USDA | order          | fast path | stop / avoided                     |
+| ------------------------- | --------: | -----------: | -----------: | -------------- | --------: | ---------------------------------- |
+| h0-r0                     |        H0 |          1/1 |        1/0/1 | bls, usda      |        no | R0                                 |
+| h1-r0                     |        H1 |          1/1 |        1/1/1 | bls, off, usda |        no | R0                                 |
+| h2-generic-bls-accepted   |        H2 |          1/1 |        1/0/0 | bls            |        no | authoritative_accepted / off, usda |
+| h2-generic-off-accepted   |        H2 |          1/1 |        1/1/0 | bls, off       |        no | authoritative_accepted / usda      |
+| h2-generic-usda-accepted  |        H2 |          1/1 |        1/1/1 | bls, off, usda |        no | authoritative_accepted / none      |
+| h2-generic-exhausted      |        H2 |          1/1 |        1/1/1 | bls, off, usda |        no | tiers_exhausted / none             |
+| h2-branded-off-accepted   |        H2 |          1/1 |        0/1/0 | off            |        no | authoritative_accepted / usda      |
+| h2-branded-usda-accepted  |        H2 |          1/1 |        0/1/1 | off, usda      |        no | authoritative_accepted / none      |
+| h2-no-proof-ai            |        H2 |          1/1 |        1/0/0 | bls            |        no | authoritative_accepted / off, usda |
+| h2-safe-fast-path         |        H2 |          0/0 |        0/0/0 | none           |       yes | no retrieval                       |
+| h2-multipart-no-fast-path |        H2 |          1/1 |        1/0/0 | bls            |        no | authoritative_accepted / off, usda |
+| h2-clarification          |        H2 |          1/1 |        0/0/0 | none           |        no | no retrieval                       |
+
+### Ledger identity and cost contract
+
+The Variant-C ledger decorator now writes the exact frozen `VariantCRunIdentity` into reserved, dispatched, and terminal details; Variant B remains unchanged. Existing protocol-v3 ledger parsing remains unchanged. Provider success and closed failures retain candidate/version/prompt/schema/routing/model/pricing identity.
+
+V3-047 explicitly activates no prompt caching. Missing, null, or zero cache fields remain valid. Positive cache creation/read tokens produce `usage_cost_contract_error`, preserve HTTP/usage/identity, set actual cost to null, and never retry. Pricing configuration (`estimated` for the frozen snapshot), usage (`reported` or `unknown`), and actual-cost status (`computed`, `usage_unknown`, or `usage_cost_contract_error`) are separate. A transport/timeout failure therefore retains known configured pricing while correctly reporting unknown usage and cost.
+
+No real credential was read, no network transport was installed, real provider calls are **0**, and real provider cost is **USD 0**. Live superiority, provider reliability/latency, repeat consistency, and the unchanged 12,000-ms p95 target remain unverified and belong exclusively to V3-048. V3-048 remains `todo`, V3-010 remains `blocked`, and production wiring remains unauthorized.

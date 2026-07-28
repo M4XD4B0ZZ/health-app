@@ -169,6 +169,12 @@ describe('RESOLVER-V3-048 Teil 15B: full connected zero-network Mini-Protocol-Ru
         'selectionRecordHash',
         'holdoutPlanHash',
         'holdoutAuthorizationHash',
+        'holdoutCheckpointHash',
+        'holdoutRawResultsHash',
+        'holdoutCategoryTableHash',
+        'holdoutTelemetryHash',
+        'holdoutLedgerHash',
+        'holdoutEvaluationHash',
       ].sort(),
     );
     for (const hash of Object.values(report.artifactHashes)) expect(hash).toMatch(/^[a-f0-9]{64}$/);

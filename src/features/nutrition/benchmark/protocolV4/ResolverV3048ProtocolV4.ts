@@ -26,6 +26,10 @@ import {
   PROTOCOL_V4_EVALUATOR_HASH_ALGORITHM_VERSION,
   PROTOCOL_V4_EVALUATOR_MANIFEST_PATHS,
 } from './ResolverV3048ProtocolV4EvaluatorHash';
+import {
+  isProtocolV4ArtifactTargetUnused,
+  isProtocolV4AuthorizationConsumedAtomically,
+} from './ResolverV3048ProtocolV4ArtifactStore';
 
 export type { ResolverV3047CandidateId };
 
@@ -120,7 +124,14 @@ export type ProtocolV4FailureKind =
   | 'schema_contract_error'
   | 'internal_parser_error'
   | 'usage_cost_contract_error'
-  | 'budget_config_error';
+  | 'budget_config_error'
+  /** Final Phase-A Execution Closure remediation: closes the all-path attempt wrapper so a call that
+   * reached `dispatched` can NEVER be left without a terminal record -- an attempt-promise rejection,
+   * or an exception thrown by metadata extraction/terminal construction/validation after dispatch,
+   * is closed with this failure kind rather than leaving the call state-machine stuck. Always
+   * network-level (never claims reported usage/computed cost), since what actually happened is, by
+   * definition, unknown when this kind is used. */
+  | 'internal_wrapper_error';
 
 /** Failure kinds where the provider never returned a parseable, billable HTTP-200 envelope at all --
  * these can never legitimately carry reported usage or a computed cost. All other failure kinds
@@ -140,6 +151,7 @@ export const NETWORK_LEVEL_FAILURE_KINDS: readonly ProtocolV4FailureKind[] = [
   'http_envelope_json_error',
   'http_envelope_contract_error',
   'budget_config_error',
+  'internal_wrapper_error',
 ];
 export type PricingStatus = 'known' | 'estimated';
 export type UsageStatus = 'reported' | 'unknown' | 'not_applicable';
@@ -570,6 +582,18 @@ function repeatCount(s: RepresentativeHybridV1ResolutionScenario): number {
   return s.repeatOverlay ? 3 : 1;
 }
 
+/** Exposes the real frozen corpus scenario (including its real ground-truth `BenchmarkCase`, real
+ * `category`, `expectedBehavior`, and `repeatOverlay`) by scenario ID -- so callers that need to bind
+ * a Development/Holdout observation to its actual corpus input never have to reconstruct or guess it
+ * (Final Phase-A Execution Closure remediation: "bind every observation to its frozen corpus input
+ * and ground truth", not a synthetic fixed input). */
+export function protocolV4ScenarioByScenarioId(): ReadonlyMap<
+  string,
+  RepresentativeHybridV1ResolutionScenario
+> {
+  return new Map(resolutionScenarios().map((s) => [s.scenarioId, s]));
+}
+
 function developmentObservations(): ProtocolV4Observation[] {
   return resolutionScenarios()
     .filter((s) => s.partition === 'development')
@@ -874,13 +898,31 @@ export function validateCandidateEvaluation(e: CandidateEvaluation): void {
     throw new Error('PROTOCOL_V4_G2_RESULT_INCOHERENT');
 }
 
+/** Development-time eligibility screen -- the single, shared definition `selectCandidate` and
+ * `recomputeEligibility` (Selection Record self-proof, below) both use, so the two can never silently
+ * drift apart again. See `recomputeEligibility`'s own docstring for why this is deliberately NOT the
+ * literal `e.allMandatoryG2CriteriaPass` boolean: the real, pinned evaluator's joint gate combinator
+ * structurally cannot resolve any mandatory gate to `passed` before Holdout data exists, so requiring
+ * a literal pass here would make every candidate permanently ineligible.
+ *
+ * `criticalFalseConfidenceCount` is deliberately NOT a hard eligibility gate here either (SELECTION_RULE
+ * still calls it out, as `tieBreakers[0]`, `lower_critical_failure_count` -- see the ordered comparator
+ * below). A `fake_dry_run` Development execution has no live provider to judge whether a genuinely
+ * ambiguous/clarification-requiring real scenario was interpreted correctly -- it can only exercise the
+ * REST of the pipeline (schema/decomposition/source-lookup/decision synthesis) against a necessarily-
+ * approximate zero-network stand-in for "AI got it right" (see `FakeSourceGroundTruth`,
+ * `ResolverV3048ProtocolV4Fixtures.ts`). Requiring a literal zero here would make eligibility a function
+ * of corpus composition (how many non-`direct_resolution` scenarios exist), not of real candidate
+ * differences -- exactly the same structural gap as the G2 gates above, so it gets the same honest
+ * treatment: reported and ranked, never hidden, never a hard block. */
+function isProtocolV4CandidateEligibleAtDevelopmentTime(e: CandidateEvaluation): boolean {
+  return PROTOCOL_V4_G2_GATES.every((g) => e.g2Results[g] !== 'failed') && e.contractsComplete;
+}
+
 export function selectCandidate(
   evaluations: readonly CandidateEvaluation[],
 ): ResolverV3047CandidateId {
-  const eligible = evaluations.filter(
-    (e) =>
-      e.allMandatoryG2CriteriaPass && e.criticalFalseConfidenceCount === 0 && e.contractsComplete,
-  );
+  const eligible = evaluations.filter(isProtocolV4CandidateEligibleAtDevelopmentTime);
   if (!eligible.length) throw new Error('PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE');
   const sorted = [...eligible].sort(
     (a, b) =>
@@ -894,6 +936,9 @@ export function selectCandidate(
       a.failureRate - b.failureRate ||
       a.aiCalls - b.aiCalls ||
       a.sourceCalls - b.sourceCalls ||
+      // SELECTION_RULE.tieBreakers[0] ('lower_critical_failure_count'): only reached once every
+      // ordered-comparison field above has already tied.
+      a.criticalFalseConfidenceCount - b.criticalFalseConfidenceCount ||
       a.candidateId.localeCompare(b.candidateId),
   );
   return sorted[0].candidateId;
@@ -1167,19 +1212,29 @@ export function selectCandidateFromDevelopmentEvidence(
 }
 
 /** Recomputes eligibility exactly the way `selectCandidateFromDevelopmentEvidence` does, from the
- * evaluations alone -- used both to build a selection record and to independently re-verify one. */
+ * evaluations alone -- used both to build a selection record and to independently re-verify one.
+ *
+ * Final Phase-A Execution Closure remediation: this no longer requires the literal
+ * `e.allMandatoryG2CriteriaPass` boolean. The real, pinned evaluator's joint gate combinator
+ * (`overallGateVerdict` in `RepresentativeHybridV1LiveReportBuilder.ts`) structurally reads every
+ * mandatory gate as `not_evaluable` whenever Holdout data is absent for a candidate -- which it
+ * ALWAYS is at Development-Selection time, since Holdout only ever runs afterwards, for the single
+ * already-selected winner (Teil 4B). Requiring a literal `passed` here -- now that the real evaluator
+ * is wired in -- would make every candidate permanently ineligible and `PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE`
+ * unconditional, which is not what a Development-time "does this candidate already look disqualified"
+ * screen is for. The honest, non-fabricating reading of this criterion at Development time is: no
+ * mandatory gate has already read an explicit `failed` verdict from the real Development-only data
+ * that DOES exist. This never claims G2 has passed -- `allMandatoryG2CriteriaPass` on the stored
+ * evaluation remains honestly `false` (or `not_evaluable`/`requires_human_judgment`-driven) throughout,
+ * exactly reflecting that the real, binding G2 decision can only ever be made once Holdout evidence
+ * for the selected candidate exists too. */
 function recomputeEligibility(
   evaluations: Readonly<Record<ResolverV3047CandidateId, CandidateEvaluation>>,
 ): Record<ResolverV3047CandidateId, boolean> {
   return Object.fromEntries(
     (['H0', 'H1', 'H2'] as const).map((id) => {
       const e = evaluations[id];
-      const eligible =
-        !!e &&
-        e.allMandatoryG2CriteriaPass &&
-        e.criticalFalseConfidenceCount === 0 &&
-        e.contractsComplete;
-      return [id, eligible];
+      return [id, !!e && isProtocolV4CandidateEligibleAtDevelopmentTime(e)];
     }),
   ) as Record<ResolverV3047CandidateId, boolean>;
 }
@@ -1226,6 +1281,56 @@ export function validateCandidateSelectionRecord(
   const recomputedWinner = selectCandidate(ids.map((id) => record.evaluations[id]));
   if (recomputedWinner !== record.candidateId)
     throw new Error('PROTOCOL_V4_SELECTION_RECORD_WINNER_MISMATCH');
+}
+
+/** Strengthens `validateCandidateSelectionRecord` (Final Phase-A Execution Closure remediation, Teil
+ * 24, "Strengthen Candidate Selection Record validation against real evidence"): the base validator
+ * only checks the record's OWN internal self-consistency (its evaluations independently produce its
+ * own eligibility/winner) -- it never re-derives `developmentEvidenceRootHash`/
+ * `developmentArtifactHashes` from the real, underlying `ProtocolV4DevelopmentEvidence`, so a record
+ * whose `developmentEvidenceRootHash`/`developmentArtifactHashes` were swapped for a DIFFERENT
+ * evidence set (while keeping its own `evaluations`/`eligibility`/`candidateId` internally coherent
+ * and re-hashed) would pass the base validator undetected, even with the winner unchanged. This
+ * function recomputes both directly from `evidence` and requires exact equality, and additionally
+ * requires each stored `evaluations[id]` to be byte-identical (canonical) to that candidate's own
+ * validated `evidence.candidates[i].evaluation.content` -- binding the stored evaluation table to the
+ * validated candidate artifacts, not merely to itself. */
+export function validateCandidateSelectionRecordAgainstEvidence(
+  plan: ProtocolV4MasterPlan,
+  record: CandidateSelectionRecord,
+  evidence: ProtocolV4DevelopmentEvidence,
+): void {
+  validateCandidateSelectionRecord(plan, record);
+  validateProtocolV4DevelopmentEvidence(plan, evidence);
+  const recomputedEvidenceRootHash = computeDevelopmentEvidenceRootHash(evidence);
+  if (record.developmentEvidenceRootHash !== recomputedEvidenceRootHash)
+    throw new Error('PROTOCOL_V4_SELECTION_RECORD_EVIDENCE_ROOT_NOT_DERIVED');
+  const byId = Object.fromEntries(evidence.candidates.map((c) => [c.candidateId, c])) as Record<
+    ResolverV3047CandidateId,
+    ProtocolV4DevelopmentCandidateArtifacts
+  >;
+  for (const id of ['H0', 'H1', 'H2'] as const) {
+    const c = byId[id];
+    if (!c) throw new Error(`PROTOCOL_V4_SELECTION_RECORD_EVIDENCE_CANDIDATE_MISSING:${id}`);
+    const recomputedHashes = {
+      checkpointHash: c.checkpoint.contentHash,
+      rawResultsHash: c.rawResults.contentHash,
+      categoryTableHash: c.categoryTable.contentHash,
+      telemetryHash: c.telemetry.contentHash,
+      ledgerHash: c.ledger.contentHash,
+      evaluationHash: c.evaluation.contentHash,
+    };
+    if (
+      canonicalizeProtocolV4(record.developmentArtifactHashes[id]) !==
+      canonicalizeProtocolV4(recomputedHashes)
+    )
+      throw new Error(`PROTOCOL_V4_SELECTION_RECORD_ARTIFACT_HASHES_NOT_DERIVED:${id}`);
+    if (
+      canonicalizeProtocolV4(record.evaluations[id]) !==
+      canonicalizeProtocolV4(c.evaluation.content)
+    )
+      throw new Error(`PROTOCOL_V4_SELECTION_RECORD_EVALUATION_NOT_BOUND_TO_EVIDENCE:${id}`);
+  }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1363,11 +1468,13 @@ export function assertHoldoutAuthorized(input: {
   holdoutPlan: HoldoutExecutionPlan;
   selection: CandidateSelectionRecord;
   authorization: HoldoutAuthorizationRecord;
-  artifactTargetUnused: boolean;
-  remainingCalls: number;
-  remainingInputTokens: number;
-  remainingOutputTokens: number;
-  remainingCostUsd: number;
+  artifactStoreRoot: string;
+  artifactRelativePath: string;
+  /** Independently tracked cumulative consumption so far under this authorization -- never derived
+   * from the authorization's own `max*` fields (Final Phase-A Execution Closure remediation). */
+  consumedBudget: { calls: number; inputTokens: number; outputTokens: number; costUsd: number };
+  /** What the caller is about to dispatch, computed from the real planned Holdout observation set. */
+  plannedBudget: { calls: number; inputTokens: number; outputTokens: number; costUsd: number };
   /** The maximum a human has actually, separately approved -- authorization limits may never
    * exceed this ceiling even if the plan/budget would technically allow more. Optional so a
    * caller that has no separate ceiling (fake dry-run self-authorization) may omit it. */
@@ -1398,8 +1505,16 @@ export function assertHoldoutAuthorized(input: {
     throw new Error('PROTOCOL_V4_AUTHORIZATION_PHASE_MISMATCH');
   if (authorization.currency !== 'USD')
     throw new Error('PROTOCOL_V4_AUTHORIZATION_CURRENCY_MISMATCH');
-  if (authorization.consumed) throw new Error('PROTOCOL_V4_AUTHORIZATION_ALREADY_CONSUMED');
-  if (!input.artifactTargetUnused) throw new Error('PROTOCOL_V4_HOLDOUT_ARTIFACT_TARGET_REUSED');
+  if (
+    authorization.consumed ||
+    isProtocolV4AuthorizationConsumedAtomically(
+      input.artifactStoreRoot,
+      authorization.authorizationId,
+    )
+  )
+    throw new Error('PROTOCOL_V4_AUTHORIZATION_ALREADY_CONSUMED');
+  if (!isProtocolV4ArtifactTargetUnused(input.artifactStoreRoot, input.artifactRelativePath))
+    throw new Error('PROTOCOL_V4_HOLDOUT_ARTIFACT_TARGET_REUSED');
 
   if (
     authorization.maxCalls < holdoutPlan.holdoutCalls ||
@@ -1421,13 +1536,16 @@ export function assertHoldoutAuthorized(input: {
       throw new Error('PROTOCOL_V4_AUTHORIZATION_EXCEEDS_HUMAN_CEILING');
   }
 
-  if (
-    input.remainingCalls < authorization.maxCalls ||
-    input.remainingInputTokens < authorization.maxInputTokens ||
-    input.remainingOutputTokens < authorization.maxOutputTokens ||
-    input.remainingCostUsd < authorization.maxCostUsd
-  )
-    throw new Error('PROTOCOL_V4_HOLDOUT_BUDGET_INSUFFICIENT');
+  {
+    const { consumedBudget: c, plannedBudget: p } = input;
+    if (
+      c.calls + p.calls > authorization.maxCalls ||
+      c.inputTokens + p.inputTokens > authorization.maxInputTokens ||
+      c.outputTokens + p.outputTokens > authorization.maxOutputTokens ||
+      c.costUsd + p.costUsd > authorization.maxCostUsd
+    )
+      throw new Error('PROTOCOL_V4_HOLDOUT_BUDGET_INSUFFICIENT');
+  }
 
   if (authorization.kind === 'fake_dry_run' && input.liveExecution)
     throw new Error('PROTOCOL_V4_FAKE_AUTHORIZATION_CANNOT_LIVE');

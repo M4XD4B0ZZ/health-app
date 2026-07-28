@@ -1,9 +1,8 @@
-import type { VariantCAiCallMetadata } from '../VariantCTypes';
+import type { VariantCAiCallMetadata, VariantCRunIdentity } from '../VariantCTypes';
 import {
   PROTOCOL_V4_ARTIFACT_SCHEMA_VERSION,
   PROTOCOL_V4_VERSION,
   type ProtocolV4CallCounts,
-  type ProtocolV4FailureKind,
   type ProtocolV4MasterPlan,
   type ProtocolV4RunIdentity,
   type ProtocolV4TerminalContext,
@@ -60,13 +59,34 @@ export type ProtocolV4AttemptResult<T> =
  * concrete fix for "unknown -> estimated", "status guessed from failureKind", and "latency defaulted
  * to 0": none of those normalizations exist in this function; a provider metadata record that would
  * have needed one is rejected instead. */
+const REQUIRED_RUN_IDENTITY_FIELDS: readonly (keyof VariantCRunIdentity)[] = [
+  'candidateId',
+  'candidateVersion',
+  'promptVersion',
+  'schemaVersion',
+  'routingVersion',
+  'modelId',
+  'pricingVersion',
+];
+
 export function buildProtocolV4TerminalFromProviderMetadata(
   ctx: ProtocolV4AttemptContext,
   meta: VariantCAiCallMetadata,
   endToEndLatencyMs: number,
   counts: ProtocolV4CallCounts,
 ): ProtocolV4TerminalMetadata {
-  assertProviderRunIdentityMatchesAttemptContext(ctx, meta.runIdentity ?? null);
+  // A real AI-dispatch terminal record REQUIRES the provider's own full, complete run identity --
+  // absent or partial identity is rejected fail-closed here, never silently skipped. A genuine no-
+  // AI-call fast path never reaches this function at all (it uses `buildFastPathTerminal` instead),
+  // so this strictness cannot ever misclassify a legitimate fast-path observation.
+  if (!meta.runIdentity)
+    throw new ProtocolV4AttemptWrapperError('PROTOCOL_V4_PROVIDER_RUN_IDENTITY_MISSING');
+  for (const field of REQUIRED_RUN_IDENTITY_FIELDS)
+    if (meta.runIdentity[field] === undefined || meta.runIdentity[field] === null)
+      throw new ProtocolV4AttemptWrapperError(
+        `PROTOCOL_V4_PROVIDER_RUN_IDENTITY_FIELD_MISSING:${field}`,
+      );
+  assertProviderRunIdentityMatchesAttemptContext(ctx, meta.runIdentity);
   if (meta.pricingStatus === 'unknown')
     throw new ProtocolV4AttemptWrapperError(
       'PROTOCOL_V4_PROVIDER_PRICING_STATUS_UNKNOWN_NOT_ALLOWED',
@@ -83,6 +103,11 @@ export function buildProtocolV4TerminalFromProviderMetadata(
     throw new ProtocolV4AttemptWrapperError('PROTOCOL_V4_PROVIDER_CACHE_TOKENS_MISSING');
   if (meta.httpStatus === undefined)
     throw new ProtocolV4AttemptWrapperError('PROTOCOL_V4_PROVIDER_HTTP_STATUS_MISSING');
+  // `failureKind` must be explicitly `null` (success) or one of the closed failure-kind literals --
+  // `undefined` (the field was simply never set) is REJECTED, never silently coalesced into `null`
+  // (success). This is the concrete fix for "an unset failureKind was treated as success".
+  if (meta.failureKind === undefined)
+    throw new ProtocolV4AttemptWrapperError('PROTOCOL_V4_PROVIDER_FAILURE_KIND_MISSING');
   if (!Number.isFinite(endToEndLatencyMs) || endToEndLatencyMs < 0)
     throw new ProtocolV4AttemptWrapperError('PROTOCOL_V4_END_TO_END_LATENCY_INVALID');
 
@@ -112,7 +137,7 @@ export function buildProtocolV4TerminalFromProviderMetadata(
     reservationId: ctx.reservationId,
     reservedWorstCaseCostUsd: ctx.reservedWorstCaseCostUsd,
     actualCostUsd: meta.costUsd,
-    failureKind: (meta.failureKind ?? null) as ProtocolV4FailureKind | null,
+    failureKind: meta.failureKind,
     retryable: meta.retryable,
     httpStatus: meta.httpStatus,
     inputTokens: meta.inputTokens,
@@ -125,10 +150,93 @@ export function buildProtocolV4TerminalFromProviderMetadata(
   };
 }
 
+function unknownCounts(): ProtocolV4CallCounts {
+  const unknown = {
+    value: null,
+    accuracy: 'unknown' as const,
+    boundary: 'benchmark_dispatch' as const,
+  };
+  return {
+    aiDispatches: unknown,
+    providerHttpRequests: unknown,
+    blsCalls: unknown,
+    offCalls: unknown,
+    usdaCalls: unknown,
+    totalExternalRequests: unknown,
+    avoidedSourceCalls: unknown,
+    automaticRetries: { value: 0, accuracy: 'exact', boundary: 'retry_controller' },
+  };
+}
+
+/** Builds and records the closed `internal_wrapper_error` terminal for a call that reached
+ * `dispatched` but then hit an unexpected exception (a rejected `attempt()` promise, or a thrown
+ * `extractProviderMetadata`/`extractCounts`/terminal-builder/validator) -- the concrete fix for "a
+ * dispatched call could be left with no terminal record at all". If the call somehow already reached
+ * `terminal` (e.g. a ceiling-path race that itself threw after completing), this is a safe no-op:
+ * exactly-once is still the registry's own guarantee, never this function's. */
+function closeDispatchedCallWithInternalError(
+  registry: ProtocolV4CallStateRegistry,
+  ctx: ProtocolV4AttemptContext,
+  context: ProtocolV4TerminalContext,
+  telemetry: ProtocolV4TerminalMetadata[],
+  ledger: ProtocolV4TerminalMetadata[],
+): void {
+  if (registry.stateOf(ctx.callId) === 'terminal') return;
+  const runIdentity: ProtocolV4RunIdentity = {
+    protocolVersion: PROTOCOL_V4_VERSION,
+    planHash: ctx.masterPlanHash,
+    executionTreeHash: ctx.executionTreeHash,
+    candidateId: ctx.candidateIdentity.id,
+    candidateVersion: ctx.candidateIdentity.version,
+    promptVersion: ctx.candidateIdentity.promptVersion,
+    schemaVersion: ctx.candidateIdentity.schemaVersion,
+    routingVersion: ctx.candidateIdentity.routingVersion,
+    modelId: ctx.modelId,
+    pricingVersion: ctx.pricingVersion,
+    partition: ctx.partition,
+    scenarioId: ctx.scenarioId,
+    runIndex: ctx.runIndex,
+    callId: ctx.callId,
+  };
+  const terminal: ProtocolV4TerminalMetadata = {
+    schemaVersion: PROTOCOL_V4_ARTIFACT_SCHEMA_VERSION,
+    runIdentity,
+    pricingStatus: 'estimated',
+    usageStatus: 'unknown',
+    actualCostStatus: 'usage_unknown',
+    reservationId: ctx.reservationId,
+    reservedWorstCaseCostUsd: ctx.reservedWorstCaseCostUsd,
+    actualCostUsd: null,
+    failureKind: 'internal_wrapper_error',
+    retryable: false,
+    httpStatus: null,
+    inputTokens: null,
+    outputTokens: null,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    providerLatencyMs: null,
+    endToEndLatencyMs: 1,
+    counts: unknownCounts(),
+  };
+  try {
+    recordProtocolV4Terminal(registry, ctx.callId, terminal, telemetry, ledger, context);
+  } catch {
+    // Already terminal via a race that beat us here -- the registry's own exactly-once guarantee
+    // already holds; nothing more for this function to do.
+  }
+}
+
 /** The single authoritative all-path attempt wrapper (Teil 4). `attempt` is run exactly once, raced
  * against `ctx.wallClockCeilingMs`. On completion, `extractProviderMetadata` reads the real provider
  * metadata out of the raw result (or returns `null` for a genuine no-AI-call fast path, which uses
- * `buildFastPathTerminal` instead of the strict provider-metadata mapping). */
+ * `buildFastPathTerminal` instead of the strict provider-metadata mapping).
+ *
+ * Genuinely all-path: once `registry.dispatch()` has run, EVERY exit -- a rejected `attempt()`
+ * promise, a thrown `extractProviderMetadata`/`extractCounts`/`buildFastPathTerminal`/terminal-
+ * builder/validator, or the ordinary success/ceiling paths -- ends with exactly one terminal record.
+ * A call can never be left sitting at `dispatched`. Unexpected exceptions are still re-thrown to the
+ * caller after the terminal record is safely closed, so callers are not misled into treating an
+ * internal fault as an ordinary completion. */
 export async function runProtocolV4Attempt<T>(input: {
   registry: ProtocolV4CallStateRegistry;
   ctx: ProtocolV4AttemptContext;
@@ -158,31 +266,43 @@ export async function runProtocolV4Attempt<T>(input: {
     reservedWorstCaseCostUsd: ctx.reservedWorstCaseCostUsd,
   };
 
-  const start = performance.now();
-  const raced = await wrapWithProtocolV4WallClockCeiling(
-    registry,
-    ctx.callId,
-    input.attempt,
-    ctx.wallClockCeilingMs,
-    input.buildTerminalOnCeiling,
-    input.telemetry,
-    input.ledger,
-    context,
-  );
-  if (raced.status === 'timed_out')
-    return { status: 'timed_out', raw: null, terminal: raced.terminal };
+  try {
+    const start = performance.now();
+    const raced = await wrapWithProtocolV4WallClockCeiling(
+      registry,
+      ctx.callId,
+      input.attempt,
+      ctx.wallClockCeilingMs,
+      input.buildTerminalOnCeiling,
+      input.telemetry,
+      input.ledger,
+      context,
+    );
+    if (raced.status === 'timed_out')
+      return { status: 'timed_out', raw: null, terminal: raced.terminal };
 
-  const endToEndLatencyMs = Math.max(1, performance.now() - start);
-  const raw = raced.value;
-  const meta = input.extractProviderMetadata(raw);
-  const terminal = meta
-    ? buildProtocolV4TerminalFromProviderMetadata(
-        ctx,
-        meta,
-        endToEndLatencyMs,
-        input.extractCounts(raw, meta),
-      )
-    : input.buildFastPathTerminal(raw, endToEndLatencyMs);
-  recordProtocolV4Terminal(registry, ctx.callId, terminal, input.telemetry, input.ledger, context);
-  return { status: 'completed', raw, terminal };
+    const endToEndLatencyMs = Math.max(1, performance.now() - start);
+    const raw = raced.value;
+    const meta = input.extractProviderMetadata(raw);
+    const counts = input.extractCounts(raw, meta);
+    const terminal = meta
+      ? buildProtocolV4TerminalFromProviderMetadata(ctx, meta, endToEndLatencyMs, counts)
+      : input.buildFastPathTerminal(raw, endToEndLatencyMs);
+    recordProtocolV4Terminal(
+      registry,
+      ctx.callId,
+      terminal,
+      input.telemetry,
+      input.ledger,
+      context,
+    );
+    return { status: 'completed', raw, terminal };
+  } catch (error) {
+    // Covers: `attempt()` itself rejecting (propagates through the ceiling race); an exception from
+    // `extractProviderMetadata`/`extractCounts`/`buildFastPathTerminal`/the provider-metadata mapper;
+    // or `recordProtocolV4Terminal`'s own validation throwing. In every case the call is closed with
+    // exactly one terminal record before the error is re-thrown.
+    closeDispatchedCallWithInternalError(registry, ctx, context, input.telemetry, input.ledger);
+    throw error;
+  }
 }

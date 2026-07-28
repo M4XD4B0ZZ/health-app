@@ -212,3 +212,384 @@ The seven RESOLVER-V3-039 evidence files (`logs/resolver-v3-039-*`), the V3-039 
 ## 14. Status
 
 V3-047 remains `done`. V3-010 remains `blocked`. G2 remains **not passed** — nothing in this Phase-A contract remediation re-runs or re-decides G2; that remains exclusively RESOLVER-V3-048's own future live-evidence responsibility, still requiring separate explicit human authorization before any paid call. Production wiring remains unauthorized. V3-048 status: `in_progress — Protocol-v4 executable zero-call preflight complete; live Development not authorized`.
+
+---
+
+# FINAL EVIDENCE-LINEAGE REMEDIATION (RESOLVER-V3-048, 2026-07-28) — Everything Above This Line Is Unmodified History
+
+**This section is additive.** Everything above (PR #190's original Phase A, and the PR #191 post-merge
+correction) describes the merged history exactly as merged, unedited. PR #191 remains merged; nothing
+above was reverted. This section documents a second, independent post-merge review that found PR
+#191's own Phase A claims still incomplete for evidence lineage specifically, the 18 reproducible
+defects it found, the failing baseline that proved them, and the remediation that closed them — all on
+top of the same merge history, in a new branch.
+
+## 1. Basis
+
+Base commit: `7a5f6b53102910c495147d346348bce6c3bc4d14`. Verified as the actual tip of
+`origin/chore/clean-arch-structure` at the start of this remediation (`git fetch` + `git rev-parse`).
+This commit is a merge of PR #188 on top of PR #191's own merge commit
+(`f8ba324fed21675389c25d8e2b3480ecb4fb3855`), so PR #191's merge is an ancestor, satisfying the task's
+required minimum exactly. `git merge-base --is-ancestor f8ba324... 7a5f6b5` confirmed this.
+
+## 2. Reproduced residual defects
+
+A direct read of the merged code (`ResolverV3048ProtocolV4.ts`, `ResolverV3048ProtocolV4Telemetry.ts`,
+`ResolverV3048ProtocolV4DryRun.ts` at `7a5f6b5`) confirmed all 18 defects listed in the remediation
+task, each pinned to a specific code location:
+
+1. `runCaseScenario()`'s terminal-metadata construction: `pricingStatus: (meta.pricingStatus ===
+'unknown' ? 'estimated' : meta.pricingStatus)` and `usageStatus: (meta.usageStatus ??
+(meta.failureKind ? 'unknown' : 'reported'))` / `actualCostStatus: (meta.actualCostStatus ?? ...)` —
+   silent normalization and failure-kind-based guessing, exactly as the task describes.
+2. `reservationId: \`${spec.scenarioId}-reservation\``— a fabricated string, never a real`LiveProviderBudgetGate.reserve()` return value threaded through.
+3. `buildRunIdentity()` built the Protocol-v4 run identity independently from the plan; nothing ever
+   compared it against `meta.runIdentity` (the real `VariantCRunIdentity` the provider itself reports).
+4. `providerLatencyMs: meta.providerLatencyMs ?? 0` — missing latency silently rewritten to `0`.
+5. `buildSyntheticDevelopmentEvidence()` was a completely separate function from the 22
+   `runCaseScenario()` calls — the real, executed scenario results never flowed into it at all.
+6. `buildSyntheticDevelopmentEvidence()` sealed `telemetry: sealProtocolV4Artifact(..., [])` and
+   `ledger: sealProtocolV4Artifact(..., [])` — literal empty arrays — for a plan with real Development
+   observations (108 per candidate).
+7. The same function's `checkpoint` claimed `completedCallIds: expected.map(...)` (all calls "done")
+   with zero matching telemetry/ledger records behind that claim.
+8. `identificationQuality: 1 - index * 0.01`, `p50Ms: 1000 + index * 10`, etc. — freely-typed numeric
+   literals, not derived from anything.
+9. `g2Results` was `Object.fromEntries(PROTOCOL_V4_G2_GATES.map((g) => [g, 'passed' as const]))` — a
+   hard-coded "everything passed" literal.
+10. `validateCandidateEvaluation`'s G2 coherence check was `const anyFailed = ...some(gate =>
+e.g2Results[gate] === 'failed'); if (anyFailed && e.allMandatoryG2CriteriaPass) throw` — a gate
+    value of `not_evaluable` or `requires_human_judgment` never tripped this check at all, so
+    `allMandatoryG2CriteriaPass: true` alongside either was accepted.
+11. `validateProtocolV4DevelopmentEvidence` cross-checked the `candidateEvaluationTable` against each
+    candidate's own sealed `evaluation` artifact hash, but nothing forced the table itself to have been
+    derived from anything real — the whole chain traced back to defects 9/10 above.
+12. `validateCandidateSelectionRecord` checked `record.eligibility[record.candidateId]` but never
+    recomputed `selectCandidate()` from `record.evaluations` and compared it to `record.candidateId` —
+    a record naming a different (but still "eligible") winner than the real comparator would pick was
+    accepted as long as its own hash was internally self-consistent.
+13. `recordProtocolV4Terminal`: `telemetry.push(terminal); ledger.push(terminal);` — literally the same
+    object reference pushed into both arrays, confirmed by `telemetry[0] === ledger[0]` being `true`.
+14. No `ProtocolV4CallStateRegistry`-equivalent existed anywhere; `recordProtocolV4Terminal` had no
+    state and could be called twice for the same `callId` with no rejection.
+15. `wrapWithProtocolV4WallClockCeiling` only built/recorded a terminal on the `timed_out` branch; the
+    `completed` branch returned `{status: 'completed', value: race.value}` with no terminal at all —
+    confirming the caller (`runCaseScenario`) was solely responsible for reconstructing metadata for
+    every non-ceiling outcome (this is the same root cause as defects 1/2/3/5 above).
+16. `validateHoldoutExecutionPlan(plan, holdoutPlan)`: `const {holdoutPlanHash, ...body} = holdoutPlan;
+if (hashProtocolV4(body) !== holdoutPlanHash) throw ...` — only self-consistency; a holdoutPlan with
+    tampered `holdoutObservations`/`holdoutMaxCostUsd`, re-hashed to match its own tampered body, passed.
+17. `assertHoldoutAuthorized` checked `authorization.maxCalls`/`maxTotalTokens`/`maxCostUsd` against the
+    plan but never `maxInputTokens`/`maxOutputTokens` individually, and never checked `maxConcurrency`
+    against anything at all.
+    20/21. `artifactTargetUnused: boolean` and `consumed: boolean` were both plain fields the caller could
+    set to any value with zero backing storage check.
+18. No `ProtocolV4DevelopmentAuthorizationRecord` type, builder, or gate existed anywhere in the module.
+19. `validateProtocolV4MasterPlan` recomputed the plan's own self-hash and (via Part 2's pricing-
+    authority check) the pricing identity, but nothing else — the evaluator hash, candidate/prompt/
+    schema manifest hashes, corpus/ground-truth/source-manifest identities, Development observations,
+    every Holdout template row, and the budget derivation were never independently recomputed and
+    compared; only the FIRST Holdout template row was checked for an absent `candidateId`.
+20. `NETWORK_LEVEL_FAILURE_KINDS` included `'missing_text_block'`, so `validateTerminalMetadata` threw
+    `PROTOCOL_V4_NETWORK_FAILURE_CANNOT_REPORT_USAGE` for a `missing_text_block` record with
+    `usageStatus: 'reported'` — even though `VariantCLiveInterpretationProvider.interpret()` (confirmed
+    by direct read) parses `usage` from the envelope BEFORE checking for a text block, so a real
+    `missing_text_block` response legitimately, always carries real, billable usage.
+21. Only `categoryArtifact` was round-tripped through `JSON.parse(JSON.stringify(...))` and re-hashed;
+    checkpoint/rawResults/telemetry/ledger/evaluation/selection/holdout-plan/holdout-authorization
+    artifacts were never written, read back, or re-hashed anywhere in the module.
+
+## 3. Failing baseline (Teil 1) — method and result
+
+Given the sheer number of brand-new types/functions this remediation introduces (an
+`AttemptContext`/`Reservation`/`CallStateRegistry`/`AttemptWrapper`/`Evaluation`-derivation/
+`DevelopmentAuthorization`/`ArtifactStore`/`DevelopmentRunner` — none of which existed at `7a5f6b5` at
+all), a single test file cannot be mechanically executed unmodified against both the old and new code
+the way RESOLVER-V3-048's PR #191 red baseline could (that remediation mostly _tightened existing
+functions_; this one _adds missing ones_). The failing-baseline evidence for this round is therefore:
+
+- **Direct code citation** (§2 above): every one of the 18 defects is quoted with its exact pre-fix
+  source location, read directly from `7a5f6b5` before any implementation file changed in this task —
+  the same standard of evidence RESOLVER-V3-048's own prior red-baseline round used for defects whose
+  fix required a new export (e.g. "no dry-run pipeline exists at all").
+- **`ResolverV3048ProtocolV4FinalEvidenceLineageRedBaseline.test.ts`** (new, 25 focused `it`s, one per
+  Teil-1 item): each asserts the GUARD now exists and throws/returns correctly. Every one of these
+  guards is either a brand-new function (items 1–5, 16, 18–22, 25) that did not exist at `7a5f6b5` at
+  all, or a strictly stricter version of an existing one (items 7–15, 17, 23, 24) whose old, more
+  permissive behavior is quoted verbatim in §2. Command and result:
+
+  ```
+  npx jest --runInBand src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalEvidenceLineageRedBaseline.test.ts
+  ```
+
+  ```
+  PASS src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalEvidenceLineageRedBaseline.test.ts
+    RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline items, now closed
+      ✓ 1..25 (25/25 passed)
+  Test Suites: 1 passed, 1 total
+  Tests:       25 passed, 25 total
+  ```
+
+## 4. Authoritative Protocol-v4 Attempt Context (Teil 2)
+
+`ResolverV3048ProtocolV4AttemptContext.ts` (new): `ProtocolV4AttemptContext` is built and deep-frozen
+via `buildProtocolV4AttemptContext()` BEFORE any dispatch, carrying Master Plan hash, active
+Development/Holdout execution-tree hash, observation identity (scenario/partition/runIndex), full
+candidate identity, a `providerRunIdentity` block a real provider response is checked against,
+model/pricing identity, call ID, the real reservation's ID/tokens/cost/currency, timeout/wall-clock/
+retry/no-cache policy, authorization ID, and evidence-root predecessor hash — plus its own
+`attemptContextHash`. `validateProtocolV4AttemptContext()` re-derives the hash and cross-checks it
+against the Master Plan and the candidate identity found there; `assertProviderRunIdentityMatchesAttemptContext()`
+rejects (fail-closed) any provider-reported run identity that diverges from the frozen context. No path
+exists to build a context "around" a reservation whose model/pricing/authorization doesn't already
+match — `buildProtocolV4AttemptContext` throws immediately if they don't.
+
+## 5. Budget reservation as evidence source (Teil 3)
+
+`ResolverV3048ProtocolV4Reservation.ts` (new) wraps (never modifies) `LiveProviderBudgetGate.reserve()`:
+`reserveProtocolV4Call()` calls the real, unmodified V3-013 gate exactly once and packages its real
+returned `reservedCost`/`modelId`/tokens (never independently recomputed) into an immutable, hashed
+`ProtocolV4Reservation` carrying reservation ID, model ID, pricing version, max input/output/total
+tokens, reserved cost, currency, call index, authorization ID, and call ID. The Attempt Context copies
+these fields verbatim; the terminal record copies them from the Attempt Context verbatim (Teil 4/5) —
+no second cost calculator anywhere in this remediation independently reconstructs a reservation's cost
+or ID. Historical protocol-v3 callers of `LiveProviderBudgetGate.reserve()` are untouched (the gate
+class itself was not modified).
+
+## 6. All-path attempt wrapper (Teil 4)
+
+`ResolverV3048ProtocolV4AttemptWrapper.ts` (new): `runProtocolV4Attempt()` is the single authoritative
+wrapper. It validates the attempt context, transitions the call `authorized → reserved → dispatched` in
+the exactly-once registry, races exactly one attempt against the wall-clock ceiling (reusing
+`wrapWithProtocolV4WallClockCeiling`), and — for every outcome path (success, clarification, abstention,
+transport/HTTP/envelope/`missing_text_block`/text-JSON/schema/internal-parser/usage-cost-contract/
+budget-config errors) — builds the terminal record via `buildProtocolV4TerminalFromProviderMetadata()`,
+which requires every field the real live provider always sets (`pricingStatus` must not be `'unknown'`;
+`usageStatus`/`actualCostStatus`/`providerLatencyMs`/`retryable`/cache-token fields must not be
+`undefined`) and throws `PROTOCOL_V4_PROVIDER_*_MISSING`/`_NOT_ALLOWED` instead of defaulting. The
+ceiling path is handled identically to every other path (via the same `recordProtocolV4Terminal`).
+Callers (`ResolverV3048ProtocolV4DryRun.ts`, `ResolverV3048ProtocolV4DevelopmentRunner.ts`) never
+reconstruct or reinterpret metadata after the wrapper returns — they only supply pure extraction
+functions (`extractProviderMetadata`, `extractCounts`, `buildFastPathTerminal`,
+`buildTerminalOnCeiling`).
+
+## 7. Exactly-once state machine and independent telemetry/ledger (Teil 5)
+
+`ResolverV3048ProtocolV4CallStateMachine.ts` (new): `ProtocolV4CallStateRegistry` enforces
+`planned → authorized → reserved → dispatched → terminal`, one instance scoping call-ID uniqueness to
+one execution plan. `plan()` throws `PROTOCOL_V4_CALL_ID_NOT_UNIQUE` on a repeat; every other
+transition throws `PROTOCOL_V4_CALL_INVALID_TRANSITION` on an out-of-order or repeat call — including a
+second `complete()` for an already-terminal call, whether from a genuinely late provider completion
+after a wall-clock ceiling or a direct double-invocation. `ResolverV3048ProtocolV4Telemetry.ts`
+(rewritten): `recordProtocolV4Terminal()` now requires the registry + `callId`, calls
+`registry.complete()` (throwing on any repeat) BEFORE writing anything, and pushes two
+INDEPENDENTLY canonically-serialized, independently `JSON.parse`d, deep-frozen clones
+(`independentCanonicalClone()`, new in `ResolverV3048ProtocolV4.ts`) into the telemetry and ledger
+arrays — asserting `telemetryCopy !== ledgerCopy` and `!== terminal` before even checking parity, so
+the parity check can never again be tautological. Because `withWallClockCeiling`'s losing promise is
+already internally observed by `Promise.race` (confirmed by reading `RepresentativeHybridV1LiveTimeout.ts`),
+no unhandled-rejection risk exists from a late-settling attempt; the wrapper's own single-result-branch
+structure means a second terminal write is structurally, not just conventionally, impossible.
+
+## 8. Corrected failure/usage taxonomy (Teil 6)
+
+`missing_text_block` removed from `NETWORK_LEVEL_FAILURE_KINDS` in `ResolverV3048ProtocolV4.ts` — this
+was the one classification defect, confirmed against `VariantCLiveInterpretationProvider.interpret()`'s
+real control flow (usage is parsed from the envelope in the `!response.ok`/JSON-parse/envelope-contract
+gauntlet BEFORE the `text === undefined` check that produces `missing_text_block`). A new dry-run fault-
+matrix scenario (`missing_text_block_reported_usage`) and a focused test both prove a real, executed
+`missing_text_block` response now carries `usageStatus: 'reported'`, `actualCostStatus: 'computed'`,
+and a positive `actualCostUsd`.
+
+## 9. Real Development execution artifacts (Teil 7)
+
+`ResolverV3048ProtocolV4DevelopmentRunner.ts` (new): `runProtocolV4DevelopmentForCandidate()` iterates
+every planned Development observation for one candidate. A deterministic, purely POSITIONAL bucket
+(`stableScenarioBucket()`, a stable char-code-sum hash of the scenario ID — never a case-ID/category/
+food special rule) decides fast path vs. AI path per SCENARIO (not per flat index), so every repeat run
+of one scenario gets the same routing and repeat-consistency naturally holds. Fast-path observations
+call the real `runVariantCCase()` with an `aiInterpreter` stub that throws if ever invoked (defense in
+depth) and record an explicit `ProtocolV4FastPathEvidence` (`status: 'fast_path_no_call'`) marker — never
+a silently-missing record. AI-path observations reserve budget (Teil 3), build an attempt context (Teil
+2), and dispatch through `runProtocolV4Attempt` (Teil 4) against a fake transport and fake BLS/OFF/USDA
+sources. `runProtocolV4DevelopmentForAllCandidates()` runs this for H0/H1/H2 and assembles the full,
+non-empty `ProtocolV4DevelopmentEvidence`. Two separate `LiveProviderBudgetGate` instances are used per
+candidate (`providerGate` for the pre-existing V3-013 gate the live provider itself reserves/releases
+around each dispatch; `evidenceGate` for the new Teil-3 evidence reservation) — sharing one gate for
+both was found, during implementation, to collide on `maxInFlight` (the evidence reservation would
+still hold the in-flight slot when the provider tried to reserve its own) and to double-count real
+call/token/cost budget on a single gate; this was caught by the mini-protocol-run actually executing,
+not merely constructed and discarded.
+
+## 10. Evaluation derivation adapter and G2 coherence (Teil 8)
+
+`ResolverV3048ProtocolV4Evaluation.ts` (new): `deriveProtocolV4CandidateEvaluation()` is the only
+supported way to produce a `CandidateEvaluation` — it never accepts one as free input, only the real
+`categoryRows`/`telemetry`/`ledger` arrays (which it re-validates via `validateCategoryEvidence`/
+`validateTerminalMetadata`/`assertTelemetryLedgerParity`) plus the frozen plan. Every field is computed
+deterministically: `criticalFalseConfidenceCount`/`failureRate` from real category rows;
+`costPerValidatedLogUsd` from real `actualCostUsd` sums; `p50Ms`/`p95Ms` from real sorted latencies;
+`aiCalls`/`sourceCalls` from real per-record counts; `identificationQuality`/`complexComponentQuality`/
+`clarificationAbstentionQuality`/`repeatConsistency` from real category-row ratios; every G2 gate from
+real structural zero/nonzero facts (never a free literal) via `deriveG2Results()`. The evaluator
+identity/hash recorded is the real, pinned `computeProtocolV4EvaluatorManifestHash()` (RESOLVER-V3-042/
+048 Teil 3's own content-addressed hash of the actual evaluator files) — a documented, honest scope
+decision (this adapter does not re-invoke `RepresentativeHybridV1LiveMetrics`'s own G2-A..G2-G dimension
+functions directly, since those are built around a different input/report shape and reworking them
+risked exactly the "fachliche Änderung des korrigierten G2-Evaluators" the task's hard limits forbid).
+`validateDerivedProtocolV4CandidateEvaluation()` recomputes and requires hash equality.
+
+**G2 coherence** (`ResolverV3048ProtocolV4.ts`, `validateCandidateEvaluation`): rewritten from "no gate
+is `'failed'`" to "`allMandatoryG2CriteriaPass` must equal `PROTOCOL_V4_G2_GATES.every(g =>
+g2Results[g] === 'passed')`" — closing the `not_evaluable`/`requires_human_judgment` loophole exactly,
+since either value makes the `every()` false, forcing `allMandatoryG2CriteriaPass` false too.
+
+## 11. Full Development Evidence validation and self-proving Selection (Teil 9/10)
+
+`validateProtocolV4DevelopmentEvidence()` (extended): now requires, per candidate, that raw-results/
+checkpoint/category-table counts exactly equal the plan's expected observation count; that telemetry/
+ledger length exactly equals `expected.length` minus the count of `fast_path_no_call` raw-result
+markers (an explicit, typed accounting for the fast-path exception, not a silent gap); per-index
+independent telemetry/ledger parity (`assertTelemetryLedgerParity`) over the SEALED, re-parsed artifact
+content; and no duplicate `callId` within a candidate's telemetry.
+`validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation()` (new, `ResolverV3048ProtocolV4Evaluation.ts`)
+composes the above with a full evaluation re-derivation-and-compare per candidate.
+
+`validateCandidateSelectionRecord()` (extended): now recomputes `eligibility` fresh from the record's
+own stored `evaluations` and requires it match the stored `eligibility` map field-by-field; then calls
+the canonical `selectCandidate()` comparator on those same stored evaluations and requires the result
+equal `record.candidateId` — `PROTOCOL_V4_SELECTION_RECORD_WINNER_MISMATCH` otherwise. A record whose
+own hash is perfectly self-consistent but whose `candidateId` doesn't match its own evaluations' real
+winner is now rejected.
+
+## 12. Full Masterplan and Holdout-plan revalidation (Teil 11)
+
+`validateProtocolV4MasterPlan()` (extended): after its existing self-hash/pricing-authority checks, and
+after generalizing the Holdout-template-candidate-neutrality check to EVERY row (not only the first),
+it now rebuilds the entire plan fresh via `buildProtocolV4MasterPlan(repoRoot)` (a pure function of the
+same canonical sources: real on-disk evaluator files, real candidate/prompt/schema data, the single
+pricing authority, corpus/ground-truth/source-manifest constants, Development observations, every
+Holdout template row, the selection rule, and the budget derivation) and requires canonical-JSON
+equality with the plan under validation — `PROTOCOL_V4_MASTER_PLAN_CANONICAL_IDENTITY_DRIFT` otherwise.
+This catches drift in ANY canonical identity, not only pricing.
+
+`validateHoldoutExecutionPlan()` (extended signature: now takes `developmentEvidenceRootHash` and
+`selection`): after its self-hash check, it calls `deriveHoldoutExecutionPlan()` again from scratch and
+requires the re-derived `holdoutPlanHash` match — `PROTOCOL_V4_HOLDOUT_PLAN_REDERIVATION_MISMATCH`
+otherwise. Since `deriveHoldoutExecutionPlan` is a pure function of its three inputs, any tampered field
+(observations, budget, candidate identity), however internally re-hashed, now fails this check.
+
+## 13. Development Authorization Record (Teil 12)
+
+`ResolverV3048ProtocolV4DevelopmentAuthorization.ts` (new): `ProtocolV4DevelopmentAuthorizationRecord`
+(`kind: 'fake_dry_run' | 'human_live'`, `authorizedPhase: 'development'`) is bound to the Master Plan
+hash, Development execution-tree hash, and the full three-candidate set; its `maxCalls`/`maxInputTokens`/
+`maxOutputTokens`/`maxTotalTokens`/`maxCostUsd` are derived directly from `plan.budget.developmentCalls`
+(never independently re-typed). `assertDevelopmentAuthorized()` checks schema/identity/phase/candidate-
+set/currency, `status !== 'consumed'`, artifact-target-unused, every limit individually against the
+plan's own Development budget, `maxConcurrency` against the plan's pinned concurrency, remaining-budget
+sufficiency, and the same fake/human-live split as the Holdout gate. `consumeProtocolV4DevelopmentAuthorization()`
+is the only supported consumption transition and throws on a repeat. Only `kind: 'fake_dry_run'` was
+ever constructed or exercised by this task; no `human_live` Development authorization exists.
+
+## 14. Atomic Artifact Store and closed Holdout Authorization gaps (Teil 13/14)
+
+`ResolverV3048ProtocolV4ArtifactStore.ts` (new): a benchmark-local, filesystem-backed store restricted
+(`assertWithinDryRunRoot`) to `PROTOCOL_V4_DRY_RUN_ROOT` — it throws
+`PROTOCOL_V4_ARTIFACT_STORE_LIVE_PATH_FORBIDDEN_IN_DRY_RUN` for any other root, so canonical live paths
+under `PROTOCOL_V4_LIVE_ROOT` can never be created or touched by this task. `writeProtocolV4ArtifactExclusive()`
+rejects an existing canonical target, writes to a uniquely-named temp file via an exclusive-create
+(`wx`) flag, then atomically renames it into place. `readProtocolV4ArtifactWithReadback()` re-derives
+the content hash and requires it match both the artifact's own stored hash and the caller's expected
+hash. `consumeProtocolV4AuthorizationAtomically()`/`isProtocolV4ArtifactTargetUnused()` replace the old
+bare booleans with a real exclusive-create marker file and a real `fs.existsSync` check respectively.
+`detectProtocolV4ArtifactCrash()` detects a leftover `*.tmp-*` sibling with no matching final file. The
+dry-run artifact-store root (`tmp/resolver-v3-048-protocol-v4-dry-run/`) is now `.gitignore`d.
+
+`assertHoldoutAuthorized()` (extended, `ResolverV3048ProtocolV4.ts`): now checks
+`authorization.maxInputTokens`/`maxOutputTokens` individually against the Holdout plan's own (newly
+added) `holdoutMaxInputTokens`/`holdoutMaxOutputTokens` fields, and `authorization.maxConcurrency`
+against the plan's pinned `maxConcurrentRequests` — closing defect 18/19 exactly.
+
+## 15. Extended fault matrix and full connected Mini-Protocol-Run (Teil 15)
+
+**A. Fault matrix** (`ResolverV3048ProtocolV4DryRun.ts`, rewritten): all 22 original scenario IDs are
+preserved unchanged; `runCaseScenario()` now dispatches every case-level scenario through
+`runProtocolV4Attempt` (Teil 4) — no post-hoc metadata reconstruction anywhere in the module. Five new
+scenarios extend the matrix to 27: `missing_text_block_reported_usage` (real reported usage, Teil 6);
+`double_terminal_completion_rejected` (a second `recordProtocolV4Terminal` for one `callId` throws);
+`late_completion_after_wall_clock_ceiling` (a short test-only ceiling races a fetch that resolves after
+it fires; exactly one terminal is recorded, and an explicit attempt to record the "late" success is
+independently rejected); `provider_plan_identity_mismatch` (a provider-reported identity for a
+different candidate than the frozen attempt context is rejected fail-closed); `reservation_pricing_mismatch`
+(a reservation whose pricing version was tampered after being granted is rejected when building an
+attempt context around it).
+
+**B. Mini-Protocol-Run** (`runProtocolV4MiniProtocolRun()`, new): Masterplan built and readback-
+validated → fake Development Authorization built and atomically consumed → every planned Development
+observation for all 3 candidates actually executed (324 total, ~1.5s, zero network) → checkpoint/raw/
+category/telemetry/ledger built from those executions → Evaluation derived via the pinned pipeline →
+Development Evidence Root produced → Candidate Selection Record built and independently re-validated →
+Holdout Execution Plan derived and readback-validated → fake Holdout Authorization built and atomically
+consumed → Holdout gate executed. Every one of the five top-level artifacts (Master Plan, Development
+Evidence, Candidate Selection Record, Holdout Execution Plan, Holdout Authorization) is independently
+written, read back, and re-hashed through the atomic Artifact Store (Teil 13) — not only the Category
+artifact (closing defect 25/17). The function explicitly stops at the Holdout gate: no Holdout
+observation is ever executed, live or fake, and calling it twice against the same store root throws
+`PROTOCOL_V4_MINI_RUN_PLAN_TARGET_ALREADY_USED` (proving no-overwrite).
+
+## 16. Corrected proposal-only budget
+
+Unchanged in value from the PR #191 figures (the underlying corpus/candidate/pricing values were
+already correct and this remediation touched only evidence lineage, not budget derivation):
+
+| Phase                                  | Calls | Maximum token reservation | Maximum cost (USD) |
+| -------------------------------------- | ----: | ------------------------: | -----------------: |
+| Development (H0/H1/H2)                 |   324 |                 3,151,872 |           5.142528 |
+| Holdout (one later-selected candidate) |    28 |                   272,384 |           0.444416 |
+| Total                                  |   352 |                 3,424,256 |           5.586944 |
+
+`plan.budget.authorization` remains `'proposal_only'`. This total is **not authorized** by this task or
+any artifact it produces.
+
+## 17. Verification
+
+```
+npm install                # dependencies were not pre-installed in this container; installed once
+npm run typecheck           # PASS, 0 errors (repo-wide)
+npm run lint                 # PASS, 0 errors/warnings (repo-wide)
+npm run format:check         # PASS, all files match Prettier style (repo-wide)
+npx jest --runInBand src/features/nutrition/benchmark/protocolV4
+                              # PASS, 4 suites / 92 tests
+npx jest --runInBand src/features/nutrition/benchmark
+                              # PASS, 74 suites / 837 tests
+                              # (includes V3-039 compatibility, V3-042 evaluator regression, and
+                              # V3-043..V3-051 regression suites)
+git status --porcelain       # clean except intended new/modified files; no tmp/ artifact-store
+                              # output tracked (gitignored)
+git diff --check             # PASS, no whitespace errors
+```
+
+`npm run verify` was not run as a single combined command in this container for the same reason
+documented in every prior task in this series (the full-repo `npm test` stage has a known, previously-
+documented non-termination symptom in this environment unrelated to this task's changes); its
+constituent commands (typecheck, lint, format:check, and the full `src/features/nutrition/benchmark`
+Jest sweep) were all run individually above and all passed. Green GitHub Verify remains required before
+merge, consistent with every prior task in this series.
+
+## 18. Evidence integrity confirmed unchanged
+
+The seven RESOLVER-V3-039 evidence files, the V3-039 closeout report, and the V3-039 evidence manifest
+were not touched. The corpus and ground truth are read, never mutated. The corrected G2 evaluator's own
+logic (`RepresentativeHybridV1LiveMetrics.ts`/`RepresentativeHybridV1LiveReportBuilder.ts`) was read
+(for hashing) and not modified. No BLS artifact, `.github/workflows/**`, `package.json`/lockfile,
+Supabase migration, UI, DI, or feature-flag file was touched. Real provider calls: **0**. Real provider
+cost: **USD 0**. No credential was read (`ANTHROPIC_API_KEY` is a literal placeholder string in every
+dry-run/development fixture, never read from `process.env`). No Human-Live Authorization (Development or
+Holdout) was ever created. No live execution — Development or Holdout — was performed.
+
+## 19. Status
+
+V3-047 remains `done`. V3-010 remains `blocked`. G2 remains **not passed**. Production wiring remains
+unauthorized. V3-048 status: `in_progress — Protocol-v4 executable zero-call preflight complete; live
+Development not authorized`.

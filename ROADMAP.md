@@ -8708,6 +8708,71 @@ the same binding gate rule — RESOLVER-V3-041 reaching `done` does not itself u
 does RESOLVER-V3-043..047 (or RESOLVER-V3-049/050) reaching `done` without RESOLVER-V3-048's live
 re-evidence.
 
+**Final Evidence-Lineage remediation (2026-07-28, basis `7a5f6b53102910c495147d346348bce6c3bc4d14`,
+the verified tip of `chore/clean-arch-structure`, which contains PR #191's merge
+`f8ba324fed21675389c25d8e2b3480ecb4fb3855` as an ancestor):** an independent post-PR-#191 review found
+18 further reproducible evidence-lineage defects: `runCaseScenario()` could still rewrite
+`pricingStatus: 'unknown'` to `'estimated'` and guess usage/cost status from `failureKind`; the
+`reservationId` was a fabricated `` `${scenarioId}-reservation` `` string, never a real budget
+reservation; `providerLatencyMs` was defaulted to `0` on absence; the real 22-scenario run never fed
+`buildSyntheticDevelopmentEvidence()`, which itself sealed **empty** `[]` raw-results/telemetry/ledger
+artifacts alongside freely-typed evaluations with every G2 gate hard-coded `'passed'`;
+`allMandatoryG2CriteriaPass` could be `true` alongside a `not_evaluable`/`requires_human_judgment` gate;
+Candidate Selection Records were never re-validated by recomputing the winner from their own stored
+evaluations; `recordProtocolV4Terminal` pushed the **same object instance** into both the telemetry and
+ledger arrays, making its own parity check tautological; nothing enforced exactly-once telemetry per
+`callId`; the wall-clock wrapper only completed the timeout path itself; `validateHoldoutExecutionPlan`
+checked only its own internal self-hash, never a full re-derivation; `assertHoldoutAuthorized` never
+checked `maxInputTokens`/`maxOutputTokens`/`maxConcurrency` individually; `artifactTargetUnused`/
+`consumed` were unverified booleans with no storage backing; no Development Authorization Record or
+gate existed at all; `validateProtocolV4MasterPlan` never independently recomputed the evaluator/
+candidate/prompt/schema/corpus/budget identities it claimed, only pricing; `missing_text_block` was
+wrongly classified as an unbillable network-level failure even though the real provider parses usage
+before checking for a text block; and the dry run round-tripped only the Category artifact through the
+artifact contract. All 18 are closed on branch `claude/resolver-v3-048-evidence-lineage-d2loj8`: a new
+immutable `ProtocolV4AttemptContext` (frozen pre-dispatch, cross-checked against a real budget
+reservation and the provider's own reported run identity); a `ProtocolV4Reservation` wrapper around
+the unmodified V3-013 `LiveProviderBudgetGate` that reuses the gate's own real reserved cost rather
+than recomputing it; a single authoritative `runProtocolV4Attempt` all-path wrapper that builds every
+terminal record strictly from real provider metadata (no `??` normalization -- absent required fields
+throw `PROTOCOL_V4_PROVIDER_*_MISSING` instead); a closed `ProtocolV4CallStateRegistry`
+(`planned -> authorized -> reserved -> dispatched -> terminal`, each transition one-shot) backing
+independently-canonically-cloned, deep-frozen telemetry/ledger records; `missing_text_block` removed
+from `NETWORK_LEVEL_FAILURE_KINDS`; a real zero-network `ResolverV3048ProtocolV4DevelopmentRunner`
+that actually executes every planned Development observation (fast-path observations get an explicit
+`ProtocolV4FastPathEvidence` marker, never a silently-omitted record); a
+`ResolverV3048ProtocolV4Evaluation` derivation adapter that computes `CandidateEvaluation` only from
+validated category/telemetry/ledger artifacts (never accepted as free input), with G2 coherence now
+requiring `allMandatoryG2CriteriaPass` to equal "every gate exactly `passed`"; `validateCandidateSelectionRecord`
+now recomputes eligibility and the canonical-comparator winner from the record's own stored
+evaluations; `validateProtocolV4MasterPlan` now rebuilds the entire plan from canonical sources and
+requires canonical-JSON equality (catching drift a self-hash check alone cannot see);
+`validateHoldoutExecutionPlan` now fully re-derives via `deriveHoldoutExecutionPlan` and requires
+hash-identical equality; a new `ProtocolV4DevelopmentAuthorizationRecord`/`assertDevelopmentAuthorized`
+gate symmetric to the existing Holdout one (only `kind: 'fake_dry_run'` exercised); a benchmark-local,
+filesystem-backed `ResolverV3048ProtocolV4ArtifactStore` (exclusive create, atomic temp-write-then-
+rename, readback+hash revalidation, atomic authorization-consumption markers, dry-run-root-restricted)
+replacing the boolean `artifactTargetUnused`/`consumed` claims; the fault matrix grew from 22 to 27
+scenarios (adding `missing_text_block` with real reported usage, rejected double-terminal completion,
+late completion after a wall-clock ceiling that cannot write a second terminal, provider/plan identity
+mismatch, and reservation/pricing mismatch, all through the same authoritative wrapper); and a new,
+fully connected zero-network `runProtocolV4MiniProtocolRun()` exercising Master Plan → Development
+Authorization → real Development execution across all three candidates (324 planned observations) →
+derived Evaluation → Development Evidence Root → Candidate Selection → Holdout Execution Plan →
+Holdout Authorization → Holdout gate, with every artifact independently written, read back, and
+re-hashed through the atomic store under `tmp/resolver-v3-048-protocol-v4-dry-run` (now gitignored),
+explicitly stopping before any Holdout observation execution (no automatic continuation). Provider
+calls remain exactly **0**; provider cost remains exactly **USD 0**; no credential was read; the seven
+V3-039 evidence files, corpus, ground truth, and the corrected G2 evaluator's own logic are unchanged.
+The proposal-only budget (352 calls / USD 5.586944) is unchanged in value and remains explicitly **not
+authorized**; no `human_live` authorization was created; no Holdout or Development live execution was
+performed. G2 remains **not passed**; V3-010 remains `blocked`; V3-047 remains `done`. Full detail in
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_A_PREFLIGHT.md`'s new post-merge section.
+
+Status: `in_progress — Protocol-v4 executable zero-call preflight complete; live Development not authorized`
+(unchanged pending green GitHub Verify on this branch; see the report for the exact verification
+commands run locally).
+
 #### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
 
 Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed

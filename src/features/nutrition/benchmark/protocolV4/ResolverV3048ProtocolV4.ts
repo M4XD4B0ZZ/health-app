@@ -69,6 +69,12 @@ export const PROTOCOL_V4_G2_GATES = [
   'G2-G',
 ] as const;
 export type ProtocolV4G2Gate = (typeof PROTOCOL_V4_G2_GATES)[number];
+
+/** Single per-call worst-case reservation ceiling, reused everywhere a call's max token/cost
+ * reservation is computed so Development budget, Holdout budget, and every reservation/authorization
+ * check agree on the same numbers (never independently re-derived with different constants). */
+export const PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS = 8192;
+export const PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS = 1536;
 export type ProtocolV4GateVerdict =
   | 'passed'
   | 'failed'
@@ -116,11 +122,16 @@ export type ProtocolV4FailureKind =
   | 'usage_cost_contract_error'
   | 'budget_config_error';
 
-/** Failure kinds where the provider never returned a parseable, billable response at all -- these
- * can never legitimately carry reported usage or a computed cost. All other failure kinds
- * (`text_block_json_error`, `schema_contract_error`, `internal_parser_error`,
- * `usage_cost_contract_error`) can: the provider may have consumed real, billable tokens before the
- * response failed a later parse/schema/no-cache contract. */
+/** Failure kinds where the provider never returned a parseable, billable HTTP-200 envelope at all --
+ * these can never legitimately carry reported usage or a computed cost. All other failure kinds
+ * (`missing_text_block`, `text_block_json_error`, `schema_contract_error`, `internal_parser_error`,
+ * `usage_cost_contract_error`) can: the provider may have returned a valid, billable HTTP-200
+ * envelope with reported usage before a later parse/schema/no-cache contract failed downstream.
+ * `missing_text_block` in particular is precisely this case: `VariantCLiveInterpretationProvider`
+ * parses `usage` from the envelope BEFORE checking whether a text block is present, so a real
+ * `missing_text_block` response legitimately carries real, billable usage (RESOLVER-V3-048 Teil 6 --
+ * classifying it as network-level was itself a defect: it made a real provider response with real
+ * usage un-recordable as evidence). */
 export const NETWORK_LEVEL_FAILURE_KINDS: readonly ProtocolV4FailureKind[] = [
   'transport_error',
   'timeout_abort',
@@ -128,7 +139,6 @@ export const NETWORK_LEVEL_FAILURE_KINDS: readonly ProtocolV4FailureKind[] = [
   'http_error',
   'http_envelope_json_error',
   'http_envelope_contract_error',
-  'missing_text_block',
   'budget_config_error',
 ];
 export type PricingStatus = 'known' | 'estimated';
@@ -182,6 +192,13 @@ export interface ProtocolV4TerminalContext {
   candidateId: ResolverV3047CandidateId;
   scenarioId: string;
   partition: RepresentativeHybridV1Partition;
+  /** Optional reservation identity -- when supplied, the terminal record's own
+   * `reservationId`/`reservedWorstCaseCostUsd` must be the exact, unmodified values the budget
+   * reservation produced (Teil 3: "kein zweiter Kostenrechner darf die Reservation unabhängig
+   * rekonstruieren"). Optional only so this context type stays usable for the fast-path/no-call
+   * evidence and pre-Part-3 historical callers that never had a reservation at all. */
+  reservationId?: string | null;
+  reservedWorstCaseCostUsd?: number;
 }
 
 /** Every field individually validated -- fails closed on `null` where a numeric value is required,
@@ -301,6 +318,12 @@ export function validateTerminalMetadata(
       meta.runIdentity.partition !== context.partition
     )
       throw new Error('PROTOCOL_V4_RUN_IDENTITY_CONTEXT_MISMATCH');
+    if (
+      context.reservationId !== undefined &&
+      (meta.reservationId !== context.reservationId ||
+        meta.reservedWorstCaseCostUsd !== context.reservedWorstCaseCostUsd)
+    )
+      throw new Error('PROTOCOL_V4_RESERVATION_CONTEXT_MISMATCH');
   }
 }
 
@@ -347,8 +370,29 @@ function sortDeep(value: unknown): unknown {
   return value;
 }
 const canonical = (value: unknown): string => JSON.stringify(sortDeep(value));
+/** Exported for other Protocol-v4 modules that need the exact same canonical serialization used for
+ * hashing (e.g. independent telemetry/ledger parity checks) without re-implementing key sorting. */
+export const canonicalizeProtocolV4 = canonical;
 export const hashProtocolV4 = (value: unknown): string =>
   createHash('sha256').update(canonical(value)).digest('hex');
+
+/** Deep-freezes a plain JSON-serializable value in place and returns it. Used to make independently
+ * parsed telemetry/ledger records genuinely immutable, not merely conventionally treated as such. */
+export function deepFreezeProtocolV4<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.values(value as object).forEach((v) => deepFreezeProtocolV4(v));
+    Object.freeze(value);
+  }
+  return value;
+}
+
+/** Canonically serializes then independently parses `value`, producing a structurally-identical but
+ * reference-distinct, deep-frozen clone. Used so telemetry and ledger never store the same object
+ * instance -- their parity check is therefore a real comparison of two independently constructed
+ * values, not a tautological identity check. */
+export function independentCanonicalClone<T>(value: T): T {
+  return deepFreezeProtocolV4(JSON.parse(canonical(value)) as T);
+}
 
 // -------------------------------------------------------------------------------------------------
 // Part 4A: Master Protocol Plan (frozen before Development; never claims all 3 candidates run Holdout)
@@ -586,9 +630,11 @@ export function buildProtocolV4MasterPlan(repoRoot: string = process.cwd()): Pro
     automaticContinuation: false,
   });
 
-  const perCallTokens = 8192 + 1536;
+  const perCallTokens =
+    PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS + PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS;
   const perCallCost =
-    (8192 / 1e6) * pricing.inputPerMillion + (1536 / 1e6) * pricing.outputPerMillion;
+    (PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS / 1e6) * pricing.inputPerMillion +
+    (PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS / 1e6) * pricing.outputPerMillion;
   const developmentCalls = devObs.length;
   const holdoutCalls = holdoutTemplate.observations.length;
   const budget: ProtocolV4Budget = {
@@ -663,7 +709,21 @@ export function buildProtocolV4MasterPlan(repoRoot: string = process.cwd()): Pro
   return { ...withoutHash, planHash: hashProtocolV4(withoutHash) };
 }
 
-export function validateProtocolV4MasterPlan(plan: ProtocolV4MasterPlan): void {
+/** Full Master Plan revalidation (RESOLVER-V3-048 Teil 11). A prior version of this validator only
+ * checked the plan's own internal self-hash consistency plus the pricing identity -- a plan built
+ * from a stale/drifted evaluator, candidate, corpus, or budget derivation would still "validate"
+ * against itself perfectly, because nothing independently recomputed those components. This version
+ * rebuilds the entire Master Plan fresh from the same canonical sources
+ * (`buildProtocolV4MasterPlan` is a pure function of corpus/ground-truth/source-manifest identity,
+ * the real on-disk evaluator files, the candidate/prompt/schema manifests, the single pricing
+ * authority, Development observations, every Holdout template row, the selection rule, G2 gates,
+ * timeout/retry/cache policy, the artifact contract, and Development/Holdout/total budgets) and
+ * requires the result to be canonically identical to the plan under validation -- so drift in ANY of
+ * those, not only pricing, fails closed. */
+export function validateProtocolV4MasterPlan(
+  plan: ProtocolV4MasterPlan,
+  repoRoot: string = process.cwd(),
+): void {
   const { planHash, ...body } = plan;
   if (!planHash || hashProtocolV4(body) !== planHash)
     throw new Error('PROTOCOL_V4_PLAN_HASH_MISMATCH');
@@ -689,12 +749,23 @@ export function validateProtocolV4MasterPlan(plan: ProtocolV4MasterPlan): void {
   assertProtocolV4PricingIdentityMatches(plan.modelId, plan.pricing.pricingVersion);
   if (hashProtocolV4(plan.pricing) !== plan.pricingManifestHash)
     throw new Error('PROTOCOL_V4_PRICING_MANIFEST_HASH_MISMATCH');
-  // Master Plan must never claim all three candidates run Holdout.
-  const firstHoldoutTemplateRow = plan.holdoutTemplate.observations[0] as unknown as
-    | Record<string, unknown>
-    | undefined;
-  if (firstHoldoutTemplateRow && 'candidateId' in firstHoldoutTemplateRow)
-    throw new Error('PROTOCOL_V4_HOLDOUT_TEMPLATE_MUST_NOT_PIN_CANDIDATE');
+  // Master Plan must never claim ANY candidate runs Holdout -- every template row, not just the
+  // first (a plan that pinned only its second/third row would have passed a first-row-only check).
+  for (const row of plan.holdoutTemplate.observations) {
+    if (
+      row &&
+      typeof row === 'object' &&
+      'candidateId' in (row as unknown as Record<string, unknown>)
+    )
+      throw new Error('PROTOCOL_V4_HOLDOUT_TEMPLATE_MUST_NOT_PIN_CANDIDATE');
+  }
+  // Full canonical-identity revalidation: independently rebuild the plan from canonical sources and
+  // require byte-identical (canonical-JSON) equality, catching evaluator/candidate/prompt/schema/
+  // corpus/ground-truth/source-manifest/budget drift that a self-hash check alone cannot see.
+  const fresh: Record<string, unknown> = { ...buildProtocolV4MasterPlan(repoRoot) };
+  delete fresh.planHash;
+  if (canonical(fresh) !== canonical(body))
+    throw new Error('PROTOCOL_V4_MASTER_PLAN_CANONICAL_IDENTITY_DRIFT');
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -794,8 +865,12 @@ export function validateCandidateEvaluation(e: CandidateEvaluation): void {
     throw new Error('PROTOCOL_V4_CANDIDATE_EVALUATION_FAILURE_RATE_RANGE');
   for (const gate of PROTOCOL_V4_G2_GATES)
     if (!(gate in e.g2Results)) throw new Error(`PROTOCOL_V4_MISSING_G2_RESULT:${gate}`);
-  const anyFailed = PROTOCOL_V4_G2_GATES.some((gate) => e.g2Results[gate] === 'failed');
-  if (anyFailed && e.allMandatoryG2CriteriaPass)
+  // G2 coherence (Teil 8): `allMandatoryG2CriteriaPass` must be true IF AND ONLY IF every mandatory
+  // gate is exactly `passed`. `failed`, `not_evaluable`, and `requires_human_judgment` are all
+  // equally disqualifying -- none of them may be silently averaged away or ignored. A gate value
+  // outside the closed verdict vocabulary is also incoherent (fails closed, not permissively).
+  const allGatesPassed = PROTOCOL_V4_G2_GATES.every((gate) => e.g2Results[gate] === 'passed');
+  if (e.allMandatoryG2CriteriaPass !== allGatesPassed)
     throw new Error('PROTOCOL_V4_G2_RESULT_INCOHERENT');
 }
 
@@ -941,8 +1016,54 @@ export function validateProtocolV4DevelopmentEvidence(
       plan.planHash,
     );
     validateProtocolV4Artifact(c.ledger, `development-ledger-${c.candidateId}`, plan.planHash);
-    c.telemetry.content.forEach((t) => validateTerminalMetadata(t));
-    c.ledger.content.forEach((t) => validateTerminalMetadata(t));
+    // Teil 9: no empty artifacts when the plan has observations for this candidate.
+    if (
+      expected.length > 0 &&
+      (c.categoryTable.content.length === 0 || c.rawResults.content.results.length === 0)
+    )
+      throw new Error(`PROTOCOL_V4_DEVELOPMENT_EVIDENCE_EMPTY_ARTIFACT:${c.candidateId}`);
+    if (c.rawResults.content.results.length !== expected.length)
+      throw new Error(
+        `PROTOCOL_V4_DEVELOPMENT_EVIDENCE_RAW_RESULTS_COUNT_MISMATCH:${c.candidateId}`,
+      );
+    if (c.checkpoint.content.completedCallIds.length !== expected.length)
+      throw new Error(
+        `PROTOCOL_V4_DEVELOPMENT_EVIDENCE_CHECKPOINT_COUNT_MISMATCH:${c.candidateId}`,
+      );
+    // Fast-path observations (an explicit `{status:'fast_path_no_call'}` raw-result marker) never
+    // dispatch a call and therefore never produce telemetry/ledger; every OTHER observation must.
+    const fastPathCount = c.rawResults.content.results.filter(
+      (r) =>
+        r && typeof r === 'object' && (r as { status?: unknown }).status === 'fast_path_no_call',
+    ).length;
+    const expectedAiAttempts = expected.length - fastPathCount;
+    if (
+      expectedAiAttempts > 0 &&
+      (c.telemetry.content.length === 0 || c.ledger.content.length === 0)
+    )
+      throw new Error(`PROTOCOL_V4_DEVELOPMENT_EVIDENCE_EMPTY_TELEMETRY_LEDGER:${c.candidateId}`);
+    if (
+      c.telemetry.content.length !== expectedAiAttempts ||
+      c.ledger.content.length !== expectedAiAttempts
+    )
+      throw new Error(
+        `PROTOCOL_V4_DEVELOPMENT_EVIDENCE_TELEMETRY_LEDGER_COVERAGE_MISMATCH:${c.candidateId}`,
+      );
+    if (c.telemetry.content.length !== c.ledger.content.length)
+      throw new Error(
+        `PROTOCOL_V4_DEVELOPMENT_EVIDENCE_TELEMETRY_LEDGER_LENGTH_MISMATCH:${c.candidateId}`,
+      );
+    c.telemetry.content.forEach((t, i) => {
+      validateTerminalMetadata(t);
+      validateTerminalMetadata(c.ledger.content[i]);
+      // Independent telemetry/ledger parity, checked per-index over the sealed, independently
+      // re-parsed artifact content (not the in-memory arrays the recorder produced).
+      assertTelemetryLedgerParity(t, c.ledger.content[i]);
+    });
+    // Exactly-once: no duplicate callId within this candidate's telemetry.
+    const callIds = c.telemetry.content.map((t) => t.runIdentity.callId);
+    if (new Set(callIds).size !== callIds.length)
+      throw new Error(`PROTOCOL_V4_DEVELOPMENT_EVIDENCE_DUPLICATE_CALL_ID:${c.candidateId}`);
     validateProtocolV4Artifact(
       c.evaluation,
       `development-evaluation-${c.candidateId}`,
@@ -1014,16 +1135,7 @@ export function selectCandidateFromDevelopmentEvidence(
     CandidateEvaluation
   >;
   const candidateId = selectCandidate(evaluations);
-  const eligible = new Set(
-    evaluations
-      .filter(
-        (e) =>
-          e.allMandatoryG2CriteriaPass &&
-          e.criticalFalseConfidenceCount === 0 &&
-          e.contractsComplete,
-      )
-      .map((e) => e.candidateId),
-  );
+  const eligibility = recomputeEligibility(byId);
   const developmentArtifactHashes = Object.fromEntries(
     evidence.candidates.map((c) => [
       c.candidateId,
@@ -1046,9 +1158,7 @@ export function selectCandidateFromDevelopmentEvidence(
     selectionRuleVersion: SELECTION_RULE.version,
     selectionRuleHash: hashProtocolV4(SELECTION_RULE),
     evaluations: byId,
-    eligibility: Object.fromEntries(
-      (['H0', 'H1', 'H2'] as const).map((id) => [id, eligible.has(id)]),
-    ) as Record<ResolverV3047CandidateId, boolean>,
+    eligibility,
     candidateId,
     tieBreakTrace: SELECTION_RULE.orderedComparison,
     frozen: true,
@@ -1056,6 +1166,28 @@ export function selectCandidateFromDevelopmentEvidence(
   return { ...withoutHash, selectionRecordHash: hashProtocolV4(withoutHash) };
 }
 
+/** Recomputes eligibility exactly the way `selectCandidateFromDevelopmentEvidence` does, from the
+ * evaluations alone -- used both to build a selection record and to independently re-verify one. */
+function recomputeEligibility(
+  evaluations: Readonly<Record<ResolverV3047CandidateId, CandidateEvaluation>>,
+): Record<ResolverV3047CandidateId, boolean> {
+  return Object.fromEntries(
+    (['H0', 'H1', 'H2'] as const).map((id) => {
+      const e = evaluations[id];
+      const eligible =
+        !!e &&
+        e.allMandatoryG2CriteriaPass &&
+        e.criticalFalseConfidenceCount === 0 &&
+        e.contractsComplete;
+      return [id, eligible];
+    }),
+  ) as Record<ResolverV3047CandidateId, boolean>;
+}
+
+/** A record is rejected unless every self-proving claim it makes is independently recomputable from
+ * its own stored evaluations: a record can never be trusted merely because its own hash is
+ * internally self-consistent -- a semantically manipulated-but-rehashed record (e.g. a different
+ * winner, or eligibility that doesn't match the stored evaluations) must still be rejected. */
 export function validateCandidateSelectionRecord(
   plan: ProtocolV4MasterPlan,
   record: CandidateSelectionRecord,
@@ -1069,8 +1201,31 @@ export function validateCandidateSelectionRecord(
   )
     throw new Error('PROTOCOL_V4_SELECTION_RECORD_PLAN_MISMATCH');
   if (!record.frozen) throw new Error('PROTOCOL_V4_SELECTION_RECORD_NOT_FROZEN');
+  if (record.selectionRuleVersion !== SELECTION_RULE.version)
+    throw new Error('PROTOCOL_V4_SELECTION_RECORD_RULE_VERSION_MISMATCH');
+  if (record.selectionRuleHash !== hashProtocolV4(SELECTION_RULE))
+    throw new Error('PROTOCOL_V4_SELECTION_RECORD_RULE_HASH_MISMATCH');
+  const ids = (['H0', 'H1', 'H2'] as const).filter((id) => id in record.evaluations);
+  if (ids.length !== 3) throw new Error('PROTOCOL_V4_SELECTION_RECORD_EVALUATIONS_INCOMPLETE');
+  ids.forEach((id) => {
+    if (record.evaluations[id].candidateId !== id)
+      throw new Error('PROTOCOL_V4_SELECTION_RECORD_EVALUATION_CANDIDATE_MISMATCH');
+    validateCandidateEvaluation(record.evaluations[id]);
+  });
+  // Recompute eligibility fresh from the stored evaluations -- a record cannot simply assert a
+  // different eligibility map than what its own evaluations independently produce.
+  const recomputedEligibility = recomputeEligibility(record.evaluations);
+  for (const id of ids)
+    if (record.eligibility[id] !== recomputedEligibility[id])
+      throw new Error(`PROTOCOL_V4_SELECTION_RECORD_ELIGIBILITY_MISMATCH:${id}`);
   if (!record.eligibility[record.candidateId])
     throw new Error('PROTOCOL_V4_SELECTED_CANDIDATE_NOT_ELIGIBLE');
+  // Recompute the winner via the canonical comparator itself -- a record whose stored `candidateId`
+  // does not match the winner independently recomputed from its own stored evaluations is rejected,
+  // even if the record's own hash is internally self-consistent (a rehashed-but-manipulated record).
+  const recomputedWinner = selectCandidate(ids.map((id) => record.evaluations[id]));
+  if (recomputedWinner !== record.candidateId)
+    throw new Error('PROTOCOL_V4_SELECTION_RECORD_WINNER_MISMATCH');
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1086,8 +1241,11 @@ export interface HoldoutExecutionPlan {
   holdoutObservations: readonly ProtocolV4Observation[];
   holdoutExecutionTreeHash: string;
   holdoutCalls: number;
+  holdoutMaxInputTokens: number;
+  holdoutMaxOutputTokens: number;
   holdoutMaxTokens: number;
   holdoutMaxCostUsd: number;
+  maxConcurrentRequests: 1;
   unusedArtifactTargets: readonly string[];
   noCachePolicy: ProtocolV4MasterPlan['noCachePolicy'];
   transportTimeoutMs: 15000;
@@ -1116,9 +1274,11 @@ export function deriveHoldoutExecutionPlan(
     holdoutObservations,
     selectionRuleVersion: SELECTION_RULE.version,
   });
-  const perCallTokens = 8192 + 1536;
+  const perCallTokens =
+    PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS + PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS;
   const perCallCost =
-    (8192 / 1e6) * plan.pricing.inputPerMillion + (1536 / 1e6) * plan.pricing.outputPerMillion;
+    (PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS / 1e6) * plan.pricing.inputPerMillion +
+    (PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS / 1e6) * plan.pricing.outputPerMillion;
   const holdoutCalls = holdoutObservations.length;
   const withoutHash: Omit<HoldoutExecutionPlan, 'holdoutPlanHash'> = {
     masterPlanHash: plan.planHash,
@@ -1129,8 +1289,11 @@ export function deriveHoldoutExecutionPlan(
     holdoutObservations,
     holdoutExecutionTreeHash,
     holdoutCalls,
+    holdoutMaxInputTokens: holdoutCalls * PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+    holdoutMaxOutputTokens: holdoutCalls * PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
     holdoutMaxTokens: holdoutCalls * perCallTokens,
     holdoutMaxCostUsd: holdoutCalls * perCallCost,
+    maxConcurrentRequests: 1,
     unusedArtifactTargets: [
       ARTIFACT_PATHS.holdoutCheckpoint,
       ARTIFACT_PATHS.holdoutRawResults,
@@ -1146,15 +1309,28 @@ export function deriveHoldoutExecutionPlan(
   return { ...withoutHash, holdoutPlanHash: hashProtocolV4(withoutHash) };
 }
 
+/** Re-derives the Holdout Execution Plan from scratch (Master Plan + Development Evidence Root +
+ * validated Candidate Selection Record) and requires the result to be byte-/hash-identical to the
+ * plan under validation. This closes the "changed observations/budget/candidate fields after
+ * re-hashing" hole a self-hash-only check leaves open: `deriveHoldoutExecutionPlan` is a pure
+ * function of its three inputs, so any tampered field -- however internally re-hashed -- produces a
+ * different `holdoutPlanHash` when independently re-derived here. */
 export function validateHoldoutExecutionPlan(
   plan: ProtocolV4MasterPlan,
   holdoutPlan: HoldoutExecutionPlan,
+  developmentEvidenceRootHash: string,
+  selection: CandidateSelectionRecord,
 ): void {
   const { holdoutPlanHash, ...body } = holdoutPlan;
   if (hashProtocolV4(body) !== holdoutPlanHash)
     throw new Error('PROTOCOL_V4_HOLDOUT_PLAN_HASH_MISMATCH');
   if (holdoutPlan.masterPlanHash !== plan.planHash)
     throw new Error('PROTOCOL_V4_HOLDOUT_PLAN_MASTER_MISMATCH');
+  if (holdoutPlan.developmentEvidenceRootHash !== developmentEvidenceRootHash)
+    throw new Error('PROTOCOL_V4_HOLDOUT_PLAN_EVIDENCE_ROOT_MISMATCH');
+  const rederived = deriveHoldoutExecutionPlan(plan, developmentEvidenceRootHash, selection);
+  if (rederived.holdoutPlanHash !== holdoutPlanHash)
+    throw new Error('PROTOCOL_V4_HOLDOUT_PLAN_REDERIVATION_MISMATCH');
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1200,8 +1376,13 @@ export function assertHoldoutAuthorized(input: {
 }): void {
   const { plan, holdoutPlan, selection, authorization } = input;
   validateProtocolV4MasterPlan(plan);
-  validateHoldoutExecutionPlan(plan, holdoutPlan);
   validateCandidateSelectionRecord(plan, selection);
+  validateHoldoutExecutionPlan(
+    plan,
+    holdoutPlan,
+    holdoutPlan.developmentEvidenceRootHash,
+    selection,
+  );
 
   if (authorization.authorizationSchemaVersion !== PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION)
     throw new Error('PROTOCOL_V4_AUTHORIZATION_SCHEMA_MISMATCH');
@@ -1222,10 +1403,14 @@ export function assertHoldoutAuthorized(input: {
 
   if (
     authorization.maxCalls < holdoutPlan.holdoutCalls ||
+    authorization.maxInputTokens < holdoutPlan.holdoutMaxInputTokens ||
+    authorization.maxOutputTokens < holdoutPlan.holdoutMaxOutputTokens ||
     authorization.maxTotalTokens < holdoutPlan.holdoutMaxTokens ||
     authorization.maxCostUsd < holdoutPlan.holdoutMaxCostUsd
   )
     throw new Error('PROTOCOL_V4_AUTHORIZATION_LIMITS_INSUFFICIENT');
+  if (authorization.maxConcurrency !== holdoutPlan.maxConcurrentRequests)
+    throw new Error('PROTOCOL_V4_AUTHORIZATION_CONCURRENCY_MISMATCH');
 
   if (input.humanApprovedCeiling) {
     if (

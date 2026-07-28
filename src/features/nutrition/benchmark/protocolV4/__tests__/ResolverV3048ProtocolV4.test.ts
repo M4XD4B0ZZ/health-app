@@ -549,6 +549,18 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
           clarification: false,
           abstention: false,
         }));
+        // Teil 9: every planned observation needs a matching terminal telemetry/ledger record, not
+        // an empty array -- one coherent, plan-context-valid terminal per observation.
+        const terminals: ProtocolV4TerminalMetadata[] = expected.map((o) =>
+          terminal({
+            runIdentity: {
+              ...identity(candidateId),
+              scenarioId: o.scenarioId,
+              runIndex: o.runIndex,
+              callId: `development:${candidateId}:${o.scenarioId}:${o.runIndex}`,
+            },
+          }),
+        );
         const evaluation: CandidateEvaluation = {
           candidateId,
           allMandatoryG2CriteriaPass: true,
@@ -572,7 +584,7 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
             `development-checkpoint-${candidateId}`,
             plan.planHash,
             {
-              completedCallIds: [],
+              completedCallIds: terminals.map((t) => t.runIdentity.callId),
               candidateId,
             },
           ),
@@ -581,7 +593,7 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
             plan.planHash,
             {
               candidateId,
-              results: [],
+              results: expected.map((o) => ({ scenarioId: o.scenarioId, runIndex: o.runIndex })),
             },
           ),
           categoryTable: sealProtocolV4Artifact(
@@ -592,9 +604,13 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
           telemetry: sealProtocolV4Artifact(
             `development-telemetry-${candidateId}`,
             plan.planHash,
-            [],
+            terminals,
           ),
-          ledger: sealProtocolV4Artifact(`development-ledger-${candidateId}`, plan.planHash, []),
+          ledger: sealProtocolV4Artifact(
+            `development-ledger-${candidateId}`,
+            plan.planHash,
+            terminals,
+          ),
           evaluation: sealProtocolV4Artifact(
             `development-evaluation-${candidateId}`,
             plan.planHash,
@@ -649,7 +665,14 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
       selection.developmentEvidenceRootHash,
       selection,
     );
-    expect(() => validateHoldoutExecutionPlan(plan, holdoutPlan)).not.toThrow();
+    expect(() =>
+      validateHoldoutExecutionPlan(
+        plan,
+        holdoutPlan,
+        selection.developmentEvidenceRootHash,
+        selection,
+      ),
+    ).not.toThrow();
     expect(holdoutPlan.candidateId).toBe(selection.candidateId);
     expect(
       holdoutPlan.holdoutObservations.every((o) => o.candidateId === selection.candidateId),

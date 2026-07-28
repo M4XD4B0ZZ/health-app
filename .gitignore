@@ -62,6 +62,10 @@ Thumbs.db
 test-results/
 /tests/
 
+# RESOLVER-V3-048 Protocol-v4 zero-network dry-run artifact store output (never canonical/live
+# evidence -- see PROTOCOL_V4_DRY_RUN_ROOT in ResolverV3048ProtocolV4.ts)
+tmp/resolver-v3-048-protocol-v4-dry-run/
+
 # Agent Orchestrator outputs (keep .gitkeep)
 .agent/out/*.json
 .agent/out/*.md

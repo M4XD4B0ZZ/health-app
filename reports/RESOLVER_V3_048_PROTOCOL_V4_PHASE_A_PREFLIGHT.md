@@ -772,6 +772,10 @@ npm run lint                  # PASS, 0 errors/warnings (repo-wide)
 npm run format:check          # PASS, all files match Prettier style (repo-wide)
 npx jest --runInBand src/features/nutrition/benchmark/protocolV4
                                # PASS, 4 suites / 96 tests
+npx jest --runInBand src/features/nutrition/benchmark
+                               # PASS, 74 suites / 841 tests
+                               # (includes V3-039 compatibility, V3-042 evaluator regression, and
+                               # V3-043..V3-051 regression suites)
 git status --porcelain        # clean except intended new/modified files; no tmp/ artifact-store
                                # output tracked (gitignored)
 git diff --check              # PASS, no whitespace errors
@@ -782,9 +786,11 @@ git diff --stat               # confirmed: only src/features/nutrition/benchmark
 
 Consistent with every prior task in this series, the full-repo `npm run test`/`npm run verify` combined
 command has a known, previously-documented non-termination symptom in this environment unrelated to
-this task's changes; the scoped `src/features/nutrition/benchmark/protocolV4` Jest sweep above (the
-suite this task's changes are confined to) passed cleanly, and typecheck/lint/format were run
-repo-wide. Green GitHub Verify remains required before merge.
+this task's changes; both the scoped `src/features/nutrition/benchmark/protocolV4` sweep and the full
+`src/features/nutrition/benchmark` directory sweep (the widest scope that reliably terminates in this
+environment, and the same scope every prior task in this series has used as its practical verification
+substitute) passed cleanly, and typecheck/lint/format were run repo-wide. Green GitHub Verify remains
+required before merge.
 
 ## 32. Evidence integrity confirmed unchanged
 

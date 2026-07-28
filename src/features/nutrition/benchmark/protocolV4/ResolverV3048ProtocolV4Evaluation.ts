@@ -11,8 +11,10 @@ import {
   PROTOCOL_V4_EVALUATOR_VERSION,
   type CandidateEvaluation,
   type CategoryEvidence,
-  type HoldoutExecutionPlan,
+  type ProtocolV4DevelopmentCandidateArtifacts,
   type ProtocolV4DevelopmentEvidence,
+  type ProtocolV4G2Gate,
+  type ProtocolV4GateVerdict,
   type ProtocolV4MasterPlan,
   type ProtocolV4Observation,
   type ProtocolV4TerminalMetadata,
@@ -95,9 +97,16 @@ function isAiDispatchedResult(r: unknown): r is ProtocolV4RawObservationResult {
 /** Builds the real `RepresentativeHybridV1LiveCaseRecord[]` (grouping AI-dispatched raw results by
  * scenario, pairing each with the shared, candidate-independent Variant A/B baseline) and the real
  * `LiveProviderUsageRecord[]` telemetry projection -- purely from sealed artifacts plus the
- * always-available real corpus, never from a second independently-invented projection. */
+ * always-available real corpus, never from a second independently-invented projection.
+ *
+ * `partition` is a required, explicit input (Final Phase-A closure remediation: previously
+ * `assembleProtocolV4LiveCaseRecord` hard-coded `'development'`, so Holdout evidence was silently
+ * mislabeled and evaluated through the Development path). The returned `caseRecords` carry the real
+ * partition on every record; callers route them into `developmentCaseRecords`/`holdoutCaseRecords`
+ * accordingly (see `deriveProtocolV4CandidateEvaluation`/`deriveProtocolV4FinalG2Report` below). */
 function buildRealEvidenceForCandidate(input: {
   candidateId: ResolverV3047CandidateId;
+  partition: 'development' | 'holdout';
   rawResults: readonly ProtocolV4ObservationResult[];
   telemetry: readonly ProtocolV4TerminalMetadata[];
   armBaseline: ProtocolV4RealArmBaseline;
@@ -121,7 +130,7 @@ function buildRealEvidenceForCandidate(input: {
     });
     byScenario.set(r.scenarioId, list);
   }
-  const developmentCaseRecords = Array.from(byScenario.entries()).map(([scenarioId, variantC]) => {
+  const caseRecords = Array.from(byScenario.entries()).map(([scenarioId, variantC]) => {
     const baseline = input.armBaseline.get(scenarioId);
     if (!baseline)
       throw new ProtocolV4EvaluationDerivationError(
@@ -130,6 +139,7 @@ function buildRealEvidenceForCandidate(input: {
     const scenario = scenarios.get(scenarioId);
     return assembleProtocolV4LiveCaseRecord({
       scenarioId,
+      partition: input.partition,
       isOverlay: scenario?.repeatOverlay !== undefined,
       baseline,
       variantC: variantC.sort((a, b) => a.runIndex - b.runIndex),
@@ -143,7 +153,7 @@ function buildRealEvidenceForCandidate(input: {
     categoryByScenarioId.set(scenarioId, scenario.case.category);
   }
   return {
-    developmentCaseRecords,
+    caseRecords,
     rawTelemetry,
     expectedBehaviorByScenarioId,
     categoryByScenarioId,
@@ -172,10 +182,15 @@ export async function computeProtocolV4DevelopmentArmBaseline(
 /** Holdout counterpart of `computeProtocolV4DevelopmentArmBaseline` -- the real Variant A/B baseline
  * for exactly the scenarios in the (candidate-bound) Holdout Execution Plan, computed once per
  * Holdout run. Holdout scenarios are disjoint in general from Development's, so this is intentionally
- * a separate baseline, never a subset/reuse of the Development one. */
-export async function computeProtocolV4HoldoutArmBaseline(
-  holdoutPlan: HoldoutExecutionPlan,
-): Promise<ProtocolV4RealArmBaseline> {
+ * a separate baseline, never a subset/reuse of the Development one.
+ *
+ * Accepts a minimal structural shape (`holdoutObservations` only) so both the real, authoritative
+ * `HoldoutExecutionPlan` and the separate, non-authoritative `ProtocolV4DryRunHoldoutExecutionPlan`
+ * (`ResolverV3048ProtocolV4DryRunChoice.ts`) satisfy it without this function needing to know or care
+ * which one produced the plan it was given. */
+export async function computeProtocolV4HoldoutArmBaseline(holdoutPlan: {
+  holdoutObservations: readonly ProtocolV4Observation[];
+}): Promise<ProtocolV4RealArmBaseline> {
   const scenarios = protocolV4ScenarioByScenarioId();
   const holdoutScenarioIds = new Set(holdoutPlan.holdoutObservations.map((o) => o.scenarioId));
   const relevant = Array.from(holdoutScenarioIds)
@@ -191,6 +206,12 @@ export async function computeProtocolV4HoldoutArmBaseline(
 export function deriveProtocolV4CandidateEvaluation(input: {
   plan: ProtocolV4MasterPlan;
   candidateId: ResolverV3047CandidateId;
+  /** Which real partition this observation set belongs to -- required, never defaulted (Final
+   * Phase-A closure remediation: a prior version always routed records into the Development bucket
+   * regardless of what actually ran, which is exactly the "Holdout evaluated as Development" defect).
+   * Defaults to `'development'` only for backward compatibility with the Development Runner's own
+   * pre-existing call sites, all of which explicitly pass it anyway. */
+  partition?: 'development' | 'holdout';
   categoryTableContentHash: string;
   telemetryContentHash: string;
   ledgerContentHash: string;
@@ -207,6 +228,7 @@ export function deriveProtocolV4CandidateEvaluation(input: {
    * are never enumerated in `plan.developmentObservations`. */
   expectedObservations?: readonly ProtocolV4Observation[];
 }): ProtocolV4DerivedCandidateEvaluation {
+  const partitionKind = input.partition ?? 'development';
   const expected =
     input.expectedObservations ??
     input.plan.developmentObservations.filter(
@@ -222,28 +244,29 @@ export function deriveProtocolV4CandidateEvaluation(input: {
     assertTelemetryLedgerParity(t, input.ledger[i]);
   });
 
-  const {
-    developmentCaseRecords,
-    rawTelemetry,
-    expectedBehaviorByScenarioId,
-    categoryByScenarioId,
-  } = buildRealEvidenceForCandidate({
-    candidateId: input.candidateId,
-    rawResults: input.rawResults,
-    telemetry: input.telemetry,
-    armBaseline: input.armBaseline,
-  });
+  const { caseRecords, rawTelemetry, expectedBehaviorByScenarioId, categoryByScenarioId } =
+    buildRealEvidenceForCandidate({
+      candidateId: input.candidateId,
+      partition: partitionKind,
+      rawResults: input.rawResults,
+      telemetry: input.telemetry,
+      armBaseline: input.armBaseline,
+    });
 
   const report = buildProtocolV4RealCandidateReport({
     planHash: input.plan.planHash,
-    developmentCaseRecords,
+    developmentCaseRecords: partitionKind === 'development' ? caseRecords : null,
+    holdoutCaseRecords: partitionKind === 'holdout' ? caseRecords : null,
     rawTelemetry,
     expectedBehaviorByScenarioId,
     categoryByScenarioId,
   });
-  if (!report.development)
-    throw new ProtocolV4EvaluationDerivationError('PROTOCOL_V4_EVALUATION_NO_DEVELOPMENT_REPORT');
-  const partition = report.development;
+  const partitionReport = partitionKind === 'development' ? report.development : report.holdout;
+  if (!partitionReport)
+    throw new ProtocolV4EvaluationDerivationError(
+      `PROTOCOL_V4_EVALUATION_NO_${partitionKind.toUpperCase()}_REPORT`,
+    );
+  const partition = partitionReport;
 
   const g2Results = mapProtocolV4GateVerdicts(report.gateVerdicts);
   const allMandatoryG2CriteriaPass = PROTOCOL_V4_G2_GATES.every((g) => g2Results[g] === 'passed');
@@ -358,6 +381,7 @@ export async function validateProtocolV4DevelopmentEvidenceWithEvaluationDerivat
     const recomputed = deriveProtocolV4CandidateEvaluation({
       plan,
       candidateId: c.candidateId,
+      partition: 'development',
       categoryTableContentHash: c.categoryTable.contentHash,
       telemetryContentHash: c.telemetry.contentHash,
       ledgerContentHash: c.ledger.contentHash,
@@ -377,4 +401,123 @@ export async function validateProtocolV4DevelopmentEvidenceWithEvaluationDerivat
         `PROTOCOL_V4_DEVELOPMENT_EVIDENCE_EVALUATION_NOT_DERIVED:${c.candidateId}`,
       );
   }
+}
+
+// -------------------------------------------------------------------------------------------------
+// Final combined Development+Holdout G2 report (RESOLVER-V3-048 Final Phase-A closure remediation,
+// Weiteres Vorgehen item 5: "Holdout-Records wirklich mit Partition holdout auswerten und Development
+// plus Holdout erst im finalen G2-Report kombinieren").
+// -------------------------------------------------------------------------------------------------
+
+export interface ProtocolV4FinalG2Report {
+  candidateId: ResolverV3047CandidateId;
+  evaluatorVersion: string;
+  evaluatorAlgorithmHash: string;
+  developmentArtifactHashes: {
+    categoryTableHash: string;
+    telemetryHash: string;
+    ledgerHash: string;
+    rawResultsHash: string;
+  };
+  holdoutArtifactHashes: {
+    categoryTableHash: string;
+    telemetryHash: string;
+    ledgerHash: string;
+    rawResultsHash: string;
+  };
+  g2Results: Readonly<Record<ProtocolV4G2Gate, ProtocolV4GateVerdict>>;
+  allMandatoryG2CriteriaPass: boolean;
+  finalReportHash: string;
+}
+
+/** The only supported entry point for a FINAL, joint Development+Holdout G2 verdict: requires both
+ * partitions' own validated candidate artifact sets for the SAME candidate and evaluates them
+ * TOGETHER through the real, unmodified evaluator -- never one partition alone, and never Holdout
+ * data relabeled as Development (see `assembleProtocolV4LiveCaseRecord`'s `partition` parameter). A
+ * Development-only or Holdout-only evaluation (`deriveProtocolV4CandidateEvaluation`) honestly leaves
+ * joint-only mandatory gates at `not_evaluable`/`requires_human_judgment` -- this function is the only
+ * place those gates can genuinely resolve to `passed`/`failed`, because it is the only place both
+ * partitions' real case records are ever passed to `buildRepresentativeHybridV1LiveReport` together. */
+export function deriveProtocolV4FinalG2Report(input: {
+  plan: ProtocolV4MasterPlan;
+  candidateId: ResolverV3047CandidateId;
+  development: ProtocolV4DevelopmentCandidateArtifacts;
+  holdout: ProtocolV4DevelopmentCandidateArtifacts;
+  developmentArmBaseline: ProtocolV4RealArmBaseline;
+  holdoutArmBaseline: ProtocolV4RealArmBaseline;
+  repoRoot?: string;
+}): ProtocolV4FinalG2Report {
+  if (
+    input.development.candidateId !== input.candidateId ||
+    input.holdout.candidateId !== input.candidateId
+  )
+    throw new ProtocolV4EvaluationDerivationError('PROTOCOL_V4_FINAL_G2_CANDIDATE_MISMATCH');
+
+  const developmentRawResults = (
+    input.development.rawResults.content as { results: readonly ProtocolV4ObservationResult[] }
+  ).results;
+  const holdoutRawResults = (
+    input.holdout.rawResults.content as { results: readonly ProtocolV4ObservationResult[] }
+  ).results;
+
+  const developmentEvidence = buildRealEvidenceForCandidate({
+    candidateId: input.candidateId,
+    partition: 'development',
+    rawResults: developmentRawResults,
+    telemetry: input.development.telemetry.content,
+    armBaseline: input.developmentArmBaseline,
+  });
+  const holdoutEvidence = buildRealEvidenceForCandidate({
+    candidateId: input.candidateId,
+    partition: 'holdout',
+    rawResults: holdoutRawResults,
+    telemetry: input.holdout.telemetry.content,
+    armBaseline: input.holdoutArmBaseline,
+  });
+
+  const expectedBehaviorByScenarioId = new Map([
+    ...developmentEvidence.expectedBehaviorByScenarioId,
+    ...holdoutEvidence.expectedBehaviorByScenarioId,
+  ]);
+  const categoryByScenarioId = new Map([
+    ...developmentEvidence.categoryByScenarioId,
+    ...holdoutEvidence.categoryByScenarioId,
+  ]);
+
+  const report = buildProtocolV4RealCandidateReport({
+    planHash: input.plan.planHash,
+    developmentCaseRecords: developmentEvidence.caseRecords,
+    holdoutCaseRecords: holdoutEvidence.caseRecords,
+    rawTelemetry: [...developmentEvidence.rawTelemetry, ...holdoutEvidence.rawTelemetry],
+    expectedBehaviorByScenarioId,
+    categoryByScenarioId,
+    executionStatus: { phase: 'development_and_holdout_complete', blockerReason: null },
+  });
+
+  const g2Results = mapProtocolV4GateVerdicts(report.gateVerdicts);
+  const allMandatoryG2CriteriaPass = PROTOCOL_V4_G2_GATES.every((g) => g2Results[g] === 'passed');
+
+  const evaluatorAlgorithmHash = computeProtocolV4EvaluatorManifestHash(
+    input.repoRoot ?? process.cwd(),
+  );
+  const withoutHash: Omit<ProtocolV4FinalG2Report, 'finalReportHash'> = {
+    candidateId: input.candidateId,
+    evaluatorVersion: PROTOCOL_V4_EVALUATOR_VERSION,
+    evaluatorAlgorithmHash,
+    developmentArtifactHashes: {
+      categoryTableHash: input.development.categoryTable.contentHash,
+      telemetryHash: input.development.telemetry.contentHash,
+      ledgerHash: input.development.ledger.contentHash,
+      rawResultsHash: input.development.rawResults.contentHash,
+    },
+    holdoutArtifactHashes: {
+      categoryTableHash: input.holdout.categoryTable.contentHash,
+      telemetryHash: input.holdout.telemetry.contentHash,
+      ledgerHash: input.holdout.ledger.contentHash,
+      rawResultsHash: input.holdout.rawResults.contentHash,
+    },
+    g2Results,
+    allMandatoryG2CriteriaPass,
+  };
+  return { ...withoutHash, finalReportHash: hashProtocolV4(withoutHash) };
 }

@@ -181,8 +181,45 @@ export function isProtocolV4AuthorizationConsumedAtomically(
   );
 }
 
+/** Thrown when a target is checked for availability but a leftover `*.tmp-*` sibling with no final
+ * file proves a prior write crashed mid-commit -- a distinct, explicit crash/resume state, never
+ * silently treated as "unused" (which would let a second writer race the crashed one) nor silently
+ * cleaned up (which would destroy crash evidence a human/operator needs to inspect before deciding
+ * how to recover). */
+export class ProtocolV4ArtifactCrashError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProtocolV4ArtifactCrashError';
+  }
+}
+
 /** Storage-backed replacement for a bare `artifactTargetUnused: boolean`: true only when the
- * canonical target does not yet exist on disk under the (dry-run-restricted) store root. */
+ * canonical target does not yet exist on disk under the (dry-run-restricted) store root AND no crash
+ * evidence (a leftover `*.tmp-*` sibling with no final file) exists for it either. Final Phase-A
+ * closure remediation: `detectProtocolV4ArtifactCrash` previously existed but was never consulted
+ * here, so a target with an orphaned temp file from a crashed writer was wrongly reported "unused",
+ * letting a resuming/second caller silently race the crashed write. This now fails closed by throwing
+ * `ProtocolV4ArtifactCrashError` instead of returning `true` or `false` -- callers must explicitly
+ * recover (inspect and remove the orphaned temp file themselves) before retrying; this function never
+ * does that silently. */
 export function isProtocolV4ArtifactTargetUnused(root: string, relativePath: string): boolean {
+  if (detectProtocolV4ArtifactCrash(root, relativePath))
+    throw new ProtocolV4ArtifactCrashError(
+      `PROTOCOL_V4_ARTIFACT_STORE_CRASH_EVIDENCE_DETECTED:${relativePath}`,
+    );
   return !fs.existsSync(resolveArtifactPathWithinDryRunRoot(root, relativePath));
+}
+
+/** Explicit, separate recovery action for a crashed target: removes every orphaned `*.tmp-*` sibling
+ * for `relativePath` (never the final file itself, which this function never touches). Must only be
+ * invoked deliberately by an operator/recovery flow -- never automatically by
+ * `isProtocolV4ArtifactTargetUnused` or any gate that merely checks availability. */
+export function recoverProtocolV4ArtifactCrash(root: string, relativePath: string): void {
+  const finalPath = resolveArtifactPathWithinDryRunRoot(root, relativePath);
+  const dir = path.dirname(finalPath);
+  if (!fs.existsSync(dir)) return;
+  const base = path.basename(finalPath);
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry.startsWith(`${base}.tmp-`)) fs.unlinkSync(path.join(dir, entry));
+  }
 }

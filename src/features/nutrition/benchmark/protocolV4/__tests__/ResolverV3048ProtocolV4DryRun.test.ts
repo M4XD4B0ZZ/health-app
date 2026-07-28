@@ -158,6 +158,7 @@ describe('RESOLVER-V3-048 Teil 15B: full connected zero-network Mini-Protocol-Ru
     expect(report.candidateSelectionRecordHash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.holdoutExecutionPlanHash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.holdoutAuthorizationId).toEqual(expect.any(String));
+    expect(report.finalG2ReportHash).toMatch(/^[a-f0-9]{64}$/);
 
     // Every artifact this run produced was independently written, read back, and re-hashed through
     // the atomic Artifact Store -- these hashes are the same ones stored on disk under
@@ -175,6 +176,7 @@ describe('RESOLVER-V3-048 Teil 15B: full connected zero-network Mini-Protocol-Ru
         'holdoutTelemetryHash',
         'holdoutLedgerHash',
         'holdoutEvaluationHash',
+        'finalG2ReportHash',
       ].sort(),
     );
     for (const hash of Object.values(report.artifactHashes)) expect(hash).toMatch(/^[a-f0-9]{64}$/);

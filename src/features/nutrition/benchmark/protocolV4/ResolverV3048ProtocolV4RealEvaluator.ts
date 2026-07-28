@@ -206,39 +206,60 @@ const STUB_BUDGET_LIMITS: LiveProviderBudgetLimits = {
   maxInFlight: 1,
 };
 
-/** Builds the real live-evaluator report for one candidate's Development case records against the
- * shared A/B baseline -- the actual, unmodified `buildRepresentativeHybridV1LiveReport` produces the
- * gate verdicts; this function does not compute any G2 verdict itself. */
+/** Builds the real live-evaluator report for one candidate's case records against the shared A/B
+ * baseline -- the actual, unmodified `buildRepresentativeHybridV1LiveReport` produces the gate
+ * verdicts; this function does not compute any G2 verdict itself.
+ *
+ * Final Phase-A closure remediation: `developmentCaseRecords`/`holdoutCaseRecords` are now both real,
+ * independent, optional inputs (previously `holdoutCaseRecords` was hard-coded `null`, so a Holdout-
+ * only or joint Development+Holdout evaluation was structurally impossible). Passing only one of the
+ * two produces the same honest per-phase result the real evaluator has always produced when only one
+ * partition's data exists (joint-only G2 gates read `not_evaluable`/`requires_human_judgment`, per
+ * `overallGateVerdict` in `RepresentativeHybridV1LiveReportBuilder.ts`, itself unchanged); passing both
+ * (see `deriveProtocolV4FinalG2Report`) allows those joint gates to resolve for real. */
 export function buildProtocolV4RealCandidateReport(input: {
   planHash: string;
-  developmentCaseRecords: readonly RepresentativeHybridV1LiveCaseRecord[];
+  developmentCaseRecords: readonly RepresentativeHybridV1LiveCaseRecord[] | null;
+  holdoutCaseRecords?: readonly RepresentativeHybridV1LiveCaseRecord[] | null;
   rawTelemetry: readonly LiveProviderUsageRecord[];
   expectedBehaviorByScenarioId: ReadonlyMap<string, string>;
   categoryByScenarioId: ReadonlyMap<string, string>;
+  executionStatus?: RepresentativeHybridV1LiveReport['executionStatus'];
 }): RepresentativeHybridV1LiveReport {
   return buildRepresentativeHybridV1LiveReport({
     plan: stubExecutionPlanForRealEvaluator(input.planHash),
     budgetLimits: STUB_BUDGET_LIMITS,
     protocolFreezeCommit: null,
     evidenceCommit: null,
-    executionStatus: { phase: 'development_complete', blockerReason: null },
+    executionStatus: input.executionStatus ?? {
+      phase: 'development_complete',
+      blockerReason: null,
+    },
     rawTelemetry: input.rawTelemetry,
     developmentCaseRecords: input.developmentCaseRecords,
-    holdoutCaseRecords: null,
+    holdoutCaseRecords: input.holdoutCaseRecords ?? null,
     expectedBehaviorByScenarioId: input.expectedBehaviorByScenarioId,
     categoryByScenarioId: input.categoryByScenarioId,
   });
 }
 
+/** RESOLVER-V3-048 Final Phase-A closure remediation: `partition` is now an explicit, required input
+ * -- never a hard-coded `'development'` literal. The prior version silently mislabeled every Holdout
+ * case record as `partition: 'development'`, so `groupByPartition` (the real evaluator's own case-
+ * record router) routed genuine Holdout evidence into the Development bucket and Holdout was
+ * evaluated through the Development path, structurally never producing a real, joint Development+
+ * Holdout G2 verdict. Callers building Holdout evidence must now explicitly pass
+ * `partition: 'holdout'`. */
 export function assembleProtocolV4LiveCaseRecord(input: {
   scenarioId: string;
+  partition: 'development' | 'holdout';
   isOverlay: boolean;
   baseline: { variantA: CaseEvaluation; variantB: CaseEvaluationB[] };
   variantC: readonly RepresentativeHybridV1LiveCObservation[];
 }): RepresentativeHybridV1LiveCaseRecord {
   return {
     scenarioId: input.scenarioId,
-    partition: 'development',
+    partition: input.partition,
     isOverlay: input.isOverlay,
     variantA: input.baseline.variantA,
     variantB: input.baseline.variantB,

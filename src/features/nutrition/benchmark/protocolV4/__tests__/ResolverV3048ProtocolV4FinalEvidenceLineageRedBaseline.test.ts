@@ -40,6 +40,7 @@ import {
   consumeProtocolV4AuthorizationAtomically,
 } from '../ResolverV3048ProtocolV4ArtifactStore';
 import { runProtocolV4DevelopmentForAllCandidates } from '../ResolverV3048ProtocolV4DevelopmentRunner';
+import { claimProtocolV4ExecutionLease } from '../ResolverV3048ProtocolV4ExecutionLease';
 
 const {
   buildProtocolV4MasterPlan,
@@ -331,9 +332,26 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       authorizationId: 'final-red-baseline-item-6',
     });
     const artifactStoreRoot = `${ProtocolV4.PROTOCOL_V4_DRY_RUN_ROOT}/final-red-baseline-item-6-${Math.random().toString(36).slice(2, 8)}`;
+    const lease = claimProtocolV4ExecutionLease({
+      artifactStoreRoot,
+      authorizationId: authorization.authorizationId,
+      authorizationKind: authorization.kind,
+      phase: 'development',
+      planHash: plan.planHash,
+      executionTreeHash: plan.developmentExecutionTreeHash,
+      candidateScope: plan.candidates.map((c) => c.id),
+      maxCalls: authorization.maxCalls,
+      maxInputTokens: authorization.maxInputTokens,
+      maxOutputTokens: authorization.maxOutputTokens,
+      maxCostUsd: authorization.maxCostUsd,
+      maxConcurrentRequests: authorization.maxConcurrency,
+      pricingVersion: plan.pricing.pricingVersion,
+      modelId: plan.modelId,
+    });
     const evidence = await runProtocolV4DevelopmentForAllCandidates({
       plan,
       authorization,
+      lease,
       artifactStoreRoot,
     });
     for (const c of evidence.candidates) {
@@ -747,6 +765,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
         'holdoutTelemetryHash',
         'holdoutLedgerHash',
         'holdoutEvaluationHash',
+        'finalG2ReportHash',
       ].sort(),
     );
   }, 60_000);
@@ -885,10 +904,30 @@ describe('RESOLVER-V3-048 Final Phase-A Execution Closure remediation -- additio
       consumed: false,
     };
     const armBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
+    const holdoutArtifactStoreRoot = `${DRY_RUN_TEST_ROOT}/item-29-${Math.random().toString(36).slice(2, 8)}`;
+    const holdoutLease = claimProtocolV4ExecutionLease({
+      artifactStoreRoot: holdoutArtifactStoreRoot,
+      authorizationId: authorization.authorizationId,
+      authorizationKind: authorization.kind,
+      phase: 'holdout',
+      planHash: plan.planHash,
+      executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+      developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+      candidateScope: [holdoutPlan.candidateId],
+      maxCalls: authorization.maxCalls,
+      maxInputTokens: authorization.maxInputTokens,
+      maxOutputTokens: authorization.maxOutputTokens,
+      maxCostUsd: authorization.maxCostUsd,
+      maxConcurrentRequests: authorization.maxConcurrency,
+      pricingVersion: plan.pricing.pricingVersion,
+      modelId: plan.modelId,
+    });
     const artifacts = await runProtocolV4HoldoutForSelectedCandidate({
       plan,
       holdoutPlan,
       authorization,
+      lease: holdoutLease,
+      artifactStoreRoot: holdoutArtifactStoreRoot,
       armBaseline,
     });
     const rawResults = artifacts.rawResults.content.results as readonly {

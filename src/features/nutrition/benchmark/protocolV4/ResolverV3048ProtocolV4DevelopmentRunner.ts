@@ -39,6 +39,13 @@ import {
   type ProtocolV4DevelopmentAuthorizationRecord,
 } from './ResolverV3048ProtocolV4DevelopmentAuthorization';
 import {
+  assertProtocolV4ExecutionLeaseActiveForDispatch,
+  markProtocolV4ExecutionLeaseExecuting,
+  markProtocolV4ExecutionLeaseTerminalFailure,
+  markProtocolV4ExecutionLeaseTerminalSuccess,
+  type ProtocolV4ExecutionLease,
+} from './ResolverV3048ProtocolV4ExecutionLease';
+import {
   computeProtocolV4DevelopmentArmBaseline,
   deriveProtocolV4CandidateEvaluation,
   type ProtocolV4ObservationResult,
@@ -312,11 +319,16 @@ export async function runOneObservation(input: {
  * non-empty artifact set (checkpoint, raw results, category table, telemetry, ledger, evaluation).
  * Requires a valid, unconsumed Development Authorization (Teil 12), checked storage-authoritatively
  * against the real Artifact Store and the real cumulative `evidenceGate` state (never a caller-
- * supplied boolean or a self-referential "remaining"). */
+ * supplied boolean or a self-referential "remaining"), AND a valid, persisted, matching
+ * `ProtocolV4ExecutionLease` (Final Phase-A closure remediation, Weiteres Vorgehen item 3): a bare
+ * `ProtocolV4DevelopmentAuthorizationRecord` is no longer sufficient on its own -- this function reads
+ * the lease back from the real Artifact Store (never trusting the caller's in-memory `lease` object's
+ * own fields) and fails closed on any phase/identity/scope/budget mismatch or non-active status. */
 export async function runProtocolV4DevelopmentForCandidate(input: {
   plan: ProtocolV4MasterPlan;
   candidateId: ResolverV3047CandidateId;
   authorization: ProtocolV4DevelopmentAuthorizationRecord;
+  lease: ProtocolV4ExecutionLease;
   artifactStoreRoot: string;
   evidenceGate: LiveProviderBudgetGate;
   armBaseline: ProtocolV4RealArmBaseline;
@@ -333,6 +345,19 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
     ((PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS / 1e6) * input.plan.pricing.inputPerMillion +
       (PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS / 1e6) * input.plan.pricing.outputPerMillion);
   const consumedBeforeSnapshot = input.evidenceGate.snapshot();
+
+  assertProtocolV4ExecutionLeaseActiveForDispatch({
+    phase: 'development',
+    planHash: input.plan.planHash,
+    executionTreeHash: input.plan.developmentExecutionTreeHash,
+    authorizationId: input.authorization.authorizationId,
+    artifactStoreRoot: input.artifactStoreRoot,
+    candidateScope: input.plan.candidates.map((c) => c.id),
+    maxCalls: input.authorization.maxCalls,
+    maxInputTokens: input.authorization.maxInputTokens,
+    maxOutputTokens: input.authorization.maxOutputTokens,
+    maxCostUsd: input.authorization.maxCostUsd,
+  });
 
   assertDevelopmentAuthorized({
     plan: input.plan,
@@ -428,6 +453,7 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
   const derived = deriveProtocolV4CandidateEvaluation({
     plan: input.plan,
     candidateId: input.candidateId,
+    partition: 'development',
     categoryTableContentHash: categoryTable.contentHash,
     telemetryContentHash: telemetryArtifact.contentHash,
     ledgerContentHash: ledgerArtifact.contentHash,
@@ -460,13 +486,39 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
  * `ProtocolV4DevelopmentEvidence`. A single, SHARED `evidenceGate` spans all three candidates so the
  * Development Authorization's cumulative-consumption check is genuinely cumulative across the whole
  * authorized scope, not reset per candidate. The real Variant A/B baseline is computed ONCE and
- * shared across all three candidates' evaluations. */
+ * shared across all three candidates' evaluations.
+ *
+ * Requires a `lease` already atomically claimed (via `claimProtocolV4ExecutionLease`) BEFORE this
+ * function is ever called -- this function transitions it `claimed -> executing` immediately, then
+ * `executing -> terminal_success` on completion or `executing -> terminal_failure` if any candidate's
+ * Development phase throws (the lease always reaches a terminal state on this code path; a crashed
+ * process that never returns here is exactly what `recoverProtocolV4AbandonedExecutionLease` -- a
+ * separate, explicit, human-invoked recovery action -- is for). */
 export async function runProtocolV4DevelopmentForAllCandidates(input: {
   plan: ProtocolV4MasterPlan;
   authorization: ProtocolV4DevelopmentAuthorizationRecord;
+  lease: ProtocolV4ExecutionLease;
   artifactStoreRoot: string;
   repoRoot?: string;
 }): Promise<ProtocolV4DevelopmentEvidence> {
+  assertProtocolV4ExecutionLeaseActiveForDispatch({
+    phase: 'development',
+    planHash: input.plan.planHash,
+    executionTreeHash: input.plan.developmentExecutionTreeHash,
+    authorizationId: input.authorization.authorizationId,
+    artifactStoreRoot: input.artifactStoreRoot,
+    candidateScope: input.plan.candidates.map((c) => c.id),
+    maxCalls: input.authorization.maxCalls,
+    maxInputTokens: input.authorization.maxInputTokens,
+    maxOutputTokens: input.authorization.maxOutputTokens,
+    maxCostUsd: input.authorization.maxCostUsd,
+  });
+  if (input.lease.status === 'claimed')
+    markProtocolV4ExecutionLeaseExecuting(
+      input.artifactStoreRoot,
+      input.authorization.authorizationId,
+    );
+
   const armBaseline = await computeProtocolV4DevelopmentArmBaseline(input.plan);
   const evidenceGate = new LiveProviderBudgetGate({
     currency: 'USD',
@@ -478,19 +530,32 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
   });
   const candidateIds: readonly ResolverV3047CandidateId[] = ['H0', 'H1', 'H2'];
   const candidates: ProtocolV4DevelopmentCandidateArtifacts[] = [];
-  for (const candidateId of candidateIds) {
-    candidates.push(
-      await runProtocolV4DevelopmentForCandidate({
-        plan: input.plan,
-        candidateId,
-        authorization: input.authorization,
-        artifactStoreRoot: input.artifactStoreRoot,
-        evidenceGate,
-        armBaseline,
-        repoRoot: input.repoRoot,
-      }),
+  try {
+    for (const candidateId of candidateIds) {
+      candidates.push(
+        await runProtocolV4DevelopmentForCandidate({
+          plan: input.plan,
+          candidateId,
+          authorization: input.authorization,
+          lease: input.lease,
+          artifactStoreRoot: input.artifactStoreRoot,
+          evidenceGate,
+          armBaseline,
+          repoRoot: input.repoRoot,
+        }),
+      );
+    }
+  } catch (e) {
+    markProtocolV4ExecutionLeaseTerminalFailure(
+      input.artifactStoreRoot,
+      input.authorization.authorizationId,
     );
+    throw e;
   }
+  markProtocolV4ExecutionLeaseTerminalSuccess(
+    input.artifactStoreRoot,
+    input.authorization.authorizationId,
+  );
   const planManifest = sealProtocolV4Artifact('development-plan-manifest', input.plan.planHash, {
     planHash: input.plan.planHash,
     developmentExecutionTreeHash: input.plan.developmentExecutionTreeHash,

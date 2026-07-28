@@ -208,9 +208,10 @@ function buildEvidence(): ProtocolV4.ProtocolV4DevelopmentEvidence {
 
 describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline items, now closed', () => {
   it('1: pricingStatus:"unknown" from a real provider record can no longer be silently rewritten to "estimated"', () => {
+    const ctx = makeAttemptContext();
     expect(() =>
       buildProtocolV4TerminalFromProviderMetadata(
-        makeAttemptContext(),
+        ctx,
         {
           costUsd: null,
           pricingStatus: 'unknown',
@@ -224,6 +225,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
           providerLatencyMs: 5,
           retryable: true,
           failureKind: 'transport_error',
+          runIdentity: ctx.providerRunIdentity,
         },
         10,
         baseValidTerminal().counts,
@@ -232,6 +234,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
   });
 
   it('2: usage/actual-cost status can no longer be guessed from failureKind -- absence throws instead of defaulting', () => {
+    const ctx = makeAttemptContext();
     const meta = {
       costUsd: null,
       pricingStatus: 'estimated' as const,
@@ -243,10 +246,11 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       providerLatencyMs: 5,
       retryable: true,
       failureKind: 'transport_error' as const,
+      runIdentity: ctx.providerRunIdentity,
     };
     expect(() =>
       buildProtocolV4TerminalFromProviderMetadata(
-        makeAttemptContext(),
+        ctx,
         meta as never,
         10,
         baseValidTerminal().counts,
@@ -269,6 +273,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       providerLatencyMs: 12,
       retryable: false,
       failureKind: null,
+      runIdentity: ctx.providerRunIdentity,
     } as never;
     const terminal = buildProtocolV4TerminalFromProviderMetadata(
       ctx,
@@ -293,6 +298,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
   });
 
   it('5: missing provider latency can no longer be silently rewritten to 0', () => {
+    const ctx = makeAttemptContext();
     const meta = {
       costUsd: 0.001,
       pricingStatus: 'estimated' as const,
@@ -306,10 +312,11 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       providerLatencyMs: undefined,
       retryable: false,
       failureKind: null,
+      runIdentity: ctx.providerRunIdentity,
     };
     expect(() =>
       buildProtocolV4TerminalFromProviderMetadata(
-        makeAttemptContext(),
+        ctx,
         meta as never,
         20,
         baseValidTerminal().counts,
@@ -323,7 +330,12 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       kind: 'fake_dry_run',
       authorizationId: 'final-red-baseline-item-6',
     });
-    const evidence = await runProtocolV4DevelopmentForAllCandidates({ plan, authorization });
+    const artifactStoreRoot = `${ProtocolV4.PROTOCOL_V4_DRY_RUN_ROOT}/final-red-baseline-item-6-${Math.random().toString(36).slice(2, 8)}`;
+    const evidence = await runProtocolV4DevelopmentForAllCandidates({
+      plan,
+      authorization,
+      artifactStoreRoot,
+    });
     for (const c of evidence.candidates) {
       expect(c.rawResults.content.results.length).toBeGreaterThan(0);
       expect(
@@ -371,9 +383,9 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
     const evidence = buildEvidence();
     // The sealed evaluations above were hand-built, not derived from the (empty-outcome) telemetry --
     // the strict derivation-recomputing validator must reject them.
-    expect(() =>
+    await expect(
       validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, evidence),
-    ).toThrow('PROTOCOL_V4_DEVELOPMENT_EVIDENCE_EVALUATION_NOT_DERIVED');
+    ).rejects.toThrow('PROTOCOL_V4_DEVELOPMENT_EVIDENCE_EVALUATION_NOT_DERIVED');
   });
 
   it('10: allMandatoryG2CriteriaPass and the per-gate verdicts must now be coherent -- a free mismatch is rejected', () => {
@@ -495,6 +507,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
           providerLatencyMs: 1,
           retryable: false,
           failureKind: null,
+          runIdentity: ctx.providerRunIdentity,
         }) as never,
       extractCounts: () => baseValidTerminal().counts,
       buildFastPathTerminal: () => {
@@ -571,11 +584,15 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
         holdoutPlan,
         selection,
         authorization,
-        artifactTargetUnused: true,
-        remainingCalls: holdoutPlan.holdoutCalls,
-        remainingInputTokens: holdoutPlan.holdoutMaxInputTokens,
-        remainingOutputTokens: holdoutPlan.holdoutMaxOutputTokens,
-        remainingCostUsd: holdoutPlan.holdoutMaxCostUsd,
+        artifactStoreRoot: `${DRY_RUN_TEST_ROOT}/item-18`,
+        artifactRelativePath: 'holdout-consumed.json',
+        consumedBudget: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
+        plannedBudget: {
+          calls: holdoutPlan.holdoutCalls,
+          inputTokens: holdoutPlan.holdoutMaxInputTokens,
+          outputTokens: holdoutPlan.holdoutMaxOutputTokens,
+          costUsd: holdoutPlan.holdoutMaxCostUsd,
+        },
         liveExecution: false,
       }),
     ).toThrow('PROTOCOL_V4_AUTHORIZATION_LIMITS_INSUFFICIENT');
@@ -615,11 +632,15 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
         holdoutPlan,
         selection,
         authorization,
-        artifactTargetUnused: true,
-        remainingCalls: holdoutPlan.holdoutCalls,
-        remainingInputTokens: holdoutPlan.holdoutMaxInputTokens,
-        remainingOutputTokens: holdoutPlan.holdoutMaxOutputTokens,
-        remainingCostUsd: holdoutPlan.holdoutMaxCostUsd,
+        artifactStoreRoot: `${DRY_RUN_TEST_ROOT}/item-19`,
+        artifactRelativePath: 'holdout-consumed.json',
+        consumedBudget: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
+        plannedBudget: {
+          calls: holdoutPlan.holdoutCalls,
+          inputTokens: holdoutPlan.holdoutMaxInputTokens,
+          outputTokens: holdoutPlan.holdoutMaxOutputTokens,
+          costUsd: holdoutPlan.holdoutMaxCostUsd,
+        },
         liveExecution: false,
       }),
     ).toThrow('PROTOCOL_V4_AUTHORIZATION_CONCURRENCY_MISMATCH');
@@ -670,11 +691,15 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       assertDevelopmentAuthorized({
         plan,
         authorization: consumed,
-        artifactTargetUnused: true,
-        remainingCalls: consumed.maxCalls,
-        remainingInputTokens: consumed.maxInputTokens,
-        remainingOutputTokens: consumed.maxOutputTokens,
-        remainingCostUsd: consumed.maxCostUsd,
+        artifactStoreRoot: `${DRY_RUN_TEST_ROOT}/item-22`,
+        artifactRelativePath: 'development-evidence.json',
+        consumedBudget: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
+        plannedBudget: {
+          calls: consumed.maxCalls,
+          inputTokens: consumed.maxInputTokens,
+          outputTokens: consumed.maxOutputTokens,
+          costUsd: consumed.maxCostUsd,
+        },
         liveExecution: false,
       }),
     ).toThrow('PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED');
@@ -706,7 +731,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
     expect(ProtocolV4.NETWORK_LEVEL_FAILURE_KINDS).not.toContain('missing_text_block');
   });
 
-  it('25: the dry run now round-trips the full artifact contract (plan/evidence/selection/holdout-plan/holdout-authorization), not only the Category artifact', async () => {
+  it('25: the dry run now round-trips the full artifact contract (plan/evidence/selection/holdout-plan/holdout-authorization/holdout-observation-artifacts), not only the Category artifact', async () => {
     const { runProtocolV4MiniProtocolRun } = await import('../ResolverV3048ProtocolV4DryRun');
     const report = await runProtocolV4MiniProtocolRun(`${DRY_RUN_TEST_ROOT}/item-25`);
     expect(Object.keys(report.artifactHashes).sort()).toEqual(
@@ -716,8 +741,170 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
         'selectionRecordHash',
         'holdoutPlanHash',
         'holdoutAuthorizationHash',
+        'holdoutCheckpointHash',
+        'holdoutRawResultsHash',
+        'holdoutCategoryTableHash',
+        'holdoutTelemetryHash',
+        'holdoutLedgerHash',
+        'holdoutEvaluationHash',
       ].sort(),
     );
+  }, 60_000);
+});
+
+describe('RESOLVER-V3-048 Final Phase-A Execution Closure remediation -- additional regression coverage', () => {
+  it('26: a relativePath escaping the dry-run root via ../ traversal is rejected, not silently joined', () => {
+    const root = `${DRY_RUN_TEST_ROOT}/item-26`;
+    const artifact = sealProtocolV4Artifact('item-26-artifact', plan.planHash, { a: 1 });
+    expect(() =>
+      writeProtocolV4ArtifactExclusive(root, '../../../../../../tmp/escaped.json', artifact),
+    ).toThrow('PROTOCOL_V4_ARTIFACT_STORE_LIVE_PATH_FORBIDDEN_IN_DRY_RUN');
+    expect(() => isProtocolV4ArtifactTargetUnused(root, '../../../../../../etc/passwd')).toThrow(
+      'PROTOCOL_V4_ARTIFACT_STORE_LIVE_PATH_FORBIDDEN_IN_DRY_RUN',
+    );
+  });
+
+  it('27: two writers racing for the same artifact target -- exactly one commits, the other sees ALREADY_EXISTS, never a silent overwrite', async () => {
+    const root = `${DRY_RUN_TEST_ROOT}/item-27`;
+    const artifactA = sealProtocolV4Artifact('item-27-artifact', plan.planHash, { writer: 'A' });
+    const artifactB = sealProtocolV4Artifact('item-27-artifact', plan.planHash, { writer: 'B' });
+    const results = await Promise.allSettled([
+      Promise.resolve().then(() => writeProtocolV4ArtifactExclusive(root, 'raced.json', artifactA)),
+      Promise.resolve().then(() => writeProtocolV4ArtifactExclusive(root, 'raced.json', artifactB)),
+    ]);
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason.message).toMatch(
+      'PROTOCOL_V4_ARTIFACT_ALREADY_EXISTS',
+    );
+    // Whichever writer committed, the artifact on disk is exactly that writer's content -- never a
+    // merge/corruption of both.
+    const stored = (fulfilled[0] as PromiseFulfilledResult<{ absolutePath: string }>).value;
+    const readback = readProtocolV4ArtifactWithReadback<{ writer: string }>(
+      stored.absolutePath,
+      (stored as unknown as { contentHash: string }).contentHash,
+    );
+    expect(['A', 'B']).toContain(readback.content.writer);
+  });
+
+  it('28: a Candidate Selection Record whose developmentEvidenceRootHash/artifact hashes were swapped for different Development evidence -- re-hashed and internally self-consistent, winner unchanged -- is now rejected', () => {
+    const evidence = buildEvidence();
+    const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+    expect(() =>
+      ProtocolV4.validateCandidateSelectionRecordAgainstEvidence(plan, selection, evidence),
+    ).not.toThrow();
+
+    // A different (but still internally valid, re-sealed) Development evidence set -- e.g. a later,
+    // unrelated run against the same plan -- produces a different real evidence root/artifact hashes.
+    const baseEvidence = buildEvidence();
+    const tamperedEvaluationContent = {
+      ...baseEvidence.candidates[0].evaluation.content,
+      costPerValidatedLogUsd:
+        baseEvidence.candidates[0].evaluation.content.costPerValidatedLogUsd + 1,
+    };
+    const otherEvidence: ProtocolV4.ProtocolV4DevelopmentEvidence = {
+      ...baseEvidence,
+      candidates: baseEvidence.candidates.map((c, i) =>
+        i === 0
+          ? {
+              ...c,
+              evaluation: sealProtocolV4Artifact(
+                c.evaluation.artifactName,
+                plan.planHash,
+                tamperedEvaluationContent,
+              ),
+            }
+          : c,
+      ),
+    };
+    const otherEvidenceRootHash = ProtocolV4.computeDevelopmentEvidenceRootHash(otherEvidence);
+    expect(otherEvidenceRootHash).not.toBe(selection.developmentEvidenceRootHash);
+
+    const { selectionRecordHash: _old, ...body } = selection;
+    void _old;
+    const tampered = {
+      ...body,
+      developmentEvidenceRootHash: otherEvidenceRootHash,
+      developmentArtifactHashes: Object.fromEntries(
+        otherEvidence.candidates.map((c) => [
+          c.candidateId,
+          {
+            checkpointHash: c.checkpoint.contentHash,
+            rawResultsHash: c.rawResults.contentHash,
+            categoryTableHash: c.categoryTable.contentHash,
+            telemetryHash: c.telemetry.contentHash,
+            ledgerHash: c.ledger.contentHash,
+            evaluationHash: c.evaluation.contentHash,
+          },
+        ]),
+      ) as ProtocolV4.CandidateSelectionRecord['developmentArtifactHashes'],
+    };
+    const rehashed = { ...tampered, selectionRecordHash: hashProtocolV4(tampered) };
+    // Internally self-consistent (own hash matches, winner/eligibility still recomputable from its
+    // own stored evaluations) -- the base validator alone would accept this.
+    expect(() => validateCandidateSelectionRecord(plan, rehashed)).not.toThrow();
+    // The strengthened, evidence-bound validator rejects it: the claimed evidence root/artifact
+    // hashes do not match what the real `evidence` this record is checked against actually contains.
+    expect(() =>
+      ProtocolV4.validateCandidateSelectionRecordAgainstEvidence(plan, rehashed, evidence),
+    ).toThrow('PROTOCOL_V4_SELECTION_RECORD_EVIDENCE_ROOT_NOT_DERIVED');
+  });
+
+  it('29: Holdout observations are bound to their own real scenario input, not a single fixed input shared by every observation', async () => {
+    const { runProtocolV4HoldoutForSelectedCandidate } =
+      await import('../ResolverV3048ProtocolV4HoldoutRunner');
+    const { computeProtocolV4HoldoutArmBaseline } =
+      await import('../ResolverV3048ProtocolV4Evaluation');
+    const evidence = buildEvidence();
+    const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+    const holdoutPlan = deriveHoldoutExecutionPlan(
+      plan,
+      selection.developmentEvidenceRootHash,
+      selection,
+    );
+    const authorization: ProtocolV4.HoldoutAuthorizationRecord = {
+      authorizationSchemaVersion: PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION,
+      kind: 'fake_dry_run',
+      masterPlanHash: plan.planHash,
+      holdoutExecutionPlanHash: holdoutPlan.holdoutPlanHash,
+      developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+      candidateSelectionRecordHash: selection.selectionRecordHash,
+      candidateId: holdoutPlan.candidateId,
+      maxCalls: holdoutPlan.holdoutCalls,
+      maxInputTokens: holdoutPlan.holdoutMaxInputTokens,
+      maxOutputTokens: holdoutPlan.holdoutMaxOutputTokens,
+      maxTotalTokens: holdoutPlan.holdoutMaxTokens,
+      maxCostUsd: holdoutPlan.holdoutMaxCostUsd,
+      currency: 'USD',
+      maxConcurrency: 1,
+      authorizedPhase: 'holdout',
+      authorizationId: 'item-29',
+      humanApprovalReference: null,
+      consumed: false,
+    };
+    const armBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
+    const artifacts = await runProtocolV4HoldoutForSelectedCandidate({
+      plan,
+      holdoutPlan,
+      authorization,
+      armBaseline,
+    });
+    const rawResults = artifacts.rawResults.content.results as readonly {
+      status: string;
+      scenarioId: string;
+      raw?: { mealResult?: { components?: { interpretedName?: string }[] } };
+    }[];
+    const aiDispatched = rawResults.filter((r) => r.status === 'ai_dispatched');
+    expect(aiDispatched.length).toBeGreaterThan(0);
+    // Every AI-dispatched observation's interpreted component name is bound to that observation's
+    // OWN scenario -- proving the dispatch is not every observation replaying one shared, fixed
+    // "Testlebensmittel"-style canned input regardless of which real scenario it claims to be.
+    const distinctInterpretedNames = new Set(
+      aiDispatched.map((r) => r.raw?.mealResult?.components?.[0]?.interpretedName ?? null),
+    );
+    expect(distinctInterpretedNames.size).toBeGreaterThan(1);
   }, 60_000);
 });
 

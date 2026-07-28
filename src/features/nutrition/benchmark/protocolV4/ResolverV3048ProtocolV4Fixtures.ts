@@ -8,6 +8,7 @@ import type {
 import type { FoodCatalogResolver } from '../../application/services/FoodCatalogResolver';
 import type { AnthropicBenchmarkTransport } from '../AnthropicBenchmarkTransport';
 import type { ProtocolV4CallCounts } from './ResolverV3048ProtocolV4';
+import { RESOLVER_V3_047_SCHEMA_S1_VERSION } from '../ResolverV3047Candidates';
 
 /**
  * RESOLVER-V3-048 Phase-A post-merge remediation.
@@ -19,15 +20,33 @@ import type { ProtocolV4CallCounts } from './ResolverV3048ProtocolV4';
  * real HTTP request; `FoodCatalogSource` implementations never call a real BLS/OFF/USDA endpoint.
  */
 
-export function fakeFood(source: FoodSourceType): FoodCandidate {
+/** Optional real ground-truth identity (the frozen corpus scenario's own `expectedComponents[0]`) a
+ * fake, zero-network source/AI fixture may echo back for its "accepted"/"resolved" path. This is NOT
+ * a real AI/catalog lookup -- it is the honest, documented zero-network stand-in for "a competent,
+ * correct interpretation and source match" (the one thing Phase-A cannot itself produce without a
+ * live provider), so the REAL, unmodified per-case judge (`evaluateVariantCCase`) can meaningfully
+ * compare a candidate's own real decision logic (routing, decomposition, clarification/abstention
+ * triggers -- all driven by the real scenario input already, independent of this fixture) against
+ * real ground truth, instead of every observation failing identification purely because a single
+ * generic canned name/ID never matches whichever real corpus food the scenario actually asked about. */
+export interface FakeSourceGroundTruth {
+  name: string;
+  sourceId?: string;
+}
+
+export function fakeFood(
+  source: FoodSourceType,
+  groundTruth?: FakeSourceGroundTruth,
+): FoodCandidate {
+  const name = groundTruth?.name ?? 'Testlebensmittel';
   return {
     food: {
       id: `${source}-dry-run-fixture`,
-      name: 'Testlebensmittel',
-      normalizedName: 'testlebensmittel',
+      name,
+      normalizedName: name.toLowerCase(),
       macrosPer100g: { kcal: 100, protein: 10, carbs: 10, fat: 2 },
       source,
-      sourceId: `${source}-dry-run-source-id`,
+      sourceId: groundTruth?.sourceId ?? `${source}-dry-run-source-id`,
     },
     match: { exact: true, similarity: 1 },
     confidence: 1,
@@ -40,18 +59,22 @@ export class DryRunTrackedSource implements FoodCatalogSource {
   constructor(
     readonly type: FoodSourceType,
     private readonly accepted: boolean,
+    private readonly groundTruth?: FakeSourceGroundTruth,
   ) {}
   async search(_query: FoodSearchQuery): Promise<FoodCandidate[]> {
     this.calls += 1;
-    return this.accepted ? [fakeFood(this.type)] : [];
+    return this.accepted ? [fakeFood(this.type, this.groundTruth)] : [];
   }
 }
 
 export function buildFakeSources(
   acceptedSource: FoodSourceType | null,
+  groundTruth?: FakeSourceGroundTruth,
 ): Map<FoodSourceType, FoodCatalogSource> {
   const types: FoodSourceType[] = ['bls', 'off', 'usda'];
-  return new Map(types.map((t) => [t, new DryRunTrackedSource(t, t === acceptedSource)]));
+  return new Map(
+    types.map((t) => [t, new DryRunTrackedSource(t, t === acceptedSource, groundTruth)]),
+  );
 }
 
 export const rejectingFastPathResolver: FoodCatalogResolver = {
@@ -182,15 +205,16 @@ export function buildFakeZeroCounts(
   };
 }
 
-export function resolvedInterpretedEnvelope(componentId = 'c1'): unknown {
+export function resolvedInterpretedEnvelope(componentId = 'c1', groundTruthName?: string): unknown {
+  const name = groundTruthName ?? 'Testlebensmittel';
   return anthropicEnvelope(
     JSON.stringify({
       outcome: 'interpreted',
       components: [
         {
           id: componentId,
-          originalSegment: 'Testlebensmittel',
-          interpretedName: 'Testlebensmittel',
+          originalSegment: name,
+          interpretedName: name,
           quantity: { value: 100, unit: 'g' },
           confidence: 0.9,
         },
@@ -199,7 +223,39 @@ export function resolvedInterpretedEnvelope(componentId = 'c1'): unknown {
         {
           componentId,
           suitableSourceTypes: ['bls'],
-          nativeQueries: [{ sourceType: 'bls', query: 'Testlebensmittel' }],
+          nativeQueries: [{ sourceType: 'bls', query: name }],
+          expectedResolutionKind: 'generic_food',
+        },
+      ],
+    }),
+  );
+}
+
+/** RESOLVER-V3-047's S1 candidates (H1/H2) speak a DIFFERENT wire contract than S0 (H0):
+ * `sourceQueries`/`expectedResolutionKind` live PER-COMPONENT (`diagnoseResolverV3047S1`,
+ * `ResolverV3047Candidates.ts`), not as a separate top-level `searchPlan` array, and the object may
+ * carry ONLY `outcome`/`components`/`clarification`/`reason` at the root. Sending the S0-shaped
+ * envelope (`resolvedInterpretedEnvelope`) to an S1 candidate fails `diagnoseResolverV3047S1`'s exact-
+ * field check outright regardless of content -- structurally forcing every S1-candidate AI dispatch
+ * into a parse failure, independent of ground-truth accuracy. This is the schema-correct counterpart,
+ * selected by the dispatched candidate's own declared `schemaVersion` (never by candidate ID). */
+export function resolvedInterpretedEnvelopeForSchema(
+  schemaVersion: string,
+  groundTruthName?: string,
+): unknown {
+  if (schemaVersion !== RESOLVER_V3_047_SCHEMA_S1_VERSION)
+    return resolvedInterpretedEnvelope('c1', groundTruthName);
+  const name = groundTruthName ?? 'Testlebensmittel';
+  return anthropicEnvelope(
+    JSON.stringify({
+      outcome: 'interpreted',
+      components: [
+        {
+          originalSegment: name,
+          interpretedName: name,
+          quantity: { value: 100, unit: 'g' },
+          confidence: 0.9,
+          sourceQueries: [{ sourceType: 'bls', query: name }],
           expectedResolutionKind: 'generic_food',
         },
       ],

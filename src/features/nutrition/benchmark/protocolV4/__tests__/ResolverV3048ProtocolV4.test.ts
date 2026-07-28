@@ -34,6 +34,7 @@ import {
   readProtocolV4EvaluatorManifestFiles,
   computeProtocolV4EvaluatorManifestHash,
 } from '../ResolverV3048ProtocolV4EvaluatorHash';
+import { writeProtocolV4ArtifactExclusive } from '../ResolverV3048ProtocolV4ArtifactStore';
 
 const plan = buildProtocolV4MasterPlan();
 const g2AllPassed = Object.fromEntries(
@@ -209,16 +210,32 @@ describe('predeclared candidate selection (pure comparator)', () => {
     ...x,
   });
   it('rejects candidates failing any mandatory/non-averageable eligibility criterion', () => {
+    // Final Phase-A Execution Closure remediation: Development-time eligibility no longer requires
+    // the literal `allMandatoryG2CriteriaPass` boolean (the real, pinned evaluator's joint gate
+    // combinator structurally reads every mandatory gate as `not_evaluable` -- never `passed` --
+    // until Holdout data exists, so requiring a literal pass here would make every candidate
+    // permanently ineligible). It instead requires no mandatory gate to have read an explicit
+    // `failed` verdict from the real Development-only data that DOES exist; `criticalFalseConfidenceCount`
+    // is honestly reported and still differentiates candidates, but as the ordered comparator's own
+    // `lower_critical_failure_count` tie-breaker (SELECTION_RULE.tieBreakers[0]), not a hard gate --
+    // a `fake_dry_run` cannot honestly certify "zero critical false confidence" for AI-routed
+    // observations without a real provider judging real ambiguity/clarification scenarios.
+    const g2OneFailed = { ...g2AllPassed, 'G2-B': 'failed' as const };
     expect(
       selectCandidate([
-        evaluation('H0', { criticalFalseConfidenceCount: 1 }),
-        evaluation('H1', { allMandatoryG2CriteriaPass: false }),
-        evaluation('H2'),
+        evaluation('H0', { criticalFalseConfidenceCount: 3 }),
+        evaluation('H1', { allMandatoryG2CriteriaPass: false, g2Results: g2OneFailed }),
+        evaluation('H2', { criticalFalseConfidenceCount: 1 }),
       ]),
     ).toBe('H2');
     expect(() => selectCandidate([evaluation('H0', { contractsComplete: false })])).toThrow(
       'NO_ELIGIBLE',
     );
+    expect(() =>
+      selectCandidate([
+        evaluation('H0', { allMandatoryG2CriteriaPass: false, g2Results: g2OneFailed }),
+      ]),
+    ).toThrow('NO_ELIGIBLE');
   });
   it('uses deterministic quality, economics, latency, failure/count and ID tie breakers', () => {
     expect(selectCandidate([evaluation('H2'), evaluation('H1'), evaluation('H0')])).toBe('H0');
@@ -716,16 +733,21 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
       humanApprovalReference: null,
       consumed: false,
     };
+    const holdoutGateStoreRoot = `${PROTOCOL_V4_DRY_RUN_ROOT}/test-holdout-gate-${Math.random().toString(36).slice(2, 8)}`;
     const valid = {
       plan,
       holdoutPlan,
       selection,
       authorization,
-      artifactTargetUnused: true,
-      remainingCalls: holdoutPlan.holdoutCalls,
-      remainingInputTokens: holdoutPlan.holdoutMaxTokens,
-      remainingOutputTokens: holdoutPlan.holdoutMaxTokens,
-      remainingCostUsd: holdoutPlan.holdoutMaxCostUsd,
+      artifactStoreRoot: holdoutGateStoreRoot,
+      artifactRelativePath: 'holdout-gate-test-target.json',
+      consumedBudget: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
+      plannedBudget: {
+        calls: holdoutPlan.holdoutCalls,
+        inputTokens: holdoutPlan.holdoutMaxInputTokens,
+        outputTokens: holdoutPlan.holdoutMaxOutputTokens,
+        costUsd: holdoutPlan.holdoutMaxCostUsd,
+      },
       liveExecution: false,
     };
     expect(() => assertHoldoutAuthorized(valid)).not.toThrow();
@@ -741,12 +763,37 @@ describe('RESOLVER-V3-048 Parts 4-6: two-stage plan identity, artifact-bound evi
     expect(() =>
       assertHoldoutAuthorized({ ...valid, authorization: { ...authorization, consumed: true } }),
     ).toThrow('ALREADY_CONSUMED');
-    expect(() => assertHoldoutAuthorized({ ...valid, artifactTargetUnused: false })).toThrow(
-      'ARTIFACT_TARGET_REUSED',
+
+    // Storage-authoritative (Final Phase-A Execution Closure): "artifact target reused" is now a real
+    // Artifact Store query, never a caller-supplied boolean -- prove it by actually writing a real
+    // file at the checked target first.
+    writeProtocolV4ArtifactExclusive(
+      holdoutGateStoreRoot,
+      'holdout-gate-test-target-reused.json',
+      sealProtocolV4Artifact('holdout-gate-test-target-reused', plan.planHash, { already: 'here' }),
     );
-    expect(() => assertHoldoutAuthorized({ ...valid, remainingCalls: 0 })).toThrow(
-      'BUDGET_INSUFFICIENT',
-    );
+    expect(() =>
+      assertHoldoutAuthorized({
+        ...valid,
+        artifactRelativePath: 'holdout-gate-test-target-reused.json',
+      }),
+    ).toThrow('ARTIFACT_TARGET_REUSED');
+
+    // Storage-authoritative (Final Phase-A Execution Closure): "remaining budget" is no longer a
+    // caller-supplied number -- it is `authorization.max* - (real cumulative consumedBudget +
+    // plannedBudget)`. Simulate a fully-consumed authorization by setting `consumedBudget` to the
+    // authorization's own ceiling: any nonzero `plannedBudget` must then be rejected.
+    expect(() =>
+      assertHoldoutAuthorized({
+        ...valid,
+        consumedBudget: {
+          calls: authorization.maxCalls,
+          inputTokens: authorization.maxInputTokens,
+          outputTokens: authorization.maxOutputTokens,
+          costUsd: authorization.maxCostUsd,
+        },
+      }),
+    ).toThrow('BUDGET_INSUFFICIENT');
     // A fake_dry_run authorization can never authorize live execution -- either specific error
     // (fake-cannot-live, or the generic human-live-required check) is an acceptable closed reason.
     expect(() => assertHoldoutAuthorized({ ...valid, liveExecution: true })).toThrow('LIVE');

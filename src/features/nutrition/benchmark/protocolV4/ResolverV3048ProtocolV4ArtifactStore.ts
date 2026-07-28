@@ -30,20 +30,41 @@ export class ProtocolV4ArtifactStoreError extends Error {
   }
 }
 
-function assertWithinDryRunRoot(root: string): void {
-  const normalizedRoot = path.resolve(root);
+function assertPathWithinDryRunRoot(candidatePath: string): string {
+  const normalizedCandidate = path.resolve(candidatePath);
   const normalizedDryRunRoot = path.resolve(process.cwd(), PROTOCOL_V4_DRY_RUN_ROOT);
   if (
-    normalizedRoot !== normalizedDryRunRoot &&
-    !normalizedRoot.startsWith(`${normalizedDryRunRoot}${path.sep}`)
+    normalizedCandidate !== normalizedDryRunRoot &&
+    !normalizedCandidate.startsWith(`${normalizedDryRunRoot}${path.sep}`)
   )
     throw new ProtocolV4ArtifactStoreError(
-      `PROTOCOL_V4_ARTIFACT_STORE_LIVE_PATH_FORBIDDEN_IN_DRY_RUN:${root}`,
+      `PROTOCOL_V4_ARTIFACT_STORE_LIVE_PATH_FORBIDDEN_IN_DRY_RUN:${candidatePath}`,
     );
+  return normalizedCandidate;
+}
+
+/** Resolves `root`/`relativePath` and validates the FULLY RESOLVED final path -- not merely `root`
+ * -- stays within the dry-run scratch root. A `relativePath` containing `../../..` segments could
+ * otherwise escape the root via `path.join` even when `root` itself passes its own check; this closes
+ * that path-traversal gap. */
+function resolveArtifactPathWithinDryRunRoot(root: string, relativePath: string): string {
+  assertPathWithinDryRunRoot(root);
+  const joined = path.join(root, relativePath);
+  return assertPathWithinDryRunRoot(joined);
 }
 
 function tempPathFor(finalPath: string): string {
   return `${finalPath}.tmp-${process.pid}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** An authorization ID becomes a filename component (`authorization-<id>.consumed.json`), never a
+ * path segment -- reject anything containing a path separator or `..` so an authorization ID can
+ * never be used to escape the dry-run root via the marker-file naming scheme. */
+function assertAuthorizationIdIsSafeFilenameComponent(authorizationId: string): void {
+  if (!authorizationId || /[\\/]|\.\./.test(authorizationId))
+    throw new ProtocolV4ArtifactStoreError(
+      `PROTOCOL_V4_ARTIFACT_STORE_UNSAFE_AUTHORIZATION_ID:${authorizationId}`,
+    );
 }
 
 export interface ProtocolV4StoredArtifactRef {
@@ -55,8 +76,7 @@ export interface ProtocolV4StoredArtifactRef {
  * file means a prior write started (temp file created) but never completed (never renamed). A
  * caller resuming a run must check this before writing again. */
 export function detectProtocolV4ArtifactCrash(root: string, relativePath: string): boolean {
-  assertWithinDryRunRoot(root);
-  const finalPath = path.join(root, relativePath);
+  const finalPath = resolveArtifactPathWithinDryRunRoot(root, relativePath);
   const dir = path.dirname(finalPath);
   if (!fs.existsSync(dir)) return false;
   const base = path.basename(finalPath);
@@ -67,22 +87,23 @@ export function detectProtocolV4ArtifactCrash(root: string, relativePath: string
 
 /** Writes an artifact with create-new/exclusive-write semantics: rejects if the canonical target
  * already exists (never silently overwrites existing evidence), writes to a uniquely-named temp file
- * with an exclusive create flag, then atomically renames it into place. Returns the stored path and
- * the artifact's own content hash (re-derived from the artifact, never trusted blindly). */
+ * with an exclusive create flag, then commits it into place with `fs.linkSync` (an atomic hard-link
+ * that itself fails `EEXIST` if the final path already exists) followed by unlinking the temp name --
+ * never a bare `existsSync` check followed by a separate `renameSync`, which would leave a race
+ * window between the check and the commit that a concurrent writer could win (`rename` on POSIX
+ * silently CLOBBERS an existing target; `link` never does). Returns the stored path and the
+ * artifact's own content hash (re-derived from the artifact, never trusted blindly). */
 export function writeProtocolV4ArtifactExclusive<T>(
   root: string,
   relativePath: string,
   artifact: ProtocolV4Artifact<T>,
 ): ProtocolV4StoredArtifactRef {
-  assertWithinDryRunRoot(root);
+  const finalPath = resolveArtifactPathWithinDryRunRoot(root, relativePath);
   if (hashProtocolV4(artifact.content) !== artifact.contentHash)
     throw new ProtocolV4ArtifactStoreError(
       `PROTOCOL_V4_ARTIFACT_STORE_CONTENT_HASH_MISMATCH:${relativePath}`,
     );
-  const finalPath = path.join(root, relativePath);
   fs.mkdirSync(path.dirname(finalPath), { recursive: true });
-  if (fs.existsSync(finalPath))
-    throw new ProtocolV4ArtifactStoreError(`PROTOCOL_V4_ARTIFACT_ALREADY_EXISTS:${relativePath}`);
   const tempPath = tempPathFor(finalPath);
   const serialized = JSON.stringify(artifact);
   const fd = fs.openSync(tempPath, 'wx');
@@ -91,7 +112,15 @@ export function writeProtocolV4ArtifactExclusive<T>(
   } finally {
     fs.closeSync(fd);
   }
-  fs.renameSync(tempPath, finalPath);
+  try {
+    fs.linkSync(tempPath, finalPath);
+  } catch (e) {
+    fs.unlinkSync(tempPath);
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST')
+      throw new ProtocolV4ArtifactStoreError(`PROTOCOL_V4_ARTIFACT_ALREADY_EXISTS:${relativePath}`);
+    throw e;
+  }
+  fs.unlinkSync(tempPath);
   return { absolutePath: finalPath, contentHash: artifact.contentHash };
 }
 
@@ -119,9 +148,12 @@ export function consumeProtocolV4AuthorizationAtomically(
   root: string,
   authorizationId: string,
 ): void {
-  assertWithinDryRunRoot(root);
-  fs.mkdirSync(root, { recursive: true });
-  const markerPath = path.join(root, `authorization-${authorizationId}.consumed.json`);
+  assertAuthorizationIdIsSafeFilenameComponent(authorizationId);
+  const markerPath = resolveArtifactPathWithinDryRunRoot(
+    root,
+    `authorization-${authorizationId}.consumed.json`,
+  );
+  fs.mkdirSync(path.dirname(markerPath), { recursive: true });
   let fd: number;
   try {
     fd = fs.openSync(markerPath, 'wx');
@@ -143,13 +175,14 @@ export function isProtocolV4AuthorizationConsumedAtomically(
   root: string,
   authorizationId: string,
 ): boolean {
-  assertWithinDryRunRoot(root);
-  return fs.existsSync(path.join(root, `authorization-${authorizationId}.consumed.json`));
+  assertAuthorizationIdIsSafeFilenameComponent(authorizationId);
+  return fs.existsSync(
+    resolveArtifactPathWithinDryRunRoot(root, `authorization-${authorizationId}.consumed.json`),
+  );
 }
 
 /** Storage-backed replacement for a bare `artifactTargetUnused: boolean`: true only when the
  * canonical target does not yet exist on disk under the (dry-run-restricted) store root. */
 export function isProtocolV4ArtifactTargetUnused(root: string, relativePath: string): boolean {
-  assertWithinDryRunRoot(root);
-  return !fs.existsSync(path.join(root, relativePath));
+  return !fs.existsSync(resolveArtifactPathWithinDryRunRoot(root, relativePath));
 }

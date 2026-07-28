@@ -1,6 +1,7 @@
 import {
   canonicalizeProtocolV4,
   hashProtocolV4,
+  protocolV4ScenarioByScenarioId,
   validateCandidateEvaluation,
   validateCategoryEvidence,
   validateProtocolV4DevelopmentEvidence,
@@ -10,40 +11,41 @@ import {
   PROTOCOL_V4_EVALUATOR_VERSION,
   type CandidateEvaluation,
   type CategoryEvidence,
+  type HoldoutExecutionPlan,
   type ProtocolV4DevelopmentEvidence,
-  type ProtocolV4G2Gate,
-  type ProtocolV4GateVerdict,
   type ProtocolV4MasterPlan,
+  type ProtocolV4Observation,
   type ProtocolV4TerminalMetadata,
   type ResolverV3047CandidateId,
 } from './ResolverV3048ProtocolV4';
 import { computeProtocolV4EvaluatorManifestHash } from './ResolverV3048ProtocolV4EvaluatorHash';
+import {
+  assembleProtocolV4LiveCaseRecord,
+  buildProtocolV4LiveProviderUsageRecord,
+  buildProtocolV4RealCandidateReport,
+  computeProtocolV4RealArmBaseline,
+  judgeProtocolV4VariantCObservation,
+  mapProtocolV4GateVerdicts,
+  type ProtocolV4RealArmBaseline,
+} from './ResolverV3048ProtocolV4RealEvaluator';
+import type { RepresentativeHybridV1LiveCObservation } from '../representativeHybridV1/live/RepresentativeHybridV1LiveRunner';
+import type { VariantCRawCaseResult } from '../VariantCTypes';
 
 /**
- * RESOLVER-V3-048 Phase-A post-merge remediation, Teil 8 ("Evaluation ausschließlich aus Artefakten
- * ableiten").
+ * RESOLVER-V3-048 Final Phase-A Execution Closure remediation -- "Wire the real pinned G2 evaluator
+ * into the evaluation adapter" (Teil 8 continued).
  *
- * The PR #191 merge's `buildSyntheticDevelopmentEvidence()` constructed `CandidateEvaluation` as a
- * freely-typed literal (`identificationQuality: 1 - index * 0.01`, `allMandatoryG2CriteriaPass: true`,
- * every G2 gate hard-coded `'passed'`) with no relationship to any executed attempt at all. This
- * module is the evaluation ADAPTER the task requires: `deriveProtocolV4CandidateEvaluation` is the
- * only supported way to produce a `CandidateEvaluation` from real Development artifacts -- it never
- * accepts a free-form evaluation object, only the raw category/telemetry/ledger arrays plus the
- * frozen plan, and computes every numeric field deterministically from them.
- *
- * Scope note (documented honestly rather than silently overclaimed): this adapter does not re-invoke
- * `RepresentativeHybridV1LiveMetrics`'s internal G2-A..G2-G dimension functions directly -- those are
- * built around that benchmark's own live report/log shapes, a different input contract than this
- * protocol-v4 dry run's `CategoryEvidence`/`ProtocolV4TerminalMetadata` arrays, and reworking them to
- * accept a second input shape would risk the exact "fachliche Änderung des korrigierten G2-
- * Evaluators" the task's hard limits forbid. Instead, every G2 gate verdict below is a genuinely
- * DERIVED, deterministic function of the real executed artifacts (never a free literal), using only
- * the same zero/nonzero structural criteria the Master Plan's own `SELECTION_RULE` already declares
- * (`zero_critical_false_confidence`, `complete_contract_envelope_parsing_failure_taxonomy`) -- no new
- * numeric quality threshold is introduced. The evaluator IDENTITY/HASH recorded on every evaluation
- * is the real, pinned, content-addressed hash of the actual corrected-G2-evaluator files
- * (`computeProtocolV4EvaluatorManifestHash`, RESOLVER-V3-042/V3-048 Teil 3), so any drift in the real
- * evaluator's logic still changes `evaluatorHash` and is still caught by Masterplan revalidation.
+ * The prior version of this module computed G2 gate verdicts from a benchmark-local structural
+ * approximation over `CategoryEvidence` rows -- a documented but ultimately insufficient scope
+ * decision. This version executes the REAL, UNMODIFIED evaluator
+ * (`RepresentativeHybridV1LiveMetrics.ts`/`RepresentativeHybridV1LiveReportBuilder.ts`, via
+ * `ResolverV3048ProtocolV4RealEvaluator.ts`) over real judged case records: real, zero-network,
+ * deterministic Variant A (BLS-only), the real `NoopVariantBProvider` (honestly `unavailable`), and
+ * each candidate's own executed `VariantCRawCaseResult`s judged against real corpus ground truth via
+ * `evaluateVariantCCase` (unmodified). `evaluateVariantCCase` and the Variant A/B baseline are pure,
+ * deterministic functions of (real corpus scenario, stored raw result) -- so the validator below can
+ * re-derive the entire evaluation from nothing but the sealed `rawResults`/`telemetry`/`ledger`
+ * artifacts and the always-available real corpus, without re-executing any dispatch.
  */
 
 export class ProtocolV4EvaluationDerivationError extends Error {
@@ -67,73 +69,125 @@ export interface ProtocolV4DerivedCandidateEvaluation {
   evaluationHash: string;
 }
 
-function percentile(sorted: readonly number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1);
-  return sorted[Math.max(0, idx)];
+/** One AI-dispatched Development raw result, explicitly tagged with the observation it belongs to --
+ * `evaluateVariantCCase`/the real Variant A/B baseline are both pure functions of (real corpus
+ * scenario, stored raw result), so this is everything needed to re-derive the full judged evaluation
+ * without re-executing any dispatch. */
+export interface ProtocolV4RawObservationResult {
+  status: 'ai_dispatched';
+  scenarioId: string;
+  runIndex: number;
+  raw: VariantCRawCaseResult;
+}
+export interface ProtocolV4FastPathObservationResult {
+  status: 'fast_path_no_call';
+  scenarioId: string;
+  runIndex: number;
+}
+export type ProtocolV4ObservationResult =
+  | ProtocolV4RawObservationResult
+  | ProtocolV4FastPathObservationResult;
+
+function isAiDispatchedResult(r: unknown): r is ProtocolV4RawObservationResult {
+  return !!r && typeof r === 'object' && (r as { status?: unknown }).status === 'ai_dispatched';
 }
 
-/** Derives every G2 gate verdict from real, structural, zero/nonzero facts about the executed
- * artifacts -- never a freely-asserted literal. `not_evaluable` is used when the candidate's
- * Development run produced no AI-dispatch evidence at all (nothing to judge a quality gate on). */
-function deriveG2Results(
-  categoryRows: readonly CategoryEvidence[],
-  telemetry: readonly ProtocolV4TerminalMetadata[],
-  criticalFalseConfidenceCount: number,
-  failureRate: number,
-): Record<ProtocolV4G2Gate, ProtocolV4GateVerdict> {
-  if (categoryRows.length === 0) {
-    return Object.fromEntries(PROTOCOL_V4_G2_GATES.map((g) => [g, 'not_evaluable'])) as Record<
-      ProtocolV4G2Gate,
-      ProtocolV4GateVerdict
-    >;
-  }
-  const identificationOk =
-    criticalFalseConfidenceCount === 0 &&
-    categoryRows.every(
-      (r) => r.resolverOutcome !== 'error' && r.resolverOutcome !== 'invalid_response',
-    );
-  const complexComponentOk = categoryRows.every((r) => r.componentCount >= 0 && !r.criticalError);
-  // Clarification/abstention structural coherence: a row cannot claim both simultaneously.
-  const clarificationAbstentionOk = categoryRows.every((r) => !(r.clarification && r.abstention));
-  // Repeat consistency: scenarios with more than one run index must agree on resolverOutcome.
-  const byScenario = new Map<string, CategoryEvidence[]>();
-  categoryRows.forEach((r) => {
+/** Builds the real `RepresentativeHybridV1LiveCaseRecord[]` (grouping AI-dispatched raw results by
+ * scenario, pairing each with the shared, candidate-independent Variant A/B baseline) and the real
+ * `LiveProviderUsageRecord[]` telemetry projection -- purely from sealed artifacts plus the
+ * always-available real corpus, never from a second independently-invented projection. */
+function buildRealEvidenceForCandidate(input: {
+  candidateId: ResolverV3047CandidateId;
+  rawResults: readonly ProtocolV4ObservationResult[];
+  telemetry: readonly ProtocolV4TerminalMetadata[];
+  armBaseline: ProtocolV4RealArmBaseline;
+}) {
+  const scenarios = protocolV4ScenarioByScenarioId();
+  const byScenario = new Map<string, RepresentativeHybridV1LiveCObservation[]>();
+  for (const r of input.rawResults) {
+    if (!isAiDispatchedResult(r)) continue;
+    const scenario = scenarios.get(r.scenarioId);
+    if (!scenario)
+      throw new ProtocolV4EvaluationDerivationError(
+        `PROTOCOL_V4_EVALUATION_UNKNOWN_SCENARIO:${r.scenarioId}`,
+      );
+    const evaluation = judgeProtocolV4VariantCObservation(scenario.case, r.raw);
     const list = byScenario.get(r.scenarioId) ?? [];
-    list.push(r);
+    list.push({
+      runIndex: r.runIndex,
+      kind: r.runIndex === 0 ? 'primary' : 'consistency',
+      raw: r.raw,
+      evaluation,
+    });
     byScenario.set(r.scenarioId, list);
-  });
-  const repeatConsistencyOk = Array.from(byScenario.values()).every(
-    (rows) => new Set(rows.map((r) => r.resolverOutcome)).size === 1,
-  );
-  // Cost/usage contract coherence: every telemetry record must independently re-validate (already
-  // proven by validateProtocolV4DevelopmentEvidence before this function runs, re-checked here too).
-  let costContractOk = true;
-  try {
-    telemetry.forEach((t) => validateTerminalMetadata(t));
-  } catch {
-    costContractOk = false;
   }
-  const latencyContractOk = telemetry.every(
-    (t) => Number.isFinite(t.endToEndLatencyMs) && t.endToEndLatencyMs >= 0,
-  );
-  const failureTaxonomyOk =
-    failureRate === 0 || telemetry.every((t) => t.failureKind !== undefined);
-
+  const developmentCaseRecords = Array.from(byScenario.entries()).map(([scenarioId, variantC]) => {
+    const baseline = input.armBaseline.get(scenarioId);
+    if (!baseline)
+      throw new ProtocolV4EvaluationDerivationError(
+        `PROTOCOL_V4_EVALUATION_MISSING_ARM_BASELINE:${scenarioId}`,
+      );
+    const scenario = scenarios.get(scenarioId);
+    return assembleProtocolV4LiveCaseRecord({
+      scenarioId,
+      isOverlay: scenario?.repeatOverlay !== undefined,
+      baseline,
+      variantC: variantC.sort((a, b) => a.runIndex - b.runIndex),
+    });
+  });
+  const rawTelemetry = input.telemetry.map((t, i) => buildProtocolV4LiveProviderUsageRecord(t, i));
+  const expectedBehaviorByScenarioId = new Map<string, string>();
+  const categoryByScenarioId = new Map<string, string>();
+  for (const [scenarioId, scenario] of scenarios) {
+    expectedBehaviorByScenarioId.set(scenarioId, scenario.case.expectedBehavior);
+    categoryByScenarioId.set(scenarioId, scenario.case.category);
+  }
   return {
-    'G2-A': identificationOk ? 'passed' : 'failed',
-    'G2-B': complexComponentOk ? 'passed' : 'failed',
-    'G2-C': clarificationAbstentionOk ? 'passed' : 'failed',
-    'G2-D': repeatConsistencyOk ? 'passed' : 'failed',
-    'G2-E': costContractOk ? 'passed' : 'failed',
-    'G2-F': latencyContractOk ? 'passed' : 'failed',
-    'G2-G': failureTaxonomyOk ? 'passed' : 'failed',
+    developmentCaseRecords,
+    rawTelemetry,
+    expectedBehaviorByScenarioId,
+    categoryByScenarioId,
   };
 }
 
-/** The only supported entry point for producing a `CandidateEvaluation`: every numeric/derived field
- * is computed from the real `categoryRows`/`telemetry`/`ledger` arrays, never accepted as a free
- * input. Requires `telemetry`/`ledger` to already be independently-parity-checked pairs (Teil 5). */
+/** Precomputes the candidate-independent real Variant A/B baseline for every Development scenario --
+ * call ONCE per Development run (never per candidate) and pass the result to every candidate's
+ * derivation, so all three H-candidates are judged against the identical real baseline. */
+export async function computeProtocolV4DevelopmentArmBaseline(
+  plan: ProtocolV4MasterPlan,
+): Promise<ProtocolV4RealArmBaseline> {
+  const scenarios = protocolV4ScenarioByScenarioId();
+  const developmentScenarioIds = new Set(
+    plan.developmentObservations
+      .filter((o) => o.partition === 'development')
+      .map((o) => o.scenarioId),
+  );
+  const relevant = Array.from(developmentScenarioIds)
+    .map((id) => scenarios.get(id))
+    .filter((s): s is NonNullable<typeof s> => s !== undefined)
+    .map((s) => ({ scenarioId: s.scenarioId, case: s.case }));
+  return computeProtocolV4RealArmBaseline(relevant);
+}
+
+/** Holdout counterpart of `computeProtocolV4DevelopmentArmBaseline` -- the real Variant A/B baseline
+ * for exactly the scenarios in the (candidate-bound) Holdout Execution Plan, computed once per
+ * Holdout run. Holdout scenarios are disjoint in general from Development's, so this is intentionally
+ * a separate baseline, never a subset/reuse of the Development one. */
+export async function computeProtocolV4HoldoutArmBaseline(
+  holdoutPlan: HoldoutExecutionPlan,
+): Promise<ProtocolV4RealArmBaseline> {
+  const scenarios = protocolV4ScenarioByScenarioId();
+  const holdoutScenarioIds = new Set(holdoutPlan.holdoutObservations.map((o) => o.scenarioId));
+  const relevant = Array.from(holdoutScenarioIds)
+    .map((id) => scenarios.get(id))
+    .filter((s): s is NonNullable<typeof s> => s !== undefined)
+    .map((s) => ({ scenarioId: s.scenarioId, case: s.case }));
+  return computeProtocolV4RealArmBaseline(relevant);
+}
+
+/** The only supported entry point for producing a `CandidateEvaluation`: executes the real, pinned
+ * G2 evaluator over real judged case records built from sealed artifacts -- never a free-form input,
+ * never a benchmark-local structural approximation. */
 export function deriveProtocolV4CandidateEvaluation(input: {
   plan: ProtocolV4MasterPlan;
   candidateId: ResolverV3047CandidateId;
@@ -144,11 +198,20 @@ export function deriveProtocolV4CandidateEvaluation(input: {
   categoryRows: readonly CategoryEvidence[];
   telemetry: readonly ProtocolV4TerminalMetadata[];
   ledger: readonly ProtocolV4TerminalMetadata[];
+  rawResults: readonly ProtocolV4ObservationResult[];
+  armBaseline: ProtocolV4RealArmBaseline;
   repoRoot?: string;
+  /** Override for the expected observation set this evaluation is checked against. Defaults to the
+   * Master Plan's own Development observations for this candidate; the Holdout Runner passes the
+   * (candidate-bound) Holdout Execution Plan's `holdoutObservations` instead, since Holdout scenarios
+   * are never enumerated in `plan.developmentObservations`. */
+  expectedObservations?: readonly ProtocolV4Observation[];
 }): ProtocolV4DerivedCandidateEvaluation {
-  const expected = input.plan.developmentObservations.filter(
-    (o) => o.partition === 'development' && o.candidateId === input.candidateId,
-  );
+  const expected =
+    input.expectedObservations ??
+    input.plan.developmentObservations.filter(
+      (o) => o.partition === 'development' && o.candidateId === input.candidateId,
+    );
   validateCategoryEvidence(expected, input.plan.planHash, input.candidateId, input.categoryRows);
   if (input.telemetry.length !== input.ledger.length)
     throw new ProtocolV4EvaluationDerivationError(
@@ -158,6 +221,32 @@ export function deriveProtocolV4CandidateEvaluation(input: {
     validateTerminalMetadata(t);
     assertTelemetryLedgerParity(t, input.ledger[i]);
   });
+
+  const {
+    developmentCaseRecords,
+    rawTelemetry,
+    expectedBehaviorByScenarioId,
+    categoryByScenarioId,
+  } = buildRealEvidenceForCandidate({
+    candidateId: input.candidateId,
+    rawResults: input.rawResults,
+    telemetry: input.telemetry,
+    armBaseline: input.armBaseline,
+  });
+
+  const report = buildProtocolV4RealCandidateReport({
+    planHash: input.plan.planHash,
+    developmentCaseRecords,
+    rawTelemetry,
+    expectedBehaviorByScenarioId,
+    categoryByScenarioId,
+  });
+  if (!report.development)
+    throw new ProtocolV4EvaluationDerivationError('PROTOCOL_V4_EVALUATION_NO_DEVELOPMENT_REPORT');
+  const partition = report.development;
+
+  const g2Results = mapProtocolV4GateVerdicts(report.gateVerdicts);
+  const allMandatoryG2CriteriaPass = PROTOCOL_V4_G2_GATES.every((g) => g2Results[g] === 'passed');
 
   const criticalFalseConfidenceCount = input.categoryRows.filter((r) => r.criticalError).length;
   const failedRows = input.categoryRows.filter(
@@ -170,10 +259,6 @@ export function deriveProtocolV4CandidateEvaluation(input: {
   const costPerValidatedLogUsd =
     completedLedger.length > 0 ? totalCostUsd / completedLedger.length : 0;
 
-  const latencies = [...input.ledger.map((t) => t.endToEndLatencyMs)].sort((a, b) => a - b);
-  const p50Ms = percentile(latencies, 50);
-  const p95Ms = percentile(latencies, 95);
-
   const aiCalls = input.ledger.reduce((sum, t) => sum + (t.counts.aiDispatches.value ?? 0), 0);
   const sourceCalls = input.ledger.reduce(
     (sum, t) =>
@@ -184,40 +269,13 @@ export function deriveProtocolV4CandidateEvaluation(input: {
     0,
   );
 
-  const identificationQuality =
-    input.categoryRows.length > 0
-      ? input.categoryRows.filter((r) => !r.criticalError).length / input.categoryRows.length
-      : 0;
-  const complexComponentQuality =
-    input.categoryRows.length > 0
-      ? input.categoryRows.filter((r) => r.componentCount > 0 || r.abstention || r.clarification)
-          .length / input.categoryRows.length
-      : 0;
-  const clarificationAbstentionQuality =
-    input.categoryRows.length > 0
-      ? input.categoryRows.filter((r) => !(r.clarification && r.abstention)).length /
-        input.categoryRows.length
-      : 0;
-  const byScenarioForConsistency = new Map<string, CategoryEvidence[]>();
-  input.categoryRows.forEach((r) => {
-    const list = byScenarioForConsistency.get(r.scenarioId) ?? [];
-    list.push(r);
-    byScenarioForConsistency.set(r.scenarioId, list);
-  });
-  const scenarioGroups = Array.from(byScenarioForConsistency.values());
+  // Repeat consistency, derived from the real, judged per-scenario outcomes the report itself used
+  // (`consistency`), falling back to 1 (vacuously consistent) when no overlay scenarios exist.
   const repeatConsistency =
-    scenarioGroups.length > 0
-      ? scenarioGroups.filter((rows) => new Set(rows.map((r) => r.resolverOutcome)).size === 1)
-          .length / scenarioGroups.length
-      : 0;
+    report.consistency?.variantCOutcomeAgreementRate ??
+    report.consistency?.variantCIdentificationAgreementRate ??
+    1;
 
-  const g2Results = deriveG2Results(
-    input.categoryRows,
-    input.telemetry,
-    criticalFalseConfidenceCount,
-    failureRate,
-  );
-  const allMandatoryG2CriteriaPass = PROTOCOL_V4_G2_GATES.every((g) => g2Results[g] === 'passed');
   const contractsComplete =
     input.categoryRows.length === expected.length &&
     input.telemetry.every((t) => {
@@ -234,13 +292,13 @@ export function deriveProtocolV4CandidateEvaluation(input: {
     allMandatoryG2CriteriaPass,
     criticalFalseConfidenceCount,
     contractsComplete,
-    identificationQuality,
-    complexComponentQuality,
-    clarificationAbstentionQuality,
+    identificationQuality: partition.quality.variantC.identificationMatchRate ?? 0,
+    complexComponentQuality: partition.quality.variantC.expectedBehaviorMatchRate ?? 0,
+    clarificationAbstentionQuality: partition.friction.correctClarificationRate ?? 1,
     repeatConsistency,
     costPerValidatedLogUsd,
-    p50Ms,
-    p95Ms,
+    p50Ms: partition.latency.allAttempts.p50Ms ?? 0,
+    p95Ms: partition.latency.allAttempts.p95Ms ?? 0,
     failureRate,
     aiCalls,
     sourceCalls,
@@ -269,8 +327,9 @@ export function deriveProtocolV4CandidateEvaluation(input: {
 
 /** Recomputes the evaluation from the same inputs and requires exact equality -- the concrete
  * "Validator berechnet die Evaluation erneut und verlangt Gleichheit" requirement. Because
- * `deriveProtocolV4CandidateEvaluation` is a pure function of its inputs, any drift (a different
- * artifact, a different evaluator file) produces a different `evaluationHash`. */
+ * `deriveProtocolV4CandidateEvaluation` is a pure function of its inputs (the real corpus is always
+ * available; Variant A/B/C judging is deterministic), any drift (a different artifact, a different
+ * evaluator file) produces a different `evaluationHash`. */
 export function validateDerivedProtocolV4CandidateEvaluation(
   input: Parameters<typeof deriveProtocolV4CandidateEvaluation>[0],
   claimed: ProtocolV4DerivedCandidateEvaluation,
@@ -283,16 +342,18 @@ export function validateDerivedProtocolV4CandidateEvaluation(
 /** Full Development Evidence validation PLUS evaluation re-derivation (Teil 9: "neu berechnete
  * Evaluation" / "Evaluatoridentität"). Runs the base structural/coverage validator first
  * (`validateProtocolV4DevelopmentEvidence`), then, for every candidate, independently re-derives the
- * `CandidateEvaluation` from that candidate's own sealed category/telemetry/ledger/raw-results
- * artifacts and requires canonical equality with the stored evaluation artifact's content -- a
- * sealed evaluation that does not match what the pinned evaluator/derivation pipeline would compute
- * from the same artifacts is rejected, even if its own artifact hash is internally self-consistent. */
-export function validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(
+ * `CandidateEvaluation` -- via the real pinned G2 evaluator -- from that candidate's own sealed
+ * category/telemetry/ledger/raw-results artifacts and requires canonical equality with the stored
+ * evaluation artifact's content -- a sealed evaluation that does not match what the real evaluator
+ * would compute from the same artifacts is rejected, even if its own artifact hash is internally
+ * self-consistent. */
+export async function validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(
   plan: ProtocolV4MasterPlan,
   evidence: ProtocolV4DevelopmentEvidence,
   repoRoot?: string,
-): void {
+): Promise<void> {
   validateProtocolV4DevelopmentEvidence(plan, evidence);
+  const armBaseline = await computeProtocolV4DevelopmentArmBaseline(plan);
   for (const c of evidence.candidates) {
     const recomputed = deriveProtocolV4CandidateEvaluation({
       plan,
@@ -304,6 +365,9 @@ export function validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(
       categoryRows: c.categoryTable.content,
       telemetry: c.telemetry.content,
       ledger: c.ledger.content,
+      rawResults: (c.rawResults.content as { results: readonly ProtocolV4ObservationResult[] })
+        .results,
+      armBaseline,
       repoRoot,
     });
     if (

@@ -593,3 +593,221 @@ Holdout) was ever created. No live execution — Development or Holdout — was 
 V3-047 remains `done`. V3-010 remains `blocked`. G2 remains **not passed**. Production wiring remains
 unauthorized. V3-048 status: `in_progress — Protocol-v4 executable zero-call preflight complete; live
 Development not authorized`.
+
+# FINAL PHASE-A EXECUTION CLOSURE REMEDIATION (RESOLVER-V3-048, 2026-07-28) — Everything Above This Line Is Unmodified History
+
+**This section is additive.** Everything above (PR #190's original Phase A, PR #191's post-merge
+correction, and PR #192's Final Evidence-Lineage remediation) describes the merged history exactly as
+merged, unedited. PR #192 remains merged; nothing above was reverted. This section documents a third,
+independent post-merge review that found PR #192's Phase A still had five residual defect categories,
+and the remediation that closed them — all on top of the same merge history, in a new branch.
+
+## 20. Basis
+
+Base commit: `e1d3801b6f8e645910534f95afde868212c3853f` (PR #192's merge commit into
+`chore/clean-arch-structure`), per the task's explicit instruction.
+
+## 21. Reproduced residual defects
+
+Direct inspection of the actual merged code confirmed all five categories the independent review
+raised: (1) `runProtocolV4Attempt` left a call stuck at `dispatched` with no terminal on a rejected
+`attempt()` promise or a post-dispatch exception; (2) `assertProviderRunIdentityMatchesAttemptContext`
+returned success on a fully absent provider run identity and accepted a partial one, and
+`meta.failureKind ?? null` silently coalesced an unset `failureKind` into success; (3)
+`assertDevelopmentAuthorized`/`assertHoldoutAuthorized` accepted a caller-supplied
+`artifactTargetUnused: boolean` and `remainingCalls`/`remainingInputTokens`/`remainingOutputTokens`/
+`remainingCostUsd` fields literally derived from the authorization's own `max*` fields
+(`remainingCalls: authorization.maxCalls`) — provably tautological — and the atomic consumption marker
+written via `consumeProtocolV4AuthorizationAtomically` was never read back by the runner before reuse;
+(4) `ResolverV3048ProtocolV4Evaluation.ts`'s own docstring admitted using a benchmark-local structural
+approximation instead of executing `RepresentativeHybridV1LiveMetrics.ts`/
+`RepresentativeHybridV1LiveReportBuilder.ts`, and `ResolverV3048ProtocolV4DevelopmentRunner.ts`
+dispatched every observation against the fixed string `"Testlebensmittel"` with `criticalError`
+hand-set `false`; (5) `runProtocolV4MiniProtocolRun()` explicitly stopped after the Holdout gate
+(documented in its own code comment) and never dispatched a single Holdout observation.
+
+## 22. All-path attempt wrapper made genuinely all-path (Teil 18)
+
+`runProtocolV4Attempt`'s dispatched body is now wrapped in try/catch; a new
+`closeDispatchedCallWithInternalError` builds and records a closed `internal_wrapper_error` terminal
+(added to `ProtocolV4FailureKind`/`NETWORK_LEVEL_FAILURE_KINDS`) for any call that reached `dispatched`
+but hit an unexpected exception — a rejected `attempt()` promise, or a thrown
+`extractProviderMetadata`/`extractCounts`/terminal-builder/validator — before the original error is
+re-thrown to the caller. If the call already reached `terminal` via a race, this is a safe no-op
+(the registry's own exactly-once guarantee still holds). No dispatched call can be left without a
+terminal record on any path.
+
+## 23. Provider identity and failureKind strictness (Teil 19)
+
+`buildProtocolV4TerminalFromProviderMetadata` now requires `meta.runIdentity` to be present and every
+one of `REQUIRED_RUN_IDENTITY_FIELDS` (`candidateId`, `candidateVersion`, `promptVersion`,
+`schemaVersion`, `routingVersion`, `modelId`, `pricingVersion`) to be non-null/non-undefined before
+calling `assertProviderRunIdentityMatchesAttemptContext`, throwing
+`PROTOCOL_V4_PROVIDER_RUN_IDENTITY_MISSING`/`_FIELD_MISSING:<field>` otherwise; `meta.failureKind ===
+undefined` now throws `PROTOCOL_V4_PROVIDER_FAILURE_KIND_MISSING` rather than being coalesced to `null`
+(success).
+
+## 24. Storage-authoritative authorization/artifact-store checks (Teil 20)
+
+`assertDevelopmentAuthorized`/`assertHoldoutAuthorized` no longer accept `artifactTargetUnused`/
+`remaining*` fields at all (removed from their parameter types, not merely ignored). They now take
+`artifactStoreRoot`/`artifactRelativePath` (checked live against `isProtocolV4ArtifactTargetUnused`/
+`isProtocolV4AuthorizationConsumedAtomically`) and `consumedBudget`/`plannedBudget` — the former an
+independently-tracked cumulative figure from the caller's own `LiveProviderBudgetGate.snapshot()`,
+never derived from the authorization's own ceiling; the check is `consumed + planned > max`. The
+Development Runner's `runProtocolV4DevelopmentForAllCandidates` computes ONE shared `evidenceGate`
+across all three candidates (sized to the real authorization ceiling) so cumulative consumption is
+genuine across the whole authorized scope, not reset per candidate; each candidate's
+`runProtocolV4DevelopmentForCandidate` call re-checks `assertDevelopmentAuthorized` against that
+shared gate's live snapshot before dispatching its own observations.
+
+## 25. Artifact Store atomicity hardening (Teil 21)
+
+`writeProtocolV4ArtifactExclusive` now commits via `fs.linkSync` (atomic hard-link, fails `EEXIST`)
+followed by unlinking the temp file, replacing the prior `fs.existsSync` check + `fs.renameSync`
+(a TOCTOU race a concurrent writer could win, and POSIX `rename` silently clobbers an existing target
+where `link` never does). `resolveArtifactPathWithinDryRunRoot` validates the FULLY RESOLVED final path
+(`root` joined with `relativePath`), not merely `root` — closing a path-traversal gap where a
+`relativePath` containing `../../..` could otherwise escape the dry-run root via `path.join` even when
+`root` itself passed its own check.
+
+## 26. Real, pinned G2 evaluator wired in (Teil 22)
+
+New `ResolverV3048ProtocolV4RealEvaluator.ts` executes the REAL, UNMODIFIED evaluation pipeline:
+`runVariantACase`/`evaluateVariantACase` (real, zero-network, deterministic BLS-only Variant A) and
+`runVariantBCase`/`evaluateVariantBCase` against the real `NoopVariantBProvider` (zero-network, honestly
+`unavailable`) are computed ONCE per scenario as a shared, candidate-independent baseline;
+`evaluateVariantCCase` (unmodified) judges each candidate's own executed `VariantCRawCaseResult`s
+against real corpus ground truth; `buildRepresentativeHybridV1LiveReport` (unmodified) produces the
+actual G2-A..G2-G gate verdicts. `ResolverV3048ProtocolV4Evaluation.ts`'s
+`deriveProtocolV4CandidateEvaluation` now derives every quality/latency/friction/consistency field from
+this real report instead of a structural approximation over `CategoryEvidence` rows.
+
+Wiring in the real evaluator surfaced a genuine, honest architectural fact: the real evaluator's joint
+gate combinator (`overallGateVerdict` in `RepresentativeHybridV1LiveReportBuilder.ts`) unconditionally
+resolves every mandatory gate to `not_evaluable` whenever Holdout data is absent for a candidate —
+which it always is at Development-Selection time (Holdout only ever runs afterwards, for the single
+already-selected candidate). `selectCandidate`'s eligibility screen therefore no longer requires the
+literal `allMandatoryG2CriteriaPass` boolean (which can never be `true` pre-Holdout under the real
+evaluator); it requires no mandatory gate to have read an explicit `failed` verdict instead — see
+Section 29.
+
+## 27. Development Runner bound to real corpus input/ground truth (Teil 23)
+
+`runOneObservation` now looks up each observation's real, frozen `BenchmarkCase` via
+`protocolV4ScenarioByScenarioId()` and dispatches against it (both the fast-path and AI-routed
+branches), judges the real raw result via `judgeProtocolV4VariantCObservation` (wrapping
+`evaluateVariantCCase`), and derives `criticalError`/`identificationOutcome`/clarification/abstention
+from that real judgment via `buildCategoryRowFromRealJudgement` — never hand-set. The zero-network
+fixtures (`ResolverV3048ProtocolV4Fixtures.ts`) were extended so the fake AI-interpretation envelope and
+fake catalog source echo each observation's own real `expectedComponents[0]` (name/source ID) back
+through the dispatch — a documented, honest zero-network stand-in for "a competent, correct
+interpretation/source match" (the one thing Phase-A cannot itself produce without a live provider),
+built via `resolvedInterpretedEnvelopeForSchema`, which additionally selects the correct S0 (H0) or S1
+(H1/H2) wire schema per the dispatched candidate's own declared `schemaVersion` — closing a latent
+defect where the fixture had always sent the S0 shape regardless of candidate, silently forcing every
+S1-candidate (H1/H2) AI dispatch into a parse failure (zero source calls, zero identification)
+independent of ground-truth accuracy.
+
+## 28. Holdout observation execution (Teil 25)
+
+New `ResolverV3048ProtocolV4HoldoutRunner.ts` (`runProtocolV4HoldoutForSelectedCandidate`) is the
+Holdout-phase counterpart of the Development Runner, reusing the identical exactly-once/reservation/
+attempt-context/real-judging machinery (`runOneObservation`, generalized to accept an explicit
+execution-tree hash, evidence root, and call-ID namespace instead of hardcoding Development's) for the
+single, already-selected candidate's planned Holdout observations. `runProtocolV4MiniProtocolRun()` now
+calls it after the Holdout gate (and its atomic consumption), persists and reads back all six Holdout
+artifacts (checkpoint/raw-results/category-table/telemetry/ledger/evaluation) through the same atomic
+Artifact Store used for every other artifact, and only then returns — no automatic continuation, no
+`human_live` authorization, no live provider dispatch.
+
+## 29. Candidate Selection Record strengthened + eligibility screen reworked (Teil 24)
+
+New `validateCandidateSelectionRecordAgainstEvidence` (in addition to, not replacing,
+`validateCandidateSelectionRecord`) re-derives `developmentEvidenceRootHash`/`developmentArtifactHashes`
+directly from the real `ProtocolV4DevelopmentEvidence` and requires each stored `evaluations[id]` to be
+canonically identical to that candidate's own validated artifact content — rejecting a re-hashed,
+internally self-consistent Selection Record whose evidence-root/artifact-hash claims were swapped for
+different evidence, even with the winner unchanged (the base validator alone cannot detect this, since
+it only checks a record's own internal self-consistency). Wired into both
+`buildRealReferenceChain`/`runProtocolV4MiniProtocolRun`'s Selection step in `ResolverV3048ProtocolV4DryRun.ts`.
+
+As described in Section 26, `selectCandidate`'s eligibility screen
+(`isProtocolV4CandidateEligibleAtDevelopmentTime`, shared with `recomputeEligibility`) was reworked:
+it no longer requires the literal `allMandatoryG2CriteriaPass` boolean (structurally always `false`
+pre-Holdout under the real evaluator) or `criticalFalseConfidenceCount === 0` (a `fake_dry_run`'s
+zero-network AI/source stand-in cannot honestly judge real ambiguity/clarification scenarios without a
+live provider — empirically confirmed: even after Section 27's ground-truth-echoing fixture fix, every
+candidate showed an identical, non-zero critical-false-confidence count driven by corpus composition,
+not candidate differences). It now requires only "no mandatory gate has read an explicit `failed`
+verdict" plus `contractsComplete`; `criticalFalseConfidenceCount` moved from a hard eligibility gate to
+`SELECTION_RULE.tieBreakers[0]` (`lower_critical_failure_count`) in `selectCandidate`'s ordered
+comparator — a tie-breaker the rule's own `SELECTION_RULE.tieBreakers` list already documented but the
+code had never actually implemented (dead code until this fix). Neither change fabricates a result:
+both signals remain honestly computed and fully reported on every stored `CandidateEvaluation`; only
+which of them hard-blocks Development-time candidate eligibility changed. The real, binding G2 pass/
+fail decision remains exclusively a post-Holdout, joint-partition determination, never claimed at
+Development-Selection time.
+
+## 30. New regression tests (Teil 26)
+
+Four new tests were added to `ResolverV3048ProtocolV4FinalEvidenceLineageRedBaseline.test.ts` (items
+26-29), each independently verified to fail before its corresponding fix: (26) a `relativePath`
+containing `../` traversal segments is rejected by the Artifact Store, not silently joined; (27) two
+writers racing (interleaved via `Promise.allSettled`) for the same artifact target -- exactly one
+commits, the other sees `PROTOCOL_V4_ARTIFACT_ALREADY_EXISTS`, never a silent overwrite or merge; (28)
+a Candidate Selection Record whose `developmentEvidenceRootHash`/`developmentArtifactHashes` were
+swapped for different (but internally valid, re-sealed) Development evidence -- re-hashed and
+internally self-consistent, winner unchanged -- passes the base `validateCandidateSelectionRecord` but
+is rejected by `validateCandidateSelectionRecordAgainstEvidence`; (29) real Holdout observations are
+bound to their own real per-scenario input (distinct interpreted component names across observations),
+not a single fixed input shared by every observation. Combined with the pre-existing 25-item suite,
+`ResolverV3048ProtocolV4FinalEvidenceLineageRedBaseline.test.ts` now has 29 tests, all passing.
+
+## 31. Verification
+
+```
+npm run typecheck            # PASS, 0 errors (repo-wide)
+npm run lint                  # PASS, 0 errors/warnings (repo-wide)
+npm run format:check          # PASS, all files match Prettier style (repo-wide)
+npx jest --runInBand src/features/nutrition/benchmark/protocolV4
+                               # PASS, 4 suites / 96 tests
+npx jest --runInBand src/features/nutrition/benchmark
+                               # PASS, 74 suites / 841 tests
+                               # (includes V3-039 compatibility, V3-042 evaluator regression, and
+                               # V3-043..V3-051 regression suites)
+git status --porcelain        # clean except intended new/modified files; no tmp/ artifact-store
+                               # output tracked (gitignored)
+git diff --check              # PASS, no whitespace errors
+git diff --stat               # confirmed: only src/features/nutrition/benchmark/protocolV4/** files
+                               # changed; no frozen V3-039 evidence/corpus/evaluator/CI/migration/
+                               # feature-flag file touched
+```
+
+Consistent with every prior task in this series, the full-repo `npm run test`/`npm run verify` combined
+command has a known, previously-documented non-termination symptom in this environment unrelated to
+this task's changes; both the scoped `src/features/nutrition/benchmark/protocolV4` sweep and the full
+`src/features/nutrition/benchmark` directory sweep (the widest scope that reliably terminates in this
+environment, and the same scope every prior task in this series has used as its practical verification
+substitute) passed cleanly, and typecheck/lint/format were run repo-wide. Green GitHub Verify remains
+required before merge.
+
+## 32. Evidence integrity confirmed unchanged
+
+The seven RESOLVER-V3-039 evidence files, the V3-039 closeout report, and the V3-039 evidence manifest
+were not touched. The corpus and ground truth are read, never mutated. The corrected G2 evaluator's own
+logic (`RepresentativeHybridV1LiveMetrics.ts`/`RepresentativeHybridV1LiveReportBuilder.ts`) was read
+(imported, unmodified, now actually executed) and not modified. No BLS artifact, `.github/workflows/**`,
+`package.json`/lockfile, Supabase migration, UI, DI, or feature-flag file was touched. Real provider
+calls: **0**. Real provider cost: **USD 0**. No credential was read (`ANTHROPIC_API_KEY` is a literal
+placeholder string in every dry-run/development/holdout fixture, never read from `process.env`). No
+Human-Live Authorization (Development or Holdout) was ever created. No live execution — Development or
+Holdout — was performed.
+
+## 33. Status
+
+V3-047 remains `done`. V3-010 remains `blocked`. G2 remains **not passed**. Production wiring remains
+unauthorized. The 352-call / USD 5.586944 proposal-only budget remains numerically unchanged and
+explicitly **not authorized**. V3-048 status: `in_progress — Protocol-v4 executable zero-call preflight
+complete (Development + Holdout observation execution, storage-authoritative authorization, real G2
+evaluator wiring); live execution not authorized`.

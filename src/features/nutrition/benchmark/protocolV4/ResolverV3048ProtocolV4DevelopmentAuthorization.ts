@@ -7,6 +7,10 @@ import {
   type ProtocolV4MasterPlan,
   type ResolverV3047CandidateId,
 } from './ResolverV3048ProtocolV4';
+import {
+  isProtocolV4ArtifactTargetUnused,
+  isProtocolV4AuthorizationConsumedAtomically,
+} from './ResolverV3048ProtocolV4ArtifactStore';
 
 /**
  * RESOLVER-V3-048 Phase-A post-merge remediation, Teil 12 ("Development Authorization Record").
@@ -87,17 +91,26 @@ export function buildProtocolV4DevelopmentAuthorization(input: {
 
 /** Gate the Development runner must pass before dispatching a single call: identities and limits are
  * checked individually against the Master Plan's own Development budget (not merely a boolean),
- * `status !== 'consumed'`, the artifact target must be unused (Teil 13's atomic Artifact Store is the
- * real backing check; the boolean here is what the caller independently proved), and a
- * `fake_dry_run` authorization can never satisfy `liveExecution: true`. */
+ * `status !== 'consumed'` AND the real atomic consumption marker, the artifact target's real absence
+ * on disk (queried directly from the Artifact Store), and a `fake_dry_run` authorization can never
+ * satisfy `liveExecution: true`.
+ *
+ * Storage-authoritative (Final Phase-A Execution Closure remediation): `artifactTargetUnused` and
+ * `remainingCalls`/`remainingInputTokens`/`remainingOutputTokens`/`remainingCostUsd` no longer exist
+ * as caller-supplied fields the gate simply trusts. This function itself queries
+ * `isProtocolV4ArtifactTargetUnused`/`isProtocolV4AuthorizationConsumedAtomically` against the real
+ * store, and requires `consumedBudget` (an INDEPENDENTLY tracked cumulative-consumption figure --
+ * e.g. a live `LiveProviderBudgetGate.snapshot()`, never derived from the authorization's own `max*`
+ * fields) plus `plannedBudget` (what the caller is about to dispatch, computed from the real planned
+ * observation set) to still fit under the authorization's ceiling -- closing the "remaining always
+ * equals max" tautology the prior gate had. */
 export function assertDevelopmentAuthorized(input: {
   plan: ProtocolV4MasterPlan;
   authorization: ProtocolV4DevelopmentAuthorizationRecord;
-  artifactTargetUnused: boolean;
-  remainingCalls: number;
-  remainingInputTokens: number;
-  remainingOutputTokens: number;
-  remainingCostUsd: number;
+  artifactStoreRoot: string;
+  artifactRelativePath: string;
+  consumedBudget: { calls: number; inputTokens: number; outputTokens: number; costUsd: number };
+  plannedBudget: { calls: number; inputTokens: number; outputTokens: number; costUsd: number };
   liveExecution: boolean;
 }): void {
   validateProtocolV4MasterPlan(input.plan);
@@ -138,11 +151,17 @@ export function assertDevelopmentAuthorized(input: {
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_CURRENCY_MISMATCH',
     );
-  if (authorization.status === 'consumed')
+  if (
+    authorization.status === 'consumed' ||
+    isProtocolV4AuthorizationConsumedAtomically(
+      input.artifactStoreRoot,
+      authorization.authorizationId,
+    )
+  )
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED',
     );
-  if (!input.artifactTargetUnused)
+  if (!isProtocolV4ArtifactTargetUnused(input.artifactStoreRoot, input.artifactRelativePath))
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_ARTIFACT_TARGET_REUSED',
     );
@@ -162,11 +181,12 @@ export function assertDevelopmentAuthorized(input: {
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_CONCURRENCY_MISMATCH',
     );
+  const { consumedBudget: c, plannedBudget: p } = input;
   if (
-    input.remainingCalls < authorization.maxCalls ||
-    input.remainingInputTokens < authorization.maxInputTokens ||
-    input.remainingOutputTokens < authorization.maxOutputTokens ||
-    input.remainingCostUsd < authorization.maxCostUsd
+    c.calls + p.calls > authorization.maxCalls ||
+    c.inputTokens + p.inputTokens > authorization.maxInputTokens ||
+    c.outputTokens + p.outputTokens > authorization.maxOutputTokens ||
+    c.costUsd + p.costUsd > authorization.maxCostUsd
   )
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_BUDGET_INSUFFICIENT',

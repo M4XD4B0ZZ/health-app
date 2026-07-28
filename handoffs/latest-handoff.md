@@ -96,10 +96,12 @@ src/features/nutrition/benchmark` (74 suites / 841 tests, all passing, unchanged
    Jest suite, run to completion, no premature abort); `git status`/`git diff --check`; manual `git
 diff --stat` review confirming only `protocolV4/` implementation/test files plus `ROADMAP.md`/the
    preflight report/this handoff changed, no frozen/protected path touched.
-6. **Verification result:** all of the above passed, including the full `npm run verify` end to end
-   (this is the first task in this series where the full-repo Jest run is confirmed to terminate and
-   pass in this environment, rather than the previously-documented non-termination symptom — no
-   configuration was changed to achieve this; the run simply completed). Provider calls 0; provider
+6. **Verification result:** all of the above passed, including the full `npm run verify` end to end,
+   confirmed completed in the background after the commit/push below with exit code 0: **251 suites /
+   2671 tests passed repo-wide**, 811.9 s (this is the first task in this series where the full-repo
+   Jest run is confirmed to terminate and pass in this environment, rather than the previously-
+   documented non-termination symptom — no configuration was changed to achieve this; the run simply
+   took longer than earlier interrupt thresholds and completed cleanly). Provider calls 0; provider
    cost USD 0; no credential read (`ANTHROPIC_API_KEY` remains a literal placeholder string, never read
    from `process.env`, in every fixture).
 7. **Known issues/blockers/residual risks:** green GitHub Verify is still required before merge — this

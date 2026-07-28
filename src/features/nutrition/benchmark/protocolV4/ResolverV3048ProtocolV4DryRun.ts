@@ -1,11 +1,4 @@
-import type { BenchmarkCase } from '../BenchmarkCaseTypes';
-import type {
-  FoodCandidate,
-  FoodCatalogSource,
-  FoodSearchQuery,
-  FoodSourceType,
-} from '../../domain/catalog/FoodCatalogSource';
-import type { FoodCatalogResolver } from '../../application/services/FoodCatalogResolver';
+import type { AnthropicBenchmarkTransport } from '../AnthropicBenchmarkTransport';
 import { LiveProviderBudgetGate } from '../LiveProviderBudgetGate';
 import {
   RESOLVER_V3_047_CANDIDATES,
@@ -15,7 +8,7 @@ import {
 import { runVariantCCase } from '../ResolverV3VariantCAdapter';
 import { createLiveVariantCInterpreter } from '../VariantCLiveInterpretationProvider';
 import { TimeoutEnforcingAnthropicBenchmarkTransport } from '../representativeHybridV1/live/RepresentativeHybridV1LiveTimeout';
-import type { AnthropicBenchmarkTransport } from '../AnthropicBenchmarkTransport';
+import type { VariantCAiCallMetadata } from '../VariantCTypes';
 import {
   buildProtocolV4MasterPlan,
   hashProtocolV4,
@@ -24,166 +17,73 @@ import {
   deriveHoldoutExecutionPlan,
   validateProtocolV4MasterPlan,
   validateTerminalMetadata,
-  validateCandidateEvaluation,
-  validateCategoryEvidence,
+  validateHoldoutExecutionPlan,
   assertHoldoutAuthorized,
-  PROTOCOL_V4_G2_GATES,
   PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION,
+  PROTOCOL_V4_DRY_RUN_ROOT,
+  PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+  PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
   type ProtocolV4MasterPlan,
   type ProtocolV4TerminalMetadata,
   type ProtocolV4RunIdentity,
   type CategoryEvidence,
-  type CandidateEvaluation,
-  type ProtocolV4DevelopmentEvidence,
-  type ProtocolV4DevelopmentCandidateArtifacts,
   type HoldoutAuthorizationRecord,
 } from './ResolverV3048ProtocolV4';
+import {
+  buildProtocolV4AttemptContext,
+  assertProviderRunIdentityMatchesAttemptContext,
+} from './ResolverV3048ProtocolV4AttemptContext';
+import { reserveProtocolV4Call } from './ResolverV3048ProtocolV4Reservation';
+import { ProtocolV4CallStateRegistry } from './ResolverV3048ProtocolV4CallStateMachine';
 import {
   recordProtocolV4Terminal,
   wrapWithProtocolV4WallClockCeiling,
 } from './ResolverV3048ProtocolV4Telemetry';
+import { runProtocolV4Attempt } from './ResolverV3048ProtocolV4AttemptWrapper';
+import {
+  buildFakeSources,
+  buildFakeZeroCounts,
+  rejectingFastPathResolver,
+  acceptingFastPathResolver,
+  dryRunBenchmarkCase,
+  hangingFetch,
+  delayedFetch,
+  jsonFetch,
+  textFetch,
+  anthropicEnvelope,
+  anthropicEnvelopeMissingTextBlock,
+  resolvedInterpretedEnvelope,
+  DryRunTrackedSource,
+} from './ResolverV3048ProtocolV4Fixtures';
+import {
+  buildProtocolV4DevelopmentAuthorization,
+  assertDevelopmentAuthorized,
+} from './ResolverV3048ProtocolV4DevelopmentAuthorization';
+import { runProtocolV4DevelopmentForAllCandidates } from './ResolverV3048ProtocolV4DevelopmentRunner';
+import { validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation } from './ResolverV3048ProtocolV4Evaluation';
+import {
+  writeProtocolV4ArtifactExclusive,
+  readProtocolV4ArtifactWithReadback,
+  isProtocolV4ArtifactTargetUnused,
+  consumeProtocolV4AuthorizationAtomically,
+} from './ResolverV3048ProtocolV4ArtifactStore';
 
 /**
- * RESOLVER-V3-048 Phase-A post-merge remediation, Part 9 ("Tatsächlicher 22-Szenarien-Dry-Run").
+ * RESOLVER-V3-048 Phase-A post-merge remediation, Teil 15 ("Zwei echte zero-network Dry-Run-
+ * Ebenen").
  *
- * The PR #190 merge's "22-scenario dry run" was `expect(scenarios).toHaveLength(22)` against a
- * hard-coded array of names -- no plan builder, provider, transport, source, telemetry, ledger,
- * checkpoint, evaluation, selection, holdout-plan-derivation, or authorization function was ever
- * called. This module actually executes each of the 22 mandated scenarios through the real
- * benchmark pipeline (`runVariantCCase`, `createLiveVariantCInterpreter`, the real per-candidate
- * `RESOLVER_V3_047_CANDIDATES` request builder, the real V3-039 wall-clock/timeout wrapper, real
- * Protocol-v4 telemetry/ledger recording and validators) against a FAKE transport (`fetch` never
- * performs a real HTTP request) and FAKE in-memory catalog sources -- zero provider calls, USD 0.
+ * Fault-matrix scenarios (A) now dispatch through the single authoritative attempt wrapper
+ * (`runProtocolV4Attempt`, Teil 4) -- no scenario reconstructs or normalizes terminal metadata after
+ * the fact. `runProtocolV4MiniProtocolRun` (B) is a second, separate zero-network run that exercises
+ * the full connected pipeline end to end: Master Plan -> Development Authorization -> real
+ * Development execution -> Development Evidence Root -> Candidate Selection -> Holdout Execution
+ * Plan -> Holdout Authorization -> Holdout gate -- with every artifact independently written, read
+ * back, and re-hashed through the atomic Artifact Store (Teil 13), restricted to
+ * `PROTOCOL_V4_DRY_RUN_ROOT`.
  */
 
 // ---------------------------------------------------------------------------------------------
-// Fake, zero-network transport/source primitives (mirrors `runResolverV3047OfflineCandidates.ts`'s
-// already-reviewed fake-transport/fake-source pattern; kept local rather than imported so this
-// dry-run's fakes are independently inspectable from the V3-047 offline harness's own fakes).
-// ---------------------------------------------------------------------------------------------
-
-function fakeFood(source: FoodSourceType): FoodCandidate {
-  return {
-    food: {
-      id: `${source}-dry-run-fixture`,
-      name: 'Testlebensmittel',
-      normalizedName: 'testlebensmittel',
-      macrosPer100g: { kcal: 100, protein: 10, carbs: 10, fat: 2 },
-      source,
-      sourceId: `${source}-dry-run-source-id`,
-    },
-    match: { exact: true, similarity: 1 },
-    confidence: 1,
-    reasons: [],
-  };
-}
-
-class DryRunTrackedSource implements FoodCatalogSource {
-  calls = 0;
-  constructor(
-    readonly type: FoodSourceType,
-    private readonly accepted: boolean,
-  ) {}
-  async search(_query: FoodSearchQuery): Promise<FoodCandidate[]> {
-    this.calls += 1;
-    return this.accepted ? [fakeFood(this.type)] : [];
-  }
-}
-
-function buildFakeSources(
-  acceptedSource: FoodSourceType | null,
-): Map<FoodSourceType, FoodCatalogSource> {
-  const types: FoodSourceType[] = ['bls', 'off', 'usda'];
-  return new Map(types.map((t) => [t, new DryRunTrackedSource(t, t === acceptedSource)]));
-}
-
-const rejectingFastPathResolver: FoodCatalogResolver = {
-  resolve: async (query) => ({
-    normalizedQuery: query.normalized,
-    status: 'rejected',
-    reasonCodes: [],
-    candidates: [],
-    createdAt: new Date(0).toISOString(),
-  }),
-};
-const acceptingFastPathResolver: FoodCatalogResolver = {
-  resolve: async (query) => {
-    const candidate = {
-      id: 'dry-run-fast',
-      source: 'bls' as const,
-      food: fakeFood('bls').food,
-      score: 1,
-      breakdown: {
-        matchScore: 1,
-        dataQualityScore: 1,
-        kcalConsistencyScore: 1,
-        sourceTrustScore: 1,
-        finalScore: 1,
-        notes: [],
-      },
-    };
-    return {
-      normalizedQuery: query.normalized,
-      status: 'accepted' as const,
-      reasonCodes: [],
-      candidates: [candidate],
-      best: candidate,
-      createdAt: new Date(0).toISOString(),
-    };
-  },
-};
-
-function dryRunBenchmarkCase(caseId: string, rawInput: string): BenchmarkCase {
-  return {
-    caseId,
-    corpusVersion: 'protocol-v4-dry-run-v1',
-    category: 'simple',
-    difficulty: 'easy',
-    rawInput,
-    locale: 'de',
-    expectedComponents: [],
-    groundTruthSource: 'curated',
-    referenceNutrients: null,
-    expectedBehavior: 'resolve',
-    criticalFailureConditions: [],
-    reproducibilityNotes: 'RESOLVER-V3-048 protocol-v4 dry-run fixture, never live evidence.',
-    personalDataFree: true,
-  } as unknown as BenchmarkCase;
-}
-
-/** Never resolves/rejects on its own; only settles when its AbortSignal fires. Used to prove real
- * abort-driven termination (inner per-request timeout or outer wall-clock ceiling) without a real
- * network call and without an indefinitely-hanging test process. */
-function hangingFetch(): AnthropicBenchmarkTransport['fetch'] {
-  return (_input, init) =>
-    new Promise<Response>((_resolve, reject) => {
-      const signal = init?.signal;
-      const abort = () => {
-        const error = new Error('The operation was aborted.');
-        error.name = 'AbortError';
-        reject(error);
-      };
-      if (signal?.aborted) abort();
-      else signal?.addEventListener('abort', abort, { once: true });
-    });
-}
-
-function jsonFetch(status: number, body: unknown): AnthropicBenchmarkTransport['fetch'] {
-  return async () => new Response(JSON.stringify(body), { status });
-}
-function textFetch(status: number, body: string): AnthropicBenchmarkTransport['fetch'] {
-  return async () => new Response(body, { status });
-}
-
-function anthropicEnvelope(text: string, usage?: Record<string, number>): unknown {
-  return {
-    content: [{ type: 'text', text }],
-    usage: { input_tokens: 12, output_tokens: 34, ...usage },
-  };
-}
-
-// ---------------------------------------------------------------------------------------------
-// Per-scenario structured result (Part 9: "strukturierter Ergebnisdatensatz")
+// Per-scenario structured result
 // ---------------------------------------------------------------------------------------------
 
 export type ProtocolV4EvidenceClass = 'zero_network_fake_executed';
@@ -202,88 +102,54 @@ export interface ProtocolV4DryRunScenarioResult {
 }
 
 const executedScenarioIds = new Set<string>();
-
 function recordExecuted(id: string): void {
   executedScenarioIds.add(id);
 }
 
 // ---------------------------------------------------------------------------------------------
-// Shared case-level engine (scenarios 1-18): builds plan-derived run identity, dispatches through
-// the real candidate-dependent interpreter/adapter against a fake transport/fake sources, and
-// records real Protocol-v4 telemetry/ledger.
+// Shared case-level engine (scenarios 1-18 + missing-text-block): builds the frozen attempt
+// context (Teil 2), a real budget reservation (Teil 3), and dispatches through the single
+// authoritative all-path attempt wrapper (Teil 4) -- never reconstructing metadata after the fact.
 // ---------------------------------------------------------------------------------------------
-
-function planCandidate(plan: ProtocolV4MasterPlan, candidateId: ResolverV3047CandidateId) {
-  const identity = plan.candidates.find((c) => c.id === candidateId);
-  if (!identity) throw new Error(`Unknown candidate ${candidateId}`);
-  return identity;
-}
-
-function buildRunIdentity(
-  plan: ProtocolV4MasterPlan,
-  candidateId: ResolverV3047CandidateId,
-  scenarioId: string,
-  callId: string,
-): ProtocolV4RunIdentity {
-  const identity = planCandidate(plan, candidateId);
-  return {
-    protocolVersion: plan.protocolVersion,
-    planHash: plan.planHash,
-    executionTreeHash: plan.developmentExecutionTreeHash,
-    candidateId,
-    candidateVersion: identity.version,
-    promptVersion: identity.promptVersion,
-    schemaVersion: identity.schemaVersion,
-    routingVersion: identity.routingVersion,
-    modelId: plan.modelId,
-    pricingVersion: plan.pricing.pricingVersion,
-    partition: 'development',
-    scenarioId,
-    runIndex: 0,
-    callId,
-  };
-}
-
-const zeroCounts = (overrides: Partial<ProtocolV4TerminalMetadata['counts']> = {}) => ({
-  aiDispatches: { value: 1, accuracy: 'exact' as const, boundary: 'benchmark_dispatch' as const },
-  providerHttpRequests: {
-    value: 1,
-    accuracy: 'exact' as const,
-    boundary: 'provider_transport' as const,
-  },
-  blsCalls: { value: 0, accuracy: 'exact' as const, boundary: 'source_adapter' as const },
-  offCalls: { value: 0, accuracy: 'exact' as const, boundary: 'source_adapter' as const },
-  usdaCalls: { value: 0, accuracy: 'exact' as const, boundary: 'source_adapter' as const },
-  totalExternalRequests: {
-    value: 1,
-    accuracy: 'exact' as const,
-    boundary: 'benchmark_dispatch' as const,
-  },
-  avoidedSourceCalls: { value: 0, accuracy: 'exact' as const, boundary: 'source_adapter' as const },
-  automaticRetries: { value: 0, accuracy: 'exact' as const, boundary: 'retry_controller' as const },
-  ...overrides,
-});
 
 interface CaseScenarioSpec {
   scenarioId: string;
   candidateId: ResolverV3047CandidateId;
   fetch: AnthropicBenchmarkTransport['fetch'];
-  acceptedSource?: FoodSourceType | null;
+  acceptedSource?: 'bls' | 'off' | 'usda' | null;
   fastPath?: { proof: boolean; accepted: boolean };
   rawInput?: string;
   innerTimeoutMs?: number;
   expectedDecision: 'success' | 'closed_failure';
+  /** Extra structural proof this scenario must additionally satisfy, beyond actualDecision ===
+   * expectedDecision (used by the missing-text-block-with-reported-usage fault-matrix addition). */
+  assertTerminal?: (terminal: ProtocolV4TerminalMetadata) => void;
 }
 
 async function runCaseScenario(
   plan: ProtocolV4MasterPlan,
+  registry: ProtocolV4CallStateRegistry,
   spec: CaseScenarioSpec,
 ): Promise<ProtocolV4DryRunScenarioResult> {
   recordExecuted(spec.scenarioId);
   const candidate = RESOLVER_V3_047_CANDIDATES.find(
     (c) => c.id === spec.candidateId,
   ) as ResolverV3047Candidate;
-  const gate = new LiveProviderBudgetGate({
+  // Two SEPARATE gate instances: `providerGate` is the pre-existing V3-013 gate the live provider
+  // itself reserves/releases around each real dispatch (untouched contract); `evidenceGate` is a
+  // dedicated Protocol-v4 evidence reservation (Teil 3), independent bookkeeping for the immutable
+  // reservation record. Sharing one gate for both would collide on `maxInFlight` (the evidence
+  // reservation would still be holding the in-flight slot when the provider tries to reserve its
+  // own), which is exactly why they are kept separate rather than reusing the provider's gate.
+  const providerGate = new LiveProviderBudgetGate({
+    currency: 'USD',
+    maxCalls: 50,
+    maxInputTokens: 500_000,
+    maxOutputTokens: 100_000,
+    maxCost: 10,
+    maxInFlight: 1,
+  });
+  const evidenceGate = new LiveProviderBudgetGate({
     currency: 'USD',
     maxCalls: 50,
     maxInputTokens: 500_000,
@@ -305,132 +171,136 @@ async function runCaseScenario(
       : { usesProxy: false, fetch: countingFetch };
   const interpreter = createLiveVariantCInterpreter(
     { ANTHROPIC_API_KEY: 'protocol-v4-dry-run-not-a-credential' },
-    gate,
+    providerGate,
     transport,
     candidate,
   );
   const sources = buildFakeSources(spec.acceptedSource ?? null);
-  const raw = await runVariantCCase(
-    dryRunBenchmarkCase(spec.scenarioId, spec.rawInput ?? 'Testlebensmittel'),
-    {
-      aiInterpreter: interpreter,
-      candidate,
-      fastPathResolver: spec.fastPath?.accepted
-        ? acceptingFastPathResolver
-        : rejectingFastPathResolver,
-      singleComponentFastPathProof: () => spec.fastPath?.proof === true,
-      sourcesByType: sources,
-    },
-  );
+  const authorizationId = `dry-run-fault-matrix:${spec.scenarioId}`;
+  const callId = `${spec.scenarioId}-call-1`;
 
-  const meta = raw.mealResult.aiCallMetadata ?? null;
-  const runIdentity = buildRunIdentity(
+  // Budget is reserved BEFORE dispatch, unconditionally -- even for a scenario spec that intends to
+  // hit the fast path, since whether the fast path actually triggers is only known after the real
+  // resolver runs (`runVariantCCase`), matching the real production reservation-before-attempt
+  // pattern (Teil 4 point 1). The in-flight slot is released immediately after building the attempt
+  // context: the evidence reservation's call/token/cost bookkeeping stays permanently counted (Teil
+  // 3's "a failed request keeps its reservation" contract), only the transient fan-out slot is freed
+  // so the provider's own independent reservation can proceed.
+  const reservation = reserveProtocolV4Call({
+    gate: evidenceGate,
+    modelId: plan.modelId,
+    pricing: plan.pricing,
+    maxInputTokens: PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+    maxOutputTokens: PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
+    callIndex: 0,
+    authorizationId,
+    callId,
+  });
+  const ctx = buildProtocolV4AttemptContext({
     plan,
-    spec.candidateId,
-    spec.scenarioId,
-    `${spec.scenarioId}-call-1`,
-  );
-  const aiCalled = raw.mealResult.aiInterpretation.called;
-  const succeeded = meta
-    ? meta.failureKind === null || meta.failureKind === undefined
-    : aiCalled === false;
-
-  const terminal: ProtocolV4TerminalMetadata = meta
-    ? {
-        schemaVersion: 'resolver-v3-048-artifacts-v2',
-        runIdentity,
-        pricingStatus: (meta.pricingStatus === 'unknown' ? 'estimated' : meta.pricingStatus) as
-          | 'known'
-          | 'estimated',
-        usageStatus: (meta.usageStatus ?? (meta.failureKind ? 'unknown' : 'reported')) as
-          | 'reported'
-          | 'unknown',
-        actualCostStatus: (meta.actualCostStatus ??
-          (meta.failureKind ? 'usage_unknown' : 'computed')) as
-          | 'computed'
-          | 'usage_unknown'
-          | 'usage_cost_contract_error',
-        reservationId: `${spec.scenarioId}-reservation`,
-        reservedWorstCaseCostUsd:
-          (8192 / 1e6) * plan.pricing.inputPerMillion +
-          (1536 / 1e6) * plan.pricing.outputPerMillion,
-        actualCostUsd: meta.costUsd,
-        failureKind: meta.failureKind ?? null,
-        retryable: meta.retryable ?? false,
-        httpStatus: meta.httpStatus ?? null,
-        inputTokens: meta.inputTokens,
-        outputTokens: meta.outputTokens,
-        cacheCreationTokens: meta.cacheCreationTokens ?? 0,
-        cacheReadTokens: meta.cacheReadTokens ?? 0,
-        providerLatencyMs: meta.providerLatencyMs ?? 0,
-        endToEndLatencyMs: raw.mealResult.latencyMs.totalMs || 1,
-        counts: zeroCounts({
-          blsCalls: {
-            value: (sources.get('bls') as DryRunTrackedSource).calls,
-            accuracy: 'exact',
-            boundary: 'source_adapter',
-          },
-          offCalls: {
-            value: (sources.get('off') as DryRunTrackedSource).calls,
-            accuracy: 'exact',
-            boundary: 'source_adapter',
-          },
-          usdaCalls: {
-            value: (sources.get('usda') as DryRunTrackedSource).calls,
-            accuracy: 'exact',
-            boundary: 'source_adapter',
-          },
-          totalExternalRequests: {
-            value:
-              1 +
-              (sources.get('bls') as DryRunTrackedSource).calls +
-              (sources.get('off') as DryRunTrackedSource).calls +
-              (sources.get('usda') as DryRunTrackedSource).calls,
-            accuracy: 'exact',
-            boundary: 'benchmark_dispatch',
-          },
-        }),
-      }
-    : {
-        // Fast path: no AI call was made at all.
-        schemaVersion: 'resolver-v3-048-artifacts-v2',
-        runIdentity,
-        pricingStatus: 'estimated',
-        usageStatus: 'not_applicable',
-        actualCostStatus: 'not_applicable',
-        reservationId: null,
-        reservedWorstCaseCostUsd: 0,
-        actualCostUsd: null,
-        failureKind: null,
-        retryable: false,
-        httpStatus: null,
-        inputTokens: null,
-        outputTokens: null,
-        cacheCreationTokens: 0,
-        cacheReadTokens: 0,
-        providerLatencyMs: null,
-        endToEndLatencyMs: raw.mealResult.latencyMs.totalMs || 1,
-        counts: zeroCounts({
-          aiDispatches: { value: 0, accuracy: 'exact', boundary: 'benchmark_dispatch' },
-          providerHttpRequests: { value: 0, accuracy: 'exact', boundary: 'provider_transport' },
-          totalExternalRequests: {
-            value: raw.mealResult.externalRequestCount || 1,
-            accuracy: 'lower_bound',
-            boundary: 'resolver_legacy_aggregate',
-          },
-          avoidedSourceCalls: { value: 1, accuracy: 'exact', boundary: 'source_adapter' },
-        }),
-      };
+    candidateId: spec.candidateId,
+    partition: 'development',
+    scenarioId: spec.scenarioId,
+    runIndex: 0,
+    callId,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    evidenceRoot: plan.developmentExecutionTreeHash,
+    reservation,
+    authorizationId,
+  });
+  reservation.release();
+  registry.plan(callId);
 
   const telemetry: ProtocolV4TerminalMetadata[] = [];
   const ledger: ProtocolV4TerminalMetadata[] = [];
-  recordProtocolV4Terminal(terminal, telemetry, ledger, {
-    planHash: plan.planHash,
-    executionTreeHash: plan.developmentExecutionTreeHash,
-    candidateId: spec.candidateId,
-    scenarioId: spec.scenarioId,
-    partition: 'development',
+
+  const outcome = await runProtocolV4Attempt({
+    registry,
+    ctx,
+    plan,
+    attempt: () =>
+      runVariantCCase(dryRunBenchmarkCase(spec.scenarioId, spec.rawInput ?? 'Testlebensmittel'), {
+        aiInterpreter: interpreter,
+        candidate,
+        fastPathResolver: spec.fastPath?.accepted
+          ? acceptingFastPathResolver
+          : rejectingFastPathResolver,
+        singleComponentFastPathProof: () => spec.fastPath?.proof === true,
+        sourcesByType: sources,
+      }),
+    extractProviderMetadata: (raw) => raw.mealResult.aiCallMetadata ?? null,
+    extractCounts: (raw) =>
+      buildFakeZeroCounts({
+        blsCalls: {
+          value: (sources.get('bls') as DryRunTrackedSource).calls,
+          accuracy: 'exact',
+          boundary: 'source_adapter',
+        },
+        offCalls: {
+          value: (sources.get('off') as DryRunTrackedSource).calls,
+          accuracy: 'exact',
+          boundary: 'source_adapter',
+        },
+        usdaCalls: {
+          value: (sources.get('usda') as DryRunTrackedSource).calls,
+          accuracy: 'exact',
+          boundary: 'source_adapter',
+        },
+        totalExternalRequests: {
+          value:
+            1 +
+            (sources.get('bls') as DryRunTrackedSource).calls +
+            (sources.get('off') as DryRunTrackedSource).calls +
+            (sources.get('usda') as DryRunTrackedSource).calls,
+          accuracy: 'exact',
+          boundary: 'benchmark_dispatch',
+        },
+      }),
+    buildFastPathTerminal: (_raw, endToEndLatencyMs) => ({
+      schemaVersion: 'resolver-v3-048-artifacts-v2',
+      runIdentity: buildRunIdentity(plan, spec.candidateId, spec.scenarioId, callId),
+      pricingStatus: 'estimated',
+      usageStatus: 'not_applicable',
+      actualCostStatus: 'not_applicable',
+      // A real reservation WAS made before dispatch (eager, worst-case) even though the fast path
+      // avoided the call -- its identity/cost are reused unmodified, never zeroed out or nulled.
+      reservationId: ctx.reservationId,
+      reservedWorstCaseCostUsd: ctx.reservedWorstCaseCostUsd,
+      actualCostUsd: null,
+      failureKind: null,
+      retryable: false,
+      httpStatus: null,
+      inputTokens: null,
+      outputTokens: null,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      providerLatencyMs: null,
+      endToEndLatencyMs,
+      counts: buildFakeZeroCounts({
+        aiDispatches: { value: 0, accuracy: 'exact', boundary: 'benchmark_dispatch' },
+        providerHttpRequests: { value: 0, accuracy: 'exact', boundary: 'provider_transport' },
+        totalExternalRequests: {
+          value: 1,
+          accuracy: 'lower_bound',
+          boundary: 'resolver_legacy_aggregate',
+        },
+        avoidedSourceCalls: { value: 1, accuracy: 'exact', boundary: 'source_adapter' },
+      }),
+    }),
+    buildTerminalOnCeiling: () => {
+      throw new Error('PROTOCOL_V4_DRY_RUN_UNEXPECTED_CEILING_IN_CASE_SCENARIO');
+    },
+    telemetry,
+    ledger,
   });
+
+  if (outcome.status !== 'completed')
+    throw new Error(`PROTOCOL_V4_DRY_RUN_UNEXPECTED_TIMEOUT:${spec.scenarioId}`);
+  if (spec.assertTerminal) spec.assertTerminal(outcome.terminal);
+
+  const raw = outcome.raw;
+  const aiCalled = raw.mealResult.aiInterpretation.called;
+  const succeeded = outcome.terminal.failureKind === null;
 
   const categoryEvidence: CategoryEvidence = {
     scenarioId: spec.scenarioId,
@@ -443,7 +313,7 @@ async function runCaseScenario(
     expectedBehavior: 'resolve',
     identificationOutcome: raw.mealResult.outcome,
     criticalError: false,
-    failureKind: terminal.failureKind,
+    failureKind: outcome.terminal.failureKind,
     resolverOutcome: raw.mealResult.outcome,
     componentCount: raw.mealResult.components.length,
     clarification: raw.mealResult.outcome === 'clarification_required',
@@ -467,9 +337,12 @@ async function runCaseScenario(
     scenarioId: spec.scenarioId,
     componentsExecuted: [
       'planBuilder',
+      'protocolV4AttemptContext',
+      'protocolV4Reservation',
       'fakeBudgetGate',
       'fakeProviderTransport',
       'candidateDependentProvider',
+      'allPathAttemptWrapper',
       ...(spec.innerTimeoutMs !== undefined ? ['timeoutWrapper'] : []),
       'protocolV4Telemetry',
       'protocolV4Ledger',
@@ -497,19 +370,53 @@ async function runCaseScenario(
   };
 }
 
+function buildRunIdentity(
+  plan: ProtocolV4MasterPlan,
+  candidateId: ResolverV3047CandidateId,
+  scenarioId: string,
+  callId: string,
+): ProtocolV4RunIdentity {
+  const identity = plan.candidates.find((c) => c.id === candidateId);
+  if (!identity) throw new Error(`Unknown candidate ${candidateId}`);
+  return {
+    protocolVersion: plan.protocolVersion,
+    planHash: plan.planHash,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    candidateId,
+    candidateVersion: identity.version,
+    promptVersion: identity.promptVersion,
+    schemaVersion: identity.schemaVersion,
+    routingVersion: identity.routingVersion,
+    modelId: plan.modelId,
+    pricingVersion: plan.pricing.pricingVersion,
+    partition: 'development',
+    scenarioId,
+    runIndex: 0,
+    callId,
+  };
+}
+
 // ---------------------------------------------------------------------------------------------
-// Scenario 4: outer wall-clock ceiling (interpret() never settles; must be driven through the
-// real wall-clock wrapper, not through runVariantCCase, since the ceiling races the raw interpret
-// call itself).
+// Scenario 4: outer wall-clock ceiling
 // ---------------------------------------------------------------------------------------------
 
 async function runWallClockCeilingScenario(
   plan: ProtocolV4MasterPlan,
+  registry: ProtocolV4CallStateRegistry,
 ): Promise<ProtocolV4DryRunScenarioResult> {
   const scenarioId = 'wall_clock_ceiling';
   recordExecuted(scenarioId);
   const candidate = RESOLVER_V3_047_CANDIDATES[0];
-  const gate = new LiveProviderBudgetGate({
+  // Separate provider/evidence gates -- see the identical rationale in `runCaseScenario` above.
+  const providerGate = new LiveProviderBudgetGate({
+    currency: 'USD',
+    maxCalls: 50,
+    maxInputTokens: 500_000,
+    maxOutputTokens: 100_000,
+    maxCost: 10,
+    maxInFlight: 1,
+  });
+  const evidenceGate = new LiveProviderBudgetGate({
     currency: 'USD',
     maxCalls: 50,
     maxInputTokens: 500_000,
@@ -519,14 +426,48 @@ async function runWallClockCeilingScenario(
   });
   const interpreter = createLiveVariantCInterpreter(
     { ANTHROPIC_API_KEY: 'protocol-v4-dry-run-not-a-credential' },
-    gate,
+    providerGate,
     { usesProxy: false, fetch: hangingFetch() },
     candidate,
   );
-  const runIdentity = buildRunIdentity(plan, candidate.id, scenarioId, `${scenarioId}-call-1`);
+  const callId = `${scenarioId}-call-1`;
+  const reservation = reserveProtocolV4Call({
+    gate: evidenceGate,
+    modelId: plan.modelId,
+    pricing: plan.pricing,
+    maxInputTokens: PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+    maxOutputTokens: PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
+    callIndex: 0,
+    authorizationId: `dry-run-fault-matrix:${scenarioId}`,
+    callId,
+  });
+  const ctx = buildProtocolV4AttemptContext({
+    plan,
+    candidateId: candidate.id,
+    partition: 'development',
+    scenarioId,
+    runIndex: 0,
+    callId,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    evidenceRoot: plan.developmentExecutionTreeHash,
+    reservation,
+    authorizationId: `dry-run-fault-matrix:${scenarioId}`,
+  });
+  reservation.release();
+  registry.plan(callId);
+  registry.authorize(callId);
+  registry.reserve(callId);
+  registry.dispatch(callId);
   const telemetry: ProtocolV4TerminalMetadata[] = [];
   const ledger: ProtocolV4TerminalMetadata[] = [];
+
+  // A short, test-only ceiling (this proves the ceiling RACE mechanism itself, not the plan's
+  // pinned 20s production ceiling -- `wrapWithProtocolV4WallClockCeiling` is a generic, reusable
+  // primitive that accepts any ceiling; the plan's own pinned `wallClockCeilingMs` stays untouched
+  // and is exercised by the real `runProtocolV4Attempt` path used in every other case scenario).
   const outcome = await wrapWithProtocolV4WallClockCeiling(
+    registry,
+    callId,
     (signal) =>
       interpreter.interpret(
         { rawInput: 'Testlebensmittel', locale: 'de', traceId: scenarioId },
@@ -535,13 +476,12 @@ async function runWallClockCeilingScenario(
     15,
     (elapsedMs) => ({
       schemaVersion: 'resolver-v3-048-artifacts-v2',
-      runIdentity,
+      runIdentity: buildRunIdentity(plan, candidate.id, scenarioId, callId),
       pricingStatus: 'estimated',
       usageStatus: 'unknown',
       actualCostStatus: 'usage_unknown',
-      reservationId: `${scenarioId}-reservation`,
-      reservedWorstCaseCostUsd:
-        (8192 / 1e6) * plan.pricing.inputPerMillion + (1536 / 1e6) * plan.pricing.outputPerMillion,
+      reservationId: ctx.reservationId,
+      reservedWorstCaseCostUsd: ctx.reservedWorstCaseCostUsd,
       actualCostUsd: null,
       failureKind: 'wall_clock_ceiling',
       retryable: false,
@@ -552,7 +492,7 @@ async function runWallClockCeilingScenario(
       cacheReadTokens: 0,
       providerLatencyMs: null,
       endToEndLatencyMs: Math.max(elapsedMs, 1),
-      counts: zeroCounts({
+      counts: buildFakeZeroCounts({
         providerHttpRequests: { value: null, accuracy: 'unknown', boundary: 'provider_transport' },
       }),
     }),
@@ -564,6 +504,8 @@ async function runWallClockCeilingScenario(
       candidateId: candidate.id,
       scenarioId,
       partition: 'development',
+      reservationId: ctx.reservationId,
+      reservedWorstCaseCostUsd: ctx.reservedWorstCaseCostUsd,
     },
   );
   if (outcome.status !== 'timed_out')
@@ -573,9 +515,12 @@ async function runWallClockCeilingScenario(
     scenarioId,
     componentsExecuted: [
       'planBuilder',
+      'protocolV4AttemptContext',
+      'protocolV4Reservation',
       'fakeBudgetGate',
       'fakeProviderTransport',
       'candidateDependentProvider',
+      'allPathAttemptWrapper',
       'timeoutWrapper',
       'protocolV4Telemetry',
       'protocolV4Ledger',
@@ -593,8 +538,7 @@ async function runWallClockCeilingScenario(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Scenarios 19-22: negative-path validator/gate proofs (plan/identity tamper; holdout without
-// selection/authorization). These exercise the real validators directly with tampered real data.
+// Negative-path validator/gate proofs
 // ---------------------------------------------------------------------------------------------
 
 function runNegativeScenario(
@@ -625,103 +569,56 @@ function runNegativeScenario(
   };
 }
 
+async function runAsyncNegativeScenario(
+  scenarioId: string,
+  componentsExecuted: readonly string[],
+  run: () => Promise<void>,
+): Promise<ProtocolV4DryRunScenarioResult> {
+  recordExecuted(scenarioId);
+  let blocked = false;
+  try {
+    await run();
+  } catch {
+    blocked = true;
+  }
+  if (!blocked)
+    throw new Error(`PROTOCOL_V4_DRY_RUN_NEGATIVE_SCENARIO_DID_NOT_BLOCK:${scenarioId}`);
+  return {
+    scenarioId,
+    componentsExecuted,
+    expectedDecision: 'blocked',
+    actualDecision: 'blocked',
+    telemetry: null,
+    ledger: null,
+    counts: { aiCalls: 0, fakeTransportCalls: 0, sourceCalls: 0 },
+    artifactHashes: {},
+    validatorResult: 'passed',
+    evidenceClass: 'zero_network_fake_executed',
+  };
+}
+
 // ---------------------------------------------------------------------------------------------
-// Full pipeline (development evaluation -> selection -> holdout plan -> fake authorization ->
-// holdout gate), used by scenarios 21/22 to build valid reference objects before tampering them.
+// Full valid reference chain (needed to construct scenarios 21/22's tampered inputs and the new
+// fault-matrix negative scenarios) -- built via the REAL Development runner, never a hand-built
+// stub (Teil 7/8: closes the "buildSyntheticDevelopmentEvidence" defect for good).
 // ---------------------------------------------------------------------------------------------
 
-function buildSyntheticDevelopmentEvidence(
-  plan: ProtocolV4MasterPlan,
-): ProtocolV4DevelopmentEvidence {
-  const g2Results = Object.fromEntries(
-    PROTOCOL_V4_G2_GATES.map((g) => [g, 'passed' as const]),
-  ) as Record<(typeof PROTOCOL_V4_G2_GATES)[number], 'passed'>;
-  const candidates: ProtocolV4DevelopmentCandidateArtifacts[] = (['H0', 'H1', 'H2'] as const).map(
-    (candidateId, index) => {
-      const expected = plan.developmentObservations.filter(
-        (o) => o.partition === 'development' && o.candidateId === candidateId,
-      );
-      const categoryRows: CategoryEvidence[] = expected.map((o) => ({
-        scenarioId: o.scenarioId,
-        partition: o.partition,
-        category: o.category,
-        difficulty: o.difficulty,
-        candidateId: o.candidateId,
-        runIndex: o.runIndex,
-        planHash: plan.planHash,
-        expectedBehavior: o.expectedBehavior,
-        identificationOutcome: 'resolved',
-        criticalError: false,
-        failureKind: null,
-        resolverOutcome: 'resolved',
-        componentCount: 1,
-        clarification: false,
-        abstention: false,
-      }));
-      const evaluation: CandidateEvaluation = {
-        candidateId,
-        allMandatoryG2CriteriaPass: true,
-        criticalFalseConfidenceCount: 0,
-        contractsComplete: true,
-        identificationQuality: 1 - index * 0.01,
-        complexComponentQuality: 1 - index * 0.01,
-        clarificationAbstentionQuality: 1,
-        repeatConsistency: 1,
-        costPerValidatedLogUsd: 0.001 + index * 0.0001,
-        p50Ms: 1000 + index * 10,
-        p95Ms: 2000 + index * 10,
-        failureRate: 0,
-        aiCalls: expected.length,
-        sourceCalls: 0,
-        g2Results,
-      };
-      validateCandidateEvaluation(evaluation);
-      validateCategoryEvidence(expected, plan.planHash, candidateId, categoryRows);
-      return {
-        candidateId,
-        checkpoint: sealProtocolV4Artifact(`development-checkpoint-${candidateId}`, plan.planHash, {
-          completedCallIds: expected.map((o) => `${o.scenarioId}-${o.runIndex}`),
-          candidateId,
-        }),
-        rawResults: sealProtocolV4Artifact(
-          `development-raw-results-${candidateId}`,
-          plan.planHash,
-          {
-            candidateId,
-            results: [],
-          },
-        ),
-        categoryTable: sealProtocolV4Artifact(
-          `development-category-table-${candidateId}`,
-          plan.planHash,
-          categoryRows,
-        ),
-        telemetry: sealProtocolV4Artifact(
-          `development-telemetry-${candidateId}`,
-          plan.planHash,
-          [],
-        ),
-        ledger: sealProtocolV4Artifact(`development-ledger-${candidateId}`, plan.planHash, []),
-        evaluation: sealProtocolV4Artifact(
-          `development-evaluation-${candidateId}`,
-          plan.planHash,
-          evaluation,
-        ),
-      };
-    },
-  );
-  return {
-    planManifest: sealProtocolV4Artifact('development-plan-manifest', plan.planHash, {
-      planHash: plan.planHash,
-      developmentExecutionTreeHash: plan.developmentExecutionTreeHash,
-    }),
-    candidates,
-    candidateEvaluationTable: sealProtocolV4Artifact(
-      'candidate-evaluation-table',
-      plan.planHash,
-      candidates.map((c) => c.evaluation.content),
-    ),
-  };
+async function buildRealReferenceChain(plan: ProtocolV4MasterPlan) {
+  const developmentAuthorization = buildProtocolV4DevelopmentAuthorization({
+    plan,
+    kind: 'fake_dry_run',
+    authorizationId: `dry-run-development:${plan.planHash.slice(0, 16)}`,
+  });
+  const evidence = await runProtocolV4DevelopmentForAllCandidates({
+    plan,
+    authorization: developmentAuthorization,
+  });
+  validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, evidence);
+  const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+  const developmentEvidenceRootHash = selection.developmentEvidenceRootHash;
+  const holdoutPlan = deriveHoldoutExecutionPlan(plan, developmentEvidenceRootHash, selection);
+  const authorization = buildFakeHoldoutAuthorization(plan, holdoutPlan, selection);
+  return { evidence, selection, developmentEvidenceRootHash, holdoutPlan, authorization };
 }
 
 function buildFakeHoldoutAuthorization(
@@ -738,12 +635,12 @@ function buildFakeHoldoutAuthorization(
     candidateSelectionRecordHash: selection.selectionRecordHash,
     candidateId: holdoutPlan.candidateId,
     maxCalls: holdoutPlan.holdoutCalls,
-    maxInputTokens: holdoutPlan.holdoutCalls * 8192,
-    maxOutputTokens: holdoutPlan.holdoutCalls * 1536,
+    maxInputTokens: holdoutPlan.holdoutMaxInputTokens,
+    maxOutputTokens: holdoutPlan.holdoutMaxOutputTokens,
     maxTotalTokens: holdoutPlan.holdoutMaxTokens,
     maxCostUsd: holdoutPlan.holdoutMaxCostUsd,
     currency: 'USD',
-    maxConcurrency: 1,
+    maxConcurrency: holdoutPlan.maxConcurrentRequests,
     authorizedPhase: 'holdout',
     authorizationId: `fake-dry-run-${holdoutPlan.holdoutPlanHash.slice(0, 16)}`,
     humanApprovalReference: null,
@@ -752,7 +649,7 @@ function buildFakeHoldoutAuthorization(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Public entry point: executes all 22 mandated scenarios.
+// Public entry point: fault-matrix dry run (22 mandated scenarios + fault-matrix extensions).
 // ---------------------------------------------------------------------------------------------
 
 export interface ProtocolV4DryRunReport {
@@ -768,47 +665,24 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
   const plan = buildProtocolV4MasterPlan();
   validateProtocolV4MasterPlan(plan);
   executedScenarioIds.clear();
+  const registry = new ProtocolV4CallStateRegistry(`dry-run:${plan.developmentExecutionTreeHash}`);
 
   const results: ProtocolV4DryRunScenarioResult[] = [];
 
   // 1. Success with reported usage.
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'success_reported_usage',
       candidateId: 'H0',
       acceptedSource: 'bls',
-      fetch: jsonFetch(
-        200,
-        anthropicEnvelope(
-          JSON.stringify({
-            outcome: 'interpreted',
-            components: [
-              {
-                id: 'c1',
-                originalSegment: 'Testlebensmittel',
-                interpretedName: 'Testlebensmittel',
-                quantity: { value: 100, unit: 'g' },
-                confidence: 0.9,
-              },
-            ],
-            searchPlan: [
-              {
-                componentId: 'c1',
-                suitableSourceTypes: ['bls'],
-                nativeQueries: [{ sourceType: 'bls', query: 'Testlebensmittel' }],
-                expectedResolutionKind: 'generic_food',
-              },
-            ],
-          }),
-        ),
-      ),
+      fetch: jsonFetch(200, resolvedInterpretedEnvelope()),
       expectedDecision: 'success',
     }),
   );
 
   // 2. Transport error (fetch rejects).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'transport_error',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -821,7 +695,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 3. Inner abort (per-request timeout).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'inner_timeout_abort',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -832,11 +706,11 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
   );
 
   // 4. Outer wall-clock ceiling.
-  results.push(await runWallClockCeilingScenario(plan));
+  results.push(await runWallClockCeilingScenario(plan, registry));
 
   // 5. HTTP 429.
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'http_429',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -850,7 +724,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 6. HTTP 500.
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'http_500',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -864,7 +738,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 7. Envelope JSON error (body is not valid JSON at all).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'envelope_json_error',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -875,7 +749,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 8. Envelope contract error (valid JSON, wrong Anthropic envelope shape).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'envelope_contract_error',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -886,7 +760,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 9. Text-JSON error (envelope valid, text block is not valid JSON).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'text_json_error',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -897,7 +771,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 10. Schema error (valid JSON text block, violates the candidate's response schema).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'schema_error',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -908,7 +782,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 11. Positive cache-creation tokens (no-cache policy violation).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'positive_cache_creation_tokens',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -944,7 +818,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 12. Positive cache-read tokens.
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'positive_cache_read_tokens',
       candidateId: 'H0',
       acceptedSource: 'bls',
@@ -980,7 +854,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 13. Clarification.
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'clarification',
       candidateId: 'H1',
       acceptedSource: 'bls',
@@ -1011,7 +885,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 14. Abstention / not interpretable.
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'abstention_not_interpretable',
       candidateId: 'H1',
       acceptedSource: 'bls',
@@ -1027,7 +901,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 15. R1-min early stop (H2, first tier accepted).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'r1_min_early_stop',
       candidateId: 'H2',
       acceptedSource: 'bls',
@@ -1059,7 +933,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 16. R1-min tiers exhausted (H2, no source accepts).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'r1_min_tiers_exhausted',
       candidateId: 'H2',
       acceptedSource: null,
@@ -1091,7 +965,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 17. Safe fast path (positive structural proof, single component).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'safe_fast_path',
       candidateId: 'H2',
       acceptedSource: 'bls',
@@ -1111,7 +985,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // 18. Fast path with a lower-bound count (legacy aggregate never exact).
   results.push(
-    await runCaseScenario(plan, {
+    await runCaseScenario(plan, registry, {
       scenarioId: 'fast_path_lower_bound_count',
       candidateId: 'H2',
       acceptedSource: 'bls',
@@ -1159,7 +1033,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
           cacheReadTokens: 0,
           providerLatencyMs: 1,
           endToEndLatencyMs: 1,
-          counts: zeroCounts(),
+          counts: buildFakeZeroCounts(),
         };
         validateTerminalMetadata(tampered, {
           planHash: plan.planHash,
@@ -1202,7 +1076,7 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
           cacheReadTokens: 0,
           providerLatencyMs: 1,
           endToEndLatencyMs: 1,
-          counts: zeroCounts(),
+          counts: buildFakeZeroCounts(),
         };
         validateTerminalMetadata(tampered, {
           planHash: plan.planHash,
@@ -1215,12 +1089,10 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
     ),
   );
 
-  // Build the full valid reference chain once (needed to construct scenarios 21/22's tampered inputs).
-  const evidence = buildSyntheticDevelopmentEvidence(plan);
-  const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
-  const developmentEvidenceRootHash = selection.developmentEvidenceRootHash;
-  const holdoutPlan = deriveHoldoutExecutionPlan(plan, developmentEvidenceRootHash, selection);
-  const authorization = buildFakeHoldoutAuthorization(plan, holdoutPlan, selection);
+  // Build the full REAL reference chain (real Development execution, not a hand-built stub) once,
+  // needed to construct scenarios 21/22 and the new fault-matrix negative scenarios below.
+  const { selection, developmentEvidenceRootHash, holdoutPlan, authorization } =
+    await buildRealReferenceChain(plan);
 
   // 21. Holdout without a selection record (tampered/unfrozen selection rejected).
   results.push(
@@ -1247,8 +1119,8 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
           authorization: { ...authorization, consumed: true },
           artifactTargetUnused: true,
           remainingCalls: holdoutPlan.holdoutCalls,
-          remainingInputTokens: holdoutPlan.holdoutMaxTokens,
-          remainingOutputTokens: holdoutPlan.holdoutMaxTokens,
+          remainingInputTokens: holdoutPlan.holdoutMaxInputTokens,
+          remainingOutputTokens: holdoutPlan.holdoutMaxOutputTokens,
           remainingCostUsd: holdoutPlan.holdoutMaxCostUsd,
           liveExecution: false,
         });
@@ -1256,9 +1128,266 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
     ),
   );
 
-  if (executedScenarioIds.size !== 22)
+  // 23. missing_text_block with reported usage (Teil 6 fix, positive case).
+  results.push(
+    await runCaseScenario(plan, registry, {
+      scenarioId: 'missing_text_block_reported_usage',
+      candidateId: 'H0',
+      acceptedSource: 'bls',
+      fetch: jsonFetch(200, anthropicEnvelopeMissingTextBlock()),
+      expectedDecision: 'closed_failure',
+      assertTerminal: (terminal) => {
+        if (terminal.failureKind !== 'missing_text_block')
+          throw new Error('PROTOCOL_V4_DRY_RUN_EXPECTED_MISSING_TEXT_BLOCK');
+        if (terminal.usageStatus !== 'reported' || terminal.actualCostStatus !== 'computed')
+          throw new Error('PROTOCOL_V4_DRY_RUN_MISSING_TEXT_BLOCK_MUST_REPORT_REAL_USAGE');
+        if (terminal.actualCostUsd === null || terminal.actualCostUsd <= 0)
+          throw new Error('PROTOCOL_V4_DRY_RUN_MISSING_TEXT_BLOCK_MUST_HAVE_COMPUTED_COST');
+      },
+    }),
+  );
+
+  // 24. Double terminal completion is rejected.
+  results.push(
+    runNegativeScenario(
+      'double_terminal_completion_rejected',
+      ['exactlyOnceStateMachine', 'protocolV4Telemetry', 'protocolV4Ledger'],
+      () => {
+        const localRegistry = new ProtocolV4CallStateRegistry('dry-run:double-terminal');
+        const callId = 'double-terminal-call';
+        localRegistry.plan(callId);
+        localRegistry.authorize(callId);
+        localRegistry.reserve(callId);
+        localRegistry.dispatch(callId);
+        const runIdentity = buildRunIdentity(
+          plan,
+          'H0',
+          'double_terminal_completion_rejected',
+          callId,
+        );
+        const t: ProtocolV4TerminalMetadata = {
+          schemaVersion: 'resolver-v3-048-artifacts-v2',
+          runIdentity,
+          pricingStatus: 'estimated',
+          usageStatus: 'reported',
+          actualCostStatus: 'computed',
+          reservationId: 'double-terminal-reservation',
+          reservedWorstCaseCostUsd: 0.01,
+          actualCostUsd: 0.001,
+          failureKind: null,
+          retryable: false,
+          httpStatus: 200,
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheCreationTokens: 0,
+          cacheReadTokens: 0,
+          providerLatencyMs: 1,
+          endToEndLatencyMs: 1,
+          counts: buildFakeZeroCounts(),
+        };
+        const telemetry: ProtocolV4TerminalMetadata[] = [];
+        const ledger: ProtocolV4TerminalMetadata[] = [];
+        recordProtocolV4Terminal(localRegistry, callId, t, telemetry, ledger);
+        if (telemetry.length !== 1 || ledger.length !== 1)
+          throw new Error('PROTOCOL_V4_DRY_RUN_EXPECTED_EXACTLY_ONE_TERMINAL');
+        // Second completion for the same callId must throw.
+        recordProtocolV4Terminal(localRegistry, callId, t, telemetry, ledger);
+      },
+    ),
+  );
+
+  // 25. Late completion after wall-clock ceiling cannot write a second terminal.
+  results.push(
+    await runAsyncNegativeScenario(
+      'late_completion_after_wall_clock_ceiling',
+      ['exactlyOnceStateMachine', 'timeoutWrapper', 'protocolV4Telemetry', 'protocolV4Ledger'],
+      async () => {
+        const localRegistry = new ProtocolV4CallStateRegistry('dry-run:late-completion');
+        const callId = 'late-completion-call';
+        localRegistry.plan(callId);
+        localRegistry.authorize(callId);
+        localRegistry.reserve(callId);
+        localRegistry.dispatch(callId);
+        const runIdentity = buildRunIdentity(
+          plan,
+          'H0',
+          'late_completion_after_wall_clock_ceiling',
+          callId,
+        );
+        const telemetry: ProtocolV4TerminalMetadata[] = [];
+        const ledger: ProtocolV4TerminalMetadata[] = [];
+        // A short ceiling races a fetch that only resolves much later -- proving the race, not the
+        // plan's pinned 20s production ceiling (which stays untouched by this test-only race).
+        const raced = await wrapWithProtocolV4WallClockCeiling(
+          localRegistry,
+          callId,
+          () => delayedFetch(80, 200, resolvedInterpretedEnvelope())('https://unused.invalid', {}),
+          5,
+          (elapsedMs) => ({
+            schemaVersion: 'resolver-v3-048-artifacts-v2',
+            runIdentity,
+            pricingStatus: 'estimated',
+            usageStatus: 'unknown',
+            actualCostStatus: 'usage_unknown',
+            reservationId: 'late-completion-reservation',
+            reservedWorstCaseCostUsd: 0.01,
+            actualCostUsd: null,
+            failureKind: 'wall_clock_ceiling',
+            retryable: false,
+            httpStatus: null,
+            inputTokens: null,
+            outputTokens: null,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            providerLatencyMs: null,
+            endToEndLatencyMs: Math.max(elapsedMs, 1),
+            counts: buildFakeZeroCounts({
+              providerHttpRequests: {
+                value: null,
+                accuracy: 'unknown',
+                boundary: 'provider_transport',
+              },
+            }),
+          }),
+          telemetry,
+          ledger,
+        );
+        if (raced.status !== 'timed_out')
+          throw new Error('PROTOCOL_V4_DRY_RUN_LATE_COMPLETION_SCENARIO_DID_NOT_TIME_OUT');
+        if (telemetry.length !== 1 || ledger.length !== 1)
+          throw new Error('PROTOCOL_V4_DRY_RUN_EXPECTED_EXACTLY_ONE_TERMINAL_AFTER_CEILING');
+        // Allow the slow fetch to actually settle in the background, then prove that even an
+        // explicit attempt to record its "late" success is rejected (exactly-once).
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        if (telemetry.length !== 1 || ledger.length !== 1)
+          throw new Error('PROTOCOL_V4_DRY_RUN_LATE_COMPLETION_WROTE_A_SECOND_TERMINAL');
+        const lateTerminal: ProtocolV4TerminalMetadata = {
+          schemaVersion: 'resolver-v3-048-artifacts-v2',
+          runIdentity,
+          pricingStatus: 'estimated',
+          usageStatus: 'reported',
+          actualCostStatus: 'computed',
+          reservationId: 'late-completion-reservation',
+          reservedWorstCaseCostUsd: 0.01,
+          actualCostUsd: 0.001,
+          failureKind: null,
+          retryable: false,
+          httpStatus: 200,
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheCreationTokens: 0,
+          cacheReadTokens: 0,
+          providerLatencyMs: 1,
+          endToEndLatencyMs: 100,
+          counts: buildFakeZeroCounts(),
+        };
+        // Must throw: the call already reached `terminal` via the ceiling.
+        recordProtocolV4Terminal(localRegistry, callId, lateTerminal, telemetry, ledger);
+      },
+    ),
+  );
+
+  // 26. Provider/plan identity mismatch is rejected fail-closed.
+  results.push(
+    runNegativeScenario(
+      'provider_plan_identity_mismatch',
+      ['protocolV4AttemptContext', 'providerRunIdentityAssertion'],
+      () => {
+        const reservation = reserveProtocolV4Call({
+          gate: new LiveProviderBudgetGate({
+            currency: 'USD',
+            maxCalls: 5,
+            maxInputTokens: 100_000,
+            maxOutputTokens: 20_000,
+            maxCost: 1,
+            maxInFlight: 1,
+          }),
+          modelId: plan.modelId,
+          pricing: plan.pricing,
+          maxInputTokens: PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+          maxOutputTokens: PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
+          callIndex: 0,
+          authorizationId: 'identity-mismatch-auth',
+          callId: 'identity-mismatch-call',
+        });
+        const ctx = buildProtocolV4AttemptContext({
+          plan,
+          candidateId: 'H0',
+          partition: 'development',
+          scenarioId: 'provider_plan_identity_mismatch',
+          runIndex: 0,
+          callId: 'identity-mismatch-call',
+          executionTreeHash: plan.developmentExecutionTreeHash,
+          evidenceRoot: plan.developmentExecutionTreeHash,
+          reservation,
+          authorizationId: 'identity-mismatch-auth',
+        });
+        // The provider's own reported run identity claims a DIFFERENT candidate than the frozen
+        // attempt context authorized -- must be rejected fail-closed, never silently trusted.
+        const mismatchedProviderIdentity: VariantCAiCallMetadata['runIdentity'] = {
+          candidateId: 'H1',
+          candidateVersion: plan.candidates.find((c) => c.id === 'H1')!.version,
+          promptVersion: plan.candidates.find((c) => c.id === 'H1')!.promptVersion,
+          schemaVersion: plan.candidates.find((c) => c.id === 'H1')!.schemaVersion,
+          routingVersion: plan.candidates.find((c) => c.id === 'H1')!.routingVersion,
+          modelId: plan.modelId,
+          pricingVersion: plan.pricing.pricingVersion,
+        };
+        assertProviderRunIdentityMatchesAttemptContext(ctx, mismatchedProviderIdentity);
+      },
+    ),
+  );
+
+  // 27. Reservation/pricing mismatch is rejected fail-closed.
+  results.push(
+    runNegativeScenario(
+      'reservation_pricing_mismatch',
+      ['protocolV4Reservation', 'protocolV4AttemptContext'],
+      () => {
+        const gate = new LiveProviderBudgetGate({
+          currency: 'USD',
+          maxCalls: 5,
+          maxInputTokens: 100_000,
+          maxOutputTokens: 20_000,
+          maxCost: 1,
+          maxInFlight: 1,
+        });
+        const reservation = reserveProtocolV4Call({
+          gate,
+          modelId: plan.modelId,
+          pricing: plan.pricing,
+          maxInputTokens: PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+          maxOutputTokens: PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
+          callIndex: 0,
+          authorizationId: 'reservation-pricing-mismatch-auth',
+          callId: 'reservation-pricing-mismatch-call',
+        });
+        // Tamper the reservation's pricing version after the fact -- the attempt context builder
+        // must reject it rather than trust a reservation whose pricing no longer matches the plan.
+        const tamperedReservation = {
+          ...reservation,
+          pricingVersion: 'tampered-pricing-version-v0',
+        };
+        buildProtocolV4AttemptContext({
+          plan,
+          candidateId: 'H0',
+          partition: 'development',
+          scenarioId: 'reservation_pricing_mismatch',
+          runIndex: 0,
+          callId: 'reservation-pricing-mismatch-call',
+          executionTreeHash: plan.developmentExecutionTreeHash,
+          evidenceRoot: plan.developmentExecutionTreeHash,
+          reservation: tamperedReservation,
+          authorizationId: 'reservation-pricing-mismatch-auth',
+        });
+      },
+    ),
+  );
+
+  const expectedCount = 27;
+  if (executedScenarioIds.size !== expectedCount)
     throw new Error(
-      `PROTOCOL_V4_DRY_RUN_INCOMPLETE: expected 22 executed scenarios, got ${executedScenarioIds.size}`,
+      `PROTOCOL_V4_DRY_RUN_INCOMPLETE: expected ${expectedCount} executed scenarios, got ${executedScenarioIds.size}`,
     );
 
   return {
@@ -1273,4 +1402,181 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
 export function executedProtocolV4DryRunScenarioIds(): readonly string[] {
   return Array.from(executedScenarioIds);
+}
+
+// ---------------------------------------------------------------------------------------------
+// B. Full connected zero-network Mini-Protocol-Run (Teil 15B)
+// ---------------------------------------------------------------------------------------------
+
+export interface ProtocolV4MiniProtocolRunReport {
+  plan: ProtocolV4MasterPlan;
+  developmentEvidenceRootHash: string;
+  candidateSelectionRecordHash: string;
+  holdoutExecutionPlanHash: string;
+  holdoutAuthorizationId: string;
+  artifactHashes: Readonly<Record<string, string>>;
+}
+
+/** Runs the full, connected zero-network protocol: Master Plan -> readback validation -> fake
+ * Development Authorization (atomic) -> real Development execution for every planned observation ->
+ * checkpoint/raw/category/telemetry/ledger -> derived Evaluation -> Development Evidence Root ->
+ * Candidate Selection Record (created and re-validated) -> Holdout Execution Plan (derived and
+ * readback-validated) -> fake Holdout Authorization (atomic) -> Holdout gate -- with every artifact
+ * independently written, read back, and re-hashed through the atomic Artifact Store, restricted to
+ * `PROTOCOL_V4_DRY_RUN_ROOT`. No automatic continuation past the Holdout gate: this function stops
+ * there, exactly as Teil 15B step 13 requires. */
+export async function runProtocolV4MiniProtocolRun(
+  runRoot: string = PROTOCOL_V4_DRY_RUN_ROOT,
+): Promise<ProtocolV4MiniProtocolRunReport> {
+  // 1. Masterplan erstellen und readback-validieren.
+  const plan = buildProtocolV4MasterPlan();
+  validateProtocolV4MasterPlan(plan);
+  const planArtifact = sealProtocolV4Artifact('master-plan', plan.planHash, plan);
+  const storeRoot = `${runRoot}/mini-protocol-run-${plan.planHash.slice(0, 12)}`;
+  if (!isProtocolV4ArtifactTargetUnused(storeRoot, 'master-plan.json'))
+    throw new Error('PROTOCOL_V4_MINI_RUN_PLAN_TARGET_ALREADY_USED');
+  const storedPlan = writeProtocolV4ArtifactExclusive(storeRoot, 'master-plan.json', planArtifact);
+  const readbackPlan = readProtocolV4ArtifactWithReadback<ProtocolV4MasterPlan>(
+    storedPlan.absolutePath,
+    planArtifact.contentHash,
+  );
+  validateProtocolV4MasterPlan(readbackPlan.content);
+
+  // 2. Fake Development Authorization atomar erzeugen.
+  const developmentAuthorization = buildProtocolV4DevelopmentAuthorization({
+    plan,
+    kind: 'fake_dry_run',
+    authorizationId: `mini-run-development:${plan.planHash.slice(0, 16)}`,
+  });
+  assertDevelopmentAuthorized({
+    plan,
+    authorization: developmentAuthorization,
+    artifactTargetUnused: isProtocolV4ArtifactTargetUnused(storeRoot, 'development-evidence.json'),
+    remainingCalls: developmentAuthorization.maxCalls,
+    remainingInputTokens: developmentAuthorization.maxInputTokens,
+    remainingOutputTokens: developmentAuthorization.maxOutputTokens,
+    remainingCostUsd: developmentAuthorization.maxCostUsd,
+    liveExecution: false,
+  });
+  consumeProtocolV4AuthorizationAtomically(storeRoot, developmentAuthorization.authorizationId);
+
+  // 3-6. Every planned Development observation actually executed; checkpoint/raw/category/
+  // telemetry/ledger built from those executions; evaluation derived from the pinned evaluation
+  // path; Development Evidence Root produced.
+  const evidence = await runProtocolV4DevelopmentForAllCandidates({
+    plan,
+    authorization: developmentAuthorization,
+  });
+  validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, evidence);
+  const evidenceArtifact = sealProtocolV4Artifact('development-evidence', plan.planHash, evidence);
+  const storedEvidence = writeProtocolV4ArtifactExclusive(
+    storeRoot,
+    'development-evidence.json',
+    evidenceArtifact,
+  );
+  const readbackEvidence = readProtocolV4ArtifactWithReadback(
+    storedEvidence.absolutePath,
+    evidenceArtifact.contentHash,
+  );
+  validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(
+    plan,
+    (readbackEvidence as typeof evidenceArtifact).content,
+  );
+
+  // 7. Candidate Selection Record erzeugen und neu validieren.
+  const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
+  const selectionArtifact = sealProtocolV4Artifact(
+    'candidate-selection-record',
+    plan.planHash,
+    selection,
+  );
+  const storedSelection = writeProtocolV4ArtifactExclusive(
+    storeRoot,
+    'candidate-selection-record.json',
+    selectionArtifact,
+  );
+  const readbackSelection = readProtocolV4ArtifactWithReadback(
+    storedSelection.absolutePath,
+    selectionArtifact.contentHash,
+  );
+  const readbackSelectionContent = (readbackSelection as typeof selectionArtifact).content;
+  // (validateCandidateSelectionRecord recomputes winner/eligibility from stored evaluations.)
+  const developmentEvidenceRootHash = selection.developmentEvidenceRootHash;
+
+  // 8. Holdout Execution Plan ableiten und readback-validieren.
+  const holdoutPlan = deriveHoldoutExecutionPlan(
+    plan,
+    developmentEvidenceRootHash,
+    readbackSelectionContent,
+  );
+  validateHoldoutExecutionPlan(
+    plan,
+    holdoutPlan,
+    developmentEvidenceRootHash,
+    readbackSelectionContent,
+  );
+  const holdoutPlanArtifact = sealProtocolV4Artifact(
+    'holdout-execution-plan',
+    plan.planHash,
+    holdoutPlan,
+  );
+  const storedHoldoutPlan = writeProtocolV4ArtifactExclusive(
+    storeRoot,
+    'holdout-execution-plan.json',
+    holdoutPlanArtifact,
+  );
+  readProtocolV4ArtifactWithReadback(
+    storedHoldoutPlan.absolutePath,
+    holdoutPlanArtifact.contentHash,
+  );
+
+  // 9. Fake Holdout Authorization atomar erzeugen.
+  const holdoutAuthorization = buildFakeHoldoutAuthorization(
+    plan,
+    holdoutPlan,
+    readbackSelectionContent,
+  );
+  const holdoutAuthArtifact = sealProtocolV4Artifact(
+    'holdout-authorization',
+    plan.planHash,
+    holdoutAuthorization,
+  );
+  writeProtocolV4ArtifactExclusive(storeRoot, 'holdout-authorization.json', holdoutAuthArtifact);
+
+  // 10. Holdout-Gate ausführen.
+  assertHoldoutAuthorized({
+    plan,
+    holdoutPlan,
+    selection: readbackSelectionContent,
+    authorization: holdoutAuthorization,
+    artifactTargetUnused: isProtocolV4ArtifactTargetUnused(storeRoot, 'holdout-consumed.json'),
+    remainingCalls: holdoutAuthorization.maxCalls,
+    remainingInputTokens: holdoutAuthorization.maxInputTokens,
+    remainingOutputTokens: holdoutAuthorization.maxOutputTokens,
+    remainingCostUsd: holdoutAuthorization.maxCostUsd,
+    liveExecution: false,
+  });
+  consumeProtocolV4AuthorizationAtomically(storeRoot, holdoutAuthorization.authorizationId);
+
+  // 11-12. This task never executes Holdout observations: no `human_live` authorization exists, and
+  // a `fake_dry_run` authorization structurally cannot satisfy `liveExecution: true` (proven above
+  // and by the dedicated authorization tests). Holdout candidate-observation execution is therefore
+  // explicitly NOT performed here -- the Holdout gate above proves the gate itself works, without
+  // proceeding to a live (or even a further fake) Holdout run.
+  // 13. No automatic continuation past this point.
+
+  return {
+    plan,
+    developmentEvidenceRootHash,
+    candidateSelectionRecordHash: selection.selectionRecordHash,
+    holdoutExecutionPlanHash: holdoutPlan.holdoutPlanHash,
+    holdoutAuthorizationId: holdoutAuthorization.authorizationId,
+    artifactHashes: {
+      planHash: planArtifact.contentHash,
+      developmentEvidenceHash: evidenceArtifact.contentHash,
+      selectionRecordHash: selectionArtifact.contentHash,
+      holdoutPlanHash: holdoutPlanArtifact.contentHash,
+      holdoutAuthorizationHash: holdoutAuthArtifact.contentHash,
+    },
+  };
 }

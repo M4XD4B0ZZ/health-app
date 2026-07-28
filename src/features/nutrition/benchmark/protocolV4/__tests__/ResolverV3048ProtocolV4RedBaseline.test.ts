@@ -214,6 +214,19 @@ function buildFullDevelopmentEvidence(): ProtocolV4.ProtocolV4DevelopmentEvidenc
       clarification: false,
       abstention: false,
     }));
+    const terminals: ProtocolV4.ProtocolV4TerminalMetadata[] = expected.map((o) => {
+      const base = validTerminal();
+      return {
+        ...base,
+        runIdentity: {
+          ...base.runIdentity,
+          candidateId,
+          scenarioId: o.scenarioId,
+          runIndex: o.runIndex,
+          callId: `development:${candidateId}:${o.scenarioId}:${o.runIndex}`,
+        },
+      };
+    });
     const evaluation: ProtocolV4.CandidateEvaluation = {
       candidateId,
       allMandatoryG2CriteriaPass: true,
@@ -234,20 +247,24 @@ function buildFullDevelopmentEvidence(): ProtocolV4.ProtocolV4DevelopmentEvidenc
     return {
       candidateId,
       checkpoint: sealProtocolV4Artifact(`development-checkpoint-${candidateId}`, plan.planHash, {
-        completedCallIds: [],
+        completedCallIds: terminals.map((t) => t.runIdentity.callId),
         candidateId,
       }),
       rawResults: sealProtocolV4Artifact(`development-raw-results-${candidateId}`, plan.planHash, {
         candidateId,
-        results: [],
+        results: expected.map((o) => ({ scenarioId: o.scenarioId, runIndex: o.runIndex })),
       }),
       categoryTable: sealProtocolV4Artifact(
         `development-category-table-${candidateId}`,
         plan.planHash,
         categoryRows,
       ),
-      telemetry: sealProtocolV4Artifact(`development-telemetry-${candidateId}`, plan.planHash, []),
-      ledger: sealProtocolV4Artifact(`development-ledger-${candidateId}`, plan.planHash, []),
+      telemetry: sealProtocolV4Artifact(
+        `development-telemetry-${candidateId}`,
+        plan.planHash,
+        terminals,
+      ),
+      ledger: sealProtocolV4Artifact(`development-ledger-${candidateId}`, plan.planHash, terminals),
       evaluation: sealProtocolV4Artifact(
         `development-evaluation-${candidateId}`,
         plan.planHash,

@@ -182,17 +182,51 @@ which tool, adapter, or session type dispatches the task.
 
 #### CodeGraph Availability (Binding)
 
-- CodeGraph is **not** a prerequisite for this task and must not be claimed as an available
-  capability before `CODEGRAPH-001` (see `ROADMAP.md`) has completed successfully. It is not
-  currently registered in `.mcp.json`.
-- `CODEGRAPH-001` is the explicit bootstrap exception: the task that first makes CodeGraph actually
-  available cannot itself be required to use it as a precondition.
-- After `CODEGRAPH-001` completes successfully, task-initiating prompts for coding, architecture,
-  resolver, data-flow, impact-analysis, and post-merge-review work should require a compact
-  CodeGraph preflight and material CodeGraph usage (not merely invoking it once as a formality).
-- The concrete, fail-closed CodeGraph rule (what "material usage" and "fail-closed" mean in
-  operational terms) is determined by `CODEGRAPH-001` itself, based on the operating mode it
-  actually sets up. It is intentionally not speculated on here.
+`CODEGRAPH-001` (see `ROADMAP.md`, EPIC: Developer Tooling & Verification) completed successfully,
+including real MCP-tool-level functional proof in a fresh Claude Code session — CodeGraph is now
+available for this repository via the project-scoped `.mcp.json` (`codegraph`, pinned version
+`1.5.0`). `CODEGRAPH-001` itself remains the bootstrap exception: it was not required to use
+CodeGraph as a precondition of its own completion.
+
+**Actual exposed tool surface (as observed in Phase B, binding until re-verified otherwise):** the
+`codegraph` MCP server currently exposes exactly one tool, `codegraph_explore`. There is no separate
+`codegraph_status`/callers/callees/call-path tool. `codegraph_explore` itself serves all of: index
+availability/health signaling (it errors explicitly if no `.codegraph/` index is found for the
+queried `projectPath`), symbol lookup (verbatim, line-numbered on-disk source of matching symbols),
+and relationship/impact lookup (a blast-radius summary plus `calls`/`implements`/`instantiates`/
+`references` edges among the returned symbols). Do not assume a differently named tool exists;
+re-discover the actual exposed tool set at the start of a task rather than trusting this list to
+stay current if the CodeGraph server version changes.
+
+**Operative rule for codebase-related tasks (binding):**
+
+- At the start of a coding, architecture, resolver, data-flow, impact-analysis, or
+  post-merge-review task, perform a real CodeGraph MCP preflight: call the actually exposed
+  CodeGraph MCP tool(s) for this session (currently `codegraph_explore`) — never assume the tool
+  name from this document without checking what is actually exposed.
+- The index must be healthy and current. If the tool reports no index / an unindexed project for
+  the repository path, this is a fail-closed condition unless remedied as follows: sync the index
+  exactly once with the pinned CLI version from `.mcp.json` (currently `npx -y
+@colbymchenry/codegraph@1.5.0 init`/`sync`), then re-verify successfully through the MCP tool
+  itself (not the CLI). If it still fails after that one remediation attempt, fail closed.
+- Perform at least one task-relevant symbol search through the real CodeGraph MCP tool before
+  editing.
+- Perform at least one caller/callee, dependency, call-path, or impact lookup through a real
+  CodeGraph MCP tool for a symbol relevant to the change, before making repository changes.
+- Use the returned symbols, files, callers/callees, and blast-radius results to scope the change and
+  the set of files touched — do not scope from memory or assumption where CodeGraph evidence is
+  available.
+- Document in the task's handoff: the exact tool name(s) called, the query/queries used, and the
+  relevant symbol/relationship findings (file, line, relationship kind).
+- Fail-closed: if the `codegraph` MCP server is unavailable, the index is durably invalid/unhealthy
+  after the one permitted resync attempt, or no task-relevant relationship proof can be obtained,
+  stop — do not modify repository files, do not commit, do not silently fall back to `grep`/text
+  search/CLI output as a substitute for the MCP tool surface. Report the exact server/tool name, the
+  query, and the full failure.
+- Exception: pure documentation/governance-only tasks (no product/runtime/resolver/test/CI/
+  dependency/Supabase code touched) do not require CodeGraph unless the task explicitly demands it.
+- `CODEGRAPH-001` itself is a closed historical bootstrap exception: it made CodeGraph available and
+  is not to be re-litigated or treated as precedent for skipping this rule on later tasks.
 
 ---
 

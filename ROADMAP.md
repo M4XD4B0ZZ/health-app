@@ -624,11 +624,12 @@ will lag.
 `handoffs/` rotation convention) is `done` — see its entry under "EPIC: Developer Tooling &
 Verification". `PROMPT-GOV-001` (the matching binding contract for what task-initiating prompts
 must/must not contain, built on top of `CONTEXT-GOV-001`) is also `done` — see its entry under the
-same epic. Making CodeGraph actually available and verified is tracked separately as
-`CODEGRAPH-001` — Phase A (`.mcp.json` registration, pinned version `1.5.0`, local index built and
-healthy) is complete; Phase B (real MCP-tool-level functional proof in a fresh session) has not
-started, so CodeGraph is still not to be claimed functionally available. See its entry under the
-same epic.
+same epic. `CODEGRAPH-001` (project-scoped CodeGraph bootstrap and functional verification) is now
+`done` — Phase A (`.mcp.json` registration, pinned version `1.5.0`) and Phase B (real MCP-tool-level
+functional proof: symbol search and a caller relationship for `runOneObservation` confirmed through
+the actual `codegraph_explore` MCP tool in a fresh session) both complete. CodeGraph is available for
+codebase-related tasks per `AGENTS.md`'s "CodeGraph Availability (Binding)" section. See
+`CODEGRAPH-001`'s entry under the same epic.
 
 Definition of "working" (Phase 0, still the regression floor for the logging pipeline):
 
@@ -6105,7 +6106,7 @@ the final diff is governance/documentation scope only.
 
 #### CODEGRAPH-001: Project-Scoped CodeGraph Bootstrap and Functional Verification
 
-Status: `in_progress` (Phase A complete, Phase B not started)
+Status: `done` (2026-07-29, Phase A + Phase B complete)
 Depends on: `CONTEXT-GOV-001`, `PROMPT-GOV-001`
 
 **Goal:** make CodeGraph reproducibly available to Claude Code for this repository via the
@@ -6201,6 +6202,65 @@ the exact pinned version; existing `supabase`/`github` entries are semantically 
 index built successfully and the CLI status is healthy/current; CodeGraph has not been declared
 MCP-functional; `AGENTS.md`'s CodeGraph section is untouched; the diff stays inside bootstrap/
 governance scope.
+
+**Phase B (this entry, complete) — real MCP-tool-level functional proof:** run in a fresh Claude
+Code session on this same branch, no prior reading of this task in that session beyond the required
+Task-Start Read Contract items.
+
+- **MCP approval behavior observed:** no explicit project-scoped MCP approval prompt was shown for
+  the `codegraph` server in this session; its tool became callable automatically once the server
+  finished connecting (surfaced the same way as the pre-existing `supabase`/`github` servers). No
+  repository file was required for this — `.claude/settings.json` and `.claude/settings.local.json`
+  do not exist in this repository (confirmed via `ls -la .claude/`: only `skills/` is present), so no
+  `.claude/settings.json` change was made or is needed.
+- **Actual exposed tool surface (corrects the Phase-A/Prompt-Gov assumption above):** the `codegraph`
+  MCP server exposes exactly one tool this session, `mcp__codegraph__codegraph_explore` — there is
+  **no** separate `codegraph_status` tool, contrary to the `codegraph_status` name assumed in the
+  Phase-A "Phase B next step" text above. `codegraph_explore` itself combines index-health
+  signaling, symbol lookup, and relationship/impact lookup in one call. `AGENTS.md`'s CodeGraph
+  Availability section has been updated to reflect this actually-observed surface instead of the
+  presumed tool name.
+- **Index state at fresh-session start:** the fresh container had no persisted `.codegraph/` (it is
+  git-ignored and was never committed, so it does not survive a new checkout/container). First call —
+  `codegraph_explore` with `query: "runOneObservation"`, `projectPath: "/home/user/health-app"` —
+  returned: _"The project at /home/user/health-app isn't indexed with codegraph (no .codegraph/
+  directory found walking up from it)..."_. Treated as the fail-closed "missing/outdated index"
+  condition; remedied via the one permitted resync with the pinned CLI version from `.mcp.json`:
+  `npx -y @colbymchenry/codegraph@1.5.0 init` → `Indexed 796 files`; `7,518 nodes, 29,284 edges in
+1.8s` (identical stats to Phase A's `init`/`status`, confirming the same source tree).
+- **Re-verified MCP status (post-resync):** re-ran `codegraph_explore` with the identical query/
+  `projectPath` — this time it succeeded, returning live, current, on-disk data (see below),
+  confirming the index is healthy and current through the actual MCP tool surface, not just the CLI.
+- **Symbol search:** query `"runOneObservation"` → found `runOneObservation`, an exported async
+  function, defined at `src/features/nutrition/benchmark/protocolV4/
+ResolverV3048ProtocolV4DevelopmentRunner.ts:167` (Protocol-v4 Development Runner).
+- **Relationship proof (caller, within the Protocol-v4 Development flow):** the same
+  `codegraph_explore` call's `calls` edges and blast-radius summary show `runOneObservation` has 4
+  callers; the returned verbatim source (same file) shows `runProtocolV4DevelopmentForCandidate`
+  (line 372) calling `runOneObservation` at line 446, inside its per-observation loop over
+  `input.plan.developmentObservations` — a direct, real caller relationship inside the Protocol-v4
+  Development execution path (not Holdout, though the blast-radius entry also lists
+  `ResolverV3048ProtocolV4HoldoutRunner.ts` among the symbol's test/caller surface).
+- **Source confirmation:** `codegraph_explore`'s response includes the verbatim, line-numbered,
+  current on-disk source of `ResolverV3048ProtocolV4DevelopmentRunner.ts` (explicitly documented by
+  the tool as "re-read from disk on this call, byte-for-byte identical to what the Read tool
+  returns"); the caller relationship above was confirmed directly against that returned source text
+  (definition at line 167, call site at line 446) — no separate `Read` of the file was performed,
+  per the tool's own instruction not to re-read a file it already returned.
+
+**Phase B verification:** `VERIFY.md` Category 1/2 (documentation/governance-only) — `git --no-pager
+status --short`, `git --no-pager diff --stat`, `git --no-pager diff --name-only`, `git diff
+--check`, `npm run format:check`; plus the MCP status/symbol/relationship re-proof above; plus a
+handoff-rotation check (`handoffs/latest-handoff.md` holds exactly the new entry, prior entry
+archived byte-identical).
+
+**Acceptance (Phase B / task overall):** a real MCP tool call (`codegraph_explore`) succeeded in a
+fresh session against a healthy, current index; a task-relevant symbol (`runOneObservation`) was
+found with file/line/kind; a real caller relationship inside the Protocol-v4 Development flow was
+proven and confirmed against verbatim source; `AGENTS.md`'s CodeGraph Availability section now
+states the concrete, fail-closed operative CodeGraph rule based on the actually observed tool
+surface; no product/runtime/resolver/test/CI/dependency/Supabase file was touched;
+`handoffs/latest-handoff.md` holds exactly one new, final `CODEGRAPH-001` entry.
 
 #### WEB-001: Restore Reproducible Expo Web Runtime
 

@@ -624,8 +624,11 @@ will lag.
 `handoffs/` rotation convention) is `done` — see its entry under "EPIC: Developer Tooling &
 Verification". `PROMPT-GOV-001` (the matching binding contract for what task-initiating prompts
 must/must not contain, built on top of `CONTEXT-GOV-001`) is also `done` — see its entry under the
-same epic. Making CodeGraph actually available and verified (it is not currently registered
-in `.mcp.json`) is tracked separately as `CODEGRAPH-001` and has not started.
+same epic. Making CodeGraph actually available and verified is tracked separately as
+`CODEGRAPH-001` — Phase A (`.mcp.json` registration, pinned version `1.5.0`, local index built and
+healthy) is complete; Phase B (real MCP-tool-level functional proof in a fresh session) has not
+started, so CodeGraph is still not to be claimed functionally available. See its entry under the
+same epic.
 
 Definition of "working" (Phase 0, still the regression floor for the logging pipeline):
 
@@ -6099,6 +6102,105 @@ task-specific prompt content; CodeGraph is neither claimed available nor permane
 `CODEGRAPH-001` remains a clear bootstrap exception; no product/runtime file changed;
 `handoffs/latest-handoff.md` holds exactly one new entry with the prior entry archived unchanged;
 the final diff is governance/documentation scope only.
+
+#### CODEGRAPH-001: Project-Scoped CodeGraph Bootstrap and Functional Verification
+
+Status: `in_progress` (Phase A complete, Phase B not started)
+Depends on: `CONTEXT-GOV-001`, `PROMPT-GOV-001`
+
+**Goal:** make CodeGraph reproducibly available to Claude Code for this repository via the
+project-scoped `.mcp.json`, and prepare a real, MCP-tool-level functional proof in a fresh
+session — without ever claiming CodeGraph is functionally available before that proof exists. This
+is the explicit CodeGraph bootstrap exception referenced by `AGENTS.md`'s "CodeGraph Availability
+(Binding)" sub-section: the task that first makes CodeGraph available cannot itself be required to
+use it as a precondition.
+
+This task is split into two phases with a hard gate between them:
+
+- **Phase A (this entry, complete):** register CodeGraph in `.mcp.json` with an exactly pinned npm
+  version, build and verify the local index via the CLI, confirm the local index is git-ignored and
+  no product/runtime file changed. Phase A alone does **not** establish MCP-level functional proof —
+  the CLI runs in-process, not through the MCP tool surface a fresh Claude Code session would use.
+- **Phase B (not started):** a fresh Claude Code session, on this same branch, must call the
+  `codegraph_status` MCP tool and a real task-relevant `codegraph_explore`/relationship-lookup MCP
+  tool successfully. Only after that real MCP-tool evidence exists may `AGENTS.md`'s concrete
+  fail-closed CodeGraph operating rule, the final handoff, and a PR be created.
+
+**Phase A scope (bootstrap exception, per the dispatching task's explicit scope list):**
+`ROADMAP.md`, `.mcp.json`, `.gitignore` (only if still required for `.codegraph/` — it already was,
+from a prior commit, so untouched here), `handoffs/latest-handoff.md`, `handoffs/archive/**`,
+`.claude/settings.json` (only if a project-scoped MCP permission is demonstrably required — not
+touched in Phase A; no such requirement has been demonstrated yet, see "Phase B next step" below),
+and the local, non-committed `.codegraph/` index. Explicitly excluded: product/resolver/runtime
+code, `package.json`/`package-lock.json`, Supabase, CI workflows, global/user-level Claude
+configuration, any new/competing `CLAUDE.md`-style instruction file, and `AGENTS.md`'s binding
+CodeGraph section (left untouched until Phase B's real MCP proof exists, per the dispatching task's
+explicit exclusion).
+
+**Version resolution:** the exact published version was resolved solely from the official npm
+registry, `npm view @colbymchenry/codegraph version` → `1.5.0` (also the `latest` dist-tag at
+resolution time, 2026-07-29; published 2026-07-21 per registry metadata). `.mcp.json` pins this
+exact version — no floating `latest`/range.
+
+**`.mcp.json` registration:** added a `codegraph` entry to the existing `mcpServers` map, alongside
+the untouched `supabase` and `github` entries:
+
+```json
+"codegraph": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["-y", "@colbymchenry/codegraph@1.5.0", "serve", "--mcp"]
+}
+```
+
+`serve --mcp` (stdio transport) is CodeGraph's own documented MCP entry point (`codegraph serve
+--help`); the exact args also match what `codegraph install --print-config claude` emits for a
+Claude Code target, substituting the pinned `npx` invocation for a bare `codegraph` binary so the
+config is reproducible without a prior global install. No interactive installer
+(`codegraph install`) was run — it can write agent-specific config/permission files beyond
+`.mcp.json`, which is out of this task's scope; `--print-config` was used only to inspect the
+config shape, with no file writes.
+
+**CLI verification (all run with the identical pinned version, `npx -y
+@colbymchenry/codegraph@1.5.0`, matching `.mcp.json`):**
+
+- `version` → `1.5.0`
+- `init` → `Indexed 796 files`; `7,518 nodes, 29,284 edges in 1.8s`
+- `sync` → `Already up to date` (no pending changes right after init)
+- `status` → `[OK] Index is up to date`; 796 files, 7,518 nodes, 29,284 edges, 42.33 MB, backend
+  `node:sqlite` (full WAL); languages detected: typescript (735), javascript (38), tsx (19), yaml
+  (4)
+
+**Scope/diff confirmation:** `git status --short` after `init`/`sync` shows only `.mcp.json`
+modified — `.codegraph/` (already listed in `.gitignore` from a prior commit, `1f5963c`) does not
+appear, confirming the local index is not tracked and no product/runtime/dependency file changed.
+
+**Explicitly not done in Phase A:** CodeGraph is **not** declared MCP-functional — everything above
+ran through the CLI in-process, not through the MCP tool surface. `AGENTS.md`'s CodeGraph
+Availability sub-section is unchanged; no concrete fail-closed operating rule has been added there
+yet. No PR was opened and this task is not marked `done`.
+
+**Phase B next step:** start a fresh Claude Code session on this same branch
+(`claude/codegraph-001-bootstrap-ur5ylt`) so the newly registered `.mcp.json` entry is picked up
+(MCP server registration requires a session restart to take effect). In that fresh session: confirm
+whether Claude Code requires an explicit project-scoped MCP approval prompt before the `codegraph`
+server tools become callable (this determines whether `.claude/settings.json` needs a
+narrowly-scoped permission entry — undetermined as of Phase A), then call `codegraph_status` and a
+real task-relevant `codegraph_explore`/relationship lookup through the MCP tools (not the CLI).
+Only with that evidence in hand: add the concrete fail-closed CodeGraph rule to `AGENTS.md`, write
+the final handoff, and open the PR.
+
+**Verification (Phase A, documentation/governance-only plus a local non-committed index —
+`VERIFY.md` Category 1/2):** `git --no-pager status --short`, `git --no-pager diff --stat`, `git
+--no-pager diff --name-only`, JSON-parse check of `.mcp.json`, `git diff --check`, `npm run
+format:check` (all clean); CodeGraph `version`/`init`/`sync`/`status` CLI output as above; confirmed
+`.codegraph/` is git-ignored and absent from `git status --short`.
+
+**Acceptance (Phase A only):** `.mcp.json` has a reproducible, project-scoped CodeGraph server with
+the exact pinned version; existing `supabase`/`github` entries are semantically unchanged; the local
+index built successfully and the CLI status is healthy/current; CodeGraph has not been declared
+MCP-functional; `AGENTS.md`'s CodeGraph section is untouched; the diff stays inside bootstrap/
+governance scope.
 
 #### WEB-001: Restore Reproducible Expo Web Runtime
 

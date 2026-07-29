@@ -41,6 +41,7 @@ import {
 } from '../ResolverV3048ProtocolV4ArtifactStore';
 import {
   claimProtocolV4ExecutionLease,
+  claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization,
   readProtocolV4ExecutionLease,
   assertProtocolV4ExecutionLeaseActiveForDispatch,
   markProtocolV4ExecutionLeaseExecuting,
@@ -56,7 +57,7 @@ import { runProtocolV4HoldoutForSelectedCandidate } from '../ResolverV3048Protoc
 import {
   computeProtocolV4DevelopmentArmBaseline,
   computeProtocolV4HoldoutArmBaseline,
-  deriveProtocolV4FinalG2Report,
+  deriveProtocolV4DryRunFinalG2TechnicalReport,
   validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation,
 } from '../ResolverV3048ProtocolV4Evaluation';
 import {
@@ -98,6 +99,7 @@ describe('Item 1/2: concurrent Execution Lease claims for the same authorization
       artifactStoreRoot: root,
       authorizationId: authorization.authorizationId,
       authorizationKind: authorization.kind,
+      runKind: authorization.kind,
       phase: 'development' as const,
       planHash: plan.planHash,
       executionTreeHash: plan.developmentExecutionTreeHash,
@@ -109,6 +111,8 @@ describe('Item 1/2: concurrent Execution Lease claims for the same authorization
       maxConcurrentRequests: authorization.maxConcurrency,
       pricingVersion: plan.pricing.pricingVersion,
       modelId: plan.modelId,
+      authorizationSchemaVersion: authorization.authorizationSchemaVersion,
+      authorizationRecordHash: authorization.authorizationRecordHash,
     };
     const results = await Promise.allSettled([
       Promise.resolve().then(() => claimProtocolV4ExecutionLease(claimInput)),
@@ -132,6 +136,7 @@ describe('Item 1/2: concurrent Execution Lease claims for the same authorization
       artifactStoreRoot: root,
       authorizationId: 'item-2-holdout-auth',
       authorizationKind: 'fake_dry_run_only' as const,
+      runKind: 'fake_dry_run_only' as const,
       phase: 'holdout' as const,
       planHash: plan.planHash,
       executionTreeHash: 'some-holdout-execution-tree-hash',
@@ -144,6 +149,8 @@ describe('Item 1/2: concurrent Execution Lease claims for the same authorization
       maxConcurrentRequests: 1,
       pricingVersion: plan.pricing.pricingVersion,
       modelId: plan.modelId,
+      authorizationSchemaVersion: 'item-2-test-dry-run-authorization-schema-v1',
+      authorizationRecordHash: 'item-2-test-dry-run-authorization-record-hash',
     };
     const results = await Promise.allSettled([
       Promise.resolve().then(() => claimProtocolV4ExecutionLease(claimInput)),
@@ -200,10 +207,13 @@ describe('Item 3/4: Runner APIs are lease-bound, not authorization-record-bound'
       leaseId: 'lease:development:item-3-development-auth',
       authorizationId: authorization.authorizationId,
       authorizationKind: authorization.kind,
+      runKind: authorization.kind,
       phase: 'development',
       planHash: plan.planHash,
       executionTreeHash: plan.developmentExecutionTreeHash,
       developmentEvidenceRootHash: null,
+      holdoutPlanHash: null,
+      selectionOrChoiceHash: null,
       candidateScope: plan.candidates.map((c) => c.id),
       artifactStoreRootIdentity: path.resolve(root),
       maxCalls: authorization.maxCalls,
@@ -213,6 +223,8 @@ describe('Item 3/4: Runner APIs are lease-bound, not authorization-record-bound'
       maxConcurrentRequests: authorization.maxConcurrency,
       pricingVersion: plan.pricing.pricingVersion,
       modelId: plan.modelId,
+      authorizationSchemaVersion: authorization.authorizationSchemaVersion,
+      authorizationRecordHash: authorization.authorizationRecordHash,
       status: 'claimed',
       version: 1,
       claimedAtIso: new Date().toISOString(),
@@ -232,62 +244,14 @@ describe('Item 3/4: Runner APIs are lease-bound, not authorization-record-bound'
     ).rejects.toThrow('PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND');
   });
 
-  it('4: the Holdout Runner rejects a fabricated, never-actually-claimed lease object', async () => {
-    const root = freshRoot('item-4-holdout-bypass');
-    const authorization = {
-      authorizationId: 'item-4-holdout-auth',
-      maxCalls: 5,
-      maxInputTokens: 5000,
-      maxOutputTokens: 5000,
-      maxCostUsd: 1,
-    };
-    const holdoutPlan = {
-      candidateId: 'H0' as const,
-      holdoutObservations: plan.holdoutTemplate.observations.map((o) => ({
-        ...o,
-        candidateId: 'H0' as const,
-      })),
-      holdoutExecutionTreeHash: 'item-4-fake-execution-tree-hash',
-      developmentEvidenceRootHash: 'item-4-fake-development-evidence-root-hash',
-      holdoutMaxCostUsd: 1,
-    };
-    const armBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
-    const fabricatedLease: Parameters<typeof runProtocolV4HoldoutForSelectedCandidate>[0]['lease'] =
-      {
-        leaseSchemaVersion: 'resolver-v3-048-execution-lease-v1',
-        leaseId: 'lease:holdout:item-4-holdout-auth',
-        authorizationId: authorization.authorizationId,
-        authorizationKind: 'fake_dry_run_only',
-        phase: 'holdout',
-        planHash: plan.planHash,
-        executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
-        developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
-        candidateScope: ['H0'],
-        artifactStoreRootIdentity: path.resolve(root),
-        maxCalls: authorization.maxCalls,
-        maxInputTokens: authorization.maxInputTokens,
-        maxOutputTokens: authorization.maxOutputTokens,
-        maxCostUsd: authorization.maxCostUsd,
-        maxConcurrentRequests: 1,
-        pricingVersion: plan.pricing.pricingVersion,
-        modelId: plan.modelId,
-        status: 'claimed',
-        version: 1,
-        claimedAtIso: new Date().toISOString(),
-        claimNonce: 'fabricated',
-        leaseHash: 'fabricated-hash-not-backed-by-any-real-claim',
-      };
-    await expect(
-      runProtocolV4HoldoutForSelectedCandidate({
-        plan,
-        holdoutPlan,
-        authorization,
-        lease: fabricatedLease,
-        artifactStoreRoot: root,
-        armBaseline,
-      }),
-    ).rejects.toThrow('PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND');
-  });
+  // Item 4 ("the Holdout Runner rejects a fabricated, never-actually-claimed lease object") is
+  // superseded by RESOLVER-V3-048 Final Dispatch-Lease closure remediation's own, strictly stronger
+  // regression in `ResolverV3048ProtocolV4FinalDispatchAuthorizationClosureRedBaseline.test.ts`
+  // ("9/10"), which additionally proves the Holdout Runner can no longer even be REACHED with a
+  // minimal fabricated authorization at all (the discriminated `ProtocolV4HoldoutAuthorizationInput`
+  // union requires a full, real, hash-validated plan/authorization/choice chain) -- a strictly
+  // stronger claim than "a fabricated lease is rejected" alone, exercised against real Development
+  // evidence rather than hand-rolled fake identity strings.
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -303,6 +267,7 @@ describe('Item 5/6/7: Execution Lease identity and lifecycle invariants', () => 
       artifactStoreRoot: root,
       authorizationId: 'item-5-6-7-auth',
       authorizationKind: 'fake_dry_run',
+      runKind: 'fake_dry_run',
       phase: 'development',
       planHash: plan.planHash,
       executionTreeHash: plan.developmentExecutionTreeHash,
@@ -314,6 +279,8 @@ describe('Item 5/6/7: Execution Lease identity and lifecycle invariants', () => 
       maxConcurrentRequests: 1,
       pricingVersion: plan.pricing.pricingVersion,
       modelId: plan.modelId,
+      authorizationSchemaVersion: 'item-5-6-7-test-authorization-schema-v1',
+      authorizationRecordHash: 'item-5-6-7-test-authorization-record-hash',
       ...overrides,
     });
   }
@@ -329,6 +296,13 @@ describe('Item 5/6/7: Execution Lease identity and lifecycle invariants', () => 
     maxInputTokens: 100_000,
     maxOutputTokens: 20_000,
     maxCostUsd: 5,
+    maxConcurrentRequests: 1,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+    authorizationKind: 'fake_dry_run' as const,
+    runKind: 'fake_dry_run' as const,
+    authorizationSchemaVersion: 'item-5-6-7-test-authorization-schema-v1',
+    authorizationRecordHash: 'item-5-6-7-test-authorization-record-hash',
   });
 
   it('5: a terminal_success lease can never be reused for a further dispatch', () => {
@@ -383,6 +357,7 @@ describe('Item 5/6/7: Execution Lease identity and lifecycle invariants', () => 
       artifactStoreRoot: holdoutRoot,
       authorizationId: 'item-6-holdout-auth',
       authorizationKind: 'fake_dry_run_only',
+      runKind: 'fake_dry_run_only',
       phase: 'holdout',
       planHash: plan.planHash,
       executionTreeHash: 'holdout-tree-hash',
@@ -395,6 +370,8 @@ describe('Item 5/6/7: Execution Lease identity and lifecycle invariants', () => 
       maxConcurrentRequests: 1,
       pricingVersion: plan.pricing.pricingVersion,
       modelId: plan.modelId,
+      authorizationSchemaVersion: 'item-6-test-dry-run-authorization-schema-v1',
+      authorizationRecordHash: 'item-6-test-dry-run-authorization-record-hash',
     });
     expect(() =>
       assertProtocolV4ExecutionLeaseActiveForDispatch({
@@ -408,6 +385,13 @@ describe('Item 5/6/7: Execution Lease identity and lifecycle invariants', () => 
         maxInputTokens: 5000,
         maxOutputTokens: 5000,
         maxCostUsd: 1,
+        maxConcurrentRequests: 1,
+        pricingVersion: plan.pricing.pricingVersion,
+        modelId: plan.modelId,
+        authorizationKind: 'fake_dry_run_only',
+        runKind: 'fake_dry_run_only',
+        authorizationSchemaVersion: 'item-6-test-dry-run-authorization-schema-v1',
+        authorizationRecordHash: 'item-6-test-dry-run-authorization-record-hash',
       }),
     ).toThrow('PROTOCOL_V4_EXECUTION_LEASE_PHASE_MISMATCH');
   });
@@ -513,6 +497,7 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
       artifactStoreRoot: sharedRoot,
       authorizationId: authorization.authorizationId,
       authorizationKind: authorization.kind,
+      runKind: authorization.kind,
       phase: 'development',
       planHash: plan.planHash,
       executionTreeHash: plan.developmentExecutionTreeHash,
@@ -524,6 +509,8 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
       maxConcurrentRequests: authorization.maxConcurrency,
       pricingVersion: plan.pricing.pricingVersion,
       modelId: plan.modelId,
+      authorizationSchemaVersion: authorization.authorizationSchemaVersion,
+      authorizationRecordHash: authorization.authorizationRecordHash,
     });
     sharedEvidence = await runProtocolV4DevelopmentForAllCandidates({
       plan,
@@ -584,28 +571,16 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
       'item-11-holdout-auth',
     );
     const holdoutRoot = freshRoot('item-11-holdout');
-    const holdoutLease = claimProtocolV4ExecutionLease({
-      artifactStoreRoot: holdoutRoot,
-      authorizationId: authorization.authorizationId,
-      authorizationKind: authorization.kind,
-      phase: 'holdout',
-      planHash: plan.planHash,
-      executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
-      developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
-      candidateScope: [holdoutPlan.candidateId],
-      maxCalls: authorization.maxCalls,
-      maxInputTokens: authorization.maxInputTokens,
-      maxOutputTokens: authorization.maxOutputTokens,
-      maxCostUsd: authorization.maxCostUsd,
-      maxConcurrentRequests: authorization.maxConcurrency,
-      pricingVersion: plan.pricing.pricingVersion,
-      modelId: plan.modelId,
-    });
-    const holdoutArmBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
-    const holdoutArtifacts = await runProtocolV4HoldoutForSelectedCandidate({
+    const holdoutLease = claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization(
       plan,
       holdoutPlan,
+      choice,
       authorization,
+      holdoutRoot,
+    );
+    const holdoutArmBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
+    const holdoutArtifacts = await runProtocolV4HoldoutForSelectedCandidate({
+      authorizationInput: { kind: 'fake_dry_run_only', plan, holdoutPlan, choice, authorization },
       lease: holdoutLease,
       artifactStoreRoot: holdoutRoot,
       armBaseline: holdoutArmBaseline,
@@ -640,29 +615,17 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
       'item-14-holdout-auth',
     );
     const holdoutRoot = freshRoot('item-14-holdout');
-    const holdoutLease = claimProtocolV4ExecutionLease({
-      artifactStoreRoot: holdoutRoot,
-      authorizationId: authorization.authorizationId,
-      authorizationKind: authorization.kind,
-      phase: 'holdout',
-      planHash: plan.planHash,
-      executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
-      developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
-      candidateScope: [holdoutPlan.candidateId],
-      maxCalls: authorization.maxCalls,
-      maxInputTokens: authorization.maxInputTokens,
-      maxOutputTokens: authorization.maxOutputTokens,
-      maxCostUsd: authorization.maxCostUsd,
-      maxConcurrentRequests: authorization.maxConcurrency,
-      pricingVersion: plan.pricing.pricingVersion,
-      modelId: plan.modelId,
-    });
+    const holdoutLease = claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization(
+      plan,
+      holdoutPlan,
+      choice,
+      authorization,
+      holdoutRoot,
+    );
     const developmentArmBaseline = await computeProtocolV4DevelopmentArmBaseline(plan);
     const holdoutArmBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
     const holdoutArtifacts = await runProtocolV4HoldoutForSelectedCandidate({
-      plan,
-      holdoutPlan,
-      authorization,
+      authorizationInput: { kind: 'fake_dry_run_only', plan, holdoutPlan, choice, authorization },
       lease: holdoutLease,
       artifactStoreRoot: holdoutRoot,
       armBaseline: holdoutArmBaseline,
@@ -670,15 +633,19 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
     const winningDevelopmentArtifacts = sharedEvidence.candidates.find(
       (c) => c.candidateId === holdoutPlan.candidateId,
     )!;
-    const finalReport = deriveProtocolV4FinalG2Report({
+    const finalReport = deriveProtocolV4DryRunFinalG2TechnicalReport({
       plan,
-      candidateId: holdoutPlan.candidateId,
+      choice,
+      holdoutPlan,
+      holdoutAuthorization: authorization,
       development: winningDevelopmentArtifacts,
       holdout: holdoutArtifacts,
       developmentArmBaseline,
       holdoutArmBaseline,
     });
-    expect(finalReport.finalReportHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(finalReport.reportHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(finalReport.authoritative).toBe(false);
+    expect(finalReport.runKind).toBe('fake_dry_run_only');
     for (const gate of PROTOCOL_V4_G2_GATES) expect(finalReport.g2Results[gate]).toBeDefined();
     // A joint-only gate combinator can now resolve beyond `not_evaluable` for at least one gate, since
     // BOTH partitions' real case records were supplied together -- unlike the Development-only (item
@@ -689,9 +656,11 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
     expect(resolvedBeyondNotEvaluable).toBe(true);
     // Mismatched candidate is rejected, not silently combined.
     expect(() =>
-      deriveProtocolV4FinalG2Report({
+      deriveProtocolV4DryRunFinalG2TechnicalReport({
         plan,
-        candidateId: holdoutPlan.candidateId,
+        choice,
+        holdoutPlan,
+        holdoutAuthorization: authorization,
         development: sharedEvidence.candidates.find(
           (c) => c.candidateId !== holdoutPlan.candidateId,
         )!,
@@ -699,7 +668,7 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
         developmentArmBaseline,
         holdoutArmBaseline,
       }),
-    ).toThrow('PROTOCOL_V4_FINAL_G2_CANDIDATE_MISMATCH');
+    ).toThrow('PROTOCOL_V4_DRY_RUN_FINAL_REPORT_CANDIDATE_MISMATCH');
   }, 90_000);
 });
 

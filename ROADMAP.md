@@ -9023,6 +9023,75 @@ Development-to-Holdout selection contradiction; live Development/Holdout still n
 `5897c559c4cd7d4aa79919691617d50e836ffc51`; Holdout Admission Gate implemented on
 `claude/phase-a-holdout-admission-urfjyk`).
 
+**Final Dispatch-Lease, Authorization-Binding and G2-Evidence Closure (2026-07-29, basis
+`5897c559c4cd7d4aa79919691617d50e836ffc51` / PR #194 merge):** an independent post-merge review found
+five residual defects PR #194 left open: (1) the persisted Execution Lease was checked once before the
+whole Development/Holdout candidate-dispatch loop, never again before each individual observation —
+a lease terminalized/abandoned between observation 1 and observation 2 did not stop observation 2 (or
+any later observation, fast-path or AI-path) from dispatching; (2) the Lease's own claim input accepted
+freely-settable `authorizationKind`/`maxConcurrentRequests`/`pricingVersion`/`modelId` values with no
+requirement they were ever derived from a validated Authorization Record, and the Lease never stored
+the record's own hash at all; (3) the Holdout Runner accepted a minimal structural authorization shape
+(only ID + budget) and explicitly documented that it "does not re-gate the authorization", relying
+entirely on the caller having already run the real gate — a forgotten caller-side gate call, or a
+wholly fabricated minimal object, could reach it and dispatch; (4) the Lease store's `vN.json.tmp-*`
+crash files were invisible to `readProtocolV4ExecutionLease` (a crash on the very first claim attempt
+read back as ordinary "no lease"; a crash on a later transition sat unexamined next to an
+otherwise-valid current version); (5) `deriveProtocolV4FinalG2Report` combined Development+Holdout
+artifacts into the final report using their content directly, checking only that the outer
+`candidateId` string matched — it never recomputed a single content hash, never re-ran
+`validateCategoryEvidence`/telemetry-ledger validation/coverage checks, and never re-derived either
+side's evaluation, so a sealed artifact tampered in place after sealing (stale `contentHash`) was
+silently accepted. Full reproduction (a real, executable red-baseline test file run unmodified against
+this merge commit before any implementation change) and the remediation are in
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_A_PREFLIGHT.md`'s newest section.
+
+Closed: `runOneObservation` (`ResolverV3048ProtocolV4DevelopmentRunner.ts`, shared by both the
+Development and Holdout Runners) now takes a required `leaseExpectedIdentity` and re-reads/re-validates
+the persisted lease from storage immediately before every single observation's dispatch — fast-path and
+AI-path alike, with no further async operation between the check and the dispatch. The Execution Lease
+record and its expected-identity contract (`ResolverV3048ProtocolV4ExecutionLease.ts`) grew
+`authorizationKind`/`runKind`/`authorizationSchemaVersion`/`authorizationRecordHash` (plus, Holdout-only,
+`holdoutPlanHash`/`selectionOrChoiceHash`) as load-bearing fields checked on every dispatch; the new
+`claimProtocolV4ExecutionLeaseForDevelopmentAuthorization`/
+`claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization` are the only recommended claim entry
+points, deriving every identity field from an independently validated Authorization Record/Dry-Run
+Choice/Holdout Plan chain, never from caller-supplied overrides. The Holdout Runner
+(`ResolverV3048ProtocolV4HoldoutRunner.ts`) now requires an explicit discriminated
+`ProtocolV4HoldoutAuthorizationInput` (`kind: 'fake_dry_run_only'` with the real
+`ProtocolV4DryRunHoldoutAuthorization` chain, or `kind: 'fake_dry_run' | 'human_live'` with the real
+`HoldoutAuthorizationRecord` chain — `human_live` remains structurally present and is never constructed
+by this task) and independently re-validates it itself, via the real `assertProtocolV4DryRunHoldoutAuthorized`/
+`assertHoldoutAuthorized` gate, before dispatching a single observation — a minimal fabricated
+authorization can no longer even be passed. The Lease store now detects an orphaned `vN.json.tmp-*` on
+every read/claim/transition (`ProtocolV4ExecutionLeaseCrashError`, never silently treated as "no lease"
+nor silently ignored) and gained a dedicated `recoverProtocolV4ExecutionLeaseCrash` that permanently
+poisons the authorization ID (`abandoned`), matching the Artifact Store's own crash-recovery contract;
+the pre-existing exclusive-create version-file mechanism already correctly resolved concurrent
+lifecycle-transition races (verified with a fresh test, not re-implemented). `ResolverV3048ProtocolV4Evaluation.ts`
+replaced `deriveProtocolV4FinalG2Report` with `deriveProtocolV4DryRunFinalG2TechnicalReport`, which
+independently revalidates BOTH partitions' full artifact sets (content-hash recomputation, category-
+evidence coverage, telemetry/ledger parity, full evaluation re-derivation and exact-equality compare)
+BEFORE the real evaluator ever sees them, and produces the new, structurally distinct
+`ProtocolV4DryRunFinalG2TechnicalReport` type (`schemaVersion`, `runKind: 'fake_dry_run_only'`,
+`authoritative: false`, a fixed `explicitDisclaimer` that explicitly disclaims a live-superiority claim
+and a passed-G2 claim, `reportHash`) — the ONLY report type this task's zero-network Mini-Run produces.
+A parallel `ProtocolV4AuthoritativeFinalG2Report` type is declared purely structurally (per the task's
+explicit instruction); no builder function for it exists anywhere in this task.
+
+Provider calls remain exactly 0; provider cost remains exactly USD 0; no credential was read; the seven
+V3-039 evidence files, corpus, ground truth, and the corrected G2 evaluator's own logic are unchanged.
+G2 remains **not passed**; V3-010 remains `blocked`; no `human_live` authorization was created or
+exercised; no live Development or Holdout execution occurred; the proposal-only budget (352 calls / USD
+5.586944) is numerically unchanged and remains explicitly **not authorized**.
+
+Status: `in_progress — Protocol-v4 zero-call Phase-A authorization and evidence preflight verified
+(per-observation lease re-check, full lease/authorization-hash binding, self-validating Development/
+Holdout Runners, lease crash detection, full Development+Holdout evidence revalidation, dry-run/
+authoritative final-report separation); live Development not authorized` (pending green GitHub Verify
+on `claude/resolver-v3-048-final-dispatch-authorization-closure-f3ky3z`; PR to be opened manually by
+the user).
+
 #### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
 
 Added 2026-07-25 by RESOLVER-V3-043's Phase A diagnosis. Repository-wide search confirmed

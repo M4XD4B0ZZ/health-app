@@ -44,6 +44,7 @@ import {
   markProtocolV4ExecutionLeaseTerminalFailure,
   markProtocolV4ExecutionLeaseTerminalSuccess,
   type ProtocolV4ExecutionLease,
+  type ProtocolV4ExecutionLeaseExpectedIdentity,
 } from './ResolverV3048ProtocolV4ExecutionLease';
 import {
   computeProtocolV4DevelopmentArmBaseline,
@@ -95,6 +96,37 @@ export function stableScenarioBucket(scenarioId: string, modulus: number): numbe
 
 export function usesFastPath(scenarioId: string): boolean {
   return stableScenarioBucket(scenarioId, 5) === 0;
+}
+
+/** Builds the invariant (per-candidate-run) expected lease identity from a validated Development
+ * Authorization Record and the Master Plan -- computed ONCE per candidate run and re-checked against
+ * the real persisted lease fresh before every single observation dispatch (never cached/trusted
+ * across dispatches; only the STRUCTURE of what is expected is computed once, the actual storage
+ * read happens per observation inside `runOneObservation`). */
+export function buildProtocolV4DevelopmentLeaseExpectedIdentity(
+  plan: ProtocolV4MasterPlan,
+  authorization: ProtocolV4DevelopmentAuthorizationRecord,
+  artifactStoreRoot: string,
+): ProtocolV4ExecutionLeaseExpectedIdentity {
+  return {
+    phase: 'development',
+    planHash: plan.planHash,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    authorizationId: authorization.authorizationId,
+    artifactStoreRoot,
+    candidateScope: plan.candidates.map((c) => c.id),
+    maxCalls: authorization.maxCalls,
+    maxInputTokens: authorization.maxInputTokens,
+    maxOutputTokens: authorization.maxOutputTokens,
+    maxCostUsd: authorization.maxCostUsd,
+    maxConcurrentRequests: authorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+    authorizationKind: authorization.kind,
+    runKind: authorization.kind,
+    authorizationSchemaVersion: authorization.authorizationSchemaVersion,
+    authorizationRecordHash: authorization.authorizationRecordHash,
+  };
 }
 
 const DEVELOPMENT_CHECKPOINT_PATH_BY_CANDIDATE: Readonly<Record<ResolverV3047CandidateId, string>> =
@@ -151,6 +183,13 @@ export async function runOneObservation(input: {
   evidenceRoot?: string;
   /** `development` or `holdout` -- the call-ID namespace prefix. Defaults to `development`. */
   callIdPrefix?: string;
+  /** The expected persisted Execution Lease identity this SPECIFIC observation is about to dispatch
+   * under -- re-read from storage and re-validated (phase/plan/execution-tree/authorization/
+   * artifact-root/candidate-scope/budget/authorization-kind/record-hash/schema-version/run-kind/
+   * concurrency/pricing/model) IMMEDIATELY before every single dispatch (fast-path or AI-path),
+   * never once per candidate/phase (RESOLVER-V3-048 Final Dispatch-Lease closure remediation).
+   * Required: `runOneObservation` structurally cannot dispatch without it. */
+  leaseExpectedIdentity: ProtocolV4ExecutionLeaseExpectedIdentity;
 }): Promise<{ categoryRow: CategoryEvidence; rawResult: ProtocolV4ObservationResult }> {
   const { plan, observation, index } = input;
   const executionTreeHash = input.executionTreeHash ?? plan.developmentExecutionTreeHash;
@@ -174,6 +213,12 @@ export async function runOneObservation(input: {
   const groundTruth = expectedComponent
     ? { name: expectedComponent.expectedName, sourceId: expectedComponent.expectedSourceId }
     : undefined;
+
+  // Selected the concrete observation above; nothing asynchronous happens between this lease check
+  // and the dispatch immediately below it (fast-path or AI-path) -- exactly the task's "no further
+  // async operation between lease check and dispatch" requirement. This fresh, storage-authoritative
+  // read happens for EVERY observation, never once per candidate/phase.
+  assertProtocolV4ExecutionLeaseActiveForDispatch(input.leaseExpectedIdentity);
 
   if (usesFastPath(observation.scenarioId)) {
     const sources = buildFakeSources('bls', groundTruth);
@@ -346,18 +391,15 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
       (PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS / 1e6) * input.plan.pricing.outputPerMillion);
   const consumedBeforeSnapshot = input.evidenceGate.snapshot();
 
-  assertProtocolV4ExecutionLeaseActiveForDispatch({
-    phase: 'development',
-    planHash: input.plan.planHash,
-    executionTreeHash: input.plan.developmentExecutionTreeHash,
-    authorizationId: input.authorization.authorizationId,
-    artifactStoreRoot: input.artifactStoreRoot,
-    candidateScope: input.plan.candidates.map((c) => c.id),
-    maxCalls: input.authorization.maxCalls,
-    maxInputTokens: input.authorization.maxInputTokens,
-    maxOutputTokens: input.authorization.maxOutputTokens,
-    maxCostUsd: input.authorization.maxCostUsd,
-  });
+  const leaseExpectedIdentity = buildProtocolV4DevelopmentLeaseExpectedIdentity(
+    input.plan,
+    input.authorization,
+    input.artifactStoreRoot,
+  );
+  // Early sanity check before any dispatch attempt -- the REAL, load-bearing check happens fresh
+  // inside `runOneObservation`, immediately before every single observation's dispatch, not just
+  // here once before the loop.
+  assertProtocolV4ExecutionLeaseActiveForDispatch(leaseExpectedIdentity);
 
   assertDevelopmentAuthorized({
     plan: input.plan,
@@ -411,6 +453,7 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
       authorizationId: input.authorization.authorizationId,
       telemetry,
       ledger,
+      leaseExpectedIdentity,
     });
     categoryRows.push(categoryRow);
     rawResults.push(rawResult);
@@ -501,18 +544,13 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
   artifactStoreRoot: string;
   repoRoot?: string;
 }): Promise<ProtocolV4DevelopmentEvidence> {
-  assertProtocolV4ExecutionLeaseActiveForDispatch({
-    phase: 'development',
-    planHash: input.plan.planHash,
-    executionTreeHash: input.plan.developmentExecutionTreeHash,
-    authorizationId: input.authorization.authorizationId,
-    artifactStoreRoot: input.artifactStoreRoot,
-    candidateScope: input.plan.candidates.map((c) => c.id),
-    maxCalls: input.authorization.maxCalls,
-    maxInputTokens: input.authorization.maxInputTokens,
-    maxOutputTokens: input.authorization.maxOutputTokens,
-    maxCostUsd: input.authorization.maxCostUsd,
-  });
+  assertProtocolV4ExecutionLeaseActiveForDispatch(
+    buildProtocolV4DevelopmentLeaseExpectedIdentity(
+      input.plan,
+      input.authorization,
+      input.artifactStoreRoot,
+    ),
+  );
   if (input.lease.status === 'claimed')
     markProtocolV4ExecutionLeaseExecuting(
       input.artifactStoreRoot,

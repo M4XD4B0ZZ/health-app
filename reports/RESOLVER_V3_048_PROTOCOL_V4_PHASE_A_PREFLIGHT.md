@@ -1017,3 +1017,368 @@ explicitly **not authorized**. V3-048 status: `in_progress — Protocol-v4 zero-
 infrastructure verified (atomic Execution Lease, strict Selection-Rule fidelity, non-authoritative
 Dry-Run Choice contract, real Development/Holdout partitioning, joint G2 report, crash-detection
 integration); live Development not authorized`.
+
+---
+
+# FINAL DISPATCH-LEASE, AUTHORIZATION-BINDING AND G2-EVIDENCE CLOSURE (RESOLVER-V3-048, 2026-07-29) — Everything Above This Line Is Unmodified History
+
+**This section is additive.** Everything above (PR #190's Phase A, and the PR #191/#192/#193 post-merge
+corrections) describes the merged history exactly as merged, unedited. PR #194 remains merged; nothing
+above was reverted. This section documents a fifth, independent post-merge review that found PR #194's
+own Phase A claims still incomplete for dispatch-lease/authorization-binding/final-evidence purposes,
+the five reproducible residual defects it found, the failing baseline that proved them, and the
+remediation that closed them — all on top of the same merge history, in a new branch.
+
+## 35.1 Basis
+
+Base commit: `5897c559c4cd7d4aa79919691617d50e836ffc51` (PR #194 merge into `chore/clean-arch-structure`).
+This is the exact canonical basis the task specified. `.governance/{SYSTEM,RULES,SAFETY,REVIEW_POLICY}.md`
+do not exist in this repository: `SSOK.md`/`AGENTS.md` record that `.governance/**` was retired by
+`RALPH-RETIRE-002` and its surviving rules consolidated into `AGENTS.md`'s "Protected Files" and "Handoff
+Requirements" sections, which this task follows instead.
+
+## 35.2 Reproduced residual defects
+
+A direct read of the merged code at the base commit confirmed all five defects the task described, each
+pinned to a specific location:
+
+1. `assertProtocolV4ExecutionLeaseActiveForDispatch` was called exactly once, in
+   `runProtocolV4DevelopmentForCandidate`/`runProtocolV4DevelopmentForAllCandidates`/
+   `runProtocolV4HoldoutForSelectedCandidate`, before the whole per-candidate observation loop —
+   `runOneObservation` (the function every actual dispatch, fast-path or AI-path, goes through) took no
+   lease parameter at all and never re-checked anything. A lease terminalized/abandoned between
+   observation 1 and observation 2 of the same run could not stop observation 2 (or any later
+   observation) from dispatching.
+2. `ProtocolV4ExecutionLeaseClaimInput` accepted freely-settable `authorizationKind: string`/
+   `maxConcurrentRequests: number`/`pricingVersion: string`/`modelId: string` with no requirement they
+   were ever derived from, or checked against, a validated Authorization Record; the persisted
+   `ProtocolV4ExecutionLease` never stored an Authorization Record hash at all, and
+   `assertProtocolV4ExecutionLeaseActiveForDispatch`'s expected-identity contract
+   (`ProtocolV4ExecutionLeaseExpectedIdentity`) never checked `authorizationKind`/
+   `maxConcurrentRequests`/`pricingVersion`/`modelId` against the persisted lease either — those four
+   fields were stored but never load-bearing at dispatch time.
+3. `ProtocolV4HoldoutRunnerAuthorizationInput` (the Holdout Runner's authorization parameter type) was
+   `{ authorizationId: string; maxCalls: number; maxInputTokens: number; maxOutputTokens: number;
+maxCostUsd: number }` — a minimal structural shape satisfied by any object with those five fields,
+   never a real `HoldoutAuthorizationRecord`/`ProtocolV4DryRunHoldoutAuthorization`. The function's own
+   docstring said it "does not re-gate the authorization ... relies entirely on the caller having
+   already run `assertHoldoutAuthorized`/`assertProtocolV4DryRunHoldoutAuthorized` BEFORE this function
+   is invoked" — no call to either gate existed anywhere inside the Runner itself.
+4. `readProtocolV4ExecutionLease`/`claimProtocolV4ExecutionLease`/`transitionLease` never inspected the
+   lease directory for orphaned `vN.json.tmp-*` files at all (unlike the sibling Artifact Store, which
+   already had `detectProtocolV4ArtifactCrash`) — a crash on the very first claim attempt (no `v1.json`
+   ever committed) read back as an ordinary `null` ("no lease"), and a crash on a later transition
+   attempt sat silently next to an otherwise-valid, still-current earlier version, invisible to every
+   read.
+5. `deriveProtocolV4FinalG2Report` read `development.rawResults.content`/`development.telemetry.content`/
+   `holdout.categoryTable.content`/etc. directly off the `ProtocolV4DevelopmentCandidateArtifacts`
+   objects it was given, checking only `development.candidateId === candidateId && holdout.candidateId
+=== candidateId` before combining them through the real evaluator — no `validateProtocolV4Artifact`
+   (content-hash recomputation), no `validateCategoryEvidence` (coverage against the plan's/Holdout
+   plan's own expected observations), no telemetry/ledger parity re-check, and no evaluation
+   re-derivation-and-compare occurred for either partition before the final report was produced. It also
+   returned a single, generically-named `ProtocolV4FinalG2Report` with no `authoritative`/`runKind`/
+   disclaimer fields at all, even though the Mini-Run's only caller of it always supplies
+   `fake_dry_run_only` evidence.
+
+## 35.3 Failing baseline — exact command and result
+
+A dedicated, real (not hand-built-fixture) test file,
+`src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalDispatchAuthorizationClosureRedBaseline.test.ts`,
+was written and run **unmodified against the base commit** before any implementation file changed. Each
+`it` drives the actual pre-remediation exported functions (`runOneObservation`,
+`runProtocolV4HoldoutForSelectedCandidate`, `claimProtocolV4ExecutionLease`,
+`readProtocolV4ExecutionLease`, `deriveProtocolV4FinalG2Report`) and asserts the pre-remediation
+(wrong) behavior actually occurs — a dispatch that should have been blocked completing successfully
+instead, a minimal fabricated authorization reaching and completing in the Holdout Runner, an orphaned
+crash marker being silently invisible, a tampered artifact being silently accepted into the final
+report.
+
+Command:
+
+```
+npx jest --runInBand src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalDispatchAuthorizationClosureRedBaseline.test.ts
+```
+
+Result on the base commit (before any remediation edit — captured verbatim):
+
+```
+PASS src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalDispatchAuthorizationClosureRedBaseline.test.ts (22.794 s)
+  RED BASELINE (5897c559c4cd7d4aa79919691617d50e836ffc51) -- reproduces the 5 residual defects
+    ✓ 1/3: a Development lease abandoned between observation 1 and 2 does NOT stop a fast-path observation 2 from dispatching -- runOneObservation has no lease parameter at all pre-remediation (99 ms)
+    ✓ 2: the same gap exists for a Holdout-shaped call (executionTreeHash/evidenceRoot/callIdPrefix overridden) -- runOneObservation is shared and structurally identical for both phases (42 ms)
+    ✓ 9/10: a caller-fabricated minimal Holdout authorization (only id + budget, never a real HoldoutAuthorizationRecord/ProtocolV4DryRunHoldoutAuthorization) reaches and completes in the Holdout Runner -- it never re-gates authorization itself (984 ms)
+    ✓ 13/14/15: an orphaned leases/<authorizationId>/v1.json.tmp-* with no v1.json is silently treated as "no lease" (readProtocolV4ExecutionLease returns null) instead of a crash state, and a subsequent claim silently succeeds (43 ms)
+    ✓ 17/18: deriveProtocolV4FinalG2Report accepts Development/Holdout artifacts whose sealed content was tampered after sealing, as long as the outer candidateId matches -- it never recomputes or re-validates any artifact content hash (7837 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        23.084 s
+```
+
+Every `it` **passing** here is the failing-baseline proof (each assertion only passes when the defect is
+present). Items 4-8 (extended lease-identity fields), 11/12 (discriminated Holdout authorization union's
+structural separation), and 16 (transition-race handling — which turned out to already be correctly
+closed by the pre-existing exclusive-create version-file mechanism, verified fresh rather than
+re-implemented) require brand-new fields/types that cannot be expressed against the pre-remediation
+types at all (TypeScript rejects passing fields a type does not declare); those are proven by the direct
+code citations in §35.2 instead, matching this repository's own established convention for this exact
+situation (see the Final-Evidence-Lineage remediation's own red-baseline docstring). After remediation,
+this same file's assertions were extended in place to cover all 22 required items and inverted to their
+now-passing form (kept as a permanent regression suite) — see §35.9 below for the post-remediation
+green result.
+
+## 35.4 Per-observation lease check (closes defects 1/2/3, items 1-3)
+
+`runOneObservation` (`ResolverV3048ProtocolV4DevelopmentRunner.ts`) now takes a required
+`leaseExpectedIdentity: ProtocolV4ExecutionLeaseExpectedIdentity` parameter and calls
+`assertProtocolV4ExecutionLeaseActiveForDispatch(input.leaseExpectedIdentity)` immediately after
+selecting the concrete observation and immediately before dispatch — before the fast-path/AI-path branch
+splits, so both paths are covered by the identical check, and with no further async operation between
+the check and the dispatch it gates. This is a fresh, storage-authoritative read on every call, not a
+cached/reused result: a lease terminalized or abandoned between two `runOneObservation` calls is
+detected on the very next call. `runProtocolV4DevelopmentForCandidate`/
+`runProtocolV4DevelopmentForAllCandidates` (`buildProtocolV4DevelopmentLeaseExpectedIdentity`, new) and
+`runProtocolV4HoldoutForSelectedCandidate` (`buildHoldoutLeaseExpectedIdentity`, new, private) compute
+this expected-identity object once per candidate/phase run (a pure function of the plan/authorization —
+no I/O) and pass the identical object into every one of that run's `runOneObservation` calls; only the
+per-call storage READ inside `assertProtocolV4ExecutionLeaseActiveForDispatch` repeats per observation,
+exactly matching the task's "the check must happen fresh before every single dispatch, not merely once
+before the loop" requirement.
+
+## 35.5 Full lease/authorization-hash binding (closes defect 2, items 4-8, 10)
+
+`ProtocolV4ExecutionLease`/`ProtocolV4ExecutionLeaseClaimInput`/`ProtocolV4ExecutionLeaseExpectedIdentity`
+(`ResolverV3048ProtocolV4ExecutionLease.ts`) gained `authorizationKind`, `runKind` (independently named
+and independently checked, even though it carries the same vocabulary as `authorizationKind` today),
+`authorizationSchemaVersion`, and `authorizationRecordHash` as load-bearing fields —
+`assertProtocolV4ExecutionLeaseActiveForDispatch` now checks all four (plus the pre-existing
+`maxConcurrentRequests`/`pricingVersion`/`modelId`, which were stored but never checked before) against
+the persisted lease on every dispatch, throwing a distinct, new error code per mismatch
+(`PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_KIND_MISMATCH`/`_RUN_KIND_MISMATCH`/
+`_AUTHORIZATION_SCHEMA_VERSION_MISMATCH`/`_AUTHORIZATION_RECORD_HASH_MISMATCH`/`_CONCURRENCY_MISMATCH`/
+`_PRICING_VERSION_MISMATCH`/`_MODEL_ID_MISMATCH`). Holdout-only, the Lease also carries
+`holdoutPlanHash`/`selectionOrChoiceHash` (the Holdout/Dry-Run-Holdout Execution Plan's own hash, and the
+Candidate Selection Record's/Dry-Run Choice's own hash), both required `null` for a Development lease
+and both checked on every Holdout dispatch.
+
+Two new, recommended, high-level claim entry points close "a lease can be claimed solely from copied
+budget/ID fields" (item 10) structurally: `claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(plan,
+authorization, artifactStoreRoot)` recomputes the `ProtocolV4DevelopmentAuthorizationRecord`'s own
+self-hash and requires it match the record's stored `authorizationRecordHash` before deriving every lease
+identity field directly from the validated record and the Master Plan; a caller without a genuine record
+(whose own hash validates) cannot reach it. `claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization(plan,
+holdoutPlan, choice, authorization, artifactStoreRoot)` re-validates the full `choice`/`holdoutPlan`/
+`authorization` chain via the real `validateProtocolV4DryRunCandidateChoice`/
+`validateProtocolV4DryRunHoldoutExecutionPlan`/identity cross-checks before deriving the lease identity
+the same way. The low-level `claimProtocolV4ExecutionLease` primitive (extended with the same new
+required fields) remains exported for the pre-existing lifecycle/race tests that construct lease
+identities directly, but every production call site in `ResolverV3048ProtocolV4DryRun.ts` (the Mini-Run
+and the fault-matrix reference chain) now goes through the validated wrappers exclusively.
+
+## 35.6 Runners self-validate authorization (closes defect 3, items 9, 11, 12)
+
+`ProtocolV4HoldoutRunnerAuthorizationInput` (the old minimal shape) is gone. `runProtocolV4HoldoutForSelectedCandidate`
+now requires an explicit discriminated union, `ProtocolV4HoldoutAuthorizationInput`
+(`ResolverV3048ProtocolV4HoldoutRunner.ts`):
+
+- `kind: 'fake_dry_run_only'` — carries the real, full `plan`/`ProtocolV4DryRunHoldoutExecutionPlan`/
+  `ProtocolV4DryRunCandidateChoice`/`ProtocolV4DryRunHoldoutAuthorization` chain.
+- `kind: 'fake_dry_run' | 'human_live'` — carries the real, full `plan`/`HoldoutExecutionPlan`/
+  `CandidateSelectionRecord`/`HoldoutAuthorizationRecord` chain. Structurally present per the task's
+  explicit instruction; `kind: 'human_live'` is never constructed or exercised anywhere in this task
+  (verified directly: no `kind: 'human_live',`/`liveExecution: true` object-literal construction exists
+  anywhere in `ResolverV3048ProtocolV4DryRun.ts`).
+
+The Runner itself calls the REAL gate for whichever branch it received —
+`assertProtocolV4DryRunHoldoutAuthorized` or `assertHoldoutAuthorized` — before dispatching a single
+observation, via a new internal `resolveAndValidateHoldoutAuthorization` that also extracts every
+dispatch-time value (candidate ID, observations, execution-tree hash, budget, authorization
+kind/hash/schema version) from the now-validated real objects, never from a caller-supplied override. A
+minimal fabricated object (only `authorizationId`/`maxCalls`/`maxInputTokens`/`maxOutputTokens`/
+`maxCostUsd`) can no longer even be TYPE-CHECKED as a valid `ProtocolV4HoldoutAuthorizationInput`; a
+determined bypass via `as unknown as` still hits the real runtime gate and is rejected (proven directly
+in the regression suite, item 9). The Development Runner already called `assertDevelopmentAuthorized`
+itself in the previous PR (#193) and needed no further change here — it was already compliant with "the
+Runner is the last fail-closed boundary; a forgotten caller-gate call must never lead to a dispatch".
+
+`ResolverV3048ProtocolV4DryRun.ts`'s Mini-Run was restructured to match: the orchestrator's own
+duplicate pre-dispatch `assertProtocolV4DryRunHoldoutAuthorized` call (previously run BEFORE
+`consumeProtocolV4AuthorizationAtomically`, which would otherwise make the Runner's own new internal
+re-validation immediately observe a premature "already consumed" state) was removed in favor of the
+Runner's own internal validation; consumption now happens only AFTER the Runner's dispatch loop
+completes, mirroring the Development phase's existing consume-after-dispatch ordering.
+
+## 35.7 Lease-store crash detection and transition-race handling (closes defect 4, items 13-16)
+
+`ResolverV3048ProtocolV4ExecutionLease.ts` gained `detectProtocolV4ExecutionLeaseCrash(root,
+authorizationId)` (parallel to the Artifact Store's `detectProtocolV4ArtifactCrash`): true when ANY
+`vN.json.tmp-*` exists with no corresponding final `vN.json`, for any version number, not merely the
+next expected one — a temp file for an already-superseded version is equally a crash, never filtered out
+because a later version happens to read back fine. `readProtocolV4ExecutionLease` now checks this FIRST,
+before either returning `null` (no lease ever committed) or the current version's content, and throws
+the new `ProtocolV4ExecutionLeaseCrashError` (`PROTOCOL_V4_EXECUTION_LEASE_CRASH_EVIDENCE_DETECTED`)
+instead — so both a crash on the very first claim attempt and a crash on a later transition are equally,
+explicitly surfaced. `claimProtocolV4ExecutionLease`/`transitionLease` both go through this same check
+(the latter via `readProtocolV4ExecutionLease` itself) before attempting any write, so neither can
+silently "reclaim" or "retransition" over unexamined crash evidence.
+
+`recoverProtocolV4ExecutionLeaseCrash` (new) is the only way past a detected crash: it removes every
+orphaned `*.json.tmp-*` sibling (never a final version file) for the authorization ID, then either
+transitions the existing current version to `abandoned` (crash on a later transition) or, when no final
+version was EVER committed (crash on the very first claim), writes a terminal `abandoned` v1 placeholder
+directly from caller-supplied identity fields — so the authorization ID is permanently, terminally
+consumed either way, exactly matching the Artifact Store's own crash-recovery contract. Never invoked
+automatically by any read/claim/transition/dispatch path.
+
+Two-concurrent-transition handling (item 16) was investigated and found to already be correctly closed
+by the pre-existing mechanism: `writeLeaseVersionExclusive` writes to a uniquely-named temp file via
+`fs.openSync(..., 'wx')` then commits via `fs.linkSync` (itself exclusive — fails `EEXIST` if the target
+version file already exists), so two concurrent transitions racing from the identical read state and
+computing the identical next version number can never both commit; the loser gets the existing, distinct
+`PROTOCOL_V4_EXECUTION_LEASE_VERSION_RACE` error, never a silent overwrite or an alternate "next" version
+computed from stale state. A fresh regression test (item 16, `Promise.allSettled` over two concurrent
+`markProtocolV4ExecutionLeaseTerminalSuccess`/`markProtocolV4ExecutionLeaseTerminalFailure` calls from
+the same `executing` state) confirms exactly one winner and one distinct-error loser — no source change
+was needed for this specific sub-requirement, only the crash-detection layer wrapped around it.
+
+## 35.8 Final G2 evidence full revalidation and dry-run/authoritative report separation (closes defect 5, items 17-22)
+
+`ResolverV3048ProtocolV4Evaluation.ts`'s `deriveProtocolV4FinalG2Report`/`ProtocolV4FinalG2Report` are
+replaced by `deriveProtocolV4DryRunFinalG2TechnicalReport`/`ProtocolV4DryRunFinalG2TechnicalReport`. The
+new function's shared private core, `deriveProtocolV4JointG2Verdict`, calls a new
+`revalidateProtocolV4CandidatePartitionArtifacts` for BOTH partitions independently before any
+combination: each of the six sealed artifacts (checkpoint, raw results, category table, telemetry,
+ledger, evaluation) is passed through `validateProtocolV4Artifact` (independently recomputes
+`hashProtocolV4(content)` and requires it match the artifact's own `contentHash` — a tampered `.content`
+with a stale `.contentHash` is rejected here, before anything downstream reads it), the category table is
+checked via `validateCategoryEvidence` against the real expected observation set (Development: `plan.developmentObservations`
+filtered by candidate; Holdout: the Holdout plan's own `holdoutObservations` — no missing/extra
+scenario-run), raw-result coverage is checked against the identical expected set, telemetry/ledger length
+and pairwise parity are re-verified, and the stored `CandidateEvaluation` is independently RE-DERIVED
+(via the same pure `deriveProtocolV4CandidateEvaluation` the Runners themselves use) and required to be
+canonically identical to the sealed evaluation artifact's content. Only once both partitions pass this
+does the joint real-evaluator combination run, and every artifact hash placed in the final report is
+read off the artifacts AFTER this revalidation, never blindly copied from caller input beforehand.
+
+The new `ProtocolV4DryRunFinalG2TechnicalReport` type (Type A) carries `schemaVersion`, `runKind:
+'fake_dry_run_only'` and `authoritative: false` as LITERAL types (not `boolean`), `candidateChoiceHash`/
+`dryRunHoldoutPlanHash`/`dryRunAuthorizationHash`/`developmentEvidenceRootHash`, `evaluatorVersion`/
+`evaluatorAlgorithmHash`, both partitions' artifact-hash sets, `g2Results`/`allMandatoryG2CriteriaPass`,
+a fixed `explicitDisclaimer` string (`PROTOCOL_V4_DRY_RUN_FINAL_REPORT_DISCLAIMER`, exported) that
+explicitly states this is technical zero-network evidence only and does NOT constitute a live-
+superiority claim, a passed G2 verdict, a `human_live` authorization, or a production-wiring approval,
+and a `reportHash`. `revalidateProtocolV4DryRunFinalG2TechnicalReport` (new) re-derives the entire report
+from the same inputs and requires exact `reportHash` equality — the "re-derive the whole final report
+and require exact equality" validator the task requires. A structurally separate `ProtocolV4AuthoritativeFinalG2Report`
+interface (Type B, `runKind: 'human_live'`, `authoritative: true` as literal types) is declared for
+structural completeness only, per the task's explicit "nur strukturell vorhanden, in diesem Task nie
+erzeugt" instruction — there is deliberately no builder function for it anywhere in this module or this
+task (verified directly: no `authoritative: true,` object-literal construction exists in
+`ResolverV3048ProtocolV4Evaluation.ts`; only the interface's own `authoritative: true;` type-field
+declaration does).
+
+`ResolverV3048ProtocolV4DryRun.ts`'s Mini-Run now calls `deriveProtocolV4DryRunFinalG2TechnicalReport`
+exclusively, passing the real `choice`/`holdoutPlan`/`holdoutAuthorization` chain alongside both
+partitions' artifacts — it never had, and still never has, any code path capable of producing an
+authoritative report from this task's fake-dry-run-only evidence.
+
+## 35.9 Verification
+
+```
+npm install                        # dependencies were not pre-installed in this container; installed
+                                    # once, restoring node_modules to match the existing lockfile exactly
+npm run typecheck                  # PASS, 0 errors (repo-wide)
+npm run lint                       # PASS, 0 errors/warnings (repo-wide)
+npm run format:check                # PASS, all files match Prettier style (repo-wide)
+npx jest --runInBand src/features/nutrition/benchmark/protocolV4
+                                    # PASS, 6 suites / 139 tests
+npx jest --runInBand src/features/nutrition/benchmark
+                                    # PASS, 76 suites / 884 tests (includes V3-039 compatibility,
+                                    # V3-042 evaluator regression, and V3-043..V3-051 regression suites)
+npm run verify                     # PASS end to end -- typecheck + lint + format:check + full Jest
+                                    # suite, run to completion, no premature abort: 252 suites / 2693
+                                    # tests passed, 1084.335 s
+git status --porcelain             # clean except intended new/modified files; no tmp/ artifact-store
+                                    # output tracked (gitignored)
+git diff --check                   # PASS, no whitespace errors
+```
+
+## 35.10 Evidence integrity confirmed unchanged
+
+The seven RESOLVER-V3-039 evidence files, the V3-039 closeout report, and the V3-039 evidence manifest
+were not touched. The corpus and ground truth are read, never mutated. The corrected G2 evaluator's own
+logic (`RepresentativeHybridV1LiveMetrics.ts`/`RepresentativeHybridV1LiveReportBuilder.ts`) was not
+modified. No BLS artifact, `.github/workflows/**`, `package.json`/lockfile, Supabase migration, UI, DI,
+or feature-flag file was touched. `package.json`/`package-lock.json` byte-identical to the base commit
+(`npm install` restored `node_modules` only, matching the existing lockfile). Real provider calls: **0**.
+Real provider cost: **USD 0**. No credential was read (`ANTHROPIC_API_KEY` remains a literal placeholder
+string in every fixture, never read from `process.env`). No `human_live` Authorization (Development or
+Holdout) was ever created. No live Development or Holdout execution was performed.
+
+## 35.11 Status
+
+V3-047 remains `done`. V3-010 remains `blocked`. G2 remains **not passed**. Production wiring remains
+unauthorized. The 352-call / USD 5.586944 proposal-only budget remains numerically unchanged and
+explicitly **not authorized**. V3-048 status: `in_progress — Protocol-v4 zero-call Phase-A authorization
+and evidence preflight verified (per-observation lease re-check, full lease/authorization-hash binding,
+self-validating Development/Holdout Runners, lease crash detection, full Development+Holdout evidence
+revalidation, dry-run/authoritative final-report separation); live Development not authorized`.
+
+## 35.12 Remaining live blockers
+
+No live Anthropic call has ever been made under any version of this protocol. The 352-call / USD
+5.586944 proposal-only budget remains explicitly unauthorized pending a separate, explicit human
+approval of the exact call/token/USD ceiling. G2 remains not passed; RESOLVER-V3-010 remains `blocked`
+until RESOLVER-V3-048 produces genuine live Development+Holdout evidence that passes every mandatory G2
+dimension under the unmodified, real evaluator. This remediation closes dispatch-lease/authorization-
+binding/final-evidence contract gaps only — it authorizes nothing, executes nothing live, and does not
+itself advance V3-048 past Phase A.
+
+## 35.13 Reconciliation with the concurrently merged PR #195 (Holdout Admission Gate)
+
+While this branch was in review, a separate, independently opened PR #195 ("add explicit Holdout
+Admission Gate; record PR #194 merge review") was merged into `chore/clean-arch-structure` ahead of
+this one. It added a new, real, artifact-validated third authorization path —
+`ResolverV3048ProtocolV4HoldoutAdmission.ts` (`ProtocolV4HoldoutAdmissionRecord`/
+`ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionAuthorization`, gated by a
+separate, pre-frozen `HOLDOUT_ADMISSION_RULE` and a mandatory human review record) — built to be
+"structurally compatible with the existing Holdout Runner's minimal input interfaces," proven only by
+a compile-time type-assignability check, never an actual runtime dispatch through the Runner.
+
+This branch's own remediation (§35.6) had already REMOVED that minimal interface entirely, in favor of
+the self-validating discriminated `ProtocolV4HoldoutAuthorizationInput` union — exactly the fix
+residual defect 3 required. Merging both independently would have broken PR #195's new module (its
+compile-time compatibility check would no longer type-check against the hardened Runner). This branch
+was therefore merged with `origin/chore/clean-arch-structure` (bringing in PR #195), and the conflict
+was reconciled by:
+
+- extending `ProtocolV4HoldoutAuthorizationInput` with a third branch, `kind: 'holdout_admission'`,
+  carrying the real `plan`/`ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionRecord`/
+  `ProtocolV4HoldoutAdmissionAuthorization` chain;
+- wiring `resolveAndValidateHoldoutAuthorization` to validate this branch via the real
+  `assertProtocolV4HoldoutAdmissionAuthorized` gate (the same self-validation pattern as the other two
+  branches — never a caller-trusted boolean);
+- adding `claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization` (`ResolverV3048ProtocolV4ExecutionLease.ts`),
+  symmetric to the Development/Dry-Run-Holdout claim wrappers, deriving lease identity only from the
+  validated Admission chain;
+- replacing `ResolverV3048ProtocolV4HoldoutAdmission.test.ts`'s compile-time-only structural-
+  compatibility check with two real runtime tests: one drives a genuine end-to-end Holdout dispatch
+  through `runProtocolV4HoldoutForSelectedCandidate` with `kind: 'holdout_admission'` (proving the
+  Admission-derived chain is now genuinely accepted, self-validated, and protected by the identical
+  per-observation lease re-check every other branch gets), and one proves a caller-fabricated minimal
+  authorization object still cannot reach the Runner via this branch even when forced through
+  `as unknown as` (the real gate rejects it at runtime, not merely at the type level).
+
+Re-verification after reconciliation: `npm run typecheck`/`npm run lint`/`npm run format:check` clean;
+`npx jest --runInBand src/features/nutrition/benchmark/protocolV4` (7 suites / 164 tests, all passing —
+including the two new Admission↔Runner integration tests); `npx jest --runInBand
+src/features/nutrition/benchmark` (77 suites / 909 tests, all passing); `npm run verify` (full repo, run
+to completion) — **253 suites / 2718 tests passed**, 961.921 s, exit code 0.
+
+No behavior of the already-merged Admission module itself (`ResolverV3048ProtocolV4HoldoutAdmission.ts`)
+was changed — only the Holdout Runner's integration surface and that module's own test file's
+compatibility proof were strengthened. `kind: 'holdout_admission'` remains structurally present and
+untouched by this task's own zero-network Mini-Run, exactly like the pre-existing `kind: 'fake_dry_run'
+| 'human_live'` (`selection_record`) branch — neither is ever constructed or exercised here.

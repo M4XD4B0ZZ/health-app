@@ -27,10 +27,12 @@ import {
   type ProtocolV4HoldoutAdmissionHumanReview,
   type ProtocolV4HoldoutAdmissionRecord,
 } from '../ResolverV3048ProtocolV4HoldoutAdmission';
-import type {
-  ProtocolV4HoldoutRunnerAuthorizationInput,
-  ProtocolV4HoldoutRunnerPlanInput,
+import {
+  runProtocolV4HoldoutForSelectedCandidate,
+  type ProtocolV4HoldoutAuthorizationInput,
 } from '../ResolverV3048ProtocolV4HoldoutRunner';
+import { claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization } from '../ResolverV3048ProtocolV4ExecutionLease';
+import { computeProtocolV4HoldoutArmBaseline } from '../ResolverV3048ProtocolV4Evaluation';
 
 const plan = buildProtocolV4MasterPlan();
 
@@ -611,8 +613,19 @@ describe('RESOLVER-V3-048 Holdout Admission Gate: authorization gate', () => {
   });
 });
 
-describe('RESOLVER-V3-048 Holdout Admission Gate: Holdout Runner structural compatibility', () => {
-  it('the Admission Execution Plan and Authorization structurally satisfy the Holdout Runner minimal input shapes -- provable at compile time, not merely a runtime coincidence', () => {
+describe('RESOLVER-V3-048 Holdout Admission Gate: Holdout Runner integration', () => {
+  // RESOLVER-V3-048 Final Dispatch-Lease closure remediation reconciliation: the Holdout Runner's
+  // old minimal structural interfaces (`ProtocolV4HoldoutRunnerPlanInput`/
+  // `ProtocolV4HoldoutRunnerAuthorizationInput`) were removed in favor of an explicit discriminated
+  // `ProtocolV4HoldoutAuthorizationInput` union that the Runner independently re-validates itself
+  // (see that module's own docstring) -- a bare compile-time type-assignability check against the
+  // old minimal shape is no longer meaningful evidence of compatibility, since nothing ever runtime-
+  // validated it either. This test instead drives a REAL dispatch through
+  // `runProtocolV4HoldoutForSelectedCandidate` with `kind: 'holdout_admission'`, proving the
+  // Admission-derived chain is genuinely accepted, self-validated by the Runner via
+  // `assertProtocolV4HoldoutAdmissionAuthorized`, and protected by the same per-observation lease
+  // re-check every other branch gets.
+  it('the Admission-derived chain dispatches real Holdout observations end to end through the hardened Runner', async () => {
     const evidence = buildEvidence();
     const record = admitCandidateForHoldout(plan, evidence, validHumanReview);
     const holdoutPlan = deriveProtocolV4HoldoutAdmissionExecutionPlan(
@@ -624,18 +637,89 @@ describe('RESOLVER-V3-048 Holdout Admission Gate: Holdout Runner structural comp
       plan,
       holdoutPlan,
       record,
-      `holdout-admission-structural-${Math.random().toString(36).slice(2, 8)}`,
-      'human-reviewer:handoff-reference-structural',
+      `holdout-admission-integration-${Math.random().toString(36).slice(2, 8)}`,
+      'human-reviewer:handoff-reference-integration',
     );
-    // If either type ever drifts from the Runner's minimal structural contract, this assignment
-    // fails `npm run typecheck`, not merely a runtime assertion.
-    const asPlanInput: ProtocolV4HoldoutRunnerPlanInput = holdoutPlan;
-    const asAuthInput: ProtocolV4HoldoutRunnerAuthorizationInput = authorization;
-    expect(asPlanInput.candidateId).toBe(holdoutPlan.candidateId);
-    expect(asPlanInput.holdoutObservations.length).toBe(holdoutPlan.holdoutObservations.length);
-    expect(asAuthInput.authorizationId).toBe(authorization.authorizationId);
-    expect(asAuthInput.maxCalls).toBe(authorization.maxCalls);
-  });
+    const artifactStoreRoot = `${PROTOCOL_V4_DRY_RUN_ROOT}/holdout-admission-runner-integration-${Math.random().toString(36).slice(2, 8)}`;
+    const lease = claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization(
+      plan,
+      holdoutPlan,
+      record,
+      authorization,
+      artifactStoreRoot,
+    );
+    const authorizationInput: ProtocolV4HoldoutAuthorizationInput = {
+      kind: 'holdout_admission',
+      plan,
+      holdoutPlan,
+      record,
+      authorization,
+      humanApprovedCeiling: {
+        maxCalls: authorization.maxCalls,
+        maxTotalTokens: authorization.maxTotalTokens,
+        maxCostUsd: authorization.maxCostUsd,
+      },
+    };
+    const armBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
+    const artifacts = await runProtocolV4HoldoutForSelectedCandidate({
+      authorizationInput,
+      lease,
+      artifactStoreRoot,
+      armBaseline,
+    });
+    expect(artifacts.candidateId).toBe(holdoutPlan.candidateId);
+    expect(artifacts.categoryTable.content.length).toBeGreaterThan(0);
+    for (const row of artifacts.categoryTable.content) expect(row.partition).toBe('holdout');
+  }, 60_000);
+
+  it('a minimal, caller-fabricated authorization (not a real ProtocolV4HoldoutAdmissionAuthorization) cannot reach the Runner via this branch -- the Runner re-validates it itself', async () => {
+    const evidence = buildEvidence();
+    const record = admitCandidateForHoldout(plan, evidence, validHumanReview);
+    const holdoutPlan = deriveProtocolV4HoldoutAdmissionExecutionPlan(
+      plan,
+      record.developmentEvidenceRootHash,
+      record,
+    );
+    const realAuthorization = buildProtocolV4HoldoutAdmissionAuthorization(
+      plan,
+      holdoutPlan,
+      record,
+      `holdout-admission-fabricated-${Math.random().toString(36).slice(2, 8)}`,
+      'human-reviewer:handoff-reference-fabricated',
+    );
+    const artifactStoreRoot = `${PROTOCOL_V4_DRY_RUN_ROOT}/holdout-admission-runner-fabricated-${Math.random().toString(36).slice(2, 8)}`;
+    const lease = claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization(
+      plan,
+      holdoutPlan,
+      record,
+      realAuthorization,
+      artifactStoreRoot,
+    );
+    const fabricatedAuthorization = {
+      authorizationId: realAuthorization.authorizationId,
+      maxCalls: 999,
+      maxInputTokens: 999_999,
+      maxOutputTokens: 999_999,
+      maxCostUsd: 100,
+    };
+    const fabricatedInput = {
+      kind: 'holdout_admission',
+      plan,
+      holdoutPlan,
+      record,
+      authorization: fabricatedAuthorization,
+      humanApprovedCeiling: { maxCalls: 999, maxTotalTokens: 999_999, maxCostUsd: 100 },
+    } as unknown as ProtocolV4HoldoutAuthorizationInput;
+    const armBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
+    await expect(
+      runProtocolV4HoldoutForSelectedCandidate({
+        authorizationInput: fabricatedInput,
+        lease,
+        artifactStoreRoot,
+        armBaseline,
+      }),
+    ).rejects.toThrow();
+  }, 60_000);
 });
 
 describe('RESOLVER-V3-048 Holdout Admission Gate: error class', () => {

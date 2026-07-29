@@ -15,6 +15,12 @@ import {
   validateProtocolV4DryRunCandidateChoice,
   validateProtocolV4DryRunHoldoutExecutionPlan,
 } from './ResolverV3048ProtocolV4DryRunChoice';
+import {
+  type ProtocolV4HoldoutAdmissionExecutionPlan,
+  type ProtocolV4HoldoutAdmissionAuthorization,
+  type ProtocolV4HoldoutAdmissionRecord,
+  validateProtocolV4HoldoutAdmissionExecutionPlan,
+} from './ResolverV3048ProtocolV4HoldoutAdmission';
 
 /**
  * RESOLVER-V3-048 Final Dispatch-Lease, Authorization-Binding and G2-Evidence Closure remediation.
@@ -463,6 +469,61 @@ export function claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization(
     developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
     holdoutPlanHash: holdoutPlan.dryRunHoldoutPlanHash,
     selectionOrChoiceHash: choice.choiceHash,
+    candidateScope: [holdoutPlan.candidateId],
+    maxCalls: authorization.maxCalls,
+    maxInputTokens: authorization.maxInputTokens,
+    maxOutputTokens: authorization.maxOutputTokens,
+    maxCostUsd: authorization.maxCostUsd,
+    maxConcurrentRequests: authorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+  });
+}
+
+/** The recommended entry point for claiming a Holdout-phase Execution Lease under the real,
+ * artifact-validated Holdout Admission Gate contract (`kind: 'human_live'`,
+ * `ResolverV3048ProtocolV4HoldoutAdmission.ts`). Every identity field is derived from the validated
+ * `record`/`holdoutPlan`/`authorization` chain (re-validated here via
+ * `validateProtocolV4HoldoutAdmissionExecutionPlan`, which itself re-derives the plan from the
+ * Admission Record), never from a caller override. Structurally present alongside the Development/
+ * Dry-Run-Holdout wrappers above; this task's own zero-network Mini-Run never calls it (no
+ * `human_live` execution is ever authorized or exercised by this task). */
+export function claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization(
+  plan: ProtocolV4MasterPlan,
+  holdoutPlan: ProtocolV4HoldoutAdmissionExecutionPlan,
+  record: ProtocolV4HoldoutAdmissionRecord,
+  authorization: ProtocolV4HoldoutAdmissionAuthorization,
+  artifactStoreRoot: string,
+): ProtocolV4ExecutionLease {
+  validateProtocolV4HoldoutAdmissionExecutionPlan(
+    plan,
+    holdoutPlan,
+    holdoutPlan.developmentEvidenceRootHash,
+    record,
+  );
+  if (
+    authorization.masterPlanHash !== plan.planHash ||
+    authorization.holdoutAdmissionPlanHash !== holdoutPlan.holdoutAdmissionPlanHash ||
+    authorization.developmentEvidenceRootHash !== holdoutPlan.developmentEvidenceRootHash ||
+    authorization.holdoutAdmissionRecordHash !== record.admissionRecordHash ||
+    authorization.candidateId !== holdoutPlan.candidateId
+  )
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_HOLDOUT_ADMISSION_AUTHORIZATION_IDENTITY_MISMATCH',
+    );
+  return claimProtocolV4ExecutionLease({
+    artifactStoreRoot,
+    authorizationId: authorization.authorizationId,
+    authorizationKind: authorization.kind,
+    runKind: authorization.kind,
+    authorizationSchemaVersion: authorization.holdoutAdmissionAuthorizationSchemaVersion,
+    authorizationRecordHash: hashProtocolV4(authorization),
+    phase: 'holdout',
+    planHash: plan.planHash,
+    executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+    developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+    holdoutPlanHash: holdoutPlan.holdoutAdmissionPlanHash,
+    selectionOrChoiceHash: record.admissionRecordHash,
     candidateScope: [holdoutPlan.candidateId],
     maxCalls: authorization.maxCalls,
     maxInputTokens: authorization.maxInputTokens,

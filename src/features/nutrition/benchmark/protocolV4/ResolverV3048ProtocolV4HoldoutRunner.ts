@@ -37,6 +37,12 @@ import {
   type ProtocolV4ExecutionLease,
   type ProtocolV4ExecutionLeaseExpectedIdentity,
 } from './ResolverV3048ProtocolV4ExecutionLease';
+import {
+  assertProtocolV4HoldoutAdmissionAuthorized,
+  type ProtocolV4HoldoutAdmissionAuthorization,
+  type ProtocolV4HoldoutAdmissionExecutionPlan,
+  type ProtocolV4HoldoutAdmissionRecord,
+} from './ResolverV3048ProtocolV4HoldoutAdmission';
 
 /**
  * RESOLVER-V3-048 Final Dispatch-Lease, Authorization-Binding and G2-Evidence Closure remediation.
@@ -57,15 +63,24 @@ import {
  *   plus its full `plan`/`holdoutPlan`/`choice` chain, validated here via the real
  *   `assertProtocolV4DryRunHoldoutAuthorized` (never a duck-typed minimal shape).
  * - `kind: 'fake_dry_run' | 'human_live'` -- the real, authoritative `HoldoutAuthorizationRecord` plus
- *   its full `plan`/`holdoutPlan`/`selection` chain, validated here via the real
- *   `assertHoldoutAuthorized`. Only `fake_dry_run_only` is ever exercised by this task; the
- *   `human_live` branch is structurally present (per the task's explicit instruction) and is never
- *   constructed or exercised anywhere in this task's tests/dry-run pipeline.
+ *   its full `plan`/`holdoutPlan`/`selection` chain (bound to the strict, hashed `SELECTION_RULE`),
+ *   validated here via the real `assertHoldoutAuthorized`. Structurally present per the task's
+ *   explicit instruction; never constructed or exercised anywhere in this task's tests/dry-run
+ *   pipeline (the real evaluator's joint gate combinator cannot resolve `allMandatoryG2CriteriaPass`
+ *   pre-Holdout, so `selectCandidate`/`CandidateSelectionRecord` are honestly unreachable before this
+ *   task's zero-network scope ends).
+ * - `kind: 'holdout_admission'` -- the real, artifact-validated `ProtocolV4HoldoutAdmissionRecord`/
+ *   `ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionAuthorization` chain
+ *   (`ResolverV3048ProtocolV4HoldoutAdmission.ts`), validated here via the real
+ *   `assertProtocolV4HoldoutAdmissionAuthorized`. This is the only branch that can legally admit a
+ *   real `human_live` Holdout dispatch from genuine Development-only evidence (via the separate,
+ *   human-reviewed `HOLDOUT_ADMISSION_RULE`, distinct from `SELECTION_RULE`) -- also structurally
+ *   present and never exercised by this task's own zero-network Mini-Run.
  *
- * A dry-run type can never reach the authoritative branch and vice versa: TypeScript's discriminant
- * (`kind`) plus each branch's own distinct, non-overlapping authorization/plan/choice types make it
- * structurally impossible to pass a `ProtocolV4DryRunHoldoutAuthorization` where a real
- * `HoldoutAuthorizationRecord` is required, or the reverse.
+ * Only `fake_dry_run_only` is ever exercised by this task. A dry-run/selection-record/admission
+ * input can never satisfy either other branch: TypeScript's discriminant (`kind`) plus each branch's
+ * own distinct, non-overlapping authorization/plan/choice-or-record types make it structurally
+ * impossible to pass one branch's authorization where another's is required.
  */
 
 export class ProtocolV4HoldoutRunnerError extends Error {
@@ -98,6 +113,17 @@ export type ProtocolV4HoldoutAuthorizationInput =
       /** Only meaningful (and only ever `true`) for `kind: 'human_live'`; never set by this task. */
       liveExecution?: boolean;
       humanApprovedCeiling?: { maxCalls: number; maxTotalTokens: number; maxCostUsd: number };
+    }
+  | {
+      kind: 'holdout_admission';
+      plan: ProtocolV4MasterPlan;
+      holdoutPlan: ProtocolV4HoldoutAdmissionExecutionPlan;
+      record: ProtocolV4HoldoutAdmissionRecord;
+      authorization: ProtocolV4HoldoutAdmissionAuthorization;
+      /** Non-optional here (unlike the `selection_record` branch's `human_live` sub-case): every
+       * Admission Authorization is inherently a live-execution authorization, so a separately
+       * human-approved ceiling is always required, never conditional. */
+      humanApprovedCeiling: { maxCalls: number; maxTotalTokens: number; maxCostUsd: number };
     };
 
 interface ProtocolV4ResolvedHoldoutRunPlan {
@@ -161,6 +187,38 @@ function resolveAndValidateHoldoutAuthorization(input: {
       selectionOrChoiceHash: choice.choiceHash,
     };
   }
+  if (authorizationInput.kind === 'holdout_admission') {
+    const { plan, holdoutPlan, record, authorization, humanApprovedCeiling } = authorizationInput;
+    assertProtocolV4HoldoutAdmissionAuthorized({
+      plan,
+      holdoutPlan,
+      record,
+      authorization,
+      artifactStoreRoot: input.artifactStoreRoot,
+      artifactRelativePath: input.artifactRelativePath,
+      consumedBudget: input.consumedBudget,
+      plannedBudget: input.plannedBudget,
+      humanApprovedCeiling,
+    });
+    return {
+      candidateId: holdoutPlan.candidateId,
+      holdoutObservations: holdoutPlan.holdoutObservations,
+      holdoutExecutionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+      developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+      holdoutMaxCostUsd: holdoutPlan.holdoutMaxCostUsd,
+      authorizationId: authorization.authorizationId,
+      maxCalls: authorization.maxCalls,
+      maxInputTokens: authorization.maxInputTokens,
+      maxOutputTokens: authorization.maxOutputTokens,
+      maxCostUsd: authorization.maxCostUsd,
+      maxConcurrency: authorization.maxConcurrency,
+      authorizationKind: authorization.kind,
+      authorizationSchemaVersion: authorization.holdoutAdmissionAuthorizationSchemaVersion,
+      authorizationRecordHash: hashOfHoldoutAdmissionAuthorization(authorization),
+      holdoutPlanHash: holdoutPlan.holdoutAdmissionPlanHash,
+      selectionOrChoiceHash: record.admissionRecordHash,
+    };
+  }
   const { plan, holdoutPlan, selection, authorization, liveExecution, humanApprovedCeiling } =
     authorizationInput;
   assertHoldoutAuthorized({
@@ -195,18 +253,23 @@ function resolveAndValidateHoldoutAuthorization(input: {
   };
 }
 
-// `ProtocolV4DryRunHoldoutAuthorization`/`HoldoutAuthorizationRecord` do not carry their own
-// self-hash field the way `ProtocolV4DevelopmentAuthorizationRecord` does -- hashing the whole
-// (immutable, never-mutated-in-place) object is the natural, equally load-bearing proxy: the Lease
-// binds to this hash and every later dispatch re-derives it from the same authorization object the
-// caller supplies, so any tampering of the authorization object between dispatches changes this hash
-// and the lease's stored `authorizationRecordHash` check fails closed.
+// `ProtocolV4DryRunHoldoutAuthorization`/`HoldoutAuthorizationRecord`/`ProtocolV4HoldoutAdmissionAuthorization`
+// do not carry their own self-hash field the way `ProtocolV4DevelopmentAuthorizationRecord` does --
+// hashing the whole (immutable, never-mutated-in-place) object is the natural, equally load-bearing
+// proxy: the Lease binds to this hash and every later dispatch re-derives it from the same
+// authorization object the caller supplies, so any tampering of the authorization object between
+// dispatches changes this hash and the lease's stored `authorizationRecordHash` check fails closed.
 function hashOfDryRunHoldoutAuthorization(
   authorization: ProtocolV4DryRunHoldoutAuthorization,
 ): string {
   return hashProtocolV4(authorization);
 }
 function hashOfRealHoldoutAuthorization(authorization: HoldoutAuthorizationRecord): string {
+  return hashProtocolV4(authorization);
+}
+function hashOfHoldoutAdmissionAuthorization(
+  authorization: ProtocolV4HoldoutAdmissionAuthorization,
+): string {
   return hashProtocolV4(authorization);
 }
 

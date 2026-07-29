@@ -1059,7 +1059,7 @@ pinned to a specific location:
    fields were stored but never load-bearing at dispatch time.
 3. `ProtocolV4HoldoutRunnerAuthorizationInput` (the Holdout Runner's authorization parameter type) was
    `{ authorizationId: string; maxCalls: number; maxInputTokens: number; maxOutputTokens: number;
-   maxCostUsd: number }` — a minimal structural shape satisfied by any object with those five fields,
+maxCostUsd: number }` — a minimal structural shape satisfied by any object with those five fields,
    never a real `HoldoutAuthorizationRecord`/`ProtocolV4DryRunHoldoutAuthorization`. The function's own
    docstring said it "does not re-gate the authorization ... relies entirely on the caller having
    already run `assertHoldoutAuthorized`/`assertProtocolV4DryRunHoldoutAuthorized` BEFORE this function
@@ -1073,7 +1073,7 @@ pinned to a specific location:
 5. `deriveProtocolV4FinalG2Report` read `development.rawResults.content`/`development.telemetry.content`/
    `holdout.categoryTable.content`/etc. directly off the `ProtocolV4DevelopmentCandidateArtifacts`
    objects it was given, checking only `development.candidateId === candidateId && holdout.candidateId
-   === candidateId` before combining them through the real evaluator — no `validateProtocolV4Artifact`
+=== candidateId` before combining them through the real evaluator — no `validateProtocolV4Artifact`
    (content-hash recomputation), no `validateCategoryEvidence` (coverage against the plan's/Holdout
    plan's own expected observations), no telemetry/ledger parity re-check, and no evaluation
    re-derivation-and-compare occurred for either partition before the final report was produced. It also
@@ -1335,3 +1335,50 @@ until RESOLVER-V3-048 produces genuine live Development+Holdout evidence that pa
 dimension under the unmodified, real evaluator. This remediation closes dispatch-lease/authorization-
 binding/final-evidence contract gaps only — it authorizes nothing, executes nothing live, and does not
 itself advance V3-048 past Phase A.
+
+## 35.13 Reconciliation with the concurrently merged PR #195 (Holdout Admission Gate)
+
+While this branch was in review, a separate, independently opened PR #195 ("add explicit Holdout
+Admission Gate; record PR #194 merge review") was merged into `chore/clean-arch-structure` ahead of
+this one. It added a new, real, artifact-validated third authorization path —
+`ResolverV3048ProtocolV4HoldoutAdmission.ts` (`ProtocolV4HoldoutAdmissionRecord`/
+`ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionAuthorization`, gated by a
+separate, pre-frozen `HOLDOUT_ADMISSION_RULE` and a mandatory human review record) — built to be
+"structurally compatible with the existing Holdout Runner's minimal input interfaces," proven only by
+a compile-time type-assignability check, never an actual runtime dispatch through the Runner.
+
+This branch's own remediation (§35.6) had already REMOVED that minimal interface entirely, in favor of
+the self-validating discriminated `ProtocolV4HoldoutAuthorizationInput` union — exactly the fix
+residual defect 3 required. Merging both independently would have broken PR #195's new module (its
+compile-time compatibility check would no longer type-check against the hardened Runner). This branch
+was therefore merged with `origin/chore/clean-arch-structure` (bringing in PR #195), and the conflict
+was reconciled by:
+
+- extending `ProtocolV4HoldoutAuthorizationInput` with a third branch, `kind: 'holdout_admission'`,
+  carrying the real `plan`/`ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionRecord`/
+  `ProtocolV4HoldoutAdmissionAuthorization` chain;
+- wiring `resolveAndValidateHoldoutAuthorization` to validate this branch via the real
+  `assertProtocolV4HoldoutAdmissionAuthorized` gate (the same self-validation pattern as the other two
+  branches — never a caller-trusted boolean);
+- adding `claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization` (`ResolverV3048ProtocolV4ExecutionLease.ts`),
+  symmetric to the Development/Dry-Run-Holdout claim wrappers, deriving lease identity only from the
+  validated Admission chain;
+- replacing `ResolverV3048ProtocolV4HoldoutAdmission.test.ts`'s compile-time-only structural-
+  compatibility check with two real runtime tests: one drives a genuine end-to-end Holdout dispatch
+  through `runProtocolV4HoldoutForSelectedCandidate` with `kind: 'holdout_admission'` (proving the
+  Admission-derived chain is now genuinely accepted, self-validated, and protected by the identical
+  per-observation lease re-check every other branch gets), and one proves a caller-fabricated minimal
+  authorization object still cannot reach the Runner via this branch even when forced through
+  `as unknown as` (the real gate rejects it at runtime, not merely at the type level).
+
+Re-verification after reconciliation: `npm run typecheck`/`npm run lint`/`npm run format:check` clean;
+`npx jest --runInBand src/features/nutrition/benchmark/protocolV4` (7 suites / 164 tests, all passing —
+including the two new Admission↔Runner integration tests); `npx jest --runInBand
+src/features/nutrition/benchmark` (77 suites / 909 tests, all passing); `npm run verify` (full repo, run
+to completion) — **253 suites / 2718 tests passed**, 961.921 s, exit code 0.
+
+No behavior of the already-merged Admission module itself (`ResolverV3048ProtocolV4HoldoutAdmission.ts`)
+was changed — only the Holdout Runner's integration surface and that module's own test file's
+compatibility proof were strengthened. `kind: 'holdout_admission'` remains structurally present and
+untouched by this task's own zero-network Mini-Run, exactly like the pre-existing `kind: 'fake_dry_run'
+| 'human_live'` (`selection_record`) branch — neither is ever constructed or exercised here.

@@ -1,9 +1,59 @@
+# Handoff — RESOLVER-V3-048 reconciliation with concurrently merged PR #195 (Holdout Admission Gate) (2026-07-29)
+
+1. **Task ID/status:** RESOLVER-V3-048 — status unchanged from the entry below
+   (`in_progress — ... live Development not authorized`). This entry documents reconciling PR #196
+   (the dispatch-lease/authorization-binding closure below) with PR #195 (Holdout Admission Gate),
+   which was merged into `chore/clean-arch-structure` by the user while PR #196 was open. Basis for
+   this reconciliation: `origin/chore/clean-arch-structure` at `79a86b2` (PR #195's merge commit).
+2. **What changed:** PR #195 added a real, artifact-validated third Holdout authorization path
+   (`ResolverV3048ProtocolV4HoldoutAdmission.ts`) whose only proof of compatibility with the Holdout
+   Runner was a compile-time type-assignability check against the MINIMAL structural authorization
+   interface (`ProtocolV4HoldoutRunnerAuthorizationInput`) that PR #196's own remediation (item below,
+   §35.6 of the preflight report) had already removed in favor of a self-validating discriminated
+   union. Merging both independently would have broken PR #195's module. Resolved by merging
+   `origin/chore/clean-arch-structure` into this branch and reconciling: extended
+   `ProtocolV4HoldoutAuthorizationInput` with a third `kind: 'holdout_admission'` branch carrying the
+   real Admission Record/Plan/Authorization chain; wired it through the same self-validating
+   `assertProtocolV4HoldoutAdmissionAuthorized` gate pattern as the other two branches; added
+   `claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization` (symmetric to the existing
+   Development/Dry-Run-Holdout claim wrappers); replaced the Admission module's own test file's
+   compile-time-only compatibility check with two real runtime tests (a genuine end-to-end dispatch
+   through the hardened Runner, and proof that a fabricated minimal authorization still cannot reach
+   it). Full detail: `reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_A_PREFLIGHT.md` §35.13.
+3. **Why it changed:** this repository's own governance (`AGENTS.md`'s "Git Branch Sync After
+   Push/Pull") requires comparing diffs of overlapping open PRs before merging either; the user was
+   asked and chose to have this branch's PR opened without merging so both could be reviewed together,
+   then asked for the logical merge decision once PR #195 had already been merged independently.
+4. **Files changed (this reconciliation, on top of the entry below):**
+   `ResolverV3048ProtocolV4HoldoutRunner.ts` (third discriminated-union branch + resolution logic),
+   `ResolverV3048ProtocolV4ExecutionLease.ts` (new `claimProtocolV4ExecutionLeaseForHoldoutAdmissionAuthorization`),
+   `__tests__/ResolverV3048ProtocolV4HoldoutAdmission.test.ts` (compile-time check replaced with two
+   real runtime dispatch tests); `reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_A_PREFLIGHT.md` (additive
+   §35.13); this handoff entry. `ResolverV3048ProtocolV4HoldoutAdmission.ts` itself (PR #195's own new
+   module) was not modified.
+5. **Verification executed/result:** `npm run typecheck` (clean, first pass after merge), `npm run
+lint` (clean), `npm run format`/`format:check` (clean), `npx jest --runInBand
+src/features/nutrition/benchmark/protocolV4` (7 suites / 164 tests, all passing — including the two
+   new Admission↔Runner integration tests), `npx jest --runInBand src/features/nutrition/benchmark`
+   (77 suites / 909 tests, all passing), `npm run verify` (full repo, run to completion) — **253 suites
+   / 2718 tests passed**, 961.921 s, exit code 0.
+6. **Known issues/blockers/residual risks:** unchanged from the entry below — G2 not passed, V3-010
+   blocked, V3-048 in_progress, no live execution, no `human_live` authorization ever constructed by
+   this task (the new `kind: 'holdout_admission'` branch remains structurally present and unexercised
+   by the Mini-Run, exactly like the pre-existing `selection_record` branch).
+7. **Human review/next steps:** review the reconciliation diff in
+   `ResolverV3048ProtocolV4HoldoutRunner.ts`/`ResolverV3048ProtocolV4ExecutionLease.ts` and the two new
+   Admission integration tests; then merge PR #196 (this branch), now current with
+   `chore/clean-arch-structure` including PR #195.
+
+---
+
 # Handoff — RESOLVER-V3-048 Final Dispatch-Lease, Authorization-Binding and G2-Evidence Closure remediation (2026-07-29)
 
 1. **Task ID/status:** RESOLVER-V3-048 — `in_progress — Protocol-v4 zero-call Phase-A authorization and
-   evidence preflight verified (per-observation lease re-check, full lease/authorization-hash binding,
-   self-validating Development/Holdout Runners, lease crash detection, full Development+Holdout evidence
-   revalidation, dry-run/authoritative final-report separation); live Development not authorized`. Basis
+evidence preflight verified (per-observation lease re-check, full lease/authorization-hash binding,
+self-validating Development/Holdout Runners, lease crash detection, full Development+Holdout evidence
+revalidation, dry-run/authoritative final-report separation); live Development not authorized`. Basis
    `5897c559c4cd7d4aa79919691617d50e836ffc51` (PR #194 merge into `chore/clean-arch-structure`; PR #194
    itself is kept merged, not reverted, per explicit instruction). Working branch:
    `claude/resolver-v3-048-final-dispatch-authorization-closure-f3ky3z`. Final commit: see `git log -1`
@@ -49,6 +99,7 @@
    anywhere in this task. Two-concurrent-transition handling (the task's item 16) was investigated and
    found already correctly closed by the pre-existing exclusive-create version-file mechanism — verified
    with a fresh regression test, not re-implemented.
+
 3. **Why it changed:** the task's own independent post-merge review confirmed all five defect categories
    against the actual PR #194 merge commit before any fix was written; a dedicated red-baseline test
    file was run unmodified against that commit first and reproduced 5 focused proofs (10 more items —
@@ -71,7 +122,7 @@
    update); `reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_A_PREFLIGHT.md` (additive new §35); this handoff.
    No V3-039 evidence, corpus, ground truth, evaluator logic, BLS artifact, CI workflow, dependency,
    migration, `.env`, or production file changed; `package.json`/`package-lock.json` unchanged (`npm
-   install` was run only to restore missing `node_modules`, matching the existing lockfile exactly).
+install` was run only to restore missing `node_modules`, matching the existing lockfile exactly).
 5. **Verification executed:** a dedicated red-baseline test file run unmodified against the base commit
    (5/5 focused proofs passed, confirming the defects); `npm install` (restoring missing
    `node_modules`); `npm run typecheck`, `npm run lint`, `npm run format:check` (repo-wide, all clean);
@@ -79,7 +130,7 @@
    passing); `npx jest --runInBand src/features/nutrition/benchmark` (76 suites / 884 tests, all
    passing, unchanged outside `protocolV4/`); `npm run verify` (full combined command: typecheck + lint +
    format:check + complete Jest suite, run to completion); `git status`/`git diff --check`; manual `git
-   diff --stat` review confirming only `protocolV4/` implementation/test files plus `ROADMAP.md`/the
+diff --stat` review confirming only `protocolV4/` implementation/test files plus `ROADMAP.md`/the
    preflight report/this handoff changed, no frozen/protected path touched.
 6. **Verification result:** all of the above passed. `npm run verify` (the full combined command:
    typecheck + lint + format:check + complete `npm test`) ran to completion with exit code 0 — **252
@@ -102,6 +153,119 @@
    before merge. The user creates and merges the PR manually after independent review — no PR was opened
    or merged by this agent, and this task is not marked done. Do not proceed automatically to any further
    task after this one.
+
+# Handoff — RESOLVER-V3-048 Holdout Admission Gate + PR #194 merge review (2026-07-29)
+
+1. **Task ID/status:** RESOLVER-V3-048 — `in_progress — Phase-A lease/selection/holdout-evidence
+remediation merged via PR #194 (green, though non-gating, GitHub Verify); explicit, pre-frozen
+Holdout Admission Gate now closes the Development-to-Holdout selection contradiction; live
+Development/Holdout still not authorized`; basis `5897c559c4cd7d4aa79919691617d50e836ffc51` (PR
+   #194's merge commit into `chore/clean-arch-structure`, itself the tip of the designated branch
+   `claude/phase-a-holdout-admission-urfjyk` at session start, plus one unrelated `.gitignore` commit).
+2. **What changed:** two independent pieces of work, per the task's two explicit asks.
+
+   **(a) PR #194 merge review.** Fetched PR #194's GitHub record: `merged: true`, `merged_at
+2026-07-29T06:52:39Z`, its single `verify` check run `conclusion: success` — but that check's own
+   `started_at` is `06:52:20Z` and `completed_at` is `07:10:31Z`, i.e. the merge happened ~19s after
+   the check started and ~18 minutes _before_ it actually finished. The merge was therefore not
+   gated on the check's completion, reproducing — on this very PR — the exact premature-merge-before-
+   CI pattern the PR's own summary describes fixing for PR #193. The check did complete `success`
+   before this session started, so no revert was warranted; the merged diff was independently
+   re-reviewed (`ResolverV3048ProtocolV4ExecutionLease.ts`, the restored strict `SELECTION_RULE`
+   eligibility screen in `ResolverV3048ProtocolV4.ts`, the new `ResolverV3048ProtocolV4DryRunChoice.ts`,
+   the `partition`-aware `ResolverV3048ProtocolV4RealEvaluator.ts`/`ResolverV3048ProtocolV4Evaluation.ts`,
+   and crash-detection integration in `ResolverV3048ProtocolV4ArtifactStore.ts`) against the six
+   claimed defect fixes with no further code defect found. Recorded as a process-gap finding in
+   `ROADMAP.md`'s V3-048 section (merges should wait for `completed`/`success`, not just existence, of
+   the check run) — no code or CI-workflow change was made for this finding itself.
+
+   **(b) Holdout Admission Gate (the task's primary ask).** The canonical `SELECTION_RULE` correctly
+   requires `allMandatoryG2CriteriaPass === true`, which the real evaluator's joint gate combinator can
+   never produce from Development-only evidence — so `selectCandidate`/
+   `selectCandidateFromDevelopmentEvidence` always honestly throw `PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE`
+   pre-Holdout. The only existing alternative, `ProtocolV4DryRunCandidateChoice`
+   (`ResolverV3048ProtocolV4DryRunChoice.ts`), is explicitly `authoritative: false`/
+   `kind: 'fake_dry_run_only'` and structurally can never back a `human_live` authorization. There was
+   therefore no legal path from genuine live Development evidence to a real Holdout dispatch at all.
+   New module `ResolverV3048ProtocolV4HoldoutAdmission.ts` closes this with a third, separately-named,
+   pre-frozen contract: `HOLDOUT_ADMISSION_RULE` (own version/hash, independent of `SELECTION_RULE`);
+   `isProtocolV4CandidateAdmissibleForHoldout` (admits zero-critical-false-confidence,
+   complete-contracts, no-explicit-`failed`-gate candidates — `not_evaluable`/`requires_human_judgment`
+   joint gates are expected pre-Holdout and do not disqualify); `admitCandidateForHoldout(plan,
+evidence, humanReview)` (the single entry point — requires all three candidates' real,
+   artifact-validated Development evidence and a mandatory human review record, ranks admissible
+   candidates via the same pre-declared ordered-comparison/tie-break methodology `SELECTION_RULE`
+   already uses, admits exactly one, throws `PROTOCOL_V4_NO_HOLDOUT_ADMISSION_CANDIDATE` — never a
+   fallback pick — when none qualify); `validateProtocolV4HoldoutAdmissionRecord`/
+   `validateProtocolV4HoldoutAdmissionRecordAgainstEvidence`/
+   `validateProtocolV4HoldoutAdmissionExecutionPlan`/`assertProtocolV4HoldoutAdmissionAuthorized` (all
+   fail closed if `g2Passed`/`productionAuthorized` are ever tampered to `true`, even in an internally
+   rehashed record, and re-derive from real evidence rather than trusting self-consistency alone).
+   Every record/plan/authorization carries literal `g2Passed: false`/`productionAuthorized: false`.
+   The Admission Authorization's `kind` is always `'human_live'` (reusing the execution lease's
+   already-pinned `authorizationKind` literal, so `ResolverV3048ProtocolV4ExecutionLease.ts` needed no
+   change) with a non-optional `humanApprovalReference`. The resulting
+   `ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionAuthorization` are structurally
+   compatible with `ResolverV3048ProtocolV4HoldoutRunner.ts`'s existing minimal input interfaces
+   (`ProtocolV4HoldoutRunnerPlanInput`/`ProtocolV4HoldoutRunnerAuthorizationInput`, already designed to
+   accept multiple producers) — proven by a compile-time-checked test assignment — so the Runner itself
+   required zero code changes, only a documentation-comment update noting the third satisfier. This
+   module explicitly does **not** decide G2 pass/fail or production readiness (that remains exclusively
+   `deriveProtocolV4FinalG2Report`'s job once both partitions' evidence exist) and does not itself
+   authorize or perform any live execution.
+
+3. **Why it changed:** the task explicitly identified a conceptual contradiction — the canonical
+   Selection Rule requires all mandatory G2 criteria already passed before an authoritative candidate
+   selection, but the real evaluator honestly returns `not_evaluable` until both Development and
+   Holdout evidence exist, so Development alone could not legally select a candidate for Holdout at
+   all. The task asked for a separately-named, pre-frozen Holdout Admission Gate (no final production
+   decision; zero critical false-confidence cases; complete contracts/telemetry; no hard
+   Development-gate failures; a predeclared ranking rule; human review; selection of exactly one
+   candidate; no claim that G2 has passed) to resolve this without weakening the final rule, plus
+   independent review/CI confirmation of the prior Phase-A correction PR.
+4. **Files changed:** new `src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4HoldoutAdmission.ts`;
+   new test `__tests__/ResolverV3048ProtocolV4HoldoutAdmission.test.ts` (24 tests: rule identity,
+   admissibility screen, admission happy/negative paths, record tamper resistance, execution-plan
+   derivation/tamper, authorization gate happy/negative paths, compile-time-checked Holdout Runner
+   structural compatibility, error-class identity); doc-comment-only update to
+   `ResolverV3048ProtocolV4HoldoutRunner.ts` (noting the new third structural satisfier — no behavior
+   change); `ROADMAP.md` (PR #194 merge-review finding + Holdout Admission Gate section + updated
+   status line); this handoff. No `supabase/migrations/**`, `supabase/functions/**`, `package.json`,
+   `package-lock.json`, environment file, `src/infrastructure/di/container.ts`, UI/journal file,
+   `.github/workflows/**`, V3-039 evidence/corpus/ground-truth/evaluator logic, or any other
+   `protocolV4/` module's logic changed.
+5. **Verification executed:** `npm install` (restoring missing `node_modules`; lockfile diff-checked
+   empty afterward); `npm run typecheck` (repo-wide, clean); `npx eslint` on the new/changed files
+   (clean) and repo-wide as part of `npm run verify` below; `npx prettier -c`/`-w` on `ROADMAP.md` and
+   the new/changed source files; `npx jest --runInBand src/features/nutrition/benchmark/protocolV4`
+   (6 suites / 141 tests, all passing — 117 pre-existing + 24 new); full `npm run verify` (typecheck +
+   lint + format:check + complete Jest suite) run to completion in the background, exit code 0; `git
+status`/manual diff review confirming only the files listed above changed.
+6. **Verification result:** all of the above passed, including the full `npm run verify` end to end,
+   run to completion in the background and confirmed exit code 0: **252 suites / 2695 tests passed
+   repo-wide**, 1098.2 s, 0 type errors, 0 lint errors, 0 format violations. Provider calls 0; provider
+   cost USD 0; no credential read (`ANTHROPIC_API_KEY` is never referenced by the new module or its
+   tests, which build only in-memory fake `CandidateEvaluation`/`ProtocolV4DevelopmentEvidence`
+   fixtures).
+7. **Known issues/blockers/residual risks:** the Holdout Admission Gate is zero-network infrastructure
+   only — it does not itself constitute new live evidence, does not unblock `RESOLVER-V3-010`, and does
+   not change G2's `not passed` status. The 352-call / USD 5.586944 proposal-only budget remains
+   numerically unchanged and explicitly **not authorized**; no `human_live` authorization was created
+   or exercised; no live Development or Holdout execution occurred. The PR #194 premature-merge-before-
+   CI-completion finding (item 2a) is recorded as a process gap, not fixed at the tooling level in this
+   session — a future session/human should consider making the merge step wait for the check run's
+   terminal state.
+8. **Human review/next steps:** review the new `ResolverV3048ProtocolV4HoldoutAdmission.ts` module and
+   its test file, in particular the tamper-resistance tests (record/plan/authorization all fail closed
+   on a flipped `g2Passed`/`productionAuthorized`, even after rehashing) and the compile-time Holdout
+   Runner structural-compatibility proof. Per the task's own ordering ("Realistische Reststrecke"), the
+   remaining steps before any live benchmark are: independent human review of this change; explicit
+   Development budget authorization (unauthorized here); the Development run and its evaluation; the
+   (non-final) Holdout admission decision for a real run (this module provides the mechanism, not the
+   decision); a separate Holdout budget authorization; a full G2 pass across all mandatory dimensions;
+   only then RESOLVER-V3-010. This agent did not open a pull request (per repository convention, the
+   user opens/merges PRs manually after review) and did not push without the user's prior authorization
+   for this session's git workflow.
 
 ---
 

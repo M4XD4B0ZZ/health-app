@@ -900,25 +900,37 @@ export function validateCandidateEvaluation(e: CandidateEvaluation): void {
 
 /** Development-time eligibility screen -- the single, shared definition `selectCandidate` and
  * `recomputeEligibility` (Selection Record self-proof, below) both use, so the two can never silently
- * drift apart again. See `recomputeEligibility`'s own docstring for why this is deliberately NOT the
- * literal `e.allMandatoryG2CriteriaPass` boolean: the real, pinned evaluator's joint gate combinator
- * structurally cannot resolve any mandatory gate to `passed` before Holdout data exists, so requiring
- * a literal pass here would make every candidate permanently ineligible.
+ * drift apart again.
  *
- * `criticalFalseConfidenceCount` is deliberately NOT a hard eligibility gate here either (SELECTION_RULE
- * still calls it out, as `tieBreakers[0]`, `lower_critical_failure_count` -- see the ordered comparator
- * below). A `fake_dry_run` Development execution has no live provider to judge whether a genuinely
- * ambiguous/clarification-requiring real scenario was interpreted correctly -- it can only exercise the
- * REST of the pipeline (schema/decomposition/source-lookup/decision synthesis) against a necessarily-
- * approximate zero-network stand-in for "AI got it right" (see `FakeSourceGroundTruth`,
- * `ResolverV3048ProtocolV4Fixtures.ts`). Requiring a literal zero here would make eligibility a function
- * of corpus composition (how many non-`direct_resolution` scenarios exist), not of real candidate
- * differences -- exactly the same structural gap as the G2 gates above, so it gets the same honest
- * treatment: reported and ranked, never hidden, never a hard block. */
+ * Final Phase-A closure remediation (Selection-Rule fidelity restoration): this is once again exactly
+ * the gated, hashed `SELECTION_RULE.eligibility` contract --
+ * `zero_critical_false_confidence` + `complete_contract_envelope_parsing_failure_taxonomy` +
+ * `all_existing_mandatory_g2_criteria_pass_individually` -- not a softened "no gate has explicitly
+ * failed" screen. A prior revision of this function accepted `not_evaluable`/`requires_human_judgment`
+ * mandatory gates as eligible and demoted `criticalFalseConfidenceCount` to a late tie-breaker; that
+ * revision diverged from the SELECTION_RULE hash the Master Plan and every Selection Record still
+ * commit to, which is an evidence/protocol defect independent of whether the softened rule was
+ * otherwise reasonable. The honest fix for "the real, pinned evaluator's joint gate combinator cannot
+ * resolve a mandatory gate to `passed` before Holdout data exists" is NOT to weaken this eligibility
+ * screen -- it is that `selectCandidate`/`selectCandidateFromDevelopmentEvidence` correctly produce NO
+ * authoritative eligible candidate and NO `CandidateSelectionRecord` from Development-only evidence
+ * (see `PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE` below), and that the Zero-Network Mini-Run instead drives
+ * its technical dry-run/fake-Holdout exercise through the separate, explicitly non-authoritative
+ * `ProtocolV4DryRunCandidateChoice` contract (`ResolverV3048ProtocolV4DryRunChoice.ts`), which never
+ * claims a live winner or a passed G2 verdict. */
 function isProtocolV4CandidateEligibleAtDevelopmentTime(e: CandidateEvaluation): boolean {
-  return PROTOCOL_V4_G2_GATES.every((g) => e.g2Results[g] !== 'failed') && e.contractsComplete;
+  return (
+    e.criticalFalseConfidenceCount === 0 && e.contractsComplete && e.allMandatoryG2CriteriaPass
+  );
 }
 
+/** The single, strict, authoritative selection function -- exactly `SELECTION_RULE.eligibility`,
+ * never softened. Structurally cannot select a candidate whose mandatory gates are not each exactly
+ * `passed` (Development-only evidence, against the real pinned evaluator, therefore always leaves
+ * every candidate ineligible here -- `PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE` is the honest, expected
+ * result until real joint Development+Holdout evidence exists; see
+ * `ResolverV3048ProtocolV4DryRunChoice.ts` for the separate non-authoritative technical exercise
+ * path). */
 export function selectCandidate(
   evaluations: readonly CandidateEvaluation[],
 ): ResolverV3047CandidateId {
@@ -936,8 +948,9 @@ export function selectCandidate(
       a.failureRate - b.failureRate ||
       a.aiCalls - b.aiCalls ||
       a.sourceCalls - b.sourceCalls ||
-      // SELECTION_RULE.tieBreakers[0] ('lower_critical_failure_count'): only reached once every
-      // ordered-comparison field above has already tied.
+      // SELECTION_RULE.tieBreakers[0] ('lower_critical_failure_count'): vacuous here since eligibility
+      // already requires `criticalFalseConfidenceCount === 0` for every eligible candidate, but kept
+      // for exact fidelity to the documented, hashed tie-break order.
       a.criticalFalseConfidenceCount - b.criticalFalseConfidenceCount ||
       a.candidateId.localeCompare(b.candidateId),
   );

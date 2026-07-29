@@ -5,11 +5,11 @@ import {
   PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
   PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
   type CategoryEvidence,
-  type HoldoutAuthorizationRecord,
-  type HoldoutExecutionPlan,
   type ProtocolV4DevelopmentCandidateArtifacts,
   type ProtocolV4MasterPlan,
+  type ProtocolV4Observation,
   type ProtocolV4TerminalMetadata,
+  type ResolverV3047CandidateId,
 } from './ResolverV3048ProtocolV4';
 import { ProtocolV4CallStateRegistry } from './ResolverV3048ProtocolV4CallStateMachine';
 import { runOneObservation } from './ResolverV3048ProtocolV4DevelopmentRunner';
@@ -18,6 +18,36 @@ import {
   type ProtocolV4ObservationResult,
 } from './ResolverV3048ProtocolV4Evaluation';
 import type { ProtocolV4RealArmBaseline } from './ResolverV3048ProtocolV4RealEvaluator';
+import {
+  assertProtocolV4ExecutionLeaseActiveForDispatch,
+  markProtocolV4ExecutionLeaseExecuting,
+  markProtocolV4ExecutionLeaseTerminalFailure,
+  markProtocolV4ExecutionLeaseTerminalSuccess,
+  type ProtocolV4ExecutionLease,
+} from './ResolverV3048ProtocolV4ExecutionLease';
+
+/** Minimal structural shape the Holdout Runner actually reads from a Holdout Execution Plan --
+ * satisfied by both the real, authoritative `HoldoutExecutionPlan` and the separate, non-authoritative
+ * `ProtocolV4DryRunHoldoutExecutionPlan` (`ResolverV3048ProtocolV4DryRunChoice.ts`), so this runner
+ * never has to know or care which of the two produced the plan it was given. */
+export interface ProtocolV4HoldoutRunnerPlanInput {
+  candidateId: ResolverV3047CandidateId;
+  holdoutObservations: readonly ProtocolV4Observation[];
+  holdoutExecutionTreeHash: string;
+  developmentEvidenceRootHash: string;
+  holdoutMaxCostUsd: number;
+}
+
+/** Minimal structural shape the Holdout Runner actually reads from a Holdout Authorization --
+ * satisfied by both the real `HoldoutAuthorizationRecord` and the non-authoritative
+ * `ProtocolV4DryRunHoldoutAuthorization`. */
+export interface ProtocolV4HoldoutRunnerAuthorizationInput {
+  authorizationId: string;
+  maxCalls: number;
+  maxInputTokens: number;
+  maxOutputTokens: number;
+  maxCostUsd: number;
+}
 
 /**
  * RESOLVER-V3-048 Final Phase-A Execution Closure remediation -- "Execute Holdout observations in
@@ -43,18 +73,45 @@ export class ProtocolV4HoldoutRunnerError extends Error {
  * non-empty artifact set (checkpoint, raw results, category table, telemetry, ledger, evaluation) --
  * exactly the Holdout-phase counterpart of `runProtocolV4DevelopmentForCandidate`. Requires a valid,
  * unconsumed Holdout Authorization (checked storage-authoritatively by the caller via
- * `assertHoldoutAuthorized` BEFORE this function is invoked -- this function itself does not re-gate,
- * matching the Development Runner's own division of responsibility between the gate and the runner). */
+ * `assertHoldoutAuthorized`/`assertProtocolV4DryRunHoldoutAuthorized` BEFORE this function is invoked
+ * -- this function itself does not re-gate the authorization, matching the Development Runner's own
+ * division of responsibility between the gate and the runner) AND a valid, persisted, matching
+ * `ProtocolV4ExecutionLease` for `phase: 'holdout'` (Final Phase-A closure remediation, Weiteres
+ * Vorgehen item 3): a bare authorization record structurally cannot substitute for a real lease --
+ * this function itself reads the lease back from storage and fails closed on any mismatch, including
+ * a Development-phase lease, a lease bound to a different Development Evidence Root, or a lease
+ * scoped to a different candidate. */
 export async function runProtocolV4HoldoutForSelectedCandidate(input: {
   plan: ProtocolV4MasterPlan;
-  holdoutPlan: HoldoutExecutionPlan;
-  authorization: HoldoutAuthorizationRecord;
+  holdoutPlan: ProtocolV4HoldoutRunnerPlanInput;
+  authorization: ProtocolV4HoldoutRunnerAuthorizationInput;
+  lease: ProtocolV4ExecutionLease;
+  artifactStoreRoot: string;
   armBaseline: ProtocolV4RealArmBaseline;
   repoRoot?: string;
 }): Promise<ProtocolV4DevelopmentCandidateArtifacts> {
   const { plan, holdoutPlan } = input;
   const observations = holdoutPlan.holdoutObservations;
   const candidateId = holdoutPlan.candidateId;
+
+  assertProtocolV4ExecutionLeaseActiveForDispatch({
+    phase: 'holdout',
+    planHash: plan.planHash,
+    executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+    authorizationId: input.authorization.authorizationId,
+    artifactStoreRoot: input.artifactStoreRoot,
+    candidateScope: [candidateId],
+    developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+    maxCalls: input.authorization.maxCalls,
+    maxInputTokens: input.authorization.maxInputTokens,
+    maxOutputTokens: input.authorization.maxOutputTokens,
+    maxCostUsd: input.authorization.maxCostUsd,
+  });
+  if (input.lease.status === 'claimed')
+    markProtocolV4ExecutionLeaseExecuting(
+      input.artifactStoreRoot,
+      input.authorization.authorizationId,
+    );
 
   const registry = new ProtocolV4CallStateRegistry(
     `${holdoutPlan.holdoutExecutionTreeHash}:${candidateId}`,
@@ -82,27 +139,35 @@ export async function runProtocolV4HoldoutForSelectedCandidate(input: {
   const rawResults: ProtocolV4ObservationResult[] = [];
   const completedCallIds: string[] = [];
 
-  for (let index = 0; index < observations.length; index += 1) {
-    const observation = observations[index];
-    const { categoryRow, rawResult } = await runOneObservation({
-      plan,
-      observation,
-      index,
-      registry,
-      providerGate,
-      evidenceGate,
-      authorizationId: input.authorization.authorizationId,
-      telemetry,
-      ledger,
-      executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
-      evidenceRoot: holdoutPlan.developmentEvidenceRootHash,
-      callIdPrefix: 'holdout',
-    });
-    categoryRows.push(categoryRow);
-    rawResults.push(rawResult);
-    completedCallIds.push(
-      `holdout:${observation.candidateId}:${observation.scenarioId}:${observation.runIndex}`,
+  try {
+    for (let index = 0; index < observations.length; index += 1) {
+      const observation = observations[index];
+      const { categoryRow, rawResult } = await runOneObservation({
+        plan,
+        observation,
+        index,
+        registry,
+        providerGate,
+        evidenceGate,
+        authorizationId: input.authorization.authorizationId,
+        telemetry,
+        ledger,
+        executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+        evidenceRoot: holdoutPlan.developmentEvidenceRootHash,
+        callIdPrefix: 'holdout',
+      });
+      categoryRows.push(categoryRow);
+      rawResults.push(rawResult);
+      completedCallIds.push(
+        `holdout:${observation.candidateId}:${observation.scenarioId}:${observation.runIndex}`,
+      );
+    }
+  } catch (e) {
+    markProtocolV4ExecutionLeaseTerminalFailure(
+      input.artifactStoreRoot,
+      input.authorization.authorizationId,
     );
+    throw e;
   }
 
   validateCategoryEvidence(observations, plan.planHash, candidateId, categoryRows);
@@ -135,6 +200,7 @@ export async function runProtocolV4HoldoutForSelectedCandidate(input: {
   const derived = deriveProtocolV4CandidateEvaluation({
     plan,
     candidateId,
+    partition: 'holdout',
     categoryTableContentHash: categoryTable.contentHash,
     telemetryContentHash: telemetryArtifact.contentHash,
     ledgerContentHash: ledgerArtifact.contentHash,
@@ -151,6 +217,11 @@ export async function runProtocolV4HoldoutForSelectedCandidate(input: {
     `holdout-evaluation-${candidateId}`,
     plan.planHash,
     derived.evaluation,
+  );
+
+  markProtocolV4ExecutionLeaseTerminalSuccess(
+    input.artifactStoreRoot,
+    input.authorization.authorizationId,
   );
 
   return {

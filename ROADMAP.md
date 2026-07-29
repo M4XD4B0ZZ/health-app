@@ -8841,9 +8841,9 @@ code did) made every candidate permanently ineligible once the real evaluator re
 structural approximation; and a `fake_dry_run`'s necessarily-generic zero-network AI/source stand-in
 cannot honestly certify "zero critical false confidence" for scenarios whose real `expectedBehavior`
 requires clarification/abstention (no live provider exists in Phase-A to judge real ambiguity).
-Neither is fabrication of a *result*: both signals are still honestly computed and reported on every
+Neither is fabrication of a _result_: both signals are still honestly computed and reported on every
 stored `CandidateEvaluation` exactly as the real evaluator/judge produce them. What changed is only
-which of them hard-blocks Development-time candidate *eligibility*: the eligibility screen now requires
+which of them hard-blocks Development-time candidate _eligibility_: the eligibility screen now requires
 no mandatory gate to have read an explicit `failed` verdict (never a fabricated `passed`) plus complete
 contracts, while `criticalFalseConfidenceCount` moved from a hard eligibility gate to
 `SELECTION_RULE.tieBreakers[0]` (`lower_critical_failure_count`) in the ordered comparator — a
@@ -8858,9 +8858,95 @@ The proposal-only budget (352 calls / USD 5.586944) is unchanged in value and re
 authorized**; no `human_live` authorization was created or exercised; no live Development or Holdout
 execution occurred. G2 remains **not passed**; V3-010 remains `blocked`.
 
-Status: `in_progress — Protocol-v4 executable zero-call preflight complete (Development + Holdout
-observation execution, storage-authoritative authorization, real G2 evaluator wiring); live execution
-not authorized` (pending green GitHub Verify on `claude/resolver-v3-048-final-execution-closure`).
+**Final Phase-A Closure remediation (2026-07-28, basis `02cbe71d715b987f1b21b63937b6868cca605ff6`, PR
+#193's merge commit into `chore/clean-arch-structure`; PR #193 itself is kept merged, not reverted):**
+an independent post-merge review of PR #193 found six residual defect categories: (1) GitHub Verify
+failed on `format:check` because `ROADMAP.md` was not Prettier-conformant, and the PR was merged
+roughly five seconds after opening -- before CI could even run; (2) the executed Development-time
+eligibility screen no longer matched the still-hashed `SELECTION_RULE.eligibility` contract
+(`zero_critical_false_confidence`, `complete_contract_envelope_parsing_failure_taxonomy`,
+`all_existing_mandatory_g2_criteria_pass_individually`) -- it instead accepted `not_evaluable`/
+`requires_human_judgment` mandatory gates as eligible and reduced `criticalFalseConfidenceCount` to a
+late tie-breaker, an evidence/protocol defect (the executed rule silently diverged from its own
+hashed, documented contract) independent of whether the softened rule was otherwise defensible; (3)
+Development/Holdout authorizations were checked for "not yet consumed" BEFORE dispatch but only
+atomically marked consumed AFTER every dispatch completed, leaving a check-then-act race window where
+two concurrent callers could both pass the gate and both dispatch; (4) the Holdout Runner accepted the
+same `HoldoutAuthorizationRecord` its own caller had already gated, with no independent, persisted,
+typed execution-permission object of its own; (5) the shared case-record factory
+(`assembleProtocolV4LiveCaseRecord`) hard-coded `partition: 'development'` regardless of which phase
+actually produced the record, so the Holdout Runner's own evaluation call silently routed real Holdout
+evidence into the Development bucket of the real evaluator's report builder, meaning Holdout output
+files existed (`holdout-*.json`) but were never actually evaluated as Holdout; (6)
+`detectProtocolV4ArtifactCrash()` existed but nothing consulted it -- `isProtocolV4ArtifactTargetUnused()`
+still reported a target "unused" (`true`) even when an orphaned `*.tmp-*` sibling from a crashed prior
+write existed for it, letting a resuming caller silently race a crashed writer.
+
+All six are closed on branch `claude/resolver-v3-048-final-phase-a-closure`: `ROADMAP.md` is
+Prettier-conformant and `npm run verify` passes end to end, including the full Jest suite (no
+premature abort after typecheck/lint/format); a new, benchmark-local
+`ResolverV3048ProtocolV4ExecutionLease.ts` module provides a real atomic Execution Lease -- an
+exclusive-create, versioned, immutable, persisted record (`claimed -> executing ->
+terminal_success|terminal_failure`, plus a separate, explicitly human-invoked `abandoned` recovery
+transition) that must be claimed BEFORE the first Development/Holdout dispatch and is re-read from
+storage (never trusted from a caller-supplied in-memory object) immediately before every dispatch,
+checked against phase, plan hash, execution-tree hash, authorization ID, artifact-store root,
+candidate scope, and budget scope -- closing the check-then-act race for good (exactly one of two
+concurrent claimants for the same authorization ID can ever succeed); `runProtocolV4DevelopmentForCandidate`/
+`runProtocolV4DevelopmentForAllCandidates` (`ResolverV3048ProtocolV4DevelopmentRunner.ts`) and
+`runProtocolV4HoldoutForSelectedCandidate` (`ResolverV3048ProtocolV4HoldoutRunner.ts`) now require this
+lease as a mandatory parameter and assert it active immediately before dispatch, so neither runner is
+reachable with a bare authorization record alone; `isProtocolV4CandidateEligibleAtDevelopmentTime`/
+`selectCandidate` in `ResolverV3048ProtocolV4.ts` are restored to the exact, strict, hashed
+`SELECTION_RULE.eligibility` contract (`criticalFalseConfidenceCount === 0`, `contractsComplete`, and
+`allMandatoryG2CriteriaPass` -- every mandatory gate exactly `passed`), which a `fake_dry_run`
+Development-only run against the real evaluator can never satisfy (its joint gate combinator
+structurally cannot resolve a mandatory gate to `passed` before Holdout data exists) -- so
+`selectCandidate`/`selectCandidateFromDevelopmentEvidence` now honestly throw
+`PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE` on real Development-only evidence, never fabricating a live winner
+or a passed G2 verdict; a new, fully separate, explicitly non-authoritative
+`ResolverV3048ProtocolV4DryRunChoice.ts` module (`ProtocolV4DryRunCandidateChoice`,
+`ProtocolV4DryRunHoldoutExecutionPlan`, `ProtocolV4DryRunHoldoutAuthorization`,
+`assertProtocolV4DryRunHoldoutAuthorized`) now drives the Zero-Network Mini-Run's technical Holdout
+exercise instead -- distinct schema versions and record types from `CandidateSelectionRecord`/
+`HoldoutExecutionPlan`/`HoldoutAuthorizationRecord`, `authoritative: false`/`kind: 'fake_dry_run_only'`
+on every record, and a gate function that structurally has no `liveExecution`/`human_live` concept at
+all, so a Dry-Run Choice can never be converted into a live-execution authorization; `assembleProtocolV4LiveCaseRecord`
+now takes an explicit, required `partition` parameter (`ResolverV3048ProtocolV4RealEvaluator.ts`), and
+`deriveProtocolV4CandidateEvaluation`/`buildRealEvidenceForCandidate`
+(`ResolverV3048ProtocolV4Evaluation.ts`) route Development records into `developmentCaseRecords` and
+Holdout records into `holdoutCaseRecords` accordingly -- never both into the Development bucket -- so
+Holdout evidence is now genuinely evaluated with `partition: "holdout"`; a new
+`deriveProtocolV4FinalG2Report` function is the only entry point for a FINAL, joint Development+Holdout
+G2 verdict, requiring both partitions' own validated candidate artifacts for the same candidate and
+passing both to the real, unmodified `buildRepresentativeHybridV1LiveReport` together, letting
+joint-only mandatory gates genuinely resolve beyond `not_evaluable` for the first time (a
+Development-only or Holdout-only evaluation, per the real evaluator's own unchanged joint-gate
+combinator, honestly stays `not_evaluable`/`requires_human_judgment` on those gates, exactly as
+before -- never a fabricated `passed`); the Mini-Run (`runProtocolV4MiniProtocolRun` in
+`ResolverV3048ProtocolV4DryRun.ts`) now claims a Development and a Holdout Execution Lease before each
+phase's first dispatch, drives its Holdout exercise through the new Dry-Run Choice contract, and
+produces and persists a `final-g2-decision-report.json` artifact from both real, executed partitions
+before stopping (still no automatic continuation, still zero live calls); and
+`isProtocolV4ArtifactTargetUnused()` (`ResolverV3048ProtocolV4ArtifactStore.ts`) now consults
+`detectProtocolV4ArtifactCrash()` and throws a new, distinct `ProtocolV4ArtifactCrashError` instead of
+returning `true` or `false` when orphaned crash evidence exists, with a separate, explicit
+`recoverProtocolV4ArtifactCrash()` recovery function that is never invoked automatically by any
+check/gate. 117 tests pass across the `protocolV4/` suite (96 pre-existing + 21 new focused
+regressions for this remediation's 18 required red-baseline items); the full
+`src/features/nutrition/benchmark` directory (74 suites / 841 tests) passes unchanged;
+`npm run typecheck`/`lint`/`format:check` are clean. Provider calls remain exactly **0**; provider cost
+remains exactly **USD 0**; no credential was read; the seven V3-039 evidence files, corpus, ground
+truth, and the corrected G2 evaluator's own logic are unchanged. The proposal-only budget (352 calls /
+USD 5.586944) is unchanged in value and remains explicitly **not authorized**; no `human_live`
+authorization was created or exercised; no live Development or Holdout execution occurred. G2 remains
+**not passed**; V3-010 remains `blocked`.
+
+Status: `in_progress — Protocol-v4 zero-call Phase-A infrastructure verified (atomic Execution Lease,
+strict Selection-Rule fidelity, non-authoritative Dry-Run Choice contract, real Development/Holdout
+partitioning, joint G2 report, crash-detection integration); live Development not authorized` (pending
+green GitHub Verify on `claude/resolver-v3-048-final-phase-a-closure`; PR to be opened manually by the
+user).
 
 #### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
 

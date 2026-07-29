@@ -210,22 +210,18 @@ describe('predeclared candidate selection (pure comparator)', () => {
     ...x,
   });
   it('rejects candidates failing any mandatory/non-averageable eligibility criterion', () => {
-    // Final Phase-A Execution Closure remediation: Development-time eligibility no longer requires
-    // the literal `allMandatoryG2CriteriaPass` boolean (the real, pinned evaluator's joint gate
-    // combinator structurally reads every mandatory gate as `not_evaluable` -- never `passed` --
-    // until Holdout data exists, so requiring a literal pass here would make every candidate
-    // permanently ineligible). It instead requires no mandatory gate to have read an explicit
-    // `failed` verdict from the real Development-only data that DOES exist; `criticalFalseConfidenceCount`
-    // is honestly reported and still differentiates candidates, but as the ordered comparator's own
-    // `lower_critical_failure_count` tie-breaker (SELECTION_RULE.tieBreakers[0]), not a hard gate --
-    // a `fake_dry_run` cannot honestly certify "zero critical false confidence" for AI-routed
-    // observations without a real provider judging real ambiguity/clarification scenarios.
+    // Final Phase-A closure remediation (Selection-Rule fidelity restoration): eligibility is once
+    // again exactly the strict, hashed `SELECTION_RULE.eligibility` contract --
+    // `criticalFalseConfidenceCount === 0`, `contractsComplete === true`, and
+    // `allMandatoryG2CriteriaPass === true` (every mandatory gate exactly `passed`) -- never softened
+    // to "no gate has explicitly failed", and `criticalFalseConfidenceCount` is a hard eligibility
+    // gate again, not merely a late tie-breaker.
     const g2OneFailed = { ...g2AllPassed, 'G2-B': 'failed' as const };
     expect(
       selectCandidate([
         evaluation('H0', { criticalFalseConfidenceCount: 3 }),
         evaluation('H1', { allMandatoryG2CriteriaPass: false, g2Results: g2OneFailed }),
-        evaluation('H2', { criticalFalseConfidenceCount: 1 }),
+        evaluation('H2', { criticalFalseConfidenceCount: 0 }),
       ]),
     ).toBe('H2');
     expect(() => selectCandidate([evaluation('H0', { contractsComplete: false })])).toThrow(
@@ -236,6 +232,9 @@ describe('predeclared candidate selection (pure comparator)', () => {
         evaluation('H0', { allMandatoryG2CriteriaPass: false, g2Results: g2OneFailed }),
       ]),
     ).toThrow('NO_ELIGIBLE');
+    expect(() => selectCandidate([evaluation('H0', { criticalFalseConfidenceCount: 1 })])).toThrow(
+      'NO_ELIGIBLE',
+    );
   });
   it('uses deterministic quality, economics, latency, failure/count and ID tie breakers', () => {
     expect(selectCandidate([evaluation('H2'), evaluation('H1'), evaluation('H0')])).toBe('H0');

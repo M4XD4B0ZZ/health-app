@@ -13,15 +13,9 @@ import {
   buildProtocolV4MasterPlan,
   hashProtocolV4,
   sealProtocolV4Artifact,
-  selectCandidateFromDevelopmentEvidence,
-  deriveHoldoutExecutionPlan,
   validateProtocolV4MasterPlan,
   validateTerminalMetadata,
-  validateHoldoutExecutionPlan,
-  validateCandidateSelectionRecordAgainstEvidence,
-  assertHoldoutAuthorized,
   ARTIFACT_PATHS,
-  PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION,
   PROTOCOL_V4_DRY_RUN_ROOT,
   PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
   PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
@@ -29,8 +23,16 @@ import {
   type ProtocolV4TerminalMetadata,
   type ProtocolV4RunIdentity,
   type CategoryEvidence,
-  type HoldoutAuthorizationRecord,
 } from './ResolverV3048ProtocolV4';
+import {
+  chooseProtocolV4DryRunCandidate,
+  deriveProtocolV4DryRunHoldoutExecutionPlan,
+  buildProtocolV4DryRunHoldoutAuthorization,
+  assertProtocolV4DryRunHoldoutAuthorized,
+  type ProtocolV4DryRunCandidateChoice,
+  type ProtocolV4DryRunHoldoutExecutionPlan,
+} from './ResolverV3048ProtocolV4DryRunChoice';
+import { claimProtocolV4ExecutionLease } from './ResolverV3048ProtocolV4ExecutionLease';
 import {
   buildProtocolV4AttemptContext,
   assertProviderRunIdentityMatchesAttemptContext,
@@ -63,7 +65,9 @@ import {
 } from './ResolverV3048ProtocolV4DevelopmentAuthorization';
 import { runProtocolV4DevelopmentForAllCandidates } from './ResolverV3048ProtocolV4DevelopmentRunner';
 import {
+  computeProtocolV4DevelopmentArmBaseline,
   computeProtocolV4HoldoutArmBaseline,
+  deriveProtocolV4FinalG2Report,
   validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation,
 } from './ResolverV3048ProtocolV4Evaluation';
 import { runProtocolV4HoldoutForSelectedCandidate } from './ResolverV3048ProtocolV4HoldoutRunner';
@@ -616,45 +620,48 @@ async function buildRealReferenceChain(plan: ProtocolV4MasterPlan) {
     authorizationId: `dry-run-development:${plan.planHash.slice(0, 16)}-${Math.random().toString(36).slice(2, 8)}`,
   });
   const artifactStoreRoot = `${PROTOCOL_V4_DRY_RUN_ROOT}/fault-matrix-reference-chain-${plan.planHash.slice(0, 12)}-${Math.random().toString(36).slice(2, 8)}`;
+  const developmentLease = claimProtocolV4ExecutionLease({
+    artifactStoreRoot,
+    authorizationId: developmentAuthorization.authorizationId,
+    authorizationKind: developmentAuthorization.kind,
+    phase: 'development',
+    planHash: plan.planHash,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    candidateScope: plan.candidates.map((c) => c.id),
+    maxCalls: developmentAuthorization.maxCalls,
+    maxInputTokens: developmentAuthorization.maxInputTokens,
+    maxOutputTokens: developmentAuthorization.maxOutputTokens,
+    maxCostUsd: developmentAuthorization.maxCostUsd,
+    maxConcurrentRequests: developmentAuthorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+  });
   const evidence = await runProtocolV4DevelopmentForAllCandidates({
     plan,
     authorization: developmentAuthorization,
+    lease: developmentLease,
     artifactStoreRoot,
   });
   await validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, evidence);
-  const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
-  validateCandidateSelectionRecordAgainstEvidence(plan, selection, evidence);
-  const developmentEvidenceRootHash = selection.developmentEvidenceRootHash;
-  const holdoutPlan = deriveHoldoutExecutionPlan(plan, developmentEvidenceRootHash, selection);
-  const authorization = buildFakeHoldoutAuthorization(plan, holdoutPlan, selection);
-  return { evidence, selection, developmentEvidenceRootHash, holdoutPlan, authorization };
-}
-
-function buildFakeHoldoutAuthorization(
-  plan: ProtocolV4MasterPlan,
-  holdoutPlan: ReturnType<typeof deriveHoldoutExecutionPlan>,
-  selection: ReturnType<typeof selectCandidateFromDevelopmentEvidence>,
-): HoldoutAuthorizationRecord {
-  return {
-    authorizationSchemaVersion: PROTOCOL_V4_AUTHORIZATION_SCHEMA_VERSION,
-    kind: 'fake_dry_run',
-    masterPlanHash: plan.planHash,
-    holdoutExecutionPlanHash: holdoutPlan.holdoutPlanHash,
-    developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
-    candidateSelectionRecordHash: selection.selectionRecordHash,
-    candidateId: holdoutPlan.candidateId,
-    maxCalls: holdoutPlan.holdoutCalls,
-    maxInputTokens: holdoutPlan.holdoutMaxInputTokens,
-    maxOutputTokens: holdoutPlan.holdoutMaxOutputTokens,
-    maxTotalTokens: holdoutPlan.holdoutMaxTokens,
-    maxCostUsd: holdoutPlan.holdoutMaxCostUsd,
-    currency: 'USD',
-    maxConcurrency: holdoutPlan.maxConcurrentRequests,
-    authorizedPhase: 'holdout',
-    authorizationId: `fake-dry-run-${holdoutPlan.holdoutPlanHash.slice(0, 16)}`,
-    humanApprovalReference: null,
-    consumed: false,
-  };
+  // Final Phase-A closure remediation: the strict, hashed `SELECTION_RULE` cannot certify ANY
+  // candidate eligible from Development-only evidence against the real evaluator (joint-only gates
+  // stay `not_evaluable` until Holdout data exists) -- so this fault-matrix reference chain, like the
+  // Mini-Run, drives its technical Holdout exercise through the separate, explicitly non-authoritative
+  // `ProtocolV4DryRunCandidateChoice` contract, never an authoritative `CandidateSelectionRecord`.
+  const choice = chooseProtocolV4DryRunCandidate(plan, evidence);
+  const developmentEvidenceRootHash = choice.developmentEvidenceRootHash;
+  const holdoutPlan = deriveProtocolV4DryRunHoldoutExecutionPlan(
+    plan,
+    developmentEvidenceRootHash,
+    choice,
+  );
+  const authorization = buildProtocolV4DryRunHoldoutAuthorization(
+    plan,
+    holdoutPlan,
+    choice,
+    `fake-dry-run-${holdoutPlan.dryRunHoldoutPlanHash.slice(0, 16)}`,
+  );
+  return { evidence, choice, developmentEvidenceRootHash, holdoutPlan, authorization };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1100,17 +1107,17 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
 
   // Build the full REAL reference chain (real Development execution, not a hand-built stub) once,
   // needed to construct scenarios 21/22 and the new fault-matrix negative scenarios below.
-  const { selection, developmentEvidenceRootHash, holdoutPlan, authorization } =
+  const { choice, developmentEvidenceRootHash, holdoutPlan, authorization } =
     await buildRealReferenceChain(plan);
 
-  // 21. Holdout without a selection record (tampered/unfrozen selection rejected).
+  // 21. Holdout without a valid (non-authoritative) dry-run choice (tampered choice rejected).
   results.push(
     runNegativeScenario(
       'holdout_without_selection_record',
-      ['developmentEvaluation', 'candidateSelection', 'holdoutPlanDerivation'],
+      ['developmentEvaluation', 'dryRunCandidateChoice', 'holdoutPlanDerivation'],
       () => {
-        const unfrozen = { ...selection, frozen: false as unknown as true };
-        deriveHoldoutExecutionPlan(plan, developmentEvidenceRootHash, unfrozen);
+        const tampered = { ...choice, authoritative: true as unknown as false };
+        deriveProtocolV4DryRunHoldoutExecutionPlan(plan, developmentEvidenceRootHash, tampered);
       },
     ),
   );
@@ -1121,10 +1128,10 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
       'holdout_without_matching_authorization',
       ['holdoutPlanDerivation', 'fakeHoldoutAuthorization', 'holdoutGate'],
       () => {
-        assertHoldoutAuthorized({
+        assertProtocolV4DryRunHoldoutAuthorized({
           plan,
           holdoutPlan,
-          selection,
+          choice,
           authorization: { ...authorization, consumed: true },
           artifactStoreRoot: `${PROTOCOL_V4_DRY_RUN_ROOT}/scenario-22-unused-${Math.random().toString(36).slice(2, 8)}`,
           artifactRelativePath: 'holdout-consumed.json',
@@ -1135,7 +1142,6 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
             outputTokens: holdoutPlan.holdoutMaxOutputTokens,
             costUsd: holdoutPlan.holdoutMaxCostUsd,
           },
-          liveExecution: false,
         });
       },
     ),
@@ -1407,8 +1413,11 @@ export async function runProtocolV4DryRun(): Promise<ProtocolV4DryRunReport> {
     plan,
     scenarios: results,
     developmentEvidenceRootHash,
-    candidateSelectionRecordHash: selection.selectionRecordHash,
-    holdoutExecutionPlanHash: holdoutPlan.holdoutPlanHash,
+    // Non-authoritative dry-run choice hash (see `ProtocolV4DryRunCandidateChoice`) -- field name
+    // kept stable for existing consumers; this was never, and is still never, a claim of a live,
+    // authoritative winner or a passed G2 verdict.
+    candidateSelectionRecordHash: choice.choiceHash,
+    holdoutExecutionPlanHash: holdoutPlan.dryRunHoldoutPlanHash,
     executedScenarioCount: executedScenarioIds.size,
   };
 }
@@ -1427,17 +1436,22 @@ export interface ProtocolV4MiniProtocolRunReport {
   candidateSelectionRecordHash: string;
   holdoutExecutionPlanHash: string;
   holdoutAuthorizationId: string;
+  finalG2ReportHash: string;
   artifactHashes: Readonly<Record<string, string>>;
 }
 
-/** Runs the full, connected zero-network protocol: Master Plan -> readback validation -> fake
- * Development Authorization (atomic) -> real Development execution for every planned observation ->
- * checkpoint/raw/category/telemetry/ledger -> derived Evaluation -> Development Evidence Root ->
- * Candidate Selection Record (created and re-validated) -> Holdout Execution Plan (derived and
- * readback-validated) -> fake Holdout Authorization (atomic) -> Holdout gate -- with every artifact
+/** Runs the full, connected zero-network protocol: Master Plan -> readback validation -> atomic
+ * Development Execution Lease claim -> fake Development Authorization (atomic) -> real Development
+ * execution for every planned observation -> checkpoint/raw/category/telemetry/ledger -> derived
+ * Evaluation -> Development Evidence Root -> non-authoritative Dry-Run Candidate Choice (created and
+ * re-validated) -> non-authoritative Holdout Execution Plan (derived and readback-validated) ->
+ * atomic Holdout Execution Lease claim -> fake Holdout Authorization (atomic) -> Holdout gate -> real
+ * Holdout execution -> final combined Development+Holdout G2 report -- with every artifact
  * independently written, read back, and re-hashed through the atomic Artifact Store, restricted to
- * `PROTOCOL_V4_DRY_RUN_ROOT`. No automatic continuation past the Holdout gate: this function stops
- * there, exactly as Teil 15B step 13 requires. */
+ * `PROTOCOL_V4_DRY_RUN_ROOT`. No automatic continuation past the final report: this function stops
+ * there, exactly as Teil 15B step 13 requires. Never produces or claims an authoritative
+ * `CandidateSelectionRecord`, a `human_live` authorization, or a live winner -- see
+ * `ResolverV3048ProtocolV4DryRunChoice.ts` for why. */
 export async function runProtocolV4MiniProtocolRun(
   runRoot: string = PROTOCOL_V4_DRY_RUN_ROOT,
 ): Promise<ProtocolV4MiniProtocolRunReport> {
@@ -1455,11 +1469,30 @@ export async function runProtocolV4MiniProtocolRun(
   );
   validateProtocolV4MasterPlan(readbackPlan.content);
 
-  // 2. Fake Development Authorization atomar erzeugen.
+  // 2. Fake Development Authorization atomar erzeugen, dann -- vor dem allerersten Dispatch -- eine
+  // atomare Development Execution Lease beanspruchen (Final Phase-A closure remediation: schließt die
+  // Race zwischen Gate-Check und Dispatch, die die vorherige "erst prüfen, dann dispatchen, erst
+  // danach als consumed markieren"-Reihenfolge offenließ).
   const developmentAuthorization = buildProtocolV4DevelopmentAuthorization({
     plan,
     kind: 'fake_dry_run',
     authorizationId: `mini-run-development:${plan.planHash.slice(0, 16)}`,
+  });
+  const developmentLease = claimProtocolV4ExecutionLease({
+    artifactStoreRoot: storeRoot,
+    authorizationId: developmentAuthorization.authorizationId,
+    authorizationKind: developmentAuthorization.kind,
+    phase: 'development',
+    planHash: plan.planHash,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    candidateScope: plan.candidates.map((c) => c.id),
+    maxCalls: developmentAuthorization.maxCalls,
+    maxInputTokens: developmentAuthorization.maxInputTokens,
+    maxOutputTokens: developmentAuthorization.maxOutputTokens,
+    maxCostUsd: developmentAuthorization.maxCostUsd,
+    maxConcurrentRequests: developmentAuthorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
   });
   assertDevelopmentAuthorized({
     plan,
@@ -1482,13 +1515,16 @@ export async function runProtocolV4MiniProtocolRun(
   // 3-6. Every planned Development observation actually executed; checkpoint/raw/category/
   // telemetry/ledger built from those executions; evaluation derived from the pinned evaluation
   // path; Development Evidence Root produced. `runProtocolV4DevelopmentForAllCandidates` itself
-  // re-checks `assertDevelopmentAuthorized` per candidate against the real, cumulative shared
-  // `evidenceGate` state -- so the authorization is only marked consumed AFTER real dispatch
-  // completes, never before (marking it consumed first would make that per-candidate re-check
-  // -- itself a required storage-authoritative guard -- always fail as "already consumed").
+  // re-checks `assertDevelopmentAuthorized` AND the persisted Execution Lease per candidate against
+  // the real, cumulative shared `evidenceGate` state -- so the authorization is only marked consumed
+  // AFTER real dispatch completes, never before (marking it consumed first would make that
+  // per-candidate re-check -- itself a required storage-authoritative guard -- always fail as
+  // "already consumed"); the lease itself transitions `claimed -> executing -> terminal_success`
+  // (or `terminal_failure` on any error) inside that same call.
   const evidence = await runProtocolV4DevelopmentForAllCandidates({
     plan,
     authorization: developmentAuthorization,
+    lease: developmentLease,
     artifactStoreRoot: storeRoot,
   });
   consumeProtocolV4AuthorizationAtomically(storeRoot, developmentAuthorization.authorizationId);
@@ -1508,48 +1544,38 @@ export async function runProtocolV4MiniProtocolRun(
     (readbackEvidence as typeof evidenceArtifact).content,
   );
 
-  // 7. Candidate Selection Record erzeugen und neu validieren.
-  const selection = selectCandidateFromDevelopmentEvidence(plan, evidence);
-  const selectionArtifact = sealProtocolV4Artifact(
+  // 7. Non-authoritative Dry-Run Candidate Choice erzeugen und neu validieren (Final Phase-A closure
+  // remediation: `selectCandidateFromDevelopmentEvidence`/`CandidateSelectionRecord` remain the
+  // strict, hashed, AUTHORITATIVE `SELECTION_RULE` contract -- which Development-only evidence
+  // against the real evaluator can never satisfy -- so this purely technical zero-network exercise
+  // uses the separate, explicitly non-authoritative `ProtocolV4DryRunCandidateChoice` contract
+  // instead; see `ResolverV3048ProtocolV4DryRunChoice.ts`).
+  const choice = chooseProtocolV4DryRunCandidate(plan, evidence);
+  const choiceArtifact = sealProtocolV4Artifact(
     'candidate-selection-record',
     plan.planHash,
-    selection,
+    choice,
   );
-  const storedSelection = writeProtocolV4ArtifactExclusive(
+  const storedChoice = writeProtocolV4ArtifactExclusive(
     storeRoot,
     'candidate-selection-record.json',
-    selectionArtifact,
+    choiceArtifact,
   );
-  const readbackSelection = readProtocolV4ArtifactWithReadback(
-    storedSelection.absolutePath,
-    selectionArtifact.contentHash,
+  const readbackChoice = readProtocolV4ArtifactWithReadback(
+    storedChoice.absolutePath,
+    choiceArtifact.contentHash,
   );
-  const readbackSelectionContent = (readbackSelection as typeof selectionArtifact).content;
-  // Strict re-validation against the real, readback Development evidence (Final Phase-A Execution
-  // Closure remediation, Teil 24): not just internal self-consistency (winner/eligibility recomputed
-  // from the record's own stored evaluations) but `developmentEvidenceRootHash`/
-  // `developmentArtifactHashes`/`evaluations` re-derived from and bound to the actual evidence this
-  // run produced -- a record whose evidence-root/artifact-hash claims silently drifted from the real
-  // evidence, even if internally re-hashed and self-consistent, is rejected here.
-  validateCandidateSelectionRecordAgainstEvidence(
-    plan,
-    readbackSelectionContent,
-    (readbackEvidence as typeof evidenceArtifact).content,
-  );
-  const developmentEvidenceRootHash = selection.developmentEvidenceRootHash;
+  const readbackChoiceContent = (readbackChoice as typeof choiceArtifact)
+    .content as ProtocolV4DryRunCandidateChoice;
+  const developmentEvidenceRootHash = choice.developmentEvidenceRootHash;
 
-  // 8. Holdout Execution Plan ableiten und readback-validieren.
-  const holdoutPlan = deriveHoldoutExecutionPlan(
-    plan,
-    developmentEvidenceRootHash,
-    readbackSelectionContent,
-  );
-  validateHoldoutExecutionPlan(
-    plan,
-    holdoutPlan,
-    developmentEvidenceRootHash,
-    readbackSelectionContent,
-  );
+  // 8. Non-authoritative Holdout Execution Plan ableiten und readback-validieren.
+  const holdoutPlan: ProtocolV4DryRunHoldoutExecutionPlan =
+    deriveProtocolV4DryRunHoldoutExecutionPlan(
+      plan,
+      developmentEvidenceRootHash,
+      readbackChoiceContent,
+    );
   const holdoutPlanArtifact = sealProtocolV4Artifact(
     'holdout-execution-plan',
     plan.planHash,
@@ -1565,11 +1591,13 @@ export async function runProtocolV4MiniProtocolRun(
     holdoutPlanArtifact.contentHash,
   );
 
-  // 9. Fake Holdout Authorization atomar erzeugen.
-  const holdoutAuthorization = buildFakeHoldoutAuthorization(
+  // 9. Fake Holdout Authorization atomar erzeugen, dann -- vor dem allerersten Holdout-Dispatch --
+  // eine atomare Holdout Execution Lease beanspruchen.
+  const holdoutAuthorization = buildProtocolV4DryRunHoldoutAuthorization(
     plan,
     holdoutPlan,
-    readbackSelectionContent,
+    readbackChoiceContent,
+    `mini-run-holdout:${holdoutPlan.dryRunHoldoutPlanHash.slice(0, 16)}`,
   );
   const holdoutAuthArtifact = sealProtocolV4Artifact(
     'holdout-authorization',
@@ -1577,17 +1605,34 @@ export async function runProtocolV4MiniProtocolRun(
     holdoutAuthorization,
   );
   writeProtocolV4ArtifactExclusive(storeRoot, 'holdout-authorization.json', holdoutAuthArtifact);
+  const holdoutLease = claimProtocolV4ExecutionLease({
+    artifactStoreRoot: storeRoot,
+    authorizationId: holdoutAuthorization.authorizationId,
+    authorizationKind: holdoutAuthorization.kind,
+    phase: 'holdout',
+    planHash: plan.planHash,
+    executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+    developmentEvidenceRootHash,
+    candidateScope: [holdoutPlan.candidateId],
+    maxCalls: holdoutAuthorization.maxCalls,
+    maxInputTokens: holdoutAuthorization.maxInputTokens,
+    maxOutputTokens: holdoutAuthorization.maxOutputTokens,
+    maxCostUsd: holdoutAuthorization.maxCostUsd,
+    maxConcurrentRequests: holdoutAuthorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+  });
 
-  // 10. Holdout-Gate ausführen.
-  assertHoldoutAuthorized({
+  // 10. Holdout-Gate ausführen (nichtautoritativer Dry-Run-Pfad -- strukturell unfähig,
+  // `human_live`/Live-Holdout zu autorisieren, siehe `assertProtocolV4DryRunHoldoutAuthorized`).
+  assertProtocolV4DryRunHoldoutAuthorized({
     plan,
     holdoutPlan,
-    selection: readbackSelectionContent,
+    choice: readbackChoiceContent,
     authorization: holdoutAuthorization,
     artifactStoreRoot: storeRoot,
-    // The first real Holdout artifact target about to be written below -- taken from the plan's own
-    // (validated) `unusedArtifactTargets`, never a separately-invented path.
-    artifactRelativePath: holdoutPlan.unusedArtifactTargets[0],
+    // The first real Holdout artifact target about to be written below.
+    artifactRelativePath: ARTIFACT_PATHS.holdoutCheckpoint,
     // Nothing has been dispatched under this freshly-issued authorization yet.
     consumedBudget: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
     plannedBudget: {
@@ -1596,21 +1641,23 @@ export async function runProtocolV4MiniProtocolRun(
       outputTokens: holdoutPlan.holdoutMaxOutputTokens,
       costUsd: holdoutPlan.holdoutMaxCostUsd,
     },
-    liveExecution: false,
   });
   consumeProtocolV4AuthorizationAtomically(storeRoot, holdoutAuthorization.authorizationId);
 
   // 11. Every planned Holdout observation for the selected candidate actually executed (real,
   // zero-network, judged against real ground truth -- never a live provider, never a `human_live`
-  // authorization: a `fake_dry_run` authorization structurally cannot satisfy `liveExecution: true`,
-  // proven above and by the dedicated authorization tests); checkpoint/raw/category/telemetry/
-  // ledger/evaluation built from those executions and independently written + read back through the
-  // atomic Artifact Store, exactly like every Development artifact above.
+  // authorization: the non-authoritative dry-run authorization gate structurally cannot express
+  // `liveExecution`/`kind: 'human_live'` at all); checkpoint/raw/category/telemetry/ledger/evaluation
+  // built from those executions and independently written + read back through the atomic Artifact
+  // Store, exactly like every Development artifact above. Requires the just-claimed Holdout Execution
+  // Lease, checked storage-authoritatively immediately before dispatch.
   const holdoutArmBaseline = await computeProtocolV4HoldoutArmBaseline(holdoutPlan);
   const holdoutArtifacts = await runProtocolV4HoldoutForSelectedCandidate({
     plan,
     holdoutPlan,
     authorization: holdoutAuthorization,
+    lease: holdoutLease,
+    artifactStoreRoot: storeRoot,
     armBaseline: holdoutArmBaseline,
   });
   const storedHoldoutCheckpoint = writeProtocolV4ArtifactExclusive(
@@ -1668,20 +1715,59 @@ export async function runProtocolV4MiniProtocolRun(
     holdoutArtifacts.evaluation.contentHash,
   );
 
-  // 12. No automatic continuation past this point: no `human_live` authorization was ever created,
+  // 12. Finaler, gemeinsamer Development+Holdout-G2-Report -- erst jetzt, nachdem BEIDE Partitionen
+  // real ausgeführt und validiert wurden (Final Phase-A closure remediation, Weiteres Vorgehen item
+  // 5): der Development-Kandidat des gewählten (nichtautoritativen) Kandidaten liefert die
+  // Development-Partition, `holdoutArtifacts` die Holdout-Partition -- beide werden gemeinsam an den
+  // echten, unveränderten Evaluator übergeben, sodass Joint-only-G2-Gates erstmals genuin auflösen
+  // können (statt permanent `not_evaluable`, wie bei jeder Development-only- oder Holdout-only-
+  // Auswertung). Dies bleibt weiterhin keine autoritative Live-Aussage: der zugrunde liegende
+  // Kandidat wurde nichtautoritativ per `ProtocolV4DryRunCandidateChoice` gewählt, niemals per echtem
+  // `CandidateSelectionRecord`.
+  const developmentArmBaseline = await computeProtocolV4DevelopmentArmBaseline(plan);
+  const winningDevelopmentArtifacts = evidence.candidates.find(
+    (c) => c.candidateId === holdoutPlan.candidateId,
+  );
+  if (!winningDevelopmentArtifacts)
+    throw new Error('PROTOCOL_V4_MINI_RUN_MISSING_WINNING_DEVELOPMENT_ARTIFACTS');
+  const finalG2Report = deriveProtocolV4FinalG2Report({
+    plan,
+    candidateId: holdoutPlan.candidateId,
+    development: winningDevelopmentArtifacts,
+    holdout: holdoutArtifacts,
+    developmentArmBaseline,
+    holdoutArmBaseline,
+  });
+  const finalG2ReportArtifact = sealProtocolV4Artifact(
+    'final-g2-decision-report',
+    plan.planHash,
+    finalG2Report,
+  );
+  const storedFinalG2Report = writeProtocolV4ArtifactExclusive(
+    storeRoot,
+    ARTIFACT_PATHS.finalG2DecisionReport,
+    finalG2ReportArtifact,
+  );
+  readProtocolV4ArtifactWithReadback(
+    storedFinalG2Report.absolutePath,
+    finalG2ReportArtifact.contentHash,
+  );
+
+  // 13. No automatic continuation past this point: no `human_live` authorization was ever created,
   // no live provider was ever dispatched, and no further phase (there is none left in the protocol
   // after Holdout) is started.
 
   return {
     plan,
     developmentEvidenceRootHash,
-    candidateSelectionRecordHash: selection.selectionRecordHash,
-    holdoutExecutionPlanHash: holdoutPlan.holdoutPlanHash,
+    candidateSelectionRecordHash: choice.choiceHash,
+    holdoutExecutionPlanHash: holdoutPlan.dryRunHoldoutPlanHash,
     holdoutAuthorizationId: holdoutAuthorization.authorizationId,
+    finalG2ReportHash: finalG2ReportArtifact.contentHash,
     artifactHashes: {
       planHash: planArtifact.contentHash,
       developmentEvidenceHash: evidenceArtifact.contentHash,
-      selectionRecordHash: selectionArtifact.contentHash,
+      selectionRecordHash: choiceArtifact.contentHash,
       holdoutPlanHash: holdoutPlanArtifact.contentHash,
       holdoutAuthorizationHash: holdoutAuthArtifact.contentHash,
       holdoutCheckpointHash: holdoutArtifacts.checkpoint.contentHash,
@@ -1690,6 +1776,7 @@ export async function runProtocolV4MiniProtocolRun(
       holdoutTelemetryHash: holdoutArtifacts.telemetry.contentHash,
       holdoutLedgerHash: holdoutArtifacts.ledger.contentHash,
       holdoutEvaluationHash: holdoutArtifacts.evaluation.contentHash,
+      finalG2ReportHash: finalG2ReportArtifact.contentHash,
     },
   };
 }

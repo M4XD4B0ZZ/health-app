@@ -21,6 +21,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Codegraph
+.codegraph/
+
 # debug
 npm-debug.*
 yarn-debug.*

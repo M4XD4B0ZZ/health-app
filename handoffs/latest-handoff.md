@@ -85,11 +85,12 @@ evidence, humanReview)` (the single entry point — requires all three candidate
    (6 suites / 141 tests, all passing — 117 pre-existing + 24 new); full `npm run verify` (typecheck +
    lint + format:check + complete Jest suite) run to completion in the background, exit code 0; `git
 status`/manual diff review confirming only the files listed above changed.
-6. **Verification result:** all of the above passed, including the full `npm run verify` end to end
-   (see this handoff's companion background-run output for exact suite/test counts at the time this
-   entry was written). Provider calls 0; provider cost USD 0; no credential read
-   (`ANTHROPIC_API_KEY` is never referenced by the new module or its tests, which build only
-   in-memory fake `CandidateEvaluation`/`ProtocolV4DevelopmentEvidence` fixtures).
+6. **Verification result:** all of the above passed, including the full `npm run verify` end to end,
+   run to completion in the background and confirmed exit code 0: **252 suites / 2695 tests passed
+   repo-wide**, 1098.2 s, 0 type errors, 0 lint errors, 0 format violations. Provider calls 0; provider
+   cost USD 0; no credential read (`ANTHROPIC_API_KEY` is never referenced by the new module or its
+   tests, which build only in-memory fake `CandidateEvaluation`/`ProtocolV4DevelopmentEvidence`
+   fixtures).
 7. **Known issues/blockers/residual risks:** the Holdout Admission Gate is zero-network infrastructure
    only — it does not itself constitute new live evidence, does not unblock `RESOLVER-V3-010`, and does
    not change G2's `not passed` status. The 352-call / USD 5.586944 proposal-only budget remains

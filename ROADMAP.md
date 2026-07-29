@@ -8942,11 +8942,86 @@ USD 5.586944) is unchanged in value and remains explicitly **not authorized**; n
 authorization was created or exercised; no live Development or Holdout execution occurred. G2 remains
 **not passed**; V3-010 remains `blocked`.
 
+**PR #194 merge status (2026-07-29):** the Phase-A lease/selection/holdout-evidence remediation above
+was merged as PR #194 (`e743bd2e280b0ee21cb4423f16cea6a87ce53a0d` into `chore/clean-arch-structure`,
+merge commit `5897c559c4cd7d4aa79919691617d50e836ffc51`). Its `verify` GitHub Actions check completed
+with `conclusion: success`. Independent review of the PR record found that the merge itself
+(`merged_at` `2026-07-29T06:52:39Z`) happened roughly 19 seconds after the `verify` check started
+(`started_at` `06:52:20Z`) and about 18 minutes _before_ it actually finished (`completed_at`
+`07:10:31Z`) -- i.e. the merge was not gated on the check's completion, reproducing (on this very PR)
+the same premature-merge-before-CI pattern this PR's own summary describes fixing for PR #193. CI did
+end up green, and the merged diff was independently re-reviewed against the six claimed defect fixes
+(atomic Execution Lease claimed/re-checked before every dispatch, strict `SELECTION_RULE` fidelity,
+the non-authoritative Dry-Run Choice contract, real Holdout `partition` tagging, the joint final G2
+report, and crash-detection integration) with no further code defect found, so no revert or follow-up
+code fix was made for this specific finding -- it is recorded here as a process gap for future
+merges: this repository's merge step should wait for the check run's `completed`/`success` state, not
+merely its existence, before merging.
+
+**Holdout Admission Gate (2026-07-29, closes the Development→Holdout selection contradiction):** the
+canonical `SELECTION_RULE` (final, binding G2 verdict) correctly requires `allMandatoryG2CriteriaPass`
+literally `true`, which the real, pinned evaluator's joint gate combinator can never produce from
+Development-only evidence (several mandatory G2 gates are joint-only and stay `not_evaluable` until
+Holdout evidence for the same candidate also exists). `selectCandidate`/
+`selectCandidateFromDevelopmentEvidence` therefore always honestly throw
+`PROTOCOL_V4_NO_ELIGIBLE_CANDIDATE` on real Development-only evidence -- correct for the final
+decision, but it also meant Development alone had no legal path to admit any candidate into a real,
+live Holdout run at all: the only existing alternative, `ProtocolV4DryRunCandidateChoice`
+(`ResolverV3048ProtocolV4DryRunChoice.ts`), is explicitly `authoritative: false`/`kind:
+'fake_dry_run_only'` and structurally can never back a `human_live` authorization. A new module,
+`ResolverV3048ProtocolV4HoldoutAdmission.ts`, closes this gap with a third, separately-named,
+pre-frozen contract, distinct from both `SELECTION_RULE` and the Dry-Run Choice path:
+
+- `HOLDOUT_ADMISSION_RULE` -- its own version, its own hash, independent of `SELECTION_RULE`, so a
+  future change to either can never silently affect the other; explicitly documents
+  `isFinalProductionDecision: false`, `claimsG2Passed: false`, `requiresHumanReview: true`,
+  `admitsExactlyOneCandidate: true`.
+- `isProtocolV4CandidateAdmissibleForHoldout` admits a candidate only if it has zero critical
+  false-confidence cases, complete contracts/telemetry (already structurally enforced by
+  `validateProtocolV4DevelopmentEvidence`), and no mandatory G2 gate has already read an explicit
+  `failed` verdict from real Development-only data -- `not_evaluable`/`requires_human_judgment` joint
+  gates are expected pre-Holdout and do not disqualify a candidate here (unlike the final
+  `SELECTION_RULE.eligibility` screen, which correctly does require literal `passed`).
+- `admitCandidateForHoldout(plan, evidence, humanReview)` is the single entry point: it requires all
+  three candidates' real, artifact-validated Development evidence, a mandatory human review record
+  (non-empty reviewer reference, literal `approved: true`, a valid timestamp), ranks admissible
+  candidates via the same pre-declared ordered-comparison/tie-break methodology `SELECTION_RULE`
+  already uses, and admits exactly one. `PROTOCOL_V4_NO_HOLDOUT_ADMISSION_CANDIDATE` is thrown, never
+  a fallback pick, when every candidate is disqualified.
+- Every record/plan/authorization this module produces carries literal, validator-enforced
+  `g2Passed: false` and `productionAuthorized: false` fields -- `validateProtocolV4HoldoutAdmissionRecord`/
+  `validateProtocolV4HoldoutAdmissionExecutionPlan`/`assertProtocolV4HoldoutAdmissionAuthorized` all
+  fail closed if either is ever tampered to `true`, even in an internally rehashed record, and
+  `validateProtocolV4HoldoutAdmissionRecordAgainstEvidence` additionally re-derives the record from
+  the real underlying evidence rather than trusting self-consistency alone.
+- Unlike the Dry-Run Choice authorization (which can never reach `liveExecution`), the Admission
+  Authorization's `kind` is always `'human_live'` (reusing the execution lease's own already-pinned
+  `authorizationKind` literal, so `ResolverV3048ProtocolV4ExecutionLease.ts` needed no change) and its
+  `humanApprovalReference` is non-optional, never conditional.
+- `ProtocolV4HoldoutAdmissionExecutionPlan`/`ProtocolV4HoldoutAdmissionAuthorization` are structurally
+  compatible with `ResolverV3048ProtocolV4HoldoutRunner.ts`'s existing minimal input interfaces
+  (`ProtocolV4HoldoutRunnerPlanInput`/`ProtocolV4HoldoutRunnerAuthorizationInput`, already designed to
+  accept any of several producers) -- proven by a compile-time-checked test assignment, not merely a
+  runtime coincidence -- so the already-reviewed Holdout Runner required zero code changes (only a
+  documentation-comment update noting the third satisfier).
+
+This module explicitly does **not** decide G2 pass/fail or production readiness -- that remains
+exclusively `deriveProtocolV4FinalG2Report`'s job once genuine Development AND Holdout evidence for the
+admitted candidate both exist (`ResolverV3048ProtocolV4Evaluation.ts`), and nothing in this module can
+produce, substitute for, or be mistaken for that report. It does not itself authorize or perform any
+live execution: no live provider call, credential read, or budget consumption occurred while building
+it (24 new zero-network unit tests in
+`__tests__/ResolverV3048ProtocolV4HoldoutAdmission.test.ts`, all against fake in-memory evidence). The
+352-call / USD 5.586944 proposal-only budget remains numerically unchanged and explicitly **not
+authorized**; `RESOLVER-V3-010` remains `blocked`; G2 remains **not passed**.
+
 Status: `in_progress — Protocol-v4 zero-call Phase-A infrastructure verified (atomic Execution Lease,
 strict Selection-Rule fidelity, non-authoritative Dry-Run Choice contract, real Development/Holdout
-partitioning, joint G2 report, crash-detection integration); live Development not authorized` (pending
-green GitHub Verify on `claude/resolver-v3-048-final-phase-a-closure`; PR to be opened manually by the
-user).
+partitioning, joint G2 report, crash-detection integration) merged via PR #194 with green (though
+non-gating) GitHub Verify; explicit, pre-frozen Holdout Admission Gate closes the
+Development-to-Holdout selection contradiction; live Development/Holdout still not authorized` (basis
+`5897c559c4cd7d4aa79919691617d50e836ffc51`; Holdout Admission Gate implemented on
+`claude/phase-a-holdout-admission-urfjyk`).
 
 #### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
 

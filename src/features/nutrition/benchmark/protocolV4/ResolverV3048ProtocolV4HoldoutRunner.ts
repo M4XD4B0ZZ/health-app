@@ -27,9 +27,12 @@ import {
 } from './ResolverV3048ProtocolV4ExecutionLease';
 
 /** Minimal structural shape the Holdout Runner actually reads from a Holdout Execution Plan --
- * satisfied by both the real, authoritative `HoldoutExecutionPlan` and the separate, non-authoritative
- * `ProtocolV4DryRunHoldoutExecutionPlan` (`ResolverV3048ProtocolV4DryRunChoice.ts`), so this runner
- * never has to know or care which of the two produced the plan it was given. */
+ * satisfied by the real, authoritative `HoldoutExecutionPlan` (SELECTION_RULE-bound; currently
+ * unreachable pre-Holdout, see `ResolverV3048ProtocolV4.ts`), the separate, non-authoritative
+ * `ProtocolV4DryRunHoldoutExecutionPlan` (`ResolverV3048ProtocolV4DryRunChoice.ts`), AND the real,
+ * live-capable `ProtocolV4HoldoutAdmissionExecutionPlan`
+ * (`ResolverV3048ProtocolV4HoldoutAdmission.ts`) -- so this runner never has to know or care which of
+ * the three produced the plan it was given. */
 export interface ProtocolV4HoldoutRunnerPlanInput {
   candidateId: ResolverV3047CandidateId;
   holdoutObservations: readonly ProtocolV4Observation[];
@@ -39,8 +42,9 @@ export interface ProtocolV4HoldoutRunnerPlanInput {
 }
 
 /** Minimal structural shape the Holdout Runner actually reads from a Holdout Authorization --
- * satisfied by both the real `HoldoutAuthorizationRecord` and the non-authoritative
- * `ProtocolV4DryRunHoldoutAuthorization`. */
+ * satisfied by the real `HoldoutAuthorizationRecord`, the non-authoritative
+ * `ProtocolV4DryRunHoldoutAuthorization`, and the real, live-capable
+ * `ProtocolV4HoldoutAdmissionAuthorization` (`ResolverV3048ProtocolV4HoldoutAdmission.ts`). */
 export interface ProtocolV4HoldoutRunnerAuthorizationInput {
   authorizationId: string;
   maxCalls: number;

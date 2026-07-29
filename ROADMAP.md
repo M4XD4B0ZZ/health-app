@@ -607,15 +607,31 @@ Constraints:
 
 ## Current Focus
 
-Core Logging Pipeline must be stable before any other feature work.
+The Core Logging Pipeline (Phase 0 below) is stable; the definition-of-working cases listed below
+all pass and are covered by the Journal domain's own regression tests (`J-001`..`J-006`, `done`).
 
-Definition of "working":
+The current bottleneck is **RESOLVER-V3-048** (Protocol-v4 live evidence for the Hybrid
+Resolver): Phase-A zero-call infrastructure keeps being hardened (PR #194, #195, and #196 merged
+so far — Execution Lease, Holdout Admission Gate, dispatch-lease/authorization-binding closure —
+each with green `npm run verify`), but no live Development or Holdout run has occurred, G2 is not
+passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
+live evidence that passes every mandatory G2 dimension. See RESOLVER-V3-048's own entry (Resolver
+V3 epic) for the current, authoritative status text, the binding decision rule, and the currently
+unauthorized proposal-only budget — do not rely on the summary here for exact PR/commit detail, it
+will lag.
 
-- `ei` 6 correct macros
-- `zwei eier` 6 correct macros
-- `200g quark` 6 correct macros
-- `buttertoast` 6 correct macros
-- `zwei scheiben schinken` 6 correct macros
+`CONTEXT-GOV-001` (task-start context governance: the read contract below, and the
+`handoffs/` rotation convention) is `done` — see its entry under "EPIC: Developer Tooling &
+Verification". Making CodeGraph actually available and verified (it is not currently registered
+in `.mcp.json`) is tracked separately as `CODEGRAPH-001` and has not started.
+
+Definition of "working" (Phase 0, still the regression floor for the logging pipeline):
+
+- `ei` → correct macros
+- `zwei eier` → correct macros
+- `200g quark` → correct macros
+- `buttertoast` → correct macros
+- `zwei scheiben schinken` → correct macros
 
 ---
 
@@ -5954,6 +5970,77 @@ workflows on a PR; prove suite-set equality and exactly-once execution; exercise
 an `if: always()` aggregator if sharding is selected; test documentation-only classification in the
 actual merge-base/event environment; compare wall-clock and summed runner-minutes; only then accept
 an implementation and mark this task `done`.
+
+#### CONTEXT-GOV-001: Task-Start Context Governance (Read Contract + Handoff Rotation)
+
+Status: `done` (2026-07-29)
+Depends on: none
+
+**Goal:** reduce the mandatory per-task context cost of `ROADMAP.md` (10,000+ lines) and
+`handoffs/latest-handoff.md` (had grown to 270 KB across 8 entries with an unused
+`handoffs/archive/`) without losing any project knowledge and without introducing a second,
+competing planning or status source.
+
+**Scope:**
+
+- `AGENTS.md`: replaced the blanket "read `ROADMAP.md` and `VERIFY.md` in full before every task"
+  rule with a scoped Task-Start Read Contract (`Current Focus` + the task's own entry + its epic +
+  its dependencies in `ROADMAP.md`; the applicable category and required checks in `VERIFY.md`;
+  the single current handoff; only task-referenced specs/reports). Full linear reads remain
+  required for governance audits and explicitly repository-wide tasks.
+- `AGENTS.md`: added a binding Handoff Rotation rule — `handoffs/latest-handoff.md` holds exactly
+  one entry; the previous entry is archived unchanged to `handoffs/archive/` before a new one is
+  written, and archived entries are never rewritten afterward.
+- `handoffs/latest-handoff.md`: rotated from 8 accumulated entries (270 KB) down to the single
+  newest entry. The 7 newer entries (2026-07-27/28) were each archived individually as
+  `handoffs/archive/YYYY-MM-DD_TASK-ID_description.md`. The large legacy `# Latest Handoff` block
+  (predates the per-entry convention and has no reliable per-entry dates) was archived as one
+  unchanged unit, `handoffs/archive/legacy-pre-rotation-handoff-log.md`, rather than fabricating
+  dates to split it further. The split was verified byte-for-byte lossless: the new
+  `latest-handoff.md` plus all archived files, concatenated in original order, diffs clean against
+  the previously committed `handoffs/latest-handoff.md`.
+- `ROADMAP.md`: refreshed `Current Focus` to reflect the actual current bottleneck
+  (RESOLVER-V3-048 → RESOLVER-V3-010 gate) instead of the stale Phase 0 text. This task's first
+  pass (commit `46f7b25`) also hand-corrected RESOLVER-V3-048's own status paragraph, which at that
+  time still said "PR to be opened manually by the user" although PR #194 had already merged
+  (`5897c55`) with a confirmed green full-repo `npm run verify` (251 suites / 2671 tests, per
+  commit `e743bd2`). Before this task's branch was rebased onto the current default branch,
+  PR #195 (Holdout Admission Gate) and PR #196 (dispatch-lease/authorization-binding closure) were
+  merged upstream and rewrote that same status paragraph themselves, with far more complete
+  content than this task's short correction. On rebase, this task's own V3-048 status edit was
+  **discarded in full** in favor of upstream's content, unmodified — see "Rebase reconciliation"
+  below. This task's real, retained contribution to `ROADMAP.md` is the `Current Focus` rewrite and
+  this task entry, not any RESOLVER-V3-048 status text.
+
+**Rebase reconciliation (2026-07-29):** this task's first commit (`46f7b25`) was pushed against a
+base that PR #195 and PR #196 had, unknown to this task at the time, already moved past — both
+touch the same `ROADMAP.md` V3-048 status paragraph and PR #196 also rewrote
+`handoffs/latest-handoff.md` with its own new entries. Per `AGENTS.md`'s "Git Branch Sync After
+Push/Pull" rule, this was reported rather than silently pushed through as a PR. The repository
+owner authorized rebasing this branch onto the current `chore/clean-arch-structure` tip and
+force-with-lease-pushing the result. On rebase: the `ROADMAP.md` V3-048-status conflict was
+resolved by taking the upstream (post-#195/#196) side entirely, discarding this task's own shorter
+correction unmodified and uninterpreted; the handoff rotation below was redone from scratch against
+the post-#195/#196 `handoffs/latest-handoff.md` rather than reapplying the pre-rebase split.
+
+**Explicitly out of scope (deferred, not done here):** a `ROADMAP_ARCHIVE.md` split of completed
+epics (would create a second, competing planning source; revisit only if the read contract above
+turns out to be insufficient, based on measured token cost); a manually maintained
+`docs/PROJECT_STATUS.md` (would create a second, fast-staling status source — `ROADMAP.md`'s
+`Current Focus` and `handoffs/latest-handoff.md` remain the only status sources); any CodeGraph
+installation or `.mcp.json` change (tracked separately as `CODEGRAPH-001`, which needs its own
+bootstrap exception from any future "CodeGraph required for every task" rule, since that rule
+cannot apply to the task that first makes CodeGraph available).
+
+**Verification:** documentation/governance-only change (`VERIFY.md` Category 1/2) — readback
+checks (`git status`, `git diff --stat`, `git diff --name-only`) plus `npm run format:check`, run
+proactively given the prior incident where an unformatted `ROADMAP.md` broke CI after a
+same-second merge (see RESOLVER-V3-048's Phase-A closure history above).
+
+**Acceptance:** `handoffs/latest-handoff.md` contains exactly one entry; every archived entry is
+byte-identical to its slice of the pre-rotation file; `AGENTS.md`'s read contract and rotation rule
+are in place; `ROADMAP.md`'s `Current Focus` and RESOLVER-V3-048 status text match verified repo
+state; no runtime/product code touched.
 
 #### WEB-001: Restore Reproducible Expo Web Runtime
 

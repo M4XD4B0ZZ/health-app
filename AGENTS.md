@@ -115,7 +115,29 @@ This repository uses OpenCode-style deterministic edits and agent governance.
 - **ROADMAP.md** is the Single Source of Knowledge (SSOK) for all tasks, epics, and decisions.
 - **VERIFY.md** is the canonical source for all verification commands and the Definition of Done.
 
-Agents must read both files before starting any task.
+### Task-Start Read Contract (Binding)
+
+A full linear reading of `ROADMAP.md` and `VERIFY.md` is not required before every task. At the
+scale this repository has reached (`ROADMAP.md` alone is well over 10,000 lines), that blanket
+requirement produces unnecessary context cost without a corresponding safety benefit. Before
+starting a task, an agent must instead read:
+
+1. `AGENTS.md` and `SSOK.md` — in full if this is a fresh session with no prior reading of the
+   current version; otherwise only the parts that changed since the agent last read them.
+2. In `ROADMAP.md`: the `Current Focus` section, the concrete task's own entry, the epic it
+   belongs to, and any tasks it explicitly depends on.
+3. In `VERIFY.md`: the applicable change category from the Canonical Verification Decision Table,
+   the required checks for that category, and any domain-specific verification section relevant
+   to the task (e.g. "Resolver V2 Verification").
+4. `handoffs/latest-handoff.md` (see "Handoff Rotation" below — it holds exactly one entry, so
+   this is a small, bounded read).
+5. Only the specs, reports, and decision records the task itself references (e.g. via a "MUST
+   read" pointer elsewhere in this document or in the relevant `ROADMAP.md` epic).
+
+A full linear reading of `ROADMAP.md` and/or `VERIFY.md` remains required for governance audits
+and for tasks explicitly scoped as repository-wide (e.g. a cross-cutting governance or
+verification-policy change). When in doubt whether a task is repository-wide, treat it as scoped
+and say so explicitly in the handoff rather than defaulting to a full read.
 
 ---
 
@@ -259,8 +281,8 @@ If package files drift accidentally:
 **Gate ownership (handoff schema):** this section owns the normative handoff schema for this
 repository.
 
-Every completed task must produce a clear handoff (in `handoffs/latest-handoff.md`, prepended
-above the previous entry per existing convention) containing:
+Every completed task must produce a clear handoff (in `handoffs/latest-handoff.md`, which per the
+"Handoff Rotation" rule below holds only the current entry) containing:
 
 1. Task ID and status
 2. What changed
@@ -273,6 +295,19 @@ above the previous entry per existing convention) containing:
 
 A task must never be marked done without a handoff meeting these fields, and never marked done
 without passing verification (see `VERIFY.md`).
+
+### Handoff Rotation (Binding)
+
+`handoffs/latest-handoff.md` holds exactly the single most recent handoff — nothing else. This
+keeps item 4 of the Task-Start Read Contract above a small, bounded read instead of an
+ever-growing file.
+
+- Before writing a new handoff, archive the current contents of `handoffs/latest-handoff.md`
+  unchanged into its own file under `handoffs/archive/`, named
+  `YYYY-MM-DD_TASK-ID_short-description.md` (date and task ID of the handoff being archived).
+- Then replace `handoffs/latest-handoff.md` with the new handoff only — do not prepend.
+- Never rewrite an already-archived handoff; archived files are immutable history.
+- Full handoff history remains available via Git and via `handoffs/archive/`.
 
 ### Definition of Done
 

@@ -139,6 +139,61 @@ and for tasks explicitly scoped as repository-wide (e.g. a cross-cutting governa
 verification-policy change). When in doubt whether a task is repository-wide, treat it as scoped
 and say so explicitly in the handoff rather than defaulting to a full read.
 
+### Prompt Contract for Task-Initiating Prompts (Binding)
+
+**Gate ownership (prompt content):** this section owns what a task-initiating prompt to any coding
+agent (Claude Code included, per the Tool Adapter Principle) must and must not contain for this
+repository. This is the counterpart to the Task-Start Read Contract above: that contract governs
+what the agent reads from the repository itself; this contract governs what the human/dispatching
+side puts in the prompt. Together they replace repeatedly pasting project context into prompts
+with the agent reading it selectively.
+
+A task-initiating prompt must contain only:
+
+1. the concrete task ID (from `ROADMAP.md`; a new ID if the task doesn't exist yet),
+2. the precise goal, or the concretely observed defect,
+3. the allowed scope and the explicitly excluded scope for this task,
+4. concrete, checkable acceptance criteria,
+5. any task-specific risks or known conflicts (e.g. overlapping open PRs, a specific decision this
+   task must not reopen),
+6. references to the relevant canonical `ROADMAP.md`/`VERIFY.md`/`AGENTS.md` sections or epics (by
+   name/anchor, not by content),
+7. the required Git/Verify/PR/review closure expected (branch, verification category, PR target,
+   whether the agent may merge).
+
+The following must **not** be pasted into a prompt on a routine basis — they are repository
+content, not prompt content, and the agent reads them itself per the Task-Start Read Contract:
+
+- full project overviews,
+- long historical summaries,
+- copied sections from `ROADMAP.md`, `VERIFY.md`, or `AGENTS.md`,
+- old handoffs,
+- general repository rules that are already canonically documented (this document, `SSOK.md`,
+  `ROADMAP.md`, `VERIFY.md`),
+- large status blocks the agent can read itself.
+
+Rules already documented canonically are referenced in a prompt, not restated. Only task-specific
+deviations, tightenings, or particularly relevant risks are worth repeating. Prompts stay compact,
+unambiguous, and directly executable; project history belongs in the repository, not in every
+individual message.
+
+This contract governs prompt _content_, not delivery mechanism — it applies equally regardless of
+which tool, adapter, or session type dispatches the task.
+
+#### CodeGraph Availability (Binding)
+
+- CodeGraph is **not** a prerequisite for this task and must not be claimed as an available
+  capability before `CODEGRAPH-001` (see `ROADMAP.md`) has completed successfully. It is not
+  currently registered in `.mcp.json`.
+- `CODEGRAPH-001` is the explicit bootstrap exception: the task that first makes CodeGraph actually
+  available cannot itself be required to use it as a precondition.
+- After `CODEGRAPH-001` completes successfully, task-initiating prompts for coding, architecture,
+  resolver, data-flow, impact-analysis, and post-merge-review work should require a compact
+  CodeGraph preflight and material CodeGraph usage (not merely invoking it once as a formality).
+- The concrete, fail-closed CodeGraph rule (what "material usage" and "fail-closed" mean in
+  operational terms) is determined by `CODEGRAPH-001` itself, based on the operating mode it
+  actually sets up. It is intentionally not speculated on here.
+
 ---
 
 ## Core Rules

@@ -622,7 +622,9 @@ will lag.
 
 `CONTEXT-GOV-001` (task-start context governance: the read contract below, and the
 `handoffs/` rotation convention) is `done` — see its entry under "EPIC: Developer Tooling &
-Verification". Making CodeGraph actually available and verified (it is not currently registered
+Verification". `PROMPT-GOV-001` (the matching binding contract for what task-initiating prompts
+must/must not contain, built on top of `CONTEXT-GOV-001`) is also `done` — see its entry under the
+same epic. Making CodeGraph actually available and verified (it is not currently registered
 in `.mcp.json`) is tracked separately as `CODEGRAPH-001` and has not started.
 
 Definition of "working" (Phase 0, still the regression floor for the logging pipeline):
@@ -6041,6 +6043,62 @@ same-second merge (see RESOLVER-V3-048's Phase-A closure history above).
 byte-identical to its slice of the pre-rotation file; `AGENTS.md`'s read contract and rotation rule
 are in place; `ROADMAP.md`'s `Current Focus` and RESOLVER-V3-048 status text match verified repo
 state; no runtime/product code touched.
+
+#### PROMPT-GOV-001: Compact Task-Initiating Prompt Contract
+
+Status: `done` (2026-07-29)
+Depends on: `CONTEXT-GOV-001`
+
+**Anlass:** task-initiating prompts had been accumulating full project overviews, historical
+summaries, and copy-pasted `ROADMAP.md`/`VERIFY.md`/`AGENTS.md` sections on top of the
+already-read-selectively repository context established by `CONTEXT-GOV-001`. That repetition
+costs tokens without adding safety, since the agent can and must read the current canonical state
+itself.
+
+**Goal:** establish, at exactly one canonical location, a binding rule for what a future
+task-initiating prompt to any coding agent must contain and must not routinely repeat, without
+creating a second competing source of truth and without touching `CONTEXT-GOV-001`'s Task-Start
+Read Contract.
+
+**Scope:**
+
+- `AGENTS.md`: added the "Prompt Contract for Task-Initiating Prompts (Binding)" section (directly
+  after the Task-Start Read Contract) — the 7 elements a task-initiating prompt must contain (task
+  ID, precise goal/defect, allowed + excluded scope, acceptance criteria, task-specific risks,
+  references to canonical sections, required Git/Verify/PR/review closure), and the list of content
+  that must not be routinely pasted (full overviews, historical summaries, copied
+  `ROADMAP.md`/`VERIFY.md`/`AGENTS.md` sections, old handoffs, already-canonical general rules,
+  large status blocks).
+- `AGENTS.md`: added the "CodeGraph Availability (Binding)" sub-section — CodeGraph must not be
+  claimed as available before `CODEGRAPH-001` completes; `CODEGRAPH-001` is the explicit bootstrap
+  exception; the concrete fail-closed CodeGraph rule is left for `CODEGRAPH-001` to define based on
+  its actual setup, not invented here.
+- `ROADMAP.md`: this task entry, and a one-line `Current Focus` addition pointing at it (no
+  rewording of the existing RESOLVER-V3-048/CODEGRAPH-001 text).
+- `handoffs/latest-handoff.md`: rotated per the binding Handoff Rotation rule — the prior
+  `CONTEXT-GOV-001` entry archived unchanged to
+  `handoffs/archive/2026-07-29_CONTEXT-GOV-001_task-start-context-governance-rebased-reconciled.md`,
+  replaced with this task's single new entry.
+
+**Explicitly out of scope:** any new competing governance file (`AGENTS.md` remains the single
+canonical location — no new file was needed); `ROADMAP_ARCHIVE.md`; `docs/PROJECT_STATUS.md`; any
+CodeGraph installation or `.mcp.json` change; any change to `CONTEXT-GOV-001`'s Task-Start Read
+Contract itself; any product/runtime/test/CI/dependency/Supabase change; any change to already
+accepted RESOLVER-V3-048/V3-010 content.
+
+**Verification:** documentation/governance-only change (`VERIFY.md` Category 1/2) — `git --no-pager
+status --short`, `git --no-pager diff --stat`, `git --no-pager diff --name-only`, `git diff
+--check`, `npm run format:check`; plus an explicit check that `handoffs/latest-handoff.md` contains
+exactly one entry, that the previous handoff is archived byte-identical, and that no
+product/runtime/CI/dependency/Supabase file was touched.
+
+**Acceptance:** the prompt contract is stated bindingly at exactly one canonical location
+(`AGENTS.md`); no second competing source of truth was created; `CONTEXT-GOV-001`'s Task-Start Read
+Contract is unchanged and remains in effect; the rule clearly distinguishes repository context from
+task-specific prompt content; CodeGraph is neither claimed available nor permanently excluded;
+`CODEGRAPH-001` remains a clear bootstrap exception; no product/runtime file changed;
+`handoffs/latest-handoff.md` holds exactly one new entry with the prior entry archived unchanged;
+the final diff is governance/documentation scope only.
 
 #### WEB-001: Restore Reproducible Expo Web Runtime
 

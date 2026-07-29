@@ -3,30 +3,57 @@ import * as path from 'node:path';
 import {
   canonicalizeProtocolV4,
   hashProtocolV4,
+  type ProtocolV4MasterPlan,
   type ResolverV3047CandidateId,
 } from './ResolverV3048ProtocolV4';
 import { isProtocolV4ArtifactTargetUnused } from './ResolverV3048ProtocolV4ArtifactStore';
+import { type ProtocolV4DevelopmentAuthorizationRecord } from './ResolverV3048ProtocolV4DevelopmentAuthorization';
+import {
+  type ProtocolV4DryRunCandidateChoice,
+  type ProtocolV4DryRunHoldoutExecutionPlan,
+  type ProtocolV4DryRunHoldoutAuthorization,
+  validateProtocolV4DryRunCandidateChoice,
+  validateProtocolV4DryRunHoldoutExecutionPlan,
+} from './ResolverV3048ProtocolV4DryRunChoice';
 
 /**
- * RESOLVER-V3-048 Final Phase-A closure remediation, "atomare Execution Lease vor dem ersten
- * Dispatch" (Weiteres Vorgehen item 2/3).
+ * RESOLVER-V3-048 Final Dispatch-Lease, Authorization-Binding and G2-Evidence Closure remediation.
  *
- * Prior to this module, `assertDevelopmentAuthorized`/`assertHoldoutAuthorized` were check-then-act:
- * a caller checked the authorization was not yet consumed, then dispatched every observation, and
- * only marked the authorization consumed via `consumeProtocolV4AuthorizationAtomically` AFTER every
- * dispatch had already completed. Two concurrent callers could both pass the "not yet consumed"
- * check before either one's dispatch loop finished, both proceed to dispatch, and only the second
- * completion-time consumption call would fail -- by then both had already run.
+ * Two independent gaps existed in the previously-merged Execution Lease module:
  *
- * This module closes that gap with a real Execution Lease: a single atomic, exclusive-create claim
- * that must succeed BEFORE the first dispatch, backed by an immutable, versioned, persisted record
- * whose identity (phase, plan/execution-tree hash, authorization ID, artifact-store root, candidate
- * scope, budget scope) is re-checked from storage -- never from a caller-supplied in-memory object --
- * immediately before every dispatch. Only `claimed`/`executing` may dispatch; every other status
- * (`terminal_success`, `terminal_failure`, `abandoned`) is permanently inert. Claiming twice for the
- * same `authorizationId` always collides on the same exclusive-create file, so exactly one of two
- * concurrent claimants ever succeeds, full stop -- this is the load-bearing invariant, not merely a
- * convention.
+ * 1. `assertProtocolV4ExecutionLeaseActiveForDispatch` was called ONCE, before the whole
+ *    Development/Holdout candidate dispatch loop -- never again before each individual
+ *    `runOneObservation` call. A lease terminalized/abandoned between observation 1 and observation
+ *    2 of the same run did not stop observation 2 (or any later observation) from dispatching. This
+ *    module still only checks identity; the fix (re-checking inside `runOneObservation` itself,
+ *    immediately before every fast-path AND AI-path dispatch) lives in
+ *    `ResolverV3048ProtocolV4DevelopmentRunner.ts`, which both the Development and Holdout Runners
+ *    share.
+ * 2. The persisted lease's own claim input (`ProtocolV4ExecutionLeaseClaimInput`) accepted freely
+ *    settable primitive numbers/strings for `authorizationKind`/`maxConcurrentRequests`/
+ *    `pricingVersion`/`modelId` with no requirement that they were ever validated against a real
+ *    Authorization Record, and the persisted lease never stored the Authorization Record's own hash
+ *    at all -- so a caller could claim (and every dispatch would happily accept) a lease built from
+ *    copied ID/budget fields alone, never a genuinely validated record. This module now (a) stores
+ *    `authorizationRecordHash`/`authorizationSchemaVersion`/`runKind` (plus, for Holdout leases,
+ *    `holdoutPlanHash`/`selectionOrChoiceHash`) as load-bearing identity fields checked on every
+ *    dispatch, exactly like `planHash`/`executionTreeHash`, and (b) adds
+ *    `claimProtocolV4ExecutionLeaseForDevelopmentAuthorization`/
+ *    `claimProtocolV4ExecutionLeaseForHoldoutAuthorization` as the only RECOMMENDED entry points,
+ *    which independently validate the real Authorization Record (recomputing its own self-hash, or
+ *    -- for the real Holdout path -- calling the real `assertHoldoutAuthorized`/`validateHoldoutExecutionPlan`
+ *    contracts) and derive every identity field from that validated record and the Master Plan,
+ *    never from caller-supplied overrides. The low-level `claimProtocolV4ExecutionLease` primitive
+ *    remains exported (existing negative-path/race tests exercise it directly), but every production
+ *    call site in `ResolverV3048ProtocolV4DryRun.ts` now goes through the validated wrappers.
+ *
+ * This module also closes the lease-store's own crash-detection gap: a `vN.json.tmp-*` file with no
+ * matching final `vN.json` is now an explicit crash state (`ProtocolV4ExecutionLeaseCrashError`),
+ * checked on every read/claim/transition -- never silently treated as "no lease" nor silently
+ * ignored as an unrelated leftover next to a valid current version. A dedicated
+ * `recoverProtocolV4ExecutionLeaseCrash` function is the only way past it, and it always leaves the
+ * authorization ID permanently `abandoned` (never reusable), matching the Artifact Store's own
+ * crash-recovery contract.
  */
 
 export class ProtocolV4ExecutionLeaseError extends Error {
@@ -35,6 +62,12 @@ export class ProtocolV4ExecutionLeaseError extends Error {
     this.name = 'ProtocolV4ExecutionLeaseError';
   }
 }
+
+/** Thrown when a leftover `vN.json.tmp-*` sibling with no matching final `vN.json` is found for an
+ * authorization ID -- an explicit crash state, never silently treated as "no lease" (when it is the
+ * very first version) nor silently ignored (when a later version's temp file sits next to an
+ * otherwise-valid earlier current version). */
+export class ProtocolV4ExecutionLeaseCrashError extends ProtocolV4ExecutionLeaseError {}
 
 export const PROTOCOL_V4_EXECUTION_LEASE_SCHEMA_VERSION = 'resolver-v3-048-execution-lease-v1';
 
@@ -47,11 +80,24 @@ export type ProtocolV4ExecutionLeaseStatus =
 
 export type ProtocolV4ExecutionLeasePhase = 'development' | 'holdout';
 
+export type ProtocolV4ExecutionLeaseRunKind = 'fake_dry_run' | 'human_live' | 'fake_dry_run_only';
+
 export interface ProtocolV4ExecutionLease {
   leaseSchemaVersion: typeof PROTOCOL_V4_EXECUTION_LEASE_SCHEMA_VERSION;
   leaseId: string;
   authorizationId: string;
-  authorizationKind: 'fake_dry_run' | 'human_live' | 'fake_dry_run_only';
+  authorizationKind: ProtocolV4ExecutionLeaseRunKind;
+  /** Same vocabulary as `authorizationKind`, kept as an independently-named, independently-checked
+   * field per the task's explicit "runKind" identity requirement -- never silently merged with
+   * `authorizationKind` even though the two happen to carry the same value today, so a future
+   * divergence between "what kind of authorization record this is" and "what kind of run this lease
+   * is scoped to" would be structurally representable and independently checked. */
+  runKind: ProtocolV4ExecutionLeaseRunKind;
+  authorizationSchemaVersion: string;
+  /** Content hash of the validated Authorization Record this lease was claimed for -- never a
+   * freely-settable string; `claimProtocolV4ExecutionLeaseForDevelopmentAuthorization`/
+   * `claimProtocolV4ExecutionLeaseForHoldoutAuthorization` derive it from the record itself. */
+  authorizationRecordHash: string;
   phase: ProtocolV4ExecutionLeasePhase;
   planHash: string;
   executionTreeHash: string;
@@ -59,6 +105,13 @@ export interface ProtocolV4ExecutionLease {
    * Development lease structurally cannot carry a Development-evidence-root binding that does not
    * yet exist when Development itself is claimed. */
   developmentEvidenceRootHash: string | null;
+  /** Holdout-only: the Holdout (or dry-run Holdout) Execution Plan's own hash. `null` for
+   * `phase: 'development'`. */
+  holdoutPlanHash: string | null;
+  /** Holdout-only: the Candidate Selection Record hash (authoritative Holdout) or the Dry-Run
+   * Candidate Choice hash (non-authoritative Holdout) this lease's Holdout plan was derived from.
+   * `null` for `phase: 'development'`. */
+  selectionOrChoiceHash: string | null;
   candidateScope: readonly ResolverV3047CandidateId[];
   artifactStoreRootIdentity: string;
   maxCalls: number;
@@ -94,8 +147,9 @@ function leaseVersionPath(root: string, authorizationId: string, version: number
   return path.join(leaseDirFor(root, authorizationId), `v${version}.json`);
 }
 
-/** Lists every persisted version file for this authorization ID, in ascending version order. Empty
- * when nothing has ever been claimed for this authorization ID. */
+/** Lists every persisted FINAL version file for this authorization ID, in ascending version order.
+ * Empty when nothing has ever been committed for this authorization ID (which may still mean a
+ * crashed claim attempt exists -- see `detectProtocolV4ExecutionLeaseCrash`). */
 function listLeaseVersions(root: string, authorizationId: string): number[] {
   const dir = leaseDirFor(root, authorizationId);
   if (!fs.existsSync(dir)) return [];
@@ -105,6 +159,41 @@ function listLeaseVersions(root: string, authorizationId: string): number[] {
     .filter((m): m is RegExpExecArray => m !== null)
     .map((m) => Number(m[1]))
     .sort((a, b) => a - b);
+}
+
+/** Lists every version number that has an orphaned `vN.json.tmp-*` sibling, regardless of whether
+ * that version was ever finally committed. */
+function listLeaseTmpVersions(root: string, authorizationId: string): number[] {
+  const dir = leaseDirFor(root, authorizationId);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .map((entry) => /^v(\d+)\.json\.tmp-/.exec(entry))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]));
+}
+
+/** Detects a crashed-mid-write lease transition: a leftover `vN.json.tmp-*` sibling with no
+ * corresponding final `vN.json` -- for ANY version, not merely the next expected one. This
+ * deliberately does not distinguish "crash on the very first claim" (no final version exists at
+ * all) from "crash on a later transition" (an otherwise-valid earlier version exists): both are
+ * equally a crash state under the task's explicit requirement that a temp file for an expected
+ * follow-up transition must never be silently ignored just because an earlier version still reads
+ * back fine. */
+export function detectProtocolV4ExecutionLeaseCrash(
+  root: string,
+  authorizationId: string,
+): boolean {
+  const finalVersions = new Set(listLeaseVersions(root, authorizationId));
+  const tmpVersions = listLeaseTmpVersions(root, authorizationId);
+  return tmpVersions.some((v) => !finalVersions.has(v));
+}
+
+function assertNoLeaseCrash(root: string, authorizationId: string): void {
+  if (detectProtocolV4ExecutionLeaseCrash(root, authorizationId))
+    throw new ProtocolV4ExecutionLeaseCrashError(
+      `PROTOCOL_V4_EXECUTION_LEASE_CRASH_EVIDENCE_DETECTED:${authorizationId}`,
+    );
 }
 
 function hashLeaseBody(body: Omit<ProtocolV4ExecutionLease, 'leaseHash'>): string {
@@ -141,13 +230,15 @@ function writeLeaseVersionExclusive(
 
 /** Reads back the CURRENT persisted lease state for an authorization ID -- the highest-version file
  * on disk -- independently re-parsed and hash-revalidated. Returns `null` only when nothing has ever
- * been claimed for this authorization ID at all. This is the single authoritative read every
- * dispatch-time check must go through; a caller-held in-memory lease object is never trusted on its
- * own. */
+ * been claimed for this authorization ID at all AND no crash evidence exists either. Throws
+ * `ProtocolV4ExecutionLeaseCrashError` if any orphaned `vN.json.tmp-*` exists (whether or not any
+ * final version has ever been committed) -- this is the single authoritative read every dispatch-time
+ * check must go through; a caller-held in-memory lease object is never trusted on its own. */
 export function readProtocolV4ExecutionLease(
   root: string,
   authorizationId: string,
 ): ProtocolV4ExecutionLease | null {
+  assertNoLeaseCrash(root, authorizationId);
   const versions = listLeaseVersions(root, authorizationId);
   if (versions.length === 0) return null;
   const latest = versions[versions.length - 1];
@@ -168,11 +259,16 @@ export function readProtocolV4ExecutionLease(
 export interface ProtocolV4ExecutionLeaseClaimInput {
   artifactStoreRoot: string;
   authorizationId: string;
-  authorizationKind: ProtocolV4ExecutionLease['authorizationKind'];
+  authorizationKind: ProtocolV4ExecutionLeaseRunKind;
+  runKind: ProtocolV4ExecutionLeaseRunKind;
+  authorizationSchemaVersion: string;
+  authorizationRecordHash: string;
   phase: ProtocolV4ExecutionLeasePhase;
   planHash: string;
   executionTreeHash: string;
   developmentEvidenceRootHash?: string | null;
+  holdoutPlanHash?: string | null;
+  selectionOrChoiceHash?: string | null;
   candidateScope: readonly ResolverV3047CandidateId[];
   maxCalls: number;
   maxInputTokens: number;
@@ -183,14 +279,19 @@ export interface ProtocolV4ExecutionLeaseClaimInput {
   modelId: string;
 }
 
-/** Atomically claims a brand-new Execution Lease for `authorizationId`: the ONLY way to obtain a
- * lease in `status: 'claimed'`. Backed by an exclusive-create write of version 1 -- if that file
+/** Low-level primitive: atomically claims a brand-new Execution Lease for `authorizationId` from
+ * caller-supplied identity fields. Backed by an exclusive-create write of version 1 -- if that file
  * already exists (this authorization ID was ever claimed before, in any lifecycle state, including
  * terminal/abandoned), this throws and the caller gets nothing. Exactly one of two concurrent callers
- * racing this function for the same `authorizationId` can ever observe success; the loser always
- * throws `PROTOCOL_V4_EXECUTION_LEASE_ALREADY_CLAIMED` (or, in the sub-millisecond directory-creation
- * race, `PROTOCOL_V4_EXECUTION_LEASE_VERSION_RACE`, equally fail-closed). This function itself must be
- * called strictly before the first Development-/Holdout-dispatch attempt -- never after. */
+ * racing this function for the same `authorizationId` can ever observe success. Also fails closed if
+ * crash evidence (an orphaned `vN.json.tmp-*`) already exists for this authorization ID.
+ *
+ * This function does NOT itself validate that `authorizationKind`/`maxConcurrentRequests`/
+ * `pricingVersion`/`modelId`/`authorizationRecordHash` were derived from a genuinely validated
+ * Authorization Record -- callers that have one should prefer
+ * `claimProtocolV4ExecutionLeaseForDevelopmentAuthorization`/
+ * `claimProtocolV4ExecutionLeaseForHoldoutAuthorization` below, which do. This primitive remains
+ * exported for lower-level lifecycle/race tests that construct lease identities directly. */
 export function claimProtocolV4ExecutionLease(
   input: ProtocolV4ExecutionLeaseClaimInput,
 ): ProtocolV4ExecutionLease {
@@ -204,6 +305,14 @@ export function claimProtocolV4ExecutionLease(
     throw new ProtocolV4ExecutionLeaseError(
       'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_FORBIDS_EVIDENCE_ROOT',
     );
+  const holdoutPlanHash = input.phase === 'holdout' ? (input.holdoutPlanHash ?? null) : null;
+  const selectionOrChoiceHash =
+    input.phase === 'holdout' ? (input.selectionOrChoiceHash ?? null) : null;
+  if (input.phase === 'development' && (input.holdoutPlanHash || input.selectionOrChoiceHash))
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_FORBIDS_HOLDOUT_PLAN_BINDING',
+    );
+  assertNoLeaseCrash(input.artifactStoreRoot, input.authorizationId);
   const artifactStoreRootIdentity = path.resolve(input.artifactStoreRoot);
   const candidateScope = [...input.candidateScope].sort();
   const withoutHash: Omit<ProtocolV4ExecutionLease, 'leaseHash'> = {
@@ -211,10 +320,15 @@ export function claimProtocolV4ExecutionLease(
     leaseId: `lease:${input.phase}:${input.authorizationId}`,
     authorizationId: input.authorizationId,
     authorizationKind: input.authorizationKind,
+    runKind: input.runKind,
+    authorizationSchemaVersion: input.authorizationSchemaVersion,
+    authorizationRecordHash: input.authorizationRecordHash,
     phase: input.phase,
     planHash: input.planHash,
     executionTreeHash: input.executionTreeHash,
     developmentEvidenceRootHash,
+    holdoutPlanHash,
+    selectionOrChoiceHash,
     candidateScope,
     artifactStoreRootIdentity,
     maxCalls: input.maxCalls,
@@ -245,6 +359,121 @@ export function claimProtocolV4ExecutionLease(
   return lease;
 }
 
+/** Recomputes a Development Authorization Record's own self-hash and requires it to match the
+ * stored `authorizationRecordHash` -- the same check `assertDevelopmentAuthorized` performs,
+ * duplicated here (not imported, to avoid a circular module dependency) so a lease can be claimed
+ * from a genuinely validated record without first requiring the full authorization gate (which also
+ * needs storage-authoritative consumed/target-unused state that is not yet meaningful before the
+ * very first dispatch). */
+function assertDevelopmentAuthorizationRecordSelfConsistent(
+  authorization: ProtocolV4DevelopmentAuthorizationRecord,
+): void {
+  const { authorizationRecordHash, ...body } = authorization;
+  if (hashProtocolV4(body) !== authorizationRecordHash)
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_AUTHORIZATION_HASH_MISMATCH',
+    );
+}
+
+/** The recommended entry point for claiming a Development-phase Execution Lease: every identity
+ * field (`authorizationKind`, `maxConcurrentRequests`, `pricingVersion`, `modelId`,
+ * `authorizationRecordHash`, `authorizationSchemaVersion`, `candidateScope`, budget) is derived
+ * DIRECTLY from the validated `authorization` record and the Master Plan -- never from a
+ * caller-supplied override. Closes "a Development lease can be claimed solely from copied budget/ID
+ * fields": a caller without a genuine `ProtocolV4DevelopmentAuthorizationRecord` (whose own
+ * self-hash validates) cannot reach this function at all. */
+export function claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+  plan: ProtocolV4MasterPlan,
+  authorization: ProtocolV4DevelopmentAuthorizationRecord,
+  artifactStoreRoot: string,
+): ProtocolV4ExecutionLease {
+  assertDevelopmentAuthorizationRecordSelfConsistent(authorization);
+  if (
+    authorization.masterPlanHash !== plan.planHash ||
+    authorization.developmentExecutionTreeHash !== plan.developmentExecutionTreeHash
+  )
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_AUTHORIZATION_PLAN_MISMATCH',
+    );
+  return claimProtocolV4ExecutionLease({
+    artifactStoreRoot,
+    authorizationId: authorization.authorizationId,
+    authorizationKind: authorization.kind,
+    runKind: authorization.kind,
+    authorizationSchemaVersion: authorization.authorizationSchemaVersion,
+    authorizationRecordHash: authorization.authorizationRecordHash,
+    phase: 'development',
+    planHash: plan.planHash,
+    executionTreeHash: plan.developmentExecutionTreeHash,
+    candidateScope: plan.candidates.map((c) => c.id),
+    maxCalls: authorization.maxCalls,
+    maxInputTokens: authorization.maxInputTokens,
+    maxOutputTokens: authorization.maxOutputTokens,
+    maxCostUsd: authorization.maxCostUsd,
+    maxConcurrentRequests: authorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+  });
+}
+
+/** The recommended entry point for claiming a Holdout-phase Execution Lease under the
+ * non-authoritative, zero-network Dry-Run contract (`kind: 'fake_dry_run_only'`). Every identity
+ * field is derived from the validated `choice`/`holdoutPlan`/`authorization` chain (re-validated
+ * here via the same `validateProtocolV4DryRunCandidateChoice`/`validateProtocolV4DryRunHoldoutExecutionPlan`
+ * functions the real gate uses), never from a caller override. A real, authoritative
+ * `HoldoutAuthorizationRecord`/`HoldoutExecutionPlan`/`CandidateSelectionRecord` (`kind:
+ * 'fake_dry_run' | 'human_live'`) is structurally a completely different type and is never accepted
+ * here -- see `ResolverV3048ProtocolV4HoldoutRunner.ts`'s discriminated
+ * `ProtocolV4HoldoutAuthorizationInput` for the parallel real-authorization path, which this task
+ * never exercises with `kind: 'human_live'`. */
+export function claimProtocolV4ExecutionLeaseForDryRunHoldoutAuthorization(
+  plan: ProtocolV4MasterPlan,
+  holdoutPlan: ProtocolV4DryRunHoldoutExecutionPlan,
+  choice: ProtocolV4DryRunCandidateChoice,
+  authorization: ProtocolV4DryRunHoldoutAuthorization,
+  artifactStoreRoot: string,
+): ProtocolV4ExecutionLease {
+  validateProtocolV4DryRunCandidateChoice(plan, choice);
+  validateProtocolV4DryRunHoldoutExecutionPlan(
+    plan,
+    holdoutPlan,
+    holdoutPlan.developmentEvidenceRootHash,
+    choice,
+  );
+  if (
+    authorization.masterPlanHash !== plan.planHash ||
+    authorization.dryRunHoldoutPlanHash !== holdoutPlan.dryRunHoldoutPlanHash ||
+    authorization.developmentEvidenceRootHash !== holdoutPlan.developmentEvidenceRootHash ||
+    authorization.dryRunChoiceHash !== choice.choiceHash ||
+    authorization.candidateId !== holdoutPlan.candidateId
+  )
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_DRY_RUN_HOLDOUT_AUTHORIZATION_IDENTITY_MISMATCH',
+    );
+  return claimProtocolV4ExecutionLease({
+    artifactStoreRoot,
+    authorizationId: authorization.authorizationId,
+    authorizationKind: authorization.kind,
+    runKind: authorization.kind,
+    authorizationSchemaVersion: authorization.dryRunAuthorizationSchemaVersion,
+    authorizationRecordHash: hashProtocolV4(authorization),
+    phase: 'holdout',
+    planHash: plan.planHash,
+    executionTreeHash: holdoutPlan.holdoutExecutionTreeHash,
+    developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+    holdoutPlanHash: holdoutPlan.dryRunHoldoutPlanHash,
+    selectionOrChoiceHash: choice.choiceHash,
+    candidateScope: [holdoutPlan.candidateId],
+    maxCalls: authorization.maxCalls,
+    maxInputTokens: authorization.maxInputTokens,
+    maxOutputTokens: authorization.maxOutputTokens,
+    maxCostUsd: authorization.maxCostUsd,
+    maxConcurrentRequests: authorization.maxConcurrency,
+    pricingVersion: plan.pricing.pricingVersion,
+    modelId: plan.modelId,
+  });
+}
+
 const ALLOWED_LEASE_TRANSITIONS: Readonly<
   Record<ProtocolV4ExecutionLeaseStatus, readonly ProtocolV4ExecutionLeaseStatus[]>
 > = {
@@ -260,6 +489,10 @@ function transitionLease(
   authorizationId: string,
   to: ProtocolV4ExecutionLeaseStatus,
 ): ProtocolV4ExecutionLease {
+  // `readProtocolV4ExecutionLease` itself performs the crash check before returning current state,
+  // so a transition can never proceed from a state that has unexamined crash evidence sitting next
+  // to it -- whether that evidence belongs to the version being read or to an orphaned attempt at
+  // the version this transition is about to write.
   const current = readProtocolV4ExecutionLease(root, authorizationId);
   if (!current)
     throw new ProtocolV4ExecutionLeaseError(
@@ -278,6 +511,13 @@ function transitionLease(
     claimNonce: Math.random().toString(36).slice(2),
   };
   const next: ProtocolV4ExecutionLease = { ...nextBody, leaseHash: hashLeaseBody(nextBody) };
+  // Two concurrent transitions racing from the identical `current` read both compute the SAME next
+  // version number; `writeLeaseVersionExclusive` uses an exclusive-create temp file followed by
+  // `fs.linkSync` (itself exclusive -- fails `EEXIST` if the target already exists), so exactly one
+  // of them ever wins that final commit. The loser gets a distinct, explicit
+  // `PROTOCOL_V4_EXECUTION_LEASE_VERSION_RACE` error (via `writeLeaseVersionExclusive`'s own
+  // `EEXIST` handling) -- never a silent overwrite, never a fallback to a different "next" version
+  // number computed from stale state, and never an automatic retry.
   writeLeaseVersionExclusive(root, authorizationId, next.version, next);
   return next;
 }
@@ -315,6 +555,95 @@ export function recoverProtocolV4AbandonedExecutionLease(
   return transitionLease(root, authorizationId, 'abandoned');
 }
 
+/** Explicit, separate recovery action for a CRASHED lease: removes every orphaned `vN.json.tmp-*`
+ * sibling for `authorizationId` (never a final `vN.json`, which this function never touches), then
+ * permanently poisons the authorization ID so it can never be claimed or dispatched under again --
+ * exactly the same terminal guarantee `recoverProtocolV4AbandonedExecutionLease` gives a
+ * non-crashed stuck lease. Two cases:
+ *
+ * 1. A final version was already committed (the crash happened on a LATER transition attempt): the
+ *    orphaned temp file(s) are removed, then the current committed version is transitioned to
+ *    `abandoned` via the normal, versioned transition path.
+ * 2. No final version was EVER committed (the crash happened on the very first claim attempt, so
+ *    `readProtocolV4ExecutionLease` would otherwise have reported "no lease" once the crash
+ *    evidence is gone): the orphaned temp file(s) are removed, then a terminal `abandoned` v1
+ *    placeholder is written directly (bypassing the normal `claimed` first state, since this is an
+ *    explicit administrative action, never a real claim) using the caller-supplied identity fields,
+ *    so the authorization ID is permanently consumed even though no real dispatch ever happened
+ *    under it.
+ *
+ * Never invoked automatically by any read/claim/transition/dispatch path -- a caller must explicitly
+ * call this after inspecting the crash for themselves. */
+export function recoverProtocolV4ExecutionLeaseCrash(input: {
+  artifactStoreRoot: string;
+  authorizationId: string;
+  authorizationKind: ProtocolV4ExecutionLeaseRunKind;
+  runKind: ProtocolV4ExecutionLeaseRunKind;
+  authorizationSchemaVersion: string;
+  authorizationRecordHash: string;
+  phase: ProtocolV4ExecutionLeasePhase;
+  planHash: string;
+  executionTreeHash: string;
+  developmentEvidenceRootHash?: string | null;
+  holdoutPlanHash?: string | null;
+  selectionOrChoiceHash?: string | null;
+  candidateScope: readonly ResolverV3047CandidateId[];
+  maxCalls: number;
+  maxInputTokens: number;
+  maxOutputTokens: number;
+  maxCostUsd: number;
+  maxConcurrentRequests: number;
+  pricingVersion: string;
+  modelId: string;
+}): ProtocolV4ExecutionLease {
+  const { artifactStoreRoot, authorizationId } = input;
+  const dir = leaseDirFor(artifactStoreRoot, authorizationId);
+  const hadFinalVersion = listLeaseVersions(artifactStoreRoot, authorizationId).length > 0;
+  if (fs.existsSync(dir)) {
+    for (const entry of fs.readdirSync(dir)) {
+      if (/\.json\.tmp-/.test(entry)) fs.unlinkSync(path.join(dir, entry));
+    }
+  }
+  if (hadFinalVersion) return transitionLease(artifactStoreRoot, authorizationId, 'abandoned');
+
+  const developmentEvidenceRootHash =
+    input.phase === 'holdout' ? (input.developmentEvidenceRootHash ?? null) : null;
+  const holdoutPlanHash = input.phase === 'holdout' ? (input.holdoutPlanHash ?? null) : null;
+  const selectionOrChoiceHash =
+    input.phase === 'holdout' ? (input.selectionOrChoiceHash ?? null) : null;
+  const withoutHash: Omit<ProtocolV4ExecutionLease, 'leaseHash'> = {
+    leaseSchemaVersion: PROTOCOL_V4_EXECUTION_LEASE_SCHEMA_VERSION,
+    leaseId: `lease:${input.phase}:${authorizationId}`,
+    authorizationId,
+    authorizationKind: input.authorizationKind,
+    runKind: input.runKind,
+    authorizationSchemaVersion: input.authorizationSchemaVersion,
+    authorizationRecordHash: input.authorizationRecordHash,
+    phase: input.phase,
+    planHash: input.planHash,
+    executionTreeHash: input.executionTreeHash,
+    developmentEvidenceRootHash,
+    holdoutPlanHash,
+    selectionOrChoiceHash,
+    candidateScope: [...input.candidateScope].sort(),
+    artifactStoreRootIdentity: path.resolve(artifactStoreRoot),
+    maxCalls: input.maxCalls,
+    maxInputTokens: input.maxInputTokens,
+    maxOutputTokens: input.maxOutputTokens,
+    maxCostUsd: input.maxCostUsd,
+    maxConcurrentRequests: input.maxConcurrentRequests,
+    pricingVersion: input.pricingVersion,
+    modelId: input.modelId,
+    status: 'abandoned',
+    version: 1,
+    claimedAtIso: new Date().toISOString(),
+    claimNonce: Math.random().toString(36).slice(2),
+  };
+  const lease: ProtocolV4ExecutionLease = { ...withoutHash, leaseHash: hashLeaseBody(withoutHash) };
+  writeLeaseVersionExclusive(artifactStoreRoot, authorizationId, 1, lease);
+  return lease;
+}
+
 export interface ProtocolV4ExecutionLeaseExpectedIdentity {
   phase: ProtocolV4ExecutionLeasePhase;
   planHash: string;
@@ -323,19 +652,30 @@ export interface ProtocolV4ExecutionLeaseExpectedIdentity {
   artifactStoreRoot: string;
   candidateScope: readonly ResolverV3047CandidateId[];
   developmentEvidenceRootHash?: string | null;
+  holdoutPlanHash?: string | null;
+  selectionOrChoiceHash?: string | null;
   maxCalls: number;
   maxInputTokens: number;
   maxOutputTokens: number;
   maxCostUsd: number;
+  maxConcurrentRequests: number;
+  pricingVersion: string;
+  modelId: string;
+  authorizationKind: ProtocolV4ExecutionLeaseRunKind;
+  runKind: ProtocolV4ExecutionLeaseRunKind;
+  authorizationSchemaVersion: string;
+  authorizationRecordHash: string;
 }
 
-/** The single gate every Development/Holdout runner must call immediately before dispatching a
- * single observation: reads the CURRENT persisted lease from storage (never trusts a caller-supplied
- * lease object's own `status`/identity fields) and requires it to be `claimed` or `executing`, and
- * requires every identity/scope/budget field to match exactly what the caller is about to execute
- * under. Fails closed on any mismatch -- wrong phase, wrong plan/execution-tree hash, wrong
- * authorization ID, wrong artifact-store root, wrong candidate scope, wrong budget scope, or a
- * terminal/abandoned lease. Returns the validated, persisted lease. */
+/** The single gate every Development/Holdout dispatch must call IMMEDIATELY before dispatching --
+ * fresh, for every single observation, never once per candidate/phase: reads the CURRENT persisted
+ * lease from storage (never trusts a caller-supplied lease object's own `status`/identity fields)
+ * and requires it to be `claimed` or `executing`, and requires every identity/scope/budget/
+ * authorization-binding field to match exactly what the caller is about to execute under. Fails
+ * closed on any mismatch -- wrong phase, wrong plan/execution-tree hash, wrong authorization ID,
+ * wrong artifact-store root, wrong candidate scope, wrong budget scope, wrong authorization kind/
+ * record hash/schema version/run kind/concurrency/pricing/model, or a terminal/abandoned/crashed
+ * lease. Returns the validated, persisted lease. */
 export function assertProtocolV4ExecutionLeaseActiveForDispatch(
   expected: ProtocolV4ExecutionLeaseExpectedIdentity,
 ): ProtocolV4ExecutionLease {
@@ -367,6 +707,18 @@ export function assertProtocolV4ExecutionLeaseActiveForDispatch(
     expected.phase === 'holdout' ? (expected.developmentEvidenceRootHash ?? null) : null;
   if (lease.developmentEvidenceRootHash !== expectedEvidenceRoot)
     throw new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_EVIDENCE_ROOT_MISMATCH');
+  const expectedHoldoutPlanHash =
+    expected.phase === 'holdout' ? (expected.holdoutPlanHash ?? null) : null;
+  if ((lease.holdoutPlanHash ?? null) !== expectedHoldoutPlanHash)
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_HOLDOUT_PLAN_HASH_MISMATCH',
+    );
+  const expectedSelectionOrChoiceHash =
+    expected.phase === 'holdout' ? (expected.selectionOrChoiceHash ?? null) : null;
+  if ((lease.selectionOrChoiceHash ?? null) !== expectedSelectionOrChoiceHash)
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_SELECTION_OR_CHOICE_HASH_MISMATCH',
+    );
   if (
     lease.maxCalls !== expected.maxCalls ||
     lease.maxInputTokens !== expected.maxInputTokens ||
@@ -374,6 +726,26 @@ export function assertProtocolV4ExecutionLeaseActiveForDispatch(
     lease.maxCostUsd !== expected.maxCostUsd
   )
     throw new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_BUDGET_SCOPE_MISMATCH');
+  if (lease.maxConcurrentRequests !== expected.maxConcurrentRequests)
+    throw new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_CONCURRENCY_MISMATCH');
+  if (lease.pricingVersion !== expected.pricingVersion)
+    throw new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_PRICING_VERSION_MISMATCH');
+  if (lease.modelId !== expected.modelId)
+    throw new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_MODEL_ID_MISMATCH');
+  if (lease.authorizationKind !== expected.authorizationKind)
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_KIND_MISMATCH',
+    );
+  if (lease.runKind !== expected.runKind)
+    throw new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_RUN_KIND_MISMATCH');
+  if (lease.authorizationSchemaVersion !== expected.authorizationSchemaVersion)
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_SCHEMA_VERSION_MISMATCH',
+    );
+  if (lease.authorizationRecordHash !== expected.authorizationRecordHash)
+    throw new ProtocolV4ExecutionLeaseError(
+      'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_RECORD_HASH_MISMATCH',
+    );
   return lease;
 }
 

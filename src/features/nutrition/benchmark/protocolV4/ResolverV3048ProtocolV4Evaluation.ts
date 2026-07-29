@@ -4,6 +4,7 @@ import {
   protocolV4ScenarioByScenarioId,
   validateCandidateEvaluation,
   validateCategoryEvidence,
+  validateProtocolV4Artifact,
   validateProtocolV4DevelopmentEvidence,
   validateTerminalMetadata,
   assertTelemetryLedgerParity,
@@ -20,6 +21,13 @@ import {
   type ProtocolV4TerminalMetadata,
   type ResolverV3047CandidateId,
 } from './ResolverV3048ProtocolV4';
+import {
+  validateProtocolV4DryRunCandidateChoice,
+  validateProtocolV4DryRunHoldoutExecutionPlan,
+  type ProtocolV4DryRunCandidateChoice,
+  type ProtocolV4DryRunHoldoutAuthorization,
+  type ProtocolV4DryRunHoldoutExecutionPlan,
+} from './ResolverV3048ProtocolV4DryRunChoice';
 import { computeProtocolV4EvaluatorManifestHash } from './ResolverV3048ProtocolV4EvaluatorHash';
 import {
   assembleProtocolV4LiveCaseRecord,
@@ -404,14 +412,167 @@ export async function validateProtocolV4DevelopmentEvidenceWithEvaluationDerivat
 }
 
 // -------------------------------------------------------------------------------------------------
-// Final combined Development+Holdout G2 report (RESOLVER-V3-048 Final Phase-A closure remediation,
-// Weiteres Vorgehen item 5: "Holdout-Records wirklich mit Partition holdout auswerten und Development
-// plus Holdout erst im finalen G2-Report kombinieren").
+// Final combined Development+Holdout G2 report (RESOLVER-V3-048 Final Dispatch-Lease,
+// Authorization-Binding and G2-Evidence Closure remediation).
+//
+// The previously-merged `deriveProtocolV4FinalG2Report` only checked that the outer
+// `development.candidateId`/`holdout.candidateId` strings matched the requested candidate -- it read
+// `rawResults`/`telemetry`/`categoryTable`/`ledger`/`evaluation` content DIRECTLY off the artifacts it
+// was handed, never recomputing or re-checking a single content hash, never re-running
+// `validateCategoryEvidence`/`validateTerminalMetadata`/`assertTelemetryLedgerParity` on them, and
+// never checking coverage against the plan's/Holdout plan's own expected observation set. A caller
+// (or a compromised/buggy upstream step) that mutated a sealed artifact's `.content` in place after
+// sealing -- while its `.contentHash` field still read the pre-tamper value -- was accepted without
+// complaint, as long as the outer `candidateId` still matched (proven directly by this task's red
+// baseline, item 17/18). `revalidateProtocolV4CandidatePartitionArtifacts` below closes this: BEFORE
+// any evaluator call, it independently re-derives every artifact's content hash from its OWN
+// `.content`, requires exact equality with the artifact's own `.contentHash` (and, transitively, with
+// whatever hash a caller intends to trust downstream), re-validates category-evidence coverage
+// against the real expected observation set (no missing/extra scenario-run), re-validates
+// telemetry/ledger internal coherence and parity, and independently RE-DERIVES the whole
+// `CandidateEvaluation` from those now-proven-genuine artifacts and requires it to equal the sealed
+// evaluation artifact's own content -- closing the "Content Hash blind übernehmen" and "Evaluation-
+// Rekomputation" requirements for BOTH partitions before they are ever combined.
 // -------------------------------------------------------------------------------------------------
 
-export interface ProtocolV4FinalG2Report {
+const DEVELOPMENT_ARTIFACT_NAME_PREFIX = 'development';
+const HOLDOUT_ARTIFACT_NAME_PREFIX = 'holdout';
+
+/** Independently re-validates one partition's full sealed candidate artifact set against the plan
+ * and the real, expected observation set for that partition -- never trusting any content hash or
+ * count the artifacts merely claim about themselves. Throws on the first mismatch. Returns nothing;
+ * callers re-read `.content`/`.contentHash` off the (now proven genuine) artifacts afterward. */
+function revalidateProtocolV4CandidatePartitionArtifacts(input: {
+  plan: ProtocolV4MasterPlan;
   candidateId: ResolverV3047CandidateId;
-  evaluatorVersion: string;
+  partition: 'development' | 'holdout';
+  expectedObservations: readonly ProtocolV4Observation[];
+  artifacts: ProtocolV4DevelopmentCandidateArtifacts;
+  armBaseline: ProtocolV4RealArmBaseline;
+  repoRoot?: string;
+}): void {
+  const { plan, candidateId, partition, expectedObservations, artifacts } = input;
+  if (artifacts.candidateId !== candidateId)
+    throw new ProtocolV4EvaluationDerivationError(
+      `PROTOCOL_V4_FINAL_G2_ARTIFACT_CANDIDATE_MISMATCH:${partition}`,
+    );
+  const prefix =
+    partition === 'development' ? DEVELOPMENT_ARTIFACT_NAME_PREFIX : HOLDOUT_ARTIFACT_NAME_PREFIX;
+  // Artifact Type + Content Hash: `validateProtocolV4Artifact` recomputes `hashProtocolV4(content)`
+  // from the artifact's OWN `.content` and requires it match the artifact's OWN `.contentHash` (never
+  // a caller-supplied expectation) -- a tampered `.content` with a stale `.contentHash` is rejected
+  // right here, before anything downstream ever reads it.
+  validateProtocolV4Artifact(
+    artifacts.checkpoint,
+    `${prefix}-checkpoint-${candidateId}`,
+    plan.planHash,
+  );
+  validateProtocolV4Artifact(
+    artifacts.rawResults,
+    `${prefix}-raw-results-${candidateId}`,
+    plan.planHash,
+  );
+  validateProtocolV4Artifact(
+    artifacts.categoryTable,
+    `${prefix}-category-table-${candidateId}`,
+    plan.planHash,
+  );
+  validateProtocolV4Artifact(
+    artifacts.telemetry,
+    `${prefix}-telemetry-${candidateId}`,
+    plan.planHash,
+  );
+  validateProtocolV4Artifact(artifacts.ledger, `${prefix}-ledger-${candidateId}`, plan.planHash);
+  validateProtocolV4Artifact(
+    artifacts.evaluation,
+    `${prefix}-evaluation-${candidateId}`,
+    plan.planHash,
+  );
+
+  // Raw-Result-Coverage + Category Table + expected Scenario-/Run-Tupel: exactly the plan's/Holdout
+  // plan's own expected observations, no more, no fewer, no wrong partition/category/candidate.
+  validateCategoryEvidence(
+    expectedObservations,
+    plan.planHash,
+    candidateId,
+    artifacts.categoryTable.content,
+  );
+  const rawResultsContent = artifacts.rawResults.content as {
+    candidateId: ResolverV3047CandidateId;
+    results: readonly ProtocolV4ObservationResult[];
+  };
+  if (rawResultsContent.candidateId !== candidateId)
+    throw new ProtocolV4EvaluationDerivationError(
+      `PROTOCOL_V4_FINAL_G2_RAW_RESULTS_CANDIDATE_MISMATCH:${partition}`,
+    );
+  const rawResultKeys = new Set(
+    rawResultsContent.results.map((r) => `${r.scenarioId}:${r.runIndex}`),
+  );
+  const expectedKeys = new Set(expectedObservations.map((o) => `${o.scenarioId}:${o.runIndex}`));
+  if (
+    rawResultKeys.size !== expectedKeys.size ||
+    [...expectedKeys].some((k) => !rawResultKeys.has(k))
+  )
+    throw new ProtocolV4EvaluationDerivationError(
+      `PROTOCOL_V4_FINAL_G2_RAW_RESULTS_COVERAGE_MISMATCH:${partition}`,
+    );
+
+  // Telemetry + Ledger + Parity: every record individually coherent, and telemetry/ledger pairwise
+  // identical -- never merely counted.
+  if (artifacts.telemetry.content.length !== artifacts.ledger.content.length)
+    throw new ProtocolV4EvaluationDerivationError(
+      `PROTOCOL_V4_FINAL_G2_TELEMETRY_LEDGER_LENGTH_MISMATCH:${partition}`,
+    );
+  artifacts.telemetry.content.forEach((t, i) => {
+    validateTerminalMetadata(t);
+    assertTelemetryLedgerParity(t, artifacts.ledger.content[i]);
+  });
+
+  // Evaluation: coherence, then full re-derivation and exact-equality comparison against the sealed
+  // evaluation artifact's own content -- never accepted as given.
+  validateCandidateEvaluation(artifacts.evaluation.content);
+  const recomputed = deriveProtocolV4CandidateEvaluation({
+    plan,
+    candidateId,
+    partition,
+    categoryTableContentHash: artifacts.categoryTable.contentHash,
+    telemetryContentHash: artifacts.telemetry.contentHash,
+    ledgerContentHash: artifacts.ledger.contentHash,
+    rawResultsContentHash: artifacts.rawResults.contentHash,
+    categoryRows: artifacts.categoryTable.content,
+    telemetry: artifacts.telemetry.content,
+    ledger: artifacts.ledger.content,
+    rawResults: rawResultsContent.results,
+    armBaseline: input.armBaseline,
+    repoRoot: input.repoRoot,
+    expectedObservations,
+  });
+  if (
+    canonicalizeProtocolV4(recomputed.evaluation) !==
+    canonicalizeProtocolV4(artifacts.evaluation.content)
+  )
+    throw new ProtocolV4EvaluationDerivationError(
+      `PROTOCOL_V4_FINAL_G2_EVALUATION_NOT_DERIVED:${partition}`,
+    );
+}
+
+/** Shared core: independently revalidates BOTH partitions (never one alone, never a caller-supplied
+ * content hash blindly trusted), then combines the now-proven-genuine evidence through the real,
+ * unmodified evaluator TOGETHER -- the only place joint-only mandatory G2 gates can genuinely resolve
+ * beyond `not_evaluable`/`requires_human_judgment`, because it is the only place both partitions' real
+ * case records are ever passed to `buildRepresentativeHybridV1LiveReport` together. Every artifact
+ * hash placed in the returned report is read off the artifacts AFTER this revalidation, never before. */
+function deriveProtocolV4JointG2Verdict(input: {
+  plan: ProtocolV4MasterPlan;
+  candidateId: ResolverV3047CandidateId;
+  development: ProtocolV4DevelopmentCandidateArtifacts;
+  holdout: ProtocolV4DevelopmentCandidateArtifacts;
+  developmentExpectedObservations: readonly ProtocolV4Observation[];
+  holdoutExpectedObservations: readonly ProtocolV4Observation[];
+  developmentArmBaseline: ProtocolV4RealArmBaseline;
+  holdoutArmBaseline: ProtocolV4RealArmBaseline;
+  repoRoot?: string;
+}): {
   evaluatorAlgorithmHash: string;
   developmentArtifactHashes: {
     categoryTableHash: string;
@@ -427,31 +588,31 @@ export interface ProtocolV4FinalG2Report {
   };
   g2Results: Readonly<Record<ProtocolV4G2Gate, ProtocolV4GateVerdict>>;
   allMandatoryG2CriteriaPass: boolean;
-  finalReportHash: string;
-}
-
-/** The only supported entry point for a FINAL, joint Development+Holdout G2 verdict: requires both
- * partitions' own validated candidate artifact sets for the SAME candidate and evaluates them
- * TOGETHER through the real, unmodified evaluator -- never one partition alone, and never Holdout
- * data relabeled as Development (see `assembleProtocolV4LiveCaseRecord`'s `partition` parameter). A
- * Development-only or Holdout-only evaluation (`deriveProtocolV4CandidateEvaluation`) honestly leaves
- * joint-only mandatory gates at `not_evaluable`/`requires_human_judgment` -- this function is the only
- * place those gates can genuinely resolve to `passed`/`failed`, because it is the only place both
- * partitions' real case records are ever passed to `buildRepresentativeHybridV1LiveReport` together. */
-export function deriveProtocolV4FinalG2Report(input: {
-  plan: ProtocolV4MasterPlan;
-  candidateId: ResolverV3047CandidateId;
-  development: ProtocolV4DevelopmentCandidateArtifacts;
-  holdout: ProtocolV4DevelopmentCandidateArtifacts;
-  developmentArmBaseline: ProtocolV4RealArmBaseline;
-  holdoutArmBaseline: ProtocolV4RealArmBaseline;
-  repoRoot?: string;
-}): ProtocolV4FinalG2Report {
+} {
   if (
     input.development.candidateId !== input.candidateId ||
     input.holdout.candidateId !== input.candidateId
   )
     throw new ProtocolV4EvaluationDerivationError('PROTOCOL_V4_FINAL_G2_CANDIDATE_MISMATCH');
+
+  revalidateProtocolV4CandidatePartitionArtifacts({
+    plan: input.plan,
+    candidateId: input.candidateId,
+    partition: 'development',
+    expectedObservations: input.developmentExpectedObservations,
+    artifacts: input.development,
+    armBaseline: input.developmentArmBaseline,
+    repoRoot: input.repoRoot,
+  });
+  revalidateProtocolV4CandidatePartitionArtifacts({
+    plan: input.plan,
+    candidateId: input.candidateId,
+    partition: 'holdout',
+    expectedObservations: input.holdoutExpectedObservations,
+    artifacts: input.holdout,
+    armBaseline: input.holdoutArmBaseline,
+    repoRoot: input.repoRoot,
+  });
 
   const developmentRawResults = (
     input.development.rawResults.content as { results: readonly ProtocolV4ObservationResult[] }
@@ -496,13 +657,11 @@ export function deriveProtocolV4FinalG2Report(input: {
 
   const g2Results = mapProtocolV4GateVerdicts(report.gateVerdicts);
   const allMandatoryG2CriteriaPass = PROTOCOL_V4_G2_GATES.every((g) => g2Results[g] === 'passed');
-
   const evaluatorAlgorithmHash = computeProtocolV4EvaluatorManifestHash(
     input.repoRoot ?? process.cwd(),
   );
-  const withoutHash: Omit<ProtocolV4FinalG2Report, 'finalReportHash'> = {
-    candidateId: input.candidateId,
-    evaluatorVersion: PROTOCOL_V4_EVALUATOR_VERSION,
+
+  return {
     evaluatorAlgorithmHash,
     developmentArtifactHashes: {
       categoryTableHash: input.development.categoryTable.contentHash,
@@ -519,5 +678,187 @@ export function deriveProtocolV4FinalG2Report(input: {
     g2Results,
     allMandatoryG2CriteriaPass,
   };
-  return { ...withoutHash, finalReportHash: hashProtocolV4(withoutHash) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Type A: explicitly non-authoritative Dry-Run Final G2 Technical Report -- the ONLY report type
+// this task's zero-network Mini-Run ever produces.
+// ---------------------------------------------------------------------------------------------
+
+export const PROTOCOL_V4_DRY_RUN_FINAL_REPORT_SCHEMA_VERSION =
+  'resolver-v3-048-dry-run-final-g2-technical-report-v1';
+
+export const PROTOCOL_V4_DRY_RUN_FINAL_REPORT_DISCLAIMER =
+  'Technical zero-network dry-run evidence only, produced from fake_dry_run_only Development and ' +
+  'Holdout authorizations against fake transport/sources. Does NOT constitute a live superiority ' +
+  'claim, a passed G2 verdict, a human_live authorization, or a production-wiring approval. No ' +
+  'real provider call was made and no real cost was incurred to produce this report.';
+
+/** Type A per the task's "8. Trennung technischer Dry-Run-Bericht versus autoritativer Final-G2-
+ * Report" requirement. Structurally, permanently non-authoritative: `runKind`/`authoritative` are
+ * literal types (`'fake_dry_run_only'`/`false`), never `boolean`/a free string -- there is no
+ * optional `authoritative?: boolean` anywhere on this type, and no code path in this module ever
+ * constructs one with `authoritative: true`. */
+export interface ProtocolV4DryRunFinalG2TechnicalReport {
+  schemaVersion: typeof PROTOCOL_V4_DRY_RUN_FINAL_REPORT_SCHEMA_VERSION;
+  runKind: 'fake_dry_run_only';
+  authoritative: false;
+  candidateId: ResolverV3047CandidateId;
+  candidateChoiceHash: string;
+  dryRunHoldoutPlanHash: string;
+  dryRunAuthorizationHash: string;
+  developmentEvidenceRootHash: string;
+  evaluatorVersion: string;
+  evaluatorAlgorithmHash: string;
+  developmentArtifactHashes: {
+    categoryTableHash: string;
+    telemetryHash: string;
+    ledgerHash: string;
+    rawResultsHash: string;
+  };
+  holdoutArtifactHashes: {
+    categoryTableHash: string;
+    telemetryHash: string;
+    ledgerHash: string;
+    rawResultsHash: string;
+  };
+  g2Results: Readonly<Record<ProtocolV4G2Gate, ProtocolV4GateVerdict>>;
+  allMandatoryG2CriteriaPass: boolean;
+  explicitDisclaimer: typeof PROTOCOL_V4_DRY_RUN_FINAL_REPORT_DISCLAIMER;
+  reportHash: string;
+}
+
+/** The ONLY entry point this task's Mini-Run/fault-matrix reference chain may call to produce a
+ * final joint G2 report. Requires the full non-authoritative Dry-Run chain (`choice`/`holdoutPlan`/
+ * `holdoutAuthorization`, each independently re-validated here via the real
+ * `validateProtocolV4DryRunCandidateChoice`/`validateProtocolV4DryRunHoldoutExecutionPlan`
+ * functions) plus both partitions' sealed artifacts, which are independently revalidated (never
+ * trusted) before the real evaluator ever sees them. Always produces `authoritative: false`,
+ * `runKind: 'fake_dry_run_only'`, and the fixed `explicitDisclaimer` text -- there is no parameter
+ * or code path that can flip either to an authoritative value. */
+export function deriveProtocolV4DryRunFinalG2TechnicalReport(input: {
+  plan: ProtocolV4MasterPlan;
+  choice: ProtocolV4DryRunCandidateChoice;
+  holdoutPlan: ProtocolV4DryRunHoldoutExecutionPlan;
+  holdoutAuthorization: ProtocolV4DryRunHoldoutAuthorization;
+  development: ProtocolV4DevelopmentCandidateArtifacts;
+  holdout: ProtocolV4DevelopmentCandidateArtifacts;
+  developmentArmBaseline: ProtocolV4RealArmBaseline;
+  holdoutArmBaseline: ProtocolV4RealArmBaseline;
+  repoRoot?: string;
+}): ProtocolV4DryRunFinalG2TechnicalReport {
+  const { plan, choice, holdoutPlan, holdoutAuthorization } = input;
+  validateProtocolV4DryRunCandidateChoice(plan, choice);
+  validateProtocolV4DryRunHoldoutExecutionPlan(
+    plan,
+    holdoutPlan,
+    holdoutPlan.developmentEvidenceRootHash,
+    choice,
+  );
+  if (
+    holdoutAuthorization.masterPlanHash !== plan.planHash ||
+    holdoutAuthorization.dryRunHoldoutPlanHash !== holdoutPlan.dryRunHoldoutPlanHash ||
+    holdoutAuthorization.developmentEvidenceRootHash !== holdoutPlan.developmentEvidenceRootHash ||
+    holdoutAuthorization.dryRunChoiceHash !== choice.choiceHash ||
+    holdoutAuthorization.candidateId !== holdoutPlan.candidateId
+  )
+    throw new ProtocolV4EvaluationDerivationError(
+      'PROTOCOL_V4_DRY_RUN_FINAL_REPORT_AUTHORIZATION_IDENTITY_MISMATCH',
+    );
+  const candidateId = holdoutPlan.candidateId;
+  if (input.development.candidateId !== candidateId || input.holdout.candidateId !== candidateId)
+    throw new ProtocolV4EvaluationDerivationError(
+      'PROTOCOL_V4_DRY_RUN_FINAL_REPORT_CANDIDATE_MISMATCH',
+    );
+
+  const developmentExpectedObservations = plan.developmentObservations.filter(
+    (o) => o.partition === 'development' && o.candidateId === candidateId,
+  );
+
+  const joint = deriveProtocolV4JointG2Verdict({
+    plan,
+    candidateId,
+    development: input.development,
+    holdout: input.holdout,
+    developmentExpectedObservations,
+    holdoutExpectedObservations: holdoutPlan.holdoutObservations,
+    developmentArmBaseline: input.developmentArmBaseline,
+    holdoutArmBaseline: input.holdoutArmBaseline,
+    repoRoot: input.repoRoot,
+  });
+
+  const withoutHash: Omit<ProtocolV4DryRunFinalG2TechnicalReport, 'reportHash'> = {
+    schemaVersion: PROTOCOL_V4_DRY_RUN_FINAL_REPORT_SCHEMA_VERSION,
+    runKind: 'fake_dry_run_only',
+    authoritative: false,
+    candidateId,
+    candidateChoiceHash: choice.choiceHash,
+    dryRunHoldoutPlanHash: holdoutPlan.dryRunHoldoutPlanHash,
+    dryRunAuthorizationHash: hashProtocolV4(holdoutAuthorization),
+    developmentEvidenceRootHash: holdoutPlan.developmentEvidenceRootHash,
+    evaluatorVersion: PROTOCOL_V4_EVALUATOR_VERSION,
+    evaluatorAlgorithmHash: joint.evaluatorAlgorithmHash,
+    developmentArtifactHashes: joint.developmentArtifactHashes,
+    holdoutArtifactHashes: joint.holdoutArtifactHashes,
+    g2Results: joint.g2Results,
+    allMandatoryG2CriteriaPass: joint.allMandatoryG2CriteriaPass,
+    explicitDisclaimer: PROTOCOL_V4_DRY_RUN_FINAL_REPORT_DISCLAIMER,
+  };
+  return { ...withoutHash, reportHash: hashProtocolV4(withoutHash) };
+}
+
+/** Re-derives the ENTIRE final report from the same inputs and requires exact hash equality --
+ * closing the "Validator ergänzen, der den gesamten Final Report erneut ableitet und exakte
+ * Gleichheit verlangt" requirement. Because `deriveProtocolV4DryRunFinalG2TechnicalReport` is a pure
+ * function of its inputs (real corpus, real evaluator files, real sealed artifacts), any drift in
+ * any artifact, hash, or identity produces a different `reportHash`. */
+export function revalidateProtocolV4DryRunFinalG2TechnicalReport(
+  input: Parameters<typeof deriveProtocolV4DryRunFinalG2TechnicalReport>[0],
+  claimed: ProtocolV4DryRunFinalG2TechnicalReport,
+): void {
+  const recomputed = deriveProtocolV4DryRunFinalG2TechnicalReport(input);
+  if (recomputed.reportHash !== claimed.reportHash)
+    throw new ProtocolV4EvaluationDerivationError(
+      'PROTOCOL_V4_DRY_RUN_FINAL_REPORT_REDERIVATION_MISMATCH',
+    );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Type B: authoritative Final G2 Report -- STRUCTURAL DECLARATION ONLY, per the task's explicit
+// instruction. No builder function exists for this type anywhere in this module or this task: an
+// authoritative report may only ever be produced from a real, authoritative `CandidateSelectionRecord`,
+// a validated real `HoldoutExecutionPlan`, validated `human_live` Development/Holdout evidence,
+// matching Authorization/Lease hashes, and full evidence revalidation -- none of which this
+// zero-network, fake-dry-run-only task ever constructs. There is deliberately no
+// `deriveProtocolV4AuthoritativeFinalG2Report` function; adding one is explicitly out of this
+// task's scope.
+// ---------------------------------------------------------------------------------------------
+
+export interface ProtocolV4AuthoritativeFinalG2Report {
+  schemaVersion: string;
+  runKind: 'human_live';
+  authoritative: true;
+  candidateId: ResolverV3047CandidateId;
+  candidateSelectionRecordHash: string;
+  holdoutExecutionPlanHash: string;
+  holdoutAuthorizationId: string;
+  developmentEvidenceRootHash: string;
+  evaluatorVersion: string;
+  evaluatorAlgorithmHash: string;
+  developmentArtifactHashes: {
+    categoryTableHash: string;
+    telemetryHash: string;
+    ledgerHash: string;
+    rawResultsHash: string;
+  };
+  holdoutArtifactHashes: {
+    categoryTableHash: string;
+    telemetryHash: string;
+    ledgerHash: string;
+    rawResultsHash: string;
+  };
+  g2Results: Readonly<Record<ProtocolV4G2Gate, ProtocolV4GateVerdict>>;
+  allMandatoryG2CriteriaPass: boolean;
+  g2PassedClaim: boolean;
+  reportHash: string;
 }

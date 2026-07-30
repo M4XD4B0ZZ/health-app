@@ -8,10 +8,12 @@ import {
   sealProtocolV4Artifact,
   validateCategoryEvidence,
   protocolV4ScenarioByScenarioId,
+  computeDevelopmentEvidenceRootHash,
   ARTIFACT_PATHS,
   PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
   PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
   type CategoryEvidence,
+  type ProtocolV4Artifact,
   type ProtocolV4DevelopmentCandidateArtifacts,
   type ProtocolV4DevelopmentEvidence,
   type ProtocolV4MasterPlan,
@@ -31,6 +33,11 @@ import {
   type ProtocolV4ExecutionLease,
   type ProtocolV4ExecutionLeaseExpectedIdentity,
 } from './ResolverV3048ProtocolV4ExecutionLease';
+import {
+  writeProtocolV4LiveArtifactExclusive,
+  readProtocolV4LiveArtifactWithReadback,
+  consumeProtocolV4LiveAuthorizationAtomically,
+} from './ResolverV3048ProtocolV4ArtifactStore';
 import {
   computeProtocolV4DevelopmentArmBaseline,
   deriveProtocolV4CandidateEvaluation,
@@ -110,6 +117,68 @@ const DEVELOPMENT_CHECKPOINT_PATH_BY_CANDIDATE: Readonly<Record<ResolverV3047Can
     H1: ARTIFACT_PATHS.developmentCheckpointH1,
     H2: ARTIFACT_PATHS.developmentCheckpointH2,
   };
+
+/** RESOLVER-V3-048 Phase B1 post-merge remediation: every canonical per-candidate Development
+ * artifact target the `human_live` path must durably write to and read back from -- checkpoint kept
+ * separate (it is written LAST, as the commit marker, per the mandated success ordering below). */
+const DEVELOPMENT_ARTIFACT_PATHS_BY_CANDIDATE: Readonly<
+  Record<
+    ResolverV3047CandidateId,
+    {
+      rawResults: string;
+      categoryTable: string;
+      telemetry: string;
+      ledger: string;
+      evaluation: string;
+      checkpoint: string;
+    }
+  >
+> = {
+  H0: {
+    rawResults: ARTIFACT_PATHS.developmentRawResultsH0,
+    categoryTable: ARTIFACT_PATHS.developmentCategoryTableH0,
+    telemetry: ARTIFACT_PATHS.developmentTelemetryH0,
+    ledger: ARTIFACT_PATHS.developmentLedgerH0,
+    evaluation: ARTIFACT_PATHS.developmentEvaluationH0,
+    checkpoint: ARTIFACT_PATHS.developmentCheckpointH0,
+  },
+  H1: {
+    rawResults: ARTIFACT_PATHS.developmentRawResultsH1,
+    categoryTable: ARTIFACT_PATHS.developmentCategoryTableH1,
+    telemetry: ARTIFACT_PATHS.developmentTelemetryH1,
+    ledger: ARTIFACT_PATHS.developmentLedgerH1,
+    evaluation: ARTIFACT_PATHS.developmentEvaluationH1,
+    checkpoint: ARTIFACT_PATHS.developmentCheckpointH1,
+  },
+  H2: {
+    rawResults: ARTIFACT_PATHS.developmentRawResultsH2,
+    categoryTable: ARTIFACT_PATHS.developmentCategoryTableH2,
+    telemetry: ARTIFACT_PATHS.developmentTelemetryH2,
+    ledger: ARTIFACT_PATHS.developmentLedgerH2,
+    evaluation: ARTIFACT_PATHS.developmentEvaluationH2,
+    checkpoint: ARTIFACT_PATHS.developmentCheckpointH2,
+  },
+};
+
+/** Writes `artifact` exclusively to the live-bound Artifact Store under `relativePath`, then
+ * immediately reads it back (root-bound, content-hash-revalidated) -- the durable
+ * write-then-verify unit every `human_live` Development artifact goes through. Throws (propagating to
+ * the caller's lease `terminal_failure` handling) on any write or readback failure; never silently
+ * continues past one. */
+function writeAndReadBackLiveArtifact<T>(
+  artifactStoreRoot: string,
+  relativePath: string,
+  artifact: ProtocolV4Artifact<T>,
+  repoRoot?: string,
+): void {
+  const stored = writeProtocolV4LiveArtifactExclusive(
+    artifactStoreRoot,
+    relativePath,
+    artifact,
+    repoRoot,
+  );
+  readProtocolV4LiveArtifactWithReadback(stored.absolutePath, artifact.contentHash, repoRoot);
+}
 
 export async function runOneObservation(input: {
   plan: ProtocolV4MasterPlan;
@@ -369,6 +438,56 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
     derived.evaluation,
   );
 
+  // RESOLVER-V3-048 Phase B1 post-merge remediation ("Live Entry Point erzeugt nur In-Memory-
+  // Evidence"): `human_live` Development evidence must be durable, not merely sealed in memory. Every
+  // artifact is written exclusively to the live-bound Artifact Store and immediately read back
+  // (root-bound, content-hash-revalidated) -- raw results, category table, telemetry, and ledger
+  // FIRST, evaluation next, and the checkpoint LAST as the commit marker for this candidate, exactly
+  // as the mandated success ordering requires. Any write or readback failure here throws and
+  // propagates to `runProtocolV4DevelopmentForAllCandidates`'s `terminal_failure` handling -- it never
+  // silently falls back to the in-memory-only artifact. `fake_dry_run` is completely unaffected: this
+  // block never runs for it, so the Dry-Run/Mini-Run's own behavior stays byte-for-byte unchanged.
+  if (input.executionContext.mode === 'human_live') {
+    const paths = DEVELOPMENT_ARTIFACT_PATHS_BY_CANDIDATE[input.candidateId];
+    writeAndReadBackLiveArtifact(
+      input.artifactStoreRoot,
+      paths.rawResults,
+      rawResultsArtifact,
+      input.repoRoot,
+    );
+    writeAndReadBackLiveArtifact(
+      input.artifactStoreRoot,
+      paths.categoryTable,
+      categoryTable,
+      input.repoRoot,
+    );
+    writeAndReadBackLiveArtifact(
+      input.artifactStoreRoot,
+      paths.telemetry,
+      telemetryArtifact,
+      input.repoRoot,
+    );
+    writeAndReadBackLiveArtifact(
+      input.artifactStoreRoot,
+      paths.ledger,
+      ledgerArtifact,
+      input.repoRoot,
+    );
+    writeAndReadBackLiveArtifact(
+      input.artifactStoreRoot,
+      paths.evaluation,
+      evaluationArtifact,
+      input.repoRoot,
+    );
+    // Commit marker: written and read back only after every artifact above is durably confirmed.
+    writeAndReadBackLiveArtifact(
+      input.artifactStoreRoot,
+      paths.checkpoint,
+      checkpoint,
+      input.repoRoot,
+    );
+  }
+
   return {
     candidateId: input.candidateId,
     checkpoint,
@@ -443,6 +562,68 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
         }),
       );
     }
+    if (input.executionContext.mode === 'human_live') {
+      // RESOLVER-V3-048 Phase B1 post-merge remediation: the mandated `human_live` success ordering,
+      // steps 10-13. Steps 1-9 (plan/authorization/credential/storage preflight, lease claim,
+      // dispatch, per-candidate evidence write+readback) are already complete by this point --
+      // 6/7/8/9 inside the loop above (dispatch, category-evidence validation, per-candidate
+      // write+readback, checkpoint-last commit marker).
+      const planManifest = sealProtocolV4Artifact(
+        'development-plan-manifest',
+        input.plan.planHash,
+        {
+          planHash: input.plan.planHash,
+          developmentExecutionTreeHash: input.plan.developmentExecutionTreeHash,
+        },
+      );
+      const candidateEvaluationTable = sealProtocolV4Artifact(
+        'candidate-evaluation-table',
+        input.plan.planHash,
+        candidates.map((c) => c.evaluation.content),
+      );
+      // 10. Plan-/Manifest-Artefakte und Candidate Evaluation Table schreiben und zurücklesen.
+      writeAndReadBackLiveArtifact(
+        input.artifactStoreRoot,
+        ARTIFACT_PATHS.planManifest,
+        planManifest,
+        input.repoRoot,
+      );
+      writeAndReadBackLiveArtifact(
+        input.artifactStoreRoot,
+        ARTIFACT_PATHS.candidateEvaluationTable,
+        candidateEvaluationTable,
+        input.repoRoot,
+      );
+
+      const evidence: ProtocolV4DevelopmentEvidence = {
+        planManifest,
+        candidates,
+        candidateEvaluationTable,
+      };
+      // 11. Development Evidence Root ausschließlich aus den gespeicherten Content Hashes ableiten und
+      // validieren -- every `.contentHash` this reads (per candidate's checkpoint/raw-results/
+      // category-table/telemetry/ledger/evaluation, `planManifest`, `candidateEvaluationTable`) was
+      // just durably written to and independently re-hashed from the live-bound store above (and, per
+      // candidate, inside `runProtocolV4DevelopmentForCandidate`) -- never an in-memory-only sealed
+      // value. A write or readback failure anywhere above throws before this line is ever reached.
+      const developmentEvidenceRootHash = computeDevelopmentEvidenceRootHash(evidence);
+
+      // 12. Authorization atomar als konsumiert markieren -- strictly after all Development evidence
+      // is durable, strictly before the lease may reach `terminal_success`.
+      consumeProtocolV4LiveAuthorizationAtomically(
+        input.artifactStoreRoot,
+        input.authorization.authorizationId,
+        input.repoRoot,
+      );
+
+      // 13. Erst danach die Lease auf "terminal_success" setzen.
+      markProtocolV4ExecutionLeaseTerminalSuccess(
+        input.artifactStoreRoot,
+        input.authorization.authorizationId,
+      );
+
+      return { ...evidence, developmentEvidenceRootHash };
+    }
   } catch (e) {
     markProtocolV4ExecutionLeaseTerminalFailure(
       input.artifactStoreRoot,
@@ -450,6 +631,11 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
     );
     throw e;
   }
+  // `fake_dry_run`: unchanged from the pre-Phase-B1 behavior -- `terminal_success` immediately after
+  // dispatch, plan-manifest/candidate-evaluation-table sealed in memory only (the Mini-Run/Dry-Run
+  // callers write their own combined "development-evidence.json"/"candidate-selection-record.json"
+  // separately, outside this function). This branch is unreachable for `human_live`, which always
+  // returns from inside the `try` block above.
   markProtocolV4ExecutionLeaseTerminalSuccess(
     input.artifactStoreRoot,
     input.authorization.authorizationId,

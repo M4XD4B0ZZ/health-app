@@ -572,6 +572,27 @@ export interface ProtocolV4MasterPlan {
   planHash: string;
 }
 
+/** RESOLVER-V3-048 Phase B1 post-merge remediation: every canonical Development-phase artifact
+ * target, derived GENERICALLY from `plan.artifactContract` -- never a hand-picked subset. Picks up
+ * every per-candidate checkpoint/raw-results/category-table/telemetry/ledger/evaluation path (any
+ * `artifactContract` key starting with `development`) plus the two Development-phase artifacts shared
+ * across all candidates (`planManifest`, `candidateEvaluationTable`). Deliberately excludes
+ * `holdout*`/`finalG2DecisionReport` (a different phase) and `plan`/`sourceManifest`/
+ * `candidateManifest`/`pricingManifest` (Master Plan INPUT identities, not Development OUTPUT
+ * artifacts). Used by the live Development entry point's storage preflight (every target must be
+ * unused and crash-free before a lease is ever claimed) and by the Development Runner (every target is
+ * durably written to and read back from before Development can reach `terminal_success`). */
+export function protocolV4DevelopmentArtifactContractRelativePaths(
+  plan: ProtocolV4MasterPlan,
+): readonly string[] {
+  const contract: Record<string, string> = plan.artifactContract;
+  const perCandidatePaths = Object.keys(contract)
+    .filter((key) => key.startsWith('development'))
+    .sort()
+    .map((key) => contract[key]);
+  return [...perCandidatePaths, contract.planManifest, contract.candidateEvaluationTable];
+}
+
 function resolutionScenarios(): RepresentativeHybridV1ResolutionScenario[] {
   return REPRESENTATIVE_HYBRID_V1_RESOLUTION_SCENARIOS.filter(
     (s): s is RepresentativeHybridV1ResolutionScenario =>
@@ -1009,6 +1030,13 @@ export interface ProtocolV4DevelopmentEvidence {
   planManifest: ProtocolV4Artifact<{ planHash: string; developmentExecutionTreeHash: string }>;
   candidates: readonly ProtocolV4DevelopmentCandidateArtifacts[];
   candidateEvaluationTable: ProtocolV4Artifact<readonly CandidateEvaluation[]>;
+  /** RESOLVER-V3-048 Phase B1 post-merge remediation: populated only by the `human_live` Development
+   * path (`runProtocolV4DevelopmentForAllCandidates`), where every artifact this hash is derived from
+   * (via `computeDevelopmentEvidenceRootHash`) was durably written to and independently read back from
+   * the live-bound Artifact Store before this field is set -- never from in-memory-only sealed
+   * artifacts. Absent (`undefined`) for `fake_dry_run` evidence, which never persists these artifacts
+   * under this shared type. */
+  developmentEvidenceRootHash?: string;
 }
 
 export function computeDevelopmentEvidenceRootHash(

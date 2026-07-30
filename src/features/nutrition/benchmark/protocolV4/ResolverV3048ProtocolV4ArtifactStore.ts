@@ -6,6 +6,7 @@ import {
   PROTOCOL_V4_LIVE_ROOT,
   type ProtocolV4Artifact,
 } from './ResolverV3048ProtocolV4';
+import { deriveProtocolV4AuthorizationStorageKey } from './ResolverV3048ProtocolV4StorageKey';
 
 /**
  * RESOLVER-V3-048 Phase-A post-merge remediation, Teil 13 ("Authorization und Artifact Store atomar
@@ -88,7 +89,11 @@ export interface ProtocolV4RootBoundArtifactStore {
     artifact: ProtocolV4Artifact<T>,
     repoRoot?: string,
   ): ProtocolV4StoredArtifactRef;
-  readWithReadback<T>(absolutePath: string, expectedContentHash: string): ProtocolV4Artifact<T>;
+  readWithReadback<T>(
+    absolutePath: string,
+    expectedContentHash: string,
+    repoRoot?: string,
+  ): ProtocolV4Artifact<T>;
   consumeAuthorizationAtomically(root: string, authorizationId: string, repoRoot?: string): void;
   isAuthorizationConsumedAtomically(
     root: string,
@@ -184,10 +189,19 @@ function createProtocolV4RootBoundStore(
     return { absolutePath: finalPath, contentHash: artifact.contentHash };
   }
 
+  /** RESOLVER-V3-048 Phase B1 post-merge remediation: validates that `absolutePath` itself resolves
+   * within THIS store's own canonical, root-bound directory before ever reading it -- closing the
+   * cross-root readback gap (a live-bound readback previously accepted any absolute path, including
+   * one under the dry-run root or any other directory, as long as its content hash happened to
+   * match). This reuses the identical root validator writes already go through
+   * (`assertRootMatchesStore`), so a live/dry-run readback is rejected exactly as fail-closed as a
+   * live/dry-run write already is. */
   function readWithReadback<T>(
     absolutePath: string,
     expectedContentHash: string,
+    repoRoot?: string,
   ): ProtocolV4Artifact<T> {
+    assertRootMatchesStore(absolutePath, repoRoot);
     const raw = fs.readFileSync(absolutePath, 'utf-8');
     const parsed = JSON.parse(raw) as ProtocolV4Artifact<T>;
     const recomputed = hashProtocolV4(parsed.content);
@@ -204,9 +218,13 @@ function createProtocolV4RootBoundStore(
     repoRoot?: string,
   ): void {
     assertAuthorizationIdIsSafeFilenameComponent(authorizationId);
+    // RESOLVER-V3-048 Phase B1 post-merge remediation: the marker filename is keyed by the
+    // platform-neutral storage key, never the raw authorization ID -- Windows forbids `:` in a
+    // filename and a real authorization ID may legitimately contain one.
+    const storageKey = deriveProtocolV4AuthorizationStorageKey(authorizationId);
     const markerPath = resolveArtifactPath(
       root,
-      `authorization-${authorizationId}.consumed.json`,
+      `authorization-${storageKey}.consumed.json`,
       repoRoot,
     );
     fs.mkdirSync(path.dirname(markerPath), { recursive: true });
@@ -233,8 +251,9 @@ function createProtocolV4RootBoundStore(
     repoRoot?: string,
   ): boolean {
     assertAuthorizationIdIsSafeFilenameComponent(authorizationId);
+    const storageKey = deriveProtocolV4AuthorizationStorageKey(authorizationId);
     return fs.existsSync(
-      resolveArtifactPath(root, `authorization-${authorizationId}.consumed.json`, repoRoot),
+      resolveArtifactPath(root, `authorization-${storageKey}.consumed.json`, repoRoot),
     );
   }
 
@@ -316,8 +335,9 @@ export function writeProtocolV4ArtifactExclusive<T>(
 export function readProtocolV4ArtifactWithReadback<T>(
   absolutePath: string,
   expectedContentHash: string,
+  repoRoot?: string,
 ): ProtocolV4Artifact<T> {
-  return protocolV4DryRunStore.readWithReadback(absolutePath, expectedContentHash);
+  return protocolV4DryRunStore.readWithReadback(absolutePath, expectedContentHash, repoRoot);
 }
 
 export function consumeProtocolV4AuthorizationAtomically(
@@ -383,8 +403,9 @@ export function writeProtocolV4LiveArtifactExclusive<T>(
 export function readProtocolV4LiveArtifactWithReadback<T>(
   absolutePath: string,
   expectedContentHash: string,
+  repoRoot?: string,
 ): ProtocolV4Artifact<T> {
-  return protocolV4LiveStore.readWithReadback(absolutePath, expectedContentHash);
+  return protocolV4LiveStore.readWithReadback(absolutePath, expectedContentHash, repoRoot);
 }
 
 export function consumeProtocolV4LiveAuthorizationAtomically(

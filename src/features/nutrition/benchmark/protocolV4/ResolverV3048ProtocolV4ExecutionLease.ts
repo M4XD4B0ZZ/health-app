@@ -25,6 +25,7 @@ import {
   type ProtocolV4HoldoutAdmissionRecord,
   validateProtocolV4HoldoutAdmissionExecutionPlan,
 } from './ResolverV3048ProtocolV4HoldoutAdmission';
+import { deriveProtocolV4AuthorizationStorageKey } from './ResolverV3048ProtocolV4StorageKey';
 
 /**
  * RESOLVER-V3-048 Final Dispatch-Lease, Authorization-Binding and G2-Evidence Closure remediation.
@@ -148,9 +149,18 @@ function assertSafeIdComponent(id: string, field: string): void {
     throw new ProtocolV4ExecutionLeaseError(`PROTOCOL_V4_EXECUTION_LEASE_UNSAFE_ID:${field}:${id}`);
 }
 
+/** RESOLVER-V3-048 Phase B1 post-merge remediation: the actual on-disk lease directory is keyed by
+ * the platform-neutral storage key derived from `authorizationId`
+ * (`ResolverV3048ProtocolV4StorageKey.ts`), never by the raw ID itself -- Windows forbids `:` (and
+ * other characters) in a directory name, and a real authorization ID may legitimately contain one
+ * (e.g. `` `mini-run-development:${planHash}` ``). `assertSafeIdComponent` still rejects the
+ * structurally dangerous cases (path separators, `..`) on the ORIGINAL id first -- separators and
+ * traversal remain forbidden even though `:`, spaces, and unicode are now safe to use, because the
+ * derived key alone should never be relied on as the only line of defense against a malformed id. */
 function leaseDirFor(root: string, authorizationId: string): string {
   assertSafeIdComponent(authorizationId, 'authorizationId');
-  return path.join(path.resolve(root), 'leases', authorizationId);
+  const storageKey = deriveProtocolV4AuthorizationStorageKey(authorizationId);
+  return path.join(path.resolve(root), 'leases', storageKey);
 }
 
 function leaseVersionPath(root: string, authorizationId: string, version: number): string {

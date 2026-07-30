@@ -21,6 +21,7 @@ import {
   consumeProtocolV4LiveAuthorizationAtomically,
 } from '../ResolverV3048ProtocolV4ArtifactStore';
 import { claimProtocolV4ExecutionLeaseForDevelopmentAuthorization } from '../ResolverV3048ProtocolV4ExecutionLease';
+import { deriveProtocolV4AuthorizationStorageKey } from '../ResolverV3048ProtocolV4StorageKey';
 
 /**
  * RESOLVER-V3-048 Phase B1 -- focused, zero-network, USD-0 coverage for
@@ -204,7 +205,11 @@ describe('Live storage/lease layer -- same functions the entry point itself call
         repoRoot,
       ),
     ).toThrow('PROTOCOL_V4_EXECUTION_LEASE_ROOT_DOES_NOT_MATCH_AUTHORIZATION_KIND');
-    const leaseDir = path.join(dryRunShapedRoot, 'leases', authorization.authorizationId);
+    const leaseDir = path.join(
+      dryRunShapedRoot,
+      'leases',
+      deriveProtocolV4AuthorizationStorageKey(authorization.authorizationId),
+    );
     expect(fs.existsSync(leaseDir)).toBe(false);
   });
 
@@ -220,7 +225,15 @@ describe('Live storage/lease layer -- same functions the entry point itself call
     );
     expect(lease.status).toBe('claimed');
     expect(lease.artifactStoreRootIdentity).toBe(liveRoot);
-    expect(fs.existsSync(path.join(liveRoot, 'leases', authorization.authorizationId))).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(
+          liveRoot,
+          'leases',
+          deriveProtocolV4AuthorizationStorageKey(authorization.authorizationId),
+        ),
+      ),
+    ).toBe(true);
   });
 
   it('a fake_dry_run authorization cannot claim a lease under a live-shaped root', () => {

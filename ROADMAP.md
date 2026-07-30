@@ -620,8 +620,14 @@ boundary, `assertDevelopmentAuthorized` checks `executionMode` against `authoriz
 bidirectionally, the Artifact Store and Execution Lease are mode-root-bound, and a new, separate
 live Development entry point exists — but it was never called with a real credential, no live call
 was made, and the PR #202 authorization is explicitly not reused (a new one is required, checked
-against this commit). G2 is not passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays
-`blocked` until V3-048 produces live evidence that passes every mandatory G2 dimension. See
+against this commit). An independent post-merge review of PR #203 (same day) found five further
+reproducible defects in that wiring — in-memory-only Development evidence, a lease that could reach
+`terminal_success` before durable persistence, an incomplete storage preflight, unvalidated
+cross-root readback, and Windows-unsafe authorization-ID-as-path-component usage — all fixed with
+zero live calls (durable per-candidate write+readback for `human_live` only, a full
+artifact-contract-derived preflight, root-bound readback, and a platform-neutral storage key). G2 is
+not passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
+live evidence that passes every mandatory G2 dimension. See
 RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative status text, the
 binding decision rule, and the budget position — do not rely on the summary here for exact PR/
 commit detail, it will lag.
@@ -8946,7 +8952,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Phase B1 live-development dispatch wiring complete (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store, real fast-path-decided-before-any-reservation live dispatch, real provider-request counting); live Development still not authorized, no live evidence produced` (Phase B1, 2026-07-30)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); live Development still not authorized, no live evidence produced` (Phase B1 + Post-Merge Remediation, 2026-07-30)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -9040,6 +9046,81 @@ frozen PR #202 preflight report is historical evidence and was **not** rewritten
 status text was corrected. (b) An earlier draft of the Phase B1 report claimed `prettier -c` passed on
 all changed files; it did not — three source files and the report itself had real Prettier violations,
 now fixed and re-verified clean (see that report's §6).
+
+**Phase B1 Post-Merge Remediation ("Durable Live Evidence Finalization", 2026-07-30, basis `2dc5e3e`,
+PR #203 merge):** an independent post-merge review of PR #203 found five reproducible defects in the
+Phase B1 live-dispatch wiring above, all fixed without any live provider call (0 calls, USD 0.00
+throughout):
+
+1. **In-memory-only Development evidence.** `runProtocolV4DevelopmentForCandidate`/
+   `runProtocolV4DevelopmentForAllCandidates` only ever sealed Development artifacts
+   (`sealProtocolV4Artifact`) in memory; nothing was ever written to the live-bound Artifact Store.
+   Fixed: for `human_live` execution only (the `fake_dry_run`/Mini-Run path is untouched and stays
+   byte-for-byte identical), every per-candidate artifact (raw results, category table, telemetry,
+   ledger, evaluation, then the checkpoint commit marker last) and the shared plan-manifest/
+   candidate-evaluation-table artifacts are written exclusively and read back (root-bound,
+   content-hash-revalidated) through `writeProtocolV4LiveArtifactExclusive`/
+   `readProtocolV4LiveArtifactWithReadback`.
+2. **Lease could reach `terminal_success` before durable persistence.** The Execution Lease was marked
+   `terminal_success` immediately after the per-candidate dispatch loop, before the plan manifest/
+   candidate-evaluation-table were even sealed. Fixed: for `human_live`, `terminal_success` now happens
+   only after every artifact above is durably written and read back, the Development Evidence Root is
+   derived, and the authorization is atomically consumed — matching the task's mandated 13-step success
+   ordering. `fake_dry_run`'s pre-existing ordering is unchanged.
+3. **Storage preflight checked only 3 of the canonical Development targets.** The live entry point's
+   pre-lease-claim preflight looped over only the three per-candidate checkpoint paths. Fixed: a new
+   `protocolV4DevelopmentArtifactContractRelativePaths(plan)` helper derives every Development-phase
+   target generically from `plan.artifactContract` (every `development*` key plus the shared
+   `planManifest`/`candidateEvaluationTable`, never a hand-picked subset); the entry point now checks
+   all of them for unused-and-crash-free status before ever claiming a lease.
+4. **Cross-root readback was not rejected.** `readWithReadback` accepted any absolute path as long as
+   its content hash matched, so a live-bound readback could read a file under the dry-run root (or any
+   other directory) without error. Fixed: `readWithReadback` now validates the absolute path against
+   its own bound canonical root (the same `assertRootMatchesStore` validator writes already use)
+   before ever reading; both `readProtocolV4ArtifactWithReadback`/`readProtocolV4LiveArtifactWithReadback`
+   take an optional `repoRoot` to support this under an isolated test root.
+5. **Authorization IDs used directly as filesystem path components.** The Execution Lease's lease
+   directory and the Artifact Store's authorization-consumption marker filename embedded the raw
+   `authorizationId` — Windows rejects `:` in both file and directory names, and pre-existing IDs (e.g.
+   `` `mini-run-development:${planHash}` ``) already contain one, causing 8 pre-existing Windows-local
+   test failures. Fixed: a new `ResolverV3048ProtocolV4StorageKey.ts` derives a single deterministic,
+   collision-resistant, platform-neutral storage key (a full base64url re-encoding of the UTF-8 id —
+   deliberately not a character-substitution scheme, which would not be collision-resistant) used
+   uniformly for lease directories/versions, lease crash detection, the authorization-consumption
+   marker, and crash recovery. `authorizationId` itself is completely unchanged in records, hashes, and
+   lease/authorization identity everywhere else; path separators and `..` remain rejected on the
+   original id (`assertSafeIdComponent`/`assertAuthorizationIdIsSafeFilenameComponent`), independently
+   of the new key.
+
+New/updated test coverage (16 new tests in
+`ResolverV3048ProtocolV4LiveDevelopmentDurableEvidenceRemediation.test.ts`, plus fixes to lease-path
+assertions in the existing `LiveDevelopmentEntryPoint.test.ts` and
+`FinalDispatchAuthorizationClosureRedBaseline.test.ts`): a full zero-network end-to-end run of the real
+`runProtocolV4LiveDevelopmentEntryPoint` with a `human_live` authorization, a fake test credential, a
+mocked `global.fetch`, real plan/evaluator identity (the two real evaluator files copied into an
+isolated temp `repoRoot`), isolated temporary live storage, and all three candidates dispatched (no
+Holdout call) — confirming every canonical artifact is written and read back, the Development Evidence
+Root is derived from the stored hashes, the authorization marker exists, the lease reaches
+`terminal_success` only after all of that, no file is created under the real repository's live root,
+and there is no real network call; a write-failure test and a readback-tamper test, each confirming
+`terminal_failure` and no atomic consumption; five distinct canonical targets (not just checkpoints)
+confirmed detected pre-lease-claim; cross-root readback rejected in both directions plus an arbitrary
+third-party path; authorization IDs with `:`, spaces, and Unicode text proven to work end to end;
+storage-key collision-resistance and Windows-safety proven structurally for the exact IDs that caused
+the 8 prior failures; separators/traversal still rejected. The full Protocol-v4 suite (206 tests),
+the full nutrition-benchmark suite (951 tests, superset), and a full repo-wide `npx jest --runInBand`
+pass with zero new failures — including the 8 previously Windows-only failures in
+`ResolverV3048ProtocolV4DryRun.test.ts` and the three `Final*RedBaseline` suites, which pass here
+exactly as before (they were never failing on this Linux environment) and are now structurally proven
+Windows-safe rather than merely "expected not to reproduce" (see this task's report for the exact
+assertion). Full report:
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B1_POST_MERGE_REMEDIATION.md`.
+
+Zero provider calls, zero tokens, USD 0.00 throughout this remediation. No `.env`/credential was
+touched or read. G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`; the 352-call /
+USD 5.586944 budget remains unauthorized; Holdout remains unexecuted. A new, explicit human
+authorization, re-verified against this commit, is still required before any live Development call —
+unchanged by this remediation.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E

@@ -425,13 +425,29 @@ A  handoffs/archive/<archived prior handoff>
 M  handoffs/latest-handoff.md
 ```
 
-**Verification (this remediation):** focused launcher tests (`node --test`) 83 total, 79 passing
-pre-commit (the 4 failures are this launcher's own working-tree-clean gate, which by construction
-cannot pass until this remediation's own files are committed — confirmed passing 83/83 post-commit,
-see the rotated handoff); full `protocolV4` Jest suite 214/214 (211 prior + 3 new suite files worth
-of cases, actually 8 new tests in 1 new file); full `nutrition-benchmark` Jest suite 959/959; full
-repo-wide Jest suite result recorded in the rotated handoff; `tsc --noEmit` 0 errors; `eslint .` 0
-errors (run with the launcher's transient `build/resolver-v3-048-live-launcher/` output removed
-first, per the existing Phase B3 report §6.4 note); `prettier -c` clean after one `-w` pass on 4
-files; `git diff --check` clean. Zero provider calls, zero tokens, USD 0.00 throughout — this
-remediation, like Phase B3 itself, never runs the launcher with a real credential.
+**Verification (this remediation) — confirmed after commit `a4c0d6d`:**
+
+- Focused launcher tests (`node --test`): **83/83 pass** post-commit (79/83 pre-commit — the 4
+  failures were this launcher's own working-tree-clean gate, which by construction cannot pass
+  until this remediation's own files are committed; confirmed 83/83 once the tree was clean,
+  including the full mocked-`global.fetch` success path and both new real end-to-end
+  artifact-write-failure/readback-failure usage-accounting tests).
+- New `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 8/8.
+- Full `protocolV4` Jest suite: **PASS**, 214/214 (11 suites; 206 prior + 8 new).
+- Full `nutrition-benchmark` Jest suite: **PASS**, 959/959 (81 suites).
+- Full repo-wide `npx jest --runInBand`: **PASS**, 2768/2768 tests, 257/257 suites, 782.1s (2760
+  prior + 8 new). Zero failures, zero new failures anywhere.
+- `tsc --noEmit`: **PASS**, 0 errors.
+- `eslint .`: **PASS**, 0 errors (run with the launcher's transient
+  `build/resolver-v3-048-live-launcher/` output removed first, per the existing §6.4 note).
+- `prettier -c` over every changed/added file: **PASS** after one `-w` pass on 4 files.
+- `git diff --check`: **PASS**.
+- Final CodeGraph MCP recheck (`mcp__codegraph__codegraph_explore`, query
+  `"attachProtocolV4FailureUsageSnapshot runProtocolV4DevelopmentForAllCandidates markProtocolV4ExecutionLeaseTerminalFailure"`):
+  **success** — confirmed `attachProtocolV4FailureUsageSnapshot` is correctly indexed inside
+  `ResolverV3048ProtocolV4DevelopmentRunner.ts`, instantiates no unintended relationship, and the
+  `human_live` catch block's call order (mark lease `terminal_failure`, then attach the snapshot,
+  then re-throw) matches what was implemented.
+
+Zero provider calls, zero tokens, USD 0.00 throughout — this remediation, like Phase B3 itself,
+never runs the launcher with a real credential.

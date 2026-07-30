@@ -92,22 +92,22 @@
    git --no-pager diff --check
    ```
 
-7. **Verification result:**
-   - `node --test` (launcher): **79/83 pass pre-commit** (the 4 failures are this launcher's own
-     working-tree-clean gate, which by construction cannot pass until this remediation's own files
-     are committed — this is the launcher's fail-closed contract being exercised honestly, the same
-     pattern as the original Phase B3 handoff).
+7. **Verification result (confirmed post-commit, `a4c0d6d`):**
+   - `node --test` (launcher): **83/83 pass** (79/83 pre-commit — the 4 failures were this
+     launcher's own working-tree-clean gate, which by construction cannot pass until this
+     remediation's own files are committed; confirmed 83/83 once clean, including the full
+     mocked-`global.fetch` success path and both new real end-to-end write-failure/readback-failure
+     usage-accounting tests).
    - New `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 8/8.
    - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 214/214 (11 suites; 206 prior +
      8 new).
    - `jest src/features/nutrition/benchmark`: **PASS**, 959/959 (81 suites).
-   - Full repo `jest --runInBand`: result to be confirmed and recorded in a follow-up docs commit
-     once the background run completes (same sequencing as the original Phase B3 handoff: this
-     launcher's own tests require a clean tree, so the full post-commit confirmation follows the
-     commit).
+   - Full repo `jest --runInBand`: **PASS**, 2768/2768 tests, 257/257 suites, 782.1s (2760 prior +
+     8 new). Zero failures, zero new failures anywhere.
    - `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors (run with the launcher's
      transient `build/resolver-v3-048-live-launcher/` output removed first). `prettier -c`: **PASS**
      after one `-w` pass on 4 files. `git diff --check`: **PASS**.
+   - Final CodeGraph MCP recheck: **success** — full detail in the report's §10.
 
 8. **Known issues, blockers, residual risks:**
 

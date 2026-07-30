@@ -118,6 +118,86 @@ const DEVELOPMENT_CHECKPOINT_PATH_BY_CANDIDATE: Readonly<Record<ResolverV3047Can
     H2: ARTIFACT_PATHS.developmentCheckpointH2,
   };
 
+/** RESOLVER-V3-048 Phase B3 pre-PR remediation ("Authoritative Failure Accounting"): a secret-free,
+ * structured usage snapshot attached to a `human_live` Development failure before it propagates, so
+ * a caller (the launcher) never has to fall back to reporting fabricated zeros. Built only from
+ * already-real, already-existing sources -- never a second pricing/usage-parsing implementation:
+ * - `providerCallsAtLeast` is an exact floor, not an estimate: `reserveProtocolV4Call` calls
+ *   `gate.reserve()` exactly once per real attempted dispatch, and `LiveProviderBudgetGate` never
+ *   decrements its own `calls` counter (only the in-flight slot is released) -- so this count can
+ *   never overstate real attempts, and a value of `0` is provably exact, not merely "no data yet".
+ * - `reserved*UpperBound` are the shared gate's own cumulative reserved-worst-case totals -- safe
+ *   ceilings that can never understate what could truly have been spent, covering any call that was
+ *   reserved but crashed before a response was recorded.
+ * - `confirmed*`/`confirmedCostUsd` are summed only from candidates whose full Development evidence
+ *   was already durably written and read back (`completedCandidates`, i.e. `ProtocolV4Development-
+ *   ForAllCandidates`'s own `candidates` accumulator at the moment of failure) -- exact, never
+ *   re-derived from pricing. */
+export type ProtocolV4FailureUsageAccounting = 'exact_zero' | 'partial';
+
+export interface ProtocolV4FailureUsageSnapshot {
+  /** `'exact_zero'` when the shared budget gate recorded no reservation at all (provably zero real
+   * dispatch attempts); `'partial'` whenever at least one real dispatch was attempted -- the exact
+   * final actual usage cannot be claimed for a candidate that never finished durably writing its own
+   * evidence, so this is never reported as `'exact'` once any call has been attempted. */
+  accounting: ProtocolV4FailureUsageAccounting;
+  completedCandidateIds: readonly ResolverV3047CandidateId[];
+  providerCallsAtLeast: number;
+  reservedInputTokensUpperBound: number;
+  reservedOutputTokensUpperBound: number;
+  reservedCostUsdUpperBound: number;
+  confirmedInputTokens: number;
+  confirmedOutputTokens: number;
+  confirmedCostUsd: number;
+}
+
+function sumConfirmedUsageFromCompletedCandidates(
+  completedCandidates: readonly ProtocolV4DevelopmentCandidateArtifacts[],
+): { inputTokens: number; outputTokens: number; costUsd: number } {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let costUsd = 0;
+  for (const candidate of completedCandidates) {
+    for (const entry of candidate.ledger.content) {
+      if (entry.usageStatus === 'reported') {
+        inputTokens += entry.inputTokens ?? 0;
+        outputTokens += entry.outputTokens ?? 0;
+      }
+      if (typeof entry.actualCostUsd === 'number') costUsd += entry.actualCostUsd;
+    }
+  }
+  return { inputTokens, outputTokens, costUsd };
+}
+
+/** Builds the failure-usage snapshot described above and attaches it (as a non-enumerable-free plain
+ * property, never replacing or wrapping the original error) to `error` under
+ * `protocolV4FailureUsageSnapshot`, so `instanceof`/`.message` assertions on the original error are
+ * completely unaffected. No-op if `error` is not an object (defends against a non-Error throw, which
+ * never happens on this code path but must not itself crash the failure handler). */
+export function attachProtocolV4FailureUsageSnapshot(
+  error: unknown,
+  gate: LiveProviderBudgetGate,
+  completedCandidates: readonly ProtocolV4DevelopmentCandidateArtifacts[],
+): void {
+  if (!error || typeof error !== 'object') return;
+  const gateSnapshot = gate.snapshot();
+  const confirmed = sumConfirmedUsageFromCompletedCandidates(completedCandidates);
+  const snapshot: ProtocolV4FailureUsageSnapshot = {
+    accounting: gateSnapshot.calls > 0 ? 'partial' : 'exact_zero',
+    completedCandidateIds: completedCandidates.map((c) => c.candidateId),
+    providerCallsAtLeast: gateSnapshot.calls,
+    reservedInputTokensUpperBound: gateSnapshot.inputTokens,
+    reservedOutputTokensUpperBound: gateSnapshot.outputTokens,
+    reservedCostUsdUpperBound: gateSnapshot.reservedCost,
+    confirmedInputTokens: confirmed.inputTokens,
+    confirmedOutputTokens: confirmed.outputTokens,
+    confirmedCostUsd: confirmed.costUsd,
+  };
+  (
+    error as { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot }
+  ).protocolV4FailureUsageSnapshot = snapshot;
+}
+
 /** RESOLVER-V3-048 Phase B1 post-merge remediation: every canonical per-candidate Development
  * artifact target the `human_live` path must durably write to and read back from -- checkpoint kept
  * separate (it is written LAST, as the commit marker, per the mandated success ordering below). */
@@ -629,6 +709,9 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
       input.artifactStoreRoot,
       input.authorization.authorizationId,
     );
+    if (input.executionContext.mode === 'human_live') {
+      attachProtocolV4FailureUsageSnapshot(e, evidenceGate, candidates);
+    }
     throw e;
   }
   // `fake_dry_run`: unchanged from the pre-Phase-B1 behavior -- `terminal_success` immediately after

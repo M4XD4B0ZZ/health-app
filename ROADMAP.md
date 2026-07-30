@@ -8956,7 +8956,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot on the production execute path); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher, 2026-07-30)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete and pre-PR-remediated (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot on the production execute path, authoritative failure-usage accounting, exact schema/currency/cache-policy/candidate-set binding, filesystem-canonical symlink/junction-safe path checks, canonical cost-string confirmation, secret-free error allowlist); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher + Pre-PR Remediation, 2026-07-31)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -9160,6 +9160,25 @@ real credential. Full report:
 `RESOLVER-V3-010` remains `blocked`; the 352-call / USD 5.586944 budget remains unauthorized;
 Holdout remains unexecuted; a new, explicit human authorization, re-verified against the commit this
 launcher is run at, is still required before any live Development call.
+
+**Phase B3 Pre-PR Remediation (2026-07-31, same branch, before any PR was opened):** an independent
+review of the pushed launcher found five defects, all fixed with zero provider calls: (1) a failed
+run previously reported fabricated zero usage even after real dispatches happened — fixed via a
+small Protocol-v4 extension (`attachProtocolV4FailureUsageSnapshot` in
+`ResolverV3048ProtocolV4DevelopmentRunner.ts`) that attaches an authoritative usage snapshot (the
+shared budget gate's own exact call floor plus already-durable confirmed candidate ledgers) to a
+`human_live` failure before it propagates, so `summarizeFailureUsage` never claims `0` calls once
+any real dispatch happened; (2) the authorization file's schema version, `currency`, and
+`noCachePolicy` were not checked — now bound exactly, and the preflight template now includes
+`noCachePolicy`; (3) candidate-identity comparison allowed duplicates/missing/unknown IDs — replaced
+with an exact set-and-identity comparison; (4) authorization/template paths were checked only
+lexically — now resolved via `fs.realpathSync` (symlink/junction-aware) with Windows-case-correct
+comparison, and template writes are now exclusive (`wx`, never silently overwriting); (5)
+`--confirm-max-cost-usd` accepted any numerically-equivalent spelling — now requires the plan's own
+canonical decimal string byte-for-byte. A new secret-free error allowlist
+(`classifyLauncherError`) also replaces raw error-message propagation in the closing summary/CLI
+output. Zero provider calls, zero tokens, USD 0.00 throughout this remediation; full detail (incl.
+the CodeGraph MCP preflight) in the same report's §10.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E

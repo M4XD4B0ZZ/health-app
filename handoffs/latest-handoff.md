@@ -1,91 +1,88 @@
-# Handoff — RESOLVER-V3-048: Phase B3 Canonical Live Development Launcher (2026-07-30)
+# Handoff — RESOLVER-V3-048: Phase B3 Pre-PR Remediation (Authoritative Failure Accounting and Authorization Binding, 2026-07-31)
 
-1. **Task ID/status:** `RESOLVER-V3-048` — remains `in_progress`. Phase B3 (the canonical CLI
-   launcher for the already-merged Phase B1 + post-merge-remediated live Development entry point) is
-   complete; **no live run happened**. Branch: `claude/resolver-v3-048-phase-b3-live-launcher`.
-   Basis: `d7a2cd3` (PR #204 merge, tip of `chore/clean-arch-structure` at task start; verified
-   working tree clean and local branch identical to `origin/chore/clean-arch-structure` before
-   branching). PR #204 remains merged and was not reverted. **Actual consumption: 0 provider calls,
-   0 tokens, USD 0.00.** G2 remains `not passed`; `RESOLVER-V3-010` remains `blocked`; Holdout
-   remains unexecuted and unauthorized.
+1. **Task ID/status:** `RESOLVER-V3-048` — remains `in_progress`. This task remediates five
+   security/evidence defects an independent review found in the just-pushed Phase B3 canonical live
+   Development launcher, before any PR was opened. **No live run happened.** Branch (unchanged, same
+   as Phase B3): `claude/resolver-v3-048-phase-b3-live-launcher`. Basis: still `d7a2cd3` (PR #204
+   merge). **Actual consumption: 0 provider calls, 0 tokens, USD 0.00.** G2 remains `not passed`;
+   `RESOLVER-V3-010` remains `blocked`; Holdout remains unexecuted and unauthorized.
 
-2. **What changed:** the live Development entry point (`runProtocolV4LiveDevelopmentEntryPoint`)
-   existed only as a TypeScript library function — no canonical CLI launcher, no reproducible build
-   path, no external human-authorization hand-off mechanism, and ad-hoc `tsx -e`/Jest/inline
-   TypeScript execution was the only way to invoke it. This task adds
-   `scripts/run-resolver-v3-048-live-development.mjs`, a plain-Node CLI with exactly two modes:
-   - `--preflight`: zero-call, never checks `ANTHROPIC_API_KEY`; requires a clean working tree;
-     compiles a small explicit TypeScript re-export bridge
-     (`scripts/resolver-v3-048-live-launcher/launcherBridge.ts`) via the LOCAL
-     `node_modules/typescript/bin/tsc` only (never `tsx`/`ts-node`/a global tool/`npx`/an automatic
-     `npm install`) into the deterministic, already-gitignored `build/resolver-v3-048-live-launcher/`
-     directory; calls the real `buildProtocolV4MasterPlan`/`validateProtocolV4MasterPlan`; prints
-     the exact commit/plan-hash/execution-tree-hash/model/pricing/candidate/prompt/schema/routing/
-     budget/concurrency/retry/cache identities; can emit a non-authorizing authorization template
-     (`authorizationTemplateOnly: true`, empty `humanApprovalReference`, `holdoutAuthorized: false`,
-     `automaticContinuation: false`) to an explicit external path or stdout.
-   - `--execute`: requires `--authorization-file <ABSOLUTE_PATH>` (outside the repository,
-     `authorizationTemplateOnly: false`, non-empty `humanApprovalReference`),
-     `--confirm-development-only`, `--confirm-max-cost-usd <value>`. Validates, strictly before any
-     credential check or side effect: file path/shape, working tree clean, exact `HEAD`-commit match
-     plus PR #204-merge ancestry, every plan-derived identity/budget field against a freshly rebuilt
-     Master Plan (no budget number independently re-typed anywhere), concurrency `=== 1`, retry
-     count `=== 0`, Holdout-not-authorized, automatic-continuation-disabled, and the confirmation
-     flags. Only then checks `ANTHROPIC_API_KEY` presence, builds the canonical `human_live`
-     Authorization Record via the real `buildProtocolV4DevelopmentAuthorization`, and calls the real
-     `runProtocolV4LiveDevelopmentEntryPoint({ authorization, env: process.env })` — no `repoRoot` on
-     this production path, no Holdout import/reference anywhere.
-   - New dedicated build config: `scripts/resolver-v3-048-live-launcher.tsconfig.json` +
-     `scripts/resolver-v3-048-live-launcher/globals.d.ts` (a one-line ambient `__DEV__` type only —
-     changes no runtime behavior; the shared domain code's own `typeof __DEV__ !== 'undefined'`
-     guard is already runtime-safe under plain Node).
-   - New focused tests: `scripts/__tests__/run-resolver-v3-048-live-development.test.mjs` (Node's
-     built-in `node --test`, matching this repo's existing convention for `.mjs` script tests — not
-     part of `npm test`/Jest, whose `testMatch` stays scoped to `src/**/__tests__/**/*.test.ts`; not
-     touched).
-   - Docs: `ROADMAP.md` (`Current Focus`, RESOLVER-V3-048 status line + new dated Phase B3 entry),
-     new Phase B3 report, this handoff, prior handoff archived.
+2. **What changed:**
+   - **Defect 1 (false zero-usage on failure):** the launcher previously reported
+     `actualProviderCalls: 0`/`actualCostUsd: 0` for any failed `--execute` run, even one where real
+     dispatches had already happened. Fixed with a small, explicitly-scoped Protocol-v4 extension:
+     `attachProtocolV4FailureUsageSnapshot` (new, in `ResolverV3048ProtocolV4DevelopmentRunner.ts`)
+     is called from the existing `human_live` catch block before it re-throws, mutating the caught
+     error with a `protocolV4FailureUsageSnapshot` property (never replacing/wrapping it — every
+     existing `instanceof`/`.message` assertion elsewhere is unaffected). The snapshot's
+     `providerCallsAtLeast` reads the shared `LiveProviderBudgetGate`'s own `snapshot().calls` — an
+     exact floor, never an estimate, since `reserveProtocolV4Call` calls `gate.reserve()` exactly
+     once per real attempted dispatch and the gate never decrements that counter. Confirmed
+     tokens/cost are summed only from already-durable, readback-verified completed candidates —
+     never a second pricing/usage-parsing implementation. The launcher's new
+     `summarizeFailureUsage`/`summarizeSuccessUsage` consume this; no snapshot present means the
+     failure happened strictly before any dispatch was possible (provably exact zero, not a guess).
+   - **Defect 2 (incomplete schema/policy binding):** `validateAuthorizationFileStructure` now
+     requires the authorization file's `launcherAuthorizationFileSchemaVersion` to equal the current
+     constant exactly (missing/old/unknown all rejected). `validateAuthorizationAgainstPlan` now also
+     checks `currency` and `noCachePolicy` exactly against the freshly rebuilt plan.
+     `buildAuthorizationTemplate` now includes `noCachePolicy` (previously missing).
+   - **Defect 3 (candidate duplicates):** `candidateIdentitiesMatch` is now an exact
+     set-and-identity comparison (same count, every ID exactly once, no unknown/missing ID, all
+     fields matched by ID) — rejects `H0,H0,H0`, a missing `H1`, a duplicated `H2`, and an unknown
+     ID, while still accepting the correct candidates in a different order.
+   - **Defect 4 (non-canonical path safety):** authorization-file and template-output paths are now
+     resolved through `fs.realpathSync` (following any symlink/junction) before the outside-repo
+     check, case-folded only on `win32`. New `assertExistingPathCanonicallyOutsideRepoRoot`/
+     `assertNewFileParentCanonicallyOutsideRepoRoot` replace the previous lexical-only check for
+     these two call sites. Template writes now use an atomic exclusive (`wx`) flag via a new
+     `writeFileExclusive`, never silently overwriting an existing file.
+   - **Defect 5 (non-canonical cost confirmation):** `--confirm-max-cost-usd` must now equal
+     `String(plan.budget.developmentMaxCostUsd)` byte-for-byte (via new
+     `canonicalDevelopmentMaxCostUsdString`), replacing the previous `Number(...) === ...` numeric
+     comparison — scientific notation, whitespace, a leading `+`, and an extra trailing zero are all
+     now refused.
+   - **Secret-free error reporting:** new `classifyLauncherError` replaces raw `error.message`
+     propagation in the closing summary/CLI stderr with an explicit allowlist of this codebase's own
+     domain error classes (verified by source inspection to throw only fixed constant-code strings);
+     anything outside the allowlist is reported by stable class/code only.
+   - Tests: 8 new Protocol-v4-level tests in new
+     `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts` (unit + real end-to-end write-failure/
+     readback-failure/success cases); many new launcher-level tests across all five defects plus the
+     error allowlist, added to the existing `.mjs` test file.
+   - Docs: `ROADMAP.md` (status line + new dated remediation paragraph), the existing Phase B3
+     report's new §10, this handoff, prior handoff archived.
 
-3. **Why it changed:** the task's own explicit requirement — a single canonical, reproducible,
-   fail-closed launcher for the already-reviewed live Development entry point, replacing forbidden
-   ad-hoc execution paths, with a strictly local (`tsx`/`ts-node`/`npx`/global-tool/auto-install-free)
-   TypeScript build and an external, human-authored authorization hand-off file validated
-   field-by-field against a freshly rebuilt plan before any credential check.
+3. **Why it changed:** an independent pre-PR review found these five defects before any PR was
+   opened for the Phase B3 launcher; the task explicitly required fixing them before a PR, not after.
 
 4. **Files changed:**
 
    ```
-   A  scripts/run-resolver-v3-048-live-development.mjs
-   A  scripts/resolver-v3-048-live-launcher.tsconfig.json
-   A  scripts/resolver-v3-048-live-launcher/launcherBridge.ts
-   A  scripts/resolver-v3-048-live-launcher/globals.d.ts
-   A  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+   M  scripts/run-resolver-v3-048-live-development.mjs
+   M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+   A  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
    M  ROADMAP.md
-   A  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md
-   A  handoffs/archive/2026-07-30_RESOLVER-V3-048_phase-b1-post-merge-remediation.md
+   M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md
+   A  handoffs/archive/2026-07-30_RESOLVER-V3-048_phase-b3-canonical-live-launcher.md
    M  handoffs/latest-handoff.md
    ```
 
-   `build/resolver-v3-048-live-launcher/` is produced locally by the build step but is gitignored
-   (covered by the pre-existing `build/` entry) and is not part of any commit.
-
 5. **CodeGraph MCP evidence:** tool `mcp__codegraph__codegraph_explore` (the only tool the
-   `codegraph` server exposes). Three queries run this session: (1) session preflight —
-   `"runProtocolV4LiveDevelopmentEntryPoint buildProtocolV4MasterPlan buildProtocolV4DevelopmentAuthorization"`,
-   confirming the entry point and its flow through `validateProtocolV4MasterPlan`/
-   `buildProtocolV4MasterPlan`; (2) targeted, before writing the launcher —
-   `"buildProtocolV4DevelopmentAuthorization ProtocolV4DevelopmentAuthorizationRecord buildProtocolV4HumanLiveExecutionContext runProtocolV4LiveDevelopmentEntryPoint"`,
-   confirming `buildProtocolV4DevelopmentAuthorization`'s exact signature and that every one of its
-   limits derives from `input.plan.budget`; (3) supporting types —
-   `"ProtocolV4DevelopmentEvidence PROTOCOL_V4_LIVE_ROOT ExecutionLease claimProtocolV4ExecutionLeaseForDevelopmentAuthorization ArtifactStore isProtocolV4LiveAuthorizationConsumedAtomically ProtocolV4Budget PROTOCOL_V4_G2_GATES"`,
-   confirming the exact lease/artifact-store functions the launcher's closing summary calls. All
-   three succeeded; no CodeGraph failure occurred. Full detail in the report's §2.
+   `codegraph` server exposes). One query run before any change:
+   `"runProtocolV4LiveDevelopmentEntryPoint runProtocolV4DevelopmentForAllCandidates runProtocolV4DevelopmentForCandidate LiveProviderBudgetGate recordProtocolV4Terminal markProtocolV4ExecutionLeaseTerminalFailure"`
+   — confirmed the exact call flow (Entry Point → `runProtocolV4DevelopmentForAllCandidates` →
+   `runProtocolV4DevelopmentForCandidate`), the existing `human_live` catch block's
+   `markProtocolV4ExecutionLeaseTerminalFailure` call (the exact point Defect 1's fix hooks into),
+   and confirmed `evidenceGate`/`candidates` are both in scope at that catch block. Result:
+   **success**. Full detail in the report's new §10.
 
-6. **Verification executed** (VERIFY.md Category 4, product/runtime code — the launcher itself is
-   plain Node/TypeScript tooling, not app runtime code, but is verified at the same level):
+6. **Verification executed:**
 
    ```
    node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+   npx jest --runInBand src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
    npx jest --runInBand src/features/nutrition/benchmark/protocolV4
    npx jest --runInBand src/features/nutrition/benchmark
    npx jest --runInBand
@@ -93,49 +90,46 @@
    npx eslint .
    npx prettier -c <every changed/added file>
    git --no-pager diff --check
-   git --no-pager status --short / diff --stat
    ```
 
 7. **Verification result:**
-   - `node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs`: **PASS**, 49/49
-     (13 suites), confirmed post-commit (`3e9fafd`) against the now-clean tree — including the full
-     mocked-`global.fetch` success path reaching the real `runProtocolV4LiveDevelopmentEntryPoint`.
-   - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 206/206 (10 suites, unchanged).
-   - `jest src/features/nutrition/benchmark`: **PASS**, 951/951 (80 suites).
-   - Full repo `jest --runInBand`: **PASS**, 2760/2760 tests, 256/256 suites, 776.8s, zero failures.
-   - `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors/warnings (run with the
-     launcher's transient `build/resolver-v3-048-live-launcher/` output removed first — see report
-     §6.4 for why). `prettier -c` over every changed file: **PASS** (after one `-w` fix on 4 files).
-   - `git diff --check`: **PASS**. `git status --short`: clean tree after commit.
-   - Final CodeGraph MCP recheck: **success** — full detail in report §6.4.
+   - `node --test` (launcher): **79/83 pass pre-commit** (the 4 failures are this launcher's own
+     working-tree-clean gate, which by construction cannot pass until this remediation's own files
+     are committed — this is the launcher's fail-closed contract being exercised honestly, the same
+     pattern as the original Phase B3 handoff).
+   - New `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 8/8.
+   - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 214/214 (11 suites; 206 prior +
+     8 new).
+   - `jest src/features/nutrition/benchmark`: **PASS**, 959/959 (81 suites).
+   - Full repo `jest --runInBand`: result to be confirmed and recorded in a follow-up docs commit
+     once the background run completes (same sequencing as the original Phase B3 handoff: this
+     launcher's own tests require a clean tree, so the full post-commit confirmation follows the
+     commit).
+   - `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors (run with the launcher's
+     transient `build/resolver-v3-048-live-launcher/` output removed first). `prettier -c`: **PASS**
+     after one `-w` pass on 4 files. `git diff --check`: **PASS**.
 
 8. **Known issues, blockers, residual risks:**
 
-   a. This launcher has never been run with a real `ANTHROPIC_API_KEY` anywhere in this task, in
-   source or in tests — only the fail-closed missing-credential path and a fully
-   `global.fetch`-mocked zero-network success path (isolated temp `repoRoot`, never the real
-   repository) were exercised. Real-provider behavior — actual token/cost records, real latencies,
-   real error shapes, real filesystem behavior on a real Windows machine when actually run from
-   `.env` — remains unproven by construction, exactly as before this task.
+   a. Same as before this remediation: the launcher has never been run with a real
+   `ANTHROPIC_API_KEY`; only the fail-closed missing-credential path and fully `global.fetch`-mocked
+   zero-network paths were exercised (now including failure paths with real, controlled dispatch
+   counts).
 
-   b. The PR #202 authorization (324 calls / USD 5.142528) must NOT be reused — unchanged from
-   prior reports' conclusion. Any future authorization must be issued via this launcher's
-   `--preflight` template against the commit it will actually be executed at; the launcher's own
-   exact-HEAD-match check rejects a stale one generically.
+   b. The PR #202 authorization (324 calls / USD 5.142528) must still not be reused — unchanged.
 
-   c. The 352-call / USD 5.586944 Holdout-inclusive budget remains unauthorized. Holdout stays a
-   separate, later human decision; no Holdout code is imported or referenced anywhere in this
-   launcher or its bridge (verified structurally in the test suite).
+   c. The 352-call / USD 5.586944 Holdout-inclusive budget remains unauthorized; no Holdout code is
+   imported or referenced anywhere in this launcher, its bridge, or this remediation.
+
+   d. Symlink/junction path-safety tests skip (not fail) on an environment that refuses unprivileged
+   link creation — verify these actually ran (not skipped) on the CI/review environment before
+   treating Defect 4's coverage as fully exercised there.
 
 9. **Human-review status / next steps:**
-   - **Not yet reviewed.** Needs review of this branch's diff and a green GitHub Verify before merge.
-   - Next step is a maintainer decision, in order: (1) run
-     `node scripts/run-resolver-v3-048-live-development.mjs --preflight` to get the current plan
-     identities and a fresh authorization template; (2) add `ANTHROPIC_API_KEY` to the existing
-     `.env` (an agent may not); (3) complete and human-approve the authorization template
-     (`authorizationTemplateOnly: false`, a real `humanApprovalReference`) at an external path; (4)
-     run `node --env-file=.env scripts/run-resolver-v3-048-live-development.mjs --execute
---authorization-file "<path>" --confirm-development-only --confirm-max-cost-usd "<value>"`.
+   - **Not yet reviewed / no PR opened**, per this task's explicit instruction.
+   - Next step: open a PR for `claude/resolver-v3-048-phase-b3-live-launcher` for human review, then
+     the same maintainer actions as before (add `ANTHROPIC_API_KEY` to `.env`, issue a new
+     authorization via `--preflight`'s template, run `--execute`).
    - Nothing in this task should be read as authorization to run live. No live call was made, no live
      evidence was produced, and `logs/resolver-v3-048-protocol-v4/` was never created under the real
      repository root.

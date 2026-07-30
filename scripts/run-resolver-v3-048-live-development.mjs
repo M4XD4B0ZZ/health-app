@@ -29,20 +29,25 @@
  * validates the real Master Plan, prints its exact identities/budget, and can emit a
  * non-authorizing authorization *template* (`authorizationTemplateOnly: true`) to an explicitly
  * given external path (or stdout). `--execute` requires a human-authored authorization file
- * (outside the repository, `authorizationTemplateOnly: false`, a non-empty
- * `humanApprovalReference`) that is validated field-by-field against a freshly rebuilt Master Plan
- * -- commit, plan/tree hash, model, pricing, candidate/prompt/schema/routing identities, every
- * Development budget number, concurrency, retry count, Holdout-not-authorized, and
- * automatic-continuation-disabled -- strictly BEFORE `ANTHROPIC_API_KEY` presence is even checked,
- * and strictly before any lease/live-root/artifact side effect. Only after every check above passes
- * does this launcher build the canonical `human_live` Development Authorization Record (via the
- * real `buildProtocolV4DevelopmentAuthorization`) and call the real
+ * (canonically outside the repository -- symlink/junction- and Windows-case-safe --,
+ * `authorizationTemplateOnly: false`, a non-empty `humanApprovalReference`, the current schema
+ * version) that is validated field-by-field against a freshly rebuilt Master Plan -- commit,
+ * plan/tree hash, model, pricing, currency, cache policy, candidate/prompt/schema/routing
+ * identities (an exact set: no duplicate/missing/unknown candidate ID), every Development budget
+ * number, concurrency, retry count, Holdout-not-authorized, and automatic-continuation-disabled --
+ * strictly BEFORE `ANTHROPIC_API_KEY` presence is even checked, and strictly before any
+ * lease/live-root/artifact side effect. Only after every check above passes does this launcher
+ * build the canonical `human_live` Development Authorization Record (via the real
+ * `buildProtocolV4DevelopmentAuthorization`) and call the real
  * `runProtocolV4LiveDevelopmentEntryPoint({ authorization, env: process.env })` -- no `repoRoot` is
  * ever passed to it on this production path. This launcher never imports or references any Holdout
  * function; Development is the only thing it can ever run, and it stops for good afterwards.
  *
  * No budget number is independently re-typed as an alternative truth anywhere in this file -- every
- * comparison below reads from the freshly built, freshly validated Master Plan.
+ * comparison below reads from the freshly built, freshly validated Master Plan. A failed run never
+ * fabricates zero usage: see `summarizeFailureUsage` below, which reads the authoritative
+ * `protocolV4FailureUsageSnapshot` the Protocol-v4 Development Runner attaches to a `human_live`
+ * failure (never re-deriving pricing/usage-parsing logic in this file).
  */
 
 import * as fs from 'node:fs';
@@ -196,10 +201,42 @@ export function loadCompiledBridge(repoRoot = REAL_REPO_ROOT) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Path safety -- the authorization file (and any explicit template-output path) must live outside
-// the repository, addressed by an absolute path, per the task's explicit contract.
+// Path safety -- the authorization file (and any explicit template-output path) must live
+// canonically outside the repository: symlink/junction-aware (resolved via `fs.realpathSync`, so a
+// link whose real target lands inside the repository is rejected exactly like a direct in-repo
+// path) and case-correct on Windows (NTFS path comparison is case-insensitive; POSIX stays
+// case-sensitive).
 // ---------------------------------------------------------------------------------------------
 
+function canonicalizeForComparison(p) {
+  return process.platform === 'win32' ? p.toLowerCase() : p;
+}
+
+function realpathOrNull(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return null;
+  }
+}
+
+function assertResolvedOutsideRepoRoot(repoRootReal, candidateReal, label) {
+  const a = canonicalizeForComparison(candidateReal);
+  const b = canonicalizeForComparison(repoRootReal);
+  const withSep = canonicalizeForComparison(repoRootReal + path.sep);
+  if (a === b || a.startsWith(withSep)) {
+    throw new LauncherError(
+      `LAUNCHER_PATH_INSIDE_REPO: ${label} resolves (via its real, symlink/junction-following, ` +
+        `case-normalized path) inside the repository root (${repoRootReal}).`,
+    );
+  }
+}
+
+/** Fast, purely lexical pre-check: absolute and not textually inside the repo. Always followed by
+ * `assertExistingPathCanonicallyOutsideRepoRoot`/`assertNewFileParentCanonicallyOutsideRepoRoot`
+ * (below) for the filesystem-canonical, symlink/junction-aware, Windows-case-correct proof --
+ * exported separately because it also validates basic shape (non-empty, absolute) before any
+ * filesystem call. */
 export function assertAbsoluteAndOutsideRepoRoot(repoRoot, candidatePath, label) {
   if (typeof candidatePath !== 'string' || candidatePath.length === 0) {
     throw new LauncherError(`LAUNCHER_PATH_MISSING: ${label} requires a value.`);
@@ -209,14 +246,72 @@ export function assertAbsoluteAndOutsideRepoRoot(repoRoot, candidatePath, label)
   }
   const resolvedRepoRoot = path.resolve(repoRoot);
   const resolvedCandidate = path.resolve(candidatePath);
-  const withSep = resolvedRepoRoot + path.sep;
-  if (resolvedCandidate === resolvedRepoRoot || resolvedCandidate.startsWith(withSep)) {
+  assertResolvedOutsideRepoRoot(resolvedRepoRoot, resolvedCandidate, label);
+  return resolvedCandidate;
+}
+
+/** For a path that must already exist (the authorization file): resolves both the candidate and the
+ * repo root through `fs.realpathSync` (following any symlink/junction to its real target) and
+ * re-checks outside-repo-ness against the REAL paths, case-normalized on Windows -- a symlink that
+ * is lexically outside the repo but whose real target lands inside it is rejected here even though
+ * the lexical pre-check above would have let it through. */
+export function assertExistingPathCanonicallyOutsideRepoRoot(repoRoot, candidatePath, label) {
+  const resolvedCandidate = assertAbsoluteAndOutsideRepoRoot(repoRoot, candidatePath, label);
+  if (!fs.existsSync(resolvedCandidate)) {
     throw new LauncherError(
-      `LAUNCHER_PATH_INSIDE_REPO: ${label} must be located outside the repository root ` +
-        `(${resolvedRepoRoot}).`,
+      `LAUNCHER_PATH_NOT_FOUND: ${label} does not exist: ${resolvedCandidate}`,
     );
   }
-  return resolvedCandidate;
+  const realCandidate = realpathOrNull(resolvedCandidate);
+  const realRepoRoot = realpathOrNull(repoRoot);
+  if (!realCandidate || !realRepoRoot) {
+    throw new LauncherError(
+      `LAUNCHER_PATH_REALPATH_FAILED: could not resolve the real filesystem path for ${label}.`,
+    );
+  }
+  assertResolvedOutsideRepoRoot(realRepoRoot, realCandidate, label);
+  return realCandidate;
+}
+
+/** For a NEW file that does not exist yet (the `--preflight` authorization-template output): a
+ * nonexistent path cannot itself be `realpathSync`-resolved, so this resolves the PARENT directory
+ * (which must already exist) through `fs.realpathSync` instead -- rejecting a parent that is itself
+ * a symlink/junction whose real target lands inside the repository -- then reconstructs the final
+ * write path from the REAL parent plus the original basename, so a symlinked parent's real target
+ * directory is what is actually written into (never the symlink's lexical location). */
+export function assertNewFileParentCanonicallyOutsideRepoRoot(repoRoot, candidatePath, label) {
+  const resolvedCandidate = assertAbsoluteAndOutsideRepoRoot(repoRoot, candidatePath, label);
+  const parentDir = path.dirname(resolvedCandidate);
+  if (!fs.existsSync(parentDir)) {
+    throw new LauncherError(
+      `LAUNCHER_PATH_PARENT_NOT_FOUND: the parent directory for ${label} does not exist: ${parentDir}`,
+    );
+  }
+  const realParent = realpathOrNull(parentDir);
+  const realRepoRoot = realpathOrNull(repoRoot);
+  if (!realParent || !realRepoRoot) {
+    throw new LauncherError(
+      `LAUNCHER_PATH_REALPATH_FAILED: could not resolve the real parent directory for ${label}.`,
+    );
+  }
+  assertResolvedOutsideRepoRoot(realRepoRoot, realParent, label);
+  return path.join(realParent, path.basename(resolvedCandidate));
+}
+
+/** Writes `content` to `finalPath` exclusively -- refuses to silently overwrite an existing file
+ * (atomic `wx` open flag; the existence check is the flag itself, not a separate racy `existsSync`
+ * probe). */
+export function writeFileExclusive(finalPath, content) {
+  try {
+    fs.writeFileSync(finalPath, content, { encoding: 'utf-8', flag: 'wx' });
+  } catch (e) {
+    if (e && e.code === 'EEXIST') {
+      throw new LauncherError(
+        `LAUNCHER_TEMPLATE_OUTPUT_ALREADY_EXISTS: refusing to overwrite an existing file at ${finalPath}.`,
+      );
+    }
+    throw e;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -340,6 +435,7 @@ export function buildAuthorizationTemplate(plan, commit, report) {
     developmentMaxTotalTokens: plan.budget.developmentMaxTokens,
     developmentMaxCostUsd: plan.budget.developmentMaxCostUsd,
     currency: plan.budget.currency,
+    noCachePolicy: plan.noCachePolicy,
     maxConcurrentRequests: plan.budget.maxConcurrentRequests,
     retryCount: plan.retryCount,
     authorizedPhase: 'development',
@@ -348,6 +444,13 @@ export function buildAuthorizationTemplate(plan, commit, report) {
     authorizationId: `protocol-v4-live-development-${commit.slice(0, 12)}-${randomUUID()}`,
     humanApprovalReference: '',
   };
+}
+
+/** The plan's own development-cost ceiling, rendered as JavaScript's canonical shortest
+ * round-trip decimal string (`String(number)`) -- the single source of truth `--confirm-max-cost-usd`
+ * must match byte-for-byte. Never introduces an alternative/hardcoded budget number. */
+export function canonicalDevelopmentMaxCostUsdString(plan) {
+  return String(plan.budget.developmentMaxCostUsd);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -367,6 +470,12 @@ export function validateAuthorizationFileStructure(authFile) {
     authFile !== null && typeof authFile === 'object' && !Array.isArray(authFile),
     'LAUNCHER_AUTHORIZATION_FILE_INVALID_SHAPE',
     'the authorization file must contain a single JSON object',
+  );
+  assertCheck(
+    authFile.launcherAuthorizationFileSchemaVersion === LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION,
+    'LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION_MISMATCH',
+    `launcherAuthorizationFileSchemaVersion must be exactly "${LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION}" ` +
+      '(missing, older, or unknown schema versions are refused)',
   );
   assertCheck(
     authFile.authorizationTemplateOnly === false,
@@ -402,21 +511,29 @@ export function validateAuthorizationAgainstRepositoryState(
   );
 }
 
+const CANDIDATE_IDENTITY_FIELDS = [
+  'version',
+  'promptVersion',
+  'promptHash',
+  'schemaVersion',
+  'schemaHash',
+  'routingVersion',
+];
+
+/** Exact set-and-identity comparison: same count, every candidate ID appearing exactly once, no
+ * unknown ID, no missing ID, and every version/prompt/schema/routing field identical -- order-
+ * independent (candidates are matched by ID, never by array position). */
 export function candidateIdentitiesMatch(actual, expected) {
   if (!Array.isArray(actual) || actual.length !== expected.length) return false;
+  const actualIds = actual.map((c) => (c && typeof c === 'object' ? c.id : undefined));
+  if (new Set(actualIds).size !== actualIds.length) return false; // rejects any duplicate ID
+  const expectedIdSet = new Set(expected.map((c) => c.id));
+  if (actualIds.some((id) => !expectedIdSet.has(id))) return false; // rejects any unknown ID
+  if (new Set(actualIds).size !== expectedIdSet.size) return false; // rejects a missing ID
   const byId = new Map(expected.map((c) => [c.id, c]));
   for (const candidate of actual) {
-    if (candidate === null || typeof candidate !== 'object') return false;
     const target = byId.get(candidate.id);
-    if (!target) return false;
-    for (const key of [
-      'version',
-      'promptVersion',
-      'promptHash',
-      'schemaVersion',
-      'schemaHash',
-      'routingVersion',
-    ]) {
+    for (const key of CANDIDATE_IDENTITY_FIELDS) {
       if (candidate[key] !== target[key]) return false;
     }
   }
@@ -445,9 +562,25 @@ export function validateAuthorizationAgainstPlan(authFile, plan, report) {
     'pricingVersion does not match the freshly-built plan',
   );
   assertCheck(
+    authFile.currency === plan.budget.currency,
+    'LAUNCHER_CURRENCY_MISMATCH',
+    'currency does not match the plan budget',
+  );
+  assertCheck(
+    authFile.noCachePolicy !== null &&
+      typeof authFile.noCachePolicy === 'object' &&
+      authFile.noCachePolicy.promptCachingConfigured ===
+        plan.noCachePolicy.promptCachingConfigured &&
+      authFile.noCachePolicy.positiveCacheTokensFailure ===
+        plan.noCachePolicy.positiveCacheTokensFailure,
+    'LAUNCHER_NO_CACHE_POLICY_MISMATCH',
+    'noCachePolicy does not match the plan exactly',
+  );
+  assertCheck(
     candidateIdentitiesMatch(authFile.candidateIdentities, report.candidates),
     'LAUNCHER_CANDIDATE_IDENTITY_MISMATCH',
-    'candidate/prompt/schema/routing identities do not match the freshly-built plan',
+    'candidate/prompt/schema/routing identities do not match the freshly-built plan exactly ' +
+      '(exact set required: no duplicate, missing, or unknown candidate ID)',
   );
   assertCheck(
     authFile.developmentCalls === plan.budget.developmentCalls,
@@ -502,26 +635,36 @@ export function validateAuthorizationAgainstPlan(authFile, plan, report) {
   );
 }
 
+/** `--confirm-max-cost-usd` must equal the plan's own canonical decimal string BYTE FOR BYTE --
+ * scientific notation, surrounding whitespace, a leading `+`, extra trailing zeros, or any other
+ * numerically-equivalent-but-differently-written value is refused. No alternative budget truth is
+ * ever introduced: the canonical string is derived only from `plan.budget.developmentMaxCostUsd`. */
 export function validateConfirmationFlags(parsedArgs, plan) {
   assertCheck(
     parsedArgs.confirmDevelopmentOnly === true,
     'LAUNCHER_CONFIRM_DEVELOPMENT_ONLY_MISSING',
     '--confirm-development-only is required',
   );
-  const confirmedCost = Number(parsedArgs.confirmMaxCostUsd);
+  const canonical = canonicalDevelopmentMaxCostUsdString(plan);
   assertCheck(
-    Number.isFinite(confirmedCost) && confirmedCost === plan.budget.developmentMaxCostUsd,
+    typeof parsedArgs.confirmMaxCostUsd === 'string' && parsedArgs.confirmMaxCostUsd === canonical,
     'LAUNCHER_CONFIRM_MAX_COST_MISMATCH',
-    `--confirm-max-cost-usd ("${parsedArgs.confirmMaxCostUsd}") must exactly equal the plan's ` +
-      `own developmentMaxCostUsd (${plan.budget.developmentMaxCostUsd})`,
+    `--confirm-max-cost-usd must be exactly the plan's own canonical decimal string ` +
+      `("${canonical}") -- scientific notation, surrounding whitespace, and any other ` +
+      'representation are refused',
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Actual-usage aggregation for the secret-free closing summary -- reads only the ledger entries
-// the real Development dispatch produced (never re-derives cost/tokens independently).
+// Usage accounting -- success and failure. A failed run NEVER fabricates zero usage: see
+// `summarizeFailureUsage`, which reads only the authoritative `protocolV4FailureUsageSnapshot` the
+// Protocol-v4 Development Runner itself attaches to a `human_live` failure (shared budget-gate
+// cumulative totals plus already-durable, readback-verified per-candidate ledgers) -- never a
+// second pricing/usage-parsing implementation in this file.
 // ---------------------------------------------------------------------------------------------
 
+/** Reads only the ledger entries the real, successful Development dispatch produced. Unchanged
+ * from before this remediation -- the success path's accounting stays exact. */
 export function summarizeActualUsage(evidence) {
   let calls = 0;
   let inputTokens = 0;
@@ -540,6 +683,109 @@ export function summarizeActualUsage(evidence) {
     }
   }
   return { calls, inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, costUsd };
+}
+
+export function summarizeSuccessUsage(evidence) {
+  const usage = summarizeActualUsage(evidence);
+  return {
+    accounting: 'exact',
+    calls: usage.calls,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+    costUsd: usage.costUsd,
+    reservedInputTokensUpperBound: null,
+    reservedOutputTokensUpperBound: null,
+    reservedCostUsdUpperBound: null,
+    completedCandidateIds: evidence.candidates.map((c) => c.candidateId),
+  };
+}
+
+/** Every failure that can occur AFTER `runProtocolV4DevelopmentForAllCandidates` starts its dispatch
+ * loop (i.e. after any real dispatch became possible) has `protocolV4FailureUsageSnapshot` attached
+ * to the thrown error by the Protocol-v4 Development Runner itself -- unconditionally, for every
+ * `human_live` failure inside that function. Every failure that can occur BEFORE that point (plan
+ * validation, authorization/credential checks, storage/authorization preflight, lease claim -- all
+ * inside `runProtocolV4LiveDevelopmentEntryPoint`, all strictly before dispatch) never attaches a
+ * snapshot, and is therefore provably zero real dispatch attempts -- reported as `'exact'`/`0`, not
+ * a guess. There is no third case this launcher can reach: it only ever authorizes `human_live`. */
+export function summarizeFailureUsage(error) {
+  const snapshot =
+    error && typeof error === 'object' ? error.protocolV4FailureUsageSnapshot : undefined;
+  if (!snapshot) {
+    return {
+      accounting: 'exact',
+      calls: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      reservedInputTokensUpperBound: null,
+      reservedOutputTokensUpperBound: null,
+      reservedCostUsdUpperBound: null,
+      completedCandidateIds: [],
+    };
+  }
+  const isExactZero = snapshot.accounting === 'exact_zero';
+  return {
+    accounting: isExactZero ? 'exact' : 'partial',
+    calls: snapshot.providerCallsAtLeast,
+    inputTokens: snapshot.confirmedInputTokens,
+    outputTokens: snapshot.confirmedOutputTokens,
+    totalTokens: snapshot.confirmedInputTokens + snapshot.confirmedOutputTokens,
+    costUsd: snapshot.confirmedCostUsd,
+    reservedInputTokensUpperBound: isExactZero ? null : snapshot.reservedInputTokensUpperBound,
+    reservedOutputTokensUpperBound: isExactZero ? null : snapshot.reservedOutputTokensUpperBound,
+    reservedCostUsdUpperBound: isExactZero ? null : snapshot.reservedCostUsdUpperBound,
+    completedCandidateIds: snapshot.completedCandidateIds,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Secret-free error reporting -- an explicit allowlist of this codebase's own domain error classes
+// (every one of them throws only fixed, self-authored constant-code messages, verified by source
+// inspection -- never a provider payload, header, proxy value, or arbitrary interpolated request/
+// response content). Any error outside the allowlist is reported by stable class/code ONLY, never
+// by its `.message` (which could, for a truly unexpected/foreign error, contain anything).
+// ---------------------------------------------------------------------------------------------
+
+const KNOWN_SAFE_ERROR_CLASSES = new Set([
+  'LauncherError',
+  'ProtocolV4LiveDevelopmentEntryPointError',
+  'ProtocolV4ExecutionLeaseError',
+  'ProtocolV4DevelopmentRunnerError',
+  'ProtocolV4DevelopmentAuthorizationError',
+  'ProtocolV4ArtifactStoreError',
+  'ProtocolV4ArtifactCrashError',
+  'ProtocolV4LiveExecutionContextError',
+  'ProtocolV4AttemptWrapperError',
+  'ProtocolV4AttemptContextError',
+  'ProtocolV4CallStateMachineError',
+  'ProtocolV4EvaluationDerivationError',
+  'ProtocolV4EvaluatorManifestError',
+  'ProtocolV4PricingAuthorityError',
+  'ProtocolV4ReservationError',
+  'ProtocolV4TelemetryLedgerError',
+]);
+
+/** Never returns raw provider payloads, headers, proxy values, or request/response content --
+ * `error.message` is only ever surfaced for a class on the allowlist above, and every one of those
+ * classes is verified (by source inspection, not assumption) to throw only fixed, self-authored
+ * constant-code strings. */
+export function classifyLauncherError(error) {
+  const name =
+    error && typeof error === 'object' && typeof error.name === 'string'
+      ? error.name
+      : 'UnknownError';
+  if (
+    KNOWN_SAFE_ERROR_CLASSES.has(name) &&
+    error &&
+    typeof error === 'object' &&
+    typeof error.message === 'string'
+  ) {
+    return { class: name, code: error.message };
+  }
+  return { class: 'unknown', code: name };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -562,13 +808,13 @@ export async function runPreflight({ repoRootForTests, authorizationTemplateOut 
 
   let authorizationTemplateWrittenTo = null;
   if (authorizationTemplateOut) {
-    const resolved = assertAbsoluteAndOutsideRepoRoot(
+    const finalPath = assertNewFileParentCanonicallyOutsideRepoRoot(
       REAL_REPO_ROOT,
       authorizationTemplateOut,
       '--authorization-template-out',
     );
-    fs.writeFileSync(resolved, `${JSON.stringify(template, null, 2)}\n`, 'utf-8');
-    authorizationTemplateWrittenTo = resolved;
+    writeFileExclusive(finalPath, `${JSON.stringify(template, null, 2)}\n`);
+    authorizationTemplateWrittenTo = finalPath;
   }
 
   return {
@@ -602,20 +848,18 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
     );
   }
 
-  // 1. Authorization file path shape: absolute, outside the repo, a regular file.
-  const resolvedAuthPath = assertAbsoluteAndOutsideRepoRoot(
+  // 1. Authorization file path: absolute, a regular file, and canonically (symlink/junction- and
+  // Windows-case-safe) outside the repository.
+  const resolvedAuthPath = assertExistingPathCanonicallyOutsideRepoRoot(
     REAL_REPO_ROOT,
     parsedArgs.authorizationFile,
     '--authorization-file',
   );
-  if (!fs.existsSync(resolvedAuthPath)) {
-    throw new LauncherError(`LAUNCHER_AUTHORIZATION_FILE_NOT_FOUND: ${resolvedAuthPath}`);
-  }
   if (!fs.statSync(resolvedAuthPath).isFile()) {
     throw new LauncherError(`LAUNCHER_AUTHORIZATION_FILE_NOT_REGULAR_FILE: ${resolvedAuthPath}`);
   }
 
-  // 2. Parse + structural validation.
+  // 2. Parse + structural validation (schema version, template flag, human approval reference).
   let authFile;
   try {
     authFile = JSON.parse(fs.readFileSync(resolvedAuthPath, 'utf-8'));
@@ -652,7 +896,7 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
   // 7. Authorization file vs. the freshly validated plan -- the plan is the sole authority.
   validateAuthorizationAgainstPlan(authFile, plan, report);
 
-  // 8. Confirmation flags.
+  // 8. Confirmation flags (canonical cost string).
   validateConfirmationFlags(parsedArgs, plan);
 
   // 9. Credential presence -- only now, after every check above has passed. Presence-only: the
@@ -700,7 +944,7 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
     );
     leaseStatus = lease ? lease.status : 'no_lease';
   } catch (e) {
-    leaseStatus = `unreadable: ${e.message}`;
+    leaseStatus = `unreadable: ${classifyLauncherError(e).code}`;
   }
 
   let authorizationConsumed = false;
@@ -714,18 +958,23 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
     authorizationConsumed = false;
   }
 
-  const usage = evidence
-    ? summarizeActualUsage(evidence)
-    : { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0 };
+  const usage = dispatchError
+    ? summarizeFailureUsage(dispatchError)
+    : summarizeSuccessUsage(evidence);
 
   const summary = {
     success: dispatchError === null,
-    error: dispatchError ? { name: dispatchError.name, message: dispatchError.message } : null,
+    error: dispatchError ? classifyLauncherError(dispatchError) : null,
+    usageAccounting: usage.accounting,
     actualProviderCalls: usage.calls,
     actualInputTokens: usage.inputTokens,
     actualOutputTokens: usage.outputTokens,
     actualTotalTokens: usage.totalTokens,
     actualCostUsd: usage.costUsd,
+    reservedInputTokensUpperBound: usage.reservedInputTokensUpperBound,
+    reservedOutputTokensUpperBound: usage.reservedOutputTokensUpperBound,
+    reservedCostUsdUpperBound: usage.reservedCostUsdUpperBound,
+    completedCandidateIds: usage.completedCandidateIds,
     developmentEvidenceRoot: evidence?.developmentEvidenceRootHash ?? null,
     canonicalArtifactRoot: artifactStoreRoot,
     leaseStatus,
@@ -756,10 +1005,11 @@ Usage:
 Exactly one of --preflight or --execute is required. --preflight never checks for
 ANTHROPIC_API_KEY and never writes under the real Development live root. --execute validates the
 given authorization file against a freshly rebuilt Master Plan (commit, plan/tree hash, model,
-pricing, candidate identities, every Development budget number, concurrency, retry count,
-Holdout-not-authorized, automatic-continuation-disabled) strictly before checking for
-ANTHROPIC_API_KEY or causing any side effect, then calls the real
-runProtocolV4LiveDevelopmentEntryPoint for Development only -- Holdout is never executed.
+pricing, currency, cache policy, exact candidate identity set, every Development budget number,
+concurrency, retry count, Holdout-not-authorized, automatic-continuation-disabled) strictly before
+checking for ANTHROPIC_API_KEY or causing any side effect, then calls the real
+runProtocolV4LiveDevelopmentEntryPoint for Development only -- Holdout is never executed. A failed
+run reports authoritative (never fabricated-zero) usage accounting.
 `);
 }
 
@@ -786,7 +1036,8 @@ async function main(argv) {
     console.log(JSON.stringify(result.summary, null, 2));
     return result.success ? 0 : 1;
   } catch (err) {
-    console.error(`${err.name ?? 'Error'}: ${err.message ?? String(err)}`);
+    const classified = classifyLauncherError(err);
+    console.error(`${classified.class}: ${classified.code}`);
     return 1;
   }
 }
@@ -799,7 +1050,8 @@ if (isMainModule) {
   main(process.argv.slice(2)).then(
     (code) => process.exit(code),
     (err) => {
-      console.error(`${err.name ?? 'Error'}: ${err.message ?? String(err)}`);
+      const classified = classifyLauncherError(err);
+      console.error(`${classified.class}: ${classified.code}`);
       process.exit(1);
     },
   );

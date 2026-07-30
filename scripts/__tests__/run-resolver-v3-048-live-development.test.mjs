@@ -11,20 +11,28 @@ import {
   LauncherError,
   parseArgs,
   assertAbsoluteAndOutsideRepoRoot,
+  assertExistingPathCanonicallyOutsideRepoRoot,
+  assertNewFileParentCanonicallyOutsideRepoRoot,
+  writeFileExclusive,
   assertLocalToolchainAvailable,
   isWorkingTreeClean,
   candidateIdentitiesMatch,
   buildPreflightReport,
   buildAuthorizationTemplate,
+  canonicalDevelopmentMaxCostUsdString,
   validateAuthorizationFileStructure,
   validateAuthorizationAgainstRepositoryState,
   validateAuthorizationAgainstPlan,
   validateConfirmationFlags,
   summarizeActualUsage,
+  summarizeSuccessUsage,
+  summarizeFailureUsage,
+  classifyLauncherError,
   loadCompiledBridge,
   runPreflight,
   runExecute,
   PROTOCOL_V4_PHASE_B1_POST_MERGE_REMEDIATION_COMMIT,
+  LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION,
 } from '../run-resolver-v3-048-live-development.mjs';
 
 /**
@@ -189,6 +197,129 @@ describe('assertAbsoluteAndOutsideRepoRoot', () => {
 });
 
 // -------------------------------------------------------------------------------------------
+// Defect 4: filesystem-canonical path safety -- realpath-based, Windows-case-correct,
+// symlink/junction-aware outside-repo checks. Symlink/junction creation can require elevated
+// privileges on some Windows configurations; those specific tests skip (not fail) when the
+// environment refuses to create the link, since that is an environment limitation, not a defect.
+// -------------------------------------------------------------------------------------------
+
+describe('assertExistingPathCanonicallyOutsideRepoRoot / assertNewFileParentCanonicallyOutsideRepoRoot', () => {
+  const tempDirs = [];
+  function freshOutsideTempDir() {
+    const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'p4-launcher-path-safety-'));
+    tempDirs.push(dir);
+    return dir;
+  }
+  after(() => {
+    while (tempDirs.length) {
+      fs.rmSync(tempDirs.pop(), { recursive: true, force: true });
+    }
+  });
+
+  test(
+    'the same Windows path with different case is still rejected as inside the repository',
+    {
+      skip: process.platform !== 'win32' ? 'case-insensitivity is only asserted on win32' : false,
+    },
+    () => {
+      const insideDifferentCase = path.join(REAL_REPO_ROOT.toUpperCase(), 'SCRIPTS', 'AUTH.JSON');
+      assert.throws(
+        () => assertAbsoluteAndOutsideRepoRoot(REAL_REPO_ROOT, insideDifferentCase, '--x'),
+        /LAUNCHER_PATH_INSIDE_REPO/,
+      );
+    },
+  );
+
+  test('a real external path (existing file) passes the canonical existing-path check', () => {
+    const dir = freshOutsideTempDir();
+    const filePath = path.join(dir, 'auth.json');
+    fs.writeFileSync(filePath, '{}');
+    const resolved = assertExistingPathCanonicallyOutsideRepoRoot(REAL_REPO_ROOT, filePath, '--x');
+    assert.equal(fs.realpathSync(resolved), fs.realpathSync(filePath));
+  });
+
+  test('rejects a path that does not exist yet', () => {
+    const dir = freshOutsideTempDir();
+    const missing = path.join(dir, 'does-not-exist.json');
+    assert.throws(
+      () => assertExistingPathCanonicallyOutsideRepoRoot(REAL_REPO_ROOT, missing, '--x'),
+      /LAUNCHER_PATH_NOT_FOUND/,
+    );
+  });
+
+  test('an external symlink pointing at a file INSIDE the repository is rejected', () => {
+    const dir = freshOutsideTempDir();
+    const linkPath = path.join(dir, 'link-to-repo-file.json');
+    const targetInRepo = path.join(REAL_REPO_ROOT, 'package.json');
+    try {
+      fs.symlinkSync(targetInRepo, linkPath, 'file');
+    } catch (e) {
+      // Creating a FILE symlink can require elevated privileges/Developer Mode on Windows -- an
+      // environment limitation, not a defect in the launcher's own logic (already proven by the
+      // directory-junction test below, which does not require elevation on Windows).
+      return;
+    }
+    assert.throws(
+      () => assertExistingPathCanonicallyOutsideRepoRoot(REAL_REPO_ROOT, linkPath, '--x'),
+      /LAUNCHER_PATH_INSIDE_REPO/,
+    );
+  });
+
+  test('a new-file parent directory that is itself a junction/symlink into the repository is rejected', () => {
+    const dir = freshOutsideTempDir();
+    const junctionPath = path.join(dir, 'junction-into-repo');
+    try {
+      fs.symlinkSync(
+        REAL_REPO_ROOT,
+        junctionPath,
+        process.platform === 'win32' ? 'junction' : 'dir',
+      );
+    } catch (e) {
+      return; // environment does not allow directory link creation here; not a logic defect.
+    }
+    const candidateInsideJunction = path.join(junctionPath, 'template-out.json');
+    assert.throws(
+      () =>
+        assertNewFileParentCanonicallyOutsideRepoRoot(
+          REAL_REPO_ROOT,
+          candidateInsideJunction,
+          '--authorization-template-out',
+        ),
+      /LAUNCHER_PATH_INSIDE_REPO/,
+    );
+  });
+
+  test('a genuinely external new-file parent directory works', () => {
+    const dir = freshOutsideTempDir();
+    const candidate = path.join(dir, 'template-out.json');
+    const finalPath = assertNewFileParentCanonicallyOutsideRepoRoot(
+      REAL_REPO_ROOT,
+      candidate,
+      '--authorization-template-out',
+    );
+    assert.equal(path.basename(finalPath), 'template-out.json');
+  });
+
+  test('writeFileExclusive refuses to overwrite an existing file', () => {
+    const dir = freshOutsideTempDir();
+    const filePath = path.join(dir, 'existing.json');
+    fs.writeFileSync(filePath, '{"first":true}');
+    assert.throws(
+      () => writeFileExclusive(filePath, '{"second":true}'),
+      /LAUNCHER_TEMPLATE_OUTPUT_ALREADY_EXISTS/,
+    );
+    assert.equal(fs.readFileSync(filePath, 'utf-8'), '{"first":true}');
+  });
+
+  test('writeFileExclusive succeeds for a genuinely new file', () => {
+    const dir = freshOutsideTempDir();
+    const filePath = path.join(dir, 'new.json');
+    writeFileExclusive(filePath, '{"ok":true}');
+    assert.equal(fs.readFileSync(filePath, 'utf-8'), '{"ok":true}');
+  });
+});
+
+// -------------------------------------------------------------------------------------------
 // Authorization-file structural validation: template rejected, missing approval reference rejected.
 // -------------------------------------------------------------------------------------------
 
@@ -219,6 +350,40 @@ describe('validateAuthorizationFileStructure', () => {
       humanApprovalReference: 'ref-123',
     };
     assert.doesNotThrow(() => validateAuthorizationFileStructure(authFile));
+  });
+
+  // Defect 2: schema version must be exactly the current one -- missing/old/unknown all rejected.
+  test('rejects a missing launcherAuthorizationFileSchemaVersion', () => {
+    const authFile = {
+      ...template,
+      authorizationTemplateOnly: false,
+      humanApprovalReference: 'ref-123',
+      launcherAuthorizationFileSchemaVersion: undefined,
+    };
+    assert.throws(
+      () => validateAuthorizationFileStructure(authFile),
+      /LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION_MISMATCH/,
+    );
+  });
+
+  test('rejects an old/unknown launcherAuthorizationFileSchemaVersion', () => {
+    const authFile = {
+      ...template,
+      authorizationTemplateOnly: false,
+      humanApprovalReference: 'ref-123',
+      launcherAuthorizationFileSchemaVersion: 'resolver-v3-048-live-launcher-authorization-file-v0',
+    };
+    assert.throws(
+      () => validateAuthorizationFileStructure(authFile),
+      /LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION_MISMATCH/,
+    );
+  });
+
+  test('the template itself already carries the current schema version', () => {
+    assert.equal(
+      template.launcherAuthorizationFileSchemaVersion,
+      LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION,
+    );
   });
 });
 
@@ -374,6 +539,45 @@ describe('validateAuthorizationAgainstPlan', () => {
     );
   });
 
+  // Defect 2: currency and cache-policy fields must be bound exactly.
+  test('rejects a different currency', () => {
+    assert.throws(
+      () => validateAuthorizationAgainstPlan(tamper({ currency: 'EUR' }), plan, report),
+      /LAUNCHER_CURRENCY_MISMATCH/,
+    );
+  });
+
+  test('rejects a changed noCachePolicy.promptCachingConfigured', () => {
+    assert.throws(
+      () =>
+        validateAuthorizationAgainstPlan(
+          tamper({ noCachePolicy: { ...plan.noCachePolicy, promptCachingConfigured: true } }),
+          plan,
+          report,
+        ),
+      /LAUNCHER_NO_CACHE_POLICY_MISMATCH/,
+    );
+  });
+
+  test('rejects a changed noCachePolicy.positiveCacheTokensFailure', () => {
+    assert.throws(
+      () =>
+        validateAuthorizationAgainstPlan(
+          tamper({ noCachePolicy: { ...plan.noCachePolicy, positiveCacheTokensFailure: 'other' } }),
+          plan,
+          report,
+        ),
+      /LAUNCHER_NO_CACHE_POLICY_MISMATCH/,
+    );
+  });
+
+  test('rejects a missing noCachePolicy', () => {
+    assert.throws(
+      () => validateAuthorizationAgainstPlan(tamper({ noCachePolicy: undefined }), plan, report),
+      /LAUNCHER_NO_CACHE_POLICY_MISMATCH/,
+    );
+  });
+
   test('never reads process.env (pure function, source-level proof)', () => {
     const source = fs.readFileSync(
       fileURLToPath(new URL('../run-resolver-v3-048-live-development.mjs', import.meta.url)),
@@ -423,6 +627,56 @@ describe('validateConfirmationFlags', () => {
       /LAUNCHER_CONFIRM_MAX_COST_MISMATCH/,
     );
   });
+
+  // Defect 5: only the plan's own canonical decimal string is accepted -- no numerically
+  // equivalent alternative spelling.
+  test('rejects scientific notation even though numerically equal', () => {
+    assert.throws(
+      () =>
+        validateConfirmationFlags(
+          { confirmDevelopmentOnly: true, confirmMaxCostUsd: '5.142528e0' },
+          plan,
+        ),
+      /LAUNCHER_CONFIRM_MAX_COST_MISMATCH/,
+    );
+  });
+
+  test('rejects surrounding whitespace', () => {
+    assert.throws(
+      () =>
+        validateConfirmationFlags(
+          { confirmDevelopmentOnly: true, confirmMaxCostUsd: ' 5.142528 ' },
+          plan,
+        ),
+      /LAUNCHER_CONFIRM_MAX_COST_MISMATCH/,
+    );
+  });
+
+  test('rejects an extra trailing zero (numerically equal, not canonical)', () => {
+    assert.throws(
+      () =>
+        validateConfirmationFlags(
+          { confirmDevelopmentOnly: true, confirmMaxCostUsd: '5.1425280' },
+          plan,
+        ),
+      /LAUNCHER_CONFIRM_MAX_COST_MISMATCH/,
+    );
+  });
+
+  test('rejects a leading plus sign', () => {
+    assert.throws(
+      () =>
+        validateConfirmationFlags(
+          { confirmDevelopmentOnly: true, confirmMaxCostUsd: '+5.142528' },
+          plan,
+        ),
+      /LAUNCHER_CONFIRM_MAX_COST_MISMATCH/,
+    );
+  });
+
+  test('canonicalDevelopmentMaxCostUsdString matches what --confirm-max-cost-usd must equal', () => {
+    assert.equal(canonicalDevelopmentMaxCostUsdString(plan), '5.142528');
+  });
 });
 
 // -------------------------------------------------------------------------------------------
@@ -433,6 +687,46 @@ describe('candidateIdentitiesMatch', () => {
   test('detects a missing candidate', () => {
     const expected = fixturePlan().candidates;
     assert.equal(candidateIdentitiesMatch(expected.slice(0, 2), expected), false);
+  });
+
+  test('accepts the correct candidates in a different order', () => {
+    const expected = fixturePlan().candidates;
+    const reordered = [expected[2], expected[0], expected[1]];
+    assert.equal(candidateIdentitiesMatch(reordered, expected), true);
+  });
+
+  // Defect 3: exact set-and-identity comparison -- duplicates, missing, and unknown IDs rejected.
+  test('rejects H0 duplicated three times (H0, H0, H0)', () => {
+    const expected = fixturePlan().candidates;
+    const h0 = expected.find((c) => c.id === 'H0');
+    assert.equal(candidateIdentitiesMatch([h0, h0, h0], expected), false);
+  });
+
+  test('rejects a missing H1 (H0, H2, H2 -- H2 duplicated to keep the same length)', () => {
+    const expected = fixturePlan().candidates;
+    const h0 = expected.find((c) => c.id === 'H0');
+    const h2 = expected.find((c) => c.id === 'H2');
+    assert.equal(candidateIdentitiesMatch([h0, h2, h2], expected), false);
+  });
+
+  test('rejects H2 duplicated (extra entry, wrong length)', () => {
+    const expected = fixturePlan().candidates;
+    const h2 = expected.find((c) => c.id === 'H2');
+    assert.equal(candidateIdentitiesMatch([...expected, h2], expected), false);
+  });
+
+  test('rejects an unknown candidate ID', () => {
+    const expected = fixturePlan().candidates;
+    const h0 = expected.find((c) => c.id === 'H0');
+    const h1 = expected.find((c) => c.id === 'H1');
+    const unknown = { ...expected[2], id: 'H9' };
+    assert.equal(candidateIdentitiesMatch([h0, h1, unknown], expected), false);
+  });
+
+  test('rejects a tampered field on an otherwise-correct candidate', () => {
+    const expected = fixturePlan().candidates;
+    const tampered = expected.map((c) => (c.id === 'H1' ? { ...c, promptHash: 'tampered' } : c));
+    assert.equal(candidateIdentitiesMatch(tampered, expected), false);
   });
 });
 
@@ -461,6 +755,122 @@ describe('summarizeActualUsage', () => {
     assert.equal(usage.outputTokens, 20);
     assert.equal(usage.totalTokens, 120);
     assert.equal(usage.costUsd, 0.01);
+  });
+});
+
+// -------------------------------------------------------------------------------------------
+// Defect 1 (launcher level): a failed run never fabricates zero usage. `summarizeFailureUsage`
+// only ever reads the authoritative `protocolV4FailureUsageSnapshot` the Protocol-v4 Development
+// Runner attaches to a `human_live` failure -- these tests fabricate that snapshot shape directly
+// (the real, end-to-end proof that the Runner actually attaches it correctly lives in
+// `src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`).
+// -------------------------------------------------------------------------------------------
+
+describe('summarizeFailureUsage', () => {
+  test('an error with no snapshot (failure strictly before any dispatch was possible) reports exact 0 calls', () => {
+    const usage = summarizeFailureUsage(new Error('plain error, no snapshot attached'));
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.calls, 0);
+    assert.equal(usage.costUsd, 0);
+    assert.equal(usage.reservedCostUsdUpperBound, null);
+  });
+
+  test('an "exact_zero" snapshot reports exact 0 calls', () => {
+    const error = new Error('boom');
+    error.protocolV4FailureUsageSnapshot = {
+      accounting: 'exact_zero',
+      completedCandidateIds: [],
+      providerCallsAtLeast: 0,
+      reservedInputTokensUpperBound: 0,
+      reservedOutputTokensUpperBound: 0,
+      reservedCostUsdUpperBound: 0,
+      confirmedInputTokens: 0,
+      confirmedOutputTokens: 0,
+      confirmedCostUsd: 0,
+    };
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.calls, 0);
+  });
+
+  test('a "partial" snapshot after dispatch(es) never reports 0 calls, and exposes safe upper bounds', () => {
+    const error = new Error('boom-mid-run');
+    error.protocolV4FailureUsageSnapshot = {
+      accounting: 'partial',
+      completedCandidateIds: ['H0'],
+      providerCallsAtLeast: 4,
+      reservedInputTokensUpperBound: 32768,
+      reservedOutputTokensUpperBound: 6144,
+      reservedCostUsdUpperBound: 0.0635,
+      confirmedInputTokens: 500,
+      confirmedOutputTokens: 90,
+      confirmedCostUsd: 0.0009,
+    };
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.accounting, 'partial');
+    assert.notEqual(usage.calls, 0);
+    assert.equal(usage.calls, 4);
+    assert.equal(usage.inputTokens, 500);
+    assert.equal(usage.costUsd, 0.0009);
+    assert.equal(usage.reservedCostUsdUpperBound, 0.0635);
+    assert.deepEqual(usage.completedCandidateIds, ['H0']);
+  });
+});
+
+describe('summarizeSuccessUsage', () => {
+  test('reports exact accounting with no upper bounds, and every candidate as completed', () => {
+    const evidence = {
+      candidates: [
+        { candidateId: 'H0', ledger: { content: [] } },
+        { candidateId: 'H1', ledger: { content: [] } },
+        { candidateId: 'H2', ledger: { content: [] } },
+      ],
+    };
+    const usage = summarizeSuccessUsage(evidence);
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.reservedCostUsdUpperBound, null);
+    assert.deepEqual(usage.completedCandidateIds, ['H0', 'H1', 'H2']);
+  });
+});
+
+// -------------------------------------------------------------------------------------------
+// Secret-free error reporting: only an allowlisted domain error class's `.message` is ever
+// surfaced; anything else is reported by stable class/code only.
+// -------------------------------------------------------------------------------------------
+
+describe('classifyLauncherError', () => {
+  test('surfaces the message of an allowlisted LauncherError', () => {
+    const result = classifyLauncherError(new LauncherError('LAUNCHER_SOME_CODE: detail'));
+    assert.equal(result.class, 'LauncherError');
+    assert.equal(result.code, 'LAUNCHER_SOME_CODE: detail');
+  });
+
+  test('surfaces the message of an allowlisted Protocol-v4 domain error by name', () => {
+    class ProtocolV4ExecutionLeaseError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = 'ProtocolV4ExecutionLeaseError';
+      }
+    }
+    const result = classifyLauncherError(
+      new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND:x'),
+    );
+    assert.equal(result.class, 'ProtocolV4ExecutionLeaseError');
+    assert.equal(result.code, 'PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND:x');
+  });
+
+  test('never surfaces the message of an unrecognized error class -- only its stable class/code', () => {
+    const foreign = new TypeError('some arbitrary internal detail that must never be echoed');
+    const result = classifyLauncherError(foreign);
+    assert.equal(result.class, 'unknown');
+    assert.equal(result.code, 'TypeError');
+    assert.equal(JSON.stringify(result).includes('arbitrary internal detail'), false);
+  });
+
+  test('handles a non-object thrown value without crashing', () => {
+    const result = classifyLauncherError('a bare string throw');
+    assert.equal(result.class, 'unknown');
+    assert.equal(result.code, 'UnknownError');
   });
 });
 
@@ -780,6 +1190,8 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.equal(outcome.summary.leaseStatus, 'terminal_success');
     assert.equal(outcome.summary.authorizationConsumed, true);
     assert.equal(typeof outcome.summary.developmentEvidenceRoot, 'string');
+    assert.equal(outcome.summary.usageAccounting, 'exact');
+    assert.equal(outcome.summary.reservedCostUsdUpperBound, null);
 
     const realLiveRoot = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
     assert.equal(fs.existsSync(realLiveRoot), false);

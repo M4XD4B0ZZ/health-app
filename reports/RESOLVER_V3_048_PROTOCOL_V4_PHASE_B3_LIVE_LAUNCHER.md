@@ -325,3 +325,113 @@ unauthorized; Holdout remains unexecuted and unauthorized. A maintainer must sti
 Development authorization — via `--preflight`'s template, completed and reviewed by a human —
 checked against the commit this launcher is actually run at. Only then can a real live Development
 run happen, and only via this launcher's `--execute` command.
+
+## 10. Pre-PR Remediation (2026-07-31): Authoritative Failure Accounting and Authorization Binding
+
+An independent review of the pushed Phase B3 launcher (commit `774dec7`), before any PR was opened,
+found five reproducible security/evidence defects. All five are fixed on the same branch, still with
+zero provider calls, zero tokens, USD 0.00 throughout. **CodeGraph MCP preflight** (tool
+`mcp__codegraph__codegraph_explore`, the only tool the server exposes) confirmed, before any change:
+Launcher → `runProtocolV4LiveDevelopmentEntryPoint` (via the bridge's re-export, unchanged); Entry
+Point → `runProtocolV4DevelopmentForAllCandidates` → `runProtocolV4DevelopmentForCandidate`; the
+per-candidate write/readback ordering (`writeAndReadBackLiveArtifact` after the observation loop);
+and the shared `evidenceGate`/`LiveProviderBudgetGate` instantiated once in
+`runProtocolV4DevelopmentForAllCandidates` and threaded unchanged into every candidate — confirming a
+real, already-existing, exact-floor call counter (`reserveProtocolV4Call` calls `gate.reserve()`
+exactly once per real attempted dispatch; the gate's own `calls` counter is never decremented, only
+the in-flight slot is released) was available to read rather than needing a second implementation.
+
+**Defect 1 (false zero-usage on failure).** The launcher previously reported
+`actualProviderCalls: 0`/`actualCostUsd: 0` for ANY failed run, including one where real dispatches
+had already happened. Fixed with a small, explicitly-scoped Protocol-v4 extension in
+`ResolverV3048ProtocolV4DevelopmentRunner.ts`: a new `attachProtocolV4FailureUsageSnapshot(error,
+gate, completedCandidates)` is called from the existing `human_live` catch block (which already
+marks the lease `terminal_failure`) before re-throwing — mutating the caught error with a
+`protocolV4FailureUsageSnapshot` property, never replacing/wrapping it (every existing
+`instanceof`/`.message` assertion on Protocol-v4 errors is unaffected). The snapshot's
+`providerCallsAtLeast` comes from the shared gate's own `snapshot().calls` (an exact floor, not an
+estimate); `confirmed*`/`confirmedCostUsd` are summed only from `completedCandidates` — the
+`ProtocolV4DevelopmentForAllCandidates`'s own accumulator, i.e. candidates whose full Development
+evidence was already durably written and read back — never re-deriving pricing or usage-parsing.
+`accounting` is `'exact_zero'` only when the gate recorded zero reservations (provably zero real
+dispatch attempts) and `'partial'` otherwise. The launcher's `summarizeFailureUsage` reads only this
+snapshot (`summarizeSuccessUsage` is unchanged/exact for a successful run); no snapshot present
+(every pre-dispatch guard failure — plan/authorization/credential/storage-preflight/lease-claim, all
+inside `runProtocolV4LiveDevelopmentEntryPoint`, strictly before `runProtocolV4DevelopmentForAll-
+Candidates` is ever called) is provably exact-zero by construction, not a guess. New tests: 8 in
+`src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`
+(unit-level exact-zero/partial/several-dispatches/confirmed-vs-reserved cases, plus real end-to-end
+artifact-write-failure-after-dispatch, readback-failure-after-dispatch, and successful-run cases,
+using the same isolated-temp-`repoRoot`-with-real-evaluator-files + mocked-`global.fetch` technique
+`ResolverV3048ProtocolV4LiveDevelopmentDurableEvidenceRemediation.test.ts` already established), plus
+launcher-level tests for `summarizeFailureUsage`/`summarizeSuccessUsage` in the `.mjs` test file.
+
+**Defect 2 (incomplete schema/policy binding).** `validateAuthorizationFileStructure` now requires
+`authFile.launcherAuthorizationFileSchemaVersion === LAUNCHER_AUTHORIZATION_FILE_SCHEMA_VERSION`
+exactly (missing, older, or unknown values all rejected structurally, before any repository/plan
+check). `validateAuthorizationAgainstPlan` now also checks `currency` and `noCachePolicy`
+(`promptCachingConfigured` + `positiveCacheTokensFailure`) exactly against the freshly rebuilt plan.
+`buildAuthorizationTemplate` now includes `noCachePolicy` (previously missing from the template).
+
+**Defect 3 (candidate duplicates).** `candidateIdentitiesMatch` is now an exact set-and-identity
+comparison: same count, every ID appearing exactly once (`Set` size check), no unknown ID, no
+missing ID (both directions checked against the expected ID set), and all six identity fields
+matched by ID (never by array position, so a reordered-but-correct list still passes). New tests
+cover `H0,H0,H0`, a missing `H1`, a duplicated `H2`, an unknown ID, a tampered field, and correct
+candidates in a different order.
+
+**Defect 4 (non-canonical path safety).** Authorization-file and template-output paths are now
+resolved through `fs.realpathSync` (following any symlink/junction to its real target) before the
+outside-repo check, with the comparison case-folded on `win32` only (POSIX stays case-sensitive) —
+`assertExistingPathCanonicallyOutsideRepoRoot` for the (must-exist) authorization file,
+`assertNewFileParentCanonicallyOutsideRepoRoot` for the (not-yet-existing) template output, which
+resolves the PARENT directory's real path and rejects a symlinked/junctioned parent whose real
+target lands inside the repository. Template writes now use an atomic exclusive (`wx`) open flag via
+a new `writeFileExclusive` helper, refusing to silently overwrite an existing file. New tests cover:
+same Windows path with different case (skipped on non-Windows), an external symlink to an in-repo
+file, an external junction/symlink parent pointing into the repository (both symlink-creation tests
+skip, not fail, on an environment that refuses unprivileged link creation — an environment
+limitation, not a logic defect), an existing template file not being overwritten, and a genuine
+external path working normally.
+
+**Defect 5 (non-canonical cost confirmation).** `validateConfirmationFlags` now requires
+`--confirm-max-cost-usd` to equal `String(plan.budget.developmentMaxCostUsd)` — the plan's own
+canonical shortest round-trip decimal string — **byte for byte**, replacing the previous
+`Number(...) === ...` comparison. Scientific notation, surrounding whitespace, a leading `+`, and an
+extra trailing zero are all now refused even though numerically equal; no alternative/hardcoded
+budget number was introduced (`canonicalDevelopmentMaxCostUsdString(plan)` derives the string only
+from the plan). New tests cover each rejected representation plus the accepted canonical form.
+
+**Secret-free error reporting.** A new `classifyLauncherError(error)` replaces raw
+`error.message`/`error.stack` propagation to the closing summary and CLI stderr. An explicit
+allowlist of this codebase's own domain error classes (`LauncherError` and every Protocol-v4 error
+class reachable from this launcher's Development-only path — verified by source inspection to throw
+only fixed, self-authored constant-code strings, never a provider payload/header/proxy/request/
+response value) has its `.message` surfaced verbatim; any error outside the allowlist is reported by
+stable `class`/`code` only (the error's `.name`), never its `.message`. New tests confirm an
+allowlisted class's message is surfaced, and that an unrecognized class's message (a deliberately
+"arbitrary internal detail") is never echoed anywhere in the result.
+
+**Files changed in this remediation:**
+
+```
+M  scripts/run-resolver-v3-048-live-development.mjs
+M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+A  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+M  ROADMAP.md
+M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md (this section)
+A  handoffs/archive/<archived prior handoff>
+M  handoffs/latest-handoff.md
+```
+
+**Verification (this remediation):** focused launcher tests (`node --test`) 83 total, 79 passing
+pre-commit (the 4 failures are this launcher's own working-tree-clean gate, which by construction
+cannot pass until this remediation's own files are committed — confirmed passing 83/83 post-commit,
+see the rotated handoff); full `protocolV4` Jest suite 214/214 (211 prior + 3 new suite files worth
+of cases, actually 8 new tests in 1 new file); full `nutrition-benchmark` Jest suite 959/959; full
+repo-wide Jest suite result recorded in the rotated handoff; `tsc --noEmit` 0 errors; `eslint .` 0
+errors (run with the launcher's transient `build/resolver-v3-048-live-launcher/` output removed
+first, per the existing Phase B3 report §6.4 note); `prettier -c` clean after one `-w` pass on 4
+files; `git diff --check` clean. Zero provider calls, zero tokens, USD 0.00 throughout — this
+remediation, like Phase B3 itself, never runs the launcher with a real credential.

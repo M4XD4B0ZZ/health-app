@@ -615,10 +615,15 @@ Resolver): Phase-A zero-call infrastructure keeps being hardened (PR #194, #195,
 so far — Execution Lease, Holdout Admission Gate, dispatch-lease/authorization-binding closure —
 each with green `npm run verify`), but no live Development or Holdout run has occurred, G2 is not
 passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
-live evidence that passes every mandatory G2 dimension. See RESOLVER-V3-048's own entry (Resolver
-V3 epic) for the current, authoritative status text, the binding decision rule, and the currently
-unauthorized proposal-only budget — do not rely on the summary here for exact PR/commit detail, it
-will lag.
+live evidence that passes every mandatory G2 dimension. As of 2026-07-30 the maintainer has issued
+an explicit live Development authorization (324 calls / USD 5.142528, matching the frozen plan
+exactly), but it could not be executed and remains **unconsumed at 0 calls / USD 0**: the repository
+has no live dispatch path — the Development Runner is hard-wired to a fake transport, a placeholder
+credential and a constant `liveExecution: false` — and no credential exists in the environment. The
+next real step is therefore a scoped, separately reviewed live-wiring task, not another Phase-A
+hardening pass. See RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative
+status text, the binding decision rule, and the budget position — do not rely on the summary here
+for exact PR/commit detail, it will lag.
 
 `CONTEXT-GOV-001` (task-start context governance: the read contract below, and the
 `handoffs/` rotation convention) is `done` — see its entry under "EPIC: Developer Tooling &
@@ -9402,6 +9407,62 @@ Holdout Runners, lease crash detection, full Development+Holdout evidence revali
 authoritative final-report separation); live Development not authorized` (pending green GitHub Verify
 on `claude/resolver-v3-048-final-dispatch-authorization-closure-f3ky3z`; PR to be opened manually by
 the user).
+
+**Live Development authorization received and preflight-blocked (2026-07-30, basis `49c727a`, tip of
+`chore/clean-arch-structure`):** the maintainer issued the first explicit live authorization for this
+task's Development phase — model pinned to `claude-haiku-4-5-20251001`, ceilings of 324 provider
+calls / 3,151,872 reserved tokens / USD 5.142528, concurrency 1, no retries outside the frozen plan,
+no budget increase, no Holdout calls, no automatic continuation, no production wiring change. The
+authorization was verified against the pre-frozen Master Plan and matches its `budget` exactly on
+every dimension (`developmentCalls` 324, `developmentMaxTokens` 3,151,872, `developmentMaxCostUsd`
+5.142528, `maxConcurrentRequests` 1, `modelId` `claude-haiku-4-5-20251001`, pricing version
+`anthropic-messages-2025-10-01-v1`), with the 28-call / USD 0.444416 Holdout remainder correctly
+excluded. The authorization is therefore sound; it was not the reason execution stopped.
+
+**The live Development run was NOT executed.** Preflight stopped fail-closed on two independent
+blockers: (1) `ANTHROPIC_API_KEY` is not set in the execution environment and no `.env` exists —
+`.env`/`.env.*` are under `AGENTS.md`'s absolute protection, so an agent may not create one, and
+`createLiveVariantCInterpreter` correctly throws rather than falling back to a fixture provider; (2)
+decisively, **no live dispatch path exists in the code at all**. `runOneObservation`
+(`ResolverV3048ProtocolV4DevelopmentRunner.ts:167`, the single dispatch function shared by the
+Development and Holdout Runners) hard-codes a canned-HTTP-200 fake transport
+(`jsonFetch(200, resolvedInterpretedEnvelopeForSchema(...))`, lines 275-281), the placeholder
+credential literal `'protocol-v4-development-not-a-credential'` (line 284), `buildFakeSources` (line 282) and `buildFakeZeroCounts` (lines 303-329), and exposes no transport/credential/environment
+parameter through which a real one could be injected; and `runProtocolV4DevelopmentForCandidate`
+passes a constant `liveExecution: false` (line 421), so the Development Runner structurally can never
+reach `assertDevelopmentAuthorized`'s live branch — the branch that requires `kind: 'human_live'` plus
+a `humanApprovalReference`. The human-live authorization machinery is fully implemented and correct;
+nothing calls it in live mode. This is consistent with the merged history rather than a regression:
+every Protocol-v4 PR to date (#190-#196) deliberately built zero-call infrastructure, and the
+Development Authorization module's own docstring records that only `kind: 'fake_dry_run'` is ever
+produced or exercised. Running the existing runner anyway would have completed all 324 observations
+and sealed a structurally valid, complete artifact set at 0 calls / USD 0 against fixtures — exactly
+this task's first-listed risk ("fixture fallback masquerading as live evidence") — so it was not run.
+
+Actual consumption: **0 provider calls, 0 tokens, USD 0.00**; no credential read; no `human_live`
+authorization created; no execution lease claimed; no Holdout observation; no artifact written under
+`logs/resolver-v3-048-*` or `tmp/resolver-v3-048-protocol-v4-dry-run`; no production wiring touched.
+The original authorization remains **unconsumed** (324/324 calls, 3,151,872/3,151,872 tokens, USD
+5.142528/5.142528 remaining) and is preserved as the historical human decision record — it is **not**
+transferable to a future changed code state and **must not be automatically reused** once live
+wiring lands: a live-dispatch implementation necessarily changes the dispatch code
+(`runOneObservation`) this authorization was checked against, so a **new, explicit human
+authorization** is required before any live execution, re-verified against the actually merged
+live-wiring commit, the re-derived plan/execution-tree/candidate/pricing/budget identities at that
+commit, and the exact Development ceilings — never carried forward from this preflight by default.
+G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`. Full evidence, the verified
+plan/authorization reconciliation, the CodeGraph MCP preflight record, and the enumerated
+(unimplemented, unauthorized) requirements for a real live run are in
+`reports/RESOLVER_V3_048_LIVE_DEVELOPMENT_AUTHORIZATION_PREFLIGHT.md`. Awaiting a separate human
+decision on how to proceed; no Holdout decision is pending, because Development did not run — Holdout
+remains fully excluded and separately decision-pending regardless of how Development is resolved.
+
+Status: `in_progress — live Development authorization received and verified against the frozen plan,
+but NOT executed: no credential in environment and no live dispatch path in code (fake transport,
+placeholder credential and constant liveExecution: false in the Development Runner); 0 calls, USD 0,
+original authorization unconsumed but not carried forward to a future changed code state — a new
+explicit human authorization is required before any live execution; awaiting human decision`
+(2026-07-30, basis `49c727a`; preflight on `claude/resolver-v3-048-live-dev-8sjtm8`).
 
 #### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
 

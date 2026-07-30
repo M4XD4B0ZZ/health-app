@@ -2,8 +2,8 @@ import * as path from 'node:path';
 import {
   buildProtocolV4MasterPlan,
   validateProtocolV4MasterPlan,
-  ARTIFACT_PATHS,
   PROTOCOL_V4_LIVE_ROOT,
+  protocolV4DevelopmentArtifactContractRelativePaths,
   type ProtocolV4DevelopmentEvidence,
   type ProtocolV4MasterPlan,
 } from './ResolverV3048ProtocolV4';
@@ -52,12 +52,6 @@ export class ProtocolV4LiveDevelopmentEntryPointError extends Error {
     this.name = 'ProtocolV4LiveDevelopmentEntryPointError';
   }
 }
-
-const DEVELOPMENT_CHECKPOINT_RELATIVE_PATHS: readonly string[] = [
-  ARTIFACT_PATHS.developmentCheckpointH0,
-  ARTIFACT_PATHS.developmentCheckpointH1,
-  ARTIFACT_PATHS.developmentCheckpointH2,
-];
 
 export async function runProtocolV4LiveDevelopmentEntryPoint(input: {
   authorization: ProtocolV4DevelopmentAuthorizationRecord;
@@ -114,7 +108,14 @@ export async function runProtocolV4LiveDevelopmentEntryPoint(input: {
     throw new ProtocolV4LiveDevelopmentEntryPointError(
       'PROTOCOL_V4_LIVE_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED',
     );
-  for (const relativePath of DEVELOPMENT_CHECKPOINT_RELATIVE_PATHS) {
+  // RESOLVER-V3-048 Phase B1 post-merge remediation: every canonical Development-phase artifact
+  // target (per-candidate checkpoint/raw-results/category-table/telemetry/ledger/evaluation, plus the
+  // shared plan-manifest/candidate-evaluation-table) -- derived from `plan.artifactContract`, never a
+  // hand-picked subset -- must be unused and crash-free before a lease is ever claimed.
+  // `isProtocolV4LiveArtifactTargetUnused` itself throws `ProtocolV4ArtifactCrashError` on crash
+  // evidence (a leftover `*.tmp-*` sibling with no final file), so this loop checks BOTH "already
+  // used" and "crash evidence" for every target.
+  for (const relativePath of protocolV4DevelopmentArtifactContractRelativePaths(plan)) {
     if (!isProtocolV4LiveArtifactTargetUnused(artifactStoreRoot, relativePath, input.repoRoot))
       throw new ProtocolV4LiveDevelopmentEntryPointError(
         `PROTOCOL_V4_LIVE_DEVELOPMENT_ARTIFACT_TARGET_REUSED:${relativePath}`,

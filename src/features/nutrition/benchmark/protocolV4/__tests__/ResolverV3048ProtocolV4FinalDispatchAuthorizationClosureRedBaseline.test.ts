@@ -72,6 +72,7 @@ import {
 } from '../ResolverV3048ProtocolV4DryRunChoice';
 import { runProtocolV4MiniProtocolRun } from '../ResolverV3048ProtocolV4DryRun';
 import * as Evaluation from '../ResolverV3048ProtocolV4Evaluation';
+import { deriveProtocolV4AuthorizationStorageKey } from '../ResolverV3048ProtocolV4StorageKey';
 
 const plan = buildProtocolV4MasterPlan();
 validateProtocolV4MasterPlan(plan);
@@ -490,7 +491,12 @@ describe('Items 13-16: Execution Lease crash detection and transition-race handl
   it('13: an orphaned leases/<authorizationId>/v1.json.tmp-* with no v1.json is an explicit crash, never "no lease"', () => {
     const root = freshRoot('item-13');
     const authorizationId = 'item-13-auth';
-    const leaseDir = path.resolve(process.cwd(), root, 'leases', authorizationId);
+    const leaseDir = path.resolve(
+      process.cwd(),
+      root,
+      'leases',
+      deriveProtocolV4AuthorizationStorageKey(authorizationId),
+    );
     fs.mkdirSync(leaseDir, { recursive: true });
     fs.writeFileSync(path.join(leaseDir, 'v1.json.tmp-99999-orphaned'), '{"crashed":true}');
 
@@ -530,7 +536,12 @@ describe('Items 13-16: Execution Lease crash detection and transition-race handl
   it('14: the same holds for a later transition version (v2.json.tmp-*) sitting next to a valid, current v1', () => {
     const root = freshRoot('item-14');
     const { authorization } = claimDevelopmentLease(root, 'item-14-auth');
-    const leaseDir = path.resolve(process.cwd(), root, 'leases', authorization.authorizationId);
+    const leaseDir = path.resolve(
+      process.cwd(),
+      root,
+      'leases',
+      deriveProtocolV4AuthorizationStorageKey(authorization.authorizationId),
+    );
     // Simulates a crashed `terminal_success` transition attempt after `claimed -> executing`
     // already committed cleanly.
     fs.writeFileSync(path.join(leaseDir, 'v3.json.tmp-12345-orphaned'), '{"crashed":true}');
@@ -543,7 +554,12 @@ describe('Items 13-16: Execution Lease crash detection and transition-race handl
   it('15: recovery never silently deletes/overwrites crash evidence in the normal claim/read/dispatch path, and permanently poisons the authorization ID', () => {
     const root = freshRoot('item-15');
     const { authorization } = claimDevelopmentLease(root, 'item-15-auth');
-    const leaseDir = path.resolve(process.cwd(), root, 'leases', authorization.authorizationId);
+    const leaseDir = path.resolve(
+      process.cwd(),
+      root,
+      'leases',
+      deriveProtocolV4AuthorizationStorageKey(authorization.authorizationId),
+    );
     fs.writeFileSync(path.join(leaseDir, 'v3.json.tmp-55555-orphaned'), '{"crashed":true}');
     // Explicit, separate recovery is the ONLY way past the crash.
     const recovered = recoverProtocolV4ExecutionLeaseCrash({

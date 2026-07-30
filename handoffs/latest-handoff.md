@@ -4,7 +4,9 @@
    authorization was received, verified against the frozen plan, and **not executed**. Branch:
    `claude/resolver-v3-048-live-dev-8sjtm8`. Basis: `49c727a` (tip of `chore/clean-arch-structure`).
    **Actual consumption: 0 provider calls, 0 tokens, USD 0.00.** The authorization is unconsumed and
-   still valid.
+   preserved as the historical human decision record for these exact ceilings — but it is **not**
+   transferable to a future, changed live-wiring code state and must **not** be automatically reused
+   once that code lands (see item 7).
 
 2. **What changed:** documentation/evidence only. A new preflight report records the authorization,
    its exact reconciliation against the pre-frozen Master Plan, the two blockers that stopped
@@ -58,9 +60,9 @@
    in a CI checkout — the same file and the same reasoning are already documented in the archived
    `CODEGRAPH-001` Phase B handoff. It was deliberately left unmodified rather than reformatted to
    make the command green. The `verify` chain was therefore completed stage-by-stage instead: `tsc
-   --noEmit` and `eslint .` passed inside the aborted `npm run verify` run; Prettier conformance was
+--noEmit` and `eslint .` passed inside the aborted `npm run verify` run; Prettier conformance was
    re-checked across **all tracked formattable files** (`git ls-files '*.md' '*.ts' '*.tsx' '*.js'
-   '*.mjs' '*.cjs' '*.json' '*.yml' '*.yaml' | xargs npx prettier -c`) — "All matched files use
+'*.mjs' '*.cjs' '*.json' '*.yml' '*.yaml' | xargs npx prettier -c`) — "All matched files use
    Prettier code style!"; and `npm run test` was run separately (result in item 6). GitHub Verify on
    this branch is the authoritative confirmation, since CI has no `.claude/settings.local.json`.
 
@@ -99,15 +101,24 @@
      `logs/resolver-v3-048-protocol-v4` root instead of the dry-run root. That is a substantive,
      separately reviewable change and should not be written and executed in the same unattended pass
      that spends the budget. It was deliberately **not** started here.
-   - Because the present authorization was issued against a code state that cannot spend it, it
-     should be explicitly re-confirmed against whatever live wiring lands later.
+   - The present authorization was issued against, and verified against, today's code, which cannot
+     spend it (item 3). It does **not** cover whatever live-wiring code lands later and must **not**
+     be automatically reused once that code exists: a **new, explicit human authorization** is
+     required before any live execution, re-verified against the actually merged live-wiring commit,
+     the plan/execution-tree/candidate/pricing/budget identities re-derived at that commit, and the
+     exact Development ceilings (calls/tokens/cost/concurrency). This is a new authorization, not a
+     renewal of the present one.
    - G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`. No Holdout decision is pending,
-     because Development did not run. The seven V3-039 evidence files, corpus, ground truth, and the
+     because Development did not run, and Holdout stays fully excluded and separately
+     decision-pending in every case. The seven V3-039 evidence files, corpus, ground truth, and the
      corrected G2 evaluator are untouched.
    - No UI/presentation-layer file was touched, so no `docs/MANUAL_TESTING_GAPS.md` entry is required.
 
-8. **Human review/next steps:** review this preflight and decide how to proceed on Development — the
-   authorization stays valid and unconsumed meanwhile. The realistic options are to open a scoped
-   live-wiring task (blocker 2) and supply a credential (blocker 1) before re-confirming the budget,
-   or to leave V3-048 parked. No PR has been opened for this branch; open one if the documentation
-   should land on `chore/clean-arch-structure`.
+8. **Human review/next steps:** review this preflight and decide how to proceed on Development. The
+   present authorization is unconsumed (0 calls / 0 tokens / USD 0.00 spent) and preserved as the
+   historical decision record, but it is not valid for execution against a future changed live-wiring
+   code state and must not be automatically reused once that code lands — a new, explicit human
+   authorization (item 7) is required first. The realistic options are to open a scoped live-wiring
+   task (blocker 2) and supply a credential (blocker 1), then obtain that new authorization against
+   the merged result, or to leave V3-048 parked. No PR has been opened for this branch; open one if
+   the documentation should land on `chore/clean-arch-structure`.

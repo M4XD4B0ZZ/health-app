@@ -9442,18 +9442,27 @@ this task's first-listed risk ("fixture fallback masquerading as live evidence")
 Actual consumption: **0 provider calls, 0 tokens, USD 0.00**; no credential read; no `human_live`
 authorization created; no execution lease claimed; no Holdout observation; no artifact written under
 `logs/resolver-v3-048-*` or `tmp/resolver-v3-048-protocol-v4-dry-run`; no production wiring touched.
-The authorization remains **unconsumed** (324/324 calls, 3,151,872/3,151,872 tokens, USD
-5.142528/5.142528 remaining) and valid for a future run. G2 remains **not passed**; `RESOLVER-V3-010`
-remains `blocked`. Full evidence, the verified plan/authorization reconciliation, the CodeGraph MCP
-preflight record, and the enumerated (unimplemented, unauthorized) requirements for a real live run
-are in `reports/RESOLVER_V3_048_LIVE_DEVELOPMENT_AUTHORIZATION_PREFLIGHT.md`. Awaiting a separate
-human decision on how to proceed; no Holdout decision is pending, because Development did not run.
+The original authorization remains **unconsumed** (324/324 calls, 3,151,872/3,151,872 tokens, USD
+5.142528/5.142528 remaining) and is preserved as the historical human decision record — it is **not**
+transferable to a future changed code state and **must not be automatically reused** once live
+wiring lands: a live-dispatch implementation necessarily changes the dispatch code
+(`runOneObservation`) this authorization was checked against, so a **new, explicit human
+authorization** is required before any live execution, re-verified against the actually merged
+live-wiring commit, the re-derived plan/execution-tree/candidate/pricing/budget identities at that
+commit, and the exact Development ceilings — never carried forward from this preflight by default.
+G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`. Full evidence, the verified
+plan/authorization reconciliation, the CodeGraph MCP preflight record, and the enumerated
+(unimplemented, unauthorized) requirements for a real live run are in
+`reports/RESOLVER_V3_048_LIVE_DEVELOPMENT_AUTHORIZATION_PREFLIGHT.md`. Awaiting a separate human
+decision on how to proceed; no Holdout decision is pending, because Development did not run — Holdout
+remains fully excluded and separately decision-pending regardless of how Development is resolved.
 
 Status: `in_progress — live Development authorization received and verified against the frozen plan,
 but NOT executed: no credential in environment and no live dispatch path in code (fake transport,
 placeholder credential and constant liveExecution: false in the Development Runner); 0 calls, USD 0,
-authorization unconsumed; awaiting human decision` (2026-07-30, basis `49c727a`; preflight on
-`claude/resolver-v3-048-live-dev-8sjtm8`).
+original authorization unconsumed but not carried forward to a future changed code state — a new
+explicit human authorization is required before any live execution; awaiting human decision`
+(2026-07-30, basis `49c727a`; preflight on `claude/resolver-v3-048-live-dev-8sjtm8`).
 
 #### RESOLVER-V3-049: BLS Generic Fast-Path Ambiguity Policy Remediation
 

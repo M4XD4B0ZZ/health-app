@@ -26,6 +26,12 @@ sämtliche Evidenz und tatsächlichen Kosten vollständig berichten und auf eine
 Entscheidung warten") and `AGENTS.md`'s fail-closed and no-fake-completion rules, this task stops
 here and reports. G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`.
 
+**Unconsumed is not the same as executable-later.** The authorization is unspent (Section 6) and is
+preserved as the historical record of this human decision, but it was issued against, and verified
+against, today's code — code that cannot dispatch a single live call. It does not carry forward to
+whatever code exists once live wiring is implemented, and it must not be automatically reused at that
+point. See Section 9 for exactly what a live run requires instead.
+
 ## 2. Authorization as received
 
 Scope: live Development phase only, model pinned to `claude-haiku-4-5-20251001`.
@@ -176,7 +182,18 @@ artifact was written anywhere (`logs/resolver-v3-048-*` and
 | Production wiring changes           | **none** |
 
 Budget remaining against the authorization: 324 / 324 calls, 3,151,872 / 3,151,872 tokens,
-USD 5.142528 / 5.142528. The authorization is **unconsumed** and remains available for a future run.
+USD 5.142528 / 5.142528. The authorization is **unconsumed** — but that is a statement about actual
+spend, not about future executability. It is preserved here as the historical human decision record
+for these exact ceilings and this exact model, nothing more. It does **not** carry forward to a
+future, changed code state, and it **must not be automatically reused** once a live-dispatch path
+exists: Section 8 below changes the dispatch code (`runOneObservation`) this authorization was
+checked against, so by construction a re-derived plan/execution-tree/candidate/pricing/budget
+identity set will exist at that point, and this authorization was never checked against it. A live
+Development run therefore requires a **new, explicit human authorization** — re-verified against the
+actually merged live-wiring commit, the identities re-derived at that commit, and the exact
+Development ceilings (calls/tokens/cost/concurrency) — before a single provider call is made. Holdout
+stays fully excluded from this authorization in every case and remains a separate decision
+regardless of how Development is resolved.
 
 ## 7. CodeGraph MCP preflight (AGENTS.md "CodeGraph Availability")
 
@@ -218,14 +235,28 @@ review, and green `npm run verify` **before** any budget is spent:
 5. A live entry point distinct from the zero-network Mini-Run, claiming a real Execution Lease and
    writing to the canonical `logs/resolver-v3-048-protocol-v4` artifact root rather than the dry-run
    root.
-6. Explicit re-confirmation of this budget authorization against that new code, since the present
-   authorization was issued against a code state that cannot spend it.
+6. A **new, explicit human authorization** for live execution — not a "re-confirmation" or renewal of
+   the present one. The present authorization was issued against, and verified against, the current
+   code state (Section 3), which cannot dispatch a single live call (Sections 4–5). Once items 2–5
+   land, the dispatch code, and therefore the plan/execution-tree/candidate/pricing/budget identities
+   derived from it, will by construction differ from what this authorization was checked against.
+   This authorization must **not** be treated as still covering that later state and must **not** be
+   automatically carried forward or reused once live wiring exists. The new authorization must be
+   checked against: the actually merged live-wiring commit; the plan/execution-tree/candidate/
+   pricing/budget identities re-derived at that commit (via the same reconciliation performed in
+   Section 3, re-run against the new commit); and the exact Development ceilings (calls, tokens,
+   cost, concurrency) for that run. Holdout remains fully excluded from any such authorization and
+   stays a separate, later human decision in every case.
 
 Items 2–5 are a substantive change to the dispatch core that every merged Phase-A PR was built to
 guard. They should not be written and executed in the same unattended pass that spends the budget.
 
 ## 9. Decision required (human)
 
-This task stops here and waits. No Holdout decision is pending, because Development did not run. The
-open question is instead how to proceed on Development itself — the authorization stays valid and
-unconsumed in the meantime.
+This task stops here and waits. No Holdout decision is pending, because Development did not run, and
+Holdout stays excluded and separately decision-pending in every case. The open question is how to
+proceed on Development itself. The present authorization remains **unconsumed** (0 calls / 0 tokens /
+USD 0.00 actually spent) and is preserved as the historical record of this human decision — it is
+**not** valid for execution against a future, changed live-wiring code state, and it must **not** be
+automatically reused once that code lands. A live Development run requires a new, explicit human
+authorization per Section 8, item 6, before any provider call is made.

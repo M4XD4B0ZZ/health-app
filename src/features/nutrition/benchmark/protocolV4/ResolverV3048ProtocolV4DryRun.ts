@@ -67,6 +67,7 @@ import {
   assertDevelopmentAuthorized,
 } from './ResolverV3048ProtocolV4DevelopmentAuthorization';
 import { runProtocolV4DevelopmentForAllCandidates } from './ResolverV3048ProtocolV4DevelopmentRunner';
+import { buildProtocolV4FakeDryRunExecutionContext } from './ResolverV3048ProtocolV4ExecutionContext';
 import {
   computeProtocolV4DevelopmentArmBaseline,
   computeProtocolV4HoldoutArmBaseline,
@@ -636,6 +637,7 @@ async function buildRealReferenceChain(plan: ProtocolV4MasterPlan) {
     authorization: developmentAuthorization,
     lease: developmentLease,
     artifactStoreRoot,
+    executionContext: buildProtocolV4FakeDryRunExecutionContext(),
   });
   await validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, evidence);
   // Final Phase-A closure remediation: the strict, hashed `SELECTION_RULE` cannot certify ANY
@@ -1493,7 +1495,7 @@ export async function runProtocolV4MiniProtocolRun(
       outputTokens: plan.budget.developmentCalls * PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
       costUsd: plan.budget.developmentMaxCostUsd,
     },
-    liveExecution: false,
+    executionMode: 'fake_dry_run',
   });
 
   // 3-6. Every planned Development observation actually executed; checkpoint/raw/category/
@@ -1510,6 +1512,7 @@ export async function runProtocolV4MiniProtocolRun(
     authorization: developmentAuthorization,
     lease: developmentLease,
     artifactStoreRoot: storeRoot,
+    executionContext: buildProtocolV4FakeDryRunExecutionContext(),
   });
   consumeProtocolV4AuthorizationAtomically(storeRoot, developmentAuthorization.authorizationId);
   await validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, evidence);

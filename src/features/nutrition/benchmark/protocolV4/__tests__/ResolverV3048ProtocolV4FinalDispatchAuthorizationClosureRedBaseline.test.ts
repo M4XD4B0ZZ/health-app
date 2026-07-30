@@ -51,6 +51,7 @@ import {
   runProtocolV4DevelopmentForAllCandidates,
   buildProtocolV4DevelopmentLeaseExpectedIdentity,
 } from '../ResolverV3048ProtocolV4DevelopmentRunner';
+import { buildProtocolV4FakeDryRunExecutionContext } from '../ResolverV3048ProtocolV4ExecutionContext';
 import {
   runProtocolV4HoldoutForSelectedCandidate,
   type ProtocolV4HoldoutAuthorizationInput,
@@ -129,7 +130,14 @@ function freshObservationHarness() {
   });
   const telemetry: ProtocolV4TerminalMetadata[] = [];
   const ledger: ProtocolV4TerminalMetadata[] = [];
-  return { registry, providerGate, evidenceGate, telemetry, ledger };
+  return {
+    registry,
+    providerGate,
+    evidenceGate,
+    telemetry,
+    ledger,
+    executionContext: buildProtocolV4FakeDryRunExecutionContext(),
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -346,6 +354,7 @@ describe('Items 9/10: Holdout Runner self-validates authorization; minimal fabri
       authorization,
       lease,
       artifactStoreRoot: sharedRoot,
+      executionContext: buildProtocolV4FakeDryRunExecutionContext(),
     });
     await validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, sharedEvidence);
   }, 120_000);
@@ -618,6 +627,7 @@ describe('Items 17-22: Final G2 report full revalidation and dry-run/authoritati
       authorization,
       lease,
       artifactStoreRoot: sharedRoot,
+      executionContext: buildProtocolV4FakeDryRunExecutionContext(),
     });
     await validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, sharedEvidence);
     choice = chooseProtocolV4DryRunCandidate(plan, sharedEvidence);
@@ -785,7 +795,7 @@ describe('Sanity: unrelated existing gate signatures unaffected', () => {
           outputTokens: plan.budget.developmentCalls * 1536,
           costUsd: plan.budget.developmentMaxCostUsd,
         },
-        liveExecution: false,
+        executionMode: 'fake_dry_run',
       }),
     ).not.toThrow();
   });

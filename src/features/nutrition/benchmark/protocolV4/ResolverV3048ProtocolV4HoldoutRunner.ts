@@ -18,6 +18,7 @@ import {
 } from './ResolverV3048ProtocolV4';
 import { ProtocolV4CallStateRegistry } from './ResolverV3048ProtocolV4CallStateMachine';
 import { runOneObservation } from './ResolverV3048ProtocolV4DevelopmentRunner';
+import { buildProtocolV4FakeDryRunExecutionContext } from './ResolverV3048ProtocolV4ExecutionContext';
 import {
   deriveProtocolV4CandidateEvaluation,
   type ProtocolV4ObservationResult,
@@ -382,6 +383,11 @@ export async function runProtocolV4HoldoutForSelectedCandidate(input: {
     maxInFlight: 1,
   });
 
+  // RESOLVER-V3-048 Phase B1: Holdout stays fake-only in this task (no `human_live` Holdout wiring is
+  // in scope) -- always builds the fake dry-run dispatch context internally, never exposed as a
+  // parameter on this function's own public signature.
+  const executionContext = buildProtocolV4FakeDryRunExecutionContext();
+
   const telemetry: ProtocolV4TerminalMetadata[] = [];
   const ledger: ProtocolV4TerminalMetadata[] = [];
   const categoryRows: CategoryEvidence[] = [];
@@ -405,6 +411,7 @@ export async function runProtocolV4HoldoutForSelectedCandidate(input: {
         evidenceRoot: resolved.developmentEvidenceRootHash,
         callIdPrefix: 'holdout',
         leaseExpectedIdentity,
+        executionContext,
       });
       categoryRows.push(categoryRow);
       rawResults.push(rawResult);

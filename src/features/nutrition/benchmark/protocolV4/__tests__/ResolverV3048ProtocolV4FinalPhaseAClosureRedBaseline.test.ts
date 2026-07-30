@@ -53,6 +53,7 @@ import {
   runProtocolV4DevelopmentForAllCandidates,
   runProtocolV4DevelopmentForCandidate,
 } from '../ResolverV3048ProtocolV4DevelopmentRunner';
+import { buildProtocolV4FakeDryRunExecutionContext } from '../ResolverV3048ProtocolV4ExecutionContext';
 import { runProtocolV4HoldoutForSelectedCandidate } from '../ResolverV3048ProtocolV4HoldoutRunner';
 import {
   computeProtocolV4DevelopmentArmBaseline,
@@ -240,6 +241,7 @@ describe('Item 3/4: Runner APIs are lease-bound, not authorization-record-bound'
         artifactStoreRoot: root,
         evidenceGate,
         armBaseline,
+        executionContext: buildProtocolV4FakeDryRunExecutionContext(),
       }),
     ).rejects.toThrow('PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND');
   });
@@ -517,6 +519,7 @@ describe('Items 9-14: authoritative vs. non-authoritative selection, real Holdou
       authorization,
       lease,
       artifactStoreRoot: sharedRoot,
+      executionContext: buildProtocolV4FakeDryRunExecutionContext(),
     });
     await validateProtocolV4DevelopmentEvidenceWithEvaluationDerivation(plan, sharedEvidence);
   }, 120_000);
@@ -719,7 +722,7 @@ describe('Item 15/16: orphaned temp file is a fail-closed crash state, not "unus
           outputTokens: plan.budget.developmentMaxTokens,
           costUsd: plan.budget.developmentMaxCostUsd,
         },
-        liveExecution: false,
+        executionMode: 'fake_dry_run',
       }),
     ).toThrow(ProtocolV4ArtifactCrashError);
   });

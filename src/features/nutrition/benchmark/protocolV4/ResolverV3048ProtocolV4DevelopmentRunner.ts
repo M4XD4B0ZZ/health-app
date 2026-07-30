@@ -4,18 +4,6 @@ import {
   type ResolverV3047Candidate,
   type ResolverV3047CandidateId,
 } from '../ResolverV3047Candidates';
-import { runVariantCCase } from '../ResolverV3VariantCAdapter';
-import { createLiveVariantCInterpreter } from '../VariantCLiveInterpretationProvider';
-import type { AnthropicBenchmarkTransport } from '../AnthropicBenchmarkTransport';
-import {
-  buildFakeSources,
-  buildFakeZeroCounts,
-  rejectingFastPathResolver,
-  acceptingFastPathResolver,
-  jsonFetch,
-  resolvedInterpretedEnvelopeForSchema,
-  DryRunTrackedSource,
-} from './ResolverV3048ProtocolV4Fixtures';
 import {
   sealProtocolV4Artifact,
   validateCategoryEvidence,
@@ -30,10 +18,7 @@ import {
   type ProtocolV4Observation,
   type ProtocolV4TerminalMetadata,
 } from './ResolverV3048ProtocolV4';
-import { buildProtocolV4AttemptContext } from './ResolverV3048ProtocolV4AttemptContext';
 import { ProtocolV4CallStateRegistry } from './ResolverV3048ProtocolV4CallStateMachine';
-import { reserveProtocolV4Call } from './ResolverV3048ProtocolV4Reservation';
-import { runProtocolV4Attempt } from './ResolverV3048ProtocolV4AttemptWrapper';
 import {
   assertDevelopmentAuthorized,
   type ProtocolV4DevelopmentAuthorizationRecord,
@@ -51,52 +36,42 @@ import {
   deriveProtocolV4CandidateEvaluation,
   type ProtocolV4ObservationResult,
 } from './ResolverV3048ProtocolV4Evaluation';
+import { type ProtocolV4RealArmBaseline } from './ResolverV3048ProtocolV4RealEvaluator';
 import {
-  judgeProtocolV4VariantCObservation,
-  type ProtocolV4RealArmBaseline,
-} from './ResolverV3048ProtocolV4RealEvaluator';
+  buildCategoryRowFromRealJudgement,
+  ProtocolV4DevelopmentRunnerError,
+  stableScenarioBucket,
+  usesFastPath,
+  type ProtocolV4DispatchExecutionContext,
+} from './ResolverV3048ProtocolV4ExecutionContext';
 
 /**
  * RESOLVER-V3-048 Final Phase-A Execution Closure remediation (Teil 7 continued + Teil 20/23 --
  * "Bind Development runner to real corpus input/ground truth per observation" + "storage-
- * authoritative gates").
+ * authoritative gates"), extended by Phase B1 ("Protocol-v4 Live Development Wiring").
  *
- * The prior version of this runner dispatched every observation against the SAME fixed input
- * (`'Testlebensmittel'`) and hand-set `criticalError: false` on every `CategoryEvidence` row,
- * regardless of what the real corpus case or the real judged evaluation actually said. This version
- * looks up each scenario's REAL frozen corpus `BenchmarkCase` (`protocolV4ScenarioByScenarioId()`)
- * and, for every AI-dispatched observation, judges the real `VariantCRawCaseResult` against real
- * ground truth via `evaluateVariantCCase` (unmodified, RESOLVER-V3-048's
- * `ResolverV3048ProtocolV4RealEvaluator.ts`) -- `criticalError`/`identificationOutcome` are never
- * hand-set. It also gates every dispatch through `assertDevelopmentAuthorized`'s storage-authoritative
- * check (real Artifact Store target state, real cumulative gate-tracked consumption -- never a
- * caller-supplied boolean or a `remaining = max` tautology).
+ * Phase B1: `runOneObservation` no longer constructs a transport/credential/sources/counts itself --
+ * it does only the setup shared by every dispatch mode (scenario lookup, ground-truth derivation, the
+ * fresh storage-authoritative lease check immediately before dispatch), then delegates the ENTIRE
+ * dispatch to `input.executionContext.dispatchObservation(...)`
+ * (`ResolverV3048ProtocolV4ExecutionContext.ts`). `runProtocolV4DevelopmentForCandidate` now requires
+ * an explicit `executionContext` and asserts `authorization.kind === executionContext.mode` as its
+ * very first statement -- independent of which entry point called it -- before threading
+ * `executionMode: executionContext.mode` into `assertDevelopmentAuthorized` (replacing the previous
+ * hard-coded `liveExecution: false`).
+ *
+ * `stableScenarioBucket`/`usesFastPath`/`buildCategoryRowFromRealJudgement`/
+ * `ProtocolV4DevelopmentRunnerError` now live in `ResolverV3048ProtocolV4ExecutionContext.ts` (the
+ * `fake_dry_run` dispatch logic that uses them moved there too) and are re-exported here unchanged for
+ * existing importers of this module.
  */
 
-export class ProtocolV4DevelopmentRunnerError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ProtocolV4DevelopmentRunnerError';
-  }
-}
-
-/** Simple, stable string hash (sum of char codes) -- used only to derive a deterministic positional
- * bucket per SCENARIO (never per case-ID/category/food content), so every repeat run (runIndex 0..N)
- * of the same scenario gets the SAME routing decision. Keying on the flat observation index instead
- * would let different repeats of one scenario land in different buckets, breaking repeat consistency
- * for a reason that has nothing to do with the resolver itself -- a self-inflicted test artifact,
- * not a real defect. This is a structural/positional rule (a formula applied uniformly to every
- * scenario ID), never a case-ID/category/food special rule (the task's hard limit: no exception
- * hard-coded for a specific ID/category/food name). */
-export function stableScenarioBucket(scenarioId: string, modulus: number): number {
-  let sum = 0;
-  for (let i = 0; i < scenarioId.length; i += 1) sum += scenarioId.charCodeAt(i);
-  return sum % modulus;
-}
-
-export function usesFastPath(scenarioId: string): boolean {
-  return stableScenarioBucket(scenarioId, 5) === 0;
-}
+export {
+  ProtocolV4DevelopmentRunnerError,
+  stableScenarioBucket,
+  usesFastPath,
+  buildCategoryRowFromRealJudgement,
+};
 
 /** Builds the invariant (per-candidate-run) expected lease identity from a validated Development
  * Authorization Record and the Master Plan -- computed ONCE per candidate run and re-checked against
@@ -136,34 +111,6 @@ const DEVELOPMENT_CHECKPOINT_PATH_BY_CANDIDATE: Readonly<Record<ResolverV3047Can
     H2: ARTIFACT_PATHS.developmentCheckpointH2,
   };
 
-/** Real, real-corpus-bound category evidence for one executed AI observation -- `criticalError`/
- * `identificationOutcome`/clarification/abstention all come from the real judged
- * `evaluateVariantCCase` result, never hand-set. */
-export function buildCategoryRowFromRealJudgement(
-  plan: ProtocolV4MasterPlan,
-  observation: ProtocolV4Observation,
-  failureKind: CategoryEvidence['failureKind'],
-  judged: ReturnType<typeof judgeProtocolV4VariantCObservation>,
-): CategoryEvidence {
-  return {
-    scenarioId: observation.scenarioId,
-    partition: observation.partition,
-    category: observation.category,
-    difficulty: observation.difficulty,
-    candidateId: observation.candidateId,
-    runIndex: observation.runIndex,
-    planHash: plan.planHash,
-    expectedBehavior: observation.expectedBehavior,
-    identificationOutcome: judged.identification,
-    criticalError: judged.isCriticalFailure,
-    failureKind,
-    resolverOutcome: judged.outcome,
-    componentCount: judged.componentMatch.truePositives,
-    clarification: judged.outcome === 'clarification_required',
-    abstention: judged.outcome === 'not_interpretable' || judged.outcome === 'abstained',
-  };
-}
-
 export async function runOneObservation(input: {
   plan: ProtocolV4MasterPlan;
   observation: ProtocolV4Observation;
@@ -190,6 +137,10 @@ export async function runOneObservation(input: {
    * never once per candidate/phase (RESOLVER-V3-048 Final Dispatch-Lease closure remediation).
    * Required: `runOneObservation` structurally cannot dispatch without it. */
   leaseExpectedIdentity: ProtocolV4ExecutionLeaseExpectedIdentity;
+  /** RESOLVER-V3-048 Phase B1: the mode-specific dispatch implementation (`fake_dry_run` |
+   * `human_live`). `runOneObservation` itself no longer constructs a transport/credential/sources/
+   * counts -- every dispatch, fast-path or AI-path, goes through this context. */
+  executionContext: ProtocolV4DispatchExecutionContext;
 }): Promise<{ categoryRow: CategoryEvidence; rawResult: ProtocolV4ObservationResult }> {
   const { plan, observation, index } = input;
   const executionTreeHash = input.executionTreeHash ?? plan.developmentExecutionTreeHash;
@@ -206,7 +157,8 @@ export async function runOneObservation(input: {
     );
   const benchmarkCase = scenario.case;
   // The real scenario's own first expected component -- the honest, documented zero-network stand-in
-  // for "a competent, correct interpretation/source match" (see `FakeSourceGroundTruth`'s docstring).
+  // for "a competent, correct interpretation/source match" (see `FakeSourceGroundTruth`'s docstring),
+  // used only by `fake_dry_run` mode's fixture sources; `human_live` mode ignores it entirely.
   // Structural (derived uniformly from `benchmarkCase.expectedComponents[0]` for every scenario),
   // never a case-ID/category/food special rule.
   const expectedComponent = benchmarkCase.expectedComponents[0];
@@ -215,149 +167,28 @@ export async function runOneObservation(input: {
     : undefined;
 
   // Selected the concrete observation above; nothing asynchronous happens between this lease check
-  // and the dispatch immediately below it (fast-path or AI-path) -- exactly the task's "no further
-  // async operation between lease check and dispatch" requirement. This fresh, storage-authoritative
-  // read happens for EVERY observation, never once per candidate/phase.
+  // and the dispatch immediately below it -- exactly the task's "no further async operation between
+  // lease check and dispatch" requirement. This fresh, storage-authoritative read happens for EVERY
+  // observation, never once per candidate/phase.
   assertProtocolV4ExecutionLeaseActiveForDispatch(input.leaseExpectedIdentity);
 
-  if (usesFastPath(observation.scenarioId)) {
-    const sources = buildFakeSources('bls', groundTruth);
-    const raw = await runVariantCCase(benchmarkCase, {
-      candidate,
-      fastPathResolver: acceptingFastPathResolver,
-      singleComponentFastPathProof: () => true,
-      sourcesByType: sources,
-      aiInterpreter: {
-        interpret: async () => {
-          throw new Error('PROTOCOL_V4_FAST_PATH_MUST_NOT_CALL_AI');
-        },
-      },
-    });
-    const judged = judgeProtocolV4VariantCObservation(benchmarkCase, raw);
-    const categoryRow = buildCategoryRowFromRealJudgement(plan, observation, null, judged);
-    const rawResult: ProtocolV4ObservationResult = {
-      status: 'fast_path_no_call',
-      scenarioId: observation.scenarioId,
-      runIndex: observation.runIndex,
-    };
-    return { categoryRow, rawResult };
-  }
-
-  const reservation = reserveProtocolV4Call({
-    gate: input.evidenceGate,
-    modelId: plan.modelId,
-    pricing: plan.pricing,
-    maxInputTokens: PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
-    maxOutputTokens: PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
-    callIndex: index,
-    authorizationId: input.authorizationId,
-    callId,
-  });
-  const ctx = buildProtocolV4AttemptContext({
-    plan,
-    candidateId: observation.candidateId,
-    partition: observation.partition,
-    scenarioId: observation.scenarioId,
-    runIndex: observation.runIndex,
-    callId,
-    executionTreeHash,
-    evidenceRoot,
-    reservation,
-    authorizationId: input.authorizationId,
-  });
-  // The evidence reservation's call/token/cost bookkeeping stays permanently counted on its own
-  // dedicated gate; releasing only frees the transient in-flight slot so the provider's own,
-  // separate internal gate reservation (below) is never blocked by it.
-  reservation.release();
-  input.registry.plan(callId);
-
-  const acceptedSource = stableScenarioBucket(observation.scenarioId, 7) === 0 ? null : 'bls';
-  const transport: AnthropicBenchmarkTransport = {
-    usesProxy: false,
-    fetch: jsonFetch(
-      200,
-      resolvedInterpretedEnvelopeForSchema(candidate.schemaVersion, groundTruth?.name),
-    ),
-  };
-  const sources = buildFakeSources(acceptedSource, groundTruth);
-  const interpreter = createLiveVariantCInterpreter(
-    { ANTHROPIC_API_KEY: 'protocol-v4-development-not-a-credential' },
-    input.providerGate,
-    transport,
-    candidate,
-  );
-
-  const outcome = await runProtocolV4Attempt({
-    registry: input.registry,
-    ctx,
-    plan,
-    attempt: () =>
-      runVariantCCase(benchmarkCase, {
-        aiInterpreter: interpreter,
-        candidate,
-        fastPathResolver: rejectingFastPathResolver,
-        singleComponentFastPathProof: () => false,
-        sourcesByType: sources,
-      }),
-    extractProviderMetadata: (raw) => raw.mealResult.aiCallMetadata ?? null,
-    extractCounts: () =>
-      buildFakeZeroCounts({
-        blsCalls: {
-          value: (sources.get('bls') as DryRunTrackedSource).calls,
-          accuracy: 'exact',
-          boundary: 'source_adapter',
-        },
-        offCalls: {
-          value: (sources.get('off') as DryRunTrackedSource).calls,
-          accuracy: 'exact',
-          boundary: 'source_adapter',
-        },
-        usdaCalls: {
-          value: (sources.get('usda') as DryRunTrackedSource).calls,
-          accuracy: 'exact',
-          boundary: 'source_adapter',
-        },
-        totalExternalRequests: {
-          value:
-            1 +
-            (sources.get('bls') as DryRunTrackedSource).calls +
-            (sources.get('off') as DryRunTrackedSource).calls +
-            (sources.get('usda') as DryRunTrackedSource).calls,
-          accuracy: 'exact',
-          boundary: 'benchmark_dispatch',
-        },
-      }),
-    buildFastPathTerminal: () => {
-      throw new ProtocolV4DevelopmentRunnerError(
-        'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_FAST_PATH',
-      );
-    },
-    buildTerminalOnCeiling: () => {
-      throw new ProtocolV4DevelopmentRunnerError(
-        'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_CEILING',
-      );
-    },
-    telemetry: input.telemetry,
-    ledger: input.ledger,
-  });
-
-  if (outcome.status !== 'completed')
-    throw new ProtocolV4DevelopmentRunnerError('PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_TIMEOUT');
-  const raw = outcome.raw;
-  const judged = judgeProtocolV4VariantCObservation(benchmarkCase, raw);
-  const categoryRow = buildCategoryRowFromRealJudgement(
+  return input.executionContext.dispatchObservation({
     plan,
     observation,
-    outcome.terminal.failureKind,
-    judged,
-  );
-  const rawResult: ProtocolV4ObservationResult = {
-    status: 'ai_dispatched',
-    scenarioId: observation.scenarioId,
-    runIndex: observation.runIndex,
-    raw,
-  };
-  return { categoryRow, rawResult };
+    benchmarkCase,
+    candidate,
+    groundTruth,
+    index,
+    registry: input.registry,
+    providerGate: input.providerGate,
+    evidenceGate: input.evidenceGate,
+    authorizationId: input.authorizationId,
+    telemetry: input.telemetry,
+    ledger: input.ledger,
+    executionTreeHash,
+    evidenceRoot,
+    callId,
+  });
 }
 
 /** Executes every planned Development observation for exactly one candidate and seals the full,
@@ -368,7 +199,15 @@ export async function runOneObservation(input: {
  * `ProtocolV4ExecutionLease` (Final Phase-A closure remediation, Weiteres Vorgehen item 3): a bare
  * `ProtocolV4DevelopmentAuthorizationRecord` is no longer sufficient on its own -- this function reads
  * the lease back from the real Artifact Store (never trusting the caller's in-memory `lease` object's
- * own fields) and fails closed on any phase/identity/scope/budget mismatch or non-active status. */
+ * own fields) and fails closed on any phase/identity/scope/budget mismatch or non-active status.
+ *
+ * RESOLVER-V3-048 Phase B1: requires an explicit `executionContext` and asserts
+ * `authorization.kind === executionContext.mode` as its very first statement -- before building the
+ * lease-expected-identity, before the lease check, before `assertDevelopmentAuthorized`, before
+ * anything storage- or budget-related. This is the shared runner boundary's OWN enforcement of the
+ * mode identity (`authorization.kind === executionContext.mode === storage.mode ===
+ * lease.authorizationKind === lease.runKind`) -- it does not rely on the caller (the live entry point,
+ * a direct test call, or any future caller) having gotten this right on its own. */
 export async function runProtocolV4DevelopmentForCandidate(input: {
   plan: ProtocolV4MasterPlan;
   candidateId: ResolverV3047CandidateId;
@@ -377,12 +216,26 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
   artifactStoreRoot: string;
   evidenceGate: LiveProviderBudgetGate;
   armBaseline: ProtocolV4RealArmBaseline;
+  executionContext: ProtocolV4DispatchExecutionContext;
   repoRoot?: string;
 }): Promise<ProtocolV4DevelopmentCandidateArtifacts> {
+  if (input.authorization.kind !== input.executionContext.mode)
+    throw new ProtocolV4DevelopmentRunnerError(
+      `PROTOCOL_V4_EXECUTION_MODE_AUTHORIZATION_MISMATCH:${input.authorization.kind}:${input.executionContext.mode}`,
+    );
+
   const observations = input.plan.developmentObservations.filter(
     (o) => o.partition === 'development' && o.candidateId === input.candidateId,
   );
-  const plannedAiCalls = observations.filter((o) => !usesFastPath(o.scenarioId)).length;
+  // `fake_dry_run` routing is deterministically known in advance (`usesFastPath`'s scenario-ID
+  // bucket), so the exact planned AI-call count can be computed. `human_live` routing is decided by
+  // the real Variant A resolver at dispatch time and cannot be predicted here -- the conservative,
+  // safe assumption is every observation MIGHT need AI (worst-case budget planning, consistent with
+  // this protocol's existing "reserved worst-case cost" vs. "actual cost" distinction elsewhere).
+  const plannedAiCalls =
+    input.executionContext.mode === 'fake_dry_run'
+      ? observations.filter((o) => !usesFastPath(o.scenarioId)).length
+      : observations.length;
   const plannedInputTokens = plannedAiCalls * PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS;
   const plannedOutputTokens = plannedAiCalls * PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS;
   const plannedCostUsd =
@@ -418,7 +271,8 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
       outputTokens: plannedOutputTokens,
       costUsd: plannedCostUsd,
     },
-    liveExecution: false,
+    executionMode: input.executionContext.mode,
+    repoRoot: input.repoRoot,
   });
 
   const registry = new ProtocolV4CallStateRegistry(
@@ -454,6 +308,7 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
       telemetry,
       ledger,
       leaseExpectedIdentity,
+      executionContext: input.executionContext,
     });
     categoryRows.push(categoryRow);
     rawResults.push(rawResult);
@@ -536,12 +391,16 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
  * `executing -> terminal_success` on completion or `executing -> terminal_failure` if any candidate's
  * Development phase throws (the lease always reaches a terminal state on this code path; a crashed
  * process that never returns here is exactly what `recoverProtocolV4AbandonedExecutionLease` -- a
- * separate, explicit, human-invoked recovery action -- is for). */
+ * separate, explicit, human-invoked recovery action -- is for).
+ *
+ * RESOLVER-V3-048 Phase B1: requires an explicit `executionContext`, threaded through to every
+ * candidate's `runProtocolV4DevelopmentForCandidate` call unchanged. */
 export async function runProtocolV4DevelopmentForAllCandidates(input: {
   plan: ProtocolV4MasterPlan;
   authorization: ProtocolV4DevelopmentAuthorizationRecord;
   lease: ProtocolV4ExecutionLease;
   artifactStoreRoot: string;
+  executionContext: ProtocolV4DispatchExecutionContext;
   repoRoot?: string;
 }): Promise<ProtocolV4DevelopmentEvidence> {
   assertProtocolV4ExecutionLeaseActiveForDispatch(
@@ -579,6 +438,7 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
           artifactStoreRoot: input.artifactStoreRoot,
           evidenceGate,
           armBaseline,
+          executionContext: input.executionContext,
           repoRoot: input.repoRoot,
         }),
       );

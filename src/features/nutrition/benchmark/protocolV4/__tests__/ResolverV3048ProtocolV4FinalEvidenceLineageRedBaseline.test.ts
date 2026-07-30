@@ -40,6 +40,7 @@ import {
   consumeProtocolV4AuthorizationAtomically,
 } from '../ResolverV3048ProtocolV4ArtifactStore';
 import { runProtocolV4DevelopmentForAllCandidates } from '../ResolverV3048ProtocolV4DevelopmentRunner';
+import { buildProtocolV4FakeDryRunExecutionContext } from '../ResolverV3048ProtocolV4ExecutionContext';
 import { claimProtocolV4ExecutionLease } from '../ResolverV3048ProtocolV4ExecutionLease';
 
 const {
@@ -356,6 +357,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
       authorization,
       lease,
       artifactStoreRoot,
+      executionContext: buildProtocolV4FakeDryRunExecutionContext(),
     });
     for (const c of evidence.candidates) {
       expect(c.rawResults.content.results.length).toBeGreaterThan(0);
@@ -721,7 +723,7 @@ describe('RESOLVER-V3-048 Final Evidence-Lineage -- Teil 1 failing-baseline item
           outputTokens: consumed.maxOutputTokens,
           costUsd: consumed.maxCostUsd,
         },
-        liveExecution: false,
+        executionMode: 'fake_dry_run',
       }),
     ).toThrow('PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED');
   });

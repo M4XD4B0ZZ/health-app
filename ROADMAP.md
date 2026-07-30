@@ -611,19 +611,20 @@ The Core Logging Pipeline (Phase 0 below) is stable; the definition-of-working c
 all pass and are covered by the Journal domain's own regression tests (`J-001`..`J-006`, `done`).
 
 The current bottleneck is **RESOLVER-V3-048** (Protocol-v4 live evidence for the Hybrid
-Resolver): Phase-A zero-call infrastructure keeps being hardened (PR #194, #195, and #196 merged
-so far — Execution Lease, Holdout Admission Gate, dispatch-lease/authorization-binding closure —
-each with green `npm run verify`), but no live Development or Holdout run has occurred, G2 is not
-passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
-live evidence that passes every mandatory G2 dimension. As of 2026-07-30 the maintainer has issued
-an explicit live Development authorization (324 calls / USD 5.142528, matching the frozen plan
-exactly), but it could not be executed and remains **unconsumed at 0 calls / USD 0**: the repository
-has no live dispatch path — the Development Runner is hard-wired to a fake transport, a placeholder
-credential and a constant `liveExecution: false` — and no credential exists in the environment. The
-next real step is therefore a scoped, separately reviewed live-wiring task, not another Phase-A
-hardening pass. See RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative
-status text, the binding decision rule, and the budget position — do not rely on the summary here
-for exact PR/commit detail, it will lag.
+Resolver): a 2026-07-30 preflight found the repository had no live dispatch path at all (the
+Development Runner was hard-wired to a fake transport, a placeholder credential, and a constant
+`liveExecution: false`), so a maintainer-issued live Development authorization (324 calls / USD
+5.142528) could not be spent and stayed unconsumed. Phase B1 (same day) closed that code gap: a
+discriminated `fake_dry_run`/`human_live` execution context now owns dispatch at the runner
+boundary, `assertDevelopmentAuthorized` checks `executionMode` against `authorization.kind`
+bidirectionally, the Artifact Store and Execution Lease are mode-root-bound, and a new, separate
+live Development entry point exists — but it was never called with a real credential, no live call
+was made, and the PR #202 authorization is explicitly not reused (a new one is required, checked
+against this commit). G2 is not passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays
+`blocked` until V3-048 produces live evidence that passes every mandatory G2 dimension. See
+RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative status text, the
+binding decision rule, and the budget position — do not rely on the summary here for exact PR/
+commit detail, it will lag.
 
 `CONTEXT-GOV-001` (task-start context governance: the read contract below, and the
 `handoffs/` rotation convention) is `done` — see its entry under "EPIC: Developer Tooling &
@@ -8945,7 +8946,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Protocol-v4 executable zero-call preflight complete; live Development not authorized` (Phase A post-merge remediation, 2026-07-27)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store, real fast-path-decided-before-any-reservation live dispatch, real provider-request counting); live Development still not authorized, no live evidence produced` (Phase B1, 2026-07-30)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -8985,6 +8986,60 @@ explicitly **not authorized**.
 run against a known-unsafe deterministic BLS fast path; RESOLVER-V3-051 fixed the generic
 substring-collision false-confidence defect that RESOLVER-V3-050's own residual-risk finding
 surfaced, for the same reason this task already waits on RESOLVER-V3-049/050.
+
+**Live Development Authorization Preflight (2026-07-30, basis `e44cd5c`, PR #202):** a maintainer
+issued an explicit live Development authorization (324 calls / USD 5.142528, exactly matching the
+frozen plan). It was verified and **not executed**: two independent blockers stopped it fail-closed
+— no `ANTHROPIC_API_KEY` in the environment, and (decisively) no live dispatch path existed in the
+code at all (`runOneObservation` hard-wired a fixture transport, a placeholder credential,
+`buildFakeSources`, and `buildFakeZeroCounts`; `runProtocolV4DevelopmentForCandidate` passed a
+constant `liveExecution: false`). The authorization was preserved unconsumed as the historical
+decision record but explicitly does **not** carry forward to a changed live-wiring code state. Full
+report: `reports/RESOLVER_V3_048_LIVE_DEVELOPMENT_AUTHORIZATION_PREFLIGHT.md`.
+
+**Phase B1: Protocol-v4 Live Development Wiring (2026-07-30, basis `e44cd5c`):** closed the code gap
+the preflight above found, per its own enumerated requirements. `runOneObservation` no longer
+constructs a transport/credential/sources/counts itself — a discriminated
+`ProtocolV4DispatchExecutionContext` (`fake_dry_run` | `human_live`) owns the entire per-observation
+dispatch, injected at the runner boundary. `fake_dry_run` is a byte-for-byte behavior-preserving move
+of the prior fixture logic (regression-proven: the full pre-existing Protocol-v4 and nutrition-
+benchmark suites pass unmodified). `human_live` makes exactly one real dispatch per observation: the
+real fast-path check (`runVariantCFastPathAttempt`, extracted from `ResolverV3VariantCAdapter.ts` —
+the same real Variant A resolver + real `BlsStaticSource` RESOLVER-V3-039's own live runner already
+reuses) is checked FIRST, before any budget reservation or call-state-registry transition, so a
+genuine fast-path hit costs nothing; only a genuine rejection reserves and dispatches through the
+real `AnthropicVariantCLiveInterpreter`, via a private per-observation counting transport (never a
+public DI seam) so `providerHttpRequests` is measured at the real fetch boundary, not inferred from
+`httpStatus` presence. `liveExecution: false` is no longer a runner constant: `assertDevelopmentAuthorized`
+takes `executionMode` and requires it to equal `authorization.kind` bidirectionally (closing a gap
+found during review — the prior asymmetric check only ever blocked `fake_dry_run` + live execution,
+never `human_live` + fake execution), and `runProtocolV4DevelopmentForCandidate` independently
+re-asserts this same identity as its first statement, regardless of caller. `ResolverV3048ProtocolV4ArtifactStore.ts`
+is now a root-bound factory instantiated for both `PROTOCOL_V4_DRY_RUN_ROOT` (exact prior names/
+behavior, zero call-site change) and the new `PROTOCOL_V4_LIVE_ROOT`; the Execution Lease module
+(previously unrestricted to any root) now validates a claim's root against the bound store matching
+`authorization.kind` before writing. A new, separate `runProtocolV4LiveDevelopmentEntryPoint` (never
+called with a real credential in this task) re-derives the plan, requires a real `human_live`
+authorization, builds the live context (the fail-closed credential check), runs a full storage/
+authorization preflight before claiming a lease (so a predictable storage error cannot orphan one),
+claims the lease under the hard-coded canonical live root, dispatches Development only, and never
+references Holdout. Zero provider calls, zero tokens, USD 0.00 throughout; no `logs/resolver-v3-048-protocol-v4`
+or `logs/resolver-v3-039-*` file was created or touched; the PR #202 authorization above is not
+reused. G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`; the 352-call / USD 5.586944
+budget remains unauthorized; Holdout remains unexecuted. A **new, explicit human authorization** is
+required before any live Development call, checked against this commit. Full report:
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B1_LIVE_DEVELOPMENT_WIRING.md`.
+
+Two factual corrections found while verifying Phase B1, recorded rather than silently fixed. (a) The
+preflight blocker text above previously said "no `.env` exists". A `.env` **does** exist in this
+working copy (gitignored, unmodified since 2026-07-24); it contains no `ANTHROPIC_API_KEY` (verified by
+listing variable NAMES only — no value was read or printed). The operative conclusion is unchanged and
+still correct — no Anthropic credential is available and an agent may not add one — but the concrete
+maintainer action is to add `ANTHROPIC_API_KEY` to the existing `.env`, not to create the file. The
+frozen PR #202 preflight report is historical evidence and was **not** rewritten; only this living
+status text was corrected. (b) An earlier draft of the Phase B1 report claimed `prettier -c` passed on
+all changed files; it did not — three source files and the report itself had real Prettier violations,
+now fixed and re-verified clean (see that report's §6).
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E
@@ -9420,8 +9475,8 @@ every dimension (`developmentCalls` 324, `developmentMaxTokens` 3,151,872, `deve
 excluded. The authorization is therefore sound; it was not the reason execution stopped.
 
 **The live Development run was NOT executed.** Preflight stopped fail-closed on two independent
-blockers: (1) `ANTHROPIC_API_KEY` is not set in the execution environment and no `.env` exists —
-`.env`/`.env.*` are under `AGENTS.md`'s absolute protection, so an agent may not create one, and
+blockers: (1) `ANTHROPIC_API_KEY` is not set in the execution environment — `.env`/`.env.*` are under
+`AGENTS.md`'s absolute protection, so an agent may not add it, and
 `createLiveVariantCInterpreter` correctly throws rather than falling back to a fixture provider; (2)
 decisively, **no live dispatch path exists in the code at all**. `runOneObservation`
 (`ResolverV3048ProtocolV4DevelopmentRunner.ts:167`, the single dispatch function shared by the

@@ -142,7 +142,7 @@ function withoutAuthoritativeResolution(
 // Fast path branch
 // -------------------------------------------------------------------------------------------
 
-interface FastPathAttempt {
+export interface FastPathAttempt {
   usedFastPath: boolean;
   fastPathMs: number;
   mealResult: VariantCMealResult | null;
@@ -235,20 +235,53 @@ async function buildFastPathMealResult(
 // AI-routed branch
 // -------------------------------------------------------------------------------------------
 
-export async function runVariantCCase(
+/**
+ * RESOLVER-V3-048 Phase B1 extraction: the real fast-path decision, standalone and reusable outside
+ * `runVariantCCase`'s own body. Byte-identical logic to what was previously inlined at the top of
+ * `runVariantCCase` -- no new confidence policy, no new resolver path. A caller that needs to know
+ * "would this case take the real fast path" *before* committing to any AI budget reservation (Protocol
+ * v4's live execution context) calls this alone; `runVariantCCase` itself now calls it too, so both
+ * paths are guaranteed to agree.
+ */
+export async function runVariantCFastPathAttempt(
   benchmarkCase: BenchmarkCase,
-  deps: VariantCDependencies,
-): Promise<VariantCRawCaseResult> {
-  const traceId = `resolver-v3-variant-c:${benchmarkCase.caseId}`;
-  const totalStart = process.hrtime.bigint();
+  deps: Pick<
+    VariantCDependencies,
+    'candidate' | 'fastPathResolver' | 'singleComponentFastPathProof'
+  >,
+): Promise<FastPathAttempt> {
   const fastPathResolver = deps.fastPathResolver ?? buildVariantAResolver().resolver;
-  const sourcesByType = deps.sourcesByType ?? defaultSourcesByType();
-
   const h2 = deps.candidate?.routingVersion !== undefined && deps.candidate.routingVersion !== 'R0';
   const fastPathAllowed = !h2 || deps.singleComponentFastPathProof?.(benchmarkCase) === true;
-  const fastPathAttempt = fastPathAllowed
-    ? await buildFastPathMealResult(benchmarkCase, fastPathResolver)
+  return fastPathAllowed
+    ? buildFastPathMealResult(benchmarkCase, fastPathResolver)
     : { usedFastPath: false, fastPathMs: 0, mealResult: null };
+}
+
+/**
+ * RESOLVER-V3-048 Phase B1 extraction: everything `runVariantCCase` does once the fast-path decision
+ * is already known -- the early return when it was used, and the full AI-request/retrieval/scoring
+ * body otherwise. Takes an already-computed `fastPathAttempt` instead of recomputing it, so a caller
+ * that already called `runVariantCFastPathAttempt` (and got `usedFastPath: false`) can continue here
+ * without running the real fast-path resolver a second time. `totalStart` defaults to "now" for a
+ * standalone caller (Protocol v4 measures its own separate end-to-end latency around the whole
+ * dispatch); `runVariantCCase` below passes its own pre-fast-path-check start explicitly, so its
+ * `latencyMs.totalMs` is unchanged from before this extraction.
+ */
+export async function runVariantCCaseFromFastPathAttempt(
+  benchmarkCase: BenchmarkCase,
+  deps: VariantCDependencies,
+  fastPathAttempt: FastPathAttempt,
+  totalStart: bigint = process.hrtime.bigint(),
+): Promise<VariantCRawCaseResult> {
+  const traceId = `resolver-v3-variant-c:${benchmarkCase.caseId}`;
+  const sourcesByType = deps.sourcesByType ?? defaultSourcesByType();
+  // Recomputed here (cheap, pure, deterministic from `deps.candidate` -- identical value to what
+  // `runVariantCFastPathAttempt` computed for the same `deps.candidate`) because the AI/retrieval
+  // body below needs it for R1-min tiered-source-plan construction, independent of the fast-path
+  // decision itself.
+  const h2 = deps.candidate?.routingVersion !== undefined && deps.candidate.routingVersion !== 'R0';
+
   if (fastPathAttempt.usedFastPath && fastPathAttempt.mealResult) {
     return { caseId: benchmarkCase.caseId, traceId, mealResult: fastPathAttempt.mealResult };
   }
@@ -640,4 +673,19 @@ export async function runVariantCCase(
     },
     retrievalMs,
   );
+}
+
+/**
+ * Canonical Variant C orchestrator (unchanged public contract). RESOLVER-V3-048 Phase B1 reduced this
+ * to a thin composition of the two functions extracted above -- behaviorally identical to before the
+ * extraction for every existing caller (`totalStart` is still captured before the fast-path check
+ * runs, exactly as it was when this was one function).
+ */
+export async function runVariantCCase(
+  benchmarkCase: BenchmarkCase,
+  deps: VariantCDependencies,
+): Promise<VariantCRawCaseResult> {
+  const totalStart = process.hrtime.bigint();
+  const fastPathAttempt = await runVariantCFastPathAttempt(benchmarkCase, deps);
+  return runVariantCCaseFromFastPathAttempt(benchmarkCase, deps, fastPathAttempt, totalStart);
 }

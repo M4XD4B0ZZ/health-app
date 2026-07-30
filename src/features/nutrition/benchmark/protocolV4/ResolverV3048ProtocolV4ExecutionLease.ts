@@ -6,7 +6,11 @@ import {
   type ProtocolV4MasterPlan,
   type ResolverV3047CandidateId,
 } from './ResolverV3048ProtocolV4';
-import { isProtocolV4ArtifactTargetUnused } from './ResolverV3048ProtocolV4ArtifactStore';
+import {
+  assertProtocolV4DryRunRootMatchesStore,
+  assertProtocolV4LiveRootMatchesStore,
+  isProtocolV4ArtifactTargetUnused,
+} from './ResolverV3048ProtocolV4ArtifactStore';
 import { type ProtocolV4DevelopmentAuthorizationRecord } from './ResolverV3048ProtocolV4DevelopmentAuthorization';
 import {
   type ProtocolV4DryRunCandidateChoice,
@@ -381,6 +385,31 @@ function assertDevelopmentAuthorizationRecordSelfConsistent(
     );
 }
 
+/** RESOLVER-V3-048 Phase B1: the Execution Lease module itself previously had NO root restriction at
+ * all (confirmed by direct read -- `claimProtocolV4ExecutionLease` writes via plain `fs`/
+ * `path.resolve(root)` to any root). Its root binding existed only after the fact, via
+ * `artifactStoreRootIdentity`/`assertProtocolV4ExecutionLeaseActiveForDispatch`'s equality check at
+ * dispatch time. This closes the claim-time gap for the Development-phase wrapper specifically: a
+ * `fake_dry_run` authorization may only claim a lease under a root the dry-run Artifact Store itself
+ * would accept (a subpath of `PROTOCOL_V4_DRY_RUN_ROOT`); a `human_live` authorization may only claim
+ * one under a root the live Artifact Store would accept (a subpath of `PROTOCOL_V4_LIVE_ROOT`) --
+ * reusing the exact same two validators the Artifact Store itself uses, never a separately
+ * re-implemented check that could drift. */
+function assertProtocolV4DevelopmentLeaseRootMatchesAuthorizationKind(
+  kind: ProtocolV4DevelopmentAuthorizationRecord['kind'],
+  artifactStoreRoot: string,
+  repoRoot?: string,
+): void {
+  try {
+    if (kind === 'human_live') assertProtocolV4LiveRootMatchesStore(artifactStoreRoot, repoRoot);
+    else assertProtocolV4DryRunRootMatchesStore(artifactStoreRoot, repoRoot);
+  } catch (e) {
+    throw new ProtocolV4ExecutionLeaseError(
+      `PROTOCOL_V4_EXECUTION_LEASE_ROOT_DOES_NOT_MATCH_AUTHORIZATION_KIND:${kind}:${artifactStoreRoot}:${(e as Error).message}`,
+    );
+  }
+}
+
 /** The recommended entry point for claiming a Development-phase Execution Lease: every identity
  * field (`authorizationKind`, `maxConcurrentRequests`, `pricingVersion`, `modelId`,
  * `authorizationRecordHash`, `authorizationSchemaVersion`, `candidateScope`, budget) is derived
@@ -392,6 +421,7 @@ export function claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
   plan: ProtocolV4MasterPlan,
   authorization: ProtocolV4DevelopmentAuthorizationRecord,
   artifactStoreRoot: string,
+  repoRoot?: string,
 ): ProtocolV4ExecutionLease {
   assertDevelopmentAuthorizationRecordSelfConsistent(authorization);
   if (
@@ -401,6 +431,14 @@ export function claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
     throw new ProtocolV4ExecutionLeaseError(
       'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_AUTHORIZATION_PLAN_MISMATCH',
     );
+  // Storage/root preflight BEFORE any write: a `human_live` authorization can only claim under the
+  // live-bound root, a `fake_dry_run` authorization only under the dry-run-bound root -- checked here,
+  // not only implicitly discovered later when `assertDevelopmentAuthorized`'s own storage checks run.
+  assertProtocolV4DevelopmentLeaseRootMatchesAuthorizationKind(
+    authorization.kind,
+    artifactStoreRoot,
+    repoRoot,
+  );
   return claimProtocolV4ExecutionLease({
     artifactStoreRoot,
     authorizationId: authorization.authorizationId,

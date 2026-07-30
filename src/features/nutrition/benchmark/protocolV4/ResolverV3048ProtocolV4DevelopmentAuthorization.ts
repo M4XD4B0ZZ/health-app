@@ -10,6 +10,8 @@ import {
 import {
   isProtocolV4ArtifactTargetUnused,
   isProtocolV4AuthorizationConsumedAtomically,
+  isProtocolV4LiveArtifactTargetUnused,
+  isProtocolV4LiveAuthorizationConsumedAtomically,
 } from './ResolverV3048ProtocolV4ArtifactStore';
 
 /**
@@ -51,6 +53,12 @@ export interface ProtocolV4DevelopmentAuthorizationRecord {
   consumptionVersion: number;
   authorizationRecordHash: string;
 }
+
+/** RESOLVER-V3-048 Phase B1: the single discriminated identity every dispatch-time layer (execution
+ * context, storage selection, Execution Lease `authorizationKind`/`runKind`) must agree with. Reuses
+ * `ProtocolV4DevelopmentAuthorizationRecord['kind']`'s own type rather than a parallel enum that could
+ * drift from it. */
+export type ProtocolV4ExecutionMode = ProtocolV4DevelopmentAuthorizationRecord['kind'];
 
 /** Builds a Development Authorization Record whose limits are derived directly from the Master
  * Plan's own Development budget (never independently re-typed numbers). `kind: 'human_live'` requires
@@ -111,10 +119,25 @@ export function assertDevelopmentAuthorized(input: {
   artifactRelativePath: string;
   consumedBudget: { calls: number; inputTokens: number; outputTokens: number; costUsd: number };
   plannedBudget: { calls: number; inputTokens: number; outputTokens: number; costUsd: number };
-  liveExecution: boolean;
+  /** RESOLVER-V3-048 Phase B1: replaces the prior `liveExecution: boolean`. The bidirectional check
+   * below requires this to equal `authorization.kind` exactly -- `human_live` + `fake_dry_run` mode
+   * and `fake_dry_run` + `human_live` mode are now both rejected by the same single check, closing
+   * the previous gate's asymmetry (it only ever blocked `fake_dry_run` + `liveExecution: true`). */
+  executionMode: ProtocolV4ExecutionMode;
+  /** Test-only override for where the mode-bound Artifact Store resolves its canonical root from
+   * (defaults to `process.cwd()`); production callers never set this. */
+  repoRoot?: string;
 }): void {
   validateProtocolV4MasterPlan(input.plan);
   const { plan, authorization } = input;
+  const isTargetUnused =
+    authorization.kind === 'human_live'
+      ? isProtocolV4LiveArtifactTargetUnused
+      : isProtocolV4ArtifactTargetUnused;
+  const isAuthorizationConsumedAtomically =
+    authorization.kind === 'human_live'
+      ? isProtocolV4LiveAuthorizationConsumedAtomically
+      : isProtocolV4AuthorizationConsumedAtomically;
   const { authorizationRecordHash, ...body } = authorization;
   if (hashProtocolV4(body) !== authorizationRecordHash)
     throw new ProtocolV4DevelopmentAuthorizationError(
@@ -153,15 +176,16 @@ export function assertDevelopmentAuthorized(input: {
     );
   if (
     authorization.status === 'consumed' ||
-    isProtocolV4AuthorizationConsumedAtomically(
+    isAuthorizationConsumedAtomically(
       input.artifactStoreRoot,
       authorization.authorizationId,
+      input.repoRoot,
     )
   )
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED',
     );
-  if (!isProtocolV4ArtifactTargetUnused(input.artifactStoreRoot, input.artifactRelativePath))
+  if (!isTargetUnused(input.artifactStoreRoot, input.artifactRelativePath, input.repoRoot))
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_ARTIFACT_TARGET_REUSED',
     );
@@ -191,18 +215,19 @@ export function assertDevelopmentAuthorized(input: {
     throw new ProtocolV4DevelopmentAuthorizationError(
       'PROTOCOL_V4_DEVELOPMENT_BUDGET_INSUFFICIENT',
     );
-  if (authorization.kind === 'fake_dry_run' && input.liveExecution)
-    throw new ProtocolV4DevelopmentAuthorizationError('PROTOCOL_V4_FAKE_AUTHORIZATION_CANNOT_LIVE');
-  if (input.liveExecution) {
-    if (authorization.kind !== 'human_live')
-      throw new ProtocolV4DevelopmentAuthorizationError(
-        'PROTOCOL_V4_HUMAN_LIVE_AUTHORIZATION_REQUIRED',
-      );
-    if (!authorization.humanApprovalReference)
-      throw new ProtocolV4DevelopmentAuthorizationError(
-        'PROTOCOL_V4_HUMAN_APPROVAL_REFERENCE_REQUIRED',
-      );
-  }
+  // RESOLVER-V3-048 Phase B1: bidirectional -- replaces the prior asymmetric pair of checks (which
+  // only ever blocked `fake_dry_run` + `liveExecution: true`, never `human_live` +
+  // `liveExecution: false`). `authorization.kind` must equal `executionMode` exactly, in both
+  // directions, closing "a human_live authorization dispatched through the fake execution context"
+  // in the same gate that already closed "a fake_dry_run authorization dispatched live".
+  if (authorization.kind !== input.executionMode)
+    throw new ProtocolV4DevelopmentAuthorizationError(
+      `PROTOCOL_V4_DEVELOPMENT_EXECUTION_MODE_AUTHORIZATION_MISMATCH:${authorization.kind}:${input.executionMode}`,
+    );
+  if (input.executionMode === 'human_live' && !authorization.humanApprovalReference)
+    throw new ProtocolV4DevelopmentAuthorizationError(
+      'PROTOCOL_V4_HUMAN_APPROVAL_REFERENCE_REQUIRED',
+    );
 }
 
 /** Atomically (in the sense of "the only supported state transition function": never mutates the

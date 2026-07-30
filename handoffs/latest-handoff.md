@@ -1,124 +1,153 @@
-# Handoff — RESOLVER-V3-048: Live Development Authorization Preflight (2026-07-30)
+# Handoff — RESOLVER-V3-048: Phase B1 Protocol-v4 Live Development Wiring (2026-07-30)
 
-1. **Task ID/status:** `RESOLVER-V3-048` — remains `in_progress`. The maintainer's live Development
-   authorization was received, verified against the frozen plan, and **not executed**. Branch:
-   `claude/resolver-v3-048-live-dev-8sjtm8`. Basis: `49c727a` (tip of `chore/clean-arch-structure`).
-   **Actual consumption: 0 provider calls, 0 tokens, USD 0.00.** The authorization is unconsumed and
-   preserved as the historical human decision record for these exact ceilings — but it is **not**
-   transferable to a future, changed live-wiring code state and must **not** be automatically reused
-   once that code lands (see item 7).
+1. **Task ID/status:** `RESOLVER-V3-048` — remains `in_progress`. Phase B1 (live-dispatch code wiring)
+   is complete; **no live run happened**. Branch: `claude/resolver-v3-048-phase-b1-live-dev-wiring`.
+   Basis: `e44cd5c` (PR #202 merge, tip of `chore/clean-arch-structure` at task start).
+   **Actual consumption: 0 provider calls, 0 tokens, USD 0.00.** G2 remains `not passed`;
+   `RESOLVER-V3-010` remains `blocked`; Holdout remains unexecuted and unauthorized.
 
-2. **What changed:** documentation/evidence only. A new preflight report records the authorization,
-   its exact reconciliation against the pre-frozen Master Plan, the two blockers that stopped
-   execution, the actual (zero) consumption, the CodeGraph MCP preflight, and the enumerated —
-   unimplemented and unauthorized — requirements for a real live run. `ROADMAP.md`'s
-   `RESOLVER-V3-048` entry and `Current Focus` were updated to match. No source file was touched.
+2. **What changed:** the missing live-dispatch architecture the PR #202 preflight found was
+   implemented — and only that.
+   - New `ResolverV3048ProtocolV4ExecutionContext.ts`: a discriminated
+     `ProtocolV4DispatchExecutionContext` (`fake_dry_run` | `human_live`) that owns the entire
+     per-observation dispatch. `fake_dry_run` is a verbatim move of the prior `runOneObservation`
+     fixture body (behavior-preserving). `human_live` fails closed on a missing `ANTHROPIC_API_KEY`,
+     runs the real fast-path check **before any budget reservation or call-state transition**, and only
+     on genuine rejection dispatches through the real `AnthropicVariantCLiveInterpreter` via a private
+     per-observation counting transport (so `providerHttpRequests` is measured at the real `fetch`
+     boundary, never inferred from `httpStatus != null`).
+   - `ResolverV3VariantCAdapter.ts`: `runVariantCFastPathAttempt` / `runVariantCCaseFromFastPathAttempt`
+     extracted from `runVariantCCase`'s own body (pure move, zero new confidence-policy logic);
+     `runVariantCCase` is now a two-line composition of them.
+   - `assertDevelopmentAuthorized`: `liveExecution: boolean` → `executionMode: ProtocolV4ExecutionMode`,
+     with one **bidirectional** check (`authorization.kind !== executionMode` always throws), replacing
+     the prior asymmetric pair that never blocked `human_live` + fake execution.
+     `runProtocolV4DevelopmentForCandidate` independently re-asserts the same identity as its first
+     statement, for every call path.
+   - `ResolverV3048ProtocolV4ArtifactStore.ts`: internals became a private root-bound factory
+     instantiated twice — dry-run (re-exported under the exact pre-existing names/error codes, zero
+     call-site change) and new live (parallel names bound to `PROTOCOL_V4_LIVE_ROOT`).
+   - `ResolverV3048ProtocolV4ExecutionLease.ts`: gained a claim-time root check, closing a real gap —
+     the module previously had **no** root restriction at all (root binding was only checked after the
+     fact at dispatch time).
+   - New `ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.ts`: re-derives/validates the plan, requires
+     a real `human_live` authorization matching it, builds the live context (fail-closed credential
+     check), runs the full storage/authorization preflight **before** claiming a lease, claims under the
+     hard-coded canonical live root, dispatches Development only, never references Holdout.
+   - Holdout Runner: no public signature change; only the minimal internal plumbing the new required
+     `executionContext` parameter forced. Stays fake-only.
+   - Docs: `ROADMAP.md` status/Current Focus, new Phase B1 report, PR #202 handoff archived.
 
-3. **Why it changed:** the authorization was well-formed but could not be spent. Preflight stopped
-   fail-closed on two independent blockers:
-   - **No credential.** `ANTHROPIC_API_KEY` is unset and no `.env` exists. `.env`/`.env.*` are under
-     `AGENTS.md`'s absolute protection, so an agent may not create one;
-     `createLiveVariantCInterpreter` correctly throws rather than falling back to a fixture provider.
-   - **No live dispatch path in the code** (the decisive one). `runOneObservation`
-     (`ResolverV3048ProtocolV4DevelopmentRunner.ts:167`, shared by the Development and Holdout
-     Runners) hard-codes a canned-HTTP-200 fake transport (lines 275-281), the placeholder credential
-     literal `'protocol-v4-development-not-a-credential'` (line 284), `buildFakeSources` (line 282)
-     and `buildFakeZeroCounts` (lines 303-329), with no transport/credential/environment parameter to
-     inject a real one; and `runProtocolV4DevelopmentForCandidate` passes a constant
-     `liveExecution: false` (line 421), so the runner structurally cannot reach
-     `assertDevelopmentAuthorized`'s `human_live` branch. The human-live authorization machinery is
-     complete and correct — nothing calls it in live mode. This matches the merged history (every
-     Protocol-v4 PR #190-#196 built zero-call infrastructure by design), so it is a scope boundary,
-     not a regression.
-
-   Running the existing runner anyway would have completed all 324 observations and sealed a
-   structurally valid, complete artifact set at 0 calls / USD 0 against fixtures — this task's
-   first-listed risk, "fixture fallback masquerading as live evidence." It was therefore not run.
+3. **Why it changed:** the maintainer's live Development authorization (324 calls / USD 5.142528) could
+   not be spent because the repository had no live dispatch path at all — `runOneObservation` hard-wired
+   a fixture transport, a placeholder credential, `buildFakeSources`/`buildFakeZeroCounts`, and
+   `runProtocolV4DevelopmentForCandidate` passed a constant `liveExecution: false`. This task closes that
+   code gap so a future authorized run is structurally possible, without making one.
 
 4. **Files changed:**
-   - `reports/RESOLVER_V3_048_LIVE_DEVELOPMENT_AUTHORIZATION_PREFLIGHT.md` (new)
-   - `ROADMAP.md` (`RESOLVER-V3-048` entry: new authorization/preflight section and new `Status:`
-     line; `Current Focus` paragraph updated. No other task entry touched.)
-   - `handoffs/latest-handoff.md` (replaced; holds only this entry)
-   - `handoffs/archive/2026-07-29_CODEGRAPH-001_post-merge-evidence-correction.md` (new;
-     byte-identical copy of the prior `handoffs/latest-handoff.md`)
 
-5. **Verification executed:** `VERIFY.md` Category 1 (documentation-only) required readback checks —
-   `git --no-pager status --short`, `git --no-pager diff --stat`, `git --no-pager diff --name-only`,
-   `git diff --check`; plus the optional `npm run verify` (typecheck + lint + format:check + full
-   Jest suite), run deliberately because PR #193 previously failed CI on a non-Prettier-conformant
-   `ROADMAP.md`. Handoff rotation checked byte-identical via `diff`. `npm ci` was run first to restore
-   already-declared dependencies into an empty `node_modules` (permitted by `AGENTS.md`'s Dependency
-   Command Safety; lockfile-exact, `package.json`/`package-lock.json` unmodified — confirmed by a
-   clean `git status`).
+   ```
+   M  ROADMAP.md
+   M  src/features/nutrition/benchmark/ResolverV3VariantCAdapter.ts
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ArtifactStore.ts
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentAuthorization.ts
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DryRun.ts
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionLease.ts
+   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4HoldoutRunner.ts
+   M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalDispatchAuthorizationClosureRedBaseline.test.ts
+   M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalEvidenceLineageRedBaseline.test.ts
+   M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalPhaseAClosureRedBaseline.test.ts
+   A  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionContext.ts
+   A  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.ts
+   A  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4ExecutionContext.test.ts
+   A  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.test.ts
+   A  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B1_LIVE_DEVELOPMENT_WIRING.md
+   A  handoffs/archive/2026-07-30_RESOLVER-V3-048_live-development-authorization-preflight.md
+   M  handoffs/latest-handoff.md
+   ```
 
-   **`npm run verify` did not complete as a single command in this environment**, and the reason is a
-   local-environment artifact rather than a defect in this change: `format:check` (`prettier -c .`)
-   flagged exactly one file, `.claude/settings.local.json`, which the harness auto-writes locally when
-   an MCP tool call is approved. That file is untracked and git-ignored globally
-   (`/root/.config/git/ignore:1`), is not a repository file, cannot enter a commit, and does not exist
-   in a CI checkout — the same file and the same reasoning are already documented in the archived
-   `CODEGRAPH-001` Phase B handoff. It was deliberately left unmodified rather than reformatted to
-   make the command green. The `verify` chain was therefore completed stage-by-stage instead: `tsc
---noEmit` and `eslint .` passed inside the aborted `npm run verify` run; Prettier conformance was
-   re-checked across **all tracked formattable files** (`git ls-files '*.md' '*.ts' '*.tsx' '*.js'
-'*.mjs' '*.cjs' '*.json' '*.yml' '*.yaml' | xargs npx prettier -c`) — "All matched files use
-   Prettier code style!"; and `npm run test` was run separately (result in item 6). GitHub Verify on
-   this branch is the authoritative confirmation, since CI has no `.claude/settings.local.json`.
+   The three existing red-baseline test files changed only their call sites (adding
+   `executionContext: buildProtocolV4FakeDryRunExecutionContext()`, renaming `liveExecution: false` →
+   `executionMode: 'fake_dry_run'`). No assertion or expected behavior changed.
 
-   CodeGraph MCP preflight (`AGENTS.md` "CodeGraph Availability"): `mcp__codegraph__codegraph_explore`
-   first reported no `.codegraph/` index — the documented fail-closed condition. The single permitted
-   remediation was applied (`npx -y @colbymchenry/codegraph@1.5.0 init`, the version pinned in
-   `.mcp.json`; 796 files / 7,518 nodes / 29,284 edges) and re-verified through the MCP tool itself,
-   not the CLI. Query:
-   `runOneObservation runProtocolV4DevelopmentForCandidate createLiveVariantCInterpreter AnthropicBenchmarkTransport live dispatch`.
-   Findings: call path `runProtocolV4DevelopmentForCandidate` (`…DevelopmentRunner.ts:372`) →
-   `runOneObservation` (`…DevelopmentRunner.ts:167`) → `runProtocolV4Attempt`
-   (`…AttemptWrapper.ts:240`) → `dispatch` (`…CallStateMachine.ts:87`); blast radius 4 callers for
-   `runOneObservation`, 14 for `createLiveVariantCInterpreter`; verbatim source for the hard-coded
-   fake transport/credential block, `createLiveVariantCInterpreter`, `AnthropicBenchmarkTransport`
-   (the real proxy-aware transport, unused by Protocol-v4), and the `claude-haiku-4-5-20251001`
-   pricing entry in `LiveProviderBudgetGate.ts`. `.codegraph/` is self-ignoring and was not committed.
+5. **Verification executed** (VERIFY.md Category 4, product/runtime code — plus Category 1 readback for
+   the doc files):
 
-6. **Verification result:** all readback checks clean; `git diff --check` reported no whitespace
-   errors; `tsc --noEmit` clean; `eslint .` clean; Prettier conformance confirmed across all tracked
-   formattable files; `npm run test` (full Jest suite) passed — see the per-stage note in item 5 for
-   why the stages were run individually rather than through the single `npm run verify` entrypoint;
-   handoff rotation byte-identical and singular. Plan/authorization reconciliation verified by
-   executing `buildProtocolV4MasterPlan()` (zero-network, identity/budget derivation only) via a
-   temporary test that was removed before commit: `developmentCalls` 324, `developmentMaxTokens`
-   3,151,872, `developmentMaxCostUsd` 5.142528, `maxConcurrentRequests` 1, `modelId`
-   `claude-haiku-4-5-20251001`, pricing `anthropic-messages-2025-10-01-v1` — an exact match to every
-   authorized ceiling, with the 28-call / USD 0.444416 Holdout remainder correctly excluded.
+   ```
+   npx tsc --noEmit -p tsconfig.json                      # repo-wide typecheck
+   npx eslint .                                           # repo-wide lint
+   npx prettier -c <every changed/added file>             # targeted format check
+   npx jest --runInBand src/features/nutrition/benchmark  # the affected area, full
+   npx jest --runInBand                                   # full repo suite
+   git --no-pager status --short / diff --stat            # readback
+   ```
 
-7. **Known issues, blockers, or residual risks:**
-   - The two blockers in item 3 remain open. The authorization cannot be spent until a live dispatch
-     path exists **and** a credential is supplied through a channel an agent may not create.
-   - Closing blocker 2 means changing the dispatch core (`runOneObservation`) that every merged
-     Phase-A PR was built to guard: injectable real transport, real credential pass-through, real
-     source adapters, real external-call counting, and `liveExecution` promoted from a hard-coded
-     `false` to a caller-supplied value, plus a live entry point writing to the canonical
-     `logs/resolver-v3-048-protocol-v4` root instead of the dry-run root. That is a substantive,
-     separately reviewable change and should not be written and executed in the same unattended pass
-     that spends the budget. It was deliberately **not** started here.
-   - The present authorization was issued against, and verified against, today's code, which cannot
-     spend it (item 3). It does **not** cover whatever live-wiring code lands later and must **not**
-     be automatically reused once that code exists: a **new, explicit human authorization** is
-     required before any live execution, re-verified against the actually merged live-wiring commit,
-     the plan/execution-tree/candidate/pricing/budget identities re-derived at that commit, and the
-     exact Development ceilings (calls/tokens/cost/concurrency). This is a new authorization, not a
-     renewal of the present one.
-   - G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`. No Holdout decision is pending,
-     because Development did not run, and Holdout stays fully excluded and separately
-     decision-pending in every case. The seven V3-039 evidence files, corpus, ground truth, and the
-     corrected G2 evaluator are untouched.
-   - No UI/presentation-layer file was touched, so no `docs/MANUAL_TESTING_GAPS.md` entry is required.
+   **Why not `npm run verify` as the single gate:** `npm run verify` chains
+   `typecheck && lint && format:check && test`, and `format:check` (`prettier -c .`) reports style
+   issues in **1506** files on this Windows machine — overwhelmingly files this task never touched
+   (`SSOK.md`, `VERIFY.md`, `tsconfig.json`, `src/presentation/**`), from line-ending normalization. It
+   therefore halts before the tests run and is not a usable local CI-equivalent signal. The four
+   commands it chains were run directly instead, with the format check scoped to this task's own files.
+   Green GitHub Verify on this branch is the authoritative repo-wide signal.
 
-8. **Human review/next steps:** review this preflight and decide how to proceed on Development. The
-   present authorization is unconsumed (0 calls / 0 tokens / USD 0.00 spent) and preserved as the
-   historical decision record, but it is not valid for execution against a future changed live-wiring
-   code state and must not be automatically reused once that code lands — a new, explicit human
-   authorization (item 7) is required first. The realistic options are to open a scoped live-wiring
-   task (blocker 2) and supply a credential (blocker 1), then obtain that new authorization against
-   the merged result, or to leave V3-048 parked. No PR has been opened for this branch; open one if
-   the documentation should land on `chore/clean-arch-structure`.
+6. **Verification result:**
+   - `tsc --noEmit`: **PASS**, 0 errors.
+   - `eslint .`: **PASS**, 0 errors/warnings.
+   - `prettier -c` over every changed/added file: **PASS** — "All matched files use Prettier code
+     style!" — but only after a real fix (see item 7a).
+   - `jest src/features/nutrition/benchmark`: 75/79 suites, **927/935 tests pass**. The 8 failures are
+     pre-existing and Windows-local (item 7b); 0 new failures.
+   - Full `jest --runInBand` (repo-wide): 251/255 suites, **2736/2744 tests pass**, 699 s. The failures
+     are exactly the same 8 in the same 4 suites — no failure anywhere outside
+     `src/features/nutrition/benchmark`, and 0 new failures.
+   - Evidence integrity re-checked directly: `logs/resolver-v3-048-protocol-v4` does not exist;
+     `git status --porcelain logs/` is empty (no `logs/resolver-v3-039-*` evidence file touched);
+     `tmp/resolver-v3-048-protocol-v4-dry-run` does not exist.
+
+7. **Known issues, blockers, residual risks:**
+
+   a. **Two documentation inaccuracies found and corrected, not silently fixed.** (i) An earlier draft of
+   the Phase B1 report claimed `prettier -c` passed on all changed files. It did not — three source
+   files (`…ArtifactStore.ts`, `…DevelopmentAuthorization.ts`, `…ExecutionContext.ts`) and the report
+   itself had genuine violations (over-100-col lines, an unnecessarily wrapped `throw`, two multi-line
+   inline code spans). Fixed with `prettier -w` on exactly those files; formatting-only, no logic
+   changed; `tsc`/`eslint`/the benchmark suite were re-run clean afterwards. (ii) The PR #202 preflight
+   recorded "no `.env` exists". A gitignored `.env` **does** exist (unmodified since 2026-07-24) and
+   contains **no** `ANTHROPIC_API_KEY` — verified by listing variable NAMES only; no value was read,
+   printed, or logged. The blocker's conclusion is unchanged, but the real maintainer action is to **add
+   `ANTHROPIC_API_KEY` to the existing `.env`**, not to create the file. `ROADMAP.md`'s living status
+   text was corrected; the frozen PR #202 report was deliberately **not** rewritten.
+
+   b. **8 pre-existing, Windows-local test failures across 4 files** (`…DryRun.test.ts` and the three
+   Final\* red-baseline suites): `ENOENT ... mkdir '...\leases\mini-run-development:<hash>'`. Windows
+   rejects `:` in a path component; the pre-existing authorization ID
+   `` `mini-run-development:${planHash}` `` becomes an invalid directory name when the lease module
+   derives a lease directory from it. Confirmed pre-existing two independent ways: the earlier
+   `git stash` A/B against the unmodified basis, and statically — the colon-containing ID is present in
+   the **committed** `HEAD` file (`git show HEAD:…/ResolverV3048ProtocolV4DryRun.ts`, line 1474) and
+   `git diff HEAD` shows **no** change to `leaseVersionPath` or the failing `fs.mkdirSync`. Not fixed
+   here (out of scope: a colon-in-directory-name choice unrelated to live-dispatch wiring). Expected not
+   to reproduce on Linux CI, where `:` is legal — that expectation is **not self-certified**; green
+   GitHub Verify is the confirmation.
+
+   c. **The PR #202 authorization (324 calls / USD 5.142528) must NOT be reused.** Per its own preflight
+   report §6/§9, it was checked against a code state that could not dispatch a single live call — and
+   this task changed exactly that code. A **new, explicit human authorization**, re-verified against this
+   commit with plan/execution-tree/candidate/pricing/budget identities re-derived, is required before any
+   live Development call.
+
+   d. Residual risk: the `human_live` path has never executed against a real provider. It is proven
+   reachable and correct only zero-network (`global.fetch` mocked, placeholder key). Real-provider
+   behavior — actual token/cost records, real latencies, real error shapes — is unproven by construction.
+
+   e. The 352-call / USD 5.586944 Holdout-inclusive budget remains unauthorized. Holdout stays a
+   separate, later human decision.
+
+8. **Human-review status / next steps:**
+   - **Not yet reviewed.** Needs review of this branch's diff and a green GitHub Verify before merge.
+   - Next step is **not** another Phase-A/B hardening pass. It is a maintainer decision:
+     (1) add `ANTHROPIC_API_KEY` to the existing `.env` (an agent may not), and (2) issue a **new** live
+     Development authorization checked against this commit. Only then can a live Development run happen.
+   - Nothing in this task should be read as authorization to run live. No live call was made, no live
+     evidence was produced, and `logs/resolver-v3-048-protocol-v4/` was never created.

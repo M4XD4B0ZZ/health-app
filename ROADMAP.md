@@ -6210,9 +6210,13 @@ Task-Start Read Contract items.
 - **MCP approval behavior observed:** no explicit project-scoped MCP approval prompt was shown for
   the `codegraph` server in this session; its tool became callable automatically once the server
   finished connecting (surfaced the same way as the pre-existing `supabase`/`github` servers). No
-  repository file was required for this — `.claude/settings.json` and `.claude/settings.local.json`
-  do not exist in this repository (confirmed via `ls -la .claude/`: only `skills/` is present), so no
-  `.claude/settings.json` change was made or is needed.
+  repository file was required or changed for this: `.claude/settings.json` does not exist in this
+  repository. `.claude/settings.local.json` also did not exist at task start (confirmed via `ls -la
+.claude/`: only `skills/` was present), but was auto-written locally by the harness after the first
+  `mcp__codegraph__codegraph_explore` call, recording that tool-call permission. That file is
+  untracked and globally git-ignored (resolved via `/root/.config/git/ignore`, not this repository's
+  own `.gitignore`) — it is not a repository file, was not authored by this task, and was not part of
+  PR #200's diff.
 - **Actual exposed tool surface (corrects the Phase-A/Prompt-Gov assumption above):** the `codegraph`
   MCP server exposes exactly one tool this session, `mcp__codegraph__codegraph_explore` — there is
   **no** separate `codegraph_status` tool, contrary to the `codegraph_status` name assumed in the

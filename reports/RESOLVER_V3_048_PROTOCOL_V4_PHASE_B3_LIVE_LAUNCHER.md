@@ -451,3 +451,94 @@ M  handoffs/latest-handoff.md
 
 Zero provider calls, zero tokens, USD 0.00 throughout — this remediation, like Phase B3 itself,
 never runs the launcher with a real credential.
+
+## 11. Pre-PR Remediation 2 (2026-07-31): Transport-Authoritative Accounting and Failure Finalization
+
+A second independent pre-PR review found five further defects in usage accounting, lease
+finalization, and error redaction. All five are fixed on the same branch, still zero provider
+calls. **CodeGraph MCP preflight** (`mcp__codegraph__codegraph_explore`) confirmed, before any
+change: the Human-Live Execution Context's private counting-transport boundary (incrementing
+immediately before every real `fetch`, in `ResolverV3048ProtocolV4ExecutionContext.ts`);
+`reserveProtocolV4Call` → `LiveProviderBudgetGate.reserve` (exactly once per real attempted
+dispatch, never decremented); the Development Runner's catch block calling
+`markProtocolV4ExecutionLeaseTerminalFailure` (the exact point Defect 3 reorders); and the
+launcher's `summarizeSuccessUsage`/`summarizeFailureUsage`/`classifyLauncherError` call sites.
+
+**Defect 1 (success accounting counted usage records, not HTTP requests).** `summarizeSuccessUsage`
+now sums the real, measured `counts.providerHttpRequests.value` from every ledger entry (exact,
+regardless of usage outcome) as a dimension fully separate from confirmed tokens/cost (summed only
+from entries with `usageStatus === 'reported'` and a computed `actualCostUsd`). A structurally
+successful run is no longer automatically billing-exact: if any HTTP request lacks full usage/cost
+information, overall accounting is `'partial'` and that entry's own `reservedWorstCaseCostUsd`
+(already computed by the real reservation, never re-derived) contributes to a safe upper bound
+instead of being silently reported as USD 0.00.
+
+**Defect 2 (reservation count mislabeled as a provider-request count).** The shared budget gate's
+`snapshot().calls` is now named and documented purely as `aiDispatchReservations` — never
+`providerCallsAtLeast`/`actualProviderCalls`/a "safe provider-request floor". A new, read-only,
+transport-authoritative cumulative counter was added to `ProtocolV4HumanLiveExecutionContext`
+(`getCumulativeProviderHttpRequestCount()`), incremented exactly at the private counting-transport
+boundary immediately before every real `fetch`, spanning every candidate/observation of one
+Development run. No transport injection, no caller-settable value, no URL/header/credential/proxy
+data. `attachProtocolV4FailureUsageSnapshot` now derives `providerHttpRequests` from this counter,
+not from the gate.
+
+**Defect 3 (failure snapshot lost to lease-finalization errors).** The Development Runner's catch
+block now: (1) normalizes the caught throwable to a real `Error`; (2) attaches the usage snapshot
+to that ORIGINAL error first; (3) attempts `markProtocolV4ExecutionLeaseTerminalFailure` in its own
+nested `try`/`catch`; (4) never lets a lease-finalization failure replace the original error or its
+snapshot; (5) attaches a separate, secret-free `protocolV4LeaseFinalizationStatus`
+(`'terminal_failure_confirmed'` | `'failed_to_persist'`) either way. Baseline computation and
+budget-gate construction were moved INSIDE the `try` (previously outside it, so a baseline failure
+after the lease reached `executing` left it stuck there uncaught) — `evidenceGate` is now declared
+`let ... | undefined` outside the `try` so the `catch` can still build a snapshot (reporting
+`aiDispatchReservations: 0`) even when the gate was never constructed.
+
+**Defect 4 (absent snapshot silently meant exact zero).** `summarizeFailureUsage` no longer treats
+"no snapshot" as automatically zero. A new `KNOWN_PRE_DISPATCH_ERROR_CLASSES` allowlist (every
+Protocol-v4 error class verified by source inspection to be reachable only strictly before the
+Development Runner's dispatch loop starts, plus the launcher's own `LauncherError`) is the only
+thing that still justifies reporting exact zero without a snapshot; any other error reports
+`accounting: 'unknown'` with `null` numeric fields — never a fabricated `0`.
+
+**Defect 5 (error allowlist trusted classes, not codes).** Every `LauncherError` now takes
+`(code, internalDetail)`: `code` MUST be one of a fixed, enumerated `KNOWN_LAUNCHER_ERROR_CODES` set
+(the ONLY thing `classifyLauncherError` ever surfaces — an exact-match check, not a class-based
+trust decision); `internalDetail` (a resolved path, a foreign error's message, `tsc` stdout/stderr,
+a submitted argument value) is a plain, non-message property never read by `classifyLauncherError`
+and never reaching stdout/stderr/the summary. Every direct `new LauncherError(...)` call site across
+the launcher (git helpers, build, path safety, JSON parsing, `assertCheck`) was updated to this
+split. Protocol-v4 domain-error messages are additionally truncated at the first non-code character
+as extra safety margin. New tests include a malformed authorization JSON file embedding a
+secret-like marker, verified absent from `runExecute`'s thrown error, `classifyLauncherError`'s
+output, AND a real CLI subprocess's actual stdout/stderr.
+
+**Production-call contract.** `runExecute`'s dispatch object is now built as
+`const dispatchArgs = { authorization, env }; if (repoRootForTests) { dispatchArgs.repoRoot = ... }`
+— the production path never includes a `repoRoot` key at all (not even `repoRoot: undefined`).
+Proven at the source level (a live production call cannot itself be exercised in a test without
+targeting the real repository's live root, which no test may ever do).
+
+**Files changed in this remediation:**
+
+```
+M  scripts/run-resolver-v3-048-live-development.mjs
+M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionContext.ts
+M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+M  ROADMAP.md
+M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md (this section)
+A  handoffs/archive/<archived prior handoff>
+M  handoffs/latest-handoff.md
+```
+
+**Verification (this remediation):** focused launcher tests 95 total (90 passing pre-commit; the 5
+failures are this launcher's own working-tree-clean gate, confirmed passing 95/95 post-commit — see
+the rotated handoff); new/updated `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts` 14/14
+(6 new real end-to-end cases: reservation-before-fetch, error-after-one-fetch,
+lease-finalization-failure, baseline-failure-after-executing, plus updated write/readback/success
+cases); full `protocolV4` Jest suite 220/220 (11 suites); full `nutrition-benchmark` Jest suite
+965/965 (81 suites); full repo-wide Jest suite result recorded in the rotated handoff; `tsc --noEmit`
+0 errors; `eslint .` 0 errors; `prettier -c` clean after one `-w` pass on 4 files; `git diff --check`
+clean. Zero provider calls, zero tokens, USD 0.00 throughout.

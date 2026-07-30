@@ -24,10 +24,10 @@ import {
   validateAuthorizationAgainstRepositoryState,
   validateAuthorizationAgainstPlan,
   validateConfirmationFlags,
-  summarizeActualUsage,
   summarizeSuccessUsage,
   summarizeFailureUsage,
   classifyLauncherError,
+  KNOWN_LAUNCHER_ERROR_CODES,
   loadCompiledBridge,
   runPreflight,
   runExecute,
@@ -730,57 +730,54 @@ describe('candidateIdentitiesMatch', () => {
   });
 });
 
-describe('summarizeActualUsage', () => {
-  test('aggregates calls/tokens/cost only from reported ledger entries', () => {
-    const evidence = {
-      candidates: [
-        {
-          ledger: {
-            content: [
-              { usageStatus: 'reported', inputTokens: 100, outputTokens: 20, actualCostUsd: 0.01 },
-              {
-                usageStatus: 'not_applicable',
-                inputTokens: null,
-                outputTokens: null,
-                actualCostUsd: null,
-              },
-            ],
-          },
-        },
-      ],
-    };
-    const usage = summarizeActualUsage(evidence);
-    assert.equal(usage.calls, 1);
-    assert.equal(usage.inputTokens, 100);
-    assert.equal(usage.outputTokens, 20);
-    assert.equal(usage.totalTokens, 120);
-    assert.equal(usage.costUsd, 0.01);
-  });
-});
-
 // -------------------------------------------------------------------------------------------
-// Defect 1 (launcher level): a failed run never fabricates zero usage. `summarizeFailureUsage`
-// only ever reads the authoritative `protocolV4FailureUsageSnapshot` the Protocol-v4 Development
-// Runner attaches to a `human_live` failure -- these tests fabricate that snapshot shape directly
-// (the real, end-to-end proof that the Runner actually attaches it correctly lives in
-// `src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`).
+// Defects 1/2/4 (launcher level): transport-authoritative accounting -- `providerHttpRequests`
+// (transport-authoritative) and `aiDispatchReservations` (budget-gate reservations) are always
+// distinct dimensions; a failure with no snapshot is `'exact'` zero ONLY for a recognized
+// pre-dispatch error class, `'unknown'` (never a fabricated `0`) otherwise. These tests fabricate
+// the snapshot/error shapes directly -- the real, end-to-end proof that the Protocol-v4 Development
+// Runner actually attaches a correct snapshot (including the transport-authoritative counter,
+// reservation-before-fetch, lease-finalization-failure, and baseline-failure cases) lives in
+// `src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`.
 // -------------------------------------------------------------------------------------------
 
 describe('summarizeFailureUsage', () => {
-  test('an error with no snapshot (failure strictly before any dispatch was possible) reports exact 0 calls', () => {
-    const usage = summarizeFailureUsage(new Error('plain error, no snapshot attached'));
+  test('a recognized pre-dispatch error class with no snapshot reports exact 0 -- never a fabricated guess', () => {
+    const usage = summarizeFailureUsage(new LauncherError('LAUNCHER_ANTHROPIC_API_KEY_MISSING'));
     assert.equal(usage.accounting, 'exact');
-    assert.equal(usage.calls, 0);
-    assert.equal(usage.costUsd, 0);
+    assert.equal(usage.providerHttpRequests, 0);
+    assert.equal(usage.aiDispatchReservations, 0);
+    assert.equal(usage.confirmedCostUsd, 0);
     assert.equal(usage.reservedCostUsdUpperBound, null);
   });
 
-  test('an "exact_zero" snapshot reports exact 0 calls', () => {
+  // Test 8: an unknown/structurally unexpected throwable with no snapshot and no recognized
+  // pre-dispatch class MUST report 'unknown' usage, never a fabricated 0.
+  test('an unrecognized error class with no snapshot reports "unknown" usage, never a fabricated 0', () => {
+    const usage = summarizeFailureUsage(new TypeError('totally unexpected'));
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+    assert.equal(usage.aiDispatchReservations, null);
+    assert.equal(usage.confirmedCostUsd, null);
+    assert.equal(usage.reservedCostUsdUpperBound, null);
+  });
+
+  test('a bare object with no name/message at all also reports "unknown", not 0', () => {
+    const usage = summarizeFailureUsage({});
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+  });
+
+  // Test 4 shape: a snapshot with reservations but zero transport-authoritative HTTP requests is
+  // still 'exact' zero for HTTP requests -- the reservation count is preserved separately, never
+  // conflated with (or mislabeled as) a provider/HTTP-request count.
+  test('a snapshot with reservations but zero HTTP requests reports exact 0 HTTP requests, reservations preserved separately', () => {
     const error = new Error('boom');
     error.protocolV4FailureUsageSnapshot = {
       accounting: 'exact_zero',
       completedCandidateIds: [],
-      providerCallsAtLeast: 0,
+      providerHttpRequests: 0,
+      aiDispatchReservations: 1,
       reservedInputTokensUpperBound: 0,
       reservedOutputTokensUpperBound: 0,
       reservedCostUsdUpperBound: 0,
@@ -790,35 +787,140 @@ describe('summarizeFailureUsage', () => {
     };
     const usage = summarizeFailureUsage(error);
     assert.equal(usage.accounting, 'exact');
-    assert.equal(usage.calls, 0);
+    assert.equal(usage.providerHttpRequests, 0);
+    assert.equal(usage.aiDispatchReservations, 1);
   });
 
-  test('a "partial" snapshot after dispatch(es) never reports 0 calls, and exposes safe upper bounds', () => {
+  // Test 5 shape: a snapshot with providerHttpRequests=1 is 'partial', never 0, and exposes safe
+  // upper bounds rather than a fabricated exact cost.
+  test('a snapshot after one real HTTP request never reports 0, and exposes safe upper bounds', () => {
     const error = new Error('boom-mid-run');
     error.protocolV4FailureUsageSnapshot = {
       accounting: 'partial',
       completedCandidateIds: ['H0'],
-      providerCallsAtLeast: 4,
-      reservedInputTokensUpperBound: 32768,
-      reservedOutputTokensUpperBound: 6144,
-      reservedCostUsdUpperBound: 0.0635,
+      providerHttpRequests: 1,
+      aiDispatchReservations: 1,
+      reservedInputTokensUpperBound: 8192,
+      reservedOutputTokensUpperBound: 1536,
+      reservedCostUsdUpperBound: 0.0158,
       confirmedInputTokens: 500,
       confirmedOutputTokens: 90,
       confirmedCostUsd: 0.0009,
     };
     const usage = summarizeFailureUsage(error);
     assert.equal(usage.accounting, 'partial');
-    assert.notEqual(usage.calls, 0);
-    assert.equal(usage.calls, 4);
-    assert.equal(usage.inputTokens, 500);
-    assert.equal(usage.costUsd, 0.0009);
-    assert.equal(usage.reservedCostUsdUpperBound, 0.0635);
+    assert.notEqual(usage.providerHttpRequests, 0);
+    assert.equal(usage.providerHttpRequests, 1);
+    assert.equal(usage.confirmedInputTokens, 500);
+    assert.equal(usage.confirmedCostUsd, 0.0009);
+    assert.equal(usage.reservedCostUsdUpperBound, 0.0158);
     assert.deepEqual(usage.completedCandidateIds, ['H0']);
+  });
+
+  test('surfaces leaseFinalization from the error when present', () => {
+    const error = new Error('boom');
+    error.protocolV4LeaseFinalizationStatus = 'failed_to_persist';
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.leaseFinalization, 'failed_to_persist');
+  });
+
+  test('leaseFinalization is null when absent', () => {
+    const usage = summarizeFailureUsage(new LauncherError('LAUNCHER_ANTHROPIC_API_KEY_MISSING'));
+    assert.equal(usage.leaseFinalization, null);
   });
 });
 
 describe('summarizeSuccessUsage', () => {
-  test('reports exact accounting with no upper bounds, and every candidate as completed', () => {
+  // Test 1: full HTTP-200 calls with complete usage -- HTTP count and tokens/cost both exact.
+  test('full usage on every HTTP request reports exact accounting with exact HTTP-request/token/cost totals', () => {
+    const evidence = {
+      candidates: [
+        {
+          candidateId: 'H0',
+          ledger: {
+            content: [
+              {
+                usageStatus: 'reported',
+                actualCostUsd: 0.01,
+                inputTokens: 100,
+                outputTokens: 20,
+                counts: { providerHttpRequests: { value: 1 } },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const usage = summarizeSuccessUsage(evidence);
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.providerHttpRequests, 1);
+    assert.equal(usage.confirmedInputTokens, 100);
+    assert.equal(usage.confirmedOutputTokens, 20);
+    assert.equal(usage.confirmedTotalTokens, 120);
+    assert.equal(usage.confirmedCostUsd, 0.01);
+    assert.equal(usage.reservedCostUsdUpperBound, null);
+    assert.deepEqual(usage.completedCandidateIds, ['H0']);
+  });
+
+  // Tests 2/3: a structurally completed run where an HTTP request happened but usage/cost is
+  // incomplete -- HTTP-request count stays exact, but overall accounting is 'partial' and the
+  // uncertain cost is reported as a safe upper bound, never as an actual USD 0.00.
+  test('an HTTP request without full usage reports "partial" accounting, never a fabricated USD 0.00', () => {
+    const evidence = {
+      candidates: [
+        {
+          candidateId: 'H0',
+          ledger: {
+            content: [
+              {
+                usageStatus: 'reported',
+                actualCostUsd: 0.01,
+                inputTokens: 100,
+                outputTokens: 20,
+                counts: { providerHttpRequests: { value: 1 } },
+              },
+              {
+                // A real HTTP request happened (count=1) but usage/cost never resolved.
+                usageStatus: 'usage_unknown',
+                actualCostUsd: null,
+                inputTokens: null,
+                outputTokens: null,
+                reservedWorstCaseCostUsd: 0.0158,
+                counts: { providerHttpRequests: { value: 1 } },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const usage = summarizeSuccessUsage(evidence);
+    assert.equal(usage.accounting, 'partial');
+    assert.equal(usage.providerHttpRequests, 2); // exact regardless of usage completeness
+    assert.equal(usage.confirmedCostUsd, 0.01); // only the confirmed entry
+    assert.notEqual(usage.reservedCostUsdUpperBound, null);
+    assert.equal(usage.reservedCostUsdUpperBound, 0.0158);
+  });
+
+  test('a fast-path (no-call) entry contributes zero HTTP requests and is skipped for usage purposes', () => {
+    const evidence = {
+      candidates: [
+        {
+          candidateId: 'H0',
+          ledger: {
+            content: [
+              { usageStatus: 'not_applicable', counts: { providerHttpRequests: { value: 0 } } },
+            ],
+          },
+        },
+      ],
+    };
+    const usage = summarizeSuccessUsage(evidence);
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.providerHttpRequests, 0);
+    assert.equal(usage.confirmedCostUsd, 0);
+  });
+
+  test('reports every candidate as completed and no reserved upper bound when accounting is exact', () => {
     const evidence = {
       candidates: [
         { candidateId: 'H0', ledger: { content: [] } },
@@ -834,18 +936,41 @@ describe('summarizeSuccessUsage', () => {
 });
 
 // -------------------------------------------------------------------------------------------
-// Secret-free error reporting: only an allowlisted domain error class's `.message` is ever
-// surfaced; anything else is reported by stable class/code only.
+// Defect 5: code-based error redaction, not a blanket class-based trust decision. A LauncherError
+// is only ever surfaced if its message is an EXACT match in `KNOWN_LAUNCHER_ERROR_CODES`;
+// `internalDetail` (which may embed a path, a foreign error message, compiler output, or a
+// submitted value) is never read by `classifyLauncherError`.
 // -------------------------------------------------------------------------------------------
 
 describe('classifyLauncherError', () => {
-  test('surfaces the message of an allowlisted LauncherError', () => {
-    const result = classifyLauncherError(new LauncherError('LAUNCHER_SOME_CODE: detail'));
+  test('surfaces the exact code of a known LauncherError, never its internalDetail', () => {
+    const result = classifyLauncherError(
+      new LauncherError(
+        'LAUNCHER_AUTHORIZATION_FILE_INVALID_JSON',
+        'some foreign JSON.parse detail',
+      ),
+    );
     assert.equal(result.class, 'LauncherError');
-    assert.equal(result.code, 'LAUNCHER_SOME_CODE: detail');
+    assert.equal(result.code, 'LAUNCHER_AUTHORIZATION_FILE_INVALID_JSON');
+    assert.equal(JSON.stringify(result).includes('foreign JSON.parse detail'), false);
   });
 
-  test('surfaces the message of an allowlisted Protocol-v4 domain error by name', () => {
+  test('a LauncherError with a tampered/unrecognized message falls back to a generic safe code', () => {
+    const tampered = new LauncherError('LAUNCHER_AUTHORIZATION_FILE_INVALID_JSON');
+    tampered.message = 'this is not a real code and should never be echoed as-is';
+    const result = classifyLauncherError(tampered);
+    assert.equal(result.class, 'LauncherError');
+    assert.equal(result.code, 'LAUNCHER_UNRECOGNIZED_CODE');
+  });
+
+  test('every KNOWN_LAUNCHER_ERROR_CODES entry round-trips through classifyLauncherError unchanged', () => {
+    for (const code of KNOWN_LAUNCHER_ERROR_CODES) {
+      const result = classifyLauncherError(new LauncherError(code, 'unsafe-detail-must-not-leak'));
+      assert.equal(result.code, code);
+    }
+  });
+
+  test('a Protocol-v4 domain error is truncated at the code prefix, discarding anything after a colon', () => {
     class ProtocolV4ExecutionLeaseError extends Error {
       constructor(message) {
         super(message);
@@ -853,10 +978,11 @@ describe('classifyLauncherError', () => {
       }
     }
     const result = classifyLauncherError(
-      new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND:x'),
+      new ProtocolV4ExecutionLeaseError('PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND:some-identifier'),
     );
     assert.equal(result.class, 'ProtocolV4ExecutionLeaseError');
-    assert.equal(result.code, 'PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND:x');
+    assert.equal(result.code, 'PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND');
+    assert.equal(JSON.stringify(result).includes('some-identifier'), false);
   });
 
   test('never surfaces the message of an unrecognized error class -- only its stable class/code', () => {
@@ -1192,10 +1318,131 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.equal(typeof outcome.summary.developmentEvidenceRoot, 'string');
     assert.equal(outcome.summary.usageAccounting, 'exact');
     assert.equal(outcome.summary.reservedCostUsdUpperBound, null);
+    assert.equal(typeof outcome.summary.providerHttpRequests, 'number');
+    assert.equal(outcome.summary.aiDispatchReservations, null); // not tracked on the success path
+    assert.equal(outcome.summary.leaseFinalization, null);
 
     const realLiveRoot = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
     assert.equal(fs.existsSync(realLiveRoot), false);
     const isolatedLiveRoot = path.join(isolatedRepoRoot, 'logs', 'resolver-v3-048-protocol-v4');
     assert.ok(fs.existsSync(isolatedLiveRoot));
+  });
+
+  // Test 9: a malformed authorization JSON file containing a secret-like marker must never leak
+  // that marker to stdout, stderr, or the JSON summary -- verified both at the unit level
+  // (classifyLauncherError) and via a real CLI subprocess invocation (the most convincing proof of
+  // "never reaches stdout/stderr").
+  test('Test 9: a malformed authorization JSON file with a secret-like marker never leaks it via runExecute', async () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_98765';
+    const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'p4-launcher-secret-'));
+    tempDirs.push(dir);
+    const malformedPath = path.join(dir, 'malformed-auth.json');
+    fs.writeFileSync(malformedPath, `{ "secret": "${secretMarker}" this is not valid json`);
+
+    const parsedArgs = {
+      mode: 'execute',
+      authorizationFile: malformedPath,
+      confirmDevelopmentOnly: true,
+      confirmMaxCostUsd: '5.142528',
+    };
+    const result = await runExecute(parsedArgs, {}).catch((e) => e);
+    assert.ok(result instanceof LauncherError);
+    assert.match(result.message, /LAUNCHER_AUTHORIZATION_FILE_INVALID_JSON/);
+    assert.equal(result.message.includes(secretMarker), false);
+    const classified = classifyLauncherError(result);
+    assert.equal(JSON.stringify(classified).includes(secretMarker), false);
+  });
+
+  test('Test 9b: the same scenario through the real CLI subprocess never prints the marker to stdout/stderr', () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_98765';
+    const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'p4-launcher-secret-cli-'));
+    tempDirs.push(dir);
+    const malformedPath = path.join(dir, 'malformed-auth.json');
+    fs.writeFileSync(malformedPath, `{ "secret": "${secretMarker}" this is not valid json`);
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(REAL_REPO_ROOT, 'scripts', 'run-resolver-v3-048-live-development.mjs'),
+        '--execute',
+        '--authorization-file',
+        malformedPath,
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+      ],
+      { encoding: 'utf-8' },
+    );
+    const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    assert.equal(combined.includes(secretMarker), false);
+    assert.ok(combined.includes('LAUNCHER_AUTHORIZATION_FILE_INVALID_JSON'));
+  });
+
+  // Test 10: the production dispatch call must never include a `repoRoot` key at all (not even
+  // `repoRoot: undefined`) -- proven at the source level, since a real production invocation
+  // targets the real repository's live root, which no test may ever do.
+  test('Test 10: the production dispatch call to runProtocolV4LiveDevelopmentEntryPoint never includes a repoRoot key unless repoRootForTests is set (source-level proof)', () => {
+    const source = fs.readFileSync(
+      fileURLToPath(new URL('../run-resolver-v3-048-live-development.mjs', import.meta.url)),
+      'utf-8',
+    );
+    const fnStart = source.indexOf('export async function runExecute');
+    assert.ok(fnStart > -1);
+    const fnEnd = source.indexOf('\n// ---', fnStart);
+    const body = source.slice(fnStart, fnEnd === -1 ? undefined : fnEnd);
+    // The dispatch object literal starts as exactly `{ authorization, env }` -- `repoRoot` is never
+    // an inline property of that literal (which would always include the key, just possibly
+    // `undefined`, in production); it is added to the variable only inside a conditional.
+    assert.ok(body.includes('const dispatchArgs = { authorization, env };'));
+    assert.ok(
+      /if\s*\(repoRootForTests\)\s*\{\s*\n\s*dispatchArgs\.repoRoot = repoRootForTests;/.test(body),
+    );
+    assert.equal(/runProtocolV4LiveDevelopmentEntryPoint\(\{[^)]*repoRoot/.test(body), false);
+  });
+
+  // Test 11: Holdout stays fully unreferenced and unexecuted by this launcher (already covered
+  // structurally above for the bridge/launcher source; this re-confirms via the real success
+  // summary that Holdout was explicitly never executed).
+  test('Test 11: a successful run explicitly reports Holdout was not executed', async () => {
+    const isolatedRepoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const plan = bridge.buildProtocolV4MasterPlan(isolatedRepoRoot);
+    const headCommit = spawnSync('git', ['rev-parse', 'HEAD'], {
+      cwd: REAL_REPO_ROOT,
+      encoding: 'utf-8',
+    }).stdout.trim();
+    const authPath = writeAuthFile(isolatedRepoRoot, plan, headCommit);
+    const parsedArgs = {
+      mode: 'execute',
+      authorizationFile: authPath,
+      confirmDevelopmentOnly: true,
+      confirmMaxCostUsd: String(plan.budget.developmentMaxCostUsd),
+    };
+    const originalFetch = global.fetch;
+    global.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          id: 'msg_fixture',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-haiku-4-5-20251001',
+          content: [
+            { type: 'text', text: JSON.stringify({ outcome: 'not_interpretable', reason: 'x' }) },
+          ],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 10, output_tokens: 5 },
+        }),
+        { status: 200 },
+      );
+    let outcome;
+    try {
+      outcome = await runExecute(parsedArgs, {
+        repoRootForTests: isolatedRepoRoot,
+        envForTests: { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
+    assert.equal(outcome.summary.holdoutExecuted, false);
+    assert.equal(outcome.summary.note, 'Holdout was not executed');
   });
 });

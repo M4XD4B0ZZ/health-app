@@ -261,9 +261,43 @@ npx prettier -c <every changed/added file>
 git --no-pager diff --check
 ```
 
-### 6.4 Results
+### 6.4 Results — confirmed after commit `3e9fafd`
 
-Recorded after the commit in section 8/9 below, together with the final CodeGraph MCP recheck.
+- `node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs`: **PASS**, 49/49
+  (13 suites), 0 real network calls, USD 0.00. All four working-tree-clean-gated tests (the two
+  `--preflight` end-to-end tests and two of the `--execute` guard-rail tests, including the full
+  mocked-`global.fetch` success path reaching the real `runProtocolV4LiveDevelopmentEntryPoint`) now
+  pass, confirmed post-commit against the now-clean working tree.
+- `npx jest --runInBand src/features/nutrition/benchmark/protocolV4`: **PASS**, 206/206 (10 suites) —
+  unchanged from before this task (no `src/**` production code was modified).
+- `npx jest --runInBand src/features/nutrition/benchmark`: **PASS**, 951/951 (80 suites).
+- Full repo `npx jest --runInBand`: **PASS**, 2760/2760 tests, 256/256 suites, 776.8s. Zero failures,
+  zero new failures anywhere.
+- `npx tsc --noEmit -p tsconfig.json`: **PASS**, 0 errors (main app tsconfig; unaffected by the
+  launcher's own separate `scripts/resolver-v3-048-live-launcher.tsconfig.json`).
+- `npx eslint .`: **PASS**, 0 errors/warnings — run with `build/resolver-v3-048-live-launcher/`
+  removed first. Note: this repository's `.eslintrc.cjs` has no `ignorePatterns` for `build/`/`dist/`
+  (only `node_modules/` is auto-ignored by ESLint's own default), so linting while the launcher's own
+  transient build output exists on disk surfaces expected React-Native/Expo-authoring-convention
+  lint errors (`no-var`, `no-undef` for `fetch`/`performance`/`Buffer`/`setTimeout` in the compiled
+  CommonJS output) in files that were never meant to be linted as source. This is a pre-existing gap
+  in `.eslintrc.cjs` that simply never mattered before nothing wrote into `build/`; fixing it is out
+  of this task's scope (`.eslintrc.cjs` is not in the allowed scope), so the correct, in-scope
+  handling is to always remove `build/resolver-v3-048-live-launcher/` before a repo-wide static-
+  analysis pass — exactly what this task's own build step does before every fresh compile, and what
+  the verification commands above do explicitly.
+- `npx prettier -c` over every changed/added file: **PASS** ("All matched files use Prettier code
+  style!") — after one `prettier -w` fix on four files (`handoffs/latest-handoff.md`, the report, the
+  launcher, and its test file) during development.
+- `git diff --check`: **PASS**, no whitespace/conflict-marker issues.
+- `git status --short` / `git diff --stat`: clean tree after commit `3e9fafd`; file list matches
+  section 5 exactly.
+- Final CodeGraph MCP recheck (`mcp__codegraph__codegraph_explore`, query
+  `"runProtocolV4LiveDevelopmentEntryPoint buildProtocolV4DevelopmentAuthorization buildProtocolV4MasterPlan"`):
+  **success** — same call flow as query 1 (§2), and the index had already picked up
+  `scripts/resolver-v3-048-live-launcher/launcherBridge.ts` as a new caller of both
+  `buildProtocolV4MasterPlan` and `runProtocolV4LiveDevelopmentEntryPoint`, confirming no unintended
+  change to either function's own relationships.
 
 ## 7. Evidence integrity confirmed unchanged
 

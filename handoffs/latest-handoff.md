@@ -96,11 +96,18 @@
    git --no-pager status --short / diff --stat
    ```
 
-7. **Verification result:** see report §6.4 for the full, post-commit-confirmed numbers (a handful
-   of this task's own launcher tests assert its own working-tree-clean gate against the real
-   repository, so they only pass once this task's files are committed — an honest exercise of the
-   launcher's own fail-closed contract, not a test-harness artifact; recorded in the report rather
-   than duplicated here).
+7. **Verification result:**
+   - `node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs`: **PASS**, 49/49
+     (13 suites), confirmed post-commit (`3e9fafd`) against the now-clean tree — including the full
+     mocked-`global.fetch` success path reaching the real `runProtocolV4LiveDevelopmentEntryPoint`.
+   - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 206/206 (10 suites, unchanged).
+   - `jest src/features/nutrition/benchmark`: **PASS**, 951/951 (80 suites).
+   - Full repo `jest --runInBand`: **PASS**, 2760/2760 tests, 256/256 suites, 776.8s, zero failures.
+   - `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors/warnings (run with the
+     launcher's transient `build/resolver-v3-048-live-launcher/` output removed first — see report
+     §6.4 for why). `prettier -c` over every changed file: **PASS** (after one `-w` fix on 4 files).
+   - `git diff --check`: **PASS**. `git status --short`: clean tree after commit.
+   - Final CodeGraph MCP recheck: **success** — full detail in report §6.4.
 
 8. **Known issues, blockers, residual risks:**
 

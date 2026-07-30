@@ -194,7 +194,7 @@ npx jest --runInBand src/features/nutrition/benchmark/protocolV4/__tests__/Resol
                                                                                  # PASS, 16/16 (new)
 npx jest --runInBand src/features/nutrition/benchmark/protocolV4               # PASS, 206/206 (10 suites)
 npx jest --runInBand src/features/nutrition/benchmark                          # PASS, 951/951 (80 suites)
-npx jest --runInBand                                                           # repo-wide, see result below
+npx jest --runInBand                                                           # PASS, 2760/2760 (256 suites), 996.5s
 git --no-pager diff --check                                                    # PASS, no whitespace conflicts
 git --no-pager status --short / diff --stat                                    # readback
 ```

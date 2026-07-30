@@ -80,8 +80,9 @@
    - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 206/206 (10 suites; was 190/190
      before this task's 16 new tests).
    - `jest src/features/nutrition/benchmark`: **PASS**, 951/951 (80 suites).
-   - Full repo `jest --runInBand`: **[PENDING — background run in progress at handoff-write time; see
-     final status update below before treating this task as done]**.
+   - Full repo `jest --runInBand`: **PASS**, 2760/2760 tests, 256/256 suites, 996.5s. Zero failures,
+     zero new failures anywhere (including the 8 previously Windows-local-only failures documented by
+     the Phase B1 report, which were never failing on this Linux environment and still pass).
    - `git diff --check`: **PASS**, no whitespace/conflict-marker issues.
    - Evidence integrity re-checked directly: `logs/resolver-v3-048-protocol-v4` does not exist under the
      real repo root; `git status --porcelain logs/` is empty (no `logs/resolver-v3-039-*` file touched).

@@ -625,7 +625,11 @@ reproducible defects in that wiring — in-memory-only Development evidence, a l
 `terminal_success` before durable persistence, an incomplete storage preflight, unvalidated
 cross-root readback, and Windows-unsafe authorization-ID-as-path-component usage — all fixed with
 zero live calls (durable per-candidate write+readback for `human_live` only, a full
-artifact-contract-derived preflight, root-bound readback, and a platform-neutral storage key). G2 is
+artifact-contract-derived preflight, root-bound readback, and a platform-neutral storage key).
+Phase B3 (same day) added the canonical CLI launcher
+(`scripts/run-resolver-v3-048-live-development.mjs`, `--preflight`/`--execute`, local-`tsc`-only
+build, no ad-hoc `tsx`/inline execution) so a maintainer has one reproducible, fail-closed way to
+invoke the entry point — still with zero live calls and no live evidence produced. G2 is
 not passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
 live evidence that passes every mandatory G2 dimension. See
 RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative status text, the
@@ -8952,7 +8956,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); live Development still not authorized, no live evidence produced` (Phase B1 + Post-Merge Remediation, 2026-07-30)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot on the production execute path); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher, 2026-07-30)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -9121,6 +9125,41 @@ touched or read. G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`;
 USD 5.586944 budget remains unauthorized; Holdout remains unexecuted. A new, explicit human
 authorization, re-verified against this commit, is still required before any live Development call —
 unchanged by this remediation.
+
+**Phase B3: Canonical Live Development Launcher (2026-07-30, basis `d7a2cd3efff1ce08519675fcb48b4c4c5c6769b2`,
+PR #204 merge):** the live Development entry point existed only as a TypeScript library function —
+there was no canonical CLI launcher, no reproducible build path, no external human-authorization
+hand-off mechanism, and ad-hoc execution via `tsx -e`/Jest/inline TypeScript was the only way to
+invoke it. This phase closed that gap with `scripts/run-resolver-v3-048-live-development.mjs`, a
+plain-Node CLI with exactly two modes. `--preflight` is fully zero-call and never checks for
+`ANTHROPIC_API_KEY`: it requires a clean working tree, compiles a small, explicit TypeScript bridge
+(`scripts/resolver-v3-048-live-launcher/launcherBridge.ts`, re-exporting only the Protocol-v4
+functions the launcher calls) via the LOCAL `node_modules/typescript/bin/tsc` — never `tsx`,
+`ts-node`, a global tool, `npx`, or an automatic `npm install`/`npm ci` — into the deterministic,
+already-gitignored `build/resolver-v3-048-live-launcher/` directory, then calls the real
+`buildProtocolV4MasterPlan`/`validateProtocolV4MasterPlan`, prints the exact commit/plan-hash/
+execution-tree-hash/model/pricing/candidate/prompt/schema/routing/budget/concurrency/retry/cache
+identities, and can emit a non-authorizing authorization template
+(`authorizationTemplateOnly: true`, empty `humanApprovalReference`, `holdoutAuthorized: false`,
+`automaticContinuation: false`) to an explicit external path or stdout. `--execute` requires
+`--authorization-file <ABSOLUTE_PATH>` (outside the repository, `authorizationTemplateOnly: false`,
+a non-empty `humanApprovalReference`), `--confirm-development-only`, and
+`--confirm-max-cost-usd <value>` (checked for exact equality against the freshly rebuilt plan's own
+`developmentMaxCostUsd` — no budget number is ever independently re-typed as an alternative truth
+anywhere in the launcher); it validates working-tree-clean, exact HEAD-commit match, PR #204-merge
+ancestry, and every plan identity/budget field strictly BEFORE checking `ANTHROPIC_API_KEY`
+presence or causing any lease/live-root/artifact side effect (a stale authorization, e.g. one issued
+against the historical PR #202 basis, is rejected generically by the exact-HEAD-match check, with no
+special-casing needed). Only after every check passes does it build the canonical `human_live`
+Authorization Record via the real `buildProtocolV4DevelopmentAuthorization` and call the real
+`runProtocolV4LiveDevelopmentEntryPoint({ authorization, env: process.env })` — no `repoRoot` is
+passed on this production path, and the launcher imports no Holdout function anywhere. This task made
+zero provider calls, zero tokens, USD 0.00 throughout; the launcher itself has never been run with a
+real credential. Full report:
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md`. G2 remains **not passed**;
+`RESOLVER-V3-010` remains `blocked`; the 352-call / USD 5.586944 budget remains unauthorized;
+Holdout remains unexecuted; a new, explicit human authorization, re-verified against the commit this
+launcher is run at, is still required before any live Development call.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E

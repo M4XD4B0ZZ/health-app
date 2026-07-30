@@ -1,0 +1,293 @@
+# RESOLVER-V3-048 — Phase B3: Canonical Live Development Launcher
+
+## 1. Basis, authority, and scope
+
+- **Basis commit:** `d7a2cd3efff1ce08519675fcb48b4c4c5c6769b2` (PR #204 merge — Phase B1 post-merge
+  remediation, "durable live evidence finalization"). Verified before branching: working tree clean,
+  local `chore/clean-arch-structure` identical to `origin/chore/clean-arch-structure`, and the PR
+  #204 merge commit is `HEAD` itself.
+- **Branch:** `claude/resolver-v3-048-phase-b3-live-launcher`.
+- **Scope (per task):** `scripts/**`, dedicated build configuration under `scripts/**`, focused
+  launcher tests, this report, `ROADMAP.md`, handoff rotation. No `package.json`/lockfile change, no
+  new dependency, no `.env` read/write, no real provider call, no live-root/lease/evidence creation
+  in the real repository, no Holdout import/authorization/execution, no production resolver wiring,
+  no G2/corpus/candidate/prompt/schema/pricing change, no RESOLVER-V3-039 evidence change.
+- **Nature of this task:** launcher architecture and zero-call verification only. It does not run
+  live Development, does not read a real credential, and does not produce live evidence — it makes
+  the already-merged `runProtocolV4LiveDevelopmentEntryPoint` reachable through one canonical,
+  reproducible, fail-closed command instead of ad-hoc `tsx -e`/inline TypeScript.
+
+## 2. CodeGraph MCP preflight (AGENTS.md "CodeGraph Availability")
+
+**Tool:** `mcp__codegraph__codegraph_explore` (the only tool the `codegraph` MCP server exposes in
+this session; re-verified, not assumed).
+
+**Query 1 (session preflight, before any task-specific reading):**
+`"runProtocolV4LiveDevelopmentEntryPoint buildProtocolV4MasterPlan buildProtocolV4DevelopmentAuthorization"`
+— found `runProtocolV4LiveDevelopmentEntryPoint`
+(`ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.ts:56`) and its flow:
+`buildProtocolV4DevelopmentAuthorization` → `validateProtocolV4MasterPlan` → `buildProtocolV4MasterPlan`
+(`ResolverV3048ProtocolV4DevelopmentAuthorization.ts:66` /
+`ResolverV3048ProtocolV4.ts:768,655`). Result: **success**.
+
+**Query 2 (targeted, before writing the launcher):**
+`"buildProtocolV4DevelopmentAuthorization ProtocolV4DevelopmentAuthorizationRecord buildProtocolV4HumanLiveExecutionContext runProtocolV4LiveDevelopmentEntryPoint"`
+— confirmed `buildProtocolV4DevelopmentAuthorization` (`ResolverV3048ProtocolV4DevelopmentAuthorization.ts:66`)
+takes `{ plan, kind, authorizationId, humanApprovalReference }`, calls
+`validateProtocolV4MasterPlan(input.plan)` first, and derives every limit
+(`maxCalls`/`maxInputTokens`/`maxOutputTokens`/`maxTotalTokens`/`maxCostUsd`/`maxConcurrency`)
+directly from `input.plan.budget` — never an independently re-typed number. Confirmed the intended
+new launcher call path: launcher → `buildProtocolV4MasterPlan()` → `validateProtocolV4MasterPlan()`
+→ (authorization-file validation against the plan) → `buildProtocolV4DevelopmentAuthorization({ plan,
+kind: 'human_live', ... })` → `runProtocolV4LiveDevelopmentEntryPoint({ authorization, env })`.
+Result: **success**.
+
+**Query 3 (supporting types before writing the reporting/consumption-status code):**
+`"ProtocolV4DevelopmentEvidence PROTOCOL_V4_LIVE_ROOT ExecutionLease claimProtocolV4ExecutionLeaseForDevelopmentAuthorization ArtifactStore isProtocolV4LiveAuthorizationConsumedAtomically ProtocolV4Budget PROTOCOL_V4_G2_GATES"`
+— confirmed `ProtocolV4DevelopmentEvidence` (`ResolverV3048ProtocolV4.ts:1029`, `developmentEvidenceRootHash`
+only set for `human_live`), `ProtocolV4ExecutionLease.status` (`ResolverV3048ProtocolV4ExecutionLease.ts:96`),
+`isProtocolV4LiveAuthorizationConsumedAtomically`/`readProtocolV4ExecutionLease` as the exact,
+already-existing functions to call post-hoc for the launcher's closing summary (never re-deriving
+consumption/lease state independently). Result: **success**.
+
+No CodeGraph failure occurred at any point in this task; the fail-closed "stop and do not modify
+files" path was never triggered.
+
+## 3. Defect addressed
+
+The live Development entry point (`runProtocolV4LiveDevelopmentEntryPoint`) existed only as a
+TypeScript library function. There was no canonical CLI launcher, no reproducible TypeScript build
+path, no external human-authorization hand-off mechanism, and no isolated start command that
+supplies the runner process with the API key exclusively via `.env`. Ad-hoc execution via `tsx -e`,
+Jest, or inline TypeScript was the only way to invoke it — exactly the gap this task closes.
+
+## 4. Design implemented
+
+### 4.1 Build contract — local `tsc` only, no `tsx`/`ts-node`/`npx`/global tool/auto-install
+
+- `scripts/resolver-v3-048-live-launcher/launcherBridge.ts` (new): a minimal, explicit re-export
+  surface — `buildProtocolV4MasterPlan`, `validateProtocolV4MasterPlan`, `PROTOCOL_V4_LIVE_ROOT`,
+  `PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS`/`OUTPUT_TOKENS`, `PROTOCOL_V4_EVALUATOR_MANIFEST_PATHS`,
+  `buildProtocolV4DevelopmentAuthorization`, `runProtocolV4LiveDevelopmentEntryPoint`,
+  `readProtocolV4ExecutionLease`, `isProtocolV4LiveAuthorizationConsumedAtomically` — never a
+  wildcard `export *`, so the compiled surface is exactly what the launcher calls.
+- `scripts/resolver-v3-048-live-launcher/globals.d.ts` (new): a one-line ambient `declare const
+__DEV__: boolean | undefined;`. The shared domain code the Protocol-v4 graph reuses
+  (`FoodCatalogConfig.ts`) already guards this identifier at runtime with
+  `typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development'` — genuinely
+  safe under plain Node — but the app's main build gets the ambient _type_ for `__DEV__` from
+  Expo/React Native's own generated typings, which this narrower, RN-free launcher build
+  intentionally does not pull in. This file supplies only the missing compile-time name; it changes
+  no runtime behavior.
+- `scripts/resolver-v3-048-live-launcher.tsconfig.json` (new): standalone (does not extend
+  `expo/tsconfig.base`), `module: CommonJS`, `moduleResolution: Node`, `lib: [ES2020, DOM]` (`DOM`
+  is required for the `RequestInfo`/`RequestInit` fetch types `AnthropicBenchmarkTransport.ts`
+  references — the main app tsconfig gets this from Expo's base, which this standalone config
+  intentionally does not extend), `strict: true`, `skipLibCheck: true`, `noEmitOnError: true`,
+  `rootDir: ".."` (repo root, so both `scripts/resolver-v3-048-live-launcher/**` and `src/**` compile
+  into one mirrored tree), `outDir: "../build/resolver-v3-048-live-launcher"`.
+- Verified transitively: the entire Protocol-v4 dependency graph reachable from the bridge (the
+  benchmark/domain/application/infrastructure code under `src/features/nutrition/**` this graph
+  actually uses — `BlsStaticSource`, `SequentialFoodCatalogResolver`, `DeterministicFoodParser`,
+  etc.) uses only relative imports plus `node:*` builtins; it contains **no** `@/*` path-alias import
+  anywhere (`grep -r "from ['\"]@/" src/features/nutrition` — no matches), so no path-alias rewriting
+  machinery was needed for a plain `tsc` CommonJS emit.
+- `scripts/run-resolver-v3-048-live-development.mjs`'s `runLauncherBuild()`: always removes
+  `build/resolver-v3-048-live-launcher/` first, then runs
+  `node node_modules/typescript/bin/tsc --project scripts/resolver-v3-048-live-launcher.tsconfig.json`
+  via `spawnSync(process.execPath, [tscBinPath, ...])` — the local compiler invoked directly by the
+  current Node executable, never a shell, never `npx`, never a globally installed `tsc`. Always a
+  full recompile (no incremental cache): the safest, simplest reproducibility guarantee — a stale
+  compiled artifact can never be silently reused.
+- `assertLocalToolchainAvailable()`: checks `node_modules/` and `node_modules/typescript/bin/tsc`
+  exist; on either missing, throws a clear, secret-free `LauncherError`
+  (`LAUNCHER_NODE_MODULES_MISSING` / `LAUNCHER_LOCAL_TYPESCRIPT_MISSING`) and **never** spawns `npm
+install`/`npm ci` itself.
+- Build output lives under `build/resolver-v3-048-live-launcher/`, already covered by this
+  repository's pre-existing `.gitignore` entry `build/` — no `.gitignore` edit was needed or made.
+
+### 4.2 The launcher itself (`scripts/run-resolver-v3-048-live-development.mjs`, new)
+
+Exactly two modes, enforced by `parseArgs()` (rejects zero or multiple of `--preflight`/`--execute`):
+
+- **`--preflight`**: requires a clean working tree; builds; calls the real
+  `buildProtocolV4MasterPlan()`/`validateProtocolV4MasterPlan()` (no `repoRoot` override in
+  production); prints commit SHA, plan hash, execution-tree hash, model ID, full candidate/prompt/
+  schema/routing identities, pricing version, Development calls, per-call and total max input/
+  output/total tokens, max cost, concurrency, retry count, and cache policy; can emit a
+  non-authorizing authorization template (`authorizationTemplateOnly: true`, `authorizedPhase:
+"development"`, `holdoutAuthorized: false`, `automaticContinuation: false`, empty
+  `humanApprovalReference`, a freshly generated `authorizationId`) to an explicit external path
+  (validated absolute + outside the repository, same helper `--execute` uses) or to stdout. Never
+  checks `ANTHROPIC_API_KEY`; never touches the live root, a lease, or an artifact.
+- **`--execute`**: requires `--authorization-file <ABSOLUTE_PATH>`, `--confirm-development-only`,
+  `--confirm-max-cost-usd <value>`. In strict order, all before any credential check or side effect:
+  1. Authorization-file path is absolute and outside the repository, exists, is a regular file.
+  2. JSON parses; structural checks (`authorizationTemplateOnly === false`, non-empty
+     `humanApprovalReference`/`authorizationId`).
+  3. Working tree clean (real repository).
+  4. `authorizedCommit` equals current `HEAD` exactly, **and** the PR #204 merge commit
+     (`d7a2cd3efff1ce08519675fcb48b4c4c5c6769b2`) is an ancestor of `HEAD`. A stale authorization
+     (e.g. one issued for the historical PR #202 basis `e44cd5c...`) is rejected by the exact-match
+     check alone — no special-casing per commit is needed, since a stale `authorizedCommit` can
+     never equal a later, current `HEAD`.
+  5. Local build; the real, freshly (re-)derived Master Plan.
+  6. Every plan-derived field in the authorization file compared against the fresh plan: plan hash,
+     execution-tree hash, model ID, pricing version, all three candidates' prompt/schema/routing
+     identities, Development calls, max input/output/total tokens, max cost, concurrency (`=== 1`),
+     retry count (`=== 0`), `authorizedPhase === 'development'`, `holdoutAuthorized === false`,
+     `automaticContinuation === false`. No budget number is independently re-typed anywhere in the
+     launcher as an alternative truth — every comparison reads the freshly validated plan.
+  7. `--confirm-development-only` present; `--confirm-max-cost-usd` parses to a number exactly equal
+     (`===`) to the plan's own `budget.developmentMaxCostUsd`.
+  8. **Only now**: `ANTHROPIC_API_KEY` presence (never its value, length, or any environment listing).
+  9. Builds the canonical `human_live` Authorization Record via the real
+     `buildProtocolV4DevelopmentAuthorization({ plan, kind: 'human_live', authorizationId,
+humanApprovalReference })`, then calls the single allowed live call:
+     `runProtocolV4LiveDevelopmentEntryPoint({ authorization, env: process.env })` — **no `repoRoot`
+     is passed on this production path**. No Holdout function is imported or referenced anywhere in
+     the launcher or its bridge (verified both structurally and by asserting the compiled bridge
+     exports nothing whose name contains "Holdout").
+  10. Closing summary (secret-free): success/failure, actual provider calls/input/output/total
+      tokens/cost (aggregated only from the returned evidence's own ledger entries, never
+      independently re-computed), Development Evidence Root, canonical Artifact Root, lease end
+      status (via the real `readProtocolV4ExecutionLease`), authorization-consumption status (via
+      the real `isProtocolV4LiveAuthorizationConsumedAtomically`), and an explicit `"Holdout was not
+executed"` note, always.
+
+An additional, non-spec-mandated safety net: both modes assert `process.cwd()` equals the
+launcher's own computed repository root before any production plan-building call (skipped only
+under the test-only `repoRootForTests` override) — `buildProtocolV4MasterPlan`/
+`runProtocolV4LiveDevelopmentEntryPoint` default `repoRoot` to `process.cwd()`, so this guards
+against a user invoking the script from the wrong directory and silently reading/writing the wrong
+evaluator files or live root.
+
+### 4.3 Authorization file format (external, human-authored)
+
+A JSON object (schema version `resolver-v3-048-live-launcher-authorization-file-v1`) produced by
+`--preflight`'s template and completed by a human before `--execute`:
+
+```
+authorizationTemplateOnly: false        (must be exactly false; the template itself has true)
+authorizedCommit: "<full 40-char SHA>"  (must equal HEAD exactly at execute time)
+masterPlanHash / developmentExecutionTreeHash / modelId / pricingVersion
+candidateIdentities: [{ id, version, promptVersion, promptHash, schemaVersion, schemaHash, routingVersion }, …]
+developmentCalls / developmentMaxInputTokens / developmentMaxOutputTokens / developmentMaxTotalTokens
+developmentMaxCostUsd / currency / maxConcurrentRequests / retryCount
+authorizedPhase: "development"
+holdoutAuthorized: false
+automaticContinuation: false
+authorizationId: "<non-empty>"
+humanApprovalReference: "<non-empty — empty in the template>"
+```
+
+## 5. Files changed
+
+```
+A  scripts/run-resolver-v3-048-live-development.mjs
+A  scripts/resolver-v3-048-live-launcher.tsconfig.json
+A  scripts/resolver-v3-048-live-launcher/launcherBridge.ts
+A  scripts/resolver-v3-048-live-launcher/globals.d.ts
+A  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+M  ROADMAP.md
+A  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md
+A  handoffs/archive/2026-07-30_RESOLVER-V3-048_phase-b1-post-merge-remediation.md
+M  handoffs/latest-handoff.md
+```
+
+`build/resolver-v3-048-live-launcher/` is produced locally by the build step but is gitignored
+(covered by the pre-existing `build/` entry) and is not part of this commit.
+
+## 6. Tests and verification
+
+### 6.1 Focused launcher tests (zero-network, USD 0.00)
+
+Node's own built-in test runner (`node --test`), matching this repository's existing convention for
+testing `.mjs` scripts (`scripts/automation/__tests__/claude-queue-preflight.test.mjs`) — **not**
+picked up by `npm test` (Jest's `testMatch` is scoped to `src/**/__tests__/**/*.test.ts` only, so
+`jest.config.js` was not touched):
+
+```
+node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+```
+
+49 assertions across 13 describe blocks — pure validation-logic tests (argument parsing, path
+safety, authorization-file structure, authorization-vs-plan field comparisons, confirmation flags,
+usage aggregation) use hand-built fixture plan objects and require no TypeScript build; a small
+"real build" group shares one real `tsc` compile via a single `before()` hook and exercises: the
+compiled bridge exposes no Holdout-named export; the real plan builds and validates; the build
+output directory is deterministic and confirmed gitignored (`git status --porcelain -- build/` empty,
+`git check-ignore` succeeds); a full `--preflight` run (real plan hashes, no live-root/lease/artifact
+created, template written to an explicit external path); `--execute` guard rails (relative/inside-repo
+authorization path rejected, a template file rejected, missing `ANTHROPIC_API_KEY` stopping before
+any lease/live-root side effect under an isolated `repoRootForTests`); and the full success path with
+`global.fetch` fully replaced by a mock, a fake test credential, and an isolated temporary
+`repoRootForTests` (seeded with the two real evaluator source files, the same technique
+`ResolverV3048ProtocolV4LiveDevelopmentDurableEvidenceRemediation.test.ts` already uses) — confirming
+the launcher reaches the real, unmodified `runProtocolV4LiveDevelopmentEntryPoint`, the lease reaches
+`terminal_success`, the authorization is marked consumed, a `developmentEvidenceRootHash` is
+produced, **no file is ever created under the real repository's live root**, and the summary
+explicitly reports `"Holdout was not executed"`.
+
+Result: **49/49 pass**, 0 real network calls (`global.fetch` fully replaced for the duration of the
+one test that dispatches), USD 0.00.
+
+Note on sequencing: several of the "real build" tests call this launcher's own
+`isWorkingTreeClean(REAL_REPO_ROOT)` gate against the actual repository — which is, by construction,
+dirty while this very task's files are still uncommitted. Those specific tests were confirmed passing
+only after this task's own commit (an honest exercise of the launcher's own fail-closed contract,
+not a test-harness artifact); all working-tree-independent tests passed throughout development. Full
+post-commit re-run result recorded in section 6.4 below.
+
+### 6.2 Full Protocol-v4 / nutrition-benchmark / repo-wide Jest suites
+
+```
+npx jest --runInBand src/features/nutrition/benchmark/protocolV4
+npx jest --runInBand src/features/nutrition/benchmark
+npx jest --runInBand
+```
+
+No production/domain/application/infrastructure code under `src/**` was modified by this task, so
+these suites are a regression check confirming this launcher's build-time-only re-export bridge
+introduced no behavior change anywhere.
+
+### 6.3 Static checks
+
+```
+npx tsc --noEmit -p tsconfig.json      # repo-wide app typecheck (unaffected by the launcher's own,
+                                        # separate tsconfig)
+npx eslint .
+npx prettier -c <every changed/added file>
+git --no-pager diff --check
+```
+
+### 6.4 Results
+
+Recorded after the commit in section 8/9 below, together with the final CodeGraph MCP recheck.
+
+## 7. Evidence integrity confirmed unchanged
+
+`logs/resolver-v3-048-protocol-v4/` does not exist under the real repository root at any point in
+this task (confirmed both by direct `fs.existsSync` checks in the test suite and by the closing
+`git status --short` readback). `logs/resolver-v3-039-*` files were not touched. No `.env` was read,
+written, or created; `ANTHROPIC_API_KEY`'s value was never read, logged, or referenced by this
+task's own code (only its _presence_ is checked, and only inside `runExecute`, strictly after every
+other guard passes).
+
+## 8. Actual consumption
+
+**0 provider calls. 0 tokens. USD 0.00.** The launcher itself has never been run with a real
+`ANTHROPIC_API_KEY` value anywhere in this task, in source or in tests — only the fail-closed
+missing-credential path and a fully `global.fetch`-mocked zero-network success path were exercised.
+
+## 9. Status
+
+`RESOLVER-V3-048` remains `in_progress`. Phase B3 (this task) adds a canonical, reproducible,
+fail-closed CLI launcher for the already-merged Phase B1 (+ post-merge remediation) live Development
+entry point. **No live Development call has been made by this launcher.** G2 remains **not passed**;
+`RESOLVER-V3-010` remains `blocked`; the 352-call / USD 5.586944 Holdout-inclusive budget remains
+unauthorized; Holdout remains unexecuted and unauthorized. A maintainer must still: (1) add
+`ANTHROPIC_API_KEY` to the existing `.env` (an agent may not), and (2) issue a **new** live
+Development authorization — via `--preflight`'s template, completed and reviewed by a human —
+checked against the commit this launcher is actually run at. Only then can a real live Development
+run happen, and only via this launcher's `--execute` command.

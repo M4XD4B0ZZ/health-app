@@ -98,17 +98,18 @@
    git --no-pager diff --check
    ```
 
-7. **Verification result:**
-   - `node --test` (launcher): **90/95 pass pre-commit** (the 5 failures are this launcher's own
-     working-tree-clean gate, which by construction cannot pass until this remediation's own files
-     are committed — confirmed passing 95/95 post-commit; see the follow-up docs commit).
+7. **Verification result (confirmed post-commit, `27f1086`):**
+   - `node --test` (launcher): **95/95 pass** (90/95 pre-commit — the 5 failures were this
+     launcher's own working-tree-clean gate, which by construction cannot pass until this
+     remediation's own files are committed; confirmed 95/95 once clean).
    - `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 14/14 (8 prior + 6 new).
    - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 220/220 (11 suites).
    - `jest src/features/nutrition/benchmark`: **PASS**, 965/965 (81 suites).
-   - Full repo `jest --runInBand`: result to be confirmed and recorded in a follow-up docs commit
-     once the background run completes (same sequencing as both prior Phase B3 handoffs).
+   - Full repo `jest --runInBand`: **PASS**, 2774/2774 tests, 257/257 suites, 729.8s (2768 prior +
+     6 new). Zero failures, zero new failures anywhere.
    - `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors. `prettier -c`: **PASS**
      after one `-w` pass on 4 files. `git diff --check`: **PASS**.
+   - Final CodeGraph MCP recheck: **success** — full detail in the report's §11.
 
 8. **Known issues, blockers, residual risks:**
 

@@ -533,12 +533,25 @@ A  handoffs/archive/<archived prior handoff>
 M  handoffs/latest-handoff.md
 ```
 
-**Verification (this remediation):** focused launcher tests 95 total (90 passing pre-commit; the 5
-failures are this launcher's own working-tree-clean gate, confirmed passing 95/95 post-commit — see
-the rotated handoff); new/updated `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts` 14/14
-(6 new real end-to-end cases: reservation-before-fetch, error-after-one-fetch,
-lease-finalization-failure, baseline-failure-after-executing, plus updated write/readback/success
-cases); full `protocolV4` Jest suite 220/220 (11 suites); full `nutrition-benchmark` Jest suite
-965/965 (81 suites); full repo-wide Jest suite result recorded in the rotated handoff; `tsc --noEmit`
-0 errors; `eslint .` 0 errors; `prettier -c` clean after one `-w` pass on 4 files; `git diff --check`
-clean. Zero provider calls, zero tokens, USD 0.00 throughout.
+**Verification (this remediation) — confirmed after commit `27f1086`:**
+
+- Focused launcher tests (`node --test`): **95/95 pass** post-commit (90/95 pre-commit — the 5
+  failures were this launcher's own working-tree-clean gate, which by construction cannot pass
+  until this remediation's own files are committed; confirmed 95/95 once the tree was clean).
+- `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 14/14 (8 prior + 6 new real
+  end-to-end cases: reservation-before-fetch, error-after-one-fetch, lease-finalization-failure,
+  baseline-failure-after-executing, plus updated write/readback/success cases).
+- Full `protocolV4` Jest suite: **PASS**, 220/220 (11 suites).
+- Full `nutrition-benchmark` Jest suite: **PASS**, 965/965 (81 suites).
+- Full repo-wide `npx jest --runInBand`: **PASS**, 2774/2774 tests, 257/257 suites, 729.8s (2768
+  prior + 6 new). Zero failures, zero new failures anywhere.
+- `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors. `prettier -c`: **PASS** after
+  one `-w` pass on 4 files. `git diff --check`: **PASS**.
+- Final CodeGraph MCP recheck (`mcp__codegraph__codegraph_explore`, query
+  `"summarizeSuccessUsage summarizeFailureUsage classifyLauncherError getCumulativeProviderHttpRequestCount attachProtocolV4LeaseFinalizationStatus"`):
+  **success** — confirmed the on-disk `runExecute`'s production dispatch object
+  (`{ authorization, env }` with `repoRoot` added only conditionally), `classifyLauncherError`'s
+  exact-match/prefix-extraction logic, and `attachProtocolV4LeaseFinalizationStatus`'s placement all
+  match what was implemented.
+
+Zero provider calls, zero tokens, USD 0.00 throughout.

@@ -137,14 +137,15 @@ gained one new optional field, `developmentEvidenceRootHash?: string`, populated
 `human_live` path.
 
 ### 4.3 Full canonical artifact-contract storage preflight (`ResolverV3048ProtocolV4.ts` +
+
 `ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.ts`)
 
 A new exported function, `protocolV4DevelopmentArtifactContractRelativePaths(plan)`, derives every
 Development-phase artifact target **generically** from `plan.artifactContract` (never a hand-picked
 subset): every key starting with `development` (all three candidates' checkpoint/raw-results/
 category-table/telemetry/ledger/evaluation paths) plus the two shared targets, `planManifest` and
-`candidateEvaluationTable`. `deliberately excludes `holdout*`/`finalG2DecisionReport` (a different
-phase) and `plan`/`sourceManifest`/`candidateManifest`/`pricingManifest` (Master Plan **input**
+`candidateEvaluationTable`. `deliberately excludes `holdout\*`/`finalG2DecisionReport`(a different
+phase) and`plan`/`sourceManifest`/`candidateManifest`/`pricingManifest` (Master Plan **input**
 identities, not Development **output** artifacts).
 
 The live entry point's storage preflight (step 4) now loops over this full list instead of the 3-item

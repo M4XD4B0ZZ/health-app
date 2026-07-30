@@ -90,27 +90,27 @@
 7. **Known issues, blockers, residual risks:**
 
    a. The 8 pre-existing Windows-local test failures the Phase B1 report documented (colon-containing
-      authorization IDs, e.g. `` `mini-run-development:${planHash}` ``, becoming invalid Windows
-      directory names) are addressed by this task's storage-key fix, which applies uniformly to every
-      authorization ID the lease/artifact-store modules see — not special-cased. On this Linux
-      environment these 8 tests were already passing before and after this task (they never reproduced
-      here); a new structural test now proves the derived storage key for these exact ID shapes matches
-      the Windows/Linux/macOS-safe alphabet `^[A-Za-z0-9_-]+$`, rather than relying solely on "expected
-      not to reproduce on Windows CI". Green GitHub Verify remains the authoritative real-CI
-      confirmation, per this repository's established convention.
+   authorization IDs, e.g. `` `mini-run-development:${planHash}` ``, becoming invalid Windows
+   directory names) are addressed by this task's storage-key fix, which applies uniformly to every
+   authorization ID the lease/artifact-store modules see — not special-cased. On this Linux
+   environment these 8 tests were already passing before and after this task (they never reproduced
+   here); a new structural test now proves the derived storage key for these exact ID shapes matches
+   the Windows/Linux/macOS-safe alphabet `^[A-Za-z0-9_-]+$`, rather than relying solely on "expected
+   not to reproduce on Windows CI". Green GitHub Verify remains the authoritative real-CI
+   confirmation, per this repository's established convention.
 
    b. **The PR #202 authorization (324 calls / USD 5.142528) must NOT be reused** — unchanged from the
-      Phase B1 report's own conclusion; this task changes the dispatch/persistence code again, so any
-      future authorization must be re-verified against this new commit.
+   Phase B1 report's own conclusion; this task changes the dispatch/persistence code again, so any
+   future authorization must be re-verified against this new commit.
 
    c. Residual risk: the `human_live` path has never executed against a real provider. It is proven
-      reachable, correct, and now genuinely DURABLE only zero-network (`global.fetch` mocked, placeholder
-      key, isolated temp storage). Real-provider behavior — actual token/cost records, real latencies,
-      real error shapes, real filesystem behavior on a real Windows machine — is unproven by
-      construction.
+   reachable, correct, and now genuinely DURABLE only zero-network (`global.fetch` mocked, placeholder
+   key, isolated temp storage). Real-provider behavior — actual token/cost records, real latencies,
+   real error shapes, real filesystem behavior on a real Windows machine — is unproven by
+   construction.
 
    d. The 352-call / USD 5.586944 Holdout-inclusive budget remains unauthorized. Holdout stays a
-      separate, later human decision, and no Holdout code was touched by this task.
+   separate, later human decision, and no Holdout code was touched by this task.
 
 8. **Human-review status / next steps:**
    - **Not yet reviewed.** Needs review of this branch's diff and a green GitHub Verify before merge.

@@ -555,3 +555,123 @@ M  handoffs/latest-handoff.md
   match what was implemented.
 
 Zero provider calls, zero tokens, USD 0.00 throughout.
+
+## 12. Pre-PR Remediation 3 (2026-07-31): Closed Output Surface and Transition-Atomic Accounting
+
+A third independent pre-PR review found five further defects in CLI-argument redaction,
+Protocol-v4 error-code trust, lease-transition atomicity, success-path accounting, and output
+content. All five are fixed on the same branch, still zero provider calls. **CodeGraph MCP
+preflight** (`mcp__codegraph__codegraph_explore`, five queries) confirmed, before any change: the
+CLI `main` → `parseArgs` → stdout/stderr path; `classifyLauncherError`'s reachable Protocol-v4 error
+classes and every constant base code actually thrown by them (verified call-site by call-site, not
+invented); the Development Runner's `markProtocolV4ExecutionLeaseExecuting` call site relative to
+the shared catch block; `LiveProviderBudgetGate`'s success-/failure-usage-snapshot call graph; and
+the Live Entry Point → Runner → launcher-summary chain.
+
+**Defect 1 (raw CLI arguments could reach stdout/stderr).** `parseArgs` no longer embeds the
+original argv token or value in `result.errors` — every parser error is now one of four constant
+codes (`LAUNCHER_ARGUMENT_UNKNOWN`, `LAUNCHER_ARGUMENT_VALUE_MISSING`, `LAUNCHER_MODE_MISSING`,
+`LAUNCHER_MODE_MULTIPLE`), enumerated in an exported `KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES` set.
+`main()` re-checks each code against that set before printing (the same defense-in-depth pattern
+`classifyLauncherError` already used), falling back to a generic code for anything unrecognized.
+Tests cover a secret-like marker as an unknown argument, at an unexpected position (before the mode
+flag), and as a value following an unknown flag — verified absent from `result.errors` at the unit
+level and from stdout/stderr via a real CLI subprocess invocation.
+
+**Defect 2 (Protocol-v4 error codes trusted by class + regex shape alone).** Combining a known-safe
+error CLASS with any regex-shaped prefix was not a real allowlist: a corrupted or foreign message
+that merely looked like a constant code would still have been surfaced verbatim. A new, real
+`KNOWN_SAFE_PROTOCOL_ERROR_CODES` set enumerates every constant base code actually thrown by a
+`KNOWN_SAFE_PROTOCOL_ERROR_CLASSES` member across `src/features/nutrition/benchmark/protocolV4/`,
+derived directly from source (every `throw new ProtocolV4...Error(...)` call site for those 15
+classes). `classifyLauncherError` now extracts the fixed base-code prefix (before any dynamic `:`
+suffix, exactly as before) and checks it by EXACT match against this set; an unrecognized or
+dynamic base code (including one that is itself templated, e.g.
+`PROTOCOL_V4_EVALUATION_NO_${x}_REPORT`, which can never exactly match a single fixed string) falls
+back to a generic `PROTOCOL_V4_UNRECOGNIZED_CODE` rather than being trusted.
+
+**Defect 3 (the `claimed -> executing` transition lived outside the protected failure handler).**
+`transitionLease` (reached via `markProtocolV4ExecutionLeaseExecuting`) writes the lease file and
+only afterwards reads it back to validate a hash/filename — a failure at that readback step means
+the file is already persisted as `executing` on disk even though the call still throws. Before this
+remediation, that transition ran BEFORE the Development Runner's `try`, so such a failure (or any
+failure in the transition itself) escaped the shared catch entirely: no usage snapshot, no
+`terminal_failure` attempt, the lease left stuck `executing`. The transition now runs as the FIRST
+statement inside the same `try` that already covers baseline computation, gate construction,
+dispatch, and persistence — every failure path reachable after the initial active-lease check now
+reaches the one shared catch. A new zero-network test (`Test 8`) spies on
+`markProtocolV4ExecutionLeaseExecuting` to call through to the REAL implementation (genuinely
+persisting `executing` to disk) and then throw, simulating a post-write validation failure;
+confirms the original error and its usage snapshot (`accounting: 'exact_zero'`, zero HTTP requests,
+zero reservations) survive unchanged, `terminal_failure` is still attempted and confirmed
+(`leaseFinalization: 'terminal_failure_confirmed'`), and the real on-disk lease ends in
+`terminal_failure` rather than stuck `executing`.
+
+**Defect 4 (the success path never reported a budget-gate-authoritative reservation count).** The
+success path previously hardcoded `aiDispatchReservations: null`. The Development Runner now builds
+a `ProtocolV4SuccessUsageSnapshot` (`buildProtocolV4SuccessUsageSnapshot` in
+`ResolverV3048ProtocolV4DevelopmentRunner.ts`; the type itself is defined in
+`ResolverV3048ProtocolV4.ts` next to `ProtocolV4DevelopmentEvidence`, to avoid a circular import)
+from the exact same authoritative sources as the failure snapshot: `providerHttpRequests` from the
+`human_live` execution context's transport-authoritative counter, `aiDispatchReservations` and the
+reserved-token/cost upper bounds from the shared budget gate's own `snapshot()`, and confirmed
+tokens/cost summed only from durably written ledgers. It is attached to
+`evidence.successUsageSnapshot` strictly AFTER `developmentEvidenceRootHash` is computed — a
+read-only return channel `computeDevelopmentEvidenceRootHash` never reads (verified: that function
+only ever reads `planManifest`/`candidates`/`candidateEvaluationTable` content hashes), so attaching
+it can never change the Development Evidence Root or any stored artifact hash. `reserved*UpperBound`
+now consistently denotes the gate's ENTIRE reserved-worst-case totals on both success and failure
+paths (previously the success path summed only the incomplete-usage entries' own
+`reservedWorstCaseCostUsd` — a partial, unclearly-named amount). The launcher's own
+`summarizeSuccessUsage` now simply reads this snapshot rather than re-deriving anything from
+`evidence.candidates` ledger content itself.
+
+**Defect 5 (absolute paths and a hardcoded cost value in output).** The closing CLI summary's
+`canonicalArtifactRoot` (the real, absolute `artifactStoreRoot` filesystem path) is replaced with a
+stable, secret-free semantic identity: `artifactRootKind: 'protocol_v4_live'`. The printed
+`--preflight` output no longer includes the absolute `authorizationTemplateWrittenTo` path — only a
+boolean `authorizationTemplateWritten` (`runPreflight()`'s own return value is unchanged, so
+programmatic callers/tests can still read back the real path to verify the written file). The
+launcher's own module doc comment no longer hardcodes the plan's `developmentMaxCostUsd` value
+(`5.142528`) in its `--confirm-max-cost-usd` usage example — replaced with the placeholder
+`<EXACT_VALUE_FROM_PREFLIGHT>`; budget values remain exclusively plan-derived everywhere else in the
+file (`canonicalDevelopmentMaxCostUsdString`, unchanged).
+
+**Files changed in this remediation:**
+
+```
+M  scripts/run-resolver-v3-048-live-development.mjs
+M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4.ts
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+M  ROADMAP.md
+M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md (this section)
+A  handoffs/archive/<archived prior handoff>
+M  handoffs/latest-handoff.md
+```
+
+**Verification (this remediation):**
+
+- Focused launcher tests (`node --test`): 99/105 pass pre-commit (6 failures are this launcher's own
+  working-tree-clean gate, which by construction cannot pass until this remediation's own files are
+  committed — the same honest, expected pattern as remediations 1 and 2); confirmed **105/105** once
+  the tree was clean post-commit.
+- `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 17/17 (14 prior + 1 new real
+  end-to-end transition-atomic case (`Test 8`) + 2 new `buildProtocolV4SuccessUsageSnapshot` unit
+  cases).
+- Full `protocolV4` Jest suite: **PASS**, 223/223 (11 suites).
+- Full `nutrition-benchmark` Jest suite: **PASS**, 968/968 (81 suites; 965 prior + 3 new).
+- Full repo-wide `npx jest --runInBand`: **PASS**, 2777/2777 tests, 257/257 suites, 776.6s (2774
+  prior + 3 new). Zero failures, zero new failures anywhere.
+- `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors (after removing the transient
+  `build/resolver-v3-048-live-launcher/` directory, the same known pre-existing gap documented in
+  remediations 1/2). `prettier -c`: **PASS** after one `-w` pass on 3 files, plus one more on the
+  handoff. `git diff --check`: **PASS**.
+- Final CodeGraph MCP recheck (`mcp__codegraph__codegraph_explore`) confirmed the on-disk
+  `parseArgs`/`KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES`, `classifyLauncherError`/
+  `KNOWN_SAFE_PROTOCOL_ERROR_CODES`, `markProtocolV4ExecutionLeaseExecuting`'s placement inside the
+  Runner's `try`, and `buildProtocolV4SuccessUsageSnapshot`/`artifactRootKind` all match what was
+  implemented.
+
+Zero provider calls, zero tokens, USD 0.00 throughout.

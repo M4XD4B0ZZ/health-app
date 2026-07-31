@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 import {
   REAL_REPO_ROOT,
@@ -26,6 +27,8 @@ import {
   validateConfirmationFlags,
   summarizeSuccessUsage,
   summarizeFailureUsage,
+  isValidProtocolV4FailureUsageSnapshot,
+  isValidProtocolV4LeaseFinalizationStatus,
   summarizeAuthorizationConsumption,
   classifyLauncherError,
   KNOWN_LAUNCHER_ERROR_CODES,
@@ -917,6 +920,21 @@ describe('candidateIdentitiesMatch', () => {
 // `src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`.
 // -------------------------------------------------------------------------------------------
 
+/** RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5: a real bridge exposes only
+ * `readProtocolV4FailureUsageSnapshot`/`readProtocolV4LeaseFinalizationStatus` (the trusted `WeakMap`
+ * side channel's read-only getters) -- these unit tests fake a bridge with the identical shape,
+ * keyed on the SAME error instance under test via a plain in-test `Map`, so `summarizeFailureUsage`'s
+ * own classification logic (exact/partial/unknown mapping, validation) can be exercised without a
+ * real compiled bridge or a real Runner dispatch. This mirrors production exactly: the launcher only
+ * ever learns a snapshot/status by calling these two bridge functions with the error it caught, never
+ * by reading a property of that error. */
+function fakeBridgeFor(error, { snapshot, leaseFinalization } = {}) {
+  return {
+    readProtocolV4FailureUsageSnapshot: (e) => (e === error ? snapshot : undefined),
+    readProtocolV4LeaseFinalizationStatus: (e) => (e === error ? leaseFinalization : undefined),
+  };
+}
+
 describe('summarizeFailureUsage', () => {
   test('a recognized pre-dispatch error class with no snapshot reports exact 0 -- never a fabricated guess', () => {
     const usage = summarizeFailureUsage(new LauncherError('LAUNCHER_ANTHROPIC_API_KEY_MISSING'));
@@ -949,19 +967,21 @@ describe('summarizeFailureUsage', () => {
   // conflated with (or mislabeled as) a provider/HTTP-request count.
   test('a snapshot with reservations but zero HTTP requests reports exact 0 HTTP requests, reservations preserved separately', () => {
     const error = new Error('boom');
-    error.protocolV4FailureUsageSnapshot = {
-      accounting: 'exact_zero',
-      completedCandidateIds: [],
-      providerHttpRequests: 0,
-      aiDispatchReservations: 1,
-      reservedInputTokensUpperBound: 0,
-      reservedOutputTokensUpperBound: 0,
-      reservedCostUsdUpperBound: 0,
-      confirmedInputTokens: 0,
-      confirmedOutputTokens: 0,
-      confirmedCostUsd: 0,
-    };
-    const usage = summarizeFailureUsage(error);
+    const bridge = fakeBridgeFor(error, {
+      snapshot: {
+        accounting: 'exact_zero',
+        completedCandidateIds: [],
+        providerHttpRequests: 0,
+        aiDispatchReservations: 1,
+        reservedInputTokensUpperBound: 0,
+        reservedOutputTokensUpperBound: 0,
+        reservedCostUsdUpperBound: 0,
+        confirmedInputTokens: 0,
+        confirmedOutputTokens: 0,
+        confirmedCostUsd: 0,
+      },
+    });
+    const usage = summarizeFailureUsage(error, bridge);
     assert.equal(usage.accounting, 'exact');
     assert.equal(usage.providerHttpRequests, 0);
     assert.equal(usage.aiDispatchReservations, 1);
@@ -971,19 +991,21 @@ describe('summarizeFailureUsage', () => {
   // upper bounds rather than a fabricated exact cost.
   test('a snapshot after one real HTTP request never reports 0, and exposes safe upper bounds', () => {
     const error = new Error('boom-mid-run');
-    error.protocolV4FailureUsageSnapshot = {
-      accounting: 'partial',
-      completedCandidateIds: ['H0'],
-      providerHttpRequests: 1,
-      aiDispatchReservations: 1,
-      reservedInputTokensUpperBound: 8192,
-      reservedOutputTokensUpperBound: 1536,
-      reservedCostUsdUpperBound: 0.0158,
-      confirmedInputTokens: 500,
-      confirmedOutputTokens: 90,
-      confirmedCostUsd: 0.0009,
-    };
-    const usage = summarizeFailureUsage(error);
+    const bridge = fakeBridgeFor(error, {
+      snapshot: {
+        accounting: 'partial',
+        completedCandidateIds: ['H0'],
+        providerHttpRequests: 1,
+        aiDispatchReservations: 1,
+        reservedInputTokensUpperBound: 8192,
+        reservedOutputTokensUpperBound: 1536,
+        reservedCostUsdUpperBound: 0.0158,
+        confirmedInputTokens: 500,
+        confirmedOutputTokens: 90,
+        confirmedCostUsd: 0.0009,
+      },
+    });
+    const usage = summarizeFailureUsage(error, bridge);
     assert.equal(usage.accounting, 'partial');
     assert.notEqual(usage.providerHttpRequests, 0);
     assert.equal(usage.providerHttpRequests, 1);
@@ -995,8 +1017,8 @@ describe('summarizeFailureUsage', () => {
 
   test('surfaces leaseFinalization from the error when present', () => {
     const error = new Error('boom');
-    error.protocolV4LeaseFinalizationStatus = 'failed_to_persist';
-    const usage = summarizeFailureUsage(error);
+    const bridge = fakeBridgeFor(error, { leaseFinalization: 'failed_to_persist' });
+    const usage = summarizeFailureUsage(error, bridge);
     assert.equal(usage.leaseFinalization, 'failed_to_persist');
   });
 
@@ -1044,23 +1066,292 @@ describe('summarizeFailureUsage', () => {
     assert.equal(usage.providerHttpRequests, 0);
   });
 
-  test('F1: an existing failure snapshot remains authoritative regardless of the error class/bridge', () => {
+  test('F1: an existing trusted failure snapshot remains authoritative regardless of the error class/bridge', () => {
     const error = new LauncherError('LAUNCHER_EXECUTE_WORKING_TREE_DIRTY');
+    // `error` IS a real recognized pre-dispatch class (`LauncherError`) -- proving a trusted snapshot,
+    // when present, always wins over `isKnownPreDispatchError`'s own classification, never the other
+    // way around.
+    const bridge = fakeBridgeFor(error, {
+      snapshot: {
+        accounting: 'partial',
+        completedCandidateIds: ['H0'],
+        providerHttpRequests: 1,
+        aiDispatchReservations: 1,
+        reservedInputTokensUpperBound: 100,
+        reservedOutputTokensUpperBound: 100,
+        reservedCostUsdUpperBound: 0.1,
+        confirmedInputTokens: 10,
+        confirmedOutputTokens: 10,
+        confirmedCostUsd: 0.01,
+      },
+    });
+    const usage = summarizeFailureUsage(error, bridge);
+    assert.equal(usage.accounting, 'partial');
+    assert.equal(usage.providerHttpRequests, 1);
+  });
+
+  // RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Non-Spoofable Side Channel"): a foreign error
+  // pre-populating the OLD plain property name is now completely inert -- `summarizeFailureUsage`
+  // only ever reads through `bridge.readProtocolV4FailureUsageSnapshot(error)`/
+  // `bridge.readProtocolV4LeaseFinalizationStatus(error)`, never `error.protocolV4FailureUsageSnapshot`/
+  // `error.protocolV4LeaseFinalizationStatus` directly.
+  test('Remediation 5, Regression 1: a foreign error pre-populating the legacy protocolV4FailureUsageSnapshot property is ignored -- the property is dead, not authoritative', () => {
+    const error = new TypeError('foreign-error-with-fake-legacy-property');
     error.protocolV4FailureUsageSnapshot = {
+      providerHttpRequests: 0,
+      aiDispatchReservations: 0,
+      accounting: 'exact_zero',
+      completedCandidateIds: [],
+      reservedInputTokensUpperBound: 0,
+      reservedOutputTokensUpperBound: 0,
+      reservedCostUsdUpperBound: 0,
+      confirmedInputTokens: 0,
+      confirmedOutputTokens: 0,
+      confirmedCostUsd: 0,
+    };
+    // No bridge at all: nothing ever reads the plain property either way.
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+  });
+
+  test('Remediation 5, Regression 2: a foreign error pre-populating the legacy protocolV4LeaseFinalizationStatus property is ignored', () => {
+    const error = new TypeError('foreign-error-with-fake-legacy-lease-status');
+    error.protocolV4LeaseFinalizationStatus = 'terminal_failure_confirmed';
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.leaseFinalization, null);
+  });
+
+  // Regressions 3/4 (property-getter/Proxy-getter throws): with the WeakMap side channel, the
+  // launcher never reads ANY property of `error` to obtain the snapshot/status -- it always goes
+  // through `bridge.readProtocolV4FailureUsageSnapshot(error)`/
+  // `bridge.readProtocolV4LeaseFinalizationStatus(error)`. A throwing property getter or a throwing
+  // Proxy `get`/`set` trap on `error` is therefore structurally unable to affect
+  // `summarizeFailureUsage` at all -- proven here by using an error whose OWN property access would
+  // throw, and confirming `summarizeFailureUsage` still returns cleanly.
+  test('Remediation 5, Regression 3: a throwing property getter on the error never affects summarizeFailureUsage (no property of error is ever read for this)', () => {
+    const error = new Error('throwing-getter-error');
+    Object.defineProperty(error, 'protocolV4FailureUsageSnapshot', {
+      configurable: true,
+      get() {
+        throw new Error('SIMULATED_GETTER_FAILURE_MUST_NEVER_BE_TRIGGERED');
+      },
+    });
+    assert.doesNotThrow(() => summarizeFailureUsage(error));
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.accounting, 'unknown');
+  });
+
+  test('Remediation 5, Regression 4: a Proxy-wrapped error whose get/set traps throw never affects summarizeFailureUsage', () => {
+    const target = new Error('proxy-error');
+    const proxy = new Proxy(target, {
+      get(t, prop) {
+        throw new Error(`SIMULATED_PROXY_GET_TRAP_FAILURE:${String(prop)}`);
+      },
+      set() {
+        throw new Error('SIMULATED_PROXY_SET_TRAP_FAILURE');
+      },
+    });
+    assert.doesNotThrow(() => summarizeFailureUsage(proxy));
+    const usage = summarizeFailureUsage(proxy);
+    assert.equal(usage.accounting, 'unknown');
+  });
+
+  // Runtime snapshot validation (Remediation C): an invalid/malformed trusted snapshot (or lease
+  // status) is treated exactly like "absent", never partially trusted.
+  test('Remediation 5, Regression 5 (Runtime Validation): a structurally invalid trusted snapshot (negative providerHttpRequests) is rejected -- falls through to "unknown"', () => {
+    const error = new Error('invalid-snapshot');
+    const bridge = fakeBridgeFor(error, {
+      snapshot: {
+        accounting: 'partial',
+        completedCandidateIds: [],
+        providerHttpRequests: -1,
+        aiDispatchReservations: 0,
+        reservedInputTokensUpperBound: 0,
+        reservedOutputTokensUpperBound: 0,
+        reservedCostUsdUpperBound: 0,
+        confirmedInputTokens: 0,
+        confirmedOutputTokens: 0,
+        confirmedCostUsd: 0,
+      },
+    });
+    const usage = summarizeFailureUsage(error, bridge);
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+  });
+
+  test('Remediation 5, Regression 6 (Runtime Validation): a trusted snapshot claiming exact_zero with a nonzero providerHttpRequests is internally inconsistent and rejected', () => {
+    const error = new Error('inconsistent-exact-zero-snapshot');
+    const bridge = fakeBridgeFor(error, {
+      snapshot: {
+        accounting: 'exact_zero',
+        completedCandidateIds: [],
+        providerHttpRequests: 1,
+        aiDispatchReservations: 1,
+        reservedInputTokensUpperBound: 0,
+        reservedOutputTokensUpperBound: 0,
+        reservedCostUsdUpperBound: 0,
+        confirmedInputTokens: 0,
+        confirmedOutputTokens: 0,
+        confirmedCostUsd: 0,
+      },
+    });
+    const usage = summarizeFailureUsage(error, bridge);
+    assert.equal(usage.accounting, 'unknown');
+  });
+
+  test('Remediation 5, Regression 6b (Runtime Validation): exact_zero with a nonzero RESERVATION count but zero real HTTP requests is still valid -- a reservation is never itself a provider/HTTP-request count', () => {
+    const error = new Error('exact-zero-with-reservation-still-valid');
+    const bridge = fakeBridgeFor(error, {
+      snapshot: {
+        accounting: 'exact_zero',
+        completedCandidateIds: [],
+        providerHttpRequests: 0,
+        aiDispatchReservations: 1,
+        reservedInputTokensUpperBound: 8192,
+        reservedOutputTokensUpperBound: 1536,
+        reservedCostUsdUpperBound: 0.02,
+        confirmedInputTokens: 0,
+        confirmedOutputTokens: 0,
+        confirmedCostUsd: 0,
+      },
+    });
+    const usage = summarizeFailureUsage(error, bridge);
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.providerHttpRequests, 0);
+    assert.equal(usage.aiDispatchReservations, 1);
+  });
+
+  test('Remediation 5, Regression 7 (Runtime Validation): an invalid trusted leaseFinalization status is rejected and reported as null, never a foreign value', () => {
+    const error = new Error('invalid-lease-status');
+    const bridge = fakeBridgeFor(error, { leaseFinalization: 'attacker_controlled_value' });
+    const usage = summarizeFailureUsage(error, bridge);
+    assert.equal(usage.leaseFinalization, null);
+  });
+});
+
+describe('isValidProtocolV4FailureUsageSnapshot / isValidProtocolV4LeaseFinalizationStatus', () => {
+  function validSnapshot(overrides = {}) {
+    return {
       accounting: 'partial',
       completedCandidateIds: ['H0'],
       providerHttpRequests: 1,
       aiDispatchReservations: 1,
-      reservedInputTokensUpperBound: 100,
-      reservedOutputTokensUpperBound: 100,
-      reservedCostUsdUpperBound: 0.1,
-      confirmedInputTokens: 10,
-      confirmedOutputTokens: 10,
-      confirmedCostUsd: 0.01,
+      reservedInputTokensUpperBound: 8192,
+      reservedOutputTokensUpperBound: 1536,
+      reservedCostUsdUpperBound: 0.02,
+      confirmedInputTokens: 500,
+      confirmedOutputTokens: 90,
+      confirmedCostUsd: 0.001,
+      ...overrides,
     };
-    const usage = summarizeFailureUsage(error);
-    assert.equal(usage.accounting, 'partial');
-    assert.equal(usage.providerHttpRequests, 1);
+  }
+
+  test('accepts a well-formed snapshot', () => {
+    assert.equal(isValidProtocolV4FailureUsageSnapshot(validSnapshot()), true);
+  });
+
+  test('rejects null/undefined/non-object/array', () => {
+    assert.equal(isValidProtocolV4FailureUsageSnapshot(null), false);
+    assert.equal(isValidProtocolV4FailureUsageSnapshot(undefined), false);
+    assert.equal(isValidProtocolV4FailureUsageSnapshot('not-an-object'), false);
+    assert.equal(isValidProtocolV4FailureUsageSnapshot([]), false);
+  });
+
+  test('rejects an unknown accounting value', () => {
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ accounting: 'exact' })),
+      false,
+    );
+  });
+
+  test('rejects a completedCandidateIds entry outside the closed candidate set', () => {
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(
+        validSnapshot({ completedCandidateIds: ['H0', 'NOT_A_REAL_CANDIDATE'] }),
+      ),
+      false,
+    );
+  });
+
+  test('rejects non-integer/negative/NaN/Infinity/string counters', () => {
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ providerHttpRequests: 1.5 })),
+      false,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ aiDispatchReservations: -1 })),
+      false,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ confirmedInputTokens: NaN })),
+      false,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ confirmedOutputTokens: Infinity })),
+      false,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ providerHttpRequests: '1' })),
+      false,
+    );
+  });
+
+  test('rejects NaN/Infinity/negative/string cost fields', () => {
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ confirmedCostUsd: NaN })),
+      false,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ reservedCostUsdUpperBound: -0.01 })),
+      false,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(validSnapshot({ confirmedCostUsd: '0.01' })),
+      false,
+    );
+  });
+
+  test('exact_zero is only consistent with zero providerHttpRequests -- a nonzero reservation count with zero real HTTP requests is still a valid exact_zero snapshot', () => {
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(
+        validSnapshot({
+          accounting: 'exact_zero',
+          providerHttpRequests: 0,
+          aiDispatchReservations: 0,
+        }),
+      ),
+      true,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(
+        validSnapshot({
+          accounting: 'exact_zero',
+          providerHttpRequests: 0,
+          aiDispatchReservations: 1,
+        }),
+      ),
+      true,
+    );
+    assert.equal(
+      isValidProtocolV4FailureUsageSnapshot(
+        validSnapshot({
+          accounting: 'exact_zero',
+          providerHttpRequests: 1,
+          aiDispatchReservations: 0,
+        }),
+      ),
+      false,
+    );
+  });
+
+  test('isValidProtocolV4LeaseFinalizationStatus accepts only the two known literals', () => {
+    assert.equal(isValidProtocolV4LeaseFinalizationStatus('terminal_failure_confirmed'), true);
+    assert.equal(isValidProtocolV4LeaseFinalizationStatus('failed_to_persist'), true);
+    assert.equal(isValidProtocolV4LeaseFinalizationStatus('anything_else'), false);
+    assert.equal(isValidProtocolV4LeaseFinalizationStatus(null), false);
+    assert.equal(isValidProtocolV4LeaseFinalizationStatus(undefined), false);
+    assert.equal(isValidProtocolV4LeaseFinalizationStatus(123), false);
   });
 });
 
@@ -1469,6 +1760,137 @@ describe('real build -- launcher bridge compiles and exposes no Holdout function
       cwd: REAL_REPO_ROOT,
     });
     assert.equal(checkIgnore.status, 0);
+  });
+
+  // RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Read-Only Getters Only"): the launcher must
+  // never be able to SET a trusted snapshot/status itself -- only read one the Runner already set.
+  test('Remediation 5: the compiled bridge exposes only the read-only side-channel getters, never a setter', () => {
+    assert.equal(typeof bridge.readProtocolV4FailureUsageSnapshot, 'function');
+    assert.equal(typeof bridge.readProtocolV4LeaseFinalizationStatus, 'function');
+    assert.equal('setProtocolV4FailureUsageSnapshot' in bridge, false);
+    assert.equal('setProtocolV4LeaseFinalizationStatus' in bridge, false);
+  });
+
+  describe('Remediation 5: launcher and the real compiled side-channel module share the identical WeakMap side channel', () => {
+    let sideChannelModule;
+
+    before(() => {
+      const req = createRequire(import.meta.url);
+      const sideChannelPath = path.join(
+        REAL_REPO_ROOT,
+        'build',
+        'resolver-v3-048-live-launcher',
+        'src',
+        'features',
+        'nutrition',
+        'benchmark',
+        'protocolV4',
+        'ResolverV3048ProtocolV4FailureMetadataSideChannel.js',
+      );
+      // Deliberately does NOT bust the require cache here (unlike `loadCompiledBridge`'s own
+      // top-level bridge-module busting, which exists so a FRESH build's top-level module is never
+      // stale): `bridge` was already loaded once in this describe block's own `before()`, which
+      // transitively `require()`d this exact compiled side-channel file as one of its dependencies.
+      // A plain `req(sideChannelPath)` here resolves to the SAME absolute on-disk path and therefore
+      // hits Node's own CJS module cache -- the identical module instance/WeakMaps `bridge`'s
+      // getters close over -- which is the entire point of this test (module-instance identity, not
+      // merely value equality). Busting the cache here would defeat the proof by creating a second,
+      // decoupled module instance with its own fresh WeakMaps.
+      sideChannelModule = req(sideChannelPath);
+    });
+
+    function fixtureSnapshot() {
+      return {
+        accounting: 'partial',
+        completedCandidateIds: ['H0'],
+        providerHttpRequests: 1,
+        aiDispatchReservations: 1,
+        reservedInputTokensUpperBound: 8192,
+        reservedOutputTokensUpperBound: 1536,
+        reservedCostUsdUpperBound: 0.02,
+        confirmedInputTokens: 10,
+        confirmedOutputTokens: 5,
+        confirmedCostUsd: 0.001,
+      };
+    }
+
+    test('a snapshot set via a direct require of the compiled side-channel module is read back identically via the bridge (same module instance)', () => {
+      const error = new Error('shared-side-channel-proof');
+      const snapshot = fixtureSnapshot();
+      sideChannelModule.setProtocolV4FailureUsageSnapshot(error, snapshot);
+      sideChannelModule.setProtocolV4LeaseFinalizationStatus(error, 'terminal_failure_confirmed');
+
+      assert.equal(bridge.readProtocolV4FailureUsageSnapshot(error), snapshot);
+      assert.equal(
+        bridge.readProtocolV4LeaseFinalizationStatus(error),
+        'terminal_failure_confirmed',
+      );
+
+      const usage = summarizeFailureUsage(error, bridge);
+      assert.equal(usage.accounting, 'partial');
+      assert.equal(usage.providerHttpRequests, 1);
+      assert.equal(usage.leaseFinalization, 'terminal_failure_confirmed');
+    });
+
+    test('Regression 5/6: a frozen error still receives a real, readable snapshot through the WeakMap side channel', () => {
+      const error = Object.freeze(new Error('frozen-error-real-side-channel'));
+      const snapshot = fixtureSnapshot();
+      assert.doesNotThrow(() =>
+        sideChannelModule.setProtocolV4FailureUsageSnapshot(error, snapshot),
+      );
+      assert.equal(bridge.readProtocolV4FailureUsageSnapshot(error), snapshot);
+      const usage = summarizeFailureUsage(error, bridge);
+      assert.equal(usage.accounting, 'partial');
+    });
+
+    test('Regression 6: a non-extensible error still receives a real, readable snapshot through the WeakMap side channel', () => {
+      const error = Object.preventExtensions(new Error('non-extensible-error-real-side-channel'));
+      const snapshot = fixtureSnapshot();
+      assert.doesNotThrow(() =>
+        sideChannelModule.setProtocolV4FailureUsageSnapshot(error, snapshot),
+      );
+      assert.equal(bridge.readProtocolV4FailureUsageSnapshot(error), snapshot);
+      const usage = summarizeFailureUsage(error, bridge);
+      assert.equal(usage.accounting, 'partial');
+    });
+
+    test('Regression 3/4: a throwing property getter / Proxy trap on the error never prevents the real setter/getter from working (no property of the error is ever touched)', () => {
+      const target = new Error('proxy-error-real-side-channel');
+      const proxy = new Proxy(target, {
+        get(t, prop) {
+          throw new Error(`SIMULATED_PROXY_GET_TRAP_FAILURE:${String(prop)}`);
+        },
+        set() {
+          throw new Error('SIMULATED_PROXY_SET_TRAP_FAILURE');
+        },
+      });
+      const snapshot = fixtureSnapshot();
+      assert.doesNotThrow(() =>
+        sideChannelModule.setProtocolV4FailureUsageSnapshot(proxy, snapshot),
+      );
+      assert.equal(bridge.readProtocolV4FailureUsageSnapshot(proxy), snapshot);
+    });
+
+    test('a foreign error pre-populating the legacy property name never affects the real side channel, and the real side channel is never confused by it', () => {
+      const error = new Error('legacy-property-still-inert');
+      error.protocolV4FailureUsageSnapshot = {
+        accounting: 'exact_zero',
+        completedCandidateIds: [],
+        providerHttpRequests: 0,
+        aiDispatchReservations: 0,
+        reservedInputTokensUpperBound: 0,
+        reservedOutputTokensUpperBound: 0,
+        reservedCostUsdUpperBound: 0,
+        confirmedInputTokens: 0,
+        confirmedOutputTokens: 0,
+        confirmedCostUsd: 0,
+      };
+      // Nothing was ever recorded in the real side channel for this error -- the legacy property is
+      // inert, and `summarizeFailureUsage` must report 'unknown', never trust the legacy property.
+      const usage = summarizeFailureUsage(error, bridge);
+      assert.equal(usage.accounting, 'unknown');
+      assert.equal(bridge.readProtocolV4FailureUsageSnapshot(error), undefined);
+    });
   });
 });
 

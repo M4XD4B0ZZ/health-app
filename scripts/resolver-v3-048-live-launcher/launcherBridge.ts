@@ -46,3 +46,23 @@ export {
 export { ProtocolV4LiveExecutionContextError } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionContext';
 
 export { ProtocolV4DevelopmentAuthorizationError } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentAuthorization';
+
+/**
+ * RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Trusted Failure Metadata"): the launcher is
+ * given ONLY the read-only getters for the trusted `WeakMap` side channel that replaces the previous
+ * spoofable `error.protocolV4FailureUsageSnapshot`/`error.protocolV4LeaseFinalizationStatus`
+ * properties -- never the setters (`setProtocolV4FailureUsageSnapshot`/
+ * `setProtocolV4LeaseFinalizationStatus`), which stay exclusively usable by
+ * `ResolverV3048ProtocolV4DevelopmentRunner.ts`, the sole trusted producer. Because this file and
+ * the Runner both import from the same source module, and the launcher's local `tsc` build compiles
+ * the whole reachable graph into one `outDir` tree in a single invocation, both compiled modules
+ * `require()` the identical on-disk output file -- Node's own CommonJS module cache then guarantees
+ * they share the same module instance, and therefore the same two `WeakMap`s underneath these
+ * getters.
+ */
+export {
+  readProtocolV4FailureUsageSnapshot,
+  readProtocolV4LeaseFinalizationStatus,
+  type ProtocolV4FailureUsageSnapshot,
+  type ProtocolV4LeaseFinalizationStatus,
+} from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4FailureMetadataSideChannel';

@@ -784,12 +784,62 @@ export function summarizeSuccessUsage(evidence) {
   return { accounting: 'unknown', ...UNKNOWN_USAGE, leaseFinalization: null };
 }
 
-/** RESOLVER-V3-048 Phase B3 post-merge remediation 4 ("Non-Spoofable Pre-Dispatch Identity", F1):
- * every Protocol-v4 domain error class this launcher can ever see BEFORE the Development Runner's
- * dispatch loop is entered (plan/authorization validation, credential check, storage/authorization
- * preflight, lease claim -- all inside `runProtocolV4LiveDevelopmentEntryPoint`, strictly before
- * `runProtocolV4DevelopmentForAllCandidates` is called). Verified by source inspection, not
- * assumed: none of these classes are ever thrown from inside the Runner's own dispatch loop.
+/** RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Conservative Exact-Zero Rule"): every class
+ * in this allowlist has been individually verified, by real CodeGraph relationship/throw-site
+ * inspection (not assumed), to throw ONLY strictly before any real provider dispatch could ever have
+ * started for the run in question. This list is intentionally much smaller than a prior revision's:
+ * a post-merge review found (and this remediation independently re-confirmed via CodeGraph) that
+ * several previously-allowlisted classes are ALSO reachable AFTER at least one real provider dispatch
+ * already happened, which made this function capable of reporting a fabricated `exact`/all-zero
+ * result for a failure that occurred after real, billable provider usage. Removed, with the concrete
+ * reachable-after-dispatch call path each one was found at:
+ * - `ProtocolV4ExecutionLeaseError`: `runProtocolV4DevelopmentForAllCandidates`'s own `catch` block
+ *   calls `markProtocolV4ExecutionLeaseTerminalFailure` -> `transitionLease`, which throws this class
+ *   (`PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND`/`_INVALID_TRANSITION`/a `writeLeaseVersionExclusive`
+ *   version race) AFTER the candidate dispatch loop above it has already run.
+ * - `ProtocolV4ArtifactStoreError`: `writeAndReadBackLiveArtifact` (called once per candidate, right
+ *   after that candidate's own per-observation dispatch loop, and again for the shared plan-
+ *   manifest/candidate-evaluation-table after ALL candidates have dispatched) throws this class on a
+ *   content-hash mismatch, an already-existing target, or a readback hash mismatch.
+ * - `ProtocolV4ArtifactCrashError`: `assertDevelopmentAuthorized` (called at the START of EACH
+ *   candidate's own `runProtocolV4DevelopmentForCandidate`, i.e. AFTER any earlier candidate in the
+ *   same run has already dispatched) calls `isProtocolV4LiveArtifactTargetUnused` ->
+ *   `isTargetUnused`, which throws this class on leftover crash evidence. The source comment on the
+ *   original `isProtocolV4LiveArtifactTargetUnused` call site inside
+ *   `runProtocolV4LiveDevelopmentEntryPoint` correctly describes ITS OWN call (which IS strictly
+ *   pre-lease-claim); the defect was generalizing that one pre-dispatch call site to the whole class,
+ *   which also has this second, later-reachable throw site.
+ * - `ProtocolV4DevelopmentAuthorizationError`: the very same per-candidate
+ *   `assertDevelopmentAuthorized` call above can also fail its own budget/identity/consumption checks
+ *   for the SECOND or THIRD candidate in a run, i.e. after an earlier candidate already dispatched.
+ * - `ProtocolV4LiveExecutionContextError`: `runProtocolV4Attempt` (the single all-path attempt
+ *   wrapper) calls `input.buildFastPathTerminal(raw, endToEndLatencyMs)` AFTER `input.attempt(...)`
+ *   has already run and returned -- for `human_live`, that `attempt` is the real dispatch through the
+ *   counting transport, so a real `fetch` (and therefore a real, non-zero
+ *   `providerHttpRequestCount`/`cumulativeProviderHttpRequestCount`) can already have happened before
+ *   `buildFastPathTerminal` throws `PROTOCOL_V4_LIVE_EXECUTION_UNEXPECTED_FAST_PATH`. The source
+ *   comment at that throw site's own call site claims this is "structurally unreachable"; this
+ *   remediation does not disprove that specific claim, but per the conservative rule below a class
+ *   stays out of this allowlist unless EVERY throw site of that class is proven pre-dispatch -- one
+ *   proven-pre-dispatch call site (`buildProtocolV4HumanLiveExecutionContext`'s own credential check)
+ *   is not enough once a second, dispatch-loop-internal call site exists for the same class.
+ *
+ * Kept, each with every throw site verified strictly pre-dispatch:
+ * - `LauncherError` (this module's own real class): every throw site in this file that can reach
+ *   `dispatchError` in `runExecute` runs in steps 1-9, entirely before the `try` around
+ *   `bridge.runProtocolV4LiveDevelopmentEntryPoint(...)` -- a `LauncherError` thrown there propagates
+ *   out of `runExecute` itself and is never passed to `summarizeFailureUsage` at all. In production
+ *   this branch is therefore never actually taken via `dispatchError`; it exists so a direct pure-unit
+ *   test of `summarizeFailureUsage` can still assert the pre-dispatch contract without a bridge.
+ * - `bridge.ProtocolV4LiveDevelopmentEntryPointError`: every throw site
+ *   (`ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.ts`, steps 1-4: plan/authorization
+ *   validation, already-consumed check, artifact-target-reuse check) runs strictly before step 5
+ *   (lease claim) and step 6 (`runProtocolV4DevelopmentForAllCandidates`, the only place dispatch can
+ *   happen) in the same function.
+ *
+ * A trusted side-channel snapshot (see `summarizeFailureUsage` below) always takes priority over this
+ * allowlist when present and valid -- this allowlist only matters for a failure that carries no
+ * snapshot at all, e.g. one that occurred before the Runner's shared failure handler could even run.
  *
  * Membership is checked by real `instanceof` against the ACTUAL classes -- `LauncherError` (this
  * module's own real class, always available) plus the real Protocol-v4 classes re-exported by the
@@ -798,18 +848,66 @@ export function summarizeSuccessUsage(evidence) {
  * check applies -- an unrecognized foreign error, even one spoofing `error.name` to look like one of
  * these class names as a bare string, can never satisfy `instanceof` and therefore can never force a
  * fabricated exact-zero usage report here). Never a string comparison against `error.name` (a freely
- * settable property on any plain object) -- that was the exact defect this replaces. */
+ * settable property on any plain object) -- that was the original F1 defect this replaces. */
 function isKnownPreDispatchError(error, bridge) {
   if (error instanceof LauncherError) return true;
   if (!bridge) return false;
-  return [
-    bridge.ProtocolV4LiveDevelopmentEntryPointError,
-    bridge.ProtocolV4LiveExecutionContextError,
-    bridge.ProtocolV4DevelopmentAuthorizationError,
-    bridge.ProtocolV4ExecutionLeaseError,
-    bridge.ProtocolV4ArtifactStoreError,
-    bridge.ProtocolV4ArtifactCrashError,
-  ].some((cls) => typeof cls === 'function' && error instanceof cls);
+  return [bridge.ProtocolV4LiveDevelopmentEntryPointError].some(
+    (cls) => typeof cls === 'function' && error instanceof cls,
+  );
+}
+
+/** RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Runtime Snapshot Validation"): even a
+ * snapshot produced by the trusted internal side channel must be validated at this launcher boundary
+ * before being trusted -- the compiled bridge crosses a TypeScript-to-plain-JS boundary with no
+ * runtime type enforcement, so a structurally malformed value here (a future bug, a partially
+ * constructed object, ...) must never be partially trusted. Rejects (returns `false` for) anything
+ * that is not a plain object with every field present and of the exact expected shape; a rejected
+ * snapshot is treated by the caller as if no snapshot existed at all -- never a partial read. Never
+ * includes the snapshot's own values in a thrown error or log line (this function only returns a
+ * boolean). */
+const KNOWN_CANDIDATE_IDS = new Set(['H0', 'H1', 'H2']);
+
+function isFiniteNonNegativeInteger(value) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isFiniteNonNegativeNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+export function isValidProtocolV4FailureUsageSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return false;
+  if (snapshot.accounting !== 'exact_zero' && snapshot.accounting !== 'partial') return false;
+  if (!Array.isArray(snapshot.completedCandidateIds)) return false;
+  if (!snapshot.completedCandidateIds.every((id) => KNOWN_CANDIDATE_IDS.has(id))) return false;
+  if (!isFiniteNonNegativeInteger(snapshot.providerHttpRequests)) return false;
+  if (!isFiniteNonNegativeInteger(snapshot.aiDispatchReservations)) return false;
+  if (!isFiniteNonNegativeInteger(snapshot.reservedInputTokensUpperBound)) return false;
+  if (!isFiniteNonNegativeInteger(snapshot.reservedOutputTokensUpperBound)) return false;
+  if (!isFiniteNonNegativeNumber(snapshot.reservedCostUsdUpperBound)) return false;
+  if (!isFiniteNonNegativeInteger(snapshot.confirmedInputTokens)) return false;
+  if (!isFiniteNonNegativeInteger(snapshot.confirmedOutputTokens)) return false;
+  if (!isFiniteNonNegativeNumber(snapshot.confirmedCostUsd)) return false;
+  // `exact_zero` is only internally consistent with zero real, transport-authoritative HTTP
+  // requests -- this mirrors exactly how `attachProtocolV4FailureUsageSnapshot` itself derives the
+  // field (`accounting: providerHttpRequests > 0 ? 'partial' : 'exact_zero'`), and how this
+  // launcher's own `summarizeFailureUsage` derives `isExactZero` below. Deliberately does NOT also
+  // require `aiDispatchReservations === 0`: a budget-gate reservation that was made and then
+  // released without ever reaching a real `fetch` is still `exact_zero` for PROVIDER usage -- the
+  // reservation count is a separate, honestly-reported dimension (see `aiDispatchReservations`'s own
+  // doc comment above), never conflated with "nothing happened at all".
+  if (snapshot.accounting === 'exact_zero' && snapshot.providerHttpRequests !== 0) return false;
+  return true;
+}
+
+const KNOWN_LEASE_FINALIZATION_STATUSES = new Set([
+  'terminal_failure_confirmed',
+  'failed_to_persist',
+]);
+
+export function isValidProtocolV4LeaseFinalizationStatus(status) {
+  return typeof status === 'string' && KNOWN_LEASE_FINALIZATION_STATUSES.has(status);
 }
 
 const UNKNOWN_USAGE = Object.freeze({
@@ -838,23 +936,34 @@ const EXACT_ZERO_USAGE = Object.freeze({
   completedCandidateIds: [],
 });
 
-/** RESOLVER-V3-048 Phase B3 pre-PR remediation 2 ("Transport-Authoritative Accounting"): reads
- * ONLY the Protocol-v4 Development Runner's own `protocolV4FailureUsageSnapshot` when present
- * (attached for every `human_live` failure once the Runner's dispatch loop was ever entered) --
- * never re-derives pricing/usage-parsing logic. When no snapshot is present, this does NOT default
- * to "exact zero": only a recognized pre-dispatch error class (see
- * `isKnownPreDispatchError`, each verified to be structurally unreachable once dispatch could have
- * started) justifies reporting exact zero; any other error is reported as `'unknown'` usage --
- * `null` fields, never fabricated `0`s. `bridge` is optional: pass the loaded compiled bridge (see
- * `isKnownPreDispatchError` above) so a real Protocol-v4 domain error can be recognized by real
- * `instanceof`; omitted in pure unit tests that only exercise `LauncherError`/generic errors. */
+/** RESOLVER-V3-048 Phase B3 pre-PR remediation 2 ("Transport-Authoritative Accounting"), rebuilt in
+ * Phase B3 Post-Merge Remediation 5 ("Trusted Failure Metadata, Non-Fabricated Usage") on top of a
+ * non-spoofable side channel: reads ONLY the Protocol-v4 Development Runner's own trusted usage
+ * snapshot, via `bridge.readProtocolV4FailureUsageSnapshot(error)` -- a `WeakMap`-backed accessor
+ * keyed strictly on `error`'s own object identity (`ResolverV3048ProtocolV4FailureMetadataSideChannel.ts`),
+ * never a property read on `error` itself. A foreign error can no longer pre-seed or spoof this
+ * value: there is no property name to define for that purpose anymore. `bridge` is optional
+ * (`undefined` in a pure unit test that never touches the real TypeScript graph, or a test bridge
+ * fixture exposing only the two read-only functions this launcher actually calls) -- in that case no
+ * snapshot can ever be read, exactly as if none had been recorded.
+ *
+ * Every snapshot this function is handed is still runtime-validated
+ * (`isValidProtocolV4FailureUsageSnapshot`) before being trusted -- an internally-produced value that
+ * somehow fails validation is treated exactly like "no snapshot at all", never partially consumed.
+ * When no valid snapshot is present, this does NOT default to "exact zero": only a recognized
+ * pre-dispatch error class (see `isKnownPreDispatchError`'s own doc comment for the now much smaller,
+ * individually-verified allowlist) justifies reporting exact zero; any other error is reported as
+ * `'unknown'` usage -- `null` fields, never fabricated `0`s. The lease-finalization status is read
+ * and validated the identical way (`bridge.readProtocolV4LeaseFinalizationStatus`/
+ * `isValidProtocolV4LeaseFinalizationStatus`) -- an invalid or absent status is reported as `null`,
+ * never a foreign/fabricated value. */
 export function summarizeFailureUsage(error, bridge) {
-  const isObject = error !== null && typeof error === 'object';
-  const snapshot = isObject ? error.protocolV4FailureUsageSnapshot : undefined;
-  const leaseFinalization =
-    isObject && typeof error.protocolV4LeaseFinalizationStatus === 'string'
-      ? error.protocolV4LeaseFinalizationStatus
-      : null;
+  const rawSnapshot = bridge?.readProtocolV4FailureUsageSnapshot(error);
+  const snapshot = isValidProtocolV4FailureUsageSnapshot(rawSnapshot) ? rawSnapshot : undefined;
+  const rawLeaseFinalization = bridge?.readProtocolV4LeaseFinalizationStatus(error);
+  const leaseFinalization = isValidProtocolV4LeaseFinalizationStatus(rawLeaseFinalization)
+    ? rawLeaseFinalization
+    : null;
 
   if (snapshot) {
     const isExactZero = snapshot.providerHttpRequests === 0;

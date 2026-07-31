@@ -52,6 +52,13 @@ import {
   usesFastPath,
   type ProtocolV4DispatchExecutionContext,
 } from './ResolverV3048ProtocolV4ExecutionContext';
+import {
+  setProtocolV4FailureUsageSnapshot,
+  setProtocolV4LeaseFinalizationStatus,
+  type ProtocolV4FailureUsageAccounting,
+  type ProtocolV4FailureUsageSnapshot,
+  type ProtocolV4LeaseFinalizationStatus,
+} from './ResolverV3048ProtocolV4FailureMetadataSideChannel';
 
 /**
  * RESOLVER-V3-048 Final Phase-A Execution Closure remediation (Teil 7 continued + Teil 20/23 --
@@ -137,33 +144,17 @@ const DEVELOPMENT_CHECKPOINT_PATH_BY_CANDIDATE: Readonly<Record<ResolverV3047Can
  *   ceilings that can never understate what could truly have been spent.
  * - `confirmed*`/`confirmedCostUsd` are summed only from candidates whose full Development evidence
  *   was already durably written and read back (`completedCandidates`) -- exact, never re-derived
- *   from pricing. */
-export type ProtocolV4FailureUsageAccounting = 'exact_zero' | 'partial';
-
-export interface ProtocolV4FailureUsageSnapshot {
-  /** `'exact_zero'` when the transport-authoritative counter recorded zero real `fetch` attempts
-   * (provably zero real HTTP activity, even if a reservation was made and then abandoned before
-   * `fetch`); `'partial'` whenever at least one real `fetch` was attempted -- the exact final actual
-   * usage cannot be claimed for a candidate that never finished durably writing its own evidence, so
-   * this is never reported as fully `'exact'` once any HTTP request has been made. */
-  accounting: ProtocolV4FailureUsageAccounting;
-  completedCandidateIds: readonly ResolverV3047CandidateId[];
-  /** Transport-authoritative, exact -- see the type doc comment above. */
-  providerHttpRequests: number;
-  /** Budget-gate reservation count -- a distinct dimension, never a provider/HTTP-request count. */
-  aiDispatchReservations: number;
-  reservedInputTokensUpperBound: number;
-  reservedOutputTokensUpperBound: number;
-  reservedCostUsdUpperBound: number;
-  confirmedInputTokens: number;
-  confirmedOutputTokens: number;
-  confirmedCostUsd: number;
-}
-
-/** Secret-free, stable status for whether the lease's own `terminal_failure` write itself
- * succeeded -- deliberately a SEPARATE concern from the usage snapshot above (which describes what
- * happened to the Development dispatch, not to the lease's own persistence). */
-export type ProtocolV4LeaseFinalizationStatus = 'terminal_failure_confirmed' | 'failed_to_persist';
+ *   from pricing.
+ *
+ * RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5: the type/interface themselves now live in
+ * `ResolverV3048ProtocolV4FailureMetadataSideChannel.ts` (re-exported here unchanged for existing
+ * importers of this module) alongside the trusted `WeakMap` side channel that replaces the
+ * property-based attachment this doc comment used to describe. */
+export type {
+  ProtocolV4FailureUsageAccounting,
+  ProtocolV4FailureUsageSnapshot,
+  ProtocolV4LeaseFinalizationStatus,
+};
 
 function sumConfirmedUsageFromCompletedCandidates(
   completedCandidates: readonly ProtocolV4DevelopmentCandidateArtifacts[],
@@ -183,28 +174,33 @@ function sumConfirmedUsageFromCompletedCandidates(
   return { inputTokens, outputTokens, costUsd };
 }
 
-/** Builds the failure-usage snapshot described above and attaches it (never replacing or wrapping
- * the original error) to `error` under `protocolV4FailureUsageSnapshot`, so `instanceof`/`.message`
- * assertions on the original error are completely unaffected. `gate` is `undefined` when the
- * failure happened before the shared budget gate was even constructed (provably zero dispatch
- * attempts either way). No-op if `error` is not an object (defends against a non-Error throw, which
- * never happens on this code path but must not itself crash the failure handler).
+/** Builds the failure-usage snapshot described above and records it (never replacing or wrapping
+ * the original error) in the trusted `WeakMap` side channel
+ * (`ResolverV3048ProtocolV4FailureMetadataSideChannel.ts`), keyed by `error`'s own object identity
+ * -- so `instanceof`/`.message` assertions on the original error are completely unaffected, and no
+ * property of `error` is ever read or written. `gate` is `undefined` when the failure happened
+ * before the shared budget gate was even constructed (provably zero dispatch attempts either way).
+ * No-op if `error` is not an object (defends against a non-Error throw, which never happens on this
+ * code path but must not itself crash the failure handler).
  *
- * RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F2, "Attachment Never Blocks Lease
- * Finalization"): the property write below is wrapped in its own `try`/`catch` -- a frozen error
- * (`Object.freeze`), a non-extensible error (`Object.preventExtensions`), an existing non-writable
- * `protocolV4FailureUsageSnapshot` property, or a throwing setter/Proxy trap must never let this
- * function itself throw. This function is strictly best-effort: the caller's shared failure
- * handler (`runProtocolV4DevelopmentForAllCandidates`'s `catch` below) always attempts lease
- * `terminal_failure` next regardless of whether this attachment actually landed, and always
- * rethrows the original normalized error -- never an error raised by this attachment attempt. */
+ * RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Trusted Failure Metadata"): this used to write
+ * a plain, freely-settable `protocolV4FailureUsageSnapshot` property directly onto `error`, wrapped
+ * in its own `try`/`catch` because a frozen/non-extensible/non-writable-property/throwing-setter
+ * error could make that property write itself throw -- and, worse, a FOREIGN error could pre-seed
+ * that exact property name so the launcher would trust an attacker-controlled value once the real
+ * write failed. `WeakMap.set` on an object key never reads or writes any property of that key and
+ * never invokes a getter/setter/Proxy trap, so none of that applies anymore: this call cannot throw
+ * for a frozen/sealed/non-extensible/Proxy-wrapped `error`, and there is no property name a foreign
+ * error could pre-seed to be mistaken for a real entry. The caller's shared failure handler
+ * (`runProtocolV4DevelopmentForAllCandidates`'s `catch` below) still always attempts lease
+ * `terminal_failure` next regardless, and always rethrows the original normalized error -- never an
+ * error raised by this attachment attempt. */
 export function attachProtocolV4FailureUsageSnapshot(
   error: unknown,
   gate: LiveProviderBudgetGate | undefined,
   completedCandidates: readonly ProtocolV4DevelopmentCandidateArtifacts[],
   executionContext: ProtocolV4DispatchExecutionContext,
 ): void {
-  if (!error || typeof error !== 'object') return;
   const gateSnapshot = gate?.snapshot();
   const providerHttpRequests =
     executionContext.mode === 'human_live'
@@ -223,35 +219,20 @@ export function attachProtocolV4FailureUsageSnapshot(
     confirmedOutputTokens: confirmed.outputTokens,
     confirmedCostUsd: confirmed.costUsd,
   };
-  try {
-    (
-      error as { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot }
-    ).protocolV4FailureUsageSnapshot = snapshot;
-  } catch {
-    // Best-effort only -- see this function's doc comment above. The original error is still
-    // thrown by the caller unchanged; it simply will not carry this snapshot.
-  }
+  setProtocolV4FailureUsageSnapshot(error, snapshot);
 }
 
-/** Attaches the lease-finalization status (defined above) to `error` under
- * `protocolV4LeaseFinalizationStatus` -- a plain property, never replacing the error or its usage
- * snapshot. No-op if `error` is not an object.
+/** Records the lease-finalization status (defined in the side-channel module) for `error` in the
+ * same trusted `WeakMap` side channel -- never replacing the error or its usage snapshot, never
+ * touching any property of `error`. No-op if `error` is not an object.
  *
- * RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F2): best-effort, for the identical reason
- * documented on `attachProtocolV4FailureUsageSnapshot` above -- an error object that refuses this
- * property must never itself throw out of the shared failure handler. */
+ * RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5: identical rationale as
+ * `attachProtocolV4FailureUsageSnapshot` above -- see that function's doc comment. */
 export function attachProtocolV4LeaseFinalizationStatus(
   error: unknown,
   status: ProtocolV4LeaseFinalizationStatus,
 ): void {
-  if (!error || typeof error !== 'object') return;
-  try {
-    (
-      error as { protocolV4LeaseFinalizationStatus?: ProtocolV4LeaseFinalizationStatus }
-    ).protocolV4LeaseFinalizationStatus = status;
-  } catch {
-    // Best-effort only -- see this function's doc comment above.
-  }
+  setProtocolV4LeaseFinalizationStatus(error, status);
 }
 
 /** RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"): a

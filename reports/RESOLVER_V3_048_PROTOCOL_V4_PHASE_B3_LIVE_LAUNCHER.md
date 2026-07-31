@@ -811,3 +811,184 @@ sanity cases).
   was implemented, with no unintended call-graph changes.
 
 Zero provider calls, zero tokens, USD 0.00 throughout.
+
+## 14. Post-Merge Remediation 5 (2026-07-31): Trusted Failure Metadata and Non-Fabricated Usage
+
+PR #206 (this Phase B3 launcher, four times remediated) merged as
+`207c55a33d5753472744cea5de7290d17a50e005` into `chore/clean-arch-structure` (PR head tree
+`62c8e3dfcb2427335cf8d0fd7db77df6ebd5cf25`). An independent post-merge review returned
+`REMEDIATION_REQUIRED`, finding two combined critical defects, fixed on this branch with zero
+provider calls, zero tokens, USD 0.00 throughout. Holdout remains unauthorized, unexecuted, and
+unreferenced.
+
+**CodeGraph MCP preflight** (`mcp__codegraph__codegraph_explore`, the only tool the `codegraph`
+server exposes). No `.codegraph/` index existed at session start in this fresh environment; per
+`AGENTS.md`'s remediation procedure, a one-time bootstrap (`npx -y @colbymchenry/codegraph@1.5.0
+init`, the pinned version from `.mcp.json`) was run — confirmed afterwards via `git status`/`git diff
+--stat` that only the gitignored `.codegraph/` directory was created and no tracked file changed.
+Preflight queries established the exact defect shape (`summarizeFailureUsage`'s free-property read at
+`scripts/run-resolver-v3-048-live-development.mjs:853` pre-remediation, `isKnownPreDispatchError`'s
+six-class allowlist including `ProtocolV4ExecutionLeaseError`/`ProtocolV4ArtifactStoreError`/
+`ProtocolV4ArtifactCrashError`). Targeted throw-site relationship queries then proved, by real call
+paths (not assumption), that each of the following is reachable AFTER real provider dispatch already
+happened for the run in question:
+
+- `ProtocolV4ExecutionLeaseError` — `runProtocolV4DevelopmentForAllCandidates`'s own `catch` block
+  (reached only after the full candidate dispatch loop above it) calls
+  `markProtocolV4ExecutionLeaseTerminalFailure` → `transitionLease`, which throws this class on
+  `PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND`/`_INVALID_TRANSITION`, or a `writeLeaseVersionExclusive`
+  version race.
+- `ProtocolV4ArtifactStoreError` — `writeAndReadBackLiveArtifact` (called once per candidate,
+  immediately after that candidate's own per-observation dispatch loop, and again for the shared
+  plan-manifest/candidate-evaluation-table after ALL candidates have dispatched) throws this class on
+  a content-hash mismatch, an already-existing target, or a readback hash mismatch.
+- `ProtocolV4ArtifactCrashError` — `assertDevelopmentAuthorized` (called at the START of EACH
+  candidate's own `runProtocolV4DevelopmentForCandidate`, i.e. after any earlier candidate in the
+  same run has already dispatched) calls `isProtocolV4LiveArtifactTargetUnused` → `isTargetUnused`,
+  which throws this class on leftover crash evidence. The pre-existing source comment on the
+  `runProtocolV4LiveDevelopmentEntryPoint` call site of this same check correctly describes THAT call
+  as pre-lease-claim; the defect was generalizing that one pre-dispatch call site to the whole class,
+  which also has this second, later-reachable throw site.
+- `ProtocolV4DevelopmentAuthorizationError` (found during this remediation's own inspection, not
+  named in the originating review) — the same per-candidate `assertDevelopmentAuthorized` call above
+  can also fail its own budget/identity/consumption checks for the SECOND or THIRD candidate in a
+  run, i.e. after an earlier candidate already dispatched.
+- `ProtocolV4LiveExecutionContextError` (also found during this remediation's own inspection) —
+  `runProtocolV4Attempt` (the single all-path attempt wrapper) calls
+  `input.buildFastPathTerminal(raw, endToEndLatencyMs)` AFTER `input.attempt(...)` has already run
+  and returned; for `human_live`, that `attempt` is the real dispatch through the counting transport,
+  so a real `fetch` (and therefore real, non-zero `providerHttpRequestCount`) can already have
+  happened before `buildFastPathTerminal` throws `PROTOCOL_V4_LIVE_EXECUTION_UNEXPECTED_FAST_PATH`.
+  The surrounding source comment calls this call site "structurally unreachable"; this remediation
+  does not disprove that specific claim (see report §8e in the corresponding handoff for the
+  residual-risk note), but conservatively removed the whole class from the allowlist anyway, since a
+  class-level `instanceof` check cannot distinguish between this call site and the proven-safe
+  credential-check call site in `buildProtocolV4HumanLiveExecutionContext`.
+
+By contrast, `LauncherError` and `bridge.ProtocolV4LiveDevelopmentEntryPointError` were confirmed —
+by reading every throw site reachable from `runExecute`'s `dispatchError` path and from
+`runProtocolV4LiveDevelopmentEntryPoint`'s own body — to be genuinely pre-dispatch only, and remain
+in the allowlist.
+
+**Remediation A (non-spoofable side channel).** New file
+`src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4FailureMetadataSideChannel.ts`:
+two module-private `WeakMap`s (`failureUsageSnapshots`, `leaseFinalizationStatuses`), never exported,
+keyed strictly on the error object's own reference identity. `WeakMap.set`/`.get` never read or write
+any property of the key and never invoke a getter/setter/Proxy trap, so a frozen, sealed,
+non-extensible, or Proxy-wrapped error works as a key exactly like any other object, and a foreign
+error can no longer pre-seed or spoof an entry by defining a property with a particular name (there
+is no such property to define). `attachProtocolV4FailureUsageSnapshot`/
+`attachProtocolV4LeaseFinalizationStatus` (`ResolverV3048ProtocolV4DevelopmentRunner.ts`) now call
+the trusted setters instead of writing a property — the `try`/`catch` remediation-4 added around that
+property write is no longer needed and was removed, since `WeakMap.set` cannot throw for these error
+shapes. Only the read-only getters (`readProtocolV4FailureUsageSnapshot`/
+`readProtocolV4LeaseFinalizationStatus`) are re-exported to the launcher via `launcherBridge.ts`; the
+setters remain usable only by the Runner. `summarizeFailureUsage`
+(`scripts/run-resolver-v3-048-live-development.mjs`) now reads exclusively through
+`bridge.readProtocolV4FailureUsageSnapshot(error)`/`bridge.readProtocolV4LeaseFinalizationStatus(error)`
+— the old property names are never read anywhere in production code (confirmed via a repo-wide grep
+and CodeGraph relationship queries). Because both `launcherBridge.ts` and the Runner import from the
+same source module, and the launcher's local `tsc` build compiles the whole reachable graph into one
+`outDir` tree in a single invocation, both compiled modules `require()` the identical on-disk output
+file — Node's own CommonJS module cache guarantees they share the same module instance, and therefore
+the same two `WeakMap`s. Proven at the real compiled-module level by a dedicated `.mjs` test that
+directly `require()`s the compiled side-channel file, sets an entry through it, and confirms
+`bridge`'s own getters (loaded via a separate `loadCompiledBridge()` call) read back the identical
+value for the same error object.
+
+**Remediation B (conservative exact-zero rule).** `isKnownPreDispatchError` narrowed from six classes
+to two: `LauncherError` (kept — every throw site reachable as `dispatchError` in `runExecute` runs
+before the `try` around the real entry-point call, so it can in fact never appear there in
+production; kept only so a direct unit test of `summarizeFailureUsage` can still assert the
+pre-dispatch contract without a bridge) and `bridge.ProtocolV4LiveDevelopmentEntryPointError` (kept —
+every throw site runs in `runProtocolV4LiveDevelopmentEntryPoint`'s steps 1-4, strictly before the
+lease claim/step 5 and dispatch/step 6). The five classes proven reachable post-dispatch above were
+removed. Without a trusted, valid snapshot, any of those five (or any other unrecognized error) now
+reports `'unknown'` (`null` fields), never a fabricated `'exact'`/all-zero result.
+
+**Remediation C (runtime snapshot validation).** New `isValidProtocolV4FailureUsageSnapshot`/
+`isValidProtocolV4LeaseFinalizationStatus` in the `.mjs` launcher, applied to every value read through
+the trusted getters before it is used: snapshot is a non-array object; `accounting` is one of the two
+allowed internal values (`'exact_zero'`/`'partial'`); `completedCandidateIds` is an array of only
+`'H0'`/`'H1'`/`'H2'`; every counter field is a finite, non-negative integer (never `undefined`,
+a string, `NaN`, or `Infinity`); every cost field is a finite, non-negative number; and `exact_zero`
+is only internally consistent with `providerHttpRequests === 0` — deliberately NOT also requiring
+`aiDispatchReservations === 0`, since a budget-gate reservation that was made and then released
+before any real `fetch` is still legitimately `exact_zero` for PROVIDER usage (this mirrors
+`attachProtocolV4FailureUsageSnapshot`'s own construction rule, `accounting: providerHttpRequests > 0
+? 'partial' : 'exact_zero'`, and preserves the pre-existing, still-passing "Test 4" contract that a
+reservation is never itself a provider/HTTP-request count). An invalid snapshot/status is treated
+exactly like an absent one — never a partial read — and no snapshot data is ever included in a thrown
+error or log line. The lease-finalization status is validated the identical way (closed two-literal
+enum); an invalid or absent status reports `null`.
+
+**Files changed in this remediation:**
+
+```
+A  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4FailureMetadataSideChannel.ts
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+M  scripts/resolver-v3-048-live-launcher/launcherBridge.ts
+M  scripts/run-resolver-v3-048-live-development.mjs
+M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+M  ROADMAP.md
+M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md (this section)
+A  handoffs/archive/2026-07-31_RESOLVER-V3-048_phase-b3-post-merge-remediation-4.md
+M  handoffs/latest-handoff.md
+```
+
+**New regression tests:** Side-channel/spoofing coverage across both the TS Jest suite and the `.mjs`
+launcher suite — a foreign error pre-populating either legacy property name (ignored); a throwing
+property getter for the legacy property name (never fires, never blocks the real snapshot); a
+throwing Proxy get/set trap (never fires); a frozen error and a non-extensible error each still
+receiving a real, readable snapshot through the `WeakMap` (never silently dropped, unlike the removed
+property-based attachment); original error identity preserved on rethrow; the launcher and a directly
+`require()`d copy of the compiled side-channel module proven to share the identical `WeakMap`
+instances. A dedicated "Combined Critical Regression" test drives a controlled `human_live` path with
+zero real network in which a simulated provider HTTP dispatch is transport-authoritatively counted,
+then a real, frozen `ProtocolV4ArtifactStoreError` carrying a spoofed non-writable legacy
+`protocolV4FailureUsageSnapshot` property (claiming `exact_zero`) is thrown from the real per-candidate
+artifact-write step; the real side-channel snapshot (`partial`, real nonzero `providerHttpRequests`)
+is what `readProtocolV4FailureUsageSnapshot` actually returns, lease `terminal_failure` is confirmed,
+and the launcher never reports a fabricated `exact`/zero result. Exact-zero classification tests cover
+a real launcher-local pre-dispatch `LauncherError` (exact zero), each of the five removed classes
+without a trusted snapshot (`unknown`), a foreign object with an identical class name (`unknown`), a
+present-but-legacy free property (ignored), a valid trusted snapshot (authoritative), and an invalid
+trusted snapshot — malformed shape, or an internally inconsistent `exact_zero` claim (`unknown`).
+
+**Verification (this remediation):**
+
+- `node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs`: 152 tests, 145 pass;
+  the 6 failures (3 suites) are exclusively this launcher's own working-tree-clean-gate
+  (`LAUNCHER_PREFLIGHT_WORKING_TREE_DIRTY`/`LAUNCHER_EXECUTE_WORKING_TREE_DIRTY`), which by
+  construction cannot pass until this remediation's own files are committed — the same pattern
+  documented in every prior remediation; confirmed fully green post-commit.
+- `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 30/30 (26 prior, rewritten to read
+  through the new side channel, + 4 net-new).
+- Full `protocolV4` Jest suite: **PASS**, 236/236 (11 suites; 232 prior + 4 net-new).
+- Full `nutrition-benchmark` Jest suite: **PASS**, 981/981 (81 suites; 977 prior + 4 net-new).
+- Full repo-wide `npm run test` (Jest): **PASS**, 2790/2790 (257 suites).
+- `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors (after removing the transient
+  gitignored `build/resolver-v3-048-live-launcher/` directory, the same known pre-existing gap
+  documented in every prior remediation). `prettier -c` on every file this remediation touched:
+  **PASS** after one `-w` pass on the 3 files with issues. `git diff --check`: **PASS**.
+- `npm run verify`'s `format:check` step additionally reports one pre-existing, out-of-scope warning
+  unrelated to this remediation: `.claude/settings.local.json`, a harness-generated, globally
+  gitignored, untracked local Claude Code permissions file (confirmed via `git ls-files --others
+--ignored --exclude-standard` and `git check-ignore -v`, resolving to `/root/.config/git/ignore`,
+  not this repository's own `.gitignore`), auto-created at this session's start and never part of
+  this repository's tracked content or this task's allowed scope. It is not touched by, and predates,
+  this remediation.
+- `npm ci` was run once (node_modules was absent in this fresh environment); confirmed
+  `package.json`/`package-lock.json` byte-identical before and after (md5sum + `git status` showed no
+  changes).
+- Final CodeGraph MCP recheck (`mcp__codegraph__codegraph_explore`: `summarizeFailureUsage
+readProtocolV4FailureUsageSnapshot readProtocolV4LeaseFinalizationStatus`;
+  `runProtocolV4DevelopmentForAllCandidates attachProtocolV4FailureUsageSnapshot
+attachProtocolV4LeaseFinalizationStatus`; `ProtocolV4ArtifactStoreError ProtocolV4ExecutionLeaseError
+isKnownPreDispatchError`) confirmed the on-disk implementation matches what was implemented, the
+  real launcher path and the real Runner both resolve to the same compiled side-channel module, and a
+  repo-wide grep confirmed no production reader anywhere still accesses the legacy property names.
+  No unintended call-graph expansion.
+
+Zero provider calls, zero tokens, USD 0.00 throughout.

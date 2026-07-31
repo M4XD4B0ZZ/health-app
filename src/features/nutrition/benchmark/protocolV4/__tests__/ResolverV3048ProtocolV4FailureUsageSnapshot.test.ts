@@ -27,13 +27,16 @@ import {
   attachProtocolV4FailureUsageSnapshot,
   attachProtocolV4LeaseFinalizationStatus,
   buildProtocolV4SuccessUsageSnapshot,
-  type ProtocolV4FailureUsageSnapshot,
 } from '../ResolverV3048ProtocolV4DevelopmentRunner';
 import * as EvaluationModule from '../ResolverV3048ProtocolV4Evaluation';
 import * as ArtifactStoreModule from '../ResolverV3048ProtocolV4ArtifactStore';
 import { writeProtocolV4LiveArtifactExclusive } from '../ResolverV3048ProtocolV4ArtifactStore';
 import { LiveProviderBudgetGate } from '../../LiveProviderBudgetGate';
 import { anthropicEnvelope } from '../ResolverV3048ProtocolV4Fixtures';
+import {
+  readProtocolV4FailureUsageSnapshot,
+  readProtocolV4LeaseFinalizationStatus,
+} from '../ResolverV3048ProtocolV4FailureMetadataSideChannel';
 
 /**
  * RESOLVER-V3-048 Phase B3 pre-PR remediation 2 ("Transport-Authoritative Accounting and Failure
@@ -46,6 +49,21 @@ import { anthropicEnvelope } from '../ResolverV3048ProtocolV4Fixtures';
  *   Candidates` catch block: the usage snapshot is attached to the original error BEFORE lease
  *   `terminal_failure` is even attempted, and a lease-finalization failure never replaces the
  *   original error or its snapshot.
+ *
+ * RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Trusted Failure Metadata, Non-Fabricated
+ * Usage"): `attachProtocolV4FailureUsageSnapshot`/`attachProtocolV4LeaseFinalizationStatus` no
+ * longer write a plain, freely-settable property onto the error -- they record the snapshot/status
+ * in a process-local, module-private `WeakMap` side channel
+ * (`ResolverV3048ProtocolV4FailureMetadataSideChannel.ts`), keyed by the error's own object
+ * identity. Every test below that used to read `error.protocolV4FailureUsageSnapshot`/
+ * `error.protocolV4LeaseFinalizationStatus` now reads through
+ * `readProtocolV4FailureUsageSnapshot(error)`/`readProtocolV4LeaseFinalizationStatus(error)`
+ * instead. Because the WeakMap keys on object identity alone -- never a property read or write on
+ * the error -- a frozen/sealed/non-extensible/non-writable-property/throwing-setter/Proxy-wrapped
+ * error can no longer block the attachment (the old `try`/`catch` around a property write is gone;
+ * see that function's own doc comment). New regression coverage below (F-series "Non-Spoofable Side
+ * Channel" tests) proves a foreign error's own plain `protocolV4FailureUsageSnapshot`/
+ * `protocolV4LeaseFinalizationStatus` property is now completely inert.
  */
 
 const plan = buildProtocolV4MasterPlan();
@@ -132,9 +150,7 @@ describe('attachProtocolV4FailureUsageSnapshot (unit, no real dispatch involved)
   it('reports accounting "exact_zero" when no gate exists yet and zero HTTP requests were made (error before the gate was even constructed)', () => {
     const error = new Error('boom-before-gate');
     attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0));
-    const snapshot = (
-      error as Error & { protocolV4FailureUsageSnapshot: ProtocolV4FailureUsageSnapshot }
-    ).protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(error)!;
     expect(snapshot.accounting).toBe('exact_zero');
     expect(snapshot.providerHttpRequests).toBe(0);
     expect(snapshot.aiDispatchReservations).toBe(0);
@@ -154,9 +170,7 @@ describe('attachProtocolV4FailureUsageSnapshot (unit, no real dispatch involved)
     gate.reserve(plan.modelId, 8192, 1536);
     const error = new Error('boom-reservation-no-fetch');
     attachProtocolV4FailureUsageSnapshot(error, gate, [], fakeHumanLiveContext(0));
-    const snapshot = (
-      error as Error & { protocolV4FailureUsageSnapshot: ProtocolV4FailureUsageSnapshot }
-    ).protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(error)!;
     // The core Defect 2 assertion: a reservation is NEVER itself a provider/HTTP-request count.
     expect(snapshot.aiDispatchReservations).toBe(1);
     expect(snapshot.providerHttpRequests).toBe(0);
@@ -175,9 +189,7 @@ describe('attachProtocolV4FailureUsageSnapshot (unit, no real dispatch involved)
     gate.reserve(plan.modelId, 8192, 1536);
     const error = new Error('boom-after-one-fetch');
     attachProtocolV4FailureUsageSnapshot(error, gate, [], fakeHumanLiveContext(1));
-    const snapshot = (
-      error as Error & { protocolV4FailureUsageSnapshot: ProtocolV4FailureUsageSnapshot }
-    ).protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(error)!;
     expect(snapshot.accounting).toBe('partial');
     expect(snapshot.providerHttpRequests).toBe(1);
     expect(snapshot.aiDispatchReservations).toBe(1);
@@ -232,9 +244,7 @@ describe('attachProtocolV4FailureUsageSnapshot (unit, no real dispatch involved)
       [completedCandidate],
       fakeHumanLiveContext(1),
     );
-    const snapshot = (
-      error as Error & { protocolV4FailureUsageSnapshot: ProtocolV4FailureUsageSnapshot }
-    ).protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(error)!;
     expect(snapshot.aiDispatchReservations).toBe(2);
     expect(snapshot.confirmedInputTokens).toBe(111);
     expect(snapshot.confirmedOutputTokens).toBe(22);
@@ -259,55 +269,105 @@ describe('attachProtocolV4FailureUsageSnapshot (unit, no real dispatch involved)
     ).not.toThrow();
   });
 
-  // F2 ("Attachment Never Blocks Lease Finalization"): an error object that refuses this property
-  // for any reason must never make this function itself throw.
-  it('never throws when attaching to a frozen error object', () => {
+  // RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 ("Non-Spoofable Side Channel"): unlike the
+  // removed property-based attachment (which was merely best-effort and could silently drop the
+  // snapshot for exactly these error shapes), the `WeakMap` side channel never reads or writes any
+  // property of the error -- attachment ALWAYS succeeds and the real snapshot is ALWAYS readable
+  // back, regardless of the error's own extensibility/property state.
+  it('a frozen error object still receives a real, readable snapshot (never silently dropped)', () => {
     const error = Object.freeze(new Error('frozen-error'));
     expect(() =>
       attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
     ).not.toThrow();
-    expect(
-      (error as Error & { protocolV4FailureUsageSnapshot?: unknown })
-        .protocolV4FailureUsageSnapshot,
-    ).toBeUndefined();
+    const snapshot = readProtocolV4FailureUsageSnapshot(error);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('exact_zero');
   });
 
-  it('never throws when attaching to a non-extensible error object', () => {
+  it('a non-extensible error object still receives a real, readable snapshot (never silently dropped)', () => {
     const error = Object.preventExtensions(new Error('non-extensible-error'));
     expect(() =>
       attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
     ).not.toThrow();
-    expect(
-      (error as Error & { protocolV4FailureUsageSnapshot?: unknown })
-        .protocolV4FailureUsageSnapshot,
-    ).toBeUndefined();
+    const snapshot = readProtocolV4FailureUsageSnapshot(error);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('exact_zero');
   });
 
-  it('never throws when the error already has a non-writable protocolV4FailureUsageSnapshot property', () => {
-    const error = new Error('non-writable-property-error');
+  // Regression 1 ("Non-Spoofable Side Channel"): a foreign error carrying a structurally plausible,
+  // non-writable LEGACY property under the old name is now completely irrelevant -- the real
+  // snapshot is recorded in the WeakMap regardless, and is what is actually read back; the legacy
+  // property value is never consulted by anything.
+  it('a pre-existing, non-writable legacy protocolV4FailureUsageSnapshot property never blocks or is confused with the real WeakMap-recorded snapshot', () => {
+    const error = new Error('non-writable-legacy-property-error');
     Object.defineProperty(error, 'protocolV4FailureUsageSnapshot', {
-      value: 'pre-existing-immutable-value',
+      value: 'pre-existing-immutable-legacy-value',
       writable: false,
       configurable: false,
     });
     expect(() =>
       attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
     ).not.toThrow();
+    // The real, trusted value -- never the legacy property, which stays exactly as a foreign caller
+    // left it (this function never touches it).
+    const snapshot = readProtocolV4FailureUsageSnapshot(error);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('exact_zero');
     expect(
       (error as Error & { protocolV4FailureUsageSnapshot?: unknown })
         .protocolV4FailureUsageSnapshot,
-    ).toBe('pre-existing-immutable-value');
+    ).toBe('pre-existing-immutable-legacy-value');
+  });
+
+  // Regression 3 (property-getter throws): proves no property of `error` is ever read by the
+  // attach/read path -- a throwing getter for the legacy property name never fires.
+  it('a throwing property getter for the legacy property name never fires and never blocks the real snapshot', () => {
+    const error = new Error('throwing-getter-error');
+    Object.defineProperty(error, 'protocolV4FailureUsageSnapshot', {
+      configurable: true,
+      get() {
+        throw new Error('SIMULATED_GETTER_FAILURE_MUST_NEVER_FIRE');
+      },
+    });
+    expect(() =>
+      attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
+    ).not.toThrow();
+    const snapshot = readProtocolV4FailureUsageSnapshot(error);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('exact_zero');
+  });
+
+  // Regression 4 (Proxy get/set traps throw): the WeakMap keys on the Proxy's own object identity --
+  // no trap is ever invoked by `set`/`get` on the `WeakMap`.
+  it('a Proxy-wrapped error whose get/set traps throw still receives and returns a real snapshot without ever triggering a trap', () => {
+    const target = new Error('proxy-error');
+    let trapFired = false;
+    const proxy = new Proxy(target, {
+      get(t, prop, receiver) {
+        trapFired = true;
+        return Reflect.get(t, prop, receiver);
+      },
+      set() {
+        trapFired = true;
+        throw new Error('SIMULATED_PROXY_SET_TRAP_FAILURE');
+      },
+    });
+    expect(() =>
+      attachProtocolV4FailureUsageSnapshot(proxy, undefined, [], fakeHumanLiveContext(0)),
+    ).not.toThrow();
+    expect(trapFired).toBe(false);
+    const snapshot = readProtocolV4FailureUsageSnapshot(proxy);
+    expect(trapFired).toBe(false);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('exact_zero');
   });
 });
 
 describe('attachProtocolV4LeaseFinalizationStatus (unit)', () => {
-  it('attaches the status without touching the error message/name', () => {
+  it('records the status in the trusted side channel, without touching the error message/name', () => {
     const error = new Error('some-error');
     attachProtocolV4LeaseFinalizationStatus(error, 'failed_to_persist');
-    expect(
-      (error as Error & { protocolV4LeaseFinalizationStatus?: string })
-        .protocolV4LeaseFinalizationStatus,
-    ).toBe('failed_to_persist');
+    expect(readProtocolV4LeaseFinalizationStatus(error)).toBe('failed_to_persist');
     expect(error.message).toBe('some-error');
   });
 
@@ -317,15 +377,15 @@ describe('attachProtocolV4LeaseFinalizationStatus (unit)', () => {
     ).not.toThrow();
   });
 
-  // F2: identical best-effort rationale as attachProtocolV4FailureUsageSnapshot above.
-  it('never throws when attaching to a frozen error object', () => {
+  it('a frozen error object still receives a real, readable status (never silently dropped)', () => {
     const error = Object.freeze(new Error('frozen-error'));
     expect(() =>
       attachProtocolV4LeaseFinalizationStatus(error, 'terminal_failure_confirmed'),
     ).not.toThrow();
+    expect(readProtocolV4LeaseFinalizationStatus(error)).toBe('terminal_failure_confirmed');
   });
 
-  it('never throws when the target property has a throwing setter', () => {
+  it('a throwing setter for the legacy property name never fires and never blocks the real status', () => {
     const error = new Error('throwing-setter-error');
     Object.defineProperty(error, 'protocolV4LeaseFinalizationStatus', {
       configurable: true,
@@ -333,10 +393,27 @@ describe('attachProtocolV4LeaseFinalizationStatus (unit)', () => {
         return undefined;
       },
       set() {
-        throw new Error('SIMULATED_SETTER_FAILURE');
+        throw new Error('SIMULATED_SETTER_FAILURE_MUST_NEVER_FIRE');
       },
     });
     expect(() => attachProtocolV4LeaseFinalizationStatus(error, 'failed_to_persist')).not.toThrow();
+    expect(readProtocolV4LeaseFinalizationStatus(error)).toBe('failed_to_persist');
+  });
+
+  it('the original error identity is unchanged and unreplaced after attachment (rethrow-safe)', () => {
+    const error = new Error('identity-preserved');
+    attachProtocolV4LeaseFinalizationStatus(error, 'terminal_failure_confirmed');
+    const thrown = (() => {
+      try {
+        throw error;
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(thrown).toBe(error);
+    expect(readProtocolV4LeaseFinalizationStatus(thrown as object)).toBe(
+      'terminal_failure_confirmed',
+    );
   });
 });
 
@@ -359,9 +436,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       throw new Error('SIMULATED_FAILURE_BEFORE_FETCH');
     });
 
-    let caught:
-      | (Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot })
-      | null = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -372,12 +447,12 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e as Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot };
+      caught = e as Error;
     }
 
     expect(caught).not.toBeNull();
     expect(caught!.message).toBe('SIMULATED_FAILURE_BEFORE_FETCH');
-    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
     expect(snapshot).toBeDefined();
     expect(snapshot!.aiDispatchReservations).toBe(1);
     expect(snapshot!.providerHttpRequests).toBe(0);
@@ -405,9 +480,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       },
     );
 
-    let caught:
-      | (Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot })
-      | null = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -418,11 +491,11 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e as Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot };
+      caught = e as Error;
     }
 
     expect(caught).not.toBeNull();
-    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
     expect(snapshot).toBeDefined();
     expect(snapshot!.providerHttpRequests).toBe(1);
     expect(snapshot!.accounting).toBe('partial');
@@ -454,12 +527,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       },
     );
 
-    let caught:
-      | (Error & {
-          protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot;
-          protocolV4LeaseFinalizationStatus?: string;
-        })
-      | null = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -470,15 +538,16 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e as typeof caught;
+      caught = e as Error;
     }
 
     expect(caught).not.toBeNull();
     // The ORIGINAL error survives unchanged -- never replaced by the lease-finalization failure.
     expect(caught!.message).toBe('SIMULATED_ORIGINAL_DISPATCH_FAILURE');
-    expect(caught!.protocolV4FailureUsageSnapshot).toBeDefined();
-    expect(caught!.protocolV4FailureUsageSnapshot!.providerHttpRequests).toBe(1);
-    expect(caught!.protocolV4LeaseFinalizationStatus).toBe('failed_to_persist');
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.providerHttpRequests).toBe(1);
+    expect(readProtocolV4LeaseFinalizationStatus(caught!)).toBe('failed_to_persist');
   }, 60000);
 
   it('Test 7: a baseline computation failure after executing (before any dispatch) reports exactly 0 HTTP requests and still attempts a controlled lease failure finalization', async () => {
@@ -503,9 +572,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       throw new Error('UNREACHABLE_DISPATCH_SHOULD_NEVER_RUN');
     });
 
-    let caught:
-      | (Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot })
-      | null = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -516,12 +583,12 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e as Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot };
+      caught = e as Error;
     }
 
     expect(caught).not.toBeNull();
     expect(caught!.message).toBe('SIMULATED_BASELINE_FAILURE');
-    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
     expect(snapshot).toBeDefined();
     expect(snapshot!.providerHttpRequests).toBe(0);
     expect(snapshot!.aiDispatchReservations).toBe(0);
@@ -564,12 +631,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       throw new Error('UNREACHABLE_DISPATCH_SHOULD_NEVER_RUN');
     });
 
-    let caught:
-      | (Error & {
-          protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot;
-          protocolV4LeaseFinalizationStatus?: string;
-        })
-      | null = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -580,21 +642,21 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e as typeof caught;
+      caught = e as Error;
     }
 
     expect(caught).not.toBeNull();
     // The original error survives unchanged -- moving the transition inside the `try` never
     // replaces it with a lease-finalization-related error.
     expect(caught!.message).toBe('SIMULATED_POST_WRITE_TRANSITION_VALIDATION_FAILURE');
-    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
     expect(snapshot).toBeDefined();
     expect(snapshot!.providerHttpRequests).toBe(0);
     expect(snapshot!.aiDispatchReservations).toBe(0);
     expect(snapshot!.accounting).toBe('exact_zero');
     // The lease WAS already `executing` on disk when the catch ran -- confirming terminal_failure
     // was still reachable and succeeded from that state (not left stuck `executing`).
-    expect(caught!.protocolV4LeaseFinalizationStatus).toBe('terminal_failure_confirmed');
+    expect(readProtocolV4LeaseFinalizationStatus(caught!)).toBe('terminal_failure_confirmed');
 
     const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
       liveRoot,
@@ -687,7 +749,11 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
     expect(finalLease?.status).toBe('terminal_failure');
   }, 60000);
 
-  it('F2: an error with a pre-existing non-writable protocolV4FailureUsageSnapshot property still reaches confirmed terminal_failure, and the original value is preserved', async () => {
+  // RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5: renamed from its original "F2" framing --
+  // the pre-existing LEGACY property is now provably inert (never read, never overwritten by this
+  // function), while the REAL snapshot is recorded in the trusted WeakMap side channel and reads
+  // back correctly regardless.
+  it('Remediation 5, Regression 1: an error with a pre-existing non-writable legacy protocolV4FailureUsageSnapshot property still reaches confirmed terminal_failure, and the real (WeakMap) snapshot -- never the legacy property -- is authoritative', async () => {
     const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
     const authorizationId = `e2e-f2-non-writable-${Math.random().toString(36).slice(2, 10)}`;
     const authorization = humanLiveAuthorization(authorizationId);
@@ -709,12 +775,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       throw errorWithLockedProperty;
     });
 
-    let caught:
-      | (Error & {
-          protocolV4FailureUsageSnapshot?: unknown;
-          protocolV4LeaseFinalizationStatus?: string;
-        })
-      | null = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -725,14 +786,21 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e as typeof caught;
+      caught = e as Error;
     }
 
     expect(caught).toBe(errorWithLockedProperty);
-    expect(caught!.protocolV4FailureUsageSnapshot).toBe('pre-existing-immutable-value');
-    // Lease-finalization status attachment is unaffected by the OTHER property's lock -- it is a
-    // completely separate property.
-    expect(caught!.protocolV4LeaseFinalizationStatus).toBe('terminal_failure_confirmed');
+    // The legacy property is completely untouched -- still exactly what a foreign caller set it to.
+    expect(
+      (caught as Error & { protocolV4FailureUsageSnapshot?: unknown })
+        .protocolV4FailureUsageSnapshot,
+    ).toBe('pre-existing-immutable-value');
+    // The REAL snapshot lives in the trusted side channel, keyed on the error's identity -- reading
+    // it never touches the legacy property at all.
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('exact_zero');
+    expect(readProtocolV4LeaseFinalizationStatus(caught!)).toBe('terminal_failure_confirmed');
     const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
       liveRoot,
       authorization.authorizationId,
@@ -740,7 +808,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
     expect(finalLease?.status).toBe('terminal_failure');
   }, 60000);
 
-  it('F2: an error with a throwing setter for protocolV4LeaseFinalizationStatus still reaches confirmed terminal_failure, and the original error is rethrown unchanged', async () => {
+  it('Remediation 5, Regression 3: an error whose legacy protocolV4LeaseFinalizationStatus property getter/setter throws still reaches confirmed terminal_failure, and the real (WeakMap) status reads back correctly (no property of the error is ever touched)', async () => {
     const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
     const authorizationId = `e2e-f2-throwing-setter-${Math.random().toString(36).slice(2, 10)}`;
     const authorization = humanLiveAuthorization(authorizationId);
@@ -756,7 +824,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
     Object.defineProperty(errorWithThrowingSetter, 'protocolV4LeaseFinalizationStatus', {
       configurable: true,
       get() {
-        return undefined;
+        throw new Error('SIMULATED_GETTER_FAILURE_MUST_NEVER_FIRE');
       },
       set() {
         throw new Error('SIMULATED_SETTER_FAILURE_MUST_NOT_ESCAPE');
@@ -766,7 +834,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       throw errorWithThrowingSetter;
     });
 
-    let caught: unknown = null;
+    let caught: Error | null = null;
     try {
       await runProtocolV4DevelopmentForAllCandidates({
         plan,
@@ -777,11 +845,14 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
         repoRoot,
       });
     } catch (e) {
-      caught = e;
+      caught = e as Error;
     }
 
     // The original error survives unchanged -- the setter's own thrown error never replaces it.
     expect(caught).toBe(errorWithThrowingSetter);
+    // The real status is readable via the trusted side channel -- proves the throwing getter/setter
+    // was never invoked (reading it here would itself throw and fail this test).
+    expect(readProtocolV4LeaseFinalizationStatus(caught!)).toBe('terminal_failure_confirmed');
     const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
       liveRoot,
       authorization.authorizationId,
@@ -814,9 +885,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       ANTHROPIC_API_KEY: 'test-key-not-real',
     });
 
-    let caught:
-      | (Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot })
-      | null = null;
+    let caught: Error | null = null;
     await withMockedFetch(async () => {
       try {
         await runProtocolV4DevelopmentForAllCandidates({
@@ -828,17 +897,133 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
           repoRoot,
         });
       } catch (e) {
-        caught = e as Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot };
+        caught = e as Error;
       }
     });
 
     expect(caught).not.toBeNull();
     expect(caught!.message).toContain('PROTOCOL_V4_ARTIFACT_ALREADY_EXISTS');
-    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
     expect(snapshot).toBeDefined();
     expect(snapshot!.accounting).toBe('partial');
     expect(snapshot!.providerHttpRequests).toBeGreaterThan(0);
     expect(snapshot!.reservedCostUsdUpperBound).toBeGreaterThanOrEqual(0);
+    // Lease terminal-failure is still confirmed after this real post-dispatch `ProtocolV4ArtifactStoreError`.
+    expect(readProtocolV4LeaseFinalizationStatus(caught!)).toBe('terminal_failure_confirmed');
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
+  }, 180000);
+
+  // RESOLVER-V3-048 Phase B3 Post-Merge Remediation 5 -- the mandated "Combined Critical
+  // Regression Test": a controlled `human_live` path, zero real network, in which (1) at least one
+  // simulated provider HTTP dispatch was transport-authoritatively counted, (2) a REAL
+  // `ProtocolV4ArtifactStoreError` is then thrown by the real per-candidate artifact-write step
+  // (`writeAndReadBackLiveArtifact`, reached only after that candidate's own dispatch loop already
+  // ran), (3) the thrown error instance is frozen AND carries a structurally plausible, non-writable
+  // fake legacy `protocolV4FailureUsageSnapshot` property claiming exact-zero usage, (4) lease
+  // terminal-failure is still confirmed, and (5) the REAL side-channel snapshot -- never the frozen
+  // fake legacy property -- is what `readProtocolV4FailureUsageSnapshot` returns: `partial`, with a
+  // real nonzero `providerHttpRequests`, never a fabricated `exact_zero`.
+  it('Combined Critical Regression: a real post-dispatch ProtocolV4ArtifactStoreError on a frozen error with a spoofed legacy exact-zero property still reports the REAL partial (never fabricated exact-zero) usage, and lease terminal_failure is confirmed', async () => {
+    const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const authorizationId = `e2e-combined-critical-${Math.random().toString(36).slice(2, 10)}`;
+    const authorization = humanLiveAuthorization(authorizationId);
+    const liveRoot = path.resolve(repoRoot, PROTOCOL_V4_LIVE_ROOT);
+
+    const lease = claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+      plan,
+      authorization,
+      liveRoot,
+      repoRoot,
+    );
+
+    const realWrite = ArtifactStoreModule.writeProtocolV4LiveArtifactExclusive;
+    let realDispatchCount = 0;
+    jest
+      .spyOn(ArtifactStoreModule, 'writeProtocolV4LiveArtifactExclusive')
+      .mockImplementation((...args) => {
+        // Only fail the FIRST per-candidate write reached after real dispatch has already happened
+        // for that candidate (the raw-results write, the first of the per-candidate writes in
+        // `runProtocolV4DevelopmentForCandidate`) -- proving the failure is genuinely reachable only
+        // after real provider usage, exactly as the task's combined regression test requires.
+        if (realDispatchCount === 0) {
+          realDispatchCount += 1;
+          const spoofed = new ArtifactStoreModule.ProtocolV4ArtifactStoreError(
+            'PROTOCOL_V4_ARTIFACT_STORE_SIMULATED_COMBINED_CRITICAL_FAILURE',
+          );
+          // Define the spoofed legacy property BEFORE freezing -- `Object.freeze` makes the object
+          // non-extensible, so a NEW property can no longer be added afterwards; freezing first (as
+          // production code that then attempted to attach a property to an already-frozen error
+          // would encounter) is covered by the separate frozen-error tests above.
+          Object.defineProperty(spoofed, 'protocolV4FailureUsageSnapshot', {
+            value: {
+              accounting: 'exact_zero',
+              completedCandidateIds: [],
+              providerHttpRequests: 0,
+              aiDispatchReservations: 0,
+              reservedInputTokensUpperBound: 0,
+              reservedOutputTokensUpperBound: 0,
+              reservedCostUsdUpperBound: 0,
+              confirmedInputTokens: 0,
+              confirmedOutputTokens: 0,
+              confirmedCostUsd: 0,
+            },
+            writable: false,
+            configurable: false,
+          });
+          Object.freeze(spoofed);
+          throw spoofed;
+        }
+        return realWrite(...args);
+      });
+
+    const executionContext = buildProtocolV4HumanLiveExecutionContext({
+      ANTHROPIC_API_KEY: 'test-key-not-real',
+    });
+
+    let caught: Error | null = null;
+    await withMockedFetch(async () => {
+      try {
+        await runProtocolV4DevelopmentForAllCandidates({
+          plan,
+          authorization,
+          lease,
+          artifactStoreRoot: liveRoot,
+          executionContext,
+          repoRoot,
+        });
+      } catch (e) {
+        caught = e as Error;
+      }
+    });
+
+    expect(caught).not.toBeNull();
+    expect(caught!.message).toBe('PROTOCOL_V4_ARTIFACT_STORE_SIMULATED_COMBINED_CRITICAL_FAILURE');
+    expect(Object.isFrozen(caught)).toBe(true);
+
+    // The frozen, spoofed legacy property is exactly what a foreign/tampered error would carry --
+    // proving it exists and would have been trusted under the pre-remediation property-based design.
+    expect(
+      (caught! as Error & { protocolV4FailureUsageSnapshot?: { accounting: string } })
+        .protocolV4FailureUsageSnapshot?.accounting,
+    ).toBe('exact_zero');
+
+    // The REAL side channel is authoritative and completely independent of the property above: it
+    // reports the true, non-fabricated usage.
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.accounting).toBe('partial');
+    expect(snapshot!.providerHttpRequests).toBeGreaterThan(0);
+    expect(readProtocolV4LeaseFinalizationStatus(caught!)).toBe('terminal_failure_confirmed');
+
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
   }, 180000);
 
   it('a readback failure after real provider dispatches attaches a partial (never zero) usage snapshot', async () => {
@@ -866,9 +1051,7 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
       ANTHROPIC_API_KEY: 'test-key-not-real',
     });
 
-    let caught:
-      | (Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot })
-      | null = null;
+    let caught: Error | null = null;
     await withMockedFetch(async () => {
       try {
         await runProtocolV4DevelopmentForAllCandidates({
@@ -880,13 +1063,13 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
           repoRoot,
         });
       } catch (e) {
-        caught = e as Error & { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot };
+        caught = e as Error;
       }
     });
 
     expect(caught).not.toBeNull();
     expect(caught!.message).toContain('PROTOCOL_V4_ARTIFACT_READBACK_HASH_MISMATCH');
-    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    const snapshot = readProtocolV4FailureUsageSnapshot(caught!);
     expect(snapshot).toBeDefined();
     expect(snapshot!.accounting).toBe('partial');
     expect(snapshot!.providerHttpRequests).toBeGreaterThan(0);

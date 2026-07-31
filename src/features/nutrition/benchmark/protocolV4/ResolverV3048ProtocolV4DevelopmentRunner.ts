@@ -188,7 +188,16 @@ function sumConfirmedUsageFromCompletedCandidates(
  * assertions on the original error are completely unaffected. `gate` is `undefined` when the
  * failure happened before the shared budget gate was even constructed (provably zero dispatch
  * attempts either way). No-op if `error` is not an object (defends against a non-Error throw, which
- * never happens on this code path but must not itself crash the failure handler). */
+ * never happens on this code path but must not itself crash the failure handler).
+ *
+ * RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F2, "Attachment Never Blocks Lease
+ * Finalization"): the property write below is wrapped in its own `try`/`catch` -- a frozen error
+ * (`Object.freeze`), a non-extensible error (`Object.preventExtensions`), an existing non-writable
+ * `protocolV4FailureUsageSnapshot` property, or a throwing setter/Proxy trap must never let this
+ * function itself throw. This function is strictly best-effort: the caller's shared failure
+ * handler (`runProtocolV4DevelopmentForAllCandidates`'s `catch` below) always attempts lease
+ * `terminal_failure` next regardless of whether this attachment actually landed, and always
+ * rethrows the original normalized error -- never an error raised by this attachment attempt. */
 export function attachProtocolV4FailureUsageSnapshot(
   error: unknown,
   gate: LiveProviderBudgetGate | undefined,
@@ -214,22 +223,35 @@ export function attachProtocolV4FailureUsageSnapshot(
     confirmedOutputTokens: confirmed.outputTokens,
     confirmedCostUsd: confirmed.costUsd,
   };
-  (
-    error as { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot }
-  ).protocolV4FailureUsageSnapshot = snapshot;
+  try {
+    (
+      error as { protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot }
+    ).protocolV4FailureUsageSnapshot = snapshot;
+  } catch {
+    // Best-effort only -- see this function's doc comment above. The original error is still
+    // thrown by the caller unchanged; it simply will not carry this snapshot.
+  }
 }
 
 /** Attaches the lease-finalization status (defined above) to `error` under
  * `protocolV4LeaseFinalizationStatus` -- a plain property, never replacing the error or its usage
- * snapshot. No-op if `error` is not an object. */
+ * snapshot. No-op if `error` is not an object.
+ *
+ * RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F2): best-effort, for the identical reason
+ * documented on `attachProtocolV4FailureUsageSnapshot` above -- an error object that refuses this
+ * property must never itself throw out of the shared failure handler. */
 export function attachProtocolV4LeaseFinalizationStatus(
   error: unknown,
   status: ProtocolV4LeaseFinalizationStatus,
 ): void {
   if (!error || typeof error !== 'object') return;
-  (
-    error as { protocolV4LeaseFinalizationStatus?: ProtocolV4LeaseFinalizationStatus }
-  ).protocolV4LeaseFinalizationStatus = status;
+  try {
+    (
+      error as { protocolV4LeaseFinalizationStatus?: ProtocolV4LeaseFinalizationStatus }
+    ).protocolV4LeaseFinalizationStatus = status;
+  } catch {
+    // Best-effort only -- see this function's doc comment above.
+  }
 }
 
 /** RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"): a

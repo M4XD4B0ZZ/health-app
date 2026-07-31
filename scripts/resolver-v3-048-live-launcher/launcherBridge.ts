@@ -32,6 +32,17 @@ export {
   ProtocolV4LiveDevelopmentEntryPointError,
 } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4LiveDevelopmentEntryPoint';
 
-export { readProtocolV4ExecutionLease } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionLease';
+export {
+  readProtocolV4ExecutionLease,
+  ProtocolV4ExecutionLeaseError,
+} from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionLease';
 
-export { isProtocolV4LiveAuthorizationConsumedAtomically } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ArtifactStore';
+export {
+  isProtocolV4LiveAuthorizationConsumedAtomically,
+  ProtocolV4ArtifactStoreError,
+  ProtocolV4ArtifactCrashError,
+} from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ArtifactStore';
+
+export { ProtocolV4LiveExecutionContextError } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionContext';
+
+export { ProtocolV4DevelopmentAuthorizationError } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentAuthorization';

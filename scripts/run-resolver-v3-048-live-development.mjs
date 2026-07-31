@@ -376,16 +376,55 @@ const VALUE_FLAGS = new Set([
   '--authorization-template-out',
 ]);
 
+const BOOLEAN_FLAGS = new Set(['--confirm-development-only']);
+
+/** Every token `parseArgs` ever recognizes as a FLAG (mode, boolean, or value flag, or help) --
+ * used only to detect "a known flag token was about to be consumed as a value flag's value"
+ * (F5, "no flag token as a value"). A completely unknown, non-flag-shaped token is still accepted
+ * as a real value; this set never restricts what a VALID value may contain. */
+const KNOWN_FLAG_TOKENS = new Set([
+  '--help',
+  '-h',
+  '--preflight',
+  '--execute',
+  ...BOOLEAN_FLAGS,
+  ...VALUE_FLAGS,
+]);
+
+/** F5 ("mode-bound flags"): meaningful only under `--execute` -- rejected if present under
+ * `--preflight`, even though each is independently recognized/parsed above. */
+const EXECUTE_ONLY_FLAGS = new Set([
+  '--authorization-file',
+  '--confirm-development-only',
+  '--confirm-max-cost-usd',
+]);
+
+/** F5 ("mode-bound flags"): meaningful only under `--preflight` -- rejected if present under
+ * `--execute`. */
+const PREFLIGHT_ONLY_FLAGS = new Set(['--authorization-template-out']);
+
 /** The only argument-parsing codes `parseArgs`/`main` ever produce or print -- checked again in
  * `main()` before printing (defense in depth, mirroring `classifyLauncherError`'s own exact-match
  * pattern) so a code that somehow isn't on this list is never trusted either. */
 export const KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES = new Set([
   'LAUNCHER_ARGUMENT_UNKNOWN',
   'LAUNCHER_ARGUMENT_VALUE_MISSING',
+  'LAUNCHER_ARGUMENT_DUPLICATE',
+  'LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_PREFLIGHT',
+  'LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_EXECUTE',
   'LAUNCHER_MODE_MISSING',
   'LAUNCHER_MODE_MULTIPLE',
 ]);
 
+/** RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F5, "Unambiguous, Mode-Bound CLI
+ * Arguments"): every flag may appear at most once (a duplicate -- value or boolean -- is a fixed,
+ * enumerated parser error, first occurrence wins, the duplicate's own value is never read into
+ * `result`); a value flag's value must be a real token, never another known flag token silently
+ * swallowed as if it were a value (that case is reported as a missing value, and the wrongly-
+ * assumed "value" token is re-parsed on the next loop iteration as its own flag); and
+ * execute-only/preflight-only flags are rejected under the other mode. As before, no raw argv
+ * token or value is ever pushed into `result.errors` -- every entry is one of the fixed codes
+ * above. */
 export function parseArgs(argv) {
   const result = {
     mode: null,
@@ -397,6 +436,8 @@ export function parseArgs(argv) {
     errors: [],
   };
   const modesSeen = [];
+  const seenFlags = new Set();
+
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === '--help' || token === '-h') {
@@ -411,30 +452,53 @@ export function parseArgs(argv) {
       modesSeen.push('execute');
       continue;
     }
-    if (token === '--confirm-development-only') {
+    if (BOOLEAN_FLAGS.has(token)) {
+      if (seenFlags.has(token)) {
+        result.errors.push('LAUNCHER_ARGUMENT_DUPLICATE');
+        continue;
+      }
+      seenFlags.add(token);
       result.confirmDevelopmentOnly = true;
       continue;
     }
     if (VALUE_FLAGS.has(token)) {
-      const value = argv[i + 1];
-      if (value === undefined) {
+      const isDuplicate = seenFlags.has(token);
+      seenFlags.add(token);
+      const nextToken = argv[i + 1];
+      const hasRealValue = nextToken !== undefined && !KNOWN_FLAG_TOKENS.has(nextToken);
+      if (!hasRealValue) {
         result.errors.push('LAUNCHER_ARGUMENT_VALUE_MISSING');
-        continue;
+        continue; // never consume nextToken -- it is re-parsed on the next iteration as its own token.
       }
       i += 1;
-      if (token === '--authorization-file') result.authorizationFile = value;
-      else if (token === '--confirm-max-cost-usd') result.confirmMaxCostUsd = value;
-      else if (token === '--authorization-template-out') result.authorizationTemplateOut = value;
+      if (isDuplicate) {
+        result.errors.push('LAUNCHER_ARGUMENT_DUPLICATE');
+        continue; // first-write-wins: the duplicate's own value is discarded, never overwrites.
+      }
+      if (token === '--authorization-file') result.authorizationFile = nextToken;
+      else if (token === '--confirm-max-cost-usd') result.confirmMaxCostUsd = nextToken;
+      else if (token === '--authorization-template-out')
+        result.authorizationTemplateOut = nextToken;
       continue;
     }
     result.errors.push('LAUNCHER_ARGUMENT_UNKNOWN');
   }
+
   if (modesSeen.length === 0) {
     result.errors.push('LAUNCHER_MODE_MISSING');
   } else if (modesSeen.length > 1) {
     result.errors.push('LAUNCHER_MODE_MULTIPLE');
   } else {
     result.mode = modesSeen[0];
+    if (result.mode === 'preflight') {
+      for (const flag of EXECUTE_ONLY_FLAGS) {
+        if (seenFlags.has(flag)) result.errors.push('LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_PREFLIGHT');
+      }
+    } else if (result.mode === 'execute') {
+      for (const flag of PREFLIGHT_ONLY_FLAGS) {
+        if (seenFlags.has(flag)) result.errors.push('LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_EXECUTE');
+      }
+    }
   }
   return result;
 }
@@ -720,22 +784,33 @@ export function summarizeSuccessUsage(evidence) {
   return { accounting: 'unknown', ...UNKNOWN_USAGE, leaseFinalization: null };
 }
 
-/** Every Protocol-v4 domain error class this launcher can ever see BEFORE the Development Runner's
+/** RESOLVER-V3-048 Phase B3 post-merge remediation 4 ("Non-Spoofable Pre-Dispatch Identity", F1):
+ * every Protocol-v4 domain error class this launcher can ever see BEFORE the Development Runner's
  * dispatch loop is entered (plan/authorization validation, credential check, storage/authorization
  * preflight, lease claim -- all inside `runProtocolV4LiveDevelopmentEntryPoint`, strictly before
  * `runProtocolV4DevelopmentForAllCandidates` is called). Verified by source inspection, not
- * assumed: none of these classes are ever thrown from inside the Runner's own dispatch loop. Only
- * these classes -- plus this launcher's own `LauncherError` for its pre-dispatch guards -- justify
- * reporting `providerHttpRequests: 0` in the absence of a snapshot; anything else is `'unknown'`. */
-const KNOWN_PRE_DISPATCH_ERROR_CLASSES = new Set([
-  'LauncherError',
-  'ProtocolV4LiveDevelopmentEntryPointError',
-  'ProtocolV4LiveExecutionContextError',
-  'ProtocolV4DevelopmentAuthorizationError',
-  'ProtocolV4ExecutionLeaseError',
-  'ProtocolV4ArtifactStoreError',
-  'ProtocolV4ArtifactCrashError',
-]);
+ * assumed: none of these classes are ever thrown from inside the Runner's own dispatch loop.
+ *
+ * Membership is checked by real `instanceof` against the ACTUAL classes -- `LauncherError` (this
+ * module's own real class, always available) plus the real Protocol-v4 classes re-exported by the
+ * compiled bridge (only available once `loadCompiledBridge` has run; `bridge` is `undefined` in
+ * pure unit tests that never touch the real TypeScript graph, in which case only the `LauncherError`
+ * check applies -- an unrecognized foreign error, even one spoofing `error.name` to look like one of
+ * these class names as a bare string, can never satisfy `instanceof` and therefore can never force a
+ * fabricated exact-zero usage report here). Never a string comparison against `error.name` (a freely
+ * settable property on any plain object) -- that was the exact defect this replaces. */
+function isKnownPreDispatchError(error, bridge) {
+  if (error instanceof LauncherError) return true;
+  if (!bridge) return false;
+  return [
+    bridge.ProtocolV4LiveDevelopmentEntryPointError,
+    bridge.ProtocolV4LiveExecutionContextError,
+    bridge.ProtocolV4DevelopmentAuthorizationError,
+    bridge.ProtocolV4ExecutionLeaseError,
+    bridge.ProtocolV4ArtifactStoreError,
+    bridge.ProtocolV4ArtifactCrashError,
+  ].some((cls) => typeof cls === 'function' && error instanceof cls);
+}
 
 const UNKNOWN_USAGE = Object.freeze({
   providerHttpRequests: null,
@@ -768,10 +843,12 @@ const EXACT_ZERO_USAGE = Object.freeze({
  * (attached for every `human_live` failure once the Runner's dispatch loop was ever entered) --
  * never re-derives pricing/usage-parsing logic. When no snapshot is present, this does NOT default
  * to "exact zero": only a recognized pre-dispatch error class (see
- * `KNOWN_PRE_DISPATCH_ERROR_CLASSES`, each verified to be structurally unreachable once dispatch
- * could have started) justifies reporting exact zero; any other error is reported as `'unknown'`
- * usage -- `null` fields, never fabricated `0`s. */
-export function summarizeFailureUsage(error) {
+ * `isKnownPreDispatchError`, each verified to be structurally unreachable once dispatch could have
+ * started) justifies reporting exact zero; any other error is reported as `'unknown'` usage --
+ * `null` fields, never fabricated `0`s. `bridge` is optional: pass the loaded compiled bridge (see
+ * `isKnownPreDispatchError` above) so a real Protocol-v4 domain error can be recognized by real
+ * `instanceof`; omitted in pure unit tests that only exercise `LauncherError`/generic errors. */
+export function summarizeFailureUsage(error, bridge) {
   const isObject = error !== null && typeof error === 'object';
   const snapshot = isObject ? error.protocolV4FailureUsageSnapshot : undefined;
   const leaseFinalization =
@@ -797,8 +874,7 @@ export function summarizeFailureUsage(error) {
     };
   }
 
-  const name = isObject && typeof error.name === 'string' ? error.name : undefined;
-  if (name && KNOWN_PRE_DISPATCH_ERROR_CLASSES.has(name)) {
+  if (isKnownPreDispatchError(error, bridge)) {
     return { accounting: 'exact', ...EXACT_ZERO_USAGE, leaseFinalization };
   }
   return { accounting: 'unknown', ...UNKNOWN_USAGE, leaseFinalization };
@@ -997,7 +1073,7 @@ export const KNOWN_SAFE_PROTOCOL_ERROR_CODES = new Set([
  * safe fallback code, never the raw extracted text. */
 export function classifyLauncherError(error) {
   const isObject = error !== null && typeof error === 'object';
-  const name = isObject && typeof error.name === 'string' ? error.name : 'UnknownError';
+  const name = isObject && typeof error.name === 'string' ? error.name : undefined;
   const message = isObject && typeof error.message === 'string' ? error.message : undefined;
 
   if (name === 'LauncherError' && message !== undefined) {
@@ -1006,7 +1082,7 @@ export function classifyLauncherError(error) {
       code: KNOWN_LAUNCHER_ERROR_CODES.has(message) ? message : 'LAUNCHER_UNRECOGNIZED_CODE',
     };
   }
-  if (KNOWN_SAFE_PROTOCOL_ERROR_CLASSES.has(name) && message !== undefined) {
+  if (name !== undefined && KNOWN_SAFE_PROTOCOL_ERROR_CLASSES.has(name) && message !== undefined) {
     const prefixMatch = CODE_PREFIX_PATTERN.exec(message);
     const baseCode = prefixMatch ? prefixMatch[0] : null;
     return {
@@ -1017,7 +1093,30 @@ export function classifyLauncherError(error) {
           : 'PROTOCOL_V4_UNRECOGNIZED_CODE',
     };
   }
-  return { class: 'unknown', code: name };
+  // RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F4, "No Unfiltered error.name"): a
+  // completely unrecognized error class's `.name` is a freely settable string on any plain
+  // object -- it could contain a secret marker, an absolute path, embedded newlines, or text
+  // crafted to look like a launcher success line. It is NEVER echoed here (nor is `.message`,
+  // which was already excluded before this remediation): only this fixed, constant fallback code
+  // is ever returned, exactly like `LAUNCHER_UNRECOGNIZED_CODE`/`PROTOCOL_V4_UNRECOGNIZED_CODE`
+  // above are fixed constants rather than derived from foreign input.
+  return { class: 'unknown', code: 'LAUNCHER_UNCLASSIFIED_ERROR' };
+}
+
+/** RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F3, "Tri-State Authorization Consumption"):
+ * a readback of whether the live Development authorization was atomically consumed must never be
+ * collapsed into a boolean -- "confirmed not consumed" and "the on-disk marker could not be read"
+ * are different claims with different operational meanings, and conflating them (the pre-
+ * remediation-4 behavior, which reported `false`/"not consumed" for both) could make a genuinely
+ * consumed-but-unreadable authorization look safe to retry. Takes the raw outcome of the
+ * readback attempt (`{ ok: true, consumed }` on a successful read, `{ ok: false, error }` if the
+ * read itself threw) and returns an explicit, secret-free tri-state. `errorCode` is always the
+ * result of `classifyLauncherError` -- never the foreign error's own `.message`/`.name`/a path. */
+export function summarizeAuthorizationConsumption(readResult) {
+  if (readResult.ok) {
+    return { status: readResult.consumed ? 'consumed' : 'not_consumed' };
+  }
+  return { status: 'unreadable', errorCode: classifyLauncherError(readResult.error).code };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1168,22 +1267,30 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
     leaseStatus = `unreadable: ${classifyLauncherError(e).code}`;
   }
 
-  let authorizationConsumed = false;
+  let authorizationConsumption;
   try {
-    authorizationConsumed = bridge.isProtocolV4LiveAuthorizationConsumedAtomically(
+    const consumed = bridge.isProtocolV4LiveAuthorizationConsumedAtomically(
       artifactStoreRoot,
       authorization.authorizationId,
       repoRootForTests,
     );
-  } catch {
-    authorizationConsumed = false;
+    authorizationConsumption = summarizeAuthorizationConsumption({ ok: true, consumed });
+  } catch (e) {
+    authorizationConsumption = summarizeAuthorizationConsumption({ ok: false, error: e });
   }
 
   const usage = dispatchError
-    ? summarizeFailureUsage(dispatchError)
+    ? summarizeFailureUsage(dispatchError, bridge)
     : summarizeSuccessUsage(evidence);
 
   const summary = {
+    // RESOLVER-V3-048 Phase B3 post-merge remediation 4 (F3): `success` denotes ONLY whether the
+    // Development provider/dispatch call itself completed without throwing -- it says nothing
+    // about whether the authorization-consumption marker could be read back (see
+    // `authorizationConsumption` below, which is its own, separately reported tri-state). A
+    // maintainer must never read `success: true` plus a non-`'consumed'` consumption status as
+    // license to safely retry: an `'unreadable'` consumption status means the true on-disk state
+    // is simply unknown, not that nothing was consumed.
     success: dispatchError === null,
     error: dispatchError ? classifyLauncherError(dispatchError) : null,
     usageAccounting: usage.accounting,
@@ -1203,7 +1310,7 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
     // semantic identity -- never the real, absolute `artifactStoreRoot` filesystem path.
     artifactRootKind: 'protocol_v4_live',
     leaseStatus,
-    authorizationConsumed,
+    authorizationConsumption,
     holdoutExecuted: false,
     note: 'Holdout was not executed',
   };

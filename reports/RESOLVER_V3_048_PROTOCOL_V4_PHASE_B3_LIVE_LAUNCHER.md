@@ -675,3 +675,139 @@ M  handoffs/latest-handoff.md
   implemented.
 
 Zero provider calls, zero tokens, USD 0.00 throughout.
+
+## 13. Post-Merge Remediation 4 (2026-07-31): Non-Spoofable Identity, Attachment Safety, Tri-State Consumption, and Closed CLI Parsing
+
+PR #205 (this Phase B3 launcher, three times pre-PR-remediated) merged as
+`93caac4b9128ac7211e7a8c19c4ebd61c87e7af3` into `chore/clean-arch-structure`. An independent
+post-merge review found five further reproducible defects (F1–F5), all fixed on this branch with
+zero provider calls, zero tokens, USD 0.00 throughout. Holdout remains unauthorized, unexecuted, and
+unreferenced. **CodeGraph MCP preflight** (`mcp__codegraph__codegraph_explore`, three queries, one
+initial index bootstrap via the pinned `@colbymchenry/codegraph@1.5.0` `init` since no `.codegraph/`
+index existed yet in this fresh session — verified afterwards that only the gitignored
+`.codegraph/` directory was created and no tracked file changed) confirmed, before any change:
+`summarizeFailureUsage`/`classifyLauncherError`/`parseArgs` and their callers/blast radius in
+`scripts/run-resolver-v3-048-live-development.mjs`; `attachProtocolV4FailureUsageSnapshot`/
+`attachProtocolV4LeaseFinalizationStatus`/`markProtocolV4ExecutionLeaseTerminalFailure` and their
+call graph in `ResolverV3048ProtocolV4DevelopmentRunner.ts`/`ResolverV3048ProtocolV4ExecutionLease.ts`;
+and `isProtocolV4LiveAuthorizationConsumedAtomically` in `ResolverV3048ProtocolV4ArtifactStore.ts`.
+
+**F1 (exact-zero classification trusted a spoofable `error.name`).** `summarizeFailureUsage`
+previously matched a pre-dispatch error solely by comparing `error.name` (a freely settable string
+on any plain object) against `KNOWN_PRE_DISPATCH_ERROR_CLASSES`. Replaced with a real
+`isKnownPreDispatchError(error, bridge)` helper: `error instanceof LauncherError` (this module's own
+real, statically available class) plus `instanceof` against the real Protocol-v4 domain classes
+now re-exported from the compiled bridge (`ProtocolV4LiveDevelopmentEntryPointError`,
+`ProtocolV4LiveExecutionContextError`, `ProtocolV4DevelopmentAuthorizationError`,
+`ProtocolV4ExecutionLeaseError`, `ProtocolV4ArtifactStoreError`, `ProtocolV4ArtifactCrashError` —
+added to `scripts/resolver-v3-048-live-launcher/launcherBridge.ts`'s re-export surface). `bridge` is
+optional (`undefined` in pure unit tests); an unrecognized error, spoofed or genuinely foreign,
+always falls through to `'unknown'` usage, never a fabricated exact zero.
+
+**F2 (metadata attachment could prevent lease finalization).** `attachProtocolV4FailureUsageSnapshot`
+and `attachProtocolV4LeaseFinalizationStatus` wrote directly onto the caller's error object; a frozen
+error, a non-extensible error, a non-writable existing property, or a throwing setter/Proxy trap
+could make the FIRST attachment itself throw, before the Runner's lease `terminal_failure` `try` even
+ran — replacing the original error, losing the usage snapshot, and leaving the lease stuck
+`executing`. Both functions now wrap their property write in their own `try`/`catch` (best-effort,
+silently swallowed) — the smallest change that fixes every caller, not only this one call site. The
+Runner's shared failure handler is otherwise unchanged: normalize the original throwable → attempt
+the (now always-safe) usage-snapshot attachment → always attempt lease `terminal_failure` → attempt
+the (now always-safe) lease-finalization-status attachment → always rethrow the original normalized
+error, never an attachment error.
+
+**F3 (authorization-consumption readback collapsed to a boolean).** The launcher's
+`authorizationConsumed` boolean reported `false` identically for "confirmed not consumed" and "the
+on-disk marker could not be read" — a genuinely consumed-but-unreadable authorization could look
+safe to retry. Replaced with an explicit tri-state `authorizationConsumption`
+(`{ status: 'consumed' }` | `{ status: 'not_consumed' }` | `{ status: 'unreadable', errorCode }`),
+built by a new exported pure function `summarizeAuthorizationConsumption`. `errorCode` is always the
+result of `classifyLauncherError` — never the foreign readback error's own `.message`/`.name`/a path.
+`success` in the summary is documented (inline comment at its construction site) as denoting ONLY
+whether the Development dispatch itself completed without throwing — never a claim about
+authorization-consumption readback; a maintainer must not read `success: true` alongside a
+non-`'consumed'` status as license to retry.
+
+**F4 (unknown `error.name` echoed verbatim as the output code).** `classifyLauncherError`'s final
+fallback for a completely unrecognized error class returned `{ class: 'unknown', code: name }` —
+`name` is a freely settable string that could carry a secret marker, an absolute path, embedded
+newlines, or text crafted to look like a launcher success line. Replaced with a fixed, constant
+fallback code, `LAUNCHER_UNCLASSIFIED_ERROR`, consistent with the same-shaped fallback already used
+for `LauncherError`/Protocol-v4-class codes (`LAUNCHER_UNRECOGNIZED_CODE`/
+`PROTOCOL_V4_UNRECOGNIZED_CODE`). `error.message` was already excluded before this remediation and
+remains excluded.
+
+**F5 (CLI arguments were not unambiguous or mode-bound).** `parseArgs` accepted duplicate value/
+boolean flags (last-write-wins), execute-only flags under `--preflight`, preflight-only flags under
+`--execute`, and would silently consume a known flag token as if it were a value-flag's value.
+Rewritten to fail closed: every flag may appear at most once (`LAUNCHER_ARGUMENT_DUPLICATE`,
+first-write-wins, the duplicate's own value is discarded and never read); a value flag's next token
+must be a real, non-flag-shaped value, or it is reported as missing (`LAUNCHER_ARGUMENT_VALUE_MISSING`)
+and the wrongly-assumed "value" token is re-parsed on the next iteration as its own flag; and
+execute-only (`--authorization-file`, `--confirm-development-only`, `--confirm-max-cost-usd`) /
+preflight-only (`--authorization-template-out`) flags are rejected under the other mode
+(`LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_PREFLIGHT`/`LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_EXECUTE`). All four
+new codes were added to `KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES`. As before, no raw argv token or value
+is ever pushed into `result.errors`.
+
+**Files changed in this remediation:**
+
+```
+M  scripts/run-resolver-v3-048-live-development.mjs
+M  scripts/resolver-v3-048-live-launcher/launcherBridge.ts
+M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
+M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+M  ROADMAP.md
+M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md (this section)
+A  handoffs/archive/2026-07-31_RESOLVER-V3-048_phase-b3-pre-pr-remediation-3.md
+M  handoffs/latest-handoff.md
+```
+
+**New regression tests:** F1 (5 tests: spoofed `error.name`, plain object shaped like a known class,
+real `LauncherError` without a bridge, real `LauncherError` with an overwritten `.name`, an existing
+snapshot remains authoritative); F2 (4 unit tests on the attach functions — frozen/non-extensible/
+non-writable-property/throwing-setter — plus 4 real end-to-end Runner tests confirming
+`terminal_failure` is still confirmed and the ORIGINAL error is rethrown unchanged in all four
+cases); F3 (5 unit tests for `summarizeAuthorizationConsumption` covering `consumed`/`not_consumed`/
+`unreadable`/secret-redaction/no-misleading-retry-safety, and the existing full-success-path
+integration test updated to assert `{ status: 'consumed' }` — a real dispatch-failure integration
+case was deliberately not added at the launcher-integration level: Protocol-v4 records provider
+failures per-observation and continues rather than aborting the whole run on a single transport
+error, so a `not_consumed` outcome is deterministically provable only at the pure-function level
+shown here); F4 (2 existing tests corrected to the new fixed fallback
+code plus 5 new tests for secret-marker/absolute-path/embedded-newline/fake-success-line/message
+marker variants); F5 (9 new tests: three duplicate-value-flag cases, one duplicate-boolean-flag
+case, one execute-only-flag-under-preflight case, one preflight-only-flag-under-execute case, one
+flag-token-as-value case, one secret-marker-in-a-duplicate-value case, two valid-arguments-still-pass
+sanity cases).
+
+**Verification (this remediation):**
+
+- `node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs`: pre-commit, expected
+  working-tree-clean-gate failures only (the launcher's own fail-closed gate, which by construction
+  cannot pass until this remediation's own files are committed — the same pattern documented in every
+  prior remediation); confirmed fully green post-commit (see final numbers below).
+- `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 26/26 (18 prior + 8 new: 4 unit +
+  4 real end-to-end F2 cases).
+- Full `protocolV4` Jest suite: **PASS**, 232/232 (11 suites).
+- Full `nutrition-benchmark` Jest suite: **PASS**, 977/977 (81 suites; 965 prior + 12 new).
+- `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors (after removing the transient
+  gitignored `build/resolver-v3-048-live-launcher/` directory, the same known pre-existing gap
+  documented in every prior remediation). `prettier -c` on every file this remediation touched:
+  **PASS** after one `-w` pass on the 3 files with issues. `git diff --check`: **PASS**.
+- Full repo-wide `npm run test` (Jest): see final numbers below.
+- `npm run verify`'s `format:check` step additionally reports one pre-existing, out-of-scope warning
+  unrelated to this remediation: `.claude/settings.local.json`, a harness-generated, globally
+  gitignored, untracked local Claude Code permissions file (confirmed via
+  `git ls-files --others --ignored --exclude-standard` and `git check-ignore -v`, resolving to
+  `/root/.config/git/ignore`, not this repository's own `.gitignore`), auto-created at this session's
+  start and never part of this repository's tracked content or this task's allowed scope. It is not
+  touched by, and predates, this remediation.
+- Final CodeGraph MCP recheck (`mcp__codegraph__codegraph_explore`, three queries covering
+  `summarizeFailureUsage`/`classifyLauncherError`/`parseArgs` and
+  `attachProtocolV4FailureUsageSnapshot`/`attachProtocolV4LeaseFinalizationStatus`/
+  `markProtocolV4ExecutionLeaseTerminalFailure`) confirmed the on-disk implementation matches what
+  was implemented, with no unintended call-graph changes.
+
+Zero provider calls, zero tokens, USD 0.00 throughout.

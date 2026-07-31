@@ -170,6 +170,15 @@ export interface ProtocolV4FakeDryRunExecutionContext extends ProtocolV4Dispatch
 
 export interface ProtocolV4HumanLiveExecutionContext extends ProtocolV4DispatchExecutionContextBase {
   readonly mode: 'human_live';
+  /** RESOLVER-V3-048 Phase B3 pre-PR remediation 2 ("Transport-Authoritative Accounting"):
+   * read-only, cumulative count of every real `fetch` attempted at the private counting-transport
+   * boundary, across every candidate/observation dispatched through THIS execution context instance
+   * (one instance spans a whole Development run). Increments exactly once per attempted `fetch`,
+   * immediately before it is awaited -- including one that throws before any response, so this is
+   * never derived from `httpStatus`/response presence. There is no way for a caller to set this
+   * value or inject a different transport through it; it is a plain accessor closing over a private
+   * counter. Never includes URL, header, credential, or proxy data. */
+  getCumulativeProviderHttpRequestCount(): number;
 }
 
 export type ProtocolV4DispatchExecutionContext =
@@ -472,8 +481,18 @@ export function buildProtocolV4HumanLiveExecutionContext(
   const realTransport = createAnthropicBenchmarkTransport(env);
   const fastPathResolver: FoodCatalogResolver = buildVariantAResolver().resolver;
 
+  // Cumulative, transport-authoritative counter spanning every candidate/observation dispatched
+  // through this one execution context instance (see `getCumulativeProviderHttpRequestCount`'s own
+  // doc comment on the interface). Never exposed for writing; only incremented at the same private
+  // counting-transport boundary each observation's own local `providerHttpRequestCount` already
+  // uses below.
+  let cumulativeProviderHttpRequestCount = 0;
+
   return {
     mode: 'human_live',
+    getCumulativeProviderHttpRequestCount(): number {
+      return cumulativeProviderHttpRequestCount;
+    },
     async dispatchObservation(args): Promise<ProtocolV4ObservationDispatchResult> {
       const {
         plan,
@@ -551,6 +570,7 @@ export function buildProtocolV4HumanLiveExecutionContext(
         usesProxy: realTransport.usesProxy,
         fetch: (input, init) => {
           providerHttpRequestCount += 1;
+          cumulativeProviderHttpRequestCount += 1;
           return realTransport.fetch(input, init);
         },
       };

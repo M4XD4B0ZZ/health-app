@@ -1,123 +1,137 @@
-# Handoff — RESOLVER-V3-048: Phase B1 Post-Merge Remediation (Durable Live Evidence Finalization, 2026-07-30)
+# Handoff — RESOLVER-V3-048: Phase B3 Pre-PR Remediation 3 (Closed Output Surface and Transition-Atomic Accounting, 2026-07-31)
 
-1. **Task ID/status:** `RESOLVER-V3-048` — remains `in_progress`. Phase B1's post-merge remediation is
-   complete; **no live run happened**. Branch: `claude/resolver-v3-048-phase-b1-post-merge-remediation`.
-   Basis: `2dc5e3e` (PR #203 merge, tip of `chore/clean-arch-structure` at task start). PR #203 remains
-   merged and was not reverted. **Actual consumption: 0 provider calls, 0 tokens, USD 0.00.** G2 remains
-   `not passed`; `RESOLVER-V3-010` remains `blocked`; Holdout remains unexecuted and unauthorized.
+1. **Task ID/status:** `RESOLVER-V3-048` — remains `in_progress`. This task remediates five further
+   defects a THIRD independent review found in the Phase B3 launcher (after two prior pre-PR
+   remediations), before any PR was opened. **No live run happened.** Branch (unchanged):
+   `claude/resolver-v3-048-phase-b3-live-launcher`. Basis: still `d7a2cd3` (PR #204 merge). **Actual
+   consumption: 0 provider calls, 0 tokens, USD 0.00.** G2 remains `not passed`; `RESOLVER-V3-010`
+   remains `blocked`; Holdout remains unexecuted and unauthorized.
 
-2. **What changed:** an independent post-merge review of PR #203 found five reproducible defects in the
-   Phase B1 live-dispatch wiring; all five are fixed:
-   - **Defect 1 (in-memory-only evidence):** `runProtocolV4DevelopmentForCandidate`/
-     `runProtocolV4DevelopmentForAllCandidates` gained a `human_live`-only branch that durably writes
-     and reads back (root-bound, content-hash-revalidated) every Development artifact — per candidate:
-     raw results, category table, telemetry, ledger, then evaluation, then the checkpoint commit marker
-     LAST; shared: plan manifest and candidate evaluation table. `fake_dry_run` is untouched.
-   - **Defect 2 (premature terminal_success):** for `human_live`, the lease now reaches
-     `terminal_success` only after every artifact above is durable, the Development Evidence Root is
-     derived from the stored hashes, and the authorization is atomically consumed — matching the
-     mandated 13-step order. `fake_dry_run`'s ordering is unchanged.
-   - **Defect 3 (incomplete storage preflight):** new `protocolV4DevelopmentArtifactContractRelativePaths(plan)`
-     derives every Development-phase target generically from `plan.artifactContract`; the live entry
-     point's preflight now checks all of them (previously only 3 checkpoint paths).
-   - **Defect 4 (cross-root readback):** `readWithReadback` now validates the absolute path against its
-     own bound canonical root before reading; both public readback functions gained an optional
-     `repoRoot`.
-   - **Defect 5 (Windows-unsafe authorization IDs):** new `ResolverV3048ProtocolV4StorageKey.ts` derives
-     a single deterministic, collision-resistant, platform-neutral storage key (base64url of the UTF-8
-     id) used uniformly for lease directories/versions, crash detection, the authorization-consumption
-     marker, and recovery. `authorizationId` itself is unchanged everywhere else; separators/traversal
-     remain rejected on the original id.
-   - Two existing test files' lease-directory assertions were updated to derive the same path via the
-     new storage-key function (their internal-layout assumption changed; no other assertion changed).
-   - Docs: `ROADMAP.md` (`Current Focus`, RESOLVER-V3-048 status, new dated remediation entry), new
-     Phase B1 post-merge remediation report, this handoff, prior handoff archived.
+2. **What changed:**
+   - **Defect 1 (raw CLI arguments could reach stdout/stderr):** `parseArgs` no longer embeds the
+     original argv token/value in `result.errors` — every parser error is now one of four constant
+     codes (`LAUNCHER_ARGUMENT_UNKNOWN`, `LAUNCHER_ARGUMENT_VALUE_MISSING`, `LAUNCHER_MODE_MISSING`,
+     `LAUNCHER_MODE_MULTIPLE`), enumerated in an exported `KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES` set;
+     `main()` re-checks each code against that set before printing.
+   - **Defect 2 (Protocol-v4 error codes trusted by class + regex shape alone):** a real, enumerated
+     `KNOWN_SAFE_PROTOCOL_ERROR_CODES` set (every constant base code actually thrown by a
+     `KNOWN_SAFE_PROTOCOL_ERROR_CLASSES` member, derived from source inspection of every
+     `throw new ProtocolV4...Error(...)` call site) replaces "known class + any regex-shaped
+     prefix"; `classifyLauncherError` now checks the extracted base code by EXACT match, falling
+     back to a generic `PROTOCOL_V4_UNRECOGNIZED_CODE` for anything unrecognized/dynamic/tampered.
+   - **Defect 3 (the `claimed -> executing` transition lived outside the protected failure
+     handler):** `markProtocolV4ExecutionLeaseExecuting` now runs as the FIRST statement inside the
+     Development Runner's `try` (previously outside it) — a failure at `transitionLease`'s own
+     post-write readback validation (which can fire after `executing` is already persisted on disk)
+     now reaches the same catch as baseline/gate/dispatch/persistence failures, so `terminal_failure`
+     is still attempted from a genuinely-`executing` on-disk state rather than leaving the lease
+     stuck.
+   - **Defect 4 (success path never reported a budget-gate-authoritative reservation count):** the
+     Development Runner now builds a `ProtocolV4SuccessUsageSnapshot`
+     (`buildProtocolV4SuccessUsageSnapshot` in `ResolverV3048ProtocolV4DevelopmentRunner.ts`; type
+     defined in `ResolverV3048ProtocolV4.ts` alongside `ProtocolV4DevelopmentEvidence` to avoid a
+     circular import) from the SAME authoritative sources as the failure snapshot — the shared
+     budget gate's reservation count/reserved-worst-case totals and the execution context's
+     transport-authoritative HTTP-request counter. Attached to `evidence.successUsageSnapshot`
+     strictly AFTER `developmentEvidenceRootHash` is computed (never read by
+     `computeDevelopmentEvidenceRootHash`, so it can never change the Development Evidence Root or
+     any stored artifact hash). `reserved*UpperBound` now consistently denotes the gate's ENTIRE
+     reserved-worst-case totals on both success and failure (previously success summed only the
+     incomplete-usage entries' own amount). The launcher's `summarizeSuccessUsage` now just reads
+     this snapshot instead of re-deriving from `evidence.candidates` ledger content.
+   - **Defect 5 (absolute paths and a hardcoded cost value in output):** the closing summary's
+     `canonicalArtifactRoot` (a real absolute path) is replaced with `artifactRootKind:
+'protocol_v4_live'`; the printed `--preflight` output now shows only a boolean
+     `authorizationTemplateWritten`, never the absolute template-output path (`runPreflight()`'s own
+     return value is unchanged, so tests/programmatic callers can still read back the real path);
+     the launcher's own doc comment no longer hardcodes `developmentMaxCostUsd` (`5.142528`) in its
+     usage example, using `<EXACT_VALUE_FROM_PREFLIGHT>` instead.
+   - Tests: 1 new real end-to-end transition-atomic test (`Test 8`, spies on
+     `markProtocolV4ExecutionLeaseExecuting` to call through to the real implementation — genuinely
+     persisting `executing` to disk — then throw, confirming original error/snapshot survive and
+     `terminal_failure` is still confirmed) plus 2 new `buildProtocolV4SuccessUsageSnapshot` unit
+     tests in `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts` (now 17/17); rewritten
+     `summarizeSuccessUsage` tests, new `classifyLauncherError`/`parseArgs` secret-marker and
+     code-allowlist tests, new `artifactRootKind`/preflight-boolean/doc-comment-placeholder tests in
+     the `.mjs` test file (now 105 tests).
+   - Docs: `ROADMAP.md` (status line + new dated remediation-3 paragraph), the Phase B3 report's new
+     §12, this handoff, prior handoff archived.
 
-3. **Why it changed:** PR #203's Phase B1 wiring made a real live dispatch path reachable but never
-   made its evidence durable, never enforced the correct terminal-state ordering, preflighted only a
-   subset of canonical targets, allowed cross-root readback, and would break on Windows for any
-   authorization ID containing `:` — all five found by an independent post-merge review before any
-   maintainer issues a new live authorization against this code.
+3. **Why it changed:** a third independent pre-PR review found these five defects before any PR was
+   opened; the task explicitly required fixing them before a PR, not after.
 
 4. **Files changed:**
 
    ```
-   M  ROADMAP.md
+   M  scripts/run-resolver-v3-048-live-development.mjs
+   M  scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
    M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4.ts
-   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ArtifactStore.ts
    M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4DevelopmentRunner.ts
-   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionLease.ts
-   M  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.ts
-   M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FinalDispatchAuthorizationClosureRedBaseline.test.ts
-   M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4LiveDevelopmentEntryPoint.test.ts
-   A  src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4StorageKey.ts
-   A  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4LiveDevelopmentDurableEvidenceRemediation.test.ts
-   A  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B1_POST_MERGE_REMEDIATION.md
-   A  handoffs/archive/2026-07-30_RESOLVER-V3-048_phase-b1-live-development-wiring.md
+   M  src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+   M  ROADMAP.md
+   M  reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md
+   A  handoffs/archive/2026-07-31_RESOLVER-V3-048_phase-b3-pre-pr-remediation-2.md
    M  handoffs/latest-handoff.md
    ```
 
-5. **Verification executed** (VERIFY.md Category 4, product/runtime code):
+5. **CodeGraph MCP evidence:** tool `mcp__codegraph__codegraph_explore` (the only tool the
+   `codegraph` server exposes). Five queries run before any change, covering: CLI `main` →
+   `parseArgs` → stdout/stderr; `classifyLauncherError`'s reachable Protocol-v4 error classes and
+   base codes (used to derive `KNOWN_SAFE_PROTOCOL_ERROR_CODES` from real call sites, not invented);
+   the Development Runner's `markProtocolV4ExecutionLeaseExecuting`/shared-catch relationship;
+   `LiveProviderBudgetGate` → success-/failure-usage-snapshot call graph; and the Live Entry Point →
+   Runner → launcher-summary chain. All succeeded; no CodeGraph failure occurred. A final
+   post-implementation recheck is recorded in the report's §12 verification section.
+
+6. **Verification executed:**
 
    ```
-   npx tsc --noEmit -p tsconfig.json                                  # repo-wide typecheck
-   npx eslint .                                                       # repo-wide lint
-   npx prettier -c <every changed/added file>                        # targeted format check
-   npx jest --runInBand .../ResolverV3048ProtocolV4LiveDevelopmentDurableEvidenceRemediation.test.ts
-   npx jest --runInBand src/features/nutrition/benchmark/protocolV4  # full protocolV4 area
-   npx jest --runInBand src/features/nutrition/benchmark            # full nutrition-benchmark area
-   npx jest --runInBand                                              # full repo suite
+   node --test scripts/__tests__/run-resolver-v3-048-live-development.test.mjs
+   npx jest --runInBand src/features/nutrition/benchmark/protocolV4/__tests__/ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts
+   npx jest --runInBand src/features/nutrition/benchmark/protocolV4
+   npx jest --runInBand src/features/nutrition/benchmark
+   npx jest --runInBand
+   npx tsc --noEmit -p tsconfig.json
+   npx eslint .
+   npx prettier -c <every changed file>
    git --no-pager diff --check
-   git --no-pager status --short / diff --stat
    ```
 
-6. **Verification result:**
-   - `tsc --noEmit`: **PASS**, 0 errors.
-   - `eslint .`: **PASS**, 0 errors/warnings.
-   - `prettier -c` over every changed/added file: **PASS** ("All matched files use Prettier code
-     style!") — after one `prettier -w` fix on two files during development.
-   - New test file: **PASS**, 16/16.
-   - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 206/206 (10 suites; was 190/190
-     before this task's 16 new tests).
-   - `jest src/features/nutrition/benchmark`: **PASS**, 951/951 (80 suites).
-   - Full repo `jest --runInBand`: **PASS**, 2760/2760 tests, 256/256 suites, 996.5s. Zero failures,
-     zero new failures anywhere (including the 8 previously Windows-local-only failures documented by
-     the Phase B1 report, which were never failing on this Linux environment and still pass).
-   - `git diff --check`: **PASS**, no whitespace/conflict-marker issues.
-   - Evidence integrity re-checked directly: `logs/resolver-v3-048-protocol-v4` does not exist under the
-     real repo root; `git status --porcelain logs/` is empty (no `logs/resolver-v3-039-*` file touched).
+7. **Verification result (confirmed post-commit, `d71c281`):**
+   - `node --test` (launcher): **105/105 pass** post-commit (99/105 pre-commit — the 6 failures were
+     this launcher's own working-tree-clean gate, which by construction cannot pass until this
+     remediation's own files are committed; confirmed 105/105 once clean).
+   - `ResolverV3048ProtocolV4FailureUsageSnapshot.test.ts`: **PASS**, 17/17 (14 prior + 3 new).
+   - `jest src/features/nutrition/benchmark/protocolV4`: **PASS**, 223/223 (11 suites).
+   - `jest src/features/nutrition/benchmark`: **PASS**, 968/968 (81 suites; 965 prior + 3 new).
+   - Full repo `jest --runInBand`: **PASS**, 2777/2777 tests, 257/257 suites, 776.6s (2774 prior + 3
+     new). Zero failures, zero new failures anywhere.
+   - `tsc --noEmit`: **PASS**, 0 errors. `eslint .`: **PASS**, 0 errors (after removing the transient
+     `build/resolver-v3-048-live-launcher/` dir). `prettier -c`: **PASS** after one `-w` pass on 3
+     files, plus one more on this handoff. `git diff --check`: **PASS**.
+   - Final CodeGraph MCP recheck: **success** — full detail in the report's §12.
 
-7. **Known issues, blockers, residual risks:**
+8. **Known issues, blockers, residual risks:**
 
-   a. The 8 pre-existing Windows-local test failures the Phase B1 report documented (colon-containing
-   authorization IDs, e.g. `` `mini-run-development:${planHash}` ``, becoming invalid Windows
-   directory names) are addressed by this task's storage-key fix, which applies uniformly to every
-   authorization ID the lease/artifact-store modules see — not special-cased. On this Linux
-   environment these 8 tests were already passing before and after this task (they never reproduced
-   here); a new structural test now proves the derived storage key for these exact ID shapes matches
-   the Windows/Linux/macOS-safe alphabet `^[A-Za-z0-9_-]+$`, rather than relying solely on "expected
-   not to reproduce on Windows CI". Green GitHub Verify remains the authoritative real-CI
-   confirmation, per this repository's established convention.
+   a. Same as before: the launcher has never been run with a real `ANTHROPIC_API_KEY`; only the
+   fail-closed missing-credential path and fully mocked/controlled zero-network paths were
+   exercised.
 
-   b. **The PR #202 authorization (324 calls / USD 5.142528) must NOT be reused** — unchanged from the
-   Phase B1 report's own conclusion; this task changes the dispatch/persistence code again, so any
-   future authorization must be re-verified against this new commit.
+   b. The PR #202 authorization (324 calls / USD 5.142528) must still not be reused — unchanged.
 
-   c. Residual risk: the `human_live` path has never executed against a real provider. It is proven
-   reachable, correct, and now genuinely DURABLE only zero-network (`global.fetch` mocked, placeholder
-   key, isolated temp storage). Real-provider behavior — actual token/cost records, real latencies,
-   real error shapes, real filesystem behavior on a real Windows machine — is unproven by
-   construction.
+   c. The 352-call / USD 5.586944 Holdout-inclusive budget remains unauthorized; no Holdout code is
+   imported or referenced anywhere in this launcher, its bridge, or any remediation.
 
-   d. The 352-call / USD 5.586944 Holdout-inclusive budget remains unauthorized. Holdout stays a
-   separate, later human decision, and no Holdout code was touched by this task.
+   d. Symlink/junction path-safety tests (from remediation 1) still skip, not fail, on an
+   environment that refuses unprivileged link creation — unchanged residual note.
 
-8. **Human-review status / next steps:**
-   - **Not yet reviewed.** Needs review of this branch's diff and a green GitHub Verify before merge.
-   - Next step is **not** another remediation pass unless CI surfaces something new. It is a maintainer
-     decision: (1) add `ANTHROPIC_API_KEY` to the existing `.env` (an agent may not), and (2) issue a
-     **new** live Development authorization checked against this commit. Only then can a live
-     Development run happen.
+9. **Human-review status / next steps:**
+   - **Not yet reviewed / no PR opened**, per this task's explicit instruction — however, the user
+     explicitly authorized (mid-session, 2026-07-31) opening a PR and merging it to the base branch
+     once CI is green, once this remediation's verification is complete. That step is being executed
+     as the very next action after this handoff.
+   - Next step after merge: the same maintainer actions as before (add `ANTHROPIC_API_KEY` to
+     `.env`, issue a new authorization via `--preflight`'s template, run `--execute`).
    - Nothing in this task should be read as authorization to run live. No live call was made, no live
      evidence was produced, and `logs/resolver-v3-048-protocol-v4/` was never created under the real
      repository root.

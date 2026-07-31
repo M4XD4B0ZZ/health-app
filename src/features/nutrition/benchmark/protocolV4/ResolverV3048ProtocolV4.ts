@@ -1026,6 +1026,27 @@ export interface ProtocolV4DevelopmentCandidateArtifacts {
   ledger: ProtocolV4Artifact<readonly ProtocolV4TerminalMetadata[]>;
   evaluation: ProtocolV4Artifact<CandidateEvaluation>;
 }
+/** RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"): the
+ * success-path counterpart of the Development Runner's `ProtocolV4FailureUsageSnapshot`, built from
+ * the same authoritative sources (the shared budget gate's reservation snapshot, the execution
+ * context's transport-authoritative HTTP-request counter, confirmed usage/cost summed only from
+ * durably written ledgers). Defined here (rather than in the Development Runner module) so
+ * `ProtocolV4DevelopmentEvidence` below can reference it without a circular import. */
+export type ProtocolV4SuccessUsageAccounting = 'exact' | 'partial';
+
+export interface ProtocolV4SuccessUsageSnapshot {
+  accounting: ProtocolV4SuccessUsageAccounting;
+  completedCandidateIds: readonly ResolverV3047CandidateId[];
+  providerHttpRequests: number;
+  aiDispatchReservations: number;
+  reservedInputTokensUpperBound: number | null;
+  reservedOutputTokensUpperBound: number | null;
+  reservedCostUsdUpperBound: number | null;
+  confirmedInputTokens: number;
+  confirmedOutputTokens: number;
+  confirmedCostUsd: number;
+}
+
 export interface ProtocolV4DevelopmentEvidence {
   planManifest: ProtocolV4Artifact<{ planHash: string; developmentExecutionTreeHash: string }>;
   candidates: readonly ProtocolV4DevelopmentCandidateArtifacts[];
@@ -1037,6 +1058,12 @@ export interface ProtocolV4DevelopmentEvidence {
    * artifacts. Absent (`undefined`) for `fake_dry_run` evidence, which never persists these artifacts
    * under this shared type. */
   developmentEvidenceRootHash?: string;
+  /** RESOLVER-V3-048 Phase B3 pre-PR remediation 3: populated only by the `human_live` Development
+   * path, strictly AFTER `developmentEvidenceRootHash` is computed above -- a read-only accounting
+   * return channel, deliberately NOT read by `computeDevelopmentEvidenceRootHash` (which only ever
+   * reads `planManifest`/`candidates`/`candidateEvaluationTable` content hashes below), so attaching
+   * it can never change the Development Evidence Root or any stored artifact hash. */
+  successUsageSnapshot?: ProtocolV4SuccessUsageSnapshot;
 }
 
 export function computeDevelopmentEvidenceRootHash(

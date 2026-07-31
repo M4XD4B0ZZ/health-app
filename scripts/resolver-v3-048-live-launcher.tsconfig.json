@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2020", "DOM"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": false,
+    "noEmitOnError": true,
+    "types": ["node"],
+    "rootDir": "..",
+    "outDir": "../build/resolver-v3-048-live-launcher"
+  },
+  "include": [
+    "resolver-v3-048-live-launcher/launcherBridge.ts",
+    "resolver-v3-048-live-launcher/globals.d.ts"
+  ]
+}

@@ -625,7 +625,11 @@ reproducible defects in that wiring — in-memory-only Development evidence, a l
 `terminal_success` before durable persistence, an incomplete storage preflight, unvalidated
 cross-root readback, and Windows-unsafe authorization-ID-as-path-component usage — all fixed with
 zero live calls (durable per-candidate write+readback for `human_live` only, a full
-artifact-contract-derived preflight, root-bound readback, and a platform-neutral storage key). G2 is
+artifact-contract-derived preflight, root-bound readback, and a platform-neutral storage key).
+Phase B3 (same day) added the canonical CLI launcher
+(`scripts/run-resolver-v3-048-live-development.mjs`, `--preflight`/`--execute`, local-`tsc`-only
+build, no ad-hoc `tsx`/inline execution) so a maintainer has one reproducible, fail-closed way to
+invoke the entry point — still with zero live calls and no live evidence produced. G2 is
 not passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
 live evidence that passes every mandatory G2 dimension. See
 RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative status text, the
@@ -8952,7 +8956,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); live Development still not authorized, no live evidence produced` (Phase B1 + Post-Merge Remediation, 2026-07-30)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete and three times pre-PR-remediated (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot key at all on the production execute path, transport-authoritative HTTP-request accounting kept strictly separate from budget-gate reservation counts on BOTH success and failure paths, the claimed->executing lease transition itself now inside the same protected failure handler as baseline/gate/dispatch/persistence, failure-usage snapshot attached before lease finalization is even attempted, exact schema/currency/cache-policy/candidate-set binding, filesystem-canonical symlink/junction-safe path checks, canonical cost-string confirmation, a real enumerated Protocol-v4 error-code allowlist plus code-based secret-free error redaction of CLI arguments and closing output, no absolute filesystem paths or hardcoded budget numbers in printed output); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher + Pre-PR Remediation 1+2+3, 2026-07-31)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -9121,6 +9125,123 @@ touched or read. G2 remains **not passed**; `RESOLVER-V3-010` remains `blocked`;
 USD 5.586944 budget remains unauthorized; Holdout remains unexecuted. A new, explicit human
 authorization, re-verified against this commit, is still required before any live Development call —
 unchanged by this remediation.
+
+**Phase B3: Canonical Live Development Launcher (2026-07-30, basis `d7a2cd3efff1ce08519675fcb48b4c4c5c6769b2`,
+PR #204 merge):** the live Development entry point existed only as a TypeScript library function —
+there was no canonical CLI launcher, no reproducible build path, no external human-authorization
+hand-off mechanism, and ad-hoc execution via `tsx -e`/Jest/inline TypeScript was the only way to
+invoke it. This phase closed that gap with `scripts/run-resolver-v3-048-live-development.mjs`, a
+plain-Node CLI with exactly two modes. `--preflight` is fully zero-call and never checks for
+`ANTHROPIC_API_KEY`: it requires a clean working tree, compiles a small, explicit TypeScript bridge
+(`scripts/resolver-v3-048-live-launcher/launcherBridge.ts`, re-exporting only the Protocol-v4
+functions the launcher calls) via the LOCAL `node_modules/typescript/bin/tsc` — never `tsx`,
+`ts-node`, a global tool, `npx`, or an automatic `npm install`/`npm ci` — into the deterministic,
+already-gitignored `build/resolver-v3-048-live-launcher/` directory, then calls the real
+`buildProtocolV4MasterPlan`/`validateProtocolV4MasterPlan`, prints the exact commit/plan-hash/
+execution-tree-hash/model/pricing/candidate/prompt/schema/routing/budget/concurrency/retry/cache
+identities, and can emit a non-authorizing authorization template
+(`authorizationTemplateOnly: true`, empty `humanApprovalReference`, `holdoutAuthorized: false`,
+`automaticContinuation: false`) to an explicit external path or stdout. `--execute` requires
+`--authorization-file <ABSOLUTE_PATH>` (outside the repository, `authorizationTemplateOnly: false`,
+a non-empty `humanApprovalReference`), `--confirm-development-only`, and
+`--confirm-max-cost-usd <value>` (checked for exact equality against the freshly rebuilt plan's own
+`developmentMaxCostUsd` — no budget number is ever independently re-typed as an alternative truth
+anywhere in the launcher); it validates working-tree-clean, exact HEAD-commit match, PR #204-merge
+ancestry, and every plan identity/budget field strictly BEFORE checking `ANTHROPIC_API_KEY`
+presence or causing any lease/live-root/artifact side effect (a stale authorization, e.g. one issued
+against the historical PR #202 basis, is rejected generically by the exact-HEAD-match check, with no
+special-casing needed). Only after every check passes does it build the canonical `human_live`
+Authorization Record via the real `buildProtocolV4DevelopmentAuthorization` and call the real
+`runProtocolV4LiveDevelopmentEntryPoint({ authorization, env: process.env })` — no `repoRoot` is
+passed on this production path, and the launcher imports no Holdout function anywhere. This task made
+zero provider calls, zero tokens, USD 0.00 throughout; the launcher itself has never been run with a
+real credential. Full report:
+`reports/RESOLVER_V3_048_PROTOCOL_V4_PHASE_B3_LIVE_LAUNCHER.md`. G2 remains **not passed**;
+`RESOLVER-V3-010` remains `blocked`; the 352-call / USD 5.586944 budget remains unauthorized;
+Holdout remains unexecuted; a new, explicit human authorization, re-verified against the commit this
+launcher is run at, is still required before any live Development call.
+
+**Phase B3 Pre-PR Remediation (2026-07-31, same branch, before any PR was opened):** an independent
+review of the pushed launcher found five defects, all fixed with zero provider calls: (1) a failed
+run previously reported fabricated zero usage even after real dispatches happened — fixed via a
+small Protocol-v4 extension (`attachProtocolV4FailureUsageSnapshot` in
+`ResolverV3048ProtocolV4DevelopmentRunner.ts`) that attaches an authoritative usage snapshot (the
+shared budget gate's own exact call floor plus already-durable confirmed candidate ledgers) to a
+`human_live` failure before it propagates, so `summarizeFailureUsage` never claims `0` calls once
+any real dispatch happened; (2) the authorization file's schema version, `currency`, and
+`noCachePolicy` were not checked — now bound exactly, and the preflight template now includes
+`noCachePolicy`; (3) candidate-identity comparison allowed duplicates/missing/unknown IDs — replaced
+with an exact set-and-identity comparison; (4) authorization/template paths were checked only
+lexically — now resolved via `fs.realpathSync` (symlink/junction-aware) with Windows-case-correct
+comparison, and template writes are now exclusive (`wx`, never silently overwriting); (5)
+`--confirm-max-cost-usd` accepted any numerically-equivalent spelling — now requires the plan's own
+canonical decimal string byte-for-byte. A new secret-free error allowlist
+(`classifyLauncherError`) also replaces raw error-message propagation in the closing summary/CLI
+output. Zero provider calls, zero tokens, USD 0.00 throughout this remediation; full detail (incl.
+the CodeGraph MCP preflight) in the same report's §10.
+
+**Phase B3 Pre-PR Remediation 2 (2026-07-31, same branch, before any PR was opened):** a second
+independent review found five further defects, all fixed with zero provider calls: (1) success
+accounting counted usage records rather than real HTTP requests — `summarizeSuccessUsage` now sums
+the real, measured `counts.providerHttpRequests` per ledger entry as its own exact dimension,
+separate from confirmed tokens/cost, and a structurally successful run with any incomplete-usage
+call is now `'partial'` (a safe reserved-cost upper bound, never a fabricated USD 0.00); (2) the
+budget gate's reservation count was reachable under provider-call-sounding names — a new, read-only,
+transport-authoritative cumulative counter
+(`ProtocolV4HumanLiveExecutionContext.getCumulativeProviderHttpRequestCount()`, incremented at the
+private counting-transport boundary immediately before every real `fetch`) now supplies
+`providerHttpRequests`, while the gate's own count is named only `aiDispatchReservations`; (3) the
+Development Runner's catch block previously marked the lease `terminal_failure` BEFORE attaching the
+usage snapshot, and a lease-finalization failure could lose both — reordered to attach the snapshot
+to the original error first, attempt lease finalization in its own nested `try`/`catch`, and never
+replace the original error; a new secret-free `leaseFinalization` status
+(`'terminal_failure_confirmed'` | `'failed_to_persist'`) is always attached; baseline computation and
+gate construction moved inside the `try` so a baseline failure after `executing` no longer leaves
+the lease stuck; (4) an absent failure snapshot no longer silently means exact zero — only a
+verified pre-dispatch error class does; anything else reports `accounting: 'unknown'` with `null`
+fields, never a fabricated `0`; (5) `LauncherError` no longer trusts its whole message — every
+constructor now takes `(code, internalDetail)`, `code` must be one of a fixed
+`KNOWN_LAUNCHER_ERROR_CODES` set (the only thing ever surfaced), and `internalDetail` (paths, foreign
+error messages, compiler output, submitted values) never reaches stdout/stderr/the summary. The
+production dispatch call to `runProtocolV4LiveDevelopmentEntryPoint` now omits the `repoRoot` key
+entirely (never `repoRoot: undefined`) on the real path. Zero provider calls, zero tokens, USD 0.00
+throughout; full detail (incl. the CodeGraph MCP preflight) in the same report's §11.
+
+**Phase B3 Pre-PR Remediation 3 (2026-07-31, same branch, before any PR was opened):** a third
+independent review found five further defects, all fixed with zero provider calls: (1) raw CLI
+argument tokens/values could reach `result.errors` and therefore stdout/stderr — `parseArgs` now
+emits only a fixed set of constant codes (`LAUNCHER_ARGUMENT_UNKNOWN`, `LAUNCHER_ARGUMENT_VALUE_MISSING`,
+`LAUNCHER_MODE_MISSING`, `LAUNCHER_MODE_MULTIPLE`, enumerated in `KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES`),
+and `main()` re-checks each against that set before printing (defense in depth); (2) a known-safe
+Protocol-v4 error class combined with any regex-shaped prefix was trusted — replaced with a real,
+enumerated `KNOWN_SAFE_PROTOCOL_ERROR_CODES` allowlist (every base code derived from actual
+`throw new ProtocolV4...Error(...)` call sites in `src/features/nutrition/benchmark/protocolV4/`, via
+CodeGraph MCP source inspection), checked by EXACT match after extracting the fixed base-code prefix;
+an unrecognized/dynamic/tampered base code now falls back to a generic `PROTOCOL_V4_UNRECOGNIZED_CODE`;
+(3) the `claimed -> executing` lease transition ran OUTSIDE the Development Runner's protected
+try/catch, so a failure at `transitionLease`'s own post-write readback validation (which can fire
+after the `executing` status is already durably persisted) escaped the failure handler entirely,
+leaving the lease stuck `executing` with no usage snapshot and no `terminal_failure` attempt — the
+transition now runs as the first statement inside the same try/catch that covers baseline/gate/
+dispatch/persistence, so every failure path after the initial active-lease check reaches the same
+catch; (4) the success path always reported `aiDispatchReservations: null` — the Development Runner
+now builds a `ProtocolV4SuccessUsageSnapshot` (in `ResolverV3048ProtocolV4DevelopmentRunner.ts`, type
+defined alongside `ProtocolV4DevelopmentEvidence` in `ResolverV3048ProtocolV4.ts` to avoid a circular
+import) from the SAME authoritative sources as the failure snapshot — the shared budget gate's
+reservation count/reserved-worst-case totals and the execution context's transport-authoritative
+HTTP-request counter — attached to `evidence.successUsageSnapshot` strictly AFTER
+`developmentEvidenceRootHash` is computed (never read by `computeDevelopmentEvidenceRootHash`, so it
+can never change the Development Evidence Root or any stored artifact hash); `reserved*UpperBound`
+now denotes the gate's ENTIRE reserved-worst-case totals consistently on both success and failure
+paths, never a partial sum restricted to only the incomplete-usage entries; (5) the closing CLI
+summary exposed the real absolute `artifactStoreRoot` filesystem path (`canonicalArtifactRoot`) and
+the printed `--preflight` output exposed the real absolute authorization-template-output path — the
+summary now reports a stable `artifactRootKind: 'protocol_v4_live'` semantic identity instead, and the
+printed preflight output reports only a boolean `authorizationTemplateWritten` (`runPreflight()`'s own
+return value still carries the real path for programmatic callers/tests); the launcher's own doc
+comment no longer hardcodes a real `developmentMaxCostUsd` value (`5.142528`), using a
+`<EXACT_VALUE_FROM_PREFLIGHT>` placeholder instead. Zero provider calls, zero tokens, USD 0.00
+throughout; full detail (incl. the CodeGraph MCP preflight) in the same report's §12.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E

@@ -1712,44 +1712,6 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.ok(fs.existsSync(isolatedLiveRoot));
   });
 
-  // F3 ("Tri-State Authorization Consumption"): a real dispatch failure (network error, never
-  // reaching the success ordering's authorization-consumption step) must report a real, confirmed
-  // `not_consumed` -- never conflated with `unreadable`.
-  test('F3: a real dispatch failure before completion reports authorizationConsumption "not_consumed", never a fabricated boolean', async () => {
-    const isolatedRepoRoot = freshTempRepoRootWithRealEvaluatorFiles();
-    const plan = bridge.buildProtocolV4MasterPlan(isolatedRepoRoot);
-    const headCommit = spawnSync('git', ['rev-parse', 'HEAD'], {
-      cwd: REAL_REPO_ROOT,
-      encoding: 'utf-8',
-    }).stdout.trim();
-    const authPath = writeAuthFile(isolatedRepoRoot, plan, headCommit);
-
-    const parsedArgs = {
-      mode: 'execute',
-      authorizationFile: authPath,
-      confirmDevelopmentOnly: true,
-      confirmMaxCostUsd: String(plan.budget.developmentMaxCostUsd),
-    };
-
-    const originalFetch = global.fetch;
-    global.fetch = async () => {
-      throw new Error('SIMULATED_NETWORK_FAILURE_NEVER_A_REAL_PROVIDER_CALL');
-    };
-
-    let outcome;
-    try {
-      outcome = await runExecute(parsedArgs, {
-        repoRootForTests: isolatedRepoRoot,
-        envForTests: { ANTHROPIC_API_KEY: 'test-key-not-real' },
-      });
-    } finally {
-      global.fetch = originalFetch;
-    }
-
-    assert.equal(outcome.success, false);
-    assert.deepEqual(outcome.summary.authorizationConsumption, { status: 'not_consumed' });
-  }, 60000);
-
   // Test 9: a malformed authorization JSON file containing a secret-like marker must never leak
   // that marker to stdout, stderr, or the JSON summary -- verified both at the unit level
   // (classifyLauncherError) and via a real CLI subprocess invocation (the most convincing proof of

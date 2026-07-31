@@ -47,10 +47,10 @@
      (`--authorization-template-out`) is rejected under `--execute`
      (`LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_EXECUTE`). All four new codes added to
      `KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES`.
-   - Tests: F1 (5 new), F2 (4 unit + 4 real end-to-end Runner tests), F3 (5 unit +1 real
-     integration test, plus the existing full-success-path test updated to the tri-state shape),
-     F4 (2 existing tests corrected + 5 new marker-variant tests), F5 (9 new). Launcher `.mjs`
-     suite now 158 tests (was 131 pre-remediation-4 minus the deletions/corrections); Jest
+   - Tests: F1 (5 new), F2 (4 unit + 4 real end-to-end Runner tests), F3 (5 unit tests for
+     `summarizeAuthorizationConsumption`, plus the existing full-success-path test updated to the
+     tri-state shape), F4 (2 existing tests corrected + 5 new marker-variant tests), F5 (9 new).
+     Launcher `.mjs` suite now 154 tests (was 131 pre-remediation-4); Jest
      `FailureUsageSnapshot` suite now 26/26 (was 17).
    - Docs: `ROADMAP.md` (status line + Current Focus + new dated remediation-4 paragraph), the
      Phase B3 report's new §13, this handoff, prior handoff archived.
@@ -79,11 +79,11 @@
    confirmed afterwards via `git status`/`git diff --stat` that only the gitignored `.codegraph/`
    directory was created and no tracked file changed. Three preflight queries then ran before any
    change: `summarizeFailureUsage classifyLauncherError parseArgs
-   attachProtocolV4FailureUsageSnapshot attachProtocolV4LeaseFinalizationStatus runExecute`;
+attachProtocolV4FailureUsageSnapshot attachProtocolV4LeaseFinalizationStatus runExecute`;
    `summarizeFailureUsage classifyLauncherError KNOWN_PRE_DISPATCH_ERROR_CLASSES
-   KNOWN_SAFE_PROTOCOL_ERROR_CLASSES LauncherError ProtocolV4ExecutionLeaseError`; and
+KNOWN_SAFE_PROTOCOL_ERROR_CLASSES LauncherError ProtocolV4ExecutionLeaseError`; and
    `isProtocolV4LiveAuthorizationConsumedAtomically markProtocolV4ExecutionLeaseTerminalFailure
-   ProtocolV4LeaseFinalizationStatus authorizationConsumed`. Each returned verbatim source,
+ProtocolV4LeaseFinalizationStatus authorizationConsumed`. Each returned verbatim source,
    callers/callees, and blast-radius for the affected symbols in
    `scripts/run-resolver-v3-048-live-development.mjs`,
    `ResolverV3048ProtocolV4DevelopmentRunner.ts`, `ResolverV3048ProtocolV4ExecutionLease.ts`, and

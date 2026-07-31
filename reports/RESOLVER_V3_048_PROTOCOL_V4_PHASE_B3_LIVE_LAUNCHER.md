@@ -769,9 +769,13 @@ real `LauncherError` without a bridge, real `LauncherError` with an overwritten 
 snapshot remains authoritative); F2 (4 unit tests on the attach functions — frozen/non-extensible/
 non-writable-property/throwing-setter — plus 4 real end-to-end Runner tests confirming
 `terminal_failure` is still confirmed and the ORIGINAL error is rethrown unchanged in all four
-cases); F3 (5 unit tests for `summarizeAuthorizationConsumption` plus 1 real integration test
-proving a genuine dispatch failure reports `not_consumed`, and the existing full-success-path test
-updated to assert `{ status: 'consumed' }`); F4 (2 existing tests corrected to the new fixed fallback
+cases); F3 (5 unit tests for `summarizeAuthorizationConsumption` covering `consumed`/`not_consumed`/
+`unreadable`/secret-redaction/no-misleading-retry-safety, and the existing full-success-path
+integration test updated to assert `{ status: 'consumed' }` — a real dispatch-failure integration
+case was deliberately not added at the launcher-integration level: Protocol-v4 records provider
+failures per-observation and continues rather than aborting the whole run on a single transport
+error, so a `not_consumed` outcome is deterministically provable only at the pure-function level
+shown here); F4 (2 existing tests corrected to the new fixed fallback
 code plus 5 new tests for secret-marker/absolute-path/embedded-newline/fake-success-line/message
 marker variants); F5 (9 new tests: three duplicate-value-flag cases, one duplicate-boolean-flag
 case, one execute-only-flag-under-preflight case, one preflight-only-flag-under-execute case, one

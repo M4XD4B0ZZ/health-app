@@ -258,6 +258,46 @@ describe('attachProtocolV4FailureUsageSnapshot (unit, no real dispatch involved)
       attachProtocolV4FailureUsageSnapshot(null, gate, [], fakeHumanLiveContext(0)),
     ).not.toThrow();
   });
+
+  // F2 ("Attachment Never Blocks Lease Finalization"): an error object that refuses this property
+  // for any reason must never make this function itself throw.
+  it('never throws when attaching to a frozen error object', () => {
+    const error = Object.freeze(new Error('frozen-error'));
+    expect(() =>
+      attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
+    ).not.toThrow();
+    expect(
+      (error as Error & { protocolV4FailureUsageSnapshot?: unknown })
+        .protocolV4FailureUsageSnapshot,
+    ).toBeUndefined();
+  });
+
+  it('never throws when attaching to a non-extensible error object', () => {
+    const error = Object.preventExtensions(new Error('non-extensible-error'));
+    expect(() =>
+      attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
+    ).not.toThrow();
+    expect(
+      (error as Error & { protocolV4FailureUsageSnapshot?: unknown })
+        .protocolV4FailureUsageSnapshot,
+    ).toBeUndefined();
+  });
+
+  it('never throws when the error already has a non-writable protocolV4FailureUsageSnapshot property', () => {
+    const error = new Error('non-writable-property-error');
+    Object.defineProperty(error, 'protocolV4FailureUsageSnapshot', {
+      value: 'pre-existing-immutable-value',
+      writable: false,
+      configurable: false,
+    });
+    expect(() =>
+      attachProtocolV4FailureUsageSnapshot(error, undefined, [], fakeHumanLiveContext(0)),
+    ).not.toThrow();
+    expect(
+      (error as Error & { protocolV4FailureUsageSnapshot?: unknown })
+        .protocolV4FailureUsageSnapshot,
+    ).toBe('pre-existing-immutable-value');
+  });
 });
 
 describe('attachProtocolV4LeaseFinalizationStatus (unit)', () => {
@@ -275,6 +315,28 @@ describe('attachProtocolV4LeaseFinalizationStatus (unit)', () => {
     expect(() =>
       attachProtocolV4LeaseFinalizationStatus('not-an-object', 'failed_to_persist'),
     ).not.toThrow();
+  });
+
+  // F2: identical best-effort rationale as attachProtocolV4FailureUsageSnapshot above.
+  it('never throws when attaching to a frozen error object', () => {
+    const error = Object.freeze(new Error('frozen-error'));
+    expect(() =>
+      attachProtocolV4LeaseFinalizationStatus(error, 'terminal_failure_confirmed'),
+    ).not.toThrow();
+  });
+
+  it('never throws when the target property has a throwing setter', () => {
+    const error = new Error('throwing-setter-error');
+    Object.defineProperty(error, 'protocolV4LeaseFinalizationStatus', {
+      configurable: true,
+      get() {
+        return undefined;
+      },
+      set() {
+        throw new Error('SIMULATED_SETTER_FAILURE');
+      },
+    });
+    expect(() => attachProtocolV4LeaseFinalizationStatus(error, 'failed_to_persist')).not.toThrow();
   });
 });
 
@@ -534,6 +596,192 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
     // was still reachable and succeeded from that state (not left stuck `executing`).
     expect(caught!.protocolV4LeaseFinalizationStatus).toBe('terminal_failure_confirmed');
 
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
+  }, 60000);
+
+  // F2 ("Attachment Never Blocks Lease Finalization"): real Runner failure paths where the thrown
+  // error itself refuses the attachment -- lease terminal_failure must still be attempted and
+  // confirmed, and the ORIGINAL error (never an attachment-related error) must still be what is
+  // rethrown.
+  it('F2: a frozen error thrown from dispatch still reaches confirmed terminal_failure, and the exact same frozen error is rethrown', async () => {
+    const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const authorizationId = `e2e-f2-frozen-${Math.random().toString(36).slice(2, 10)}`;
+    const authorization = humanLiveAuthorization(authorizationId);
+    const liveRoot = path.resolve(repoRoot, PROTOCOL_V4_LIVE_ROOT);
+    const lease = claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+      plan,
+      authorization,
+      liveRoot,
+      repoRoot,
+    );
+
+    const frozenError = Object.freeze(new Error('SIMULATED_FROZEN_ERROR'));
+    const executionContext = buildControlledHumanLiveExecutionContext(async () => {
+      throw frozenError;
+    });
+
+    let caught: unknown = null;
+    try {
+      await runProtocolV4DevelopmentForAllCandidates({
+        plan,
+        authorization,
+        lease,
+        artifactStoreRoot: liveRoot,
+        executionContext,
+        repoRoot,
+      });
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBe(frozenError);
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
+  }, 60000);
+
+  it('F2: a non-extensible error thrown from dispatch still reaches confirmed terminal_failure, and the exact same error is rethrown', async () => {
+    const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const authorizationId = `e2e-f2-non-extensible-${Math.random().toString(36).slice(2, 10)}`;
+    const authorization = humanLiveAuthorization(authorizationId);
+    const liveRoot = path.resolve(repoRoot, PROTOCOL_V4_LIVE_ROOT);
+    const lease = claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+      plan,
+      authorization,
+      liveRoot,
+      repoRoot,
+    );
+
+    const nonExtensibleError = Object.preventExtensions(
+      new Error('SIMULATED_NON_EXTENSIBLE_ERROR'),
+    );
+    const executionContext = buildControlledHumanLiveExecutionContext(async () => {
+      throw nonExtensibleError;
+    });
+
+    let caught: unknown = null;
+    try {
+      await runProtocolV4DevelopmentForAllCandidates({
+        plan,
+        authorization,
+        lease,
+        artifactStoreRoot: liveRoot,
+        executionContext,
+        repoRoot,
+      });
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBe(nonExtensibleError);
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
+  }, 60000);
+
+  it('F2: an error with a pre-existing non-writable protocolV4FailureUsageSnapshot property still reaches confirmed terminal_failure, and the original value is preserved', async () => {
+    const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const authorizationId = `e2e-f2-non-writable-${Math.random().toString(36).slice(2, 10)}`;
+    const authorization = humanLiveAuthorization(authorizationId);
+    const liveRoot = path.resolve(repoRoot, PROTOCOL_V4_LIVE_ROOT);
+    const lease = claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+      plan,
+      authorization,
+      liveRoot,
+      repoRoot,
+    );
+
+    const errorWithLockedProperty = new Error('SIMULATED_NON_WRITABLE_PROPERTY_ERROR');
+    Object.defineProperty(errorWithLockedProperty, 'protocolV4FailureUsageSnapshot', {
+      value: 'pre-existing-immutable-value',
+      writable: false,
+      configurable: false,
+    });
+    const executionContext = buildControlledHumanLiveExecutionContext(async () => {
+      throw errorWithLockedProperty;
+    });
+
+    let caught:
+      | (Error & {
+          protocolV4FailureUsageSnapshot?: unknown;
+          protocolV4LeaseFinalizationStatus?: string;
+        })
+      | null = null;
+    try {
+      await runProtocolV4DevelopmentForAllCandidates({
+        plan,
+        authorization,
+        lease,
+        artifactStoreRoot: liveRoot,
+        executionContext,
+        repoRoot,
+      });
+    } catch (e) {
+      caught = e as typeof caught;
+    }
+
+    expect(caught).toBe(errorWithLockedProperty);
+    expect(caught!.protocolV4FailureUsageSnapshot).toBe('pre-existing-immutable-value');
+    // Lease-finalization status attachment is unaffected by the OTHER property's lock -- it is a
+    // completely separate property.
+    expect(caught!.protocolV4LeaseFinalizationStatus).toBe('terminal_failure_confirmed');
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
+  }, 60000);
+
+  it('F2: an error with a throwing setter for protocolV4LeaseFinalizationStatus still reaches confirmed terminal_failure, and the original error is rethrown unchanged', async () => {
+    const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const authorizationId = `e2e-f2-throwing-setter-${Math.random().toString(36).slice(2, 10)}`;
+    const authorization = humanLiveAuthorization(authorizationId);
+    const liveRoot = path.resolve(repoRoot, PROTOCOL_V4_LIVE_ROOT);
+    const lease = claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+      plan,
+      authorization,
+      liveRoot,
+      repoRoot,
+    );
+
+    const errorWithThrowingSetter = new Error('SIMULATED_THROWING_SETTER_ERROR');
+    Object.defineProperty(errorWithThrowingSetter, 'protocolV4LeaseFinalizationStatus', {
+      configurable: true,
+      get() {
+        return undefined;
+      },
+      set() {
+        throw new Error('SIMULATED_SETTER_FAILURE_MUST_NOT_ESCAPE');
+      },
+    });
+    const executionContext = buildControlledHumanLiveExecutionContext(async () => {
+      throw errorWithThrowingSetter;
+    });
+
+    let caught: unknown = null;
+    try {
+      await runProtocolV4DevelopmentForAllCandidates({
+        plan,
+        authorization,
+        lease,
+        artifactStoreRoot: liveRoot,
+        executionContext,
+        repoRoot,
+      });
+    } catch (e) {
+      caught = e;
+    }
+
+    // The original error survives unchanged -- the setter's own thrown error never replaces it.
+    expect(caught).toBe(errorWithThrowingSetter);
     const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
       liveRoot,
       authorization.authorizationId,

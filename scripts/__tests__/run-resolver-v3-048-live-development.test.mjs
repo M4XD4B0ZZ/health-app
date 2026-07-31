@@ -26,6 +26,7 @@ import {
   validateConfirmationFlags,
   summarizeSuccessUsage,
   summarizeFailureUsage,
+  summarizeAuthorizationConsumption,
   classifyLauncherError,
   KNOWN_LAUNCHER_ERROR_CODES,
   KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES,
@@ -218,6 +219,129 @@ describe('parseArgs', () => {
     const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`;
     assert.equal(combined.includes(secretMarker), false);
     assert.ok(combined.includes('LAUNCHER_ARGUMENT_UNKNOWN'));
+  });
+
+  // F5 ("Unambiguous, Mode-Bound CLI Arguments").
+  describe('F5: duplicate flags, mode-bound flags, and flag-tokens-as-values are all rejected', () => {
+    test('duplicate --authorization-file is rejected, first value wins, never overwritten', () => {
+      const result = parseArgs([
+        '--execute',
+        '--authorization-file',
+        '/first/auth.json',
+        '--authorization-file',
+        '/second/auth.json',
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+      ]);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_DUPLICATE'));
+      assert.equal(result.authorizationFile, '/first/auth.json');
+      assert.equal(JSON.stringify(result).includes('/second/auth.json'), false);
+    });
+
+    test('duplicate --confirm-max-cost-usd is rejected, first value wins', () => {
+      const result = parseArgs([
+        '--execute',
+        '--authorization-file',
+        '/auth.json',
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+        '--confirm-max-cost-usd',
+        'SECRET_DIFFERENT_VALUE',
+      ]);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_DUPLICATE'));
+      assert.equal(result.confirmMaxCostUsd, '5.142528');
+      assert.equal(JSON.stringify(result).includes('SECRET_DIFFERENT_VALUE'), false);
+    });
+
+    test('duplicate --authorization-template-out is rejected, first value wins', () => {
+      const result = parseArgs([
+        '--preflight',
+        '--authorization-template-out',
+        '/first/out.json',
+        '--authorization-template-out',
+        '/second/out.json',
+      ]);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_DUPLICATE'));
+      assert.equal(result.authorizationTemplateOut, '/first/out.json');
+    });
+
+    test('duplicate --confirm-development-only is rejected', () => {
+      const result = parseArgs([
+        '--execute',
+        '--authorization-file',
+        '/auth.json',
+        '--confirm-development-only',
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+      ]);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_DUPLICATE'));
+      assert.equal(result.confirmDevelopmentOnly, true);
+    });
+
+    test('an execute-only flag under --preflight is rejected', () => {
+      const result = parseArgs(['--preflight', '--confirm-development-only']);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_PREFLIGHT'));
+    });
+
+    test('a preflight-only flag under --execute is rejected', () => {
+      const result = parseArgs([
+        '--execute',
+        '--authorization-file',
+        '/auth.json',
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+        '--authorization-template-out',
+        '/out.json',
+      ]);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_EXECUTE'));
+    });
+
+    test("a known flag token is never consumed as a value flag's value", () => {
+      const result = parseArgs(['--authorization-file', '--confirm-development-only']);
+      assert.equal(result.authorizationFile, null);
+      assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_VALUE_MISSING'));
+      // `--confirm-development-only` is re-parsed as its own flag, never swallowed as a value.
+      assert.equal(result.confirmDevelopmentOnly, true);
+    });
+
+    test('an unknown/secret-like duplicate value is never surfaced in result.errors or result itself', () => {
+      const secretMarker = 'SECRET_MARKER_DUPLICATE_VALUE_MUST_NOT_LEAK';
+      const result = parseArgs([
+        '--execute',
+        '--authorization-file',
+        '/auth.json',
+        '--authorization-file',
+        secretMarker,
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+      ]);
+      assert.equal(JSON.stringify(result.errors).includes(secretMarker), false);
+      assert.equal(JSON.stringify(result).includes(secretMarker), false);
+    });
+
+    test('normal valid --preflight arguments remain valid', () => {
+      const result = parseArgs(['--preflight', '--authorization-template-out', '/out.json']);
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.mode, 'preflight');
+    });
+
+    test('normal valid --execute arguments remain valid', () => {
+      const result = parseArgs([
+        '--execute',
+        '--authorization-file',
+        '/outside/auth.json',
+        '--confirm-development-only',
+        '--confirm-max-cost-usd',
+        '5.142528',
+      ]);
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.mode, 'execute');
+    });
   });
 });
 
@@ -880,6 +1004,64 @@ describe('summarizeFailureUsage', () => {
     const usage = summarizeFailureUsage(new LauncherError('LAUNCHER_ANTHROPIC_API_KEY_MISSING'));
     assert.equal(usage.leaseFinalization, null);
   });
+
+  // F1 ("Non-Spoofable Pre-Dispatch Identity"): a foreign object that merely sets `.name` to look
+  // like a real LauncherError -- but fails `instanceof LauncherError` -- must never be treated as a
+  // known pre-dispatch class. Only a REAL `instanceof` match (or a real snapshot) ever justifies
+  // exact-zero usage.
+  test('F1: a foreign object with a spoofed error.name identical to a real class name reports "unknown", never exact 0', () => {
+    class FakeLauncherError {
+      constructor() {
+        this.name = 'LauncherError';
+        this.message = 'LAUNCHER_ANTHROPIC_API_KEY_MISSING';
+      }
+    }
+    const spoofed = new FakeLauncherError();
+    assert.equal(spoofed instanceof LauncherError, false);
+    const usage = summarizeFailureUsage(spoofed);
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+    assert.equal(usage.aiDispatchReservations, null);
+  });
+
+  test('F1: a plain object shaped like { name: "ProtocolV4ExecutionLeaseError" } reports "unknown", never exact 0 (no bridge, so no real class to match against)', () => {
+    const usage = summarizeFailureUsage({ name: 'ProtocolV4ExecutionLeaseError' });
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+  });
+
+  test('F1: a real LauncherError instance still reports exact 0 even without a bridge argument', () => {
+    const usage = summarizeFailureUsage(new LauncherError('LAUNCHER_EXECUTE_WORKING_TREE_DIRTY'));
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.providerHttpRequests, 0);
+  });
+
+  test('F1: a real LauncherError instance whose .name was overwritten to something else still matches by instanceof', () => {
+    const error = new LauncherError('LAUNCHER_EXECUTE_WORKING_TREE_DIRTY');
+    error.name = 'TotallyDifferentName';
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.accounting, 'exact');
+    assert.equal(usage.providerHttpRequests, 0);
+  });
+
+  test('F1: an existing failure snapshot remains authoritative regardless of the error class/bridge', () => {
+    const error = new LauncherError('LAUNCHER_EXECUTE_WORKING_TREE_DIRTY');
+    error.protocolV4FailureUsageSnapshot = {
+      accounting: 'partial',
+      completedCandidateIds: ['H0'],
+      providerHttpRequests: 1,
+      aiDispatchReservations: 1,
+      reservedInputTokensUpperBound: 100,
+      reservedOutputTokensUpperBound: 100,
+      reservedCostUsdUpperBound: 0.1,
+      confirmedInputTokens: 10,
+      confirmedOutputTokens: 10,
+      confirmedCostUsd: 0.01,
+    };
+    const usage = summarizeFailureUsage(error);
+    assert.equal(usage.accounting, 'partial');
+    assert.equal(usage.providerHttpRequests, 1);
+  });
 });
 
 // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"):
@@ -971,6 +1153,54 @@ describe('summarizeSuccessUsage', () => {
   });
 });
 
+// F3 ("Tri-State Authorization Consumption"): a readback of the atomic authorization-consumption
+// marker must report one of three distinct states, never collapse "unreadable" into "not consumed".
+describe('summarizeAuthorizationConsumption', () => {
+  test('a confirmed consumption readback reports "consumed"', () => {
+    const result = summarizeAuthorizationConsumption({ ok: true, consumed: true });
+    assert.deepEqual(result, { status: 'consumed' });
+  });
+
+  test('a confirmed non-consumption readback reports "not_consumed"', () => {
+    const result = summarizeAuthorizationConsumption({ ok: true, consumed: false });
+    assert.deepEqual(result, { status: 'not_consumed' });
+  });
+
+  test('a readback that throws reports "unreadable" with a safely classified error code, never "not_consumed"', () => {
+    const error = new LauncherError('LAUNCHER_PATH_REALPATH_FAILED', '/some/real/secret/path');
+    const result = summarizeAuthorizationConsumption({ ok: false, error });
+    assert.equal(result.status, 'unreadable');
+    assert.equal(result.errorCode, 'LAUNCHER_PATH_REALPATH_FAILED');
+    assert.notEqual(result.status, 'not_consumed');
+  });
+
+  test('a readback error containing a secret/path marker never leaks it into the summarized result', () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_CONSUMPTION_READBACK';
+    class ForeignReadbackError extends Error {
+      constructor() {
+        super(`some internal detail ${secretMarker}`);
+        this.name = secretMarker;
+      }
+    }
+    const result = summarizeAuthorizationConsumption({
+      ok: false,
+      error: new ForeignReadbackError(),
+    });
+    assert.equal(result.status, 'unreadable');
+    assert.equal(JSON.stringify(result).includes(secretMarker), false);
+  });
+
+  test('a successful dispatch alongside an unreadable consumption status never structurally implies "not_consumed" (no misleading retry-safety)', () => {
+    const result = summarizeAuthorizationConsumption({
+      ok: false,
+      error: new LauncherError('LAUNCHER_PATH_REALPATH_FAILED'),
+    });
+    assert.notEqual(result.status, 'not_consumed');
+    assert.notEqual(result.status, 'consumed');
+    assert.equal(result.status, 'unreadable');
+  });
+});
+
 // -------------------------------------------------------------------------------------------
 // Defect 5: code-based error redaction, not a blanket class-based trust decision. A LauncherError
 // is only ever surfaced if its message is an EXACT match in `KNOWN_LAUNCHER_ERROR_CODES`;
@@ -1058,18 +1288,62 @@ describe('classifyLauncherError', () => {
     }
   });
 
-  test('never surfaces the message of an unrecognized error class -- only its stable class/code', () => {
+  // F4 ("No Unfiltered error.name"): a completely unrecognized error class's `.name` must never be
+  // echoed as `code` either -- only a fixed, constant fallback code.
+  test('never surfaces the name or message of an unrecognized error class -- only a fixed fallback code', () => {
     const foreign = new TypeError('some arbitrary internal detail that must never be echoed');
     const result = classifyLauncherError(foreign);
     assert.equal(result.class, 'unknown');
-    assert.equal(result.code, 'TypeError');
+    assert.equal(result.code, 'LAUNCHER_UNCLASSIFIED_ERROR');
     assert.equal(JSON.stringify(result).includes('arbitrary internal detail'), false);
+    assert.equal(JSON.stringify(result).includes('TypeError'), false);
   });
 
   test('handles a non-object thrown value without crashing', () => {
     const result = classifyLauncherError('a bare string throw');
     assert.equal(result.class, 'unknown');
-    assert.equal(result.code, 'UnknownError');
+    assert.equal(result.code, 'LAUNCHER_UNCLASSIFIED_ERROR');
+  });
+
+  // F4 regression: a foreign, unrecognized error class's `.name`/`.message` may contain a secret
+  // marker, an absolute path, embedded newlines, or text crafted to look like a launcher success
+  // line -- none of it may ever reach classifyLauncherError()'s result (and therefore never the
+  // JSON summary/stdout/stderr, which only ever embed this function's return value verbatim).
+  describe('F4: unrecognized error class content never reaches classifyLauncherError()', () => {
+    function assertClean(name, message) {
+      class ForeignError extends Error {
+        constructor() {
+          super(message);
+          this.name = name;
+        }
+      }
+      const result = classifyLauncherError(new ForeignError());
+      assert.equal(result.class, 'unknown');
+      assert.equal(result.code, 'LAUNCHER_UNCLASSIFIED_ERROR');
+      const serialized = JSON.stringify(result);
+      if (name) assert.equal(serialized.includes(name), false);
+      if (message) assert.equal(serialized.includes(message), false);
+    }
+
+    test('secret marker in error.name', () => {
+      assertClean('SECRET_MARKER_DO_NOT_LEAK_IN_NAME', 'benign message');
+    });
+
+    test('absolute path in error.name', () => {
+      assertClean('/etc/passwd/or/some/absolute/secret/path', 'benign message');
+    });
+
+    test('embedded newlines in error.name', () => {
+      assertClean('LAUNCHER_FAKE\nINJECTED_LINE\nANOTHER_LINE', 'benign message');
+    });
+
+    test('a fake launcher-success line in error.name', () => {
+      assertClean('{"success":true,"usageAccounting":"exact"}', 'benign message');
+    });
+
+    test('secret marker in error.message', () => {
+      assertClean('ForeignError', 'SECRET_MARKER_DO_NOT_LEAK_IN_MESSAGE');
+    });
   });
 });
 
@@ -1417,7 +1691,7 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.equal(outcome.summary.holdoutExecuted, false);
     assert.equal(outcome.summary.note, 'Holdout was not executed');
     assert.equal(outcome.summary.leaseStatus, 'terminal_success');
-    assert.equal(outcome.summary.authorizationConsumed, true);
+    assert.deepEqual(outcome.summary.authorizationConsumption, { status: 'consumed' });
     assert.equal(typeof outcome.summary.developmentEvidenceRoot, 'string');
     assert.equal(outcome.summary.usageAccounting, 'exact');
     assert.equal(outcome.summary.reservedCostUsdUpperBound, null);
@@ -1437,6 +1711,44 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     const isolatedLiveRoot = path.join(isolatedRepoRoot, 'logs', 'resolver-v3-048-protocol-v4');
     assert.ok(fs.existsSync(isolatedLiveRoot));
   });
+
+  // F3 ("Tri-State Authorization Consumption"): a real dispatch failure (network error, never
+  // reaching the success ordering's authorization-consumption step) must report a real, confirmed
+  // `not_consumed` -- never conflated with `unreadable`.
+  test('F3: a real dispatch failure before completion reports authorizationConsumption "not_consumed", never a fabricated boolean', async () => {
+    const isolatedRepoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const plan = bridge.buildProtocolV4MasterPlan(isolatedRepoRoot);
+    const headCommit = spawnSync('git', ['rev-parse', 'HEAD'], {
+      cwd: REAL_REPO_ROOT,
+      encoding: 'utf-8',
+    }).stdout.trim();
+    const authPath = writeAuthFile(isolatedRepoRoot, plan, headCommit);
+
+    const parsedArgs = {
+      mode: 'execute',
+      authorizationFile: authPath,
+      confirmDevelopmentOnly: true,
+      confirmMaxCostUsd: String(plan.budget.developmentMaxCostUsd),
+    };
+
+    const originalFetch = global.fetch;
+    global.fetch = async () => {
+      throw new Error('SIMULATED_NETWORK_FAILURE_NEVER_A_REAL_PROVIDER_CALL');
+    };
+
+    let outcome;
+    try {
+      outcome = await runExecute(parsedArgs, {
+        repoRootForTests: isolatedRepoRoot,
+        envForTests: { ANTHROPIC_API_KEY: 'test-key-not-real' },
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
+
+    assert.equal(outcome.success, false);
+    assert.deepEqual(outcome.summary.authorizationConsumption, { status: 'not_consumed' });
+  }, 60000);
 
   // Test 9: a malformed authorization JSON file containing a secret-like marker must never leak
   // that marker to stdout, stderr, or the JSON summary -- verified both at the unit level

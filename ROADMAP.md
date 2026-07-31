@@ -629,7 +629,11 @@ artifact-contract-derived preflight, root-bound readback, and a platform-neutral
 Phase B3 (same day) added the canonical CLI launcher
 (`scripts/run-resolver-v3-048-live-development.mjs`, `--preflight`/`--execute`, local-`tsc`-only
 build, no ad-hoc `tsx`/inline execution) so a maintainer has one reproducible, fail-closed way to
-invoke the entry point — still with zero live calls and no live evidence produced. G2 is
+invoke the entry point — still with zero live calls and no live evidence produced. That launcher
+merged as PR #205 and was post-merge-remediated a fourth time (non-spoofable error-class
+identification, attachment-safe lease finalization, tri-state authorization-consumption readback,
+a fixed fallback code for unrecognized errors, and fail-closed CLI argument parsing) — still zero
+live calls, no live evidence produced, Holdout unauthorized. G2 is
 not passed, and **RESOLVER-V3-010** (production Hybrid wiring) stays `blocked` until V3-048 produces
 live evidence that passes every mandatory G2 dimension. See
 RESOLVER-V3-048's own entry (Resolver V3 epic) for the current, authoritative status text, the
@@ -8956,7 +8960,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete and three times pre-PR-remediated (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot key at all on the production execute path, transport-authoritative HTTP-request accounting kept strictly separate from budget-gate reservation counts on BOTH success and failure paths, the claimed->executing lease transition itself now inside the same protected failure handler as baseline/gate/dispatch/persistence, failure-usage snapshot attached before lease finalization is even attempted, exact schema/currency/cache-policy/candidate-set binding, filesystem-canonical symlink/junction-safe path checks, canonical cost-string confirmation, a real enumerated Protocol-v4 error-code allowlist plus code-based secret-free error redaction of CLI arguments and closing output, no absolute filesystem paths or hardcoded budget numbers in printed output); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher + Pre-PR Remediation 1+2+3, 2026-07-31)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete and three times pre-PR-remediated (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot key at all on the production execute path, transport-authoritative HTTP-request accounting kept strictly separate from budget-gate reservation counts on BOTH success and failure paths, the claimed->executing lease transition itself now inside the same protected failure handler as baseline/gate/dispatch/persistence, failure-usage snapshot attached before lease finalization is even attempted, exact schema/currency/cache-policy/candidate-set binding, filesystem-canonical symlink/junction-safe path checks, canonical cost-string confirmation, a real enumerated Protocol-v4 error-code allowlist plus code-based secret-free error redaction of CLI arguments and closing output, no absolute filesystem paths or hardcoded budget numbers in printed output); merged as PR #205 and post-merge-remediated a fourth time (non-spoofable `instanceof`-based pre-dispatch error classification replacing a freely-settable `error.name` comparison, best-effort metadata attachment that can never itself block lease `terminal_failure`, an explicit tri-state authorization-consumption readback (`consumed`/`not_consumed`/`unreadable`) replacing a boolean that collapsed "not consumed" and "unreadable" together, a fixed enumerated fallback code for a fully unrecognized error class replacing echoed `error.name`, and fail-closed CLI argument parsing rejecting duplicate/mode-mismatched flags and flag-tokens-as-values); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher + Pre-PR Remediation 1+2+3 + Post-Merge Remediation 4, 2026-07-31)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -9242,6 +9246,34 @@ return value still carries the real path for programmatic callers/tests); the la
 comment no longer hardcodes a real `developmentMaxCostUsd` value (`5.142528`), using a
 `<EXACT_VALUE_FROM_PREFLIGHT>` placeholder instead. Zero provider calls, zero tokens, USD 0.00
 throughout; full detail (incl. the CodeGraph MCP preflight) in the same report's §12.
+
+**Phase B3 Post-Merge Remediation 4 (2026-07-31, basis `93caac4b9128ac7211e7a8c19c4ebd61c87e7af3`, PR
+#205 merge into `chore/clean-arch-structure`):** an independent post-merge review found five further
+defects (F1–F5), all fixed with zero provider calls: (F1) `summarizeFailureUsage` classified a
+pre-dispatch error as exact-zero usage by comparing the freely-settable `error.name` string against
+a class-name set — replaced with real `instanceof` checks (`LauncherError` plus the real Protocol-v4
+domain classes, now re-exported from the compiled bridge); an unrecognized/spoofed error always falls
+through to `'unknown'` usage. (F2) `attachProtocolV4FailureUsageSnapshot`/
+`attachProtocolV4LeaseFinalizationStatus` wrote directly onto the caller's error object, so a frozen/
+non-extensible error, a non-writable existing property, or a throwing setter could make the
+attachment itself throw BEFORE the Runner's lease `terminal_failure` was even attempted — both
+functions now wrap their property write in their own try/catch (best-effort), guaranteeing lease
+finalization is always attempted and the original error is always what is rethrown. (F3) the
+launcher's `authorizationConsumed` boolean collapsed "confirmed not consumed" and "readback failed"
+into the same `false` — replaced with an explicit tri-state `authorizationConsumption`
+(`consumed`/`not_consumed`/`unreadable` with a safely classified `errorCode`), via a new exported
+`summarizeAuthorizationConsumption`; `success` is now documented as denoting only dispatch outcome,
+never consumption-readback, so a maintainer cannot misread it as retry-safety. (F4)
+`classifyLauncherError`'s fallback for a fully unrecognized error class echoed the raw `error.name`
+as the output code — replaced with a fixed constant, `LAUNCHER_UNCLASSIFIED_ERROR`. (F5) `parseArgs`
+accepted duplicate value/boolean flags (last-write-wins), execute-only flags under `--preflight`,
+preflight-only flags under `--execute`, and could silently consume a known flag token as a value —
+rewritten to fail closed with four new enumerated codes
+(`LAUNCHER_ARGUMENT_DUPLICATE`/`LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_PREFLIGHT`/
+`LAUNCHER_ARGUMENT_NOT_ALLOWED_IN_EXECUTE`, plus the existing `LAUNCHER_ARGUMENT_VALUE_MISSING` now
+also covering the flag-token-as-value case). Zero provider calls, zero tokens, USD 0.00 throughout;
+full detail (incl. the CodeGraph MCP preflight, which required a one-time index bootstrap in this
+fresh session) in the same report's §13.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E

@@ -7,6 +7,7 @@ import {
   PROTOCOL_V4_LIVE_ROOT,
   ARTIFACT_PATHS,
   sealProtocolV4Artifact,
+  computeDevelopmentEvidenceRootHash,
   type ProtocolV4TerminalMetadata,
   type CandidateEvaluation,
 } from '../ResolverV3048ProtocolV4';
@@ -25,6 +26,7 @@ import {
   runProtocolV4DevelopmentForAllCandidates,
   attachProtocolV4FailureUsageSnapshot,
   attachProtocolV4LeaseFinalizationStatus,
+  buildProtocolV4SuccessUsageSnapshot,
   type ProtocolV4FailureUsageSnapshot,
 } from '../ResolverV3048ProtocolV4DevelopmentRunner';
 import * as EvaluationModule from '../ResolverV3048ProtocolV4Evaluation';
@@ -470,6 +472,75 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
     expect(finalLease?.status).toBe('terminal_failure');
   }, 60000);
 
+  it('Test 8: the claimed->executing transition persists to disk but then throws (simulating a post-write readback validation failure) -- terminal_failure is still attempted and confirmed, and the original error/snapshot survive', async () => {
+    const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const authorizationId = `e2e-transition-atomic-${Math.random().toString(36).slice(2, 10)}`;
+    const authorization = humanLiveAuthorization(authorizationId);
+    const liveRoot = path.resolve(repoRoot, PROTOCOL_V4_LIVE_ROOT);
+    const lease = claimProtocolV4ExecutionLeaseForDevelopmentAuthorization(
+      plan,
+      authorization,
+      liveRoot,
+      repoRoot,
+    );
+    expect(lease.status).toBe('claimed');
+
+    // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Transition-Atomic Accounting"): calls through
+    // to the REAL `markProtocolV4ExecutionLeaseExecuting` first -- so the lease is genuinely
+    // persisted as `executing` on disk -- and only THEN throws, simulating `transitionLease`'s own
+    // post-write readback validation failing (e.g. a hash/filename mismatch) even though the write
+    // itself already landed.
+    const realMarkExecuting = ExecutionLeaseModule.markProtocolV4ExecutionLeaseExecuting;
+    jest
+      .spyOn(ExecutionLeaseModule, 'markProtocolV4ExecutionLeaseExecuting')
+      .mockImplementationOnce((root, id) => {
+        realMarkExecuting(root, id);
+        throw new Error('SIMULATED_POST_WRITE_TRANSITION_VALIDATION_FAILURE');
+      });
+
+    const executionContext = buildControlledHumanLiveExecutionContext(async () => {
+      throw new Error('UNREACHABLE_DISPATCH_SHOULD_NEVER_RUN');
+    });
+
+    let caught:
+      | (Error & {
+          protocolV4FailureUsageSnapshot?: ProtocolV4FailureUsageSnapshot;
+          protocolV4LeaseFinalizationStatus?: string;
+        })
+      | null = null;
+    try {
+      await runProtocolV4DevelopmentForAllCandidates({
+        plan,
+        authorization,
+        lease,
+        artifactStoreRoot: liveRoot,
+        executionContext,
+        repoRoot,
+      });
+    } catch (e) {
+      caught = e as typeof caught;
+    }
+
+    expect(caught).not.toBeNull();
+    // The original error survives unchanged -- moving the transition inside the `try` never
+    // replaces it with a lease-finalization-related error.
+    expect(caught!.message).toBe('SIMULATED_POST_WRITE_TRANSITION_VALIDATION_FAILURE');
+    const snapshot = caught!.protocolV4FailureUsageSnapshot;
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.providerHttpRequests).toBe(0);
+    expect(snapshot!.aiDispatchReservations).toBe(0);
+    expect(snapshot!.accounting).toBe('exact_zero');
+    // The lease WAS already `executing` on disk when the catch ran -- confirming terminal_failure
+    // was still reachable and succeeded from that state (not left stuck `executing`).
+    expect(caught!.protocolV4LeaseFinalizationStatus).toBe('terminal_failure_confirmed');
+
+    const finalLease = ExecutionLeaseModule.readProtocolV4ExecutionLease(
+      liveRoot,
+      authorization.authorizationId,
+    );
+    expect(finalLease?.status).toBe('terminal_failure');
+  }, 60000);
+
   it('an artifact-write failure after real provider dispatches attaches a partial (never zero) usage snapshot', async () => {
     const repoRoot = freshTempRepoRootWithRealEvaluatorFiles();
     const authorizationId = `e2e-failure-usage-write-${Math.random().toString(36).slice(2, 10)}`;
@@ -611,5 +682,105 @@ describe('runProtocolV4DevelopmentForAllCandidates -- transport-authoritative re
     // Structural confirmation: every candidate produced full evidence and the transport-authoritative
     // per-call counts are present and summable (exact by construction, per Defect 1's contract).
     expect(totalProviderHttpRequests).toBeGreaterThanOrEqual(0);
+
+    // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"):
+    // attached alongside `developmentEvidenceRootHash`, from the SAME authoritative sources as the
+    // failure path -- never null `aiDispatchReservations`, and it never changed the evidence root
+    // hash or any stored artifact hash (recomputing it here from the same evidence must match).
+    expect(evidence.successUsageSnapshot).toBeDefined();
+    expect(typeof evidence.successUsageSnapshot!.aiDispatchReservations).toBe('number');
+    expect(evidence.successUsageSnapshot!.aiDispatchReservations).toBeGreaterThan(0);
+    expect(evidence.successUsageSnapshot!.providerHttpRequests).toBe(totalProviderHttpRequests);
+    expect(evidence.successUsageSnapshot!.completedCandidateIds).toEqual(['H0', 'H1', 'H2']);
+    const recomputedHash = computeDevelopmentEvidenceRootHash(evidence);
+    expect(recomputedHash).toBe(evidence.developmentEvidenceRootHash);
   }, 180000);
+});
+
+describe('buildProtocolV4SuccessUsageSnapshot (unit, no real dispatch involved)', () => {
+  function fakeCandidate(
+    candidateId: 'H0' | 'H1' | 'H2',
+    ledgerEntries: Partial<ProtocolV4TerminalMetadata>[],
+  ) {
+    return {
+      candidateId,
+      ledger: { content: ledgerEntries as unknown as readonly ProtocolV4TerminalMetadata[] },
+    } as unknown as Parameters<typeof buildProtocolV4SuccessUsageSnapshot>[1][number];
+  }
+
+  function fakeHumanLiveContext(cumulative: number): ProtocolV4DispatchExecutionContext {
+    return {
+      mode: 'human_live',
+      getCumulativeProviderHttpRequestCount: () => cumulative,
+      dispatchObservation: async () => {
+        throw new Error('UNREACHABLE');
+      },
+    };
+  }
+
+  it('reports aiDispatchReservations from the gate (never null) and providerHttpRequests from the execution context', () => {
+    const gate = new LiveProviderBudgetGate({
+      currency: 'USD',
+      maxCalls: 10,
+      maxInputTokens: 100000,
+      maxOutputTokens: 20000,
+      maxCost: 1,
+      maxInFlight: 3,
+    });
+    gate.reserve(plan.modelId, 8192, 1536);
+    gate.reserve(plan.modelId, 8192, 1536);
+
+    const candidates = [
+      fakeCandidate('H0', [
+        {
+          usageStatus: 'reported',
+          actualCostUsd: 0.01,
+          inputTokens: 100,
+          outputTokens: 20,
+          counts: { providerHttpRequests: { value: 1 } },
+        } as unknown as Partial<ProtocolV4TerminalMetadata>,
+      ]),
+    ];
+
+    const snapshot = buildProtocolV4SuccessUsageSnapshot(gate, candidates, fakeHumanLiveContext(1));
+    expect(snapshot.aiDispatchReservations).toBe(2);
+    expect(snapshot.providerHttpRequests).toBe(1);
+    expect(snapshot.accounting).toBe('exact');
+    expect(snapshot.confirmedInputTokens).toBe(100);
+    expect(snapshot.confirmedOutputTokens).toBe(20);
+    expect(snapshot.confirmedCostUsd).toBe(0.01);
+    expect(snapshot.reservedInputTokensUpperBound).toBeNull();
+    expect(snapshot.completedCandidateIds).toEqual(['H0']);
+  });
+
+  it('reports "partial" accounting and the ENTIRE gate reservation totals as the upper bound (never a partial sum) when usage is incomplete', () => {
+    const gate = new LiveProviderBudgetGate({
+      currency: 'USD',
+      maxCalls: 10,
+      maxInputTokens: 100000,
+      maxOutputTokens: 20000,
+      maxCost: 1,
+      maxInFlight: 3,
+    });
+    gate.reserve(plan.modelId, 8192, 1536);
+
+    const candidates = [
+      fakeCandidate('H0', [
+        {
+          usageStatus: 'usage_unknown',
+          actualCostUsd: null,
+          inputTokens: null,
+          outputTokens: null,
+          counts: { providerHttpRequests: { value: 1 } },
+        } as unknown as Partial<ProtocolV4TerminalMetadata>,
+      ]),
+    ];
+
+    const snapshot = buildProtocolV4SuccessUsageSnapshot(gate, candidates, fakeHumanLiveContext(1));
+    const gateSnapshot = gate.snapshot();
+    expect(snapshot.accounting).toBe('partial');
+    expect(snapshot.reservedInputTokensUpperBound).toBe(gateSnapshot.inputTokens);
+    expect(snapshot.reservedOutputTokensUpperBound).toBe(gateSnapshot.outputTokens);
+    expect(snapshot.reservedCostUsdUpperBound).toBe(gateSnapshot.reservedCost);
+  });
 });

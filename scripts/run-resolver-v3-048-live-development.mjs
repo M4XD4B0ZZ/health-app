@@ -23,7 +23,7 @@
  *   node --env-file=.env scripts/run-resolver-v3-048-live-development.mjs --execute \
  *     --authorization-file "<ABSOLUTE_PATH>" \
  *     --confirm-development-only \
- *     --confirm-max-cost-usd "5.142528"
+ *     --confirm-max-cost-usd "<EXACT_VALUE_FROM_PREFLIGHT>"
  *
  * `--preflight` is fully zero-call and never checks for `ANTHROPIC_API_KEY`; it re-derives and
  * validates the real Master Plan, prints its exact identities/budget, and can emit a
@@ -363,13 +363,27 @@ export function writeFileExclusive(finalPath, content) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// CLI argument parsing.
+// CLI argument parsing -- RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Closed Output Surface"):
+// every parser error is one of a fixed, enumerated code, exactly like `LauncherError` above. The
+// original argv token/value is NEVER embedded in any error -- an unrecognized flag, a missing
+// value, or any other submitted content (a path, a cost string, anything else) never reaches
+// `result.errors`, and therefore never reaches stdout/stderr via `main()` below.
 // ---------------------------------------------------------------------------------------------
 
 const VALUE_FLAGS = new Set([
   '--authorization-file',
   '--confirm-max-cost-usd',
   '--authorization-template-out',
+]);
+
+/** The only argument-parsing codes `parseArgs`/`main` ever produce or print -- checked again in
+ * `main()` before printing (defense in depth, mirroring `classifyLauncherError`'s own exact-match
+ * pattern) so a code that somehow isn't on this list is never trusted either. */
+export const KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES = new Set([
+  'LAUNCHER_ARGUMENT_UNKNOWN',
+  'LAUNCHER_ARGUMENT_VALUE_MISSING',
+  'LAUNCHER_MODE_MISSING',
+  'LAUNCHER_MODE_MULTIPLE',
 ]);
 
 export function parseArgs(argv) {
@@ -404,7 +418,7 @@ export function parseArgs(argv) {
     if (VALUE_FLAGS.has(token)) {
       const value = argv[i + 1];
       if (value === undefined) {
-        result.errors.push(`Flag ${token} requires a value.`);
+        result.errors.push('LAUNCHER_ARGUMENT_VALUE_MISSING');
         continue;
       }
       i += 1;
@@ -413,12 +427,12 @@ export function parseArgs(argv) {
       else if (token === '--authorization-template-out') result.authorizationTemplateOut = value;
       continue;
     }
-    result.errors.push(`Unknown argument: ${token}`);
+    result.errors.push('LAUNCHER_ARGUMENT_UNKNOWN');
   }
   if (modesSeen.length === 0) {
-    result.errors.push('Exactly one of --preflight or --execute is required (none given).');
+    result.errors.push('LAUNCHER_MODE_MISSING');
   } else if (modesSeen.length > 1) {
-    result.errors.push('Exactly one of --preflight or --execute is required (multiple given).');
+    result.errors.push('LAUNCHER_MODE_MULTIPLE');
   } else {
     result.mode = modesSeen[0];
   }
@@ -674,42 +688,36 @@ export function validateConfirmationFlags(parsedArgs, plan) {
  * usage/cost information, the overall accounting is `'partial'` and that entry's own
  * `reservedWorstCaseCostUsd` (already computed by the real reservation, never re-derived here)
  * contributes to a safe upper bound instead of being silently treated as USD 0.00. */
+/** RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"): reads
+ * ONLY the Protocol-v4 Development Runner's own `evidence.successUsageSnapshot` -- built from the
+ * SAME authoritative sources (the shared budget gate, the execution context's transport-
+ * authoritative counter) as the failure path's `protocolV4FailureUsageSnapshot` -- never re-derives
+ * pricing/usage-parsing logic in this file. `aiDispatchReservations` is always a real number here
+ * (never `null`); `reserved*UpperBound` denotes the shared gate's ENTIRE reserved-worst-case totals,
+ * consistent with the failure path's own semantics -- never a partial sum restricted to only the
+ * incomplete-usage entries (the pre-remediation-3 behavior). */
 export function summarizeSuccessUsage(evidence) {
-  let providerHttpRequests = 0;
-  let confirmedInputTokens = 0;
-  let confirmedOutputTokens = 0;
-  let confirmedCostUsd = 0;
-  let reservedCostUsdUpperBound = 0;
-  let hasIncompleteUsage = false;
-  for (const candidate of evidence.candidates) {
-    for (const entry of candidate.ledger.content) {
-      const httpCount = entry.counts?.providerHttpRequests?.value ?? 0;
-      providerHttpRequests += httpCount;
-      if (httpCount === 0) continue;
-      if (entry.usageStatus === 'reported' && typeof entry.actualCostUsd === 'number') {
-        confirmedInputTokens += entry.inputTokens ?? 0;
-        confirmedOutputTokens += entry.outputTokens ?? 0;
-        confirmedCostUsd += entry.actualCostUsd;
-      } else {
-        hasIncompleteUsage = true;
-        reservedCostUsdUpperBound += entry.reservedWorstCaseCostUsd ?? 0;
-      }
-    }
+  const snapshot = evidence.successUsageSnapshot;
+  if (snapshot) {
+    return {
+      accounting: snapshot.accounting,
+      providerHttpRequests: snapshot.providerHttpRequests,
+      aiDispatchReservations: snapshot.aiDispatchReservations,
+      confirmedInputTokens: snapshot.confirmedInputTokens,
+      confirmedOutputTokens: snapshot.confirmedOutputTokens,
+      confirmedTotalTokens: snapshot.confirmedInputTokens + snapshot.confirmedOutputTokens,
+      confirmedCostUsd: snapshot.confirmedCostUsd,
+      reservedInputTokensUpperBound: snapshot.reservedInputTokensUpperBound,
+      reservedOutputTokensUpperBound: snapshot.reservedOutputTokensUpperBound,
+      reservedCostUsdUpperBound: snapshot.reservedCostUsdUpperBound,
+      completedCandidateIds: snapshot.completedCandidateIds,
+      leaseFinalization: null,
+    };
   }
-  return {
-    accounting: hasIncompleteUsage ? 'partial' : 'exact',
-    providerHttpRequests,
-    aiDispatchReservations: null,
-    confirmedInputTokens,
-    confirmedOutputTokens,
-    confirmedTotalTokens: confirmedInputTokens + confirmedOutputTokens,
-    confirmedCostUsd,
-    reservedInputTokensUpperBound: null,
-    reservedOutputTokensUpperBound: null,
-    reservedCostUsdUpperBound: hasIncompleteUsage ? reservedCostUsdUpperBound : null,
-    completedCandidateIds: evidence.candidates.map((c) => c.candidateId),
-    leaseFinalization: null,
-  };
+  // Unreachable on the real human_live path -- the Runner always attaches `successUsageSnapshot`
+  // alongside `developmentEvidenceRootHash` in the same return statement. Never fabricates a number
+  // if it somehow is missing: reports `'unknown'` rather than a fabricated exact/zero.
+  return { accounting: 'unknown', ...UNKNOWN_USAGE, leaseFinalization: null };
 }
 
 /** Every Protocol-v4 domain error class this launcher can ever see BEFORE the Development Runner's
@@ -827,10 +835,166 @@ const KNOWN_SAFE_PROTOCOL_ERROR_CLASSES = new Set([
 
 const CODE_PREFIX_PATTERN = /^[A-Z][A-Z0-9_]*/;
 
+/** RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Real Protocol-v4 Code Allowlist"): every
+ * constant base-code string actually thrown, anywhere in `src/features/nutrition/benchmark/
+ * protocolV4/`, by one of the `KNOWN_SAFE_PROTOCOL_ERROR_CLASSES` above -- derived by direct source
+ * inspection of every `throw new ProtocolV4...Error(...)` call site in that class (verified via
+ * `mcp__codegraph__codegraph_explore`, not freely invented). A base code is the fixed leading
+ * portion of a thrown message, before any dynamic suffix a call site appends after a `:` (an ID, a
+ * path, a candidate/partition name, ...) -- `CODE_PREFIX_PATTERN` below extracts exactly that
+ * portion, which is then checked EXACTLY against this set. Combining "known class" with "any
+ * regex-shaped prefix" (the pre-remediation-3 behavior) was not enough: a corrupted/foreign message
+ * that merely LOOKS like a constant code would still have been trusted and surfaced verbatim. Only
+ * an EXACT match against this enumerated list is ever surfaced; anything else (including a base
+ * code that is itself dynamic, e.g. `PROTOCOL_V4_EVALUATION_NO_${x}_REPORT`, which will never
+ * exactly match a single fixed string here) falls through to the generic fallback code below. */
+export const KNOWN_SAFE_PROTOCOL_ERROR_CODES = new Set([
+  // ProtocolV4LiveDevelopmentEntryPointError
+  'PROTOCOL_V4_LIVE_DEVELOPMENT_REQUIRES_HUMAN_LIVE_AUTHORIZATION',
+  'PROTOCOL_V4_LIVE_DEVELOPMENT_HUMAN_APPROVAL_REFERENCE_REQUIRED',
+  'PROTOCOL_V4_LIVE_DEVELOPMENT_AUTHORIZATION_PLAN_MISMATCH',
+  'PROTOCOL_V4_LIVE_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED',
+  'PROTOCOL_V4_LIVE_DEVELOPMENT_ARTIFACT_TARGET_REUSED',
+  // ProtocolV4ExecutionLeaseError
+  'PROTOCOL_V4_EXECUTION_LEASE_UNSAFE_ID',
+  'PROTOCOL_V4_EXECUTION_LEASE_VERSION_RACE',
+  'PROTOCOL_V4_EXECUTION_LEASE_READBACK_HASH_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_VERSION_FILENAME_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_HOLDOUT_REQUIRES_EVIDENCE_ROOT',
+  'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_FORBIDS_EVIDENCE_ROOT',
+  'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_FORBIDS_HOLDOUT_PLAN_BINDING',
+  'PROTOCOL_V4_EXECUTION_LEASE_ALREADY_CLAIMED',
+  'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_AUTHORIZATION_HASH_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_ROOT_DOES_NOT_MATCH_AUTHORIZATION_KIND',
+  'PROTOCOL_V4_EXECUTION_LEASE_DEVELOPMENT_AUTHORIZATION_PLAN_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_DRY_RUN_HOLDOUT_AUTHORIZATION_IDENTITY_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_HOLDOUT_ADMISSION_AUTHORIZATION_IDENTITY_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND',
+  'PROTOCOL_V4_EXECUTION_LEASE_INVALID_TRANSITION',
+  'PROTOCOL_V4_EXECUTION_LEASE_NOT_ACTIVE',
+  'PROTOCOL_V4_EXECUTION_LEASE_PHASE_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_PLAN_HASH_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_EXECUTION_TREE_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_ID_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_ARTIFACT_ROOT_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_CANDIDATE_SCOPE_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_EVIDENCE_ROOT_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_HOLDOUT_PLAN_HASH_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_SELECTION_OR_CHOICE_HASH_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_BUDGET_SCOPE_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_CONCURRENCY_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_PRICING_VERSION_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_MODEL_ID_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_KIND_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_RUN_KIND_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_SCHEMA_VERSION_MISMATCH',
+  'PROTOCOL_V4_EXECUTION_LEASE_AUTHORIZATION_RECORD_HASH_MISMATCH',
+  // ProtocolV4DevelopmentRunnerError
+  'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNKNOWN_SCENARIO',
+  'PROTOCOL_V4_EXECUTION_MODE_AUTHORIZATION_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_FAST_PATH',
+  'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_CEILING',
+  'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_TIMEOUT',
+  // ProtocolV4DevelopmentAuthorizationError
+  'PROTOCOL_V4_DEVELOPMENT_HUMAN_APPROVAL_REFERENCE_REQUIRED',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_HASH_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_SCHEMA_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_PHASE_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_IDENTITY_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_CANDIDATE_SET_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_CURRENCY_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_ALREADY_CONSUMED',
+  'PROTOCOL_V4_DEVELOPMENT_ARTIFACT_TARGET_REUSED',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_LIMITS_INSUFFICIENT',
+  'PROTOCOL_V4_DEVELOPMENT_AUTHORIZATION_CONCURRENCY_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_BUDGET_INSUFFICIENT',
+  'PROTOCOL_V4_DEVELOPMENT_EXECUTION_MODE_AUTHORIZATION_MISMATCH',
+  'PROTOCOL_V4_HUMAN_APPROVAL_REFERENCE_REQUIRED',
+  // ProtocolV4ArtifactStoreError
+  'PROTOCOL_V4_ARTIFACT_STORE_UNSAFE_AUTHORIZATION_ID',
+  'PROTOCOL_V4_ARTIFACT_STORE_CONTENT_HASH_MISMATCH',
+  'PROTOCOL_V4_ARTIFACT_ALREADY_EXISTS',
+  'PROTOCOL_V4_ARTIFACT_READBACK_HASH_MISMATCH',
+  'PROTOCOL_V4_AUTHORIZATION_ALREADY_CONSUMED_ATOMIC',
+  'PROTOCOL_V4_ARTIFACT_STORE_LIVE_PATH_FORBIDDEN_IN_DRY_RUN',
+  'PROTOCOL_V4_ARTIFACT_STORE_DRY_RUN_PATH_FORBIDDEN_IN_LIVE',
+  // ProtocolV4ArtifactCrashError
+  'PROTOCOL_V4_ARTIFACT_STORE_CRASH_EVIDENCE_DETECTED',
+  // ProtocolV4LiveExecutionContextError
+  'PROTOCOL_V4_LIVE_EXECUTION_CREDENTIAL_MISSING',
+  'PROTOCOL_V4_LIVE_EXECUTION_UNEXPECTED_FAST_PATH',
+  // ProtocolV4AttemptWrapperError
+  'PROTOCOL_V4_PROVIDER_RUN_IDENTITY_MISSING',
+  'PROTOCOL_V4_PROVIDER_RUN_IDENTITY_FIELD_MISSING',
+  'PROTOCOL_V4_PROVIDER_PRICING_STATUS_UNKNOWN_NOT_ALLOWED',
+  'PROTOCOL_V4_PROVIDER_USAGE_STATUS_MISSING',
+  'PROTOCOL_V4_PROVIDER_ACTUAL_COST_STATUS_MISSING',
+  'PROTOCOL_V4_PROVIDER_LATENCY_MISSING',
+  'PROTOCOL_V4_PROVIDER_RETRYABLE_MISSING',
+  'PROTOCOL_V4_PROVIDER_CACHE_TOKENS_MISSING',
+  'PROTOCOL_V4_PROVIDER_HTTP_STATUS_MISSING',
+  'PROTOCOL_V4_PROVIDER_FAILURE_KIND_MISSING',
+  'PROTOCOL_V4_END_TO_END_LATENCY_INVALID',
+  // ProtocolV4AttemptContextError
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_UNKNOWN_CANDIDATE',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_RESERVATION_MODEL_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_RESERVATION_PRICING_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_RESERVATION_AUTHORIZATION_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_RESERVATION_CALL_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_HASH_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_NOT_FROZEN',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_PLAN_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_PRICING_MISMATCH',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_CANDIDATE_DRIFT',
+  'PROTOCOL_V4_ATTEMPT_CONTEXT_PROVIDER_IDENTITY_MISMATCH',
+  'PROTOCOL_V4_PROVIDER_RUN_IDENTITY_MISMATCH',
+  // ProtocolV4CallStateMachineError
+  'PROTOCOL_V4_CALL_ID_NOT_UNIQUE',
+  'PROTOCOL_V4_CALL_UNKNOWN',
+  'PROTOCOL_V4_CALL_INVALID_TRANSITION',
+  // ProtocolV4EvaluationDerivationError
+  'PROTOCOL_V4_EVALUATION_UNKNOWN_SCENARIO',
+  'PROTOCOL_V4_EVALUATION_MISSING_ARM_BASELINE',
+  'PROTOCOL_V4_EVALUATION_TELEMETRY_LEDGER_LENGTH_MISMATCH',
+  'PROTOCOL_V4_EVALUATION_RECOMPUTATION_MISMATCH',
+  'PROTOCOL_V4_DEVELOPMENT_EVIDENCE_EVALUATION_NOT_DERIVED',
+  'PROTOCOL_V4_FINAL_G2_ARTIFACT_CANDIDATE_MISMATCH',
+  'PROTOCOL_V4_FINAL_G2_RAW_RESULTS_CANDIDATE_MISMATCH',
+  'PROTOCOL_V4_FINAL_G2_RAW_RESULTS_COVERAGE_MISMATCH',
+  'PROTOCOL_V4_FINAL_G2_TELEMETRY_LEDGER_LENGTH_MISMATCH',
+  'PROTOCOL_V4_FINAL_G2_EVALUATION_NOT_DERIVED',
+  'PROTOCOL_V4_FINAL_G2_CANDIDATE_MISMATCH',
+  'PROTOCOL_V4_DRY_RUN_FINAL_REPORT_AUTHORIZATION_IDENTITY_MISMATCH',
+  'PROTOCOL_V4_DRY_RUN_FINAL_REPORT_CANDIDATE_MISMATCH',
+  'PROTOCOL_V4_DRY_RUN_FINAL_REPORT_REDERIVATION_MISMATCH',
+  // ProtocolV4EvaluatorManifestError
+  'PROTOCOL_V4_EVALUATOR_MANIFEST_FILE_MISSING',
+  // ProtocolV4PricingAuthorityError
+  'PROTOCOL_V4_PRICING_AUTHORITY_MISSING',
+  'PROTOCOL_V4_PRICING_AUTHORITY_UNVERSIONED',
+  'PROTOCOL_V4_PRICING_AUTHORITY_MODEL_MISMATCH',
+  'PROTOCOL_V4_PRICING_AUTHORITY_CURRENCY_UNSUPPORTED',
+  'PROTOCOL_V4_PRICING_IDENTITY_MISMATCH',
+  // ProtocolV4ReservationError
+  'PROTOCOL_V4_RESERVATION_MODEL_MISMATCH',
+  'PROTOCOL_V4_RESERVATION_TOKEN_MISMATCH',
+  'PROTOCOL_V4_RESERVATION_HASH_MISMATCH',
+  'PROTOCOL_V4_RESERVATION_NOT_FROZEN',
+  'PROTOCOL_V4_RESERVATION_CURRENCY_MISMATCH',
+  'PROTOCOL_V4_RESERVATION_TOTAL_TOKENS_INCONSISTENT',
+  // ProtocolV4TelemetryLedgerError
+  'PROTOCOL_V4_TERMINAL_CALL_ID_MISMATCH',
+  'PROTOCOL_V4_TELEMETRY_LEDGER_SHARED_INSTANCE',
+  'PROTOCOL_V4_WALL_CLOCK_WRAPPER_CONTRACT_VIOLATION',
+]);
+
 /** Never returns raw provider payloads, headers, proxy values, request/response content, paths,
  * JSON excerpts, or compiler output. `LauncherError` codes are matched EXACTLY against
  * `KNOWN_LAUNCHER_ERROR_CODES`; anything not on that list is reported as a generic, still-safe
- * fallback code rather than trusted. */
+ * fallback code rather than trusted. Protocol-v4 domain errors from a known-safe class are matched
+ * EXACTLY (after extracting the fixed base-code prefix) against `KNOWN_SAFE_PROTOCOL_ERROR_CODES` --
+ * a known class with an unrecognized/dynamic/tampered base code is reported via a generic, still-
+ * safe fallback code, never the raw extracted text. */
 export function classifyLauncherError(error) {
   const isObject = error !== null && typeof error === 'object';
   const name = isObject && typeof error.name === 'string' ? error.name : 'UnknownError';
@@ -844,7 +1008,14 @@ export function classifyLauncherError(error) {
   }
   if (KNOWN_SAFE_PROTOCOL_ERROR_CLASSES.has(name) && message !== undefined) {
     const prefixMatch = CODE_PREFIX_PATTERN.exec(message);
-    return { class: name, code: prefixMatch ? prefixMatch[0] : 'UNSTRUCTURED_ERROR' };
+    const baseCode = prefixMatch ? prefixMatch[0] : null;
+    return {
+      class: name,
+      code:
+        baseCode !== null && KNOWN_SAFE_PROTOCOL_ERROR_CODES.has(baseCode)
+          ? baseCode
+          : 'PROTOCOL_V4_UNRECOGNIZED_CODE',
+    };
   }
   return { class: 'unknown', code: name };
 }
@@ -1028,7 +1199,9 @@ export async function runExecute(parsedArgs, { repoRootForTests, envForTests } =
     completedCandidateIds: usage.completedCandidateIds,
     leaseFinalization: usage.leaseFinalization,
     developmentEvidenceRoot: evidence?.developmentEvidenceRootHash ?? null,
-    canonicalArtifactRoot: artifactStoreRoot,
+    // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("No Absolute Paths"): a stable, secret-free
+    // semantic identity -- never the real, absolute `artifactStoreRoot` filesystem path.
+    artifactRootKind: 'protocol_v4_live',
     leaseStatus,
     authorizationConsumed,
     holdoutExecuted: false,
@@ -1073,7 +1246,13 @@ async function main(argv) {
     return 0;
   }
   if (args.errors.length > 0 || !args.mode) {
-    for (const message of args.errors) console.error(message);
+    for (const code of args.errors) {
+      console.error(
+        KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES.has(code)
+          ? code
+          : 'LAUNCHER_ARGUMENT_UNRECOGNIZED_CODE',
+      );
+    }
     printHelp();
     return 1;
   }
@@ -1082,7 +1261,16 @@ async function main(argv) {
       const result = await runPreflight({
         authorizationTemplateOut: args.authorizationTemplateOut,
       });
-      console.log(JSON.stringify(result, null, 2));
+      // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("No Absolute Paths"): `runPreflight`'s own
+      // return value keeps the real absolute `authorizationTemplateWrittenTo` path for programmatic
+      // callers/tests (e.g. to read back and verify the written file), but the PRINTED preflight
+      // output never includes it -- only a stable boolean.
+      const printable = {
+        preflightReport: result.preflightReport,
+        authorizationTemplate: result.authorizationTemplate,
+        authorizationTemplateWritten: result.authorizationTemplateWrittenTo !== null,
+      };
+      console.log(JSON.stringify(printable, null, 2));
       return 0;
     }
     const result = await runExecute(args);

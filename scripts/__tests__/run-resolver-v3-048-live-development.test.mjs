@@ -28,6 +28,8 @@ import {
   summarizeFailureUsage,
   classifyLauncherError,
   KNOWN_LAUNCHER_ERROR_CODES,
+  KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES,
+  KNOWN_SAFE_PROTOCOL_ERROR_CODES,
   loadCompiledBridge,
   runPreflight,
   runExecute,
@@ -127,13 +129,13 @@ describe('parseArgs', () => {
   test('rejects no mode', () => {
     const result = parseArgs([]);
     assert.equal(result.mode, null);
-    assert.ok(result.errors.some((e) => e.includes('none given')));
+    assert.ok(result.errors.includes('LAUNCHER_MODE_MISSING'));
   });
 
   test('rejects multiple modes', () => {
     const result = parseArgs(['--preflight', '--execute']);
     assert.equal(result.mode, null);
-    assert.ok(result.errors.some((e) => e.includes('multiple given')));
+    assert.ok(result.errors.includes('LAUNCHER_MODE_MULTIPLE'));
   });
 
   test('accepts --preflight alone', () => {
@@ -158,14 +160,64 @@ describe('parseArgs', () => {
     assert.deepEqual(result.errors, []);
   });
 
-  test('rejects unknown arguments', () => {
+  test('rejects unknown arguments with a constant code, never the raw token', () => {
     const result = parseArgs(['--preflight', '--not-a-real-flag']);
-    assert.ok(result.errors.some((e) => e.includes('Unknown argument')));
+    assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_UNKNOWN'));
+    assert.equal(JSON.stringify(result).includes('--not-a-real-flag'), false);
   });
 
-  test('rejects a value flag with no following value', () => {
+  test('rejects a value flag with no following value with a constant code', () => {
     const result = parseArgs(['--execute', '--authorization-file']);
-    assert.ok(result.errors.some((e) => e.includes('requires a value')));
+    assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_VALUE_MISSING'));
+  });
+
+  // Defect 1 ("Closed Output Surface"): raw CLI arguments must never surface in `result.errors`,
+  // regardless of position or role -- an unknown flag itself, a secret-like value submitted after a
+  // recognized value flag alongside an unrelated unknown flag, or a secret-like value at any other
+  // position in argv.
+  test('a secret-like marker used as an unknown argument never appears in result.errors', () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_ARGV';
+    const result = parseArgs(['--preflight', secretMarker]);
+    assert.equal(JSON.stringify(result.errors).includes(secretMarker), false);
+    assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_UNKNOWN'));
+  });
+
+  test('a secret-like marker at an unexpected position (before the mode flag) never appears in result.errors', () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_POSITION';
+    const result = parseArgs([secretMarker, '--preflight']);
+    assert.equal(JSON.stringify(result.errors).includes(secretMarker), false);
+    assert.ok(result.errors.includes('LAUNCHER_ARGUMENT_UNKNOWN'));
+  });
+
+  test('a secret-like value following an unknown flag never appears in result.errors', () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_AFTER_UNKNOWN_FLAG';
+    const result = parseArgs(['--preflight', '--totally-unknown-flag', secretMarker]);
+    assert.equal(JSON.stringify(result.errors).includes(secretMarker), false);
+    // both the unknown flag AND the value after it are independently unknown tokens.
+    assert.deepEqual(result.errors.filter((e) => e === 'LAUNCHER_ARGUMENT_UNKNOWN').length, 2);
+  });
+
+  test('every KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES entry is a plain constant, never containing argv-shaped content', () => {
+    for (const code of KNOWN_LAUNCHER_ARGUMENT_ERROR_CODES) {
+      assert.equal(/^[A-Z][A-Z0-9_]*$/.test(code), true, code);
+    }
+  });
+
+  test('a secret-like marker submitted as an unknown CLI argument never reaches stdout/stderr of the real CLI subprocess', () => {
+    const secretMarker = 'SECRET_MARKER_DO_NOT_LEAK_REAL_CLI_ARGV';
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(REAL_REPO_ROOT, 'scripts', 'run-resolver-v3-048-live-development.mjs'),
+        '--preflight',
+        '--totally-unknown-flag',
+        secretMarker,
+      ],
+      { encoding: 'utf-8' },
+    );
+    const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    assert.equal(combined.includes(secretMarker), false);
+    assert.ok(combined.includes('LAUNCHER_ARGUMENT_UNKNOWN'));
   });
 });
 
@@ -830,30 +882,34 @@ describe('summarizeFailureUsage', () => {
   });
 });
 
+// RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"):
+// `summarizeSuccessUsage` now reads ONLY `evidence.successUsageSnapshot` -- the Development
+// Runner's own authoritative build (from the shared budget gate + the execution context's
+// transport-authoritative counter), never re-deriving anything from `evidence.candidates` ledger
+// content itself.
 describe('summarizeSuccessUsage', () => {
-  // Test 1: full HTTP-200 calls with complete usage -- HTTP count and tokens/cost both exact.
-  test('full usage on every HTTP request reports exact accounting with exact HTTP-request/token/cost totals', () => {
-    const evidence = {
-      candidates: [
-        {
-          candidateId: 'H0',
-          ledger: {
-            content: [
-              {
-                usageStatus: 'reported',
-                actualCostUsd: 0.01,
-                inputTokens: 100,
-                outputTokens: 20,
-                counts: { providerHttpRequests: { value: 1 } },
-              },
-            ],
-          },
-        },
-      ],
+  function fixtureSnapshot(overrides = {}) {
+    return {
+      accounting: 'exact',
+      completedCandidateIds: ['H0'],
+      providerHttpRequests: 1,
+      aiDispatchReservations: 1,
+      reservedInputTokensUpperBound: null,
+      reservedOutputTokensUpperBound: null,
+      reservedCostUsdUpperBound: null,
+      confirmedInputTokens: 100,
+      confirmedOutputTokens: 20,
+      confirmedCostUsd: 0.01,
+      ...overrides,
     };
+  }
+
+  test('reads the Runner-provided snapshot verbatim when accounting is exact', () => {
+    const evidence = { successUsageSnapshot: fixtureSnapshot() };
     const usage = summarizeSuccessUsage(evidence);
     assert.equal(usage.accounting, 'exact');
     assert.equal(usage.providerHttpRequests, 1);
+    assert.equal(usage.aiDispatchReservations, 1);
     assert.equal(usage.confirmedInputTokens, 100);
     assert.equal(usage.confirmedOutputTokens, 20);
     assert.equal(usage.confirmedTotalTokens, 120);
@@ -862,76 +918,56 @@ describe('summarizeSuccessUsage', () => {
     assert.deepEqual(usage.completedCandidateIds, ['H0']);
   });
 
-  // Tests 2/3: a structurally completed run where an HTTP request happened but usage/cost is
-  // incomplete -- HTTP-request count stays exact, but overall accounting is 'partial' and the
-  // uncertain cost is reported as a safe upper bound, never as an actual USD 0.00.
-  test('an HTTP request without full usage reports "partial" accounting, never a fabricated USD 0.00', () => {
+  test('surfaces "partial" accounting and a real (non-null) reserved upper bound from the gate, never a fabricated USD 0.00', () => {
     const evidence = {
-      candidates: [
-        {
-          candidateId: 'H0',
-          ledger: {
-            content: [
-              {
-                usageStatus: 'reported',
-                actualCostUsd: 0.01,
-                inputTokens: 100,
-                outputTokens: 20,
-                counts: { providerHttpRequests: { value: 1 } },
-              },
-              {
-                // A real HTTP request happened (count=1) but usage/cost never resolved.
-                usageStatus: 'usage_unknown',
-                actualCostUsd: null,
-                inputTokens: null,
-                outputTokens: null,
-                reservedWorstCaseCostUsd: 0.0158,
-                counts: { providerHttpRequests: { value: 1 } },
-              },
-            ],
-          },
-        },
-      ],
+      successUsageSnapshot: fixtureSnapshot({
+        accounting: 'partial',
+        providerHttpRequests: 2,
+        aiDispatchReservations: 2,
+        reservedInputTokensUpperBound: 16384,
+        reservedOutputTokensUpperBound: 3072,
+        reservedCostUsdUpperBound: 0.0316,
+      }),
     };
     const usage = summarizeSuccessUsage(evidence);
     assert.equal(usage.accounting, 'partial');
-    assert.equal(usage.providerHttpRequests, 2); // exact regardless of usage completeness
+    assert.equal(usage.providerHttpRequests, 2);
     assert.equal(usage.confirmedCostUsd, 0.01); // only the confirmed entry
     assert.notEqual(usage.reservedCostUsdUpperBound, null);
-    assert.equal(usage.reservedCostUsdUpperBound, 0.0158);
+    assert.equal(usage.reservedCostUsdUpperBound, 0.0316);
+    assert.equal(usage.reservedInputTokensUpperBound, 16384);
+    assert.equal(usage.reservedOutputTokensUpperBound, 3072);
   });
 
-  test('a fast-path (no-call) entry contributes zero HTTP requests and is skipped for usage purposes', () => {
-    const evidence = {
-      candidates: [
-        {
-          candidateId: 'H0',
-          ledger: {
-            content: [
-              { usageStatus: 'not_applicable', counts: { providerHttpRequests: { value: 0 } } },
-            ],
-          },
-        },
-      ],
-    };
+  test('aiDispatchReservations is always a real number, never null, unlike the pre-remediation-3 behavior', () => {
+    const evidence = { successUsageSnapshot: fixtureSnapshot({ aiDispatchReservations: 3 }) };
     const usage = summarizeSuccessUsage(evidence);
-    assert.equal(usage.accounting, 'exact');
-    assert.equal(usage.providerHttpRequests, 0);
-    assert.equal(usage.confirmedCostUsd, 0);
+    assert.equal(typeof usage.aiDispatchReservations, 'number');
+    assert.equal(usage.aiDispatchReservations, 3);
   });
 
   test('reports every candidate as completed and no reserved upper bound when accounting is exact', () => {
     const evidence = {
-      candidates: [
-        { candidateId: 'H0', ledger: { content: [] } },
-        { candidateId: 'H1', ledger: { content: [] } },
-        { candidateId: 'H2', ledger: { content: [] } },
-      ],
+      successUsageSnapshot: fixtureSnapshot({
+        completedCandidateIds: ['H0', 'H1', 'H2'],
+        providerHttpRequests: 0,
+        aiDispatchReservations: 0,
+        confirmedInputTokens: 0,
+        confirmedOutputTokens: 0,
+        confirmedCostUsd: 0,
+      }),
     };
     const usage = summarizeSuccessUsage(evidence);
     assert.equal(usage.accounting, 'exact');
     assert.equal(usage.reservedCostUsdUpperBound, null);
     assert.deepEqual(usage.completedCandidateIds, ['H0', 'H1', 'H2']);
+  });
+
+  test('falls back to "unknown" (never a fabricated number) if the Runner-provided snapshot is somehow absent', () => {
+    const usage = summarizeSuccessUsage({ candidates: [] });
+    assert.equal(usage.accounting, 'unknown');
+    assert.equal(usage.providerHttpRequests, null);
+    assert.equal(usage.aiDispatchReservations, null);
   });
 });
 
@@ -983,6 +1019,43 @@ describe('classifyLauncherError', () => {
     assert.equal(result.class, 'ProtocolV4ExecutionLeaseError');
     assert.equal(result.code, 'PROTOCOL_V4_EXECUTION_LEASE_NOT_FOUND');
     assert.equal(JSON.stringify(result).includes('some-identifier'), false);
+  });
+
+  // Defect 2 ("Real Protocol-v4 Code Allowlist"): a known-safe CLASS with a base code that is not
+  // an EXACT member of `KNOWN_SAFE_PROTOCOL_ERROR_CODES` must never be surfaced verbatim -- class
+  // trust alone (the pre-remediation-3 behavior, combined only with a shape-matching regex) is not
+  // enough.
+  test('a known-safe class with an unrecognized base code (dynamic suffix before any colon) falls back to a generic code, never the extracted text', () => {
+    class ProtocolV4ExecutionLeaseError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = 'ProtocolV4ExecutionLeaseError';
+      }
+    }
+    const result = classifyLauncherError(
+      new ProtocolV4ExecutionLeaseError('SECRET_MARKER_DO_NOT_LEAK'),
+    );
+    assert.equal(result.class, 'ProtocolV4ExecutionLeaseError');
+    assert.equal(result.code, 'PROTOCOL_V4_UNRECOGNIZED_CODE');
+    assert.equal(JSON.stringify(result).includes('SECRET_MARKER_DO_NOT_LEAK'), false);
+  });
+
+  test('every KNOWN_SAFE_PROTOCOL_ERROR_CODES entry round-trips through classifyLauncherError unchanged', () => {
+    class ProtocolV4ExecutionLeaseError extends Error {
+      constructor(message) {
+        super(message);
+        this.name = 'ProtocolV4ExecutionLeaseError';
+      }
+    }
+    for (const code of KNOWN_SAFE_PROTOCOL_ERROR_CODES) {
+      const result = classifyLauncherError(
+        new ProtocolV4ExecutionLeaseError(`${code}:dynamic-suffix-must-not-leak`),
+      );
+      // Every code in the allowlist is class-agnostic here (the class only needs to be in
+      // KNOWN_SAFE_PROTOCOL_ERROR_CLASSES for the code-check to run at all) -- what matters is that
+      // the EXACT base code, and only the base code, is what comes out.
+      assert.equal(result.code, code);
+    }
   });
 
   test('never surfaces the message of an unrecognized error class -- only its stable class/code', () => {
@@ -1146,9 +1219,39 @@ describe('real build -- CLI end-to-end (requires a clean working tree)', () => {
     );
     try {
       const result = await runPreflight({ authorizationTemplateOut: outPath });
+      // `runPreflight`'s own return value keeps the real absolute path -- programmatic
+      // callers/tests still need it to read back and verify the written file.
       assert.equal(result.authorizationTemplateWrittenTo, outPath);
       const written = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
       assert.equal(written.authorizationTemplateOnly, true);
+    } finally {
+      fs.rmSync(outPath, { force: true });
+    }
+  });
+
+  // Defect 5 ("No Absolute Paths"): the real CLI subprocess's PRINTED preflight output must never
+  // include the absolute template-output path -- only a boolean.
+  test('--preflight via the real CLI subprocess prints only a boolean authorizationTemplateWritten, never the absolute path', () => {
+    const outPath = path.join(
+      fs.realpathSync(os.tmpdir()),
+      `p4-launcher-cli-template-${Date.now()}.json`,
+    );
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          path.join(REAL_REPO_ROOT, 'scripts', 'run-resolver-v3-048-live-development.mjs'),
+          '--preflight',
+          '--authorization-template-out',
+          outPath,
+        ],
+        { encoding: 'utf-8' },
+      );
+      assert.equal(result.status, 0);
+      const printed = JSON.parse(result.stdout);
+      assert.equal(printed.authorizationTemplateWritten, true);
+      assert.equal('authorizationTemplateWrittenTo' in printed, false);
+      assert.equal(result.stdout.includes(outPath), false);
     } finally {
       fs.rmSync(outPath, { force: true });
     }
@@ -1319,8 +1422,15 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.equal(outcome.summary.usageAccounting, 'exact');
     assert.equal(outcome.summary.reservedCostUsdUpperBound, null);
     assert.equal(typeof outcome.summary.providerHttpRequests, 'number');
-    assert.equal(outcome.summary.aiDispatchReservations, null); // not tracked on the success path
+    // Defect 4 ("Authoritative Success-Usage-Snapshot"): aiDispatchReservations is now a real,
+    // budget-gate-authoritative number on the success path too -- never null.
+    assert.equal(typeof outcome.summary.aiDispatchReservations, 'number');
+    assert.ok(outcome.summary.aiDispatchReservations > 0);
     assert.equal(outcome.summary.leaseFinalization, null);
+    // Defect 5 ("No Absolute Paths"): a stable semantic identity, never the real filesystem path.
+    assert.equal(outcome.summary.artifactRootKind, 'protocol_v4_live');
+    assert.equal('canonicalArtifactRoot' in outcome.summary, false);
+    assert.equal(JSON.stringify(outcome.summary).includes(isolatedRepoRoot), false);
 
     const realLiveRoot = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
     assert.equal(fs.existsSync(realLiveRoot), false);
@@ -1444,5 +1554,20 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     }
     assert.equal(outcome.summary.holdoutExecuted, false);
     assert.equal(outcome.summary.note, 'Holdout was not executed');
+  });
+
+  // Test 12: Defect 5 ("No Absolute Paths") also requires removing the hardcoded
+  // `developmentMaxCostUsd` value (`5.142528`) from the launcher's own user-facing usage
+  // documentation -- a real value here would silently go stale the moment the plan's budget
+  // changes, and reads as an implicit "the true value never changes" claim it cannot back up.
+  test('Test 12: the launcher module doc comment no longer hardcodes a real developmentMaxCostUsd value, using a placeholder instead', () => {
+    const source = fs.readFileSync(
+      fileURLToPath(new URL('../run-resolver-v3-048-live-development.mjs', import.meta.url)),
+      'utf-8',
+    );
+    const docCommentEnd = source.indexOf(' */');
+    const docComment = source.slice(0, docCommentEnd);
+    assert.equal(docComment.includes('5.142528'), false);
+    assert.ok(docComment.includes('<EXACT_VALUE_FROM_PREFLIGHT>'));
   });
 });

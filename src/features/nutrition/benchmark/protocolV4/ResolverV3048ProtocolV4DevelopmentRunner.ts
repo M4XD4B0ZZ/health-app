@@ -18,6 +18,7 @@ import {
   type ProtocolV4DevelopmentEvidence,
   type ProtocolV4MasterPlan,
   type ProtocolV4Observation,
+  type ProtocolV4SuccessUsageSnapshot,
   type ProtocolV4TerminalMetadata,
 } from './ResolverV3048ProtocolV4';
 import { ProtocolV4CallStateRegistry } from './ResolverV3048ProtocolV4CallStateMachine';
@@ -229,6 +230,59 @@ export function attachProtocolV4LeaseFinalizationStatus(
   (
     error as { protocolV4LeaseFinalizationStatus?: ProtocolV4LeaseFinalizationStatus }
   ).protocolV4LeaseFinalizationStatus = status;
+}
+
+/** RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"): a
+ * structurally successful Development run is not automatically billing-exact either -- this builds
+ * the SUCCESS-path counterpart of `ProtocolV4FailureUsageSnapshot` (type defined in
+ * `./ResolverV3048ProtocolV4` alongside `ProtocolV4DevelopmentEvidence`, to avoid a circular
+ * import), from the exact same authoritative sources (the shared budget gate's reservation
+ * snapshot; the execution context's transport-authoritative HTTP-request counter; confirmed
+ * usage/cost summed only from durably written ledgers), so `aiDispatchReservations` is never `null`
+ * on success and `reserved*UpperBound` denotes the SAME thing on both paths: the shared gate's
+ * entire reserved-worst-case totals, never a partial sum restricted to only the incomplete-usage
+ * entries.
+ *
+ * Builds the success-usage snapshot described above. `gate` and `executionContext` are the SAME
+ * live instances the dispatch loop just used -- never re-derived pricing/usage-parsing logic.
+ * `reserved*UpperBound` are `null` when `accounting` is `'exact'` (every real HTTP request already
+ * has confirmed usage/cost, so an upper bound adds no information beyond the confirmed figures) --
+ * mirroring the failure-path snapshot's own null-when-exact convention. */
+export function buildProtocolV4SuccessUsageSnapshot(
+  gate: LiveProviderBudgetGate,
+  completedCandidates: readonly ProtocolV4DevelopmentCandidateArtifacts[],
+  executionContext: ProtocolV4DispatchExecutionContext,
+): ProtocolV4SuccessUsageSnapshot {
+  const gateSnapshot = gate.snapshot();
+  const providerHttpRequests =
+    executionContext.mode === 'human_live'
+      ? executionContext.getCumulativeProviderHttpRequestCount()
+      : 0;
+  const confirmed = sumConfirmedUsageFromCompletedCandidates(completedCandidates);
+  let hasIncompleteUsage = false;
+  for (const candidate of completedCandidates) {
+    for (const entry of candidate.ledger.content) {
+      const httpCount = entry.counts?.providerHttpRequests?.value ?? 0;
+      if (
+        httpCount > 0 &&
+        !(entry.usageStatus === 'reported' && typeof entry.actualCostUsd === 'number')
+      ) {
+        hasIncompleteUsage = true;
+      }
+    }
+  }
+  return {
+    accounting: hasIncompleteUsage ? 'partial' : 'exact',
+    completedCandidateIds: completedCandidates.map((c) => c.candidateId),
+    providerHttpRequests,
+    aiDispatchReservations: gateSnapshot.calls,
+    reservedInputTokensUpperBound: hasIncompleteUsage ? gateSnapshot.inputTokens : null,
+    reservedOutputTokensUpperBound: hasIncompleteUsage ? gateSnapshot.outputTokens : null,
+    reservedCostUsdUpperBound: hasIncompleteUsage ? gateSnapshot.reservedCost : null,
+    confirmedInputTokens: confirmed.inputTokens,
+    confirmedOutputTokens: confirmed.outputTokens,
+    confirmedCostUsd: confirmed.costUsd,
+  };
 }
 
 /** RESOLVER-V3-048 Phase B1 post-merge remediation: every canonical per-candidate Development
@@ -642,11 +696,6 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
       input.artifactStoreRoot,
     ),
   );
-  if (input.lease.status === 'claimed')
-    markProtocolV4ExecutionLeaseExecuting(
-      input.artifactStoreRoot,
-      input.authorization.authorizationId,
-    );
 
   const candidateIds: readonly ResolverV3047CandidateId[] = ['H0', 'H1', 'H2'];
   const candidates: ProtocolV4DevelopmentCandidateArtifacts[] = [];
@@ -655,6 +704,22 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
   // (baseline computation failed), which is itself provably zero real dispatch attempts.
   let evidenceGate: LiveProviderBudgetGate | undefined;
   try {
+    // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Transition-Atomic Accounting"): the
+    // `claimed -> executing` transition itself now runs INSIDE this `try` -- `transitionLease`
+    // (which this call reaches) writes the lease file and only afterwards reads it back to
+    // validate a hash/filename; a failure at that readback step means the file is ALREADY
+    // persisted as `executing` on disk even though this call still throws. Leaving the transition
+    // outside the `try` (as before this remediation) would let such a failure escape this handler
+    // entirely -- no usage snapshot, no `terminal_failure` attempt, and the lease left stuck
+    // `executing` with no path forward except the separate, human-invoked recovery action. Moving
+    // it here closes that gap: every failure path reachable after the initial active-lease check
+    // above now reaches the same `catch` below.
+    if (input.lease.status === 'claimed') {
+      markProtocolV4ExecutionLeaseExecuting(
+        input.artifactStoreRoot,
+        input.authorization.authorizationId,
+      );
+    }
     // RESOLVER-V3-048 Phase B3 pre-PR remediation 2: baseline computation and gate construction now
     // run INSIDE this `try` -- both are real work that happens strictly after the lease reached
     // `executing` above, and a failure in either must reach the same `catch` (attach a usage
@@ -730,6 +795,19 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
       // value. A write or readback failure anywhere above throws before this line is ever reached.
       const developmentEvidenceRootHash = computeDevelopmentEvidenceRootHash(evidence);
 
+      // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Authoritative Success-Usage-Snapshot"):
+      // built from the SAME authoritative sources as the failure snapshot -- the shared budget gate
+      // (`aiDispatchReservations`, reserved upper bounds) and the execution context's transport-
+      // authoritative counter (`providerHttpRequests`) -- strictly a read-only return channel: it is
+      // computed AFTER `developmentEvidenceRootHash` and is never read by
+      // `computeDevelopmentEvidenceRootHash` itself, so attaching it can never change the
+      // Development Evidence Root or any stored artifact hash.
+      const successUsageSnapshot = buildProtocolV4SuccessUsageSnapshot(
+        gate,
+        candidates,
+        input.executionContext,
+      );
+
       // 12. Authorization atomar als konsumiert markieren -- strictly after all Development evidence
       // is durable, strictly before the lease may reach `terminal_success`.
       consumeProtocolV4LiveAuthorizationAtomically(
@@ -744,7 +822,7 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
         input.authorization.authorizationId,
       );
 
-      return { ...evidence, developmentEvidenceRootHash };
+      return { ...evidence, developmentEvidenceRootHash, successUsageSnapshot };
     }
   } catch (e) {
     // RESOLVER-V3-048 Phase B3 pre-PR remediation 2 ("Failure Finalization"): normalize first, then

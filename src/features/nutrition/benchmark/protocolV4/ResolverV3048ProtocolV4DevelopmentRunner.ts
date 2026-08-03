@@ -53,6 +53,10 @@ import {
   type ProtocolV4DispatchExecutionContext,
 } from './ResolverV3048ProtocolV4ExecutionContext';
 import {
+  openProtocolV4RuntimeJournal,
+  type ProtocolV4RuntimeJournalWriter,
+} from './ResolverV3048ProtocolV4RuntimeJournal';
+import {
   setProtocolV4FailureUsageSnapshot,
   setProtocolV4LeaseFinalizationStatus,
   type ProtocolV4FailureUsageAccounting,
@@ -380,6 +384,10 @@ export async function runOneObservation(input: {
    * `human_live`). `runOneObservation` itself no longer constructs a transport/credential/sources/
    * counts -- every dispatch, fast-path or AI-path, goes through this context. */
   executionContext: ProtocolV4DispatchExecutionContext;
+  /** RESOLVER-V3-048-INCIDENT-002 Remediation A: the append-only crash-durable runtime journal for
+   * this `human_live` run, threaded unchanged into the dispatch. `null`/absent for `fake_dry_run`
+   * (and for lower-level tests that dispatch directly without a lease-bound journal). */
+  runtimeJournal?: ProtocolV4RuntimeJournalWriter | null;
 }): Promise<{ categoryRow: CategoryEvidence; rawResult: ProtocolV4ObservationResult }> {
   const { plan, observation, index } = input;
   const executionTreeHash = input.executionTreeHash ?? plan.developmentExecutionTreeHash;
@@ -427,6 +435,7 @@ export async function runOneObservation(input: {
     executionTreeHash,
     evidenceRoot,
     callId,
+    runtimeJournal: input.runtimeJournal ?? null,
   });
 }
 
@@ -456,6 +465,9 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
   evidenceGate: LiveProviderBudgetGate;
   armBaseline: ProtocolV4RealArmBaseline;
   executionContext: ProtocolV4DispatchExecutionContext;
+  /** RESOLVER-V3-048-INCIDENT-002 Remediation A: threaded unchanged into every observation dispatch.
+   * Supplied by `runProtocolV4DevelopmentForAllCandidates` for `human_live`; absent otherwise. */
+  runtimeJournal?: ProtocolV4RuntimeJournalWriter | null;
   repoRoot?: string;
 }): Promise<ProtocolV4DevelopmentCandidateArtifacts> {
   if (input.authorization.kind !== input.executionContext.mode)
@@ -548,6 +560,7 @@ export async function runProtocolV4DevelopmentForCandidate(input: {
       ledger,
       leaseExpectedIdentity,
       executionContext: input.executionContext,
+      runtimeJournal: input.runtimeJournal ?? null,
     });
     categoryRows.push(categoryRow);
     rawResults.push(rawResult);
@@ -706,6 +719,11 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
   // a failure -- `undefined` here means the failure happened before the gate itself was even built
   // (baseline computation failed), which is itself provably zero real dispatch attempts.
   let evidenceGate: LiveProviderBudgetGate | undefined;
+  // RESOLVER-V3-048-INCIDENT-002 Remediation A/D: the crash-durable runtime journal for this run.
+  // Declared outside the `try` so the `catch` below can still record `terminalization_started`
+  // against it. `human_live` only -- `fake_dry_run` makes no provider request and has nothing to
+  // account for durably.
+  let runtimeJournal: ProtocolV4RuntimeJournalWriter | null = null;
   try {
     // RESOLVER-V3-048 Phase B3 pre-PR remediation 3 ("Transition-Atomic Accounting"): the
     // `claimed -> executing` transition itself now runs INSIDE this `try` -- `transitionLease`
@@ -722,6 +740,22 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
         input.artifactStoreRoot,
         input.authorization.authorizationId,
       );
+    }
+    // RESOLVER-V3-048-INCIDENT-002 Remediation A/D: open the append-only runtime journal IMMEDIATELY
+    // after the lease reaches `executing`, and durably record `executing_started` before any further
+    // work. From this point on, an abruptly terminated process leaves durable, hash-validated
+    // evidence that execution began -- which is precisely what lets the reducer report a defensible
+    // exact zero when no dispatch intent follows, instead of the unknowable state the real
+    // RESOLVER-V3-048 incident was left in (an `executing` lease, zero artifacts, no journal).
+    if (input.executionContext.mode === 'human_live') {
+      runtimeJournal = openProtocolV4RuntimeJournal({
+        artifactStoreRoot: input.artifactStoreRoot,
+        authorizationId: input.authorization.authorizationId,
+        planHash: input.plan.planHash,
+        executionTreeHash: input.plan.developmentExecutionTreeHash,
+        repoRoot: input.repoRoot,
+      });
+      runtimeJournal.appendExecutingStarted();
     }
     // RESOLVER-V3-048 Phase B3 pre-PR remediation 2: baseline computation and gate construction now
     // run INSIDE this `try` -- both are real work that happens strictly after the lease reached
@@ -748,6 +782,7 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
           evidenceGate: gate,
           armBaseline,
           executionContext: input.executionContext,
+          runtimeJournal,
           repoRoot: input.repoRoot,
         }),
       );
@@ -811,6 +846,12 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
         input.executionContext,
       );
 
+      // RESOLVER-V3-048-INCIDENT-002 Remediation A: durable `terminalization_started` evidence,
+      // written BEFORE the authorization is consumed and before the lease may reach a terminal
+      // state -- so a process killed during finalization still leaves a journal that proves
+      // finalization had begun, rather than an indistinguishable mid-dispatch shape.
+      runtimeJournal?.appendTerminalizationStarted();
+
       // 12. Authorization atomar als konsumiert markieren -- strictly after all Development evidence
       // is durable, strictly before the lease may reach `terminal_success`.
       consumeProtocolV4LiveAuthorizationAtomically(
@@ -841,6 +882,15 @@ export async function runProtocolV4DevelopmentForAllCandidates(input: {
         candidates,
         input.executionContext,
       );
+    }
+    // RESOLVER-V3-048-INCIDENT-002 Remediation A: durable `terminalization_started` evidence on the
+    // failure path too. Wrapped in its own `try`/`catch` because a journal write failure here must
+    // never replace or mask the original error being handled -- the journal is evidence, never
+    // control flow.
+    try {
+      runtimeJournal?.appendTerminalizationStarted();
+    } catch {
+      // Intentionally swallowed: the original error below is what the caller must see.
     }
     try {
       markProtocolV4ExecutionLeaseTerminalFailure(

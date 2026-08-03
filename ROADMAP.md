@@ -8960,7 +8960,7 @@ or provider execution. RESOLVER-V3-047 uses C0 only and does not begin this task
 
 #### RESOLVER-V3-048: Protocol-v4 Evidence Contract and Controlled Haiku Live Re-Evidence
 
-Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete and three times pre-PR-remediated (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot key at all on the production execute path, transport-authoritative HTTP-request accounting kept strictly separate from budget-gate reservation counts on BOTH success and failure paths, the claimed->executing lease transition itself now inside the same protected failure handler as baseline/gate/dispatch/persistence, failure-usage snapshot attached before lease finalization is even attempted, exact schema/currency/cache-policy/candidate-set binding, filesystem-canonical symlink/junction-safe path checks, canonical cost-string confirmation, a real enumerated Protocol-v4 error-code allowlist plus code-based secret-free error redaction of CLI arguments and closing output, no absolute filesystem paths or hardcoded budget numbers in printed output); merged as PR #205 and post-merge-remediated a fourth time (non-spoofable `instanceof`-based pre-dispatch error classification replacing a freely-settable `error.name`comparison, best-effort metadata attachment that can never itself block lease`terminal_failure`, an explicit tri-state authorization-consumption readback (`consumed`/`not_consumed`/`unreadable`) replacing a boolean that collapsed "not consumed" and "unreadable" together, a fixed enumerated fallback code for a fully unrecognized error class replacing echoed `error.name`, and fail-closed CLI argument parsing rejecting duplicate/mode-mismatched flags and flag-tokens-as-values); merged as PR #206 and post-merge-remediated a fifth time (an independent review found `protocolV4FailureUsageSnapshot`/`protocolV4LeaseFinalizationStatus`were still plain, freely-settable error properties a foreign error could pre-seed and the launcher would trust once the real attachment failed, combined with several domain error classes --`ProtocolV4ExecutionLeaseError`, `ProtocolV4ArtifactStoreError`, `ProtocolV4ArtifactCrashError`, and two more found during this remediation's own CodeGraph throw-site inspection, `ProtocolV4DevelopmentAuthorizationError`and`ProtocolV4LiveExecutionContextError`-- wrongly classified as guaranteed-pre-dispatch when each is actually reachable after real provider dispatch already happened, together capable of reporting fabricated`accounting: 'exact'`/all-zero usage after real billable usage; replaced with a process-local, module-private `WeakMap` side channel (`ResolverV3048ProtocolV4FailureMetadataSideChannel.ts`) keyed on the error's own object identity -- never a property read/write, so a frozen/sealed/non-extensible/Proxy-wrapped error can no longer block or be spoofed -- with only read-only getters re-exported to the launcher; narrowed `isKnownPreDispatchError` to the two classes individually proven pre-dispatch-only by real throw-site inspection (`LauncherError`, `ProtocolV4LiveDevelopmentEntryPointError`); and added runtime validation of any trusted snapshot/status at the launcher boundary, rejecting a malformed value exactly like an absent one); live Development still not authorized, no live evidence produced, no live call ever made by this launcher` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher + Pre-PR Remediation 1+2+3 + Post-Merge Remediation 4+5, 2026-07-31)
+Status: `in_progress — Phase B1 live-development dispatch wiring complete and post-merge-remediated (real fake_dry_run/human_live execution-mode DI at the dispatch edge, bidirectional authorization/execution-mode/storage/lease identity binding, mode-aware live/dry-run Artifact Store with root-bound readback, durable per-candidate human_live evidence persistence with checkpoint-last commit ordering, Development Evidence Root derived from stored content hashes, atomic authorization consumption before terminal_success, full canonical artifact-contract storage preflight, platform-neutral authorization storage keys); Phase B3 (canonical CLI launcher, `scripts/run-resolver-v3-048-live-development.mjs`) complete and three times pre-PR-remediated (`--preflight`/`--execute`, local-`tsc`-only build, no repoRoot key at all on the production execute path, transport-authoritative HTTP-request accounting kept strictly separate from budget-gate reservation counts on BOTH success and failure paths, the claimed->executing lease transition itself now inside the same protected failure handler as baseline/gate/dispatch/persistence, failure-usage snapshot attached before lease finalization is even attempted, exact schema/currency/cache-policy/candidate-set binding, filesystem-canonical symlink/junction-safe path checks, canonical cost-string confirmation, a real enumerated Protocol-v4 error-code allowlist plus code-based secret-free error redaction of CLI arguments and closing output, no absolute filesystem paths or hardcoded budget numbers in printed output); merged as PR #205 and post-merge-remediated a fourth time (non-spoofable `instanceof`-based pre-dispatch error classification replacing a freely-settable `error.name`comparison, best-effort metadata attachment that can never itself block lease`terminal_failure`, an explicit tri-state authorization-consumption readback (`consumed`/`not_consumed`/`unreadable`) replacing a boolean that collapsed "not consumed" and "unreadable" together, a fixed enumerated fallback code for a fully unrecognized error class replacing echoed `error.name`, and fail-closed CLI argument parsing rejecting duplicate/mode-mismatched flags and flag-tokens-as-values); merged as PR #206 and post-merge-remediated a fifth time (an independent review found `protocolV4FailureUsageSnapshot`/`protocolV4LeaseFinalizationStatus`were still plain, freely-settable error properties a foreign error could pre-seed and the launcher would trust once the real attachment failed, combined with several domain error classes --`ProtocolV4ExecutionLeaseError`, `ProtocolV4ArtifactStoreError`, `ProtocolV4ArtifactCrashError`, and two more found during this remediation's own CodeGraph throw-site inspection, `ProtocolV4DevelopmentAuthorizationError`and`ProtocolV4LiveExecutionContextError`-- wrongly classified as guaranteed-pre-dispatch when each is actually reachable after real provider dispatch already happened, together capable of reporting fabricated`accounting: 'exact'`/all-zero usage after real billable usage; replaced with a process-local, module-private `WeakMap` side channel (`ResolverV3048ProtocolV4FailureMetadataSideChannel.ts`) keyed on the error's own object identity -- never a property read/write, so a frozen/sealed/non-extensible/Proxy-wrapped error can no longer block or be spoofed -- with only read-only getters re-exported to the launcher; narrowed `isKnownPreDispatchError` to the two classes individually proven pre-dispatch-only by real throw-site inspection (`LauncherError`, `ProtocolV4LiveDevelopmentEntryPointError`); and added runtime validation of any trusted snapshot/status at the launcher boundary, rejecting a malformed value exactly like an absent one); merged as PR #207 and then remediated for INCIDENT-002 (a real Protocol-v4 `human_live`Development attempt was interrupted after its Execution Lease reached`executing`, leaving an append-only v1 `claimed`+ v2`executing`lease, NO terminal lease version and NO candidate artifacts; the independent incident review returned REMEDIATION_REQUIRED because provider-request accounting existed only in process memory, candidate telemetry/ledger/results were persisted only after a candidate's full observation loop,`recoverProtocolV4AbandonedExecutionLease`had no governed operator path, a non-terminal`executing` lease carried no durable liveness/transition evidence, and three launcher tests asserted the canonical live root must NOT EXIST and therefore failed once legitimate incident evidence was present; closed by a new root-/authorization-/lease-bound append-only crash-durable runtime journal (`ResolverV3048ProtocolV4RuntimeJournal.ts`) whose `dispatch_intent`is durably written AND read back BEFORE the transport-authoritative HTTP-attempt boundary is ever entered, a canonical journal reducer deriving only`EXACT_ZERO`/`EXACT`/`PARTIAL`/`POSSIBLE_NONZERO`, a dedicated zero-network governed recovery executable (`scripts/recover-resolver-v3-048-abandoned-lease.mjs`+`ResolverV3048ProtocolV4LeaseRecovery.ts`), per-event durable liveness identity with human-confirmed (never inferred) liveness on recovery, and byte-identity-snapshot test isolation replacing the three defective non-existence assertions); the RESOLVER-V3-048 interrupted-attempt usage state is recorded as POSSIBLE_NONZERO (authorized ceiling 324 calls / USD 5.142528, which is NOT evidence of actual consumption), NOT as zero calls / USD 0.00; live Development still not authorized, no live evidence produced, no live call ever made by this launcher, and the real incident was NOT recovered by this remediation` (Phase B1 + Post-Merge Remediation + Phase B3 Launcher + Pre-PR Remediation 1+2+3 + Post-Merge Remediation 4+5 + INCIDENT-002 Crash-Durability/Recovery Remediation, 2026-08-03)
 Depends on: RESOLVER-V3-042, RESOLVER-V3-043, RESOLVER-V3-044, RESOLVER-V3-045, RESOLVER-V3-046,
 RESOLVER-V3-047, RESOLVER-V3-049, RESOLVER-V3-050, RESOLVER-V3-051
 
@@ -9274,6 +9274,99 @@ rewritten to fail closed with four new enumerated codes
 also covering the flag-token-as-value case). Zero provider calls, zero tokens, USD 0.00 throughout;
 full detail (incl. the CodeGraph MCP preflight, which required a one-time index bootstrap in this
 fresh session) in the same report's §13.
+
+**RESOLVER-V3-048-INCIDENT-002 — Crash-Durable Live Accounting and Governed Abandoned-Lease Recovery
+(2026-08-03, basis `90573aca45cdb1ada20876cf48971a97d56281a9`, the PR #207 merge and the verified tip
+of `chore/clean-arch-structure`):**
+
+_Incident._ A real Protocol-v4 `human_live` Development attempt was interrupted after its Execution
+Lease had already reached `executing`. The surviving evidence is exactly: an append-only **v1
+`claimed`** lease, a **v2 `executing`** lease, **no v3 terminal lease version**, and **no candidate
+artifacts**. The authorization was **not consumed** (no atomic consumption marker was written), but
+it is nevertheless **permanently non-reusable**: `claimProtocolV4ExecutionLease` collides on the same
+exclusive-create `v1.json` for that authorization ID in any lifecycle state, so it can never be
+claimed again.
+
+_Incident usage classification._ **`POSSIBLE_NONZERO`.** The interrupted attempt's real provider
+usage is **unknown**. Its authorized ceiling was **324 calls / USD 5.142528** — that ceiling is a
+budget bound, **not evidence of actual consumption**, and must never be reported as if it were.
+Equally, this incident must **never** be recorded as zero calls / USD 0.00: at the time of the
+interruption the only provider-request accounting that existed was in process memory, so no durable
+artifact can support an exact-zero claim. The real incident evidence is immutable and was **not**
+recovered, terminalized, read, copied, or mutated by this remediation.
+
+_Confirmed defects (independent incident review: REMEDIATION_REQUIRED)._ (1) provider-request
+accounting existed only in process memory (the execution context's cumulative counter closure and the
+`WeakMap` failure-metadata side channel) and was lost on abrupt termination; (2) candidate
+telemetry/ledger/results were persisted only after a candidate's FULL observation loop, so an abrupt
+termination could leave zero artifacts despite possible provider requests; (3)
+`recoverProtocolV4AbandonedExecutionLease` existed only as an internal two-argument primitive with no
+governed operator-invocable path; (4) a non-terminal `executing` lease carried insufficient durable
+liveness and transition evidence; (5) three launcher tests asserted
+`fs.existsSync(realLiveRoot) === false` and therefore failed as soon as legitimate incident evidence
+existed.
+
+_Runtime-journal design (Remediation A/D)._ New `ResolverV3048ProtocolV4RuntimeJournal.ts`: a
+root-bound, authorization-bound, lease-bound, append-only journal under
+`<PROTOCOL_V4_LIVE_ROOT>/runtime-journal/<authorization-storage-key>/e<N>.json`. Event kinds:
+`executing_started`, `dispatch_intent`, `dispatch_completed`, `dispatch_failed`,
+`terminalization_started`, `recovery_recorded`. Every event is exclusively created (`wx` temp +
+`fsync` + `linkSync`, never an overwrite), sequence-addressed by its own filename, immediately read
+back and hash-validated, immutable after creation, written only under the canonical live root, and
+bound to authorization ID, lease ID/version/status/hash (re-read from storage per append, never a
+caller-held object), plan hash, execution-tree hash, phase, run kind, candidate ID, call ID, dispatch
+ID, model ID and pricing version where applicable. The mandated dispatch ordering is enforced at the
+single counting-transport boundary: **(1)** reserve on the canonical budget gate, **(2)** durably
+persist and read back `dispatch_intent`, **(3)** only then advance the transport-authoritative
+HTTP-attempt counter and call the provider — so a `dispatch_intent` that cannot be made durable can
+never be followed by a provider request. Remediation D: every event carries durable liveness identity
+(process ID, host identity, process start time, event time); the dispatch-boundary events themselves
+are the heartbeat, so no background timer exists.
+
+_Durable accounting classification (Remediation B)._ `reduceProtocolV4RuntimeJournal` /
+`classifyProtocolV4DurableAccounting` derive only defensible states: **`EXACT_ZERO`** (journal proves
+execution started and contains no dispatch intent); **`EXACT`** (every intent resolved with a
+completion carrying accepted usage and a cost); **`PARTIAL`** (every intent resolved, at least one
+without accepted usage); **`POSSIBLE_NONZERO`** (at least one intent never resolved, **or** no
+journal exists at all — the legacy/uninstrumented shape this very incident has). A `dispatch_intent`
+proves only that a request **may** have occurred, never that one was billed, so intents are the
+durable **upper** bound and completions the durable **lower** bound; the two are reported as separate
+dimensions and reserved worst-case ceilings are preserved wherever the accounting is not exact. The
+in-memory `WeakMap` failure metadata remains the same-process fast path but is no longer the only
+thing standing between an abrupt termination and a fabricated exact zero.
+
+_Recovery design (Remediation C/D)._ New `ResolverV3048ProtocolV4LeaseRecovery.ts` plus a dedicated
+executable `scripts/recover-resolver-v3-048-abandoned-lease.mjs` (`--inspect` read-only,
+`--recover`) — deliberately NOT a new mode on the live launcher, so no code path from recovery to
+dispatch exists at all. It performs no provider or network operation, never reads
+`ANTHROPIC_API_KEY`, and fails closed if one is present. `--recover` requires the authorization ID,
+the expected current lease version + status + lease hash, an enumerated reason code, a non-empty human
+recovery approval reference, an exact confirmation token, and an explicit human confirmation that the
+recorded process is not running (**liveness is never inferred**; the last durable liveness record is
+surfaced for a human to evaluate). It verifies the authorization was not consumed, that no terminal
+lease version exists anywhere in the history, and that the current lease is still `executing`; it then
+appends exactly one `abandoned` version, proves every earlier version survived byte-for-byte, and
+writes a durable, separately hashed, append-only recovery record (recovery time, reason code, approval
+reference, pre-recovery lease hash, durable accounting classification, recorded liveness). The
+canonical live root is derived, never accepted as an argument; the authorization never becomes
+reusable; a repeat invocation fails closed.
+
+_Test-isolation correction (Remediation E)._ The three launcher assertions encoded the wrong property.
+The correct property is not "the canonical live root must not exist" — it legitimately DOES exist in
+any worktree holding real Development evidence — but "the tested command must not have ALTERED the
+canonical live root". All three now snapshot the root's complete structure and per-file SHA-256
+content hashes before the command and require a byte-identical snapshot afterwards (a non-existent
+root snapshots as `{ exists: false }`, preserving the original property as the special case it always
+was). A regression fixture seeds a genuinely legitimate pre-existing `claimed -> executing` lease root
+under an ISOLATED temporary repository root and proves preflight, missing-key rejection, and the
+mocked-success path all leave it byte-identical. No real evidence is deleted, hidden, or moved to make
+any test pass.
+
+_Provider-call statement._ **Zero provider calls, zero tokens, USD 0.00 throughout this remediation.**
+No live authorization was created, no existing authorization was reused or consumed, no Development or
+Holdout execution occurred, no API key was inspected or used, no production live root was created, the
+real incident was not recovered, and G2 is **not** declared passed. The reviewed Windows `.ps1`
+one-shot runner remains a separate follow-up, out of scope here. Full detail in the same report's §15.
 
 **Goal:** Produce genuinely new, complete Haiku-only live evidence sufficient to re-evaluate every
 mandatory G2 dimension without the RESOLVER-V3-041 limitations (G2-A category-indeterminacy, G2-E

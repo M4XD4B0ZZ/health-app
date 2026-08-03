@@ -276,6 +276,40 @@ export function readProtocolV4ExecutionLease(
   return parsed;
 }
 
+/** RESOLVER-V3-048-INCIDENT-002 Remediation C: every persisted FINAL lease version for an
+ * authorization ID, ascending. Exported so the governed recovery path can prove "no terminal version
+ * already exists" and can verify, after appending its single `abandoned` version, that every earlier
+ * version survived byte-for-byte -- neither is derivable from `readProtocolV4ExecutionLease` alone,
+ * which only ever returns the highest version. Read-only; never mutates anything. */
+export function listProtocolV4ExecutionLeaseVersions(
+  root: string,
+  authorizationId: string,
+): readonly number[] {
+  return listLeaseVersions(root, authorizationId);
+}
+
+/** RESOLVER-V3-048-INCIDENT-002 Remediation C: reads and independently hash-revalidates ONE specific
+ * historical lease version (not merely the current one). Used by the governed recovery path's
+ * terminal-version check and by its byte-for-byte preservation proof. */
+export function readProtocolV4ExecutionLeaseVersion(
+  root: string,
+  authorizationId: string,
+  version: number,
+): ProtocolV4ExecutionLease {
+  const raw = fs.readFileSync(leaseVersionPath(root, authorizationId, version), 'utf-8');
+  const parsed = JSON.parse(raw) as ProtocolV4ExecutionLease;
+  const { leaseHash, ...body } = parsed;
+  if (hashLeaseBody(body) !== leaseHash)
+    throw new ProtocolV4ExecutionLeaseError(
+      `PROTOCOL_V4_EXECUTION_LEASE_READBACK_HASH_MISMATCH:${authorizationId}:v${version}`,
+    );
+  if (parsed.version !== version)
+    throw new ProtocolV4ExecutionLeaseError(
+      `PROTOCOL_V4_EXECUTION_LEASE_VERSION_FILENAME_MISMATCH:${authorizationId}:v${version}`,
+    );
+  return parsed;
+}
+
 export interface ProtocolV4ExecutionLeaseClaimInput {
   artifactStoreRoot: string;
   authorizationId: string;

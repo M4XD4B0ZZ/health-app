@@ -37,6 +37,39 @@ export {
   ProtocolV4ExecutionLeaseError,
 } from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4ExecutionLease';
 
+/**
+ * RESOLVER-V3-048-INCIDENT-002 Remediation A/B/C/D: the crash-durable runtime journal reader/reducer
+ * and the governed abandoned-lease recovery action, re-exported for the DEDICATED recovery
+ * executable (`scripts/recover-resolver-v3-048-abandoned-lease.mjs`), which shares this one compiled
+ * bridge rather than introducing a second build path.
+ *
+ * Deliberately NOT exported here: `openProtocolV4RuntimeJournal` (the journal WRITER). The launcher
+ * and the recovery CLI can read and classify durable evidence, but only
+ * `ResolverV3048ProtocolV4DevelopmentRunner.ts`/`...ExecutionContext.ts` (the trusted producers,
+ * reached through the live entry point) may append dispatch events -- exactly the same
+ * read-only-at-the-boundary rule the failure-metadata side channel already follows below.
+ */
+export {
+  classifyProtocolV4DurableAccounting,
+  readProtocolV4RuntimeJournal,
+  reduceProtocolV4RuntimeJournal,
+  ProtocolV4RuntimeJournalError,
+  ProtocolV4RuntimeJournalCrashError,
+  PROTOCOL_V4_RUNTIME_JOURNAL_SCHEMA_VERSION,
+  type ProtocolV4DurableAccounting,
+  type ProtocolV4DurableAccountingClassification,
+} from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4RuntimeJournal';
+
+export {
+  recoverProtocolV4AbandonedExecutionLeaseGoverned,
+  readProtocolV4LeaseRecoveryRecords,
+  ProtocolV4LeaseRecoveryError,
+  PROTOCOL_V4_LEASE_RECOVERY_CONFIRMATION_TOKEN,
+  PROTOCOL_V4_LEASE_RECOVERY_REASON_CODES,
+  type ProtocolV4LeaseRecoveryReasonCode,
+  type ProtocolV4LeaseRecoveryResult,
+} from '../../src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4LeaseRecovery';
+
 export {
   isProtocolV4LiveAuthorizationConsumedAtomically,
   ProtocolV4ArtifactStoreError,

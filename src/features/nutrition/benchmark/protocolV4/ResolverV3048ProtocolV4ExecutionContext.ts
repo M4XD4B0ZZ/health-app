@@ -32,6 +32,10 @@ import {
   type ProtocolV4AttemptContext,
 } from './ResolverV3048ProtocolV4AttemptContext';
 import { ProtocolV4CallStateRegistry } from './ResolverV3048ProtocolV4CallStateMachine';
+import type {
+  ProtocolV4RuntimeJournalUsage,
+  ProtocolV4RuntimeJournalWriter,
+} from './ResolverV3048ProtocolV4RuntimeJournal';
 import { reserveProtocolV4Call } from './ResolverV3048ProtocolV4Reservation';
 import { runProtocolV4Attempt } from './ResolverV3048ProtocolV4AttemptWrapper';
 import {
@@ -151,6 +155,13 @@ export interface ProtocolV4ObservationDispatchArgs {
   executionTreeHash: string;
   evidenceRoot: string;
   callId: string;
+  /** RESOLVER-V3-048-INCIDENT-002 Remediation A: the append-only, crash-durable runtime journal this
+   * dispatch must write its `dispatch_intent`/`dispatch_completed`/`dispatch_failed` events to.
+   * Supplied by `runProtocolV4DevelopmentForAllCandidates` for every `human_live` run (created right
+   * after the lease reaches `executing`, so it is always bound to a real, persisted lease).
+   * `null`/absent for `fake_dry_run`, which makes no provider request at all and therefore has
+   * nothing to account for durably. */
+  runtimeJournal?: ProtocolV4RuntimeJournalWriter | null;
 }
 
 export interface ProtocolV4ObservationDispatchResult {
@@ -565,14 +576,109 @@ export function buildProtocolV4HumanLiveExecutionContext(
       // that throws before any response, so `providerHttpRequests` is never derived from
       // `httpStatus != null` (a transport exception legitimately leaves `httpStatus: null` despite a
       // real fetch having happened). Never logs input/init (no URL/proxy/credential values).
+      //
+      // RESOLVER-V3-048-INCIDENT-002 Remediation A: this is the ONE place a provider HTTP attempt can
+      // begin, so it is also the one place the mandated pre-dispatch ordering is enforced. By the time
+      // control reaches here the canonical budget-gate reservations have already been made (the shared
+      // `evidenceGate` above, and the provider's own `providerGate` inside the interpreter). The
+      // durable `dispatch_intent` is persisted AND read back next -- and only if that succeeds does
+      // the in-memory HTTP-attempt counter advance and the real transport get called. A throw from
+      // `appendDispatchIntent` therefore propagates BEFORE `realTransport.fetch` is ever reached: a
+      // dispatch intent that could not be made durable can never be followed by a provider request.
       let providerHttpRequestCount = 0;
+      let dispatchAttemptSeq = 0;
+      const openDispatchIds: string[] = [];
+      const journal = args.runtimeJournal ?? null;
       const countingTransport: AnthropicBenchmarkTransport = {
         usesProxy: realTransport.usesProxy,
         fetch: (input, init) => {
+          dispatchAttemptSeq += 1;
+          const dispatchId = `${callId}#${dispatchAttemptSeq}`;
+          if (journal) {
+            journal.appendDispatchIntent({
+              candidateId: observation.candidateId,
+              callId,
+              dispatchId,
+              modelId: plan.modelId,
+              pricingVersion: plan.pricing.pricingVersion,
+              reservedInputTokensUpperBound: PROTOCOL_V4_PER_CALL_MAX_INPUT_TOKENS,
+              reservedOutputTokensUpperBound: PROTOCOL_V4_PER_CALL_MAX_OUTPUT_TOKENS,
+              reservedCostUsdUpperBound: ctx.reservedWorstCaseCostUsd,
+            });
+            openDispatchIds.push(dispatchId);
+          }
           providerHttpRequestCount += 1;
           cumulativeProviderHttpRequestCount += 1;
-          return realTransport.fetch(input, init);
+          // The transport boundary is the ONLY place that knows whether a real HTTP response was
+          // ever observed, so it is where a rejected attempt is durably resolved: a `fetch` that
+          // throws never proves a response arrived, and must therefore never become a
+          // `dispatch_completed` (which the reducer counts as a durable LOWER bound on real provider
+          // requests). An attempt that RESOLVES stays deliberately open here -- its usage is only
+          // known once the terminal metadata exists, and `resolveOpenDispatches` below closes it.
+          return realTransport.fetch(input, init).catch((transportError: unknown) => {
+            if (journal) {
+              const openIndex = openDispatchIds.indexOf(dispatchId);
+              if (openIndex !== -1) openDispatchIds.splice(openIndex, 1);
+              journal.appendDispatchFailed({
+                candidateId: observation.candidateId,
+                callId,
+                dispatchId,
+                modelId: plan.modelId,
+                pricingVersion: plan.pricing.pricingVersion,
+                // A stable, enumerated kind -- never the transport error's own message (which could
+                // embed a URL, header, or proxy detail).
+                failureKind: 'transport_error',
+              });
+            }
+            throw transportError;
+          });
         },
+      };
+
+      /** Durably resolves every still-open `dispatch_intent` for this observation. The LAST open
+       * intent is the one the terminal metadata belongs to (the pinned plan fixes `retryCount: 0`
+       * and neither the transport nor the interpreter implements a retry loop, so exactly one fetch
+       * happens per AI dispatch); any earlier still-open intent -- structurally unreachable today,
+       * but representable -- is resolved as a `dispatch_failed` whose usage is honestly
+       * unattributable rather than being silently credited with the terminal's usage.
+       *
+       * On the SUCCESS path a journal write failure propagates: durable accounting is evidence, and a
+       * run whose evidence could not be written must not be reported as if it had been. On a FAILURE
+       * path the call site swallows any journal error instead (see the `catch` below), so it can
+       * never replace the real dispatch error a caller needs to see. */
+      const resolveOpenDispatches = (
+        terminal: ProtocolV4TerminalMetadata | null,
+        failureKind: string | null,
+      ): void => {
+        if (!journal) return;
+        const ids = openDispatchIds.splice(0, openDispatchIds.length);
+        const scopeFor = (dispatchId: string) => ({
+          candidateId: observation.candidateId,
+          callId,
+          dispatchId,
+          modelId: plan.modelId,
+          pricingVersion: plan.pricing.pricingVersion,
+        });
+        for (let i = 0; i < ids.length; i += 1) {
+          const isLast = i === ids.length - 1;
+          if (isLast && terminal) {
+            const usage: ProtocolV4RuntimeJournalUsage = {
+              usageStatus: terminal.usageStatus === 'reported' ? 'reported' : 'unknown',
+              inputTokens: terminal.inputTokens,
+              outputTokens: terminal.outputTokens,
+              actualCostUsd: terminal.actualCostUsd,
+              httpStatus: terminal.httpStatus,
+            };
+            journal.appendDispatchCompleted({ ...scopeFor(ids[i]), usage });
+          } else {
+            journal.appendDispatchFailed({
+              ...scopeFor(ids[i]),
+              failureKind: isLast
+                ? (failureKind ?? 'unresolved_dispatch')
+                : 'unattributable_earlier_attempt',
+            });
+          }
+        }
       };
       const interpreter = createLiveVariantCInterpreter(
         env,
@@ -581,7 +687,7 @@ export function buildProtocolV4HumanLiveExecutionContext(
         candidate,
       );
 
-      const outcome = await runProtocolV4Attempt({
+      const attemptArgs = {
         registry,
         ctx,
         plan,
@@ -598,8 +704,9 @@ export function buildProtocolV4HumanLiveExecutionContext(
             },
             fastPathAttempt,
           ),
-        extractProviderMetadata: (raw) => raw.mealResult.aiCallMetadata ?? null,
-        extractCounts: (raw) =>
+        extractProviderMetadata: (raw: VariantCRawCaseResult) =>
+          raw.mealResult.aiCallMetadata ?? null,
+        extractCounts: (raw: VariantCRawCaseResult) =>
           buildRealProtocolV4CallCounts(
             raw,
             raw.mealResult.aiInterpretation.called,
@@ -614,16 +721,44 @@ export function buildProtocolV4HumanLiveExecutionContext(
             'PROTOCOL_V4_LIVE_EXECUTION_UNEXPECTED_FAST_PATH',
           );
         },
-        buildTerminalOnCeiling: (elapsedMs) =>
+        buildTerminalOnCeiling: (elapsedMs: number) =>
           buildRealCeilingTerminal(ctx, elapsedMs, providerHttpRequestCount, candidate),
         telemetry,
         ledger,
-      });
+      };
 
-      if (outcome.status !== 'completed')
+      // RESOLVER-V3-048-INCIDENT-002 Remediation A: every exit path out of the attempt durably
+      // resolves the intents it opened -- a normal completion (with the terminal's own accepted
+      // usage fields), a wall-clock ceiling, and a thrown exception alike. An intent is only ever
+      // left open by an abrupt process termination, which is exactly what the reducer's
+      // `POSSIBLE_NONZERO` classification is for.
+      let outcome: Awaited<ReturnType<typeof runProtocolV4Attempt<VariantCRawCaseResult>>>;
+      try {
+        outcome = await runProtocolV4Attempt(attemptArgs);
+      } catch (e) {
+        // Best-effort on an already-failing path: a journal write failure here must never REPLACE
+        // the real dispatch error the caller has to see. The unresolved intent simply stays open,
+        // which the reducer already classifies conservatively as `POSSIBLE_NONZERO`.
+        try {
+          resolveOpenDispatches(null, 'attempt_error');
+        } catch {
+          // Intentionally swallowed -- the original error below is authoritative.
+        }
+        throw e;
+      }
+      if (outcome.status !== 'completed') {
+        try {
+          resolveOpenDispatches(null, 'wall_clock_ceiling');
+        } catch {
+          // Same rationale as above: the ceiling error below is authoritative.
+        }
         throw new ProtocolV4DevelopmentRunnerError(
           'PROTOCOL_V4_DEVELOPMENT_RUNNER_UNEXPECTED_TIMEOUT',
         );
+      }
+      // Success path: a journal write failure propagates, so a run can never be reported as
+      // successful when its durable accounting evidence could not be written.
+      resolveOpenDispatches(outcome.terminal, null);
       const raw = outcome.raw;
       const judged = judgeProtocolV4VariantCObservation(benchmarkCase, raw);
       const categoryRow = buildCategoryRowFromRealJudgement(

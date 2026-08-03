@@ -992,3 +992,283 @@ isKnownPreDispatchError`) confirmed the on-disk implementation matches what was 
   No unintended call-graph expansion.
 
 Zero provider calls, zero tokens, USD 0.00 throughout.
+
+---
+
+## 15. RESOLVER-V3-048-INCIDENT-002 (2026-08-03): Crash-Durable Live Accounting and Governed Abandoned-Lease Recovery
+
+**Basis:** `90573aca45cdb1ada20876cf48971a97d56281a9` — the PR #207 merge and the verified tip of
+`origin/chore/clean-arch-structure`. Branch: `fix/resolver-v3-048-incident-002`, based on that commit
+with a clean working tree.
+
+**Zero-call/zero-key confirmation for this remediation:** zero provider calls, zero tokens, USD 0.00.
+`ANTHROPIC_API_KEY` was verified absent in the Process, User AND Machine environment scopes before any
+work began; no `.env` file exists in this worktree and none was read; no live authorization was
+created, reused, or consumed; no Development or Holdout execution occurred; no production live root
+was created; G2 is **not** declared passed.
+
+### 15.1 Incident
+
+A real Protocol-v4 `human_live` Development attempt was interrupted after its Execution Lease had
+already reached `executing`. The surviving evidence is exactly:
+
+| Artifact                  | State                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Execution Lease `v1.json` | `claimed`                                                                                              |
+| Execution Lease `v2.json` | `executing`                                                                                            |
+| Execution Lease `v3.json` | **absent** — no terminal version was ever written                                                      |
+| Candidate artifacts       | **none** — zero telemetry/ledger/raw-results/checkpoint files                                          |
+| Authorization consumption | **not consumed** (no atomic consumption marker), yet the authorization is **permanently non-reusable** |
+
+`claimProtocolV4ExecutionLease` collides on the same exclusive-create `v1.json` for that authorization
+ID in **any** lifecycle state, so a not-consumed authorization whose lease already exists can never be
+claimed again.
+
+**Incident usage classification: `POSSIBLE_NONZERO`.** The interrupted attempt's real provider usage is
+**unknown**. Its authorized ceiling was **324 calls / USD 5.142528**. That ceiling is a budget bound and
+is **not evidence of actual consumption**. It is equally impermissible to record this incident as zero
+calls / USD 0.00: at the time of the interruption the only provider-request accounting that existed was
+in process memory, so no durable artifact can support an exact-zero claim.
+
+**Evidence isolation.** The real incident worktree (`D:\Workspaces_VSCode\HealthApp-live-auth`) and its
+evidence directory (`...\logs\resolver-v3-048-protocol-v4`) are immutable and out of scope. Nothing in
+this remediation read, copied, edited, deleted, renamed, terminalized, or otherwise mutated them, and
+**the real incident was not recovered**. The known incident hashes are recorded for documentation only:
+
+| File         | SHA-256                                                            |
+| ------------ | ------------------------------------------------------------------ |
+| `v1.json`    | `5C3268888AF7D79E13438EED9FBBF7E14B15080C3688E570C8F9A754F6309645` |
+| `v2.json`    | `4AD255B2C1101E4AA4EE0F0668E99122C5D5BC8EA91B5BCA70807EDE9C376E6A` |
+| `stdout.log` | `99F4E250268C50D761C775254F366B676A5EF9E361F7CDEE8218D10202079FCE` |
+| `stderr.log` | `E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855` |
+
+### 15.2 Confirmed defects (independent incident review: REMEDIATION_REQUIRED)
+
+1. Provider-request accounting existed only in process memory (the `human_live` execution context's
+   `cumulativeProviderHttpRequestCount` closure and the `WeakMap` failure-metadata side channel) and was
+   lost on abrupt process termination.
+2. Candidate telemetry/ledger/results were persisted only after a candidate's **full** observation loop,
+   so an abrupt termination could leave zero artifacts despite possible provider requests.
+3. `recoverProtocolV4AbandonedExecutionLease` existed only as an internal two-argument primitive with no
+   governed operator-invocable path.
+4. A non-terminal `executing` lease carried insufficient durable liveness and transition evidence.
+5. Three launcher tests asserted `fs.existsSync(realLiveRoot) === false` and therefore failed as soon as
+   legitimate incident evidence existed.
+
+### 15.3 Remediation A/D — runtime-journal schema and invariants
+
+New module `src/features/nutrition/benchmark/protocolV4/ResolverV3048ProtocolV4RuntimeJournal.ts`.
+
+**Storage layout:** `<PROTOCOL_V4_LIVE_ROOT>/runtime-journal/<authorization-storage-key>/e<N>.json`,
+using the same platform-neutral `deriveProtocolV4AuthorizationStorageKey` the lease store and the
+authorization-consumption marker already use.
+
+**Schema** (`resolver-v3-048-runtime-journal-v1`), every field on every event:
+
+| Field                                                                                          | Meaning                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `journalSchemaVersion`, `sequence`, `kind`                                                     | schema identity; 1-based sequence identical to the filename; one of `executing_started` / `dispatch_intent` / `dispatch_completed` / `dispatch_failed` / `terminalization_started` / `recovery_recorded` |
+| `authorizationId`, `leaseId`, `leaseVersion`, `leaseStatus`, `leaseHash`                       | lease binding, **re-read from storage on every append** — never a caller-held in-memory lease object                                                                                                     |
+| `planHash`, `executionTreeHash`, `phase`, `runKind`                                            | plan/execution-tree identity, taken from the persisted lease                                                                                                                                             |
+| `candidateId`, `callId`, `dispatchId`, `modelId`, `pricingVersion`                             | dispatch scope (`null` for non-dispatch events); `dispatchId` = `<callId>#<attempt>` is the reducer's only join key                                                                                      |
+| `reservedInputTokensUpperBound`, `reservedOutputTokensUpperBound`, `reservedCostUsdUpperBound` | the real reservation's own worst-case ceilings (intent events)                                                                                                                                           |
+| `usage`                                                                                        | `{ usageStatus, inputTokens, outputTokens, actualCostUsd, httpStatus }` — only fields the existing `ProtocolV4TerminalMetadata` usage contract already accepts; never a second usage/pricing parser      |
+| `failureKind`, `detail`                                                                        | enumerated kinds only (`transport_error`, `attempt_error`, `wall_clock_ceiling`, `unattributable_earlier_attempt`, `unresolved_dispatch`); never a raw error message, path, URL, header or credential    |
+| `liveness`                                                                                     | `{ pid, hostId, processStartedAtIso, recordedAtIso }` (Remediation D)                                                                                                                                    |
+| `eventHash`                                                                                    | canonical hash of every field above                                                                                                                                                                      |
+
+**Invariants:**
+
+- **Exclusively created** — `wx` temp file + `fsyncSync` + `linkSync` commit; an existing sequence is
+  never overwritten (`PROTOCOL_V4_RUNTIME_JOURNAL_SEQUENCE_RACE` on `EEXIST`).
+- **Sequence-addressed** — the filename _is_ the sequence; a mismatch between filename and body, a gap
+  in the sequence, or a mismatched authorization ID is a hard read failure.
+- **Immediately read back and hash-validated** — `append*` returns only after the event has been re-read
+  from disk and re-hashed. This is what makes "durably persisted" a checked property rather than an
+  assumption.
+- **Immutable after creation** — nothing in the module ever rewrites or deletes a committed event.
+- **Root-bound** — every operation goes through `assertProtocolV4LiveRootMatchesStore`, so the journal
+  can only ever be written under the canonical live root.
+- **Crash-aware** — an orphaned `e<N>.json.tmp-*` with no final `e<N>.json` raises
+  `ProtocolV4RuntimeJournalCrashError`, never a silently truncated journal.
+
+**Mandated dispatch ordering**, enforced at the single counting-transport boundary in
+`ResolverV3048ProtocolV4ExecutionContext.ts` — the only place a provider HTTP attempt can begin:
+
+1. reserve on the canonical budget gate (unchanged: the shared `evidenceGate` before the transport is
+   built, and the provider's own `providerGate` inside the interpreter);
+2. durably persist **and read back** `dispatch_intent`;
+3. only then advance the transport-authoritative HTTP-attempt counter and call `realTransport.fetch`.
+
+A throw from `appendDispatchIntent` therefore propagates strictly **before** `realTransport.fetch` is
+reached: a dispatch intent that could not be made durable can never be followed by a provider request.
+A `fetch` that **rejects** is durably resolved at that same boundary as `dispatch_failed` (no response
+was observed, so it must never become a `dispatch_completed`); a `fetch` that resolves stays open until
+the terminal metadata exists, and is then resolved as `dispatch_completed` carrying the terminal's
+accepted usage fields.
+
+**Lifecycle events.** `runProtocolV4DevelopmentForAllCandidates` opens the journal immediately after the
+`claimed -> executing` transition and appends `executing_started` before any further work, and appends
+`terminalization_started` before the authorization is consumed / before `terminal_success`, and (in its
+own nested `try`/`catch`, so it can never mask the original error) before `terminal_failure`.
+`fake_dry_run` is completely unaffected — it makes no provider request and opens no journal.
+
+**Remediation D (liveness).** Every event carries process ID, host identity, process start time and
+event time. The dispatch-boundary events are themselves the heartbeat: an intent/completion pair around
+every provider attempt is a strictly stronger, deterministic contract than a periodic timer, so no
+background timer was added. Recovery never infers from this data that a process is dead.
+
+### 15.4 Remediation B — durable accounting classification after crashes
+
+`reduceProtocolV4RuntimeJournal` (pure) and `classifyProtocolV4DurableAccounting` (storage-backed) derive
+only defensible states:
+
+| Journal state                                                                         | Classification     |
+| ------------------------------------------------------------------------------------- | ------------------ |
+| execution started, **no** dispatch intent                                             | `EXACT_ZERO`       |
+| every intent resolved with a completion carrying accepted usage **and** a cost        | `EXACT`            |
+| every intent resolved, at least one without accepted usage (or any `dispatch_failed`) | `PARTIAL`          |
+| at least one intent never resolved                                                    | `POSSIBLE_NONZERO` |
+| **no journal at all** (legacy/uninstrumented — this incident's shape)                 | `POSSIBLE_NONZERO` |
+
+A `dispatch_intent` proves only that a request **may** have occurred, never that one was billed; because
+it is written strictly before `fetch` is entered, intents are the durable **upper** bound
+(`providerHttpRequestsUpperBound`, `null` when no journal exists — genuinely unknown, never a fabricated
+`0`). A `dispatch_completed` proves a real HTTP response was observed, so completions are the durable
+**lower** bound (`providerHttpRequestsLowerBound`). Confirmed tokens/cost are summed only from
+completions with `usageStatus: 'reported'` and a numeric cost; reserved worst-case ceilings are preserved
+whenever the accounting is not exact (the same null-when-exact convention
+`buildProtocolV4SuccessUsageSnapshot` already uses). No exact token or cost value is ever invented for an
+unresolved intent.
+
+The in-memory `WeakMap` failure metadata remains the same-process fast path, but it is no longer the only
+thing standing between an abrupt termination and a fabricated exact zero.
+
+### 15.5 Remediation C — recovery CLI contract
+
+New module `ResolverV3048ProtocolV4LeaseRecovery.ts` and a **dedicated executable**
+`scripts/recover-resolver-v3-048-abandoned-lease.mjs`. A dedicated executable was chosen over a new mode
+on the live launcher because the launcher's surface is the one that can spend money; here the safety
+argument is structural rather than argumentative — the recovery file imports no transport, no
+interpreter, no Development/Holdout runner and no live entry point, so **no code path from it to a
+provider request exists at all**. It reuses the launcher's already-reviewed local-only `tsc` build
+(`loadCompiledBridge`), so the repository still has exactly one compiled bridge and no
+`tsx`/`ts-node`/`npx`/automatic install.
+
+**Contract:**
+
+- `--inspect` — strictly read-only. Prints the current lease state, the durable accounting
+  classification, the journal event count, the **last recorded liveness of the interrupted run**, and the
+  count of prior recovery records, for a human to evaluate.
+- `--recover` — requires **all** of: `--authorization-id`, `--expected-lease-version`,
+  `--expected-lease-status executing`, `--expected-lease-hash`, an enumerated `--reason-code`
+  (`operator_interrupted_process` | `host_crash` | `unrecoverable_environment_failure` |
+  `superseded_by_new_authorization`), a non-empty `--approval-reference`,
+  `--confirm-executing-process-not-running`, and the exact
+  `--confirmation-token RECOVER-ABANDONED-EXECUTION-LEASE`.
+- Performs **no** provider or network operation; never reads `ANTHROPIC_API_KEY`; **fails closed**
+  (`RECOVERY_CREDENTIAL_PRESENT`) if one is present in the environment.
+- Derives the canonical live root — there is no flag that can point it at a different root.
+- Verifies: the authorization was **not consumed**; **no terminal lease version exists anywhere in the
+  history** (every persisted version is read and hash-revalidated, not just the current one); the current
+  lease is still `executing` at exactly the stated version **and** content hash.
+- Appends **exactly one** `abandoned` version via the existing, unmodified lease primitive, then proves
+  every pre-existing version is still **byte-for-byte** what it was.
+- Writes a durable, separately hashed, append-only recovery record under
+  `<live-root>/lease-recovery/<authorization-storage-key>/r<N>.json` containing recovery time, reason
+  code, approval reference, pre-recovery lease version/status/**hash**, the resulting version, the
+  durable accounting classification and full accounting, the interrupted run's recorded liveness, and the
+  recovery operator's own liveness (kept as a separate dimension).
+- Appends a `recovery_recorded` journal event **only when a journal already exists** — recovery never
+  fabricates a runtime journal for a legacy run that genuinely never had one.
+- **Never makes the authorization reusable.** A repeat invocation **fails closed**
+  (`PROTOCOL_V4_LEASE_RECOVERY_TERMINAL_VERSION_ALREADY_EXISTS`).
+- Prints a secret-free summary: every error is a constant enumerated code; the summary reports
+  `artifactRootKind: 'protocol_v4_live'`, never an absolute filesystem path.
+- **Liveness is never inferred** — ambiguous liveness stays fail-closed by construction, because there is
+  no code path that resolves it automatically.
+
+**This recovery path was never executed against the real incident.** Every recovery test uses a temporary
+root.
+
+### 15.6 Remediation E — test-isolation correction
+
+The three launcher assertions encoded the wrong property. The correct property is not "the canonical live
+root must not exist" — it legitimately **does** exist in any worktree holding real Development evidence,
+including the incident worktree, whose append-only lease evidence is immutable and must never be deleted
+or hidden — but "the tested command must not have **altered** the canonical live root".
+
+All three now snapshot the root's complete structure plus per-file SHA-256 content hashes before the
+command runs and require a byte-identical snapshot afterwards (`snapshotDirectoryTree` /
+`assertDirectoryTreeUnchanged`). A non-existent root snapshots as `{ exists: false }` and must still be
+non-existent afterwards, so the original property is preserved as the special case it always was, while a
+root full of real evidence is now proven untouched instead of causing a false failure.
+
+A regression fixture (`seedLegitimateLeaseFixture`) seeds a genuinely legitimate `claimed -> executing`
+lease — the exact incident shape, created through the real lease API with real hashes — under an
+**isolated temporary repository root**, and three tests prove it is byte-identical afterwards:
+`--preflight`, missing-`ANTHROPIC_API_KEY` rejection, and the mocked-success path (where the run
+legitimately writes its _own_ evidence under the same isolated root, so isolation is asserted at the
+fixture-lease-directory granularity). **No real evidence is deleted, hidden, or moved to make any test
+pass.**
+
+### 15.7 CodeGraph evidence
+
+`.codegraph/` was absent in this fresh worktree, so exactly one AGENTS.md-authorized bootstrap was
+performed with the version pinned in `.mcp.json` (`npx -y @colbymchenry/codegraph@1.5.0 init`; indexed
+808 files, 7,801 nodes, 30,781 edges). `.codegraph/` is gitignored and `git status --short` plus
+`git status --short --untracked-files=all` were both empty afterwards, and `HEAD` was unchanged — no
+tracked or pre-existing repository file changed.
+
+All three mandated queries were then run through the real MCP tool `mcp__codegraph__codegraph_explore`
+(the only tool the server exposes) with `projectPath=D:\Workspaces_VSCode\HealthApp-incident-002`:
+
+1. **Symbol query** — `runProtocolV4DevelopmentForAllCandidates runProtocolV4DevelopmentForCandidate
+runOneObservation getCumulativeProviderHttpRequestCount LiveProviderBudgetGate`: returned the real call
+   flow `runProtocolV4DevelopmentForAllCandidates:687 -> runProtocolV4DevelopmentForCandidate:450 ->
+runOneObservation:353` in `ResolverV3048ProtocolV4DevelopmentRunner.ts`, and the
+   `getCumulativeProviderHttpRequestCount` interface member at
+   `ResolverV3048ProtocolV4ExecutionContext.ts:181` — establishing that the cumulative provider count is
+   an in-memory closure on the execution context (defect 1) and that the single dispatch funnel is
+   `runOneObservation -> executionContext.dispatchObservation`.
+2. **Relationship query** — `runProtocolV4LiveDevelopmentEntryPoint claimProtocolV4ExecutionLease
+markProtocolV4ExecutionLeaseExecuting markProtocolV4ExecutionLeaseTerminalFailure
+recoverProtocolV4AbandonedExecutionLease`: returned the flow
+   `runProtocolV4LiveDevelopmentEntryPoint:56 -> claimProtocolV4ExecutionLeaseForDevelopmentAuthorization:430
+-> claimProtocolV4ExecutionLease:315` and the verbatim source of
+   `recoverProtocolV4AbandonedExecutionLease` (`ResolverV3048ProtocolV4ExecutionLease.ts:660`), confirming
+   it is a two-argument internal primitive with **no** caller anywhere in the graph (defect 3) and that
+   the `executing` transition at `:634` writes no liveness evidence (defect 4).
+3. **Persistence query** — `writeAndReadBackLiveArtifact ProtocolV4CallStateRegistry telemetry ledger
+execution lease artifact store`: returned `writeAndReadBackLiveArtifact`
+   (`ResolverV3048ProtocolV4DevelopmentRunner.ts:338`) and the `ProtocolV4Artifact` contract, confirming
+   that the durable write-then-verify unit is invoked only **after** a candidate's full observation loop
+   (defect 2) — which is exactly why an abrupt termination leaves zero artifacts.
+
+The blast-radius output (`LiveProviderBudgetGate`: 51 callers; `runProtocolV4DevelopmentForCandidate`: 4
+callers, incl. three test files) was used to scope the change set and to decide that the new
+`runtimeJournal` parameter had to be **optional** on
+`runProtocolV4DevelopmentForCandidate`/`runOneObservation` so the existing direct-call test sites keep
+compiling and passing unchanged.
+
+### 15.8 Remaining risks
+
+- The runtime journal adds two durable file writes (one intent + one completion) per real AI dispatch,
+  each with an `fsync` and a readback. On the authorized 324-call ceiling that is at most 648 small
+  writes — negligible against 324 network round trips, but it is genuine new I/O on the live path.
+- A `dispatch_intent` that is durably written while the provider request is _in flight_ remains correctly
+  unresolvable after a crash: the classification is `POSSIBLE_NONZERO` by design. This is the honest
+  answer, not a gap — but it means a crashed run can never be reconciled to an exact figure from local
+  evidence alone, and a provider-side usage export remains the only way to close that specific gap.
+- The `unattributable_earlier_attempt` branch (more than one `fetch` per AI dispatch) is structurally
+  unreachable under the pinned plan (`retryCount: 0`, no retry loop in either the transport or the
+  interpreter) and is therefore not covered by an execution test; it exists so that a future change
+  introducing retries degrades to `PARTIAL` rather than silently crediting one attempt's usage to another.
+- Pre-existing and out of scope: `npm run lint` reports errors from the gitignored, transient
+  `build/resolver-v3-048-live-launcher/` output tree if a launcher build is present when lint runs
+  (`build/` is not in the ESLint `ignorePatterns`). This is unchanged by this remediation; the transient
+  build output was removed before the final verification run.
+- `.claude/settings.local.json` — the same pre-existing, globally gitignored, untracked harness file noted
+  in §14 — is still present and still out of scope.
+
+Zero provider calls, zero tokens, USD 0.00 throughout.

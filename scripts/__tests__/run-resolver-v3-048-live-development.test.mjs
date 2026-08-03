@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 
 import {
   REAL_REPO_ROOT,
@@ -123,6 +124,116 @@ function validAuthFileFor(plan, commit) {
     authorizationTemplateOnly: false,
     humanApprovalReference: 'test-human-approval-reference-not-real',
   };
+}
+
+// -------------------------------------------------------------------------------------------
+// RESOLVER-V3-048-INCIDENT-002 Remediation E -- canonical-live-root isolation, done correctly.
+//
+// Three tests below used to assert `fs.existsSync(realLiveRoot) === false`. That assertion encoded
+// the wrong property: it is not "the canonical live root must not exist" (it legitimately DOES exist
+// in any worktree that holds real Development evidence -- including the RESOLVER-V3-048 incident
+// worktree, whose append-only `claimed`/`executing` lease evidence is immutable and must never be
+// deleted or hidden), it is "the tested command must not have ALTERED the canonical live root".
+//
+// These helpers assert exactly that: snapshot the root's complete structure and per-file SHA-256
+// content hashes before the command runs, and require a byte-identical snapshot afterwards. A
+// non-existent root snapshots as `{ exists: false }` and must still be non-existent afterwards, so
+// the original property is preserved as the special case it always was -- while a root full of real,
+// pre-existing evidence is now proven untouched instead of causing a false failure.
+// -------------------------------------------------------------------------------------------
+
+const REAL_LIVE_ROOT = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
+
+/** Complete, order-stable structural + content snapshot of `root`. Directories are recorded by
+ * relative path; files additionally by SHA-256 of their exact bytes. */
+function snapshotDirectoryTree(root) {
+  if (!fs.existsSync(root)) return { exists: false, entries: [] };
+  const entries = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const full = path.join(dir, name);
+      const relative = path.relative(root, full).split(path.sep).join('/');
+      const stat = fs.lstatSync(full);
+      if (stat.isDirectory()) {
+        entries.push(`d ${relative}`);
+        walk(full);
+      } else {
+        entries.push(
+          `f ${relative} ${createHash('sha256').update(fs.readFileSync(full)).digest('hex')}`,
+        );
+      }
+    }
+  };
+  walk(root);
+  return { exists: true, entries };
+}
+
+function assertDirectoryTreeUnchanged(root, before, label) {
+  assert.deepEqual(
+    snapshotDirectoryTree(root),
+    before,
+    `${label}: the canonical live root must be byte-identical after this command`,
+  );
+}
+
+/** The real, compiled Execution Lease module -- used ONLY to seed a genuinely legitimate (real
+ * exclusive-create, real hash) pre-existing lease root in an ISOLATED temporary repository root, so
+ * the isolation tests below prove they leave real evidence untouched rather than merely proving that
+ * no evidence existed. Never used against the real repository root. */
+function compiledExecutionLeaseModule() {
+  const compiledPath = path.join(
+    REAL_REPO_ROOT,
+    'build',
+    'resolver-v3-048-live-launcher',
+    'src',
+    'features',
+    'nutrition',
+    'benchmark',
+    'protocolV4',
+    'ResolverV3048ProtocolV4ExecutionLease.js',
+  );
+  assert.ok(fs.existsSync(compiledPath), 'compiled execution-lease module must exist');
+  return createRequire(import.meta.url)(compiledPath);
+}
+
+/** Seeds a pre-existing, legitimate `claimed -> executing` lease (the exact shape the
+ * RESOLVER-V3-048 incident evidence has) under an ISOLATED repo root's canonical live root. */
+function seedLegitimateLeaseFixture(bridge, isolatedRepoRoot, authorizationId) {
+  const leaseModule = compiledExecutionLeaseModule();
+  const root = path.join(isolatedRepoRoot, 'logs', 'resolver-v3-048-protocol-v4');
+  leaseModule.claimProtocolV4ExecutionLease({
+    artifactStoreRoot: root,
+    authorizationId,
+    authorizationKind: 'human_live',
+    runKind: 'human_live',
+    authorizationSchemaVersion: 'resolver-v3-048-development-authorization-v1',
+    authorizationRecordHash: 'incident-002-fixture-authorization-record-hash',
+    phase: 'development',
+    planHash: 'incident-002-fixture-plan-hash',
+    executionTreeHash: 'incident-002-fixture-tree-hash',
+    candidateScope: ['H0', 'H1', 'H2'],
+    maxCalls: 324,
+    maxInputTokens: 2654208,
+    maxOutputTokens: 497664,
+    maxCostUsd: 5.142528,
+    maxConcurrentRequests: 1,
+    pricingVersion: 'anthropic-messages-2025-10-01-v1',
+    modelId: 'claude-haiku-4-5-20251001',
+  });
+  leaseModule.markProtocolV4ExecutionLeaseExecuting(root, authorizationId);
+  void bridge;
+  return root;
+}
+
+/** Snapshot of ONLY the seeded fixture's own lease directory -- so a test that legitimately writes
+ * its own, different evidence under the same isolated root can still prove it never touched the
+ * pre-existing evidence. */
+function fixtureLeaseDirectory(isolatedLiveRoot, authorizationId) {
+  return path.join(
+    isolatedLiveRoot,
+    'leases',
+    Buffer.from(authorizationId, 'utf-8').toString('base64url'),
+  );
 }
 
 // -------------------------------------------------------------------------------------------
@@ -1895,7 +2006,10 @@ describe('real build -- launcher bridge compiles and exposes no Holdout function
 });
 
 describe('real build -- CLI end-to-end (requires a clean working tree)', () => {
-  test('--preflight succeeds without ANTHROPIC_API_KEY, computes real plan hashes, and creates no live-root/lease/artifact', async () => {
+  test('--preflight succeeds without ANTHROPIC_API_KEY, computes real plan hashes, and leaves the canonical live root byte-identical', async () => {
+    // RESOLVER-V3-048-INCIDENT-002 Remediation E: prove the command did not ALTER the canonical
+    // root, whether or not legitimate evidence already exists in it.
+    const liveRootBefore = snapshotDirectoryTree(REAL_LIVE_ROOT);
     const result = await runPreflight({});
     assert.equal(typeof result.preflightReport.masterPlanHash, 'string');
     assert.ok(result.preflightReport.masterPlanHash.length > 0);
@@ -1904,8 +2018,7 @@ describe('real build -- CLI end-to-end (requires a clean working tree)', () => {
     assert.equal(result.authorizationTemplate.automaticContinuation, false);
     assert.equal(result.authorizationTemplate.humanApprovalReference, '');
 
-    const realLiveRoot = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
-    assert.equal(fs.existsSync(realLiveRoot), false);
+    assertDirectoryTreeUnchanged(REAL_LIVE_ROOT, liveRootBefore, 'runPreflight');
   });
 
   test('--preflight can write a non-authorizing template to an explicit external path', async () => {
@@ -1987,8 +2100,24 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     return authPath;
   }
 
-  test('missing ANTHROPIC_API_KEY stops before any lease/live-root/artifact side effect', async () => {
+  test('missing ANTHROPIC_API_KEY stops before any lease/live-root/artifact side effect, leaving pre-existing legitimate evidence byte-identical', async () => {
     const isolatedRepoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    // RESOLVER-V3-048-INCIDENT-002 Remediation E: a pre-existing, legitimate `claimed -> executing`
+    // lease root -- the exact shape the real incident evidence has -- must survive this rejection
+    // untouched. Under an ISOLATED repo root; the real evidence is never written to or read.
+    const fixtureAuthorizationId = 'incident-002-fixture:missing-key';
+    const seededLiveRoot = seedLegitimateLeaseFixture(
+      bridge,
+      isolatedRepoRoot,
+      fixtureAuthorizationId,
+    );
+    const seededBefore = snapshotDirectoryTree(seededLiveRoot);
+    assert.equal(seededBefore.exists, true);
+    // The fixture really is the incident shape: an append-only v1 `claimed` + v2 `executing` lease.
+    // Snapshot entries are `f <relative-path> <sha256>`, so match on the path segment.
+    assert.ok(seededBefore.entries.some((e) => e.includes('/v1.json ')));
+    assert.ok(seededBefore.entries.some((e) => e.includes('/v2.json ')));
+    const liveRootBefore = snapshotDirectoryTree(REAL_LIVE_ROOT);
     const plan = bridge.buildProtocolV4MasterPlan(isolatedRepoRoot);
     const headCommit = spawnSync('git', ['rev-parse', 'HEAD'], {
       cwd: REAL_REPO_ROOT,
@@ -2010,10 +2139,43 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.ok(result instanceof LauncherError);
     assert.match(result.message, /LAUNCHER_ANTHROPIC_API_KEY_MISSING/);
 
-    const isolatedLiveRoot = path.join(isolatedRepoRoot, 'logs', 'resolver-v3-048-protocol-v4');
-    assert.equal(fs.existsSync(isolatedLiveRoot), false);
-    const realLiveRoot = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
-    assert.equal(fs.existsSync(realLiveRoot), false);
+    // The pre-existing legitimate lease evidence is byte-identical: the rejection created no lease,
+    // no artifact, and mutated nothing that was already there.
+    assertDirectoryTreeUnchanged(
+      seededLiveRoot,
+      seededBefore,
+      'runExecute (missing key, isolated root with pre-existing evidence)',
+    );
+    assertDirectoryTreeUnchanged(REAL_LIVE_ROOT, liveRootBefore, 'runExecute (missing key)');
+  });
+
+  // RESOLVER-V3-048-INCIDENT-002 Remediation E: the third leg of the regression fixture -- preflight
+  // is fully read-only with respect to a pre-existing legitimate lease root.
+  test('--preflight leaves a pre-existing legitimate lease root byte-identical', async () => {
+    const isolatedRepoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    const fixtureAuthorizationId = 'incident-002-fixture:preflight';
+    const seededLiveRoot = seedLegitimateLeaseFixture(
+      bridge,
+      isolatedRepoRoot,
+      fixtureAuthorizationId,
+    );
+    const seededBefore = snapshotDirectoryTree(seededLiveRoot);
+    assert.equal(seededBefore.exists, true);
+    const liveRootBefore = snapshotDirectoryTree(REAL_LIVE_ROOT);
+
+    const result = await runPreflight({ repoRootForTests: isolatedRepoRoot });
+    assert.equal(result.authorizationTemplate.authorizationTemplateOnly, true);
+
+    assertDirectoryTreeUnchanged(
+      seededLiveRoot,
+      seededBefore,
+      'runPreflight (isolated root with pre-existing evidence)',
+    );
+    assertDirectoryTreeUnchanged(
+      REAL_LIVE_ROOT,
+      liveRootBefore,
+      'runPreflight (isolated repoRoot)',
+    );
   });
 
   test('a relative --authorization-file is rejected before any git/plan check', async () => {
@@ -2062,8 +2224,21 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.match(result.message, /LAUNCHER_AUTHORIZATION_FILE_IS_TEMPLATE_ONLY/);
   });
 
-  test('the full success path: mocked global.fetch reaches the real entry point, zero real network, no file under the real live root, Holdout not executed', async () => {
+  test('the full success path: mocked global.fetch reaches the real entry point, zero real network, the real live root untouched, pre-existing evidence isolated, Holdout not executed', async () => {
     const isolatedRepoRoot = freshTempRepoRootWithRealEvaluatorFiles();
+    // RESOLVER-V3-048-INCIDENT-002 Remediation E: this run legitimately writes its OWN evidence under
+    // the isolated live root, so isolation is proven at the right granularity -- a pre-existing,
+    // unrelated legitimate lease must be byte-identical afterwards even though the root itself grows.
+    const fixtureAuthorizationId = 'incident-002-fixture:mocked-success';
+    const seededLiveRoot = seedLegitimateLeaseFixture(
+      bridge,
+      isolatedRepoRoot,
+      fixtureAuthorizationId,
+    );
+    const fixtureDir = fixtureLeaseDirectory(seededLiveRoot, fixtureAuthorizationId);
+    const fixtureBefore = snapshotDirectoryTree(fixtureDir);
+    assert.equal(fixtureBefore.exists, true);
+    const liveRootBefore = snapshotDirectoryTree(REAL_LIVE_ROOT);
     const plan = bridge.buildProtocolV4MasterPlan(isolatedRepoRoot);
     const headCommit = spawnSync('git', ['rev-parse', 'HEAD'], {
       cwd: REAL_REPO_ROOT,
@@ -2128,10 +2303,16 @@ describe('real build -- --execute guard rails (isolated repoRoot, never the real
     assert.equal('canonicalArtifactRoot' in outcome.summary, false);
     assert.equal(JSON.stringify(outcome.summary).includes(isolatedRepoRoot), false);
 
-    const realLiveRoot = path.join(REAL_REPO_ROOT, 'logs', 'resolver-v3-048-protocol-v4');
-    assert.equal(fs.existsSync(realLiveRoot), false);
+    assertDirectoryTreeUnchanged(REAL_LIVE_ROOT, liveRootBefore, 'runExecute (mocked success)');
+    // The run's own evidence really was produced -- under the ISOLATED root only...
     const isolatedLiveRoot = path.join(isolatedRepoRoot, 'logs', 'resolver-v3-048-protocol-v4');
     assert.ok(fs.existsSync(isolatedLiveRoot));
+    // ...and the unrelated pre-existing legitimate lease is byte-identical.
+    assertDirectoryTreeUnchanged(
+      fixtureDir,
+      fixtureBefore,
+      'runExecute (mocked success, pre-existing evidence)',
+    );
   });
 
   // Test 9: a malformed authorization JSON file containing a secret-like marker must never leak

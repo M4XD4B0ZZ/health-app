@@ -6,6 +6,29 @@ Governance / Overnight Worker (Retired)" section in `ROADMAP.md`) with a much sm
 entirely on GitHub-native primitives — no custom orchestrator, no runtime-state files in this
 repository, no scheduler code.
 
+## Transitional status
+
+**This queue is transitional infrastructure.** The central `AgentOrchestrator` is intended to take
+over generic orchestration for all projects. This contract therefore stays in maintenance: it must
+not be developed further into a competing long-term orchestration architecture.
+
+- **The periodic `*/15` heartbeat is suspended.** The `schedule` trigger was removed from
+  `.github/workflows/claude-queue-wake.yml`; it woke the controller ~96x/day against a queue that
+  is normally empty.
+- **The event-driven paths remain active** — `issues: labeled` (a task reaching `queue:approved`),
+  `workflow_run` (a Verify run completing on a queue PR), and manual `workflow_dispatch`. Queue
+  semantics, labels, the lifecycle state machine, and the preflight are unchanged.
+- **What the suspension costs:** a wake event GitHub drops is no longer caught by a later tick.
+  Such a task waits until the next event or a manual `workflow_dispatch`. This section supersedes
+  every statement below that treats the fallback heartbeat as live — specifically the
+  `queue:waiting-ci` row in "Labels" and the first `QUEUE-004` operational lesson, both of which
+  name it as the primary way CI **success** is noticed. On the controller path that role now
+  belongs to the `workflow_run` trigger.
+- **Full retirement is not yet possible.** `AgentOrchestrator` does not today cover the
+  GitHub-native lifecycle this queue provides — unattended/scheduled wake-up, waiting on GitHub
+  CI, PR and merge gates, and post-merge review. Retirement happens only once those capabilities
+  exist there and the migration has been verified, not before.
+
 ## Principles
 
 - **GitHub Issues are the queue.** There is no other task list. `ROADMAP.md` remains the

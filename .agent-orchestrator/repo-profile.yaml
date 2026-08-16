@@ -1,0 +1,132 @@
+# AgentOrchestrator repository profile — Zera / HealthApp.
+#
+# Contract between this repository and the AgentOrchestrator.
+# Schema: D:\AgentOrchestrator\schemas\repo-profile.schema.json (contract v1).
+# The contract is strict: exactly these nine top-level sections, no extra keys.
+#
+# This file does not replace this repository's governance. SSOK.md, AGENTS.md,
+# ROADMAP.md and VERIFY.md remain authoritative; this file only tells the
+# orchestrator where to read tasks, what to run, and what it may touch.
+schemaVersion: 1
+
+repository:
+  id: healthapp
+  # Verified from git itself, not from memory: `git remote show origin` reports
+  # this as the HEAD branch, and it is the branch verify.yml gates on push.
+  defaultBranch: chore/clean-arch-structure
+
+# Machine-readable projection of the human-canonical ROADMAP.md entries.
+# ROADMAP.md stays the SSOK; these files carry only what the orchestrator parses.
+taskSource:
+  kind: MARKDOWN_DIRECTORY
+  path: .agent-orchestrator/tasks
+
+# Named, not inlined: the writing agent opens these itself, per the Task-Start
+# Read Contract in AGENTS.md. Deliberately bounded — the four governance files,
+# the single current handoff, and the two design records the current block
+# actually needs. No README, no archived handoffs, no historical reports.
+context:
+  canonicalSources:
+    - SSOK.md
+    - AGENTS.md
+    - ROADMAP.md
+    - VERIFY.md
+    - handoffs/latest-handoff.md
+    - docs/domains/ZERA_RESOLVER_KNOWLEDGE_CANDIDATE_AGGREGATION_OPERATIONAL_BOUNDARY_1.md
+    - docs/domains/ZERA_RESOLVER_KNOWLEDGE_CONTRIBUTION_LEDGER_CONTRACT_1.md
+
+# REQUIRED, not OPTIONAL, because AGENTS.md ("CodeGraph Availability") makes
+# CodeGraph fail-closed for coding tasks in this repository. The probe inspects
+# the canonical repository root, where .codegraph/ exists — it is gitignored and
+# so absent from per-task worktrees, but the worktree is not what is probed.
+capabilities:
+  codegraph: REQUIRED
+
+# The real HealthApp verification contract as argv vectors, never a shell string.
+#
+# BUILD is not a compile step. Each task runs in a freshly created worktree where
+# node_modules/ is gitignored and therefore absent, and the orchestrator installs
+# nothing on its own. Without this phase, VERIFY fails immediately on a missing
+# tsc/eslint. `ci` rather than `install` because it builds deterministically from
+# package-lock.json and does not modify the lockfile — a diff there would also be
+# outside scope.allowedPaths.
+#
+# One VERIFY phase and no separate TEST phase, because `npm run verify` here is
+# already `typecheck && lint && format:check && test`. A separate TEST phase would
+# run the whole Jest suite twice for no added signal.
+verification:
+  phases:
+    - phase: BUILD
+      command:
+        - npm
+        - ci
+    - phase: VERIFY
+      command:
+        - npm
+        - run
+        - verify
+
+# The allowlist is the union of what the currently projected block needs, and
+# nothing beyond it. An entry denotes a subtree and the boundary is the separator:
+# `supabase/migrations` covers that directory and everything under it, but not
+# `supabase/migrationsX` and not `supabase/functions`.
+#
+#   src/features/nutrition   RESOLVER-V3-033's port, adapter and tests
+#   supabase/migrations      the new private-zone ledger migration and its RPC
+#   ROADMAP.md               AGENTS.md requires the task status be updated
+#   handoffs                 AGENTS.md requires a handoff plus archive rotation
+#
+# Deliberately NOT src/ and not src/features: the block touches one feature slice.
+# Allowing src/features would have handed it auth, evaluation and every other
+# slice no task here goes near. Deliberately not the repository root, which would
+# have carried package.json, the workflows and .env with it.
+#
+# Why a union and not a per-task cut: V2-09 freezes scope authority once at the
+# block base commit. Every member runs under this one profile, and a predecessor
+# commit cannot widen it for its successor — so it must already carry everything
+# each member needs. The block is currently a single task, so the union is that
+# task's own set; it is stated this way because adding a member later must extend
+# this list rather than rely on the predecessor.
+scope:
+  allowedPaths:
+    - src/features/nutrition
+    - supabase/migrations
+    - ROADMAP.md
+    - handoffs
+  # protectedPaths is evaluated before allowedPaths and wins, so these are holes
+  # cut back out of the subtrees above.
+  #
+  # benchmark/ is the RESOLVER-V3-048 Protocol-v4 live-evidence area. It is under
+  # an open incident (INCIDENT-002, an un-recovered lease) whose resolution is
+  # human-only. No aggregation task may edit it.
+  #
+  # The sixteen existing migrations are listed individually rather than by
+  # protecting supabase/migrations as a whole, because the block must be able to
+  # ADD a migration there. An applied migration is history: editing one silently
+  # changes what a live database was built from. New files under that directory
+  # match no entry here and stay allowed.
+  protectedPaths:
+    - src/features/nutrition/benchmark
+    - supabase/migrations/20260201000000_create_user_food_aliases.sql
+    - supabase/migrations/20260215_food_catalog_tables.sql
+    - supabase/migrations/20260322_add_source_to_food_query_cache.sql
+    - supabase/migrations/20260613145404_harden_food_catalog_and_resolver_schema.sql
+    - supabase/migrations/20260710_document_existing_knowledge_layer_tables.sql
+    - supabase/migrations/20260711_add_resolver_run_insert_policy.sql
+    - supabase/migrations/20260712_add_user_entitlements_table.sql
+    - supabase/migrations/20260713_harden_food_catalog_grants_and_constraints.sql
+    - supabase/migrations/20260720120000_create_resolver_observations.sql
+    - supabase/migrations/20260720130000_create_personal_resolution_memory.sql
+    - supabase/migrations/20260721070000_create_resolver_knowledge_candidates.sql
+    - supabase/migrations/20260721110000_add_personal_resolution_memory_invalidation.sql
+    - supabase/migrations/20260721120000_create_resolver_knowledge_reviews.sql
+    - supabase/migrations/20260721140000_harden_personal_resolution_memory_invalidation.sql
+    - supabase/migrations/20260721150000_harden_personal_resolution_memory_audit_append_only.sql
+    - supabase/migrations/20260721160000_extend_resolver_knowledge_review_governance.sql
+
+completion:
+  maxReviewRounds: 3
+
+# Zera delivers through pull requests against the default branch above.
+remote:
+  required: true

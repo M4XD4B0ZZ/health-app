@@ -90,3 +90,9 @@ mcp.json
 .vscode/
 
 .idea/
+
+# AgentOrchestrator durable task/block state. Machine-written per run, never source of
+# truth, and never reviewed. The orchestrator checks this ignore rule with
+# `git check-ignore` before its first durable write and fails closed if it is missing.
+# The committed half of the adoption (repo-profile.yaml, tasks/) stays tracked.
+.agent-orchestrator/runtime/
